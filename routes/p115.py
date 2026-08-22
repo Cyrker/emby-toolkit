@@ -23,6 +23,7 @@ from handler import p115_play_pool
 import constants
 import config_manager
 from functools import lru_cache, wraps
+from etk.compatibility.background import spawn
 
 # 115扫码登录相关变量 (OAuth 2.0 + PKCE 模式)
 _qrcode_data = {
@@ -1747,7 +1748,7 @@ def quick_deploy_115():
                     logger.error(f"  ➜ [115一键部署] 执行失败: {e}", exc_info=True)
                     q.put({'type': 'done', 'success': False, 'message': str(e)})
 
-            threading.Thread(target=worker, daemon=True).start()
+            spawn(worker)
             while True:
                 event = q.get()
                 yield json.dumps(event, ensure_ascii=False) + '\n'
@@ -2363,11 +2364,7 @@ def _commit_deep_delete_response():
                 snapshot['item_id'],
             )
 
-    threading.Thread(
-        target=_process_deep_delete,
-        name=f"etk-deep-delete-{snapshot['item_id']}",
-        daemon=True,
-    ).start()
+    spawn(_process_deep_delete)
     logger.info(
         '  ➜ [ETK 深度删除] 已确认删除并提交后续处理：%s（类型=%s，EmbyID=%s）。',
         snapshot['item_name'], snapshot['item_type'], snapshot['item_id'],

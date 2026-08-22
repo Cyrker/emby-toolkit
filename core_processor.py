@@ -33,6 +33,7 @@ from cachetools import TTLCache
 from ai_translator import AITranslator
 from watchlist_processor import WatchlistProcessor
 from handler.douban import DoubanApi
+from etk.compatibility.background import spawn
 logger = logging.getLogger(__name__)
 try:
     from handler.douban import DoubanApi
@@ -2877,7 +2878,7 @@ class MediaProcessor:
             is_pure_episode_update = (item_type == 'Series' and specific_episode_ids)
             if item_type in ['Movie', 'Series'] and not is_pure_episode_update and not media_info_only and self.config.get(constants.CONFIG_OPTION_PROXY_ENABLED) and self.config.get(constants.CONFIG_OPTION_AI_VECTOR):
                 try:
-                    threading.Thread(target=RecommendationEngine.refresh_cache).start()
+                    spawn(RecommendationEngine.refresh_cache)
                     logger.debug(f"  ➜ [智能推荐] 已触发向量缓存刷新，'{item_name_for_log}' 将即刻加入推荐池。")
                 except Exception as e:
                     logger.warning(f"  ➜ [智能推荐] 触发缓存刷新失败: {e}")

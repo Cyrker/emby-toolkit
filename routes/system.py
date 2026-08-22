@@ -562,7 +562,7 @@ def api_save_telegram_notification_templates():
 def api_save_config():
     if not _can_access_config_api():
         return jsonify({"status": "error", "message": "需要管理员权限才能保存配置"}), 403
-    from web_app import save_config_and_reload
+    from etk.bootstrap.runtime_supervisor import get_runtime_supervisor
     try:
         new_config_data = request.json
         if not new_config_data:
@@ -663,7 +663,7 @@ def api_save_config():
             except (TypeError, ValueError, RuntimeError) as e:
                 return jsonify({"error": f"无法锁定 Emby 反代地址：{e}"}), 400
 
-        save_config_and_reload(new_config_data)
+        get_runtime_supervisor().save_config_and_reload(new_config_data)
 
         etk_url = str(new_config_data.get(constants.CONFIG_OPTION_ETK_SERVER_URL) or '').strip()
         if etk_url and emby_url and emby_api_key:

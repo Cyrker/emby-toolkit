@@ -18,6 +18,7 @@ import extensions     # 导入 extensions 以获取共享的处理器实例
 import task_manager   # 导入 task_manager 以提交任务
 from database import settings_db
 from tasks.core import get_task_registry
+from etk.compatibility.background import spawn
 
 logger = logging.getLogger(__name__)
 # APScheduler 默认会在每次定时任务成功后输出 "executed successfully"。
@@ -271,7 +272,7 @@ class SchedulerManager:
     def shutdown(self):
         """安全地关闭调度器。"""
         if self.scheduler.running:
-            self.scheduler.shutdown(wait=False)
+            self.scheduler.shutdown(wait=True)
             logger.info("定时任务调度器已关闭。")
 
     def update_all_scheduled_jobs(self):
@@ -461,16 +462,9 @@ class SchedulerManager:
         def scheduled_shared_share_status_sync_wrapper():
             try:
                 from tasks.shared_resource_tasks import task_shared_share_status_sync_high_freq
-                import threading
                 logger.trace("  ➜ 定时任务触发：共享分享状态同步。")
-                t = threading.Thread(
-                    target=task_shared_share_status_sync_high_freq,
-                    # 系统后台高频任务：静默执行，避免每 10 分钟刷前端实时任务状态/日志。
-                    kwargs={'maintenance_silent': True},
-                    name="SharedShareStatusSync",
-                    daemon=True
-                )
-                t.start()
+                # 系统后台高频任务：静默执行，避免每 10 分钟刷前端实时任务状态/日志。
+                spawn(task_shared_share_status_sync_high_freq, maintenance_silent=True)
             except Exception as e:
                 logger.error(f"  ➜ 启动共享分享状态同步后台线程失败: {e}", exc_info=True)
 
@@ -548,8 +542,6 @@ class SchedulerManager:
         fixed_cron_str = _fix_apscheduler_cron_dow(cron_str)
 
         def scheduled_p115_temp_cleanup_wrapper():
-            import threading
-
             def _run():
                 try:
                     from handler.p115_temp_dir import cleanup_all_temp_videos
@@ -558,7 +550,7 @@ class SchedulerManager:
                 except Exception as e:
                     logger.error("  ➜ [115临时目录] 定时清理失败: %s", e, exc_info=True)
 
-            threading.Thread(target=_run, name="P115TempDirCleanup", daemon=True).start()
+            spawn(_run)
 
         try:
             self.scheduler.add_job(

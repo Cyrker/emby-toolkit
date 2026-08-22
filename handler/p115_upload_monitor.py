@@ -7,7 +7,6 @@ import tempfile
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Iterable, List, Optional
 
 from watchdog.events import FileSystemEventHandler
@@ -15,6 +14,7 @@ from watchdog.events import FileSystemEventHandler
 import config_manager
 import constants
 from database import p115_upload_db, settings_db
+from etk.compatibility.background import BackgroundHandle, spawn, spawn_later
 
 
 logger = logging.getLogger(__name__)
@@ -222,15 +222,15 @@ class UploadMonitorRuntime:
     _instance_lock = threading.Lock()
 
     def __init__(self):
-        self._queue: queue.Queue[str] = queue.Queue()
+        self._queue: queue.Queue[str | None] = queue.Queue()
         self._queued = set()
-        self._timers: Dict[str, threading.Timer] = {}
+        self._timers: Dict[str, BackgroundHandle] = {}
         self._suppressed_deletes: Dict[str, float] = {}
         self._lock = threading.RLock()
         self._state_lock = threading.RLock()
         self._remote_dir_cache: Dict[tuple, str] = {}
         self._worker_started = False
-        self._screenshot_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="P115UploadThumb")
+        self._worker_thread: threading.Thread | None = None
 
     @classmethod
     def instance(cls):
@@ -241,11 +241,38 @@ class UploadMonitorRuntime:
 
     def start(self) -> None:
         with self._lock:
-            if self._worker_started:
+            if self._worker_thread and self._worker_thread.is_alive():
                 return
             self._worker_started = True
             worker = threading.Thread(target=self._worker_loop, name="P115UploadMonitor", daemon=True)
+            self._worker_thread = worker
             worker.start()
+
+    def stop(self, timeout: float = 5.0) -> bool:
+        with self._lock:
+            worker = self._worker_thread
+            for timer in self._timers.values():
+                timer.cancel()
+            self._timers.clear()
+            while True:
+                try:
+                    queued = self._queue.get_nowait()
+                except queue.Empty:
+                    break
+                if queued is not None:
+                    self._queued.discard(queued)
+                self._queue.task_done()
+            if worker and worker.is_alive():
+                self._queue.put(None)
+        if worker and worker is not threading.current_thread():
+            worker.join(timeout=max(0.0, float(timeout)))
+        with self._lock:
+            if worker and worker.is_alive():
+                return False
+            if self._worker_thread is worker:
+                self._worker_thread = None
+            self._worker_started = False
+            return True
 
     def prune_jobs(self, config: Optional[Dict[str, Any]] = None) -> int:
         config = config if isinstance(config, dict) else get_upload_monitor_config()
@@ -286,10 +313,8 @@ class UploadMonitorRuntime:
             old = self._timers.pop(norm_path, None)
             if old:
                 old.cancel()
-            timer = threading.Timer(delay, self.enqueue_path, args=(norm_path, mappings))
-            timer.daemon = True
+            timer = spawn_later(delay, self.enqueue_path, norm_path, mappings)
             self._timers[norm_path] = timer
-            timer.start()
 
     def schedule_deleted_path(self, path: str, delay: float = 2.0) -> None:
         norm_path = os.path.normpath(path)
@@ -297,10 +322,8 @@ class UploadMonitorRuntime:
             old = self._timers.pop(norm_path, None)
             if old:
                 old.cancel()
-            timer = threading.Timer(delay, self._handle_deleted_path, args=(norm_path,))
-            timer.daemon = True
+            timer = spawn_later(delay, self._handle_deleted_path, norm_path)
             self._timers[norm_path] = timer
-            timer.start()
 
     @staticmethod
     def _delete_path_key(path: str) -> str:
@@ -455,7 +478,7 @@ class UploadMonitorRuntime:
                 queued_count += self._enqueue_paths(batch, mappings)
             logger.info("  ➜ [115上传监控] 已有文件扫描完成，加入上传队列 %s 个。", queued_count)
 
-        threading.Thread(target=_scan, name="P115UploadMonitorScan", daemon=True).start()
+        spawn(_scan)
 
     def _wait_for_stability(self, path: str) -> bool:
         last_size = -1
@@ -480,6 +503,9 @@ class UploadMonitorRuntime:
     def _worker_loop(self) -> None:
         while True:
             job_id = self._queue.get()
+            if job_id is None:
+                self._queue.task_done()
+                return
             try:
                 self._process_job(job_id)
             except Exception:
@@ -930,7 +956,7 @@ class UploadMonitorRuntime:
             os.path.splitext(path)[1].lower() in VIDEO_OUTPUT_EXTENSIONS
             and _as_bool(config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_EXTRACT_THUMB), False)
         ):
-            self._screenshot_executor.submit(self._fill_emby_screenshot_after_ingest, strm_path)
+            spawn(self._fill_emby_screenshot_after_ingest, strm_path)
         logger.info("  ➜ [115上传监控] 已生成 STRM 与媒体信息: %s", strm_path)
         return True
 
@@ -1013,9 +1039,7 @@ class UploadMonitorRuntime:
             job.update(status="failed", error=error[:500], attempts=attempts, updated_at=time.time())
             p115_upload_db.upsert_jobs([job])
         logger.warning("  ➜ [115上传监控] 上传失败，%s 秒后续传重试: %s -> %s", delay, job.get("path"), error)
-        timer = threading.Timer(delay, self._requeue_job, args=(job_id,))
-        timer.daemon = True
-        timer.start()
+        spawn_later(delay, self._requeue_job, job_id)
 
     def _requeue_job(self, job_id: str) -> None:
         with self._lock:

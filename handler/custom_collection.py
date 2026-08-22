@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 import re
 import os
 import time
+import threading
 import gevent
 import numpy as np
 import sys
@@ -1004,7 +1005,10 @@ class RecommendationEngine:
     _cache_titles = None
     _cache_types = None
     _REFRESH_INTERVAL = 14400
-    _is_refreshing_loop_running = False 
+    _is_refreshing_loop_running = False
+    _refresh_lock = threading.Lock()
+    _refresh_stop_event = threading.Event()
+    _refresh_thread = None
 
     def __init__(self, tmdb_api_key: str):
         self.tmdb_api_key = tmdb_api_key
@@ -1065,20 +1069,49 @@ class RecommendationEngine:
         """
         【类方法】启动自动刷新循环
         """
-        if cls._is_refreshing_loop_running:
-            return
-        
-        cls._is_refreshing_loop_running = True
-        
-        def loop():
-            logger.info("  ➜ [向量引擎] 自动刷新守护线程已启动。")
-            cls.refresh_cache()
-            
-            while True:
-                gevent.sleep(cls._REFRESH_INTERVAL)
-                cls.refresh_cache()
-        
-        gevent.spawn(loop)
+        with cls._refresh_lock:
+            if cls._refresh_thread and cls._refresh_thread.is_alive():
+                return cls._refresh_thread
+            cls._is_refreshing_loop_running = True
+            cls._refresh_stop_event.clear()
+
+            def loop():
+                logger.info("  ➜ [向量引擎] 自动刷新守护线程已启动。")
+                try:
+                    cls.refresh_cache()
+                    while not cls._refresh_stop_event.wait(cls._REFRESH_INTERVAL):
+                        cls.refresh_cache()
+                finally:
+                    cls._is_refreshing_loop_running = False
+
+            cls._refresh_thread = threading.Thread(
+                target=loop,
+                daemon=True,
+                name="RecommendationVectorRefresh",
+            )
+            cls._refresh_thread.start()
+            return cls._refresh_thread
+
+    @classmethod
+    def stop_auto_refresh_loop(cls, timeout=5.0):
+        with cls._refresh_lock:
+            thread = cls._refresh_thread
+            if not thread or not thread.is_alive():
+                cls._refresh_thread = None
+                cls._is_refreshing_loop_running = False
+                return True
+            cls._refresh_stop_event.set()
+
+        if thread is not threading.current_thread():
+            thread.join(timeout=max(0.0, float(timeout)))
+
+        with cls._refresh_lock:
+            if thread.is_alive():
+                return False
+            if cls._refresh_thread is thread:
+                cls._refresh_thread = None
+            cls._is_refreshing_loop_running = False
+            return True
 
     def _get_vector_data(self):
         """

@@ -2,7 +2,6 @@
 import logging
 import requests
 import re
-import threading
 from flask import Blueprint, jsonify, session, request
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -19,6 +18,7 @@ import task_manager
 import extensions
 from tasks.helpers import process_subscription_items_and_update_db
 from tasks.subscriptions import task_manual_subscribe_batch
+from etk.compatibility.background import spawn
 
 # 1. 创建一个新的蓝图
 user_portal_bp = Blueprint('user_portal_bp', __name__, url_prefix='/api/portal')
@@ -250,7 +250,7 @@ def request_subscription():
     # 2. 推荐池处理
     if new_status_for_frontend in ['approved', 'pending', 'WANTED'] and item_type == 'Movie':
         settings_db.remove_item_from_recommendation_pool(db_tmdb_id)
-        threading.Thread(target=check_and_replenish_pool).start()
+        spawn(check_and_replenish_pool)
 
     try:
         user_chat_id = user_db.get_user_telegram_chat_id(emby_user_id)

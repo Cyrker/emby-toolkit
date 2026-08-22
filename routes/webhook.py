@@ -10,8 +10,8 @@ import requests
 from datetime import datetime, timezone
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 from typing import Optional, List
-from gevent import spawn_later, spawn
-from gevent.event import Event
+# 在线程型 WSGI fallback 中提供可停止的后台调用。
+from etk.compatibility.background import spawn, spawn_later
 
 import task_manager
 import handler.emby as emby
@@ -940,11 +940,7 @@ def _run_shared_auto_share_batch_detached(task_name: str, register_items: List[d
         except Exception as e:
             logger.warning(f"  ➜ [共享资源] 自动登记失败: {task_name} -> {e}", exc_info=True)
 
-    threading.Thread(
-        target=_runner,
-        name=f"shared-rapid-register-{str(task_name)[:40]}",
-        daemon=True,
-    ).start()
+    spawn(_runner)
 
 
 def _run_shared_auto_share_detached(task_name: str, **kwargs):

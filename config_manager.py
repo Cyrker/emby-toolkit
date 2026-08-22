@@ -81,13 +81,13 @@ def _notify_pending_system_update_result():
     return True
 
 
-def retry_pending_system_update_result(max_attempts: int = 10, interval_seconds: float = 3.0):
+def retry_pending_system_update_result(max_attempts: int = 10, interval_seconds: float = 3.0, stop_event=None):
     """在启动后的短窗口内重试补发系统更新结果，避免依赖初始化时机导致漏发。"""
     for attempt in range(1, max_attempts + 1):
         if _notify_pending_system_update_result():
             return True
         if attempt < max_attempts:
-            time.sleep(interval_seconds)
+            if _wait_for_retry_interval(stop_event, interval_seconds): return False
     _log_trace("  ➜ 系统更新结果通知重试结束，仍未成功发送。")
     return False
 
@@ -467,3 +467,10 @@ def is_emby_service_authorized() -> bool:
         and str(APP_CONFIG.get(constants.CONFIG_OPTION_EMBY_API_KEY) or "").strip()
         and str(APP_CONFIG.get(constants.CONFIG_OPTION_EMBY_USER_ID) or "").strip()
     )
+
+
+def _wait_for_retry_interval(stop_event, interval_seconds: float) -> bool:
+    if stop_event is not None:
+        return bool(stop_event.wait(interval_seconds))
+    time.sleep(interval_seconds)
+    return False

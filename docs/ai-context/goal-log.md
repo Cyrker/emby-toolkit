@@ -122,6 +122,90 @@ Next:
 - Implement P1 plaintext FastAPI host, compatibility Flask App, Bootstrap, and RuntimeSupervisor.
 - Do not import `web_app` or PyArmor from the new mainline and do not start background work on import.
 
+## P1
+
+Status: DONE
+
+Evidence:
+
+- Added the Python 3.12 `pyproject.toml`/`uv.lock`, plaintext `main.py`, FastAPI factory,
+  compatibility Flask host, runtime supervisor, process CLI, compatibility session/response layers,
+  `Dockerfile.refactor`, and plaintext entrypoint. The build backend is pinned to
+  `hatchling==1.32.0`; `uv lock --check` resolves 144 packages and `uv sync --frozen` checks
+  140 installed packages.
+- Import probes confirm that `main.py --help` and the FastAPI factory do not import `web_app`,
+  PyArmor, config, processors, proxy, task manager, scheduler, or Telegram runtime and do not
+  create runtime threads or data directories.
+- The compatibility Flask App materializes during ASGI startup, registers all 22 Blueprints in
+  baseline order, mounts as the final WSGI fallback, and preserves 345 API rules / 362 normalized
+  bindings when the new FastAPI health route is included. Health, setup status, login/SPA fallback,
+  static assets, 405 behavior, and Flask Session serialization pass application tests.
+- `RuntimeSupervisor` owns start/reload/stop state. Failed reload or stop remains `FAILED`, retains
+  the adapter for cleanup retry, and cannot be overwritten by a new start. Shutdown does not close
+  processors, the compatibility registry, or the database pool while a managed worker remains live.
+- Replaced API-reachable detached gevent timers with a compatibility dispatcher bounded at eight
+  workers and 256 total immediate/delayed tasks. Pending timers are cancellable; shutdown is
+  retryable; the 257th task is rejected. Dedicated task, monitor, upload, intro, shared listener,
+  vector, Telegram, and TG consumer workers now expose checked stop behavior.
+- The compatibility psycopg2 pool now serializes creation/closing, tracks active leases, returns a
+  connection to its owning pool, and refuses close on timeout. A concurrent lease/close test proves
+  the order `get -> put -> close` and successful retry.
+- Proxy gevent patching still occurs before legacy network imports. A real local subprocess test
+  starts the Proxy listener, sends `SIGTERM`, verifies listener stop and `RuntimeSupervisor.stop()`,
+  and observes exit code 143.
+- Full permanent verification passes: 37 pytest checks and 66 embedded legacy unittests. Ruff check,
+  Ruff format check, Pyright, 162-file Python 3.12 AST parsing, manifest regeneration/check, three
+  secret scans, entrypoint syntax, forbidden-import search, and `git diff --check` all pass.
+- Built final local arm64 image `sha256:1488fbde2310077a11d21e227ca783fed663258d4aeb51b70a88eabca303c60f`
+  (321,363,740 bytes). Runtime inspection confirms `/app/web_app.py` and PyArmor are absent,
+  `/app/static/index.html` exists, and `main.py --help` runs.
+- Final image Smoke used an internal Docker network, fresh PostgreSQL 16, empty temporary `/config`,
+  no published ports, and no external credentials. It returned health 200, `setup_required`, SPA
+  HTML, JavaScript MIME `text/javascript`, and initialized exactly 39 tables. `SIGTERM` produced
+  task-worker, Scheduler, and Uvicorn shutdown markers. Containers, network, temporary config, and
+  anonymous data were removed afterward.
+- Two independent read-only re-audits found and then verified fixes for Proxy signal cleanup,
+  detached gevent scheduling, bounded delayed work, monitor retry handles, pool races, and failed
+  supervisor state. Their final verdict found no remaining P1 blocker/high finding.
+
+Recorded residuals and limitations:
+
+- The final API container records exit code 143 after Docker `SIGTERM`, while logs prove orderly
+  application cleanup; this is signal exit semantics, not a forced kill or missing shutdown.
+- Starlette emits one `WSGIMiddleware` deprecation warning. The execution plan explicitly requires
+  this temporary P1 compatibility mount; its removal remains part of the later legacy retirement.
+- This P1 image intentionally exercises the legacy-compatible PostgreSQL 16 initializer. Target
+  PostgreSQL 18, Alembic, SQLAlchemy/psycopg 3, Nginx syntax validation, Compose wiring, image digest
+  policy, and observability are P2/P12 work and are not claimed complete here.
+- No real Emby, 115, MoviePilot, shared center, Telegram, HDHive, production database, webhook,
+  release, push, deployment, or external write was used.
+
+Primary verification commands:
+
+```text
+uv lock --check
+uv sync --frozen
+uv run pytest verification -q
+uv run python -m unittest handler.p115_media_recognition handler.tg_media_candidate_flow
+uv run ruff check main.py src/etk verification/application
+uv run ruff format --check main.py src/etk verification/application
+uv run pyright main.py src/etk verification/application
+python3 scripts/refactor/export_manifests.py
+python3 scripts/refactor/check_manifests.py
+python3 scripts/refactor/scan_fixture_secrets.py verification/fixtures
+python3 scripts/refactor/scan_fixture_secrets.py verification/contracts/http
+python3 scripts/refactor/scan_fixture_secrets.py verification/contracts/db
+sh -n docker/entrypoint.refactor.sh
+docker build -f Dockerfile.refactor -t etk-p1-mainline:local .
+git diff --check
+```
+
+Next:
+
+- Implement P2 Settings, AppContainer, SQLAlchemy 2, psycopg 3, Alembic baseline, PostgreSQL 18
+  integration, Greenfield Compose platform, and baseline observability.
+- Keep all real external-system Live Acceptance pending.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -141,4 +225,4 @@ Read first:
 
 Next:
 
-- Continue P1 from the P0 stage commit. Keep all Live Acceptance items pending.
+- Continue P2 from the P1 stage commit. Keep all Live Acceptance items pending.

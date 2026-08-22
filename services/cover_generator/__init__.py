@@ -8,7 +8,7 @@ import random
 import requests
 from pathlib import Path
 from typing import Dict, Any, List, Tuple, Optional
-from gevent import spawn_later
+from etk.compatibility.background import spawn_later
 from database import custom_collection_db, queries_db
 import config_manager
 import handler.emby as emby 

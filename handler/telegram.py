@@ -12,6 +12,7 @@ from database import user_db, request_db, media_db, settings_db
 from database.connection import get_db_connection
 import constants
 from handler.tg_media_candidate import build_channel_task_payload
+from etk.compatibility.background import spawn, spawn_later
 
 logger = logging.getLogger(__name__)
 
@@ -1149,8 +1150,10 @@ import threading
 from handler.p115_service import P115Service
 
 # 全局变量控制轮询线程
-_tg_polling_thread = None
 _tg_polling_active = False
+_tg_polling_handle = None
+_system_update_retry_handle = None
+_system_update_retry_stop = threading.Event()
 
 # Telegram 资源搜索会话：chat_id -> {stage, results/resources, media, created_at}
 _tg_resource_search_sessions = {}
@@ -1982,7 +1985,7 @@ def _tg_start_tmdb_search(chat_id: str, query: str):
             logger.error(f"  ➜ [TG资源搜索] TMDb 搜索失败: {e}", exc_info=True)
             _tg_send_plain(chat_id, f"❌ TMDb 搜索异常：{e}")
 
-    threading.Thread(target=run, name="TG_Resource_Search_TMDb", daemon=True).start()
+    spawn(run)
 
 
 def _tg_query_hdhive_resources(chat_id: str, selection_number: int, target_season=None):
@@ -2159,7 +2162,7 @@ def _tg_query_hdhive_resources(chat_id: str, selection_number: int, target_seaso
             logger.error(f"  ➜ [TG资源搜索] 资源查询失败: {e}", exc_info=True)
             _tg_send_plain(chat_id, f"❌ 资源查询异常：{e}")
 
-    threading.Thread(target=run, name="TG_Resource_Search_All", daemon=True).start()
+    spawn(run)
 
 def _tg_show_resource_page(chat_id: str, page: int):
     """根据当前资源搜索会话发送指定页。每页 10 条，编号使用全局序号。"""
@@ -2268,7 +2271,7 @@ def _tg_start_hdhive_transfer(chat_id: str, selection_number: int):
                 logger.error(f"  ➜ [TG资源搜索] 共享池秒传失败: {e}", exc_info=True)
                 _tg_send_plain(chat_id, f"❌ 共享池秒传异常：{e}")
 
-        threading.Thread(target=run_shared_pool_transfer, name="TG_Resource_Search_SharedPool", daemon=True).start()
+        spawn(run_shared_pool_transfer)
         return
 
     if source == "channel":
@@ -2327,7 +2330,7 @@ def _tg_start_hdhive_transfer(chat_id: str, selection_number: int):
             logger.error(f"  ➜ [TG资源搜索] 影巢转存失败: {e}", exc_info=True)
             _tg_send_plain(chat_id, f"❌ 影巢转存异常：{e}")
 
-    threading.Thread(target=run, name="TG_Resource_Search_Transfer", daemon=True).start()
+    spawn(run)
 
 def _tg_handle_subscribe(chat_id: str):
     """处理 TG 搜索界面的订阅按钮点击"""
@@ -2429,7 +2432,7 @@ def _tg_handle_subscribe(chat_id: str):
             logger.error(f"  ➜ [TG交互] 提交订阅失败: {e}", exc_info=True)
             _tg_send_plain(chat_id, f"❌ 提交订阅异常：{e}")
 
-    threading.Thread(target=run, name="TG_Resource_Subscribe", daemon=True).start()
+    spawn(run)
 
 def _tg_try_handle_resource_session_input(chat_id: str, text: str) -> bool:
     """处理资源搜索会话中的数字回复/取消。返回 True 表示已消费消息。"""
@@ -2581,7 +2584,7 @@ def _execute_task_from_tg(chat_id: str, task_key: str):
             send_telegram_message(chat_id, escape_markdown(f"❌ 任务执行失败：*{task_description}*\n错误信息: {str(e)}"))
 
     # 启动独立线程执行任务，避免阻塞 TG 轮询
-    threading.Thread(target=run_wrapper, name=f"TG_Task_{task_key}", daemon=True).start()
+    spawn(run_wrapper)
 
 def _handle_callback_query(callback_query: dict):
     """处理内联键盘的按钮点击事件"""
@@ -2765,11 +2768,11 @@ def _handle_incoming_message(message: dict):
                 send_telegram_message(chat_id, escape_markdown("✅ *分享链接转存成功！*\n系统已自动触发整理任务。"))
                 try:
                     import task_manager
-                    threading.Timer(
+                    spawn_later(
                         5.0,
                         task_manager.trigger_115_organize_task,
-                        kwargs={'reason': 'tg_share_import'},
-                    ).start()
+                        reason='tg_share_import',
+                    )
                 except Exception as e:
                     logger.error(f"  ➜ 唤醒整理任务失败: {e}")
             else:
@@ -2789,11 +2792,11 @@ def _handle_incoming_message(message: dict):
                 send_telegram_message(chat_id, escape_markdown("✅ *离线任务提交成功！*\n系统将在后台自动监控并整理入库。"))
                 try:
                     import task_manager
-                    threading.Timer(
+                    spawn_later(
                         10.0,
                         task_manager.trigger_115_organize_task,
-                        kwargs={'reason': 'tg_offline_download'},
-                    ).start()
+                        reason='tg_offline_download',
+                    )
                 except: pass
             else:
                 err = res.get('error_msg') or res.get('message') or str(res) or '未知错误'
@@ -2967,7 +2970,7 @@ def send_hdhive_checkin_notification(checkin_res: dict, is_gambler: bool, user_i
 
 def start_telegram_bot():
     """启动 Telegram 机器人监听"""
-    global _tg_polling_thread, _tg_polling_active
+    global _tg_polling_active, _tg_polling_handle, _system_update_retry_handle
     
     # Pro 权限拦截
     if not APP_CONFIG.get('is_pro_active', False):
@@ -2981,25 +2984,39 @@ def start_telegram_bot():
         return
         
     _tg_polling_active = True
-    _tg_polling_thread = threading.Thread(target=_telegram_polling_worker, daemon=True, name="TG_Polling_Thread")
-    _tg_polling_thread.start()
+    _tg_polling_handle = spawn(_telegram_polling_worker)
 
     try:
         from config_manager import retry_pending_system_update_result
-        threading.Thread(
-            target=retry_pending_system_update_result,
-            kwargs={"max_attempts": 10, "interval_seconds": 3.0},
-            daemon=True,
-            name="SystemUpdateNotifyRetry",
-        ).start()
+        _system_update_retry_stop.clear()
+        _system_update_retry_handle = spawn(
+            retry_pending_system_update_result,
+            max_attempts=10,
+            interval_seconds=3.0,
+            stop_event=_system_update_retry_stop,
+        )
     except Exception as e:
         logger.debug(f"  ➜ 启动系统更新结果通知重试线程失败: {e}")
 
-def stop_telegram_bot():
+def stop_telegram_bot(timeout=45.0):
     """停止 Telegram 机器人监听"""
-    global _tg_polling_active
+    global _tg_polling_active, _tg_polling_handle, _system_update_retry_handle
     _tg_polling_active = False
+    _system_update_retry_stop.set()
+    deadline = time.monotonic() + max(0.0, float(timeout))
+    stopped = True
+    for handle in (_system_update_retry_handle, _tg_polling_handle):
+        if handle is None:
+            continue
+        handle.kill()
+        handle.join(max(0.0, deadline - time.monotonic()))
+        stopped = stopped and handle.ready()
+    if _system_update_retry_handle is not None and _system_update_retry_handle.ready():
+        _system_update_retry_handle = None
+    if _tg_polling_handle is not None and _tg_polling_handle.ready():
+        _tg_polling_handle = None
     logger.info("  ➜ Telegram 机器人交互监听已停止。")
+    return stopped
 
 
 def send_share_request_push_notification(event: dict, result: dict = None, success: bool = True):

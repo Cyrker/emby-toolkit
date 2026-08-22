@@ -24,6 +24,7 @@ from handler import shared_subscription_service as shared_subscription_service
 from handler.shared_subscription_service import poll_and_consume_once as _raw_poll_and_consume_once
 from handler import tmdb as tmdb_handler
 from tasks.helpers import extract_quality_source_from_filename, normalize_quality_source
+from etk.compatibility.background import spawn
 
 logger = logging.getLogger(__name__)
 
@@ -643,6 +644,8 @@ _LOGICAL_SHARE_CREATE_QUEUE = queue.Queue()
 _LOGICAL_SHARE_CREATE_QUEUE_LOCK = threading.Lock()
 _LOGICAL_SHARE_CREATE_QUEUED_KEYS = set()
 _LOGICAL_SHARE_CREATE_WORKER = None
+_LOGICAL_SHARE_CREATE_STOP = threading.Event()
+_LOGICAL_SHARE_CREATE_SENTINEL = object()
 _LOGICAL_SHARE_CREATE_IDLE_GRACE_SECONDS = 12
 _LOGICAL_SHARE_CREATE_BUSY_WAIT_SECONDS = 5
 
@@ -669,33 +672,38 @@ def _logical_share_create_media_busy() -> bool:
         return False
 
 
-def _wait_for_logical_share_create_slot(log_label: str = '', stage: str = '') -> None:
+def _wait_for_logical_share_create_slot(log_label: str = '', stage: str = '') -> bool:
     idle_since = None
     logged_busy = False
     label = str(log_label or '逻辑季 115 文件列表分享').strip()
     stage_text = f"（{stage}）" if stage else ''
     while True:
+        if _LOGICAL_SHARE_CREATE_STOP.is_set():
+            return False
         if not _enabled():
             idle_since = None
             if not logged_busy:
                 logger.info(f"  ➜ [共享资源] 共享资源未启用，暂停创建 115 文件列表分享队列：{label}{stage_text}")
                 logged_busy = True
-            time.sleep(15)
+            if _LOGICAL_SHARE_CREATE_STOP.wait(15):
+                return False
             continue
         if _logical_share_create_media_busy():
             idle_since = None
             if not logged_busy:
                 logger.info(f"  ➜ [共享资源] 媒体任务运行中，延后创建 115 文件列表分享：{label}{stage_text}")
                 logged_busy = True
-            time.sleep(_LOGICAL_SHARE_CREATE_BUSY_WAIT_SECONDS)
+            if _LOGICAL_SHARE_CREATE_STOP.wait(_LOGICAL_SHARE_CREATE_BUSY_WAIT_SECONDS):
+                return False
             continue
         now = time.time()
         if idle_since is None:
             idle_since = now
         remaining = _LOGICAL_SHARE_CREATE_IDLE_GRACE_SECONDS - (now - idle_since)
         if remaining <= 0:
-            return
-        time.sleep(min(1, max(0.2, remaining)))
+            return True
+        if _LOGICAL_SHARE_CREATE_STOP.wait(min(1, max(0.2, remaining))):
+            return False
 
 
 def _ensure_logical_share_create_worker() -> None:
@@ -703,6 +711,7 @@ def _ensure_logical_share_create_worker() -> None:
     with _LOGICAL_SHARE_CREATE_QUEUE_LOCK:
         if _LOGICAL_SHARE_CREATE_WORKER and _LOGICAL_SHARE_CREATE_WORKER.is_alive():
             return
+        _LOGICAL_SHARE_CREATE_STOP.clear()
         _LOGICAL_SHARE_CREATE_WORKER = threading.Thread(
             target=_logical_share_create_worker_loop,
             name='shared-logical-share-create',
@@ -795,11 +804,15 @@ def _enqueue_logical_share_create_event(
 def _logical_share_create_worker_loop() -> None:
     while True:
         item = _LOGICAL_SHARE_CREATE_QUEUE.get()
+        if item is _LOGICAL_SHARE_CREATE_SENTINEL:
+            _LOGICAL_SHARE_CREATE_QUEUE.task_done()
+            return
         key = str((item or {}).get('key') or '')
         event = (item or {}).get('event') if isinstance((item or {}).get('event'), dict) else {}
         log_label = str((item or {}).get('log_label') or '').strip()
         try:
-            _wait_for_logical_share_create_slot(log_label, stage='开始前')
+            if not _wait_for_logical_share_create_slot(log_label, stage='开始前'):
+                continue
             handle_create_logical_season_filelist_share_event(
                 event,
                 ack=False,
@@ -6789,7 +6802,7 @@ def stop_shared_device_event_listener(timeout: float = 3.0) -> bool:
     web_app.py 在共享开关关闭、配置重载和应用退出时会调用这个函数。
     旧版任务文件没有导出该函数，导致启动阶段导入失败。
     """
-    global _LISTENER_THREAD, _SIGN_LISTENER_THREAD
+    global _LISTENER_THREAD, _SIGN_LISTENER_THREAD, _LOGICAL_SHARE_CREATE_WORKER
     with _LISTENER_LOCK:
         event_thread = _LISTENER_THREAD
         sign_thread = _SIGN_LISTENER_THREAD
@@ -6800,12 +6813,30 @@ def stop_shared_device_event_listener(timeout: float = 3.0) -> bool:
                 thread.join(timeout=max(0.1, float(timeout or 0)))
             except Exception:
                 pass
+    with _LOGICAL_SHARE_CREATE_QUEUE_LOCK:
+        logical_thread = _LOGICAL_SHARE_CREATE_WORKER
+        _LOGICAL_SHARE_CREATE_STOP.set()
+        while True:
+            try:
+                _LOGICAL_SHARE_CREATE_QUEUE.get_nowait()
+                _LOGICAL_SHARE_CREATE_QUEUE.task_done()
+            except queue.Empty:
+                break
+        _LOGICAL_SHARE_CREATE_QUEUED_KEYS.clear()
+        if logical_thread and logical_thread.is_alive():
+            _LOGICAL_SHARE_CREATE_QUEUE.put(_LOGICAL_SHARE_CREATE_SENTINEL)
+    if logical_thread and logical_thread.is_alive():
+        logical_thread.join(timeout=max(0.1, float(timeout or 0)))
     with _LISTENER_LOCK:
         if _LISTENER_THREAD and not _LISTENER_THREAD.is_alive():
             _LISTENER_THREAD = None
         if _SIGN_LISTENER_THREAD and not _SIGN_LISTENER_THREAD.is_alive():
             _SIGN_LISTENER_THREAD = None
-        return _LISTENER_THREAD is None and _SIGN_LISTENER_THREAD is None
+    with _LOGICAL_SHARE_CREATE_QUEUE_LOCK:
+        if _LOGICAL_SHARE_CREATE_WORKER and not _LOGICAL_SHARE_CREATE_WORKER.is_alive():
+            _LOGICAL_SHARE_CREATE_WORKER = None
+        logical_stopped = _LOGICAL_SHARE_CREATE_WORKER is None
+    return _LISTENER_THREAD is None and _SIGN_LISTENER_THREAD is None and logical_stopped
 
 
 def ensure_share_request_event_listener() -> bool:
@@ -8618,7 +8649,7 @@ def trigger_shared_resource_maintenance_task() -> bool:
     try:
         return bool(task_manager.submit_task(task_shared_resource_maintenance, task_name='共享资源维护', processor_type='media'))
     except Exception:
-        threading.Thread(target=task_shared_resource_maintenance, name='shared-rapid-maintenance', daemon=True).start()
+        spawn(task_shared_resource_maintenance)
         return True
 
 
@@ -8626,7 +8657,7 @@ def trigger_share_all_library_task() -> bool:
     try:
         return bool(task_manager.submit_task(share_all_library, task_name='一键登记媒体库', processor_type='media'))
     except Exception:
-        threading.Thread(target=share_all_library, name='shared-rapid-share-all', daemon=True).start()
+        spawn(share_all_library)
         return True
 
 

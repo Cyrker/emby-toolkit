@@ -4,6 +4,8 @@ from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 import logging
+import threading
+import time
 
 import config_manager
 import constants
@@ -16,26 +18,52 @@ logger = logging.getLogger(__name__)
 # ======================================================================
 
 _db_pool = None
+_db_pool_condition = threading.Condition(threading.RLock())
+_db_pool_active_contexts = 0
+_db_pool_closing = False
 
 def _init_pool():
     global _db_pool
-    if _db_pool is None:
-        try:
-            cfg = config_manager.APP_CONFIG
-            # 初始化连接池 (最小1个，最大50个并发连接)
-            _db_pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=1,
-                maxconn=50,
-                host=cfg.get(constants.CONFIG_OPTION_DB_HOST),
-                port=cfg.get(constants.CONFIG_OPTION_DB_PORT),
-                user=cfg.get(constants.CONFIG_OPTION_DB_USER),
-                password=cfg.get(constants.CONFIG_OPTION_DB_PASSWORD),
-                dbname=cfg.get(constants.CONFIG_OPTION_DB_NAME)
-            )
-            logger.info("  ➜ PostgreSQL 线程安全连接池初始化成功 (Max: 50)")
-        except Exception as e:
-            logger.error(f"  ➜ 初始化数据库连接池失败: {e}", exc_info=True)
-            raise
+    with _db_pool_condition:
+        while _db_pool_closing:
+            _db_pool_condition.wait()
+        if _db_pool is None:
+            try:
+                cfg = config_manager.APP_CONFIG
+                # 初始化连接池 (最小1个，最大50个并发连接)
+                _db_pool = psycopg2.pool.ThreadedConnectionPool(
+                    minconn=1,
+                    maxconn=50,
+                    host=cfg.get(constants.CONFIG_OPTION_DB_HOST),
+                    port=cfg.get(constants.CONFIG_OPTION_DB_PORT),
+                    user=cfg.get(constants.CONFIG_OPTION_DB_USER),
+                    password=cfg.get(constants.CONFIG_OPTION_DB_PASSWORD),
+                    dbname=cfg.get(constants.CONFIG_OPTION_DB_NAME)
+                )
+                logger.info("  ➜ PostgreSQL 线程安全连接池初始化成功 (Max: 50)")
+            except Exception as e:
+                logger.error(f"  ➜ 初始化数据库连接池失败: {e}", exc_info=True)
+                raise
+        return _db_pool
+
+
+def _lease_pool():
+    global _db_pool_active_contexts
+    current = _init_pool()
+    with _db_pool_condition:
+        while _db_pool_closing:
+            _db_pool_condition.wait()
+        if current is not _db_pool:
+            current = _init_pool()
+        _db_pool_active_contexts += 1
+        return current
+
+
+def _release_pool():
+    global _db_pool_active_contexts
+    with _db_pool_condition:
+        _db_pool_active_contexts -= 1
+        _db_pool_condition.notify_all()
 
 @contextmanager
 def get_db_connection():
@@ -43,12 +71,13 @@ def get_db_connection():
     【中央函数】获取一个配置好 RealDictCursor 的 PostgreSQL 数据库连接。
     使用上下文管理器，确保高并发下连接用完瞬间回收，绝不泄漏。
     """
-    global _db_pool
-    if _db_pool is None:
-        _init_pool()
-        
-    # 从连接池借出一个连接
-    conn = _db_pool.getconn()
+    current_pool = _lease_pool()
+    try:
+        # 从连接池借出一个连接
+        conn = current_pool.getconn()
+    except Exception:
+        _release_pool()
+        raise
     try:
         conn.cursor_factory = RealDictCursor
         yield conn
@@ -58,7 +87,10 @@ def get_db_connection():
         raise
     finally:
         # ★ 核心：无论成功失败，用完立刻归还给连接池
-        _db_pool.putconn(conn)
+        try:
+            current_pool.putconn(conn)
+        finally:
+            _release_pool()
 
 def init_db():
     """
@@ -1241,3 +1273,30 @@ def init_db():
     except Exception as e_global:
         logger.error(f"数据库初始化时发生未知错误: {e_global}", exc_info=True)
         raise
+
+
+def close_pool(timeout=5.0):
+    """关闭并清空兼容连接池，供显式进程生命周期使用。"""
+    global _db_pool, _db_pool_closing
+    deadline = time.monotonic() + max(0.0, float(timeout))
+    with _db_pool_condition:
+        while _db_pool_closing:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            _db_pool_condition.wait(remaining)
+        _db_pool_closing = True
+        try:
+            while _db_pool_active_contexts:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                _db_pool_condition.wait(remaining)
+            current = _db_pool
+            _db_pool = None
+        finally:
+            _db_pool_closing = False
+            _db_pool_condition.notify_all()
+    if current is not None:
+        current.closeall()
+    return True

@@ -2,7 +2,6 @@
 import json
 import logging
 import re
-import threading
 from typing import Any, Dict, List
 from urllib.parse import unquote
 
@@ -10,6 +9,7 @@ from database import settings_db
 from database.connection import get_db_connection
 from handler.p115_service import P115CacheManager
 from handler.shared_center_client import SharedCenterClient, shared_center_enabled
+from etk.compatibility.background import spawn
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +210,7 @@ def sync_intro_from_emby_item(sha1: str, item_id: str, *, expected_pick_code: st
             except Exception as e:
                 logger.debug(f"  ➜ [共享片头] Emby 片头后台上传失败: {sha1[:12]}... -> {e}")
 
-        threading.Thread(target=_upload, name=f"intro-upload-{sha1[:8]}", daemon=True).start()
+        spawn(_upload)
         series_name = str(item.get("SeriesName") or "").strip()
         season_number = item.get("ParentIndexNumber")
         episode_number = item.get("IndexNumber")

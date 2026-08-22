@@ -18,8 +18,8 @@ Allowed status:
 |---|---|---|---|---|---|---|
 | T000 | Goal bootstrap | Recover an auditable local refactor worktree without overwriting the damaged original worktree | DONE | yes | `goal-log.md#t000` | linked worktree on `codex/refactor-mainline` |
 | P0 | Plan §10 P0 | Establish behavior baseline, manifests, sanitized fixtures, and contract tooling | DONE | yes | `goal-log.md#p0` | local source and disposable PG16/Stub evidence only |
-| P1 | Plan §10 P1 | Add plaintext FastAPI host, bootstrap, supervisor, and compatibility host | DOING | yes | pending | P0 exit gate passed; no production or old environment |
-| P2 | Plan §10 P2 | Add settings, DI, SQLAlchemy, Alembic, PostgreSQL 18, and observability platform | TODO | yes | pending | starts only after P1 exit gate |
+| P1 | Plan §10 P1 | Add plaintext FastAPI host, bootstrap, supervisor, and compatibility host | DONE | yes | `goal-log.md#p1` | plaintext image and isolated runtime verified; no production or old environment |
+| P2 | Plan §10 P2 | Add settings, DI, SQLAlchemy, Alembic, PostgreSQL 18, and observability platform | DOING | yes | pending | P1 exit gate passed; PostgreSQL 18 and Compose begin here |
 | P3 | Plan §10 P3 | Migrate System, Identity, and Operations contracts | TODO | yes | pending | |
 | P4 | Plan §10 P4 | Add Celery, Redis, persistent jobs, Coordinator, and all 50 task keys | TODO | yes | pending | |
 | P5 | Plan §10 P5 | Migrate Media, Metadata, Image, Bridge, and Emby events | TODO | yes | pending | |

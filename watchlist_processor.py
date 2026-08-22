@@ -21,6 +21,7 @@ import handler.moviepilot as moviepilot
 import tasks.helpers as helpers
 from services.subscribe_assistant.manager import SubscribeAssistantManager
 import logging
+from etk.compatibility.background import spawn
 
 logger = logging.getLogger(__name__)
 # ✨✨✨ Tmdb状态翻译字典 ✨✨✨
@@ -1053,11 +1054,7 @@ class WatchlistProcessor:
             if not helper_result.get('ok') or not season_result.get('ok'):
                 logger.debug("  ➜ [共享资源] 追剧元数据补传响应：剧展示=%s，季/集=%s", helper_result, season_result)
 
-        threading.Thread(
-            target=_runner,
-            name=f"shared-watchlist-metadata-{parent_tmdb_id}",
-            daemon=True,
-        ).start()
+        spawn(_runner)
 
     def _get_series_to_process(self, where_clause: str, tmdb_id: Optional[str] = None, include_all_series: bool = False) -> List[Dict[str, Any]]:
         """

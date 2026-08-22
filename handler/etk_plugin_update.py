@@ -12,6 +12,7 @@ import requests
 import config_manager
 import constants
 from handler.emby import configure_etk_plugin_origin, emby_client
+from etk.compatibility.background import spawn_later
 
 
 logger = logging.getLogger(__name__)
@@ -434,13 +435,5 @@ def schedule_etk_plugin_update_check(delay_seconds=30):
             return False
         _STARTED = True
 
-    def delayed_check():
-        time.sleep(max(0, delay_seconds))
-        check_and_update_etk_plugin()
-
-    threading.Thread(
-        target=delayed_check,
-        name='ETKPluginUpdateCheck',
-        daemon=True,
-    ).start()
+    spawn_later(delay_seconds, check_and_update_etk_plugin)
     return True

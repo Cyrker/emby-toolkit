@@ -24,7 +24,8 @@ from handler.tg_media_candidate import (
     remember_candidate_hint,
 )
 from database.connection import get_db_connection
-from gevent import spawn
+# 队列消费者由显式进程生命周期启动。
+from etk.compatibility.background import spawn_later
 
 logger = logging.getLogger(__name__)
 
@@ -1205,12 +1206,11 @@ def _submit_tg_offline_links(client, links, target_cid, task, log_prefix):
 
         try:
             import task_manager
-            import threading
-            threading.Timer(
+            spawn_later(
                 10.0,
                 task_manager.trigger_115_organize_task,
-                kwargs={'reason': 'tg_offline_download'},
-            ).start()
+                reason='tg_offline_download',
+            )
         except Exception:
             pass
         return True
@@ -1220,12 +1220,22 @@ def _submit_tg_offline_links(client, links, target_cid, task, log_prefix):
     return False
 
 
+_TG_TASK_CONSUMER_SENTINEL = object()
+_TG_TASK_CONSUMER_LOCK = threading.Lock()
+_TG_TASK_CONSUMER_STOP = threading.Event()
+_tg_task_consumer_thread = None
+
+
 def _process_tg_queue():
     import requests 
 
     while True:
         try:
             task = tg_task_queue.get() 
+            if task is _TG_TASK_CONSUMER_SENTINEL:
+                break
+            if _TG_TASK_CONSUMER_STOP.is_set():
+                continue
             task_type = task.get('type')
             
             client = P115Service.get_client()
@@ -1486,12 +1496,11 @@ def _process_tg_queue():
 
                         try:
                             import task_manager
-                            import threading
-                            threading.Timer(
+                            spawn_later(
                                 3.0,
                                 task_manager.trigger_115_organize_task,
-                                kwargs={'reason': 'tg_channel_share'},
-                            ).start()
+                                reason='tg_channel_share',
+                            )
                         except: pass
                     else:
                         err = res.get('error_msg') or res.get('message') or str(res) or '未知错误'
@@ -1514,12 +1523,11 @@ def _process_tg_queue():
                     logger.info(f"  ➜ [TG订阅] 离线下载任务提交成功！")
                     try:
                         import task_manager
-                        import threading
-                        threading.Timer(
+                        spawn_later(
                             10.0,
                             task_manager.trigger_115_organize_task,
-                            kwargs={'reason': 'tg_channel_offline'},
-                        ).start()
+                            reason='tg_channel_offline',
+                        )
                     except: pass
                 else:
                     err = res.get('error_msg') or res.get('message') or str(res) or '未知错误'
@@ -1528,4 +1536,45 @@ def _process_tg_queue():
         except Exception as e:
             logger.error(f"  ➜ [频道监听] 队列处理异常: {e}")
 
-spawn(_process_tg_queue)
+
+def start_tg_task_consumer():
+    """显式、幂等地启动 TG 到 115 的队列消费者。"""
+    global _tg_task_consumer_thread
+    with _TG_TASK_CONSUMER_LOCK:
+        if _tg_task_consumer_thread and _tg_task_consumer_thread.is_alive():
+            return _tg_task_consumer_thread
+        _TG_TASK_CONSUMER_STOP.clear()
+        _tg_task_consumer_thread = threading.Thread(
+            target=_process_tg_queue,
+            daemon=True,
+            name="TG_Task_Consumer",
+        )
+        _tg_task_consumer_thread.start()
+        return _tg_task_consumer_thread
+
+
+def stop_tg_task_consumer(timeout=5.0):
+    """停止队列消费者；停止期间新旧待处理项会被丢弃。"""
+    global _tg_task_consumer_thread
+    with _TG_TASK_CONSUMER_LOCK:
+        thread = _tg_task_consumer_thread
+        if not thread or not thread.is_alive():
+            _tg_task_consumer_thread = None
+            return True
+        _TG_TASK_CONSUMER_STOP.set()
+        tg_task_queue.put(_TG_TASK_CONSUMER_SENTINEL)
+
+    if thread is not threading.current_thread():
+        thread.join(timeout=max(0.0, float(timeout)))
+
+    with _TG_TASK_CONSUMER_LOCK:
+        if thread.is_alive():
+            return False
+        if _tg_task_consumer_thread is thread:
+            _tg_task_consumer_thread = None
+        return True
+
+
+def is_tg_task_consumer_running():
+    with _TG_TASK_CONSUMER_LOCK:
+        return bool(_tg_task_consumer_thread and _tg_task_consumer_thread.is_alive())

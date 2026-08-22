@@ -10,7 +10,7 @@ import threading
 from typing import List, Optional, Any, Set, Dict
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from gevent import spawn_later
+from etk.compatibility.background import spawn, spawn_later
 
 import constants
 import config_manager
@@ -353,8 +353,7 @@ def _enqueue_strm_preparation(processor, file_path: str) -> bool:
             return False
         MEDIA_PREP_INFLIGHT.add(normalized_path)
 
-    worker = threading.Thread(target=_prepare_strm_for_binding, args=(processor, file_path), daemon=True)
-    worker.start()
+    spawn(_prepare_strm_for_binding, processor, file_path)
     return True
 
 
@@ -372,9 +371,7 @@ def enqueue_emby_binding(file_path: str, mediainfo: Optional[Dict[str, Any]] = N
             EMBY_BIND_MEDIAINFO[normalized_path] = mediainfo
         if EMBY_BIND_TIMER:
             EMBY_BIND_TIMER.cancel()
-        EMBY_BIND_TIMER = threading.Timer(EMBY_BIND_DEBOUNCE_SECONDS, _process_emby_binding_queue)
-        EMBY_BIND_TIMER.daemon = True
-        EMBY_BIND_TIMER.start()
+        EMBY_BIND_TIMER = spawn_later(EMBY_BIND_DEBOUNCE_SECONDS, _process_emby_binding_queue)
 
 
 def accept_plugin_emby_binding(item: Dict[str, Any], sha1: str = '', expected_pick_code: str = '') -> Dict[str, Any]:
@@ -598,12 +595,10 @@ def _process_emby_binding_queue():
                     exhausted.append(path)
 
             if retrying and EMBY_BIND_TIMER is None:
-                EMBY_BIND_TIMER = threading.Timer(
+                EMBY_BIND_TIMER = spawn_later(
                     EMBY_BIND_RETRY_DELAY_SECONDS,
                     _process_emby_binding_queue,
                 )
-                EMBY_BIND_TIMER.daemon = True
-                EMBY_BIND_TIMER.start()
 
         if retrying:
             logger.warning(
@@ -682,11 +677,11 @@ def process_batch_queue():
 
     if files_to_scrape:
         logger.info(f"  ➜ [实时监控] 准备识别并入库 {len(files_to_scrape)} 个实体媒体文件。")
-        threading.Thread(target=_handle_batch_file_task, args=(processor, files_to_scrape)).start()
+        spawn(_handle_batch_file_task, processor, files_to_scrape)
 
     if files_to_refresh_only:
         logger.info(f"  ➜ [实时监控] 发现 {len(files_to_refresh_only)} 个文件命中排除路径，将跳过刮削直接刷新 Emby。")
-        threading.Thread(target=_handle_batch_refresh_only_task, args=(files_to_refresh_only,)).start()
+        spawn(_handle_batch_refresh_only_task, files_to_refresh_only)
 
 def _handle_batch_file_task(processor, file_paths: List[str]):
     valid_files = _wait_for_files_stability(file_paths)
@@ -766,6 +761,7 @@ class MonitorService:
         MonitorService.active_instance = self
         
         self.observer: Optional[Any] = None
+        self._starter_handle = None
         self._observer_lock = threading.RLock()
         self._start_generation = 0
         self.enabled = self.config.get(constants.CONFIG_OPTION_MONITOR_ENABLED, False)
@@ -820,27 +816,51 @@ class MonitorService:
                     f"115 上传目录 {len(upload_paths)} 个。"
                 )
 
-        threading.Thread(target=_async_start, name="MonitorServiceStarter", daemon=True).start()
+        self._starter_handle = spawn(_async_start)
 
-    def stop(self):
+    def stop(self, timeout: float = 5.0):
         with self._observer_lock:
             self._start_generation += 1
             observer = self.observer
             self.observer = None
+            starter = self._starter_handle
+            self._starter_handle = None
+        stopped = True
+        if starter is not None:
+            starter.kill()
+            starter.join(timeout=max(0.0, float(timeout)))
+            stopped = starter.ready()
+            if not starter.ready():
+                with self._observer_lock:
+                    self._starter_handle = starter
         if observer:
             try:
                 observer.stop()
                 if observer.is_alive():
-                    observer.join()
+                    observer.join(timeout=max(0.0, float(timeout)))
+                stopped = stopped and not observer.is_alive()
             except RuntimeError:
-                pass
+                stopped = stopped and not observer.is_alive()
+            if observer.is_alive():
+                with self._observer_lock:
+                    self.observer = observer
+        try:
+            from handler.p115_upload_monitor import UploadMonitorRuntime
+
+            upload_runtime = UploadMonitorRuntime._instance
+            if upload_runtime is not None:
+                stopped = upload_runtime.stop(timeout=timeout) and stopped
+        except ImportError:
+            pass
+        return stopped
 
     @classmethod
     def restart_active(cls):
         instance = cls.active_instance
         if not instance:
             return False
-        instance.stop()
+        if instance.stop() is False:
+            return False
         instance.config = config_manager.APP_CONFIG
         instance.enabled = instance.config.get(constants.CONFIG_OPTION_MONITOR_ENABLED, False)
         instance.paths = instance.config.get(constants.CONFIG_OPTION_MONITOR_PATHS, [])

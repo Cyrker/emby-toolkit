@@ -137,7 +137,7 @@
     "watchlist_processor.py",
     "web_app.py"
   ],
-  "legacy_source_sha256": "26dd86b583e7539c273f63418e30b8932a305b53e1e31765652f6a8150a6e895",
+  "legacy_source_sha256": "2baa720441071da249d6fd813a06efcf13d27a41b801a21f05f8e9d1ca30ed4b",
   "metrics": {
     "blueprints": 22,
     "legacy_python_files": 126,

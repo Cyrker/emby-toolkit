@@ -2094,7 +2094,7 @@ def cleanup_deleted_media_item(item_id: str, item_name: str, item_type: str, ser
                     if target_item_type_for_full_cleanup in ['Movie', 'Series']:
                         try:
                             import config_manager
-                            from gevent import spawn
+                            from etk.compatibility.background import spawn
                             from handler.custom_collection import RecommendationEngine
                             
                             if config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_PROXY_ENABLED) and config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_AI_VECTOR):

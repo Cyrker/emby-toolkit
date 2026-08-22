@@ -1,0 +1,72 @@
+# syntax=docker/dockerfile:1.7
+ARG BUILDPLATFORM=linux/amd64
+
+FROM --platform=$BUILDPLATFORM node:20-alpine AS frontend-build
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN --mount=type=cache,id=etk-refactor-npm-cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --no-fund --legacy-peer-deps
+COPY frontend/ ./
+RUN --mount=type=cache,id=etk-refactor-vite-cache,target=/app/frontend/node_modules/.vite \
+    npm run build
+
+FROM python:3.12-slim AS runtime
+
+ARG UV_VERSION=0.11.3
+ENV LANG=C.UTF-8 \
+    TZ=Asia/Shanghai \
+    HOME=/embytoolkit \
+    CONFIG_DIR=/config \
+    APP_DATA_DIR=/config \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH=/opt/venv/bin:$PATH \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl dumb-init ffmpeg \
+    && python -m pip install --no-cache-dir "uv==${UV_VERSION}" \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml uv.lock README.md LICENSE constants.py ./
+RUN --mount=type=cache,id=etk-refactor-uv-cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
+
+COPY main.py \
+     core_processor.py \
+     utils.py \
+     logger_setup.py \
+     ai_translator.py \
+     watchlist_processor.py \
+     actor_utils.py \
+     actor_subscription_processor.py \
+     config_manager.py \
+     task_manager.py \
+     extensions.py \
+     scheduler_manager.py \
+     reverse_proxy.py \
+     monitor_service.py \
+     ./
+COPY src/ ./src/
+COPY handler/ ./handler/
+COPY database/ ./database/
+COPY tasks/ ./tasks/
+COPY fonts/ ./fonts/
+COPY services/ ./services/
+COPY routes/ ./routes/
+COPY templates/ ./templates/
+COPY docker/entrypoint.refactor.sh /entrypoint.refactor.sh
+COPY --from=frontend-build /app/frontend/dist/. /app/static/
+
+RUN --mount=type=cache,id=etk-refactor-uv-cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev \
+    && chmod 0755 /entrypoint.refactor.sh \
+    && mkdir -p /config "$HOME"
+
+VOLUME ["/config"]
+EXPOSE 5257 7758
+ENTRYPOINT ["dumb-init", "--", "/entrypoint.refactor.sh"]
+CMD ["python", "/app/main.py", "api"]

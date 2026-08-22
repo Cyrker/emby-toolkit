@@ -21,6 +21,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+web_app.py
+pyarmor_runtime_000000/
 
 # ----------------------------------------------------------------
 # Node.js / Frontend Specific
@@ -28,9 +30,12 @@ __pycache__/
 # 依赖目录 (在构建阶段处理)
 emby-actor-ui/node_modules
 node_modules
+frontend/node_modules
 
 # 构建产物 (从构建阶段拷贝，不直接复制)
 emby-actor-ui/dist
+frontend/dist
+docs/.vitepress/dist
 
 # ----------------------------------------------------------------
 # IDE & OS Specific

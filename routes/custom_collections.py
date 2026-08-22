@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, jsonify
 import logging
-from gevent import spawn_later
+from etk.compatibility.background import spawn_later
 import json
 import re
 import psycopg2

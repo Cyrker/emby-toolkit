@@ -83,8 +83,8 @@ def _save_emby_service_authorization(auth_result):
         constants.CONFIG_OPTION_EMBY_USER_ID: user_info['Id'],
         constants.CONFIG_OPTION_EMBY_AUTH_MODE: "user_token",
     }
-    from web_app import save_config_and_reload
-    save_config_and_reload(new_config)
+    from etk.bootstrap.runtime_supervisor import get_runtime_supervisor
+    get_runtime_supervisor().save_config_and_reload(new_config)
 
 
 def _etk_origin_for_plugin():

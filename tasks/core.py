@@ -158,11 +158,13 @@ def _task_run_chain_internal(processor, task_name: str, sequence_config_key: str
     main_processor = extensions.media_processor_instance
     main_processor.clear_stop_signal()
     timeout_triggered = threading.Event()
+    timeout_finished = threading.Event()
 
     def timeout_watcher():
         if timeout_seconds:
             logger.info(f"'{task_name}' 运行时长限制为 {max_runtime_minutes} 分钟，计时器已启动。")
-            time.sleep(timeout_seconds)
+            if timeout_finished.wait(timeout_seconds):
+                return
             
             if not main_processor.is_stop_requested():
                 logger.warning(f"  ➜ '{task_name}' 达到 {max_runtime_minutes} 分钟的运行时长限制，将发送停止信号...")
@@ -243,6 +245,7 @@ def _task_run_chain_internal(processor, task_name: str, sequence_config_key: str
 
     finally:
         # --- 任务结束后的清理和状态报告 ---
+        timeout_finished.set()
         final_message = f"'{task_name}' 执行完毕。"
         if main_processor.is_stop_requested():
             if timeout_triggered.is_set():

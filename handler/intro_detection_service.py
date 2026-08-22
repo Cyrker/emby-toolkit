@@ -28,6 +28,7 @@ import config_manager
 import constants
 from database import settings_db, user_db, watchlist_db
 from database.connection import get_db_connection
+from etk.compatibility.background import spawn_later
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +86,11 @@ FINGERPRINT_KIND_CREDITS = "credits"
 # process-wide 115 direct-link cache can be shared by PickCode.
 UA = "Mozilla/5.0"
 
-_queue: "queue.Queue[Dict[str, Any]]" = queue.Queue(maxsize=QUEUE_MAXSIZE)
+_queue: "queue.Queue[Any]" = queue.Queue(maxsize=QUEUE_MAXSIZE)
 _worker_lock = threading.Lock()
 _worker_started = False
+_worker_thread: threading.Thread | None = None
+_WORKER_STOP = object()
 _recent_lock = threading.Lock()
 _recent_jobs: Dict[str, float] = {}
 
@@ -720,15 +723,39 @@ def _load_remote_favorite_scope(target: EpisodeRef, item_ids: Sequence[str]) -> 
 
 
 def _start_worker() -> None:
-    global _worker_started
-    if _worker_started:
+    global _worker_started, _worker_thread
+    if _worker_thread and _worker_thread.is_alive():
         return
     with _worker_lock:
-        if _worker_started:
+        if _worker_thread and _worker_thread.is_alive():
             return
         t = threading.Thread(target=_worker_loop, name="etk-intro-detector", daemon=True)
+        _worker_thread = t
         t.start()
         _worker_started = True
+
+
+def stop_intro_detection_worker(timeout: float = 5.0) -> bool:
+    global _worker_started, _worker_thread
+    with _worker_lock:
+        worker = _worker_thread
+        while True:
+            try:
+                _queue.get_nowait()
+                _queue.task_done()
+            except queue.Empty:
+                break
+        if worker and worker.is_alive():
+            _queue.put(_WORKER_STOP)
+    if worker and worker is not threading.current_thread():
+        worker.join(timeout=max(0.0, float(timeout)))
+    with _worker_lock:
+        if worker and worker.is_alive():
+            return False
+        if _worker_thread is worker:
+            _worker_thread = None
+        _worker_started = False
+        return True
 
 
 def _claim_recent(key: str) -> bool:
@@ -746,6 +773,9 @@ def _claim_recent(key: str) -> bool:
 def _worker_loop() -> None:
     while True:
         job = _queue.get()
+        if job is _WORKER_STOP:
+            _queue.task_done()
+            return
         try:
             _process_job(job)
         except Exception as e:
@@ -1097,9 +1127,7 @@ def _schedule_next_batch_if_needed(
                 target.season_number,
             )
 
-    timer = threading.Timer(BATCH_CONTINUATION_DELAY_SECONDS, enqueue_later)
-    timer.daemon = True
-    timer.start()
+    spawn_later(BATCH_CONTINUATION_DELAY_SECONDS, enqueue_later)
 
 
 def _resolve_episode_ref(job: Dict[str, Any]) -> Optional[EpisodeRef]:

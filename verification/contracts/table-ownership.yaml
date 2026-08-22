@@ -5,14 +5,14 @@
         {
           "definition": "CREATE INDEX idx_mm_asset_details_gin ON media_metadata USING GIN(asset_details_json)",
           "name": "idx_mm_asset_details_gin",
-          "source": "database/connection.py:1095",
+          "source": "database/connection.py:1127",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_asset_details_gin ON media_metadata USING GIN(asset_details_json)",
           "name": "idx_mm_asset_details_gin",
-          "source": "database/connection.py:1111",
+          "source": "database/connection.py:1143",
           "table": "media_metadata",
           "unique": false
         }
@@ -107,7 +107,7 @@
       "name": "actor_subscriptions",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:410",
+      "source": "database/connection.py:442",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -140,7 +140,7 @@
       "name": "app_settings",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:106",
+      "source": "database/connection.py:138",
       "status": "legacy",
       "target_domains": [
         "system"
@@ -187,7 +187,7 @@
       "name": "cleanup_index",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:503",
+      "source": "database/connection.py:535",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -247,7 +247,7 @@
       "name": "collections_info",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:190",
+      "source": "database/connection.py:222",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -319,7 +319,7 @@
       "name": "custom_collections",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:207",
+      "source": "database/connection.py:239",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -353,7 +353,7 @@
         {
           "definition": "CREATE INDEX idx_emby_favorite_items_item ON emby_favorite_items (item_id)",
           "name": "idx_emby_favorite_items_item",
-          "source": "database/connection.py:185",
+          "source": "database/connection.py:217",
           "table": "emby_favorite_items",
           "unique": false
         }
@@ -361,7 +361,7 @@
       "name": "emby_favorite_items",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:176",
+      "source": "database/connection.py:208",
       "status": "legacy",
       "target_domains": [
         "identity",
@@ -426,21 +426,21 @@
         {
           "definition": "CREATE INDEX idx_emby_search_ngrams ON emby_search_index USING GIN(search_ngrams)",
           "name": "idx_emby_search_ngrams",
-          "source": "database/connection.py:135",
+          "source": "database/connection.py:167",
           "table": "emby_search_index",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_emby_search_pinyin_ngrams ON emby_search_index USING GIN(pinyin_ngrams)",
           "name": "idx_emby_search_pinyin_ngrams",
-          "source": "database/connection.py:139",
+          "source": "database/connection.py:171",
           "table": "emby_search_index",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_emby_search_type ON emby_search_index (item_type)",
           "name": "idx_emby_search_type",
-          "source": "database/connection.py:143",
+          "source": "database/connection.py:175",
           "table": "emby_search_index",
           "unique": false
         }
@@ -448,7 +448,7 @@
       "name": "emby_search_index",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:114",
+      "source": "database/connection.py:146",
       "status": "legacy",
       "target_domains": [
         "media"
@@ -476,7 +476,7 @@
       "name": "emby_search_rebuild_state",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:129",
+      "source": "database/connection.py:161",
       "status": "legacy",
       "target_domains": [
         "media"
@@ -524,7 +524,7 @@
       "name": "emby_users",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:149",
+      "source": "database/connection.py:181",
       "status": "legacy",
       "target_domains": [
         "identity",
@@ -569,7 +569,7 @@
       "name": "emby_users_extended",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:564",
+      "source": "database/connection.py:596",
       "status": "legacy",
       "target_domains": [
         "identity",
@@ -618,7 +618,7 @@
       "name": "failed_log",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:86",
+      "source": "database/connection.py:118",
       "status": "legacy",
       "target_domains": [
         "operations"
@@ -659,7 +659,7 @@
       "name": "invitations",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:544",
+      "source": "database/connection.py:576",
       "status": "legacy",
       "target_domains": [
         "identity",
@@ -708,7 +708,7 @@
         {
           "definition": "CREATE INDEX idx_media_image_cache_hash ON media_image_cache (content_hash)",
           "name": "idx_media_image_cache_hash",
-          "source": "database/connection.py:327",
+          "source": "database/connection.py:359",
           "table": "media_image_cache",
           "unique": false
         }
@@ -716,7 +716,7 @@
       "name": "media_image_cache",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:315",
+      "source": "database/connection.py:347",
       "status": "legacy",
       "target_domains": [
         "media"
@@ -766,7 +766,7 @@
       "name": "media_image_policy_cache",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:332",
+      "source": "database/connection.py:364",
       "status": "legacy",
       "target_domains": [
         "media"
@@ -1031,210 +1031,210 @@
         {
           "definition": "CREATE INDEX idx_mm_in_library ON media_metadata (in_library)",
           "name": "idx_mm_in_library",
-          "source": "database/connection.py:1069",
+          "source": "database/connection.py:1101",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_release_year ON media_metadata (release_year)",
           "name": "idx_mm_release_year",
-          "source": "database/connection.py:1072",
+          "source": "database/connection.py:1104",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_parent_series ON media_metadata (parent_series_tmdb_id)",
           "name": "idx_mm_parent_series",
-          "source": "database/connection.py:1075",
+          "source": "database/connection.py:1107",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_screenshot_hash ON media_metadata (screenshot_hash) WHERE screenshot_hash IS NOT NULL",
           "name": "idx_mm_screenshot_hash",
-          "source": "database/connection.py:1076",
+          "source": "database/connection.py:1108",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_subscription_status ON media_metadata (subscription_status) WHERE in_library = FALSE",
           "name": "idx_mm_subscription_status",
-          "source": "database/connection.py:1079",
+          "source": "database/connection.py:1111",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_emby_ids_gin ON media_metadata USING GIN(emby_item_ids_json)",
           "name": "idx_mm_emby_ids_gin",
-          "source": "database/connection.py:1082",
+          "source": "database/connection.py:1114",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_subscription_sources_gin ON media_metadata USING GIN(subscription_sources_json)",
           "name": "idx_mm_subscription_sources_gin",
-          "source": "database/connection.py:1083",
+          "source": "database/connection.py:1115",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_parent_series_season ON media_metadata (parent_series_tmdb_id, season_number)",
           "name": "idx_mm_parent_series_season",
-          "source": "database/connection.py:1087",
+          "source": "database/connection.py:1119",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_item_type ON media_metadata (item_type)",
           "name": "idx_mm_item_type",
-          "source": "database/connection.py:1089",
+          "source": "database/connection.py:1121",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_asset_details_gin ON media_metadata USING GIN(asset_details_json)",
           "name": "idx_mm_asset_details_gin",
-          "source": "database/connection.py:1095",
+          "source": "database/connection.py:1127",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_file_sha1_json_gin ON media_metadata USING GIN(file_sha1_json)",
           "name": "idx_mm_file_sha1_json_gin",
-          "source": "database/connection.py:1099",
+          "source": "database/connection.py:1131",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_file_pickcode_json_gin ON media_metadata USING GIN(file_pickcode_json)",
           "name": "idx_mm_file_pickcode_json_gin",
-          "source": "database/connection.py:1100",
+          "source": "database/connection.py:1132",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_episode_parent_library ON media_metadata (parent_series_tmdb_id, item_type, in_library) WHERE item_type = 'Episode'",
           "name": "idx_mm_episode_parent_library",
-          "source": "database/connection.py:1101",
+          "source": "database/connection.py:1133",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_genres_gin ON media_metadata USING GIN(genres_json jsonb_path_ops)",
           "name": "idx_mm_genres_gin",
-          "source": "database/connection.py:1105",
+          "source": "database/connection.py:1137",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_tags_gin ON media_metadata USING GIN(tags_json jsonb_path_ops)",
           "name": "idx_mm_tags_gin",
-          "source": "database/connection.py:1106",
+          "source": "database/connection.py:1138",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_countries_gin ON media_metadata USING GIN(countries_json jsonb_path_ops)",
           "name": "idx_mm_countries_gin",
-          "source": "database/connection.py:1107",
+          "source": "database/connection.py:1139",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_companies_gin ON media_metadata USING GIN(production_companies_json jsonb_path_ops)",
           "name": "idx_mm_companies_gin",
-          "source": "database/connection.py:1108",
+          "source": "database/connection.py:1140",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_networks_gin ON media_metadata USING GIN(networks_json jsonb_path_ops)",
           "name": "idx_mm_networks_gin",
-          "source": "database/connection.py:1109",
+          "source": "database/connection.py:1141",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_keywords_gin ON media_metadata USING GIN(keywords_json jsonb_path_ops)",
           "name": "idx_mm_keywords_gin",
-          "source": "database/connection.py:1110",
+          "source": "database/connection.py:1142",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_asset_details_gin ON media_metadata USING GIN(asset_details_json)",
           "name": "idx_mm_asset_details_gin",
-          "source": "database/connection.py:1111",
+          "source": "database/connection.py:1143",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_directors_gin ON media_metadata USING GIN(directors_json jsonb_path_ops)",
           "name": "idx_mm_directors_gin",
-          "source": "database/connection.py:1114",
+          "source": "database/connection.py:1146",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_actors_gin ON media_metadata USING GIN(actors_json jsonb_path_ops)",
           "name": "idx_mm_actors_gin",
-          "source": "database/connection.py:1115",
+          "source": "database/connection.py:1147",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_date_added_desc ON media_metadata (date_added DESC)",
           "name": "idx_mm_date_added_desc",
-          "source": "database/connection.py:1119",
+          "source": "database/connection.py:1151",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_rating_desc ON media_metadata (rating DESC)",
           "name": "idx_mm_rating_desc",
-          "source": "database/connection.py:1120",
+          "source": "database/connection.py:1152",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_release_date_desc ON media_metadata (release_date DESC)",
           "name": "idx_mm_release_date_desc",
-          "source": "database/connection.py:1121",
+          "source": "database/connection.py:1153",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_washing_level ON media_metadata (washing_level) WHERE washing_level IS NOT NULL AND in_library = TRUE",
           "name": "idx_mm_washing_level",
-          "source": "database/connection.py:1134",
+          "source": "database/connection.py:1166",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_type_parent ON media_metadata (item_type, parent_series_tmdb_id)",
           "name": "idx_mm_type_parent",
-          "source": "database/connection.py:1141",
+          "source": "database/connection.py:1173",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_watching_status ON media_metadata (watching_status) WHERE watching_status != 'NONE'",
           "name": "idx_mm_watching_status",
-          "source": "database/connection.py:1142",
+          "source": "database/connection.py:1174",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_episode_parent_season_ep_library ON media_metadata (parent_series_tmdb_id, season_number, episode_number) WHERE item_type='Episode' AND in_library=TRUE",
           "name": "idx_mm_episode_parent_season_ep_library",
-          "source": "database/connection.py:1165",
+          "source": "database/connection.py:1197",
           "table": "media_metadata",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_mm_season_parent_status ON media_metadata (parent_series_tmdb_id, season_number, watching_status) WHERE item_type='Season'",
           "name": "idx_mm_season_parent_status",
-          "source": "database/connection.py:1166",
+          "source": "database/connection.py:1198",
           "table": "media_metadata",
           "unique": false
         }
@@ -1244,11 +1244,11 @@
       "post_create_alters": [
         {
           "operation": "DROP COLUMN IF EXISTS watchlist_is_airing",
-          "source": "database/connection.py:992",
+          "source": "database/connection.py:1024",
           "table": "media_metadata"
         }
       ],
-      "source": "database/connection.py:226",
+      "source": "database/connection.py:258",
       "status": "legacy",
       "target_domains": [
         "media"
@@ -1298,42 +1298,42 @@
         {
           "definition": "CREATE INDEX idx_p115_parent_id ON p115_filesystem_cache (parent_id)",
           "name": "idx_p115_parent_id",
-          "source": "database/connection.py:1125",
+          "source": "database/connection.py:1157",
           "table": "p115_filesystem_cache",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_p115_name ON p115_filesystem_cache (name)",
           "name": "idx_p115_name",
-          "source": "database/connection.py:1127",
+          "source": "database/connection.py:1159",
           "table": "p115_filesystem_cache",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_p115_sha1_upper ON p115_filesystem_cache (UPPER(sha1)) WHERE sha1 IS NOT NULL AND sha1 <> ''",
           "name": "idx_p115_sha1_upper",
-          "source": "database/connection.py:1129",
+          "source": "database/connection.py:1161",
           "table": "p115_filesystem_cache",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_p115_pick_code ON p115_filesystem_cache (pick_code) WHERE pick_code IS NOT NULL AND pick_code <> ''",
           "name": "idx_p115_pick_code",
-          "source": "database/connection.py:1131",
+          "source": "database/connection.py:1163",
           "table": "p115_filesystem_cache",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_p115_local_path ON p115_filesystem_cache (local_path) WHERE local_path IS NOT NULL AND local_path <> ''",
           "name": "idx_p115_local_path",
-          "source": "database/connection.py:1132",
+          "source": "database/connection.py:1164",
           "table": "p115_filesystem_cache",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_p115_washing_level ON p115_filesystem_cache (washing_level) WHERE washing_level IS NOT NULL",
           "name": "idx_p115_washing_level",
-          "source": "database/connection.py:1133",
+          "source": "database/connection.py:1165",
           "table": "p115_filesystem_cache",
           "unique": false
         }
@@ -1341,7 +1341,7 @@
       "name": "p115_filesystem_cache",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:579",
+      "source": "database/connection.py:611",
       "status": "legacy",
       "target_domains": [
         "p115",
@@ -1412,7 +1412,7 @@
         {
           "definition": "CREATE INDEX idx_p115_intro_detection_failures_kind ON p115_intro_detection_failures (kind, algorithm_version)",
           "name": "idx_p115_intro_detection_failures_kind",
-          "source": "database/connection.py:638",
+          "source": "database/connection.py:670",
           "table": "p115_intro_detection_failures",
           "unique": false
         }
@@ -1420,7 +1420,7 @@
       "name": "p115_intro_detection_failures",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:621",
+      "source": "database/connection.py:653",
       "status": "legacy",
       "target_domains": [
         "p115",
@@ -1461,7 +1461,7 @@
       "name": "p115_intro_fingerprint_cache",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:610",
+      "source": "database/connection.py:642",
       "status": "legacy",
       "target_domains": [
         "p115",
@@ -1528,7 +1528,7 @@
         {
           "definition": "CREATE INDEX idx_p115_intro_fingerprint_failures_kind ON p115_intro_fingerprint_failures (kind, algorithm_version)",
           "name": "idx_p115_intro_fingerprint_failures_kind",
-          "source": "database/connection.py:657",
+          "source": "database/connection.py:689",
           "table": "p115_intro_fingerprint_failures",
           "unique": false
         }
@@ -1536,7 +1536,7 @@
       "name": "p115_intro_fingerprint_failures",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:641",
+      "source": "database/connection.py:673",
       "status": "legacy",
       "target_domains": [
         "p115",
@@ -1577,7 +1577,7 @@
       "name": "p115_mediainfo_cache",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:599",
+      "source": "database/connection.py:631",
       "status": "legacy",
       "target_domains": [
         "p115",
@@ -1630,7 +1630,7 @@
       "name": "p115_organize_records",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:743",
+      "source": "database/connection.py:775",
       "status": "legacy",
       "target_domains": [
         "p115",
@@ -1697,28 +1697,28 @@
         {
           "definition": "CREATE INDEX idx_p115_upload_records_type_status ON p115_upload_records (record_type, status)",
           "name": "idx_p115_upload_records_type_status",
-          "source": "database/connection.py:699",
+          "source": "database/connection.py:731",
           "table": "p115_upload_records",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_p115_upload_records_pick_code ON p115_upload_records (pick_code) WHERE pick_code IS NOT NULL",
           "name": "idx_p115_upload_records_pick_code",
-          "source": "database/connection.py:700",
+          "source": "database/connection.py:732",
           "table": "p115_upload_records",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_p115_upload_records_mapping ON p115_upload_records (mapping_id, record_type)",
           "name": "idx_p115_upload_records_mapping",
-          "source": "database/connection.py:701",
+          "source": "database/connection.py:733",
           "table": "p115_upload_records",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_p115_upload_records_local_path ON p115_upload_records (local_path) WHERE record_type = 'completed'",
           "name": "idx_p115_upload_records_local_path",
-          "source": "database/connection.py:702",
+          "source": "database/connection.py:734",
           "table": "p115_upload_records",
           "unique": false
         }
@@ -1726,7 +1726,7 @@
       "name": "p115_upload_records",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:683",
+      "source": "database/connection.py:715",
       "status": "legacy",
       "target_domains": [
         "p115",
@@ -1765,7 +1765,7 @@
       "name": "person_metadata",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:386",
+      "source": "database/connection.py:418",
       "status": "legacy",
       "target_domains": [
         "media"
@@ -1809,7 +1809,7 @@
       "name": "processed_log",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:76",
+      "source": "database/connection.py:108",
       "status": "legacy",
       "target_domains": [
         "operations"
@@ -1856,7 +1856,7 @@
         {
           "definition": "CREATE INDEX idx_ri_tmdb_type ON resubscribe_index (tmdb_id, item_type)",
           "name": "idx_ri_tmdb_type",
-          "source": "database/connection.py:1091",
+          "source": "database/connection.py:1123",
           "table": "resubscribe_index",
           "unique": false
         }
@@ -1864,7 +1864,7 @@
       "name": "resubscribe_index",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:486",
+      "source": "database/connection.py:518",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -2033,7 +2033,7 @@
       "name": "resubscribe_rules",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:443",
+      "source": "database/connection.py:475",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -2150,28 +2150,28 @@
         {
           "definition": "CREATE INDEX idx_scssc_channel ON shared_completed_season_share_channels (channel_id)",
           "name": "idx_scssc_channel",
-          "source": "database/connection.py:1159",
+          "source": "database/connection.py:1191",
           "table": "shared_completed_season_share_channels",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_scssc_center_source ON shared_completed_season_share_channels (center_source_id, status, updated_at DESC)",
           "name": "idx_scssc_center_source",
-          "source": "database/connection.py:1160",
+          "source": "database/connection.py:1192",
           "table": "shared_completed_season_share_channels",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_scssc_status_check ON shared_completed_season_share_channels (status, last_checked_at NULLS FIRST, updated_at ASC)",
           "name": "idx_scssc_status_check",
-          "source": "database/connection.py:1161",
+          "source": "database/connection.py:1193",
           "table": "shared_completed_season_share_channels",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_scssc_share_code ON shared_completed_season_share_channels (share_code) WHERE share_code IS NOT NULL AND share_code <> ''",
           "name": "idx_scssc_share_code",
-          "source": "database/connection.py:1162",
+          "source": "database/connection.py:1194",
           "table": "shared_completed_season_share_channels",
           "unique": false
         }
@@ -2179,7 +2179,7 @@
       "name": "shared_completed_season_share_channels",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:861",
+      "source": "database/connection.py:893",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -2247,7 +2247,7 @@
         {
           "definition": "CREATE INDEX idx_shared_credit_ledger_created ON shared_credit_ledger_local (created_at DESC)",
           "name": "idx_shared_credit_ledger_created",
-          "source": "database/connection.py:1138",
+          "source": "database/connection.py:1170",
           "table": "shared_credit_ledger_local",
           "unique": false
         }
@@ -2255,7 +2255,7 @@
       "name": "shared_credit_ledger_local",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:725",
+      "source": "database/connection.py:757",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -2329,7 +2329,7 @@
       "name": "shared_credit_snapshot",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:705",
+      "source": "database/connection.py:737",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -2429,28 +2429,28 @@
         {
           "definition": "CREATE INDEX idx_srsf_source ON shared_rapid_source_files (local_source_id)",
           "name": "idx_srsf_source",
-          "source": "database/connection.py:1153",
+          "source": "database/connection.py:1185",
           "table": "shared_rapid_source_files",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_srsf_sha1 ON shared_rapid_source_files (UPPER(sha1))",
           "name": "idx_srsf_sha1",
-          "source": "database/connection.py:1154",
+          "source": "database/connection.py:1186",
           "table": "shared_rapid_source_files",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_srsf_episode ON shared_rapid_source_files (tmdb_id, season_number, episode_number)",
           "name": "idx_srsf_episode",
-          "source": "database/connection.py:1155",
+          "source": "database/connection.py:1187",
           "table": "shared_rapid_source_files",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_srsf_source_episode_sha1 ON shared_rapid_source_files (local_source_id, tmdb_id, season_number, episode_number, UPPER(sha1))",
           "name": "idx_srsf_source_episode_sha1",
-          "source": "database/connection.py:1156",
+          "source": "database/connection.py:1188",
           "table": "shared_rapid_source_files",
           "unique": false
         }
@@ -2460,11 +2460,11 @@
       "post_create_alters": [
         {
           "operation": "ADD COLUMN IF NOT EXISTS preid TEXT",
-          "source": "database/connection.py:1146",
+          "source": "database/connection.py:1178",
           "table": "shared_rapid_source_files"
         }
       ],
-      "source": "database/connection.py:806",
+      "source": "database/connection.py:838",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -2616,42 +2616,42 @@
         {
           "definition": "CREATE INDEX idx_srs_status_updated ON shared_rapid_sources (status, updated_at DESC)",
           "name": "idx_srs_status_updated",
-          "source": "database/connection.py:1147",
+          "source": "database/connection.py:1179",
           "table": "shared_rapid_sources",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_srs_center_source ON shared_rapid_sources (source_kind, center_source_id)",
           "name": "idx_srs_center_source",
-          "source": "database/connection.py:1148",
+          "source": "database/connection.py:1180",
           "table": "shared_rapid_sources",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_srs_media ON shared_rapid_sources (tmdb_id, item_type, season_number, episode_number)",
           "name": "idx_srs_media",
-          "source": "database/connection.py:1149",
+          "source": "database/connection.py:1181",
           "table": "shared_rapid_sources",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_srs_sha1 ON shared_rapid_sources (UPPER(sha1)) WHERE sha1 IS NOT NULL AND sha1 <> ''",
           "name": "idx_srs_sha1",
-          "source": "database/connection.py:1150",
+          "source": "database/connection.py:1182",
           "table": "shared_rapid_sources",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_srs_effective_share_scan ON shared_rapid_sources (source_kind, tmdb_id, season_number, episode_number, status, center_status) WHERE status IN ('active','available','updating') AND center_status <> 'disabled'",
           "name": "idx_srs_effective_share_scan",
-          "source": "database/connection.py:1152",
+          "source": "database/connection.py:1184",
           "table": "shared_rapid_sources",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_srs_status_center_updated ON shared_rapid_sources (status, center_status, updated_at ASC, id ASC)",
           "name": "idx_srs_status_center_updated",
-          "source": "database/connection.py:1164",
+          "source": "database/connection.py:1196",
           "table": "shared_rapid_sources",
           "unique": false
         }
@@ -2661,11 +2661,11 @@
       "post_create_alters": [
         {
           "operation": "ADD COLUMN IF NOT EXISTS preid TEXT",
-          "source": "database/connection.py:1145",
+          "source": "database/connection.py:1177",
           "table": "shared_rapid_sources"
         }
       ],
-      "source": "database/connection.py:765",
+      "source": "database/connection.py:797",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -2773,14 +2773,14 @@
         {
           "definition": "CREATE INDEX idx_svi_status_updated ON shared_virtual_imports (status, updated_at DESC)",
           "name": "idx_svi_status_updated",
-          "source": "database/connection.py:1157",
+          "source": "database/connection.py:1189",
           "table": "shared_virtual_imports",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_svi_media ON shared_virtual_imports (tmdb_id, item_type, season_number, episode_number)",
           "name": "idx_svi_media",
-          "source": "database/connection.py:1158",
+          "source": "database/connection.py:1190",
           "table": "shared_virtual_imports",
           "unique": false
         }
@@ -2788,7 +2788,7 @@
       "name": "shared_virtual_imports",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:832",
+      "source": "database/connection.py:864",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -2836,7 +2836,7 @@
         {
           "definition": "CREATE INDEX idx_sas_delete_records_expires ON subscribe_assistant_delete_records (expires_at)",
           "name": "idx_sas_delete_records_expires",
-          "source": "database/connection.py:1137",
+          "source": "database/connection.py:1169",
           "table": "subscribe_assistant_delete_records",
           "unique": false
         }
@@ -2844,7 +2844,7 @@
       "name": "subscribe_assistant_delete_records",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:373",
+      "source": "database/connection.py:405",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -2905,14 +2905,14 @@
         {
           "definition": "CREATE INDEX idx_sas_snapshots_media ON subscribe_assistant_snapshots (tmdb_id, item_type, season_number)",
           "name": "idx_sas_snapshots_media",
-          "source": "database/connection.py:1135",
+          "source": "database/connection.py:1167",
           "table": "subscribe_assistant_snapshots",
           "unique": false
         },
         {
           "definition": "CREATE INDEX idx_sas_snapshots_checked ON subscribe_assistant_snapshots (last_checked_at)",
           "name": "idx_sas_snapshots_checked",
-          "source": "database/connection.py:1136",
+          "source": "database/connection.py:1168",
           "table": "subscribe_assistant_snapshots",
           "unique": false
         }
@@ -2920,7 +2920,7 @@
       "name": "subscribe_assistant_snapshots",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:357",
+      "source": "database/connection.py:389",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -2953,7 +2953,7 @@
       "name": "subscribe_assistant_state",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:348",
+      "source": "database/connection.py:380",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -2990,7 +2990,7 @@
       "name": "translation_cache",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:97",
+      "source": "database/connection.py:129",
       "status": "legacy",
       "target_domains": [
         "media"
@@ -3044,7 +3044,7 @@
       "name": "user_media_data",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:162",
+      "source": "database/connection.py:194",
       "status": "legacy",
       "target_domains": [
         "identity",
@@ -3096,7 +3096,7 @@
       "name": "user_templates",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:527",
+      "source": "database/connection.py:559",
       "status": "legacy",
       "target_domains": [
         "identity",
@@ -3133,7 +3133,7 @@
       "name": "washing_priority_groups",
       "new_owner": null,
       "post_create_alters": [],
-      "source": "database/connection.py:431",
+      "source": "database/connection.py:463",
       "status": "legacy",
       "target_domains": [
         "subscription",

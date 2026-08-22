@@ -20,7 +20,6 @@ from manifest_common import (
     stable_id,
 )
 
-
 EXPECTED = {
     "legacy_python_files": 126,
     "vue_files": 55,
@@ -37,7 +36,8 @@ def _legacy_python_files() -> list[str]:
     return sorted(
         relative_path(path)
         for path in REPO_ROOT.rglob("*.py")
-        if not any(part in excluded for part in path.relative_to(REPO_ROOT).parts)
+        if path.relative_to(REPO_ROOT) != Path("main.py")
+        and not any(part in excluded for part in path.relative_to(REPO_ROOT).parts)
     )
 
 

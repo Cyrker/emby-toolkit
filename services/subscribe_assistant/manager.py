@@ -4,7 +4,7 @@ import logging
 import time
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
-from gevent import spawn
+from etk.compatibility.background import spawn
 
 from database import connection
 from database import media_db, settings_db, watchlist_db

@@ -10,6 +10,7 @@ from core_processor import MediaProcessor
 from watchlist_processor import WatchlistProcessor
 from actor_subscription_processor import ActorSubscriptionProcessor
 import extensions
+from etk.compatibility.background import spawn_later
 
 logger = logging.getLogger(__name__)
 
@@ -90,13 +91,7 @@ def _schedule_pending_organize_if_needed(delay: float = 1.0) -> None:
     if not sources:
         return
 
-    def _runner():
-        if delay and delay > 0:
-            import time
-            time.sleep(delay)
-        trigger_115_organize_task(reason='、'.join(sources))
-
-    threading.Thread(target=_runner, name='pending-115-organize-submit', daemon=True).start()
+    spawn_later(delay, trigger_115_organize_task, reason='、'.join(sources))
 
 def update_status_from_thread(progress: int, message: str):
     """由处理器或任务函数调用，用于更新任务状态。
@@ -292,8 +287,10 @@ def stop_task_worker():
         task_worker_thread.join(timeout=5)
         if task_worker_thread.is_alive():
             logger.warning("任务工人线程在5秒内未能正常退出。")
+            return False
         else:
             logger.info("任务工人线程已成功停止。")
+    return not task_worker_thread or not task_worker_thread.is_alive()
 
 def clear_task_queue():
     """【公共接口】清空任务队列，用于应用退出。"""

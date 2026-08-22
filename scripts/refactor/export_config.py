@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from manifest_common import (
-    ManifestError,
     REPO_ROOT,
+    ManifestError,
     apply_contract_override,
     dump_yaml_compatible_json,
     evaluate_static,
@@ -19,7 +19,6 @@ from manifest_common import (
     source_ref,
     stable_id,
 )
-
 
 SECRET_FRAGMENTS = ("password", "secret", "token", "cookie", "api_key", "license_key")
 
@@ -55,7 +54,7 @@ def _extract_definition(
     if not isinstance(assignment.value, ast.Dict):
         raise ManifestError(f"{name} is not a dictionary")
     history: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for key_node, value_node in zip(assignment.value.keys, assignment.value.values):
+    for key_node, value_node in zip(assignment.value.keys, assignment.value.values):  # noqa: B905
         if key_node is None:
             continue
         key = str(evaluate_static(key_node, symbols))
@@ -159,7 +158,7 @@ def _scan_setting_calls() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     constant_symbols = load_constant_symbols(REPO_ROOT / "constants.py", module_alias="constants")
     for path in iter_project_python_files():
         rel = relative_path(path)
-        if rel.startswith(("scripts/refactor/", "verification/")):
+        if rel == "main.py" or rel.startswith(("scripts/refactor/", "verification/", "src/etk/")):
             continue
         try:
             _, tree = parse_python(path)
@@ -286,7 +285,10 @@ def export_config() -> dict[str, Any]:
             "environment_precedence_review": [
                 {
                     "key": "tmdb_api_base_url",
-                    "note": "The environment value is loaded into bootstrap memory and then overwritten by the dynamic merge.",
+                    "note": (
+                        "The environment value is loaded into bootstrap memory "
+                        "and then overwritten by the dynamic merge."
+                    ),
                     "source": "config_manager.py:318",
                 }
             ],

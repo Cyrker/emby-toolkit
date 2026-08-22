@@ -11,7 +11,7 @@ from handler.tg_media_candidate import build_channel_task_payload
 from handler.shared_center_client import SharedCenterClient, shared_center_enabled
 from handler.shared_subscription_service import consume_center_source_payload
 from services.subscribe_assistant.config import default_assistant_config_dict
-import threading
+from etk.compatibility.background import spawn
 
 subscription_bp = Blueprint('subscription_bp', __name__, url_prefix='/api/subscription')
 logger = logging.getLogger(__name__)
@@ -1285,10 +1285,7 @@ def trigger_cloud_download():
         if not client.ping():
             return jsonify({"success": False, "message": "请先完成影巢授权"}), 401
 
-        threading.Thread(
-            target=task_download_from_hdhive,
-            args=(None, slug, tmdb_id, media_type, title, resource)
-        ).start()
+        spawn(task_download_from_hdhive, None, slug, tmdb_id, media_type, title, resource)
         return jsonify({"success": True, "message": "已向 115 发送影巢资源转存指令，后台正在处理！"})
 
     if source_type in {'channel', 'tg', 'telegram', '频道'} or resource.get('target_link') or resource.get('magnet_url'):
@@ -1364,10 +1361,7 @@ def trigger_hdhive_download():
         return jsonify({"success": False, "message": "请先完成影巢授权"}), 401
 
     # task_download_from_hdhive 的第一个参数保留兼容旧函数签名，新版 HDHiveClient 会忽略该参数。
-    threading.Thread(
-        target=task_download_from_hdhive,
-        args=(None, slug, tmdb_id, media_type, title, data)
-    ).start()
+    spawn(task_download_from_hdhive, None, slug, tmdb_id, media_type, title, data)
     return jsonify({"success": True, "message": "已向 115 发送转存指令，后台正在处理！"})
 
 

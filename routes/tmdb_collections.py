@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, jsonify
 import logging
-from gevent import spawn, spawn_later
+from etk.compatibility.background import spawn, spawn_later
 # 导入需要的模块
 from database import custom_collection_db, tmdb_collection_db, settings_db
 from extensions import admin_required, DELETING_COLLECTIONS

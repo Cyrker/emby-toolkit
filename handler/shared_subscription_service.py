@@ -18,6 +18,7 @@ from handler.p115_temp_dir import ensure_temp_dir, find_temp_video
 from handler.p115_rename import P115RenameRenderer
 from handler.p115_media_analyzer import P115MediaAnalyzerMixin
 from handler.shared_center_client import SharedCenterClient, shared_center_enabled
+from etk.compatibility.background import spawn_later
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +52,6 @@ def _kick_115_organize_detached(reason: str = '', delay: float = 3.0) -> Dict[st
         _LAST_ORGANIZE_KICK_AT = now
 
     def _runner():
-        if delay and delay > 0:
-            time.sleep(delay)
         try:
             import task_manager
             logger.info(f"  ➜ [共享资源] 准备触发待整理扫描...")
@@ -60,7 +59,7 @@ def _kick_115_organize_detached(reason: str = '', delay: float = 3.0) -> Dict[st
         except Exception as e:
             logger.error(f"  ➜ [共享资源] 触发 115 待整理扫描失败: {e}", exc_info=True)
 
-    threading.Thread(target=_runner, name='shared-rapid-import-organize', daemon=True).start()
+    spawn_later(delay, _runner)
     return {'started': True, 'message': '已异步触发 115 待整理扫描'}
 
 

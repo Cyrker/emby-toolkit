@@ -11,7 +11,7 @@ import re
 import threading
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
-from gevent import spawn_later
+from etk.compatibility.background import spawn, spawn_later
 from typing import Any, Dict
 import time
 import config_manager
@@ -10758,10 +10758,7 @@ class WebhookDeleteBuffer:
                 cls._timer.cancel()
             except Exception:
                 pass
-        timer = threading.Timer(delay, cls._execute_all)
-        timer.daemon = True
-        cls._timer = timer
-        timer.start()
+        cls._timer = spawn_later(delay, cls._execute_all)
 
     @classmethod
     def add(cls, pickcodes, file_snapshots=None):
@@ -10828,12 +10825,7 @@ class WebhookDeleteBuffer:
 
         if not pickcodes: return
 
-        threading.Thread(
-            target=cls._run_batch,
-            args=(pickcodes, file_snapshots, retry_counts),
-            name="p115-webhook-delete-buffer",
-            daemon=True,
-        ).start()
+        spawn(cls._run_batch, pickcodes, file_snapshots, retry_counts)
 
     @classmethod
     def _run_batch(cls, pickcodes, file_snapshots=None, retry_counts=None):
@@ -11068,8 +11060,6 @@ def _kick_shared_raw_reupload_detached(reason: str = '', delay: float = 8.0):
         _LAST_SHARED_RAW_REUPLOAD_AT = now
 
     def _runner():
-        if delay and delay > 0:
-            time.sleep(delay)
         try:
             from tasks.shared_resource_tasks import task_shared_resource_maintenance
             logger.info(f"  ➜ [批量重组] 异步触发 Rapid 共享维护：{reason or 'manual-reorganize-raw-fix'}")
@@ -11077,11 +11067,7 @@ def _kick_shared_raw_reupload_detached(reason: str = '', delay: float = 8.0):
         except Exception as e:
             logger.warning(f"  ➜ [批量重组] 触发 Rapid 共享维护失败: {e}", exc_info=True)
 
-    threading.Thread(
-        target=_runner,
-        name='shared-rapid-maintenance-after-manual-correct',
-        daemon=True,
-    ).start()
+    spawn_later(delay, _runner)
     return {'started': True, 'message': '已异步触发 Rapid 共享维护'}
 
 # ======================================================================
@@ -11102,7 +11088,6 @@ class ManualCorrectTaskQueue:
 
             if cls._timer is not None:
                 cls._timer.kill()
-            from gevent import spawn_later
             # 延迟 2 秒，收集前端并发发来的所有同批次请求
             cls._timer = spawn_later(2.0, cls._execute_all)
 
@@ -11113,7 +11098,6 @@ class ManualCorrectTaskQueue:
             cls._tasks.clear()
             cls._timer = None
 
-        from gevent import spawn
         for key, record_ids in tasks.items():
             spawn(cls._process_batch, key, record_ids)
 
