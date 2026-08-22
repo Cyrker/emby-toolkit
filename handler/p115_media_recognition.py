@@ -704,6 +704,7 @@ class P115RecognitionRuleTests(unittest.TestCase):
         organizer.tmdb_id = "36338"
         organizer.rating_map = {}
         organizer.rating_priority = []
+        organizer.ai_translator = None
         organizer.recognition_hints = {
             "title": "The Lead",
             "identify_title": "The Lead",
@@ -770,6 +771,7 @@ class P115RecognitionRuleTests(unittest.TestCase):
         organizer.tmdb_id = "999"
         organizer.rating_map = {}
         organizer.rating_priority = []
+        organizer.ai_translator = None
         organizer.recognition_hints = {}
 
         class _Cursor:

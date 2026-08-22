@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "mode": "local-stub-only",
+  "services": {
+    "emby": {
+      "base_url": "https://emby.example.invalid",
+      "api_key": "<redacted>"
+    },
+    "p115": {
+      "base_url": "https://p115.example.invalid",
+      "cookie": "<redacted>"
+    },
+    "moviepilot": {
+      "base_url": "https://moviepilot.example.invalid",
+      "api_key": "<redacted>"
+    },
+    "shared_center": {
+      "base_url": "https://shared-center.example.invalid",
+      "token": "<redacted>"
+    },
+    "telegram": {
+      "base_url": "https://telegram.example.invalid",
+      "token": "<redacted>"
+    },
+    "hdhive": {
+      "base_url": "https://hdhive.example.invalid",
+      "token": "<redacted>"
+    }
+  }
+}

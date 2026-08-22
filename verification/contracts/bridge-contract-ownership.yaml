@@ -1,0 +1,1188 @@
+{
+  "contracts": [
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-03911a60ddcd",
+      "direction": "inbound",
+      "endpoint": "get_emby_metadata_by_path",
+      "fixtures": [
+        "verification/fixtures/http/bridge-metadata.json",
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "GET",
+      "new_owner": null,
+      "path": "/api/emby/metadata",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "query.path",
+        "query.item_type",
+        "query.season_number?",
+        "query.episode_number?"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        400,
+        404
+      ],
+      "source": "routes/webhook.py:1667",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-aba6a1c7b78d",
+      "direction": "inbound",
+      "endpoint": "search_emby_metadata_images",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "GET",
+      "new_owner": null,
+      "path": "/api/emby/metadata/images/search",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "query.path?",
+        "query.tmdb_id?",
+        "query.item_type",
+        "query.include_all_languages?"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        400,
+        404,
+        502,
+        503
+      ],
+      "source": "routes/webhook.py:2131",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-a055537ee82c",
+      "direction": "inbound",
+      "endpoint": "proxy_emby_plugin_update",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "GET",
+      "new_owner": null,
+      "path": "/api/emby/plugin-update",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [],
+      "response_content_types": [
+        "application/octet-stream",
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        502
+      ],
+      "source": "routes/webhook.py:1626",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-baacd5a53601",
+      "direction": "inbound",
+      "endpoint": "get_cached_mediainfo_by_pick_code",
+      "fixtures": [
+        "verification/fixtures/http/bridge-mediainfo.json",
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "GET",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/<pick_code>",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        400,
+        404,
+        422
+      ],
+      "source": "routes/p115.py:2039",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-17630408ec24",
+      "direction": "inbound",
+      "endpoint": "get_cached_metadata_by_pick_code",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "GET",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/<pick_code>/metadata",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity",
+        "query.item_type?",
+        "query.season_number?",
+        "query.episode_number?"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        400,
+        404
+      ],
+      "source": "routes/p115.py:2102",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-3dacec9dcdc2",
+      "direction": "inbound",
+      "endpoint": "get_cached_mediainfo_by_sha1",
+      "fixtures": [
+        "verification/fixtures/http/bridge-mediainfo.json",
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "GET",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/sha1/<sha1>",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        400,
+        404,
+        422
+      ],
+      "source": "routes/p115.py:2047",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-aaa90120b3e8",
+      "direction": "inbound",
+      "endpoint": "get_cached_metadata_by_sha1",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "GET",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/sha1/<sha1>/metadata",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity",
+        "query.item_type?",
+        "query.season_number?",
+        "query.episode_number?"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        400,
+        404
+      ],
+      "source": "routes/p115.py:2110",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "source-marker-only",
+      "contract_id": "bridge-inbound-a895f0e25386",
+      "direction": "inbound",
+      "endpoint": "emby_webhook",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/emby/events",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "body._etk_source",
+        "body.Event"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        202,
+        400,
+        500,
+        503
+      ],
+      "source": "routes/webhook.py:2266",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-1a2af69cb62d",
+      "direction": "inbound",
+      "endpoint": "trigger_emby_metadata_backfill",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/emby/metadata/backfill",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        202,
+        200,
+        409
+      ],
+      "source": "routes/webhook.py:1737",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-2cd416352e06",
+      "direction": "inbound",
+      "endpoint": "trigger_emby_item_metadata_backfill",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/emby/metadata/backfill/item",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "body.emby_item_id"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        202,
+        200,
+        400,
+        409
+      ],
+      "source": "routes/webhook.py:1880",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-b11b6364834b",
+      "direction": "inbound",
+      "endpoint": "trigger_emby_items_metadata_backfill",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/emby/metadata/backfill/items",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "body.emby_item_ids[]"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        202,
+        200,
+        400,
+        409
+      ],
+      "source": "routes/webhook.py:1888",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-ef191d723860",
+      "direction": "inbound",
+      "endpoint": "trigger_emby_library_metadata_backfill",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/emby/metadata/backfill/library",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "body.emby_library_id",
+        "body.refresh_mode"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        202,
+        200,
+        400,
+        409
+      ],
+      "source": "routes/webhook.py:1899",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-4415d220d7fb",
+      "direction": "inbound",
+      "endpoint": "refresh_emby_metadata_images",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/emby/metadata/images/refresh",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "query.path?",
+        "query.tmdb_id?",
+        "query.item_type",
+        "query.season_number?",
+        "query.episode_number?"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        400,
+        404,
+        500,
+        502,
+        503
+      ],
+      "source": "routes/webhook.py:1937",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-2183b9cf5188",
+      "direction": "inbound",
+      "endpoint": "sync_emby_metadata_images",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/emby/metadata/images/sync",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "query.path?",
+        "query.tmdb_id?",
+        "query.item_type",
+        "body.rules[]",
+        "body.force?"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        400,
+        404,
+        410,
+        502
+      ],
+      "source": "routes/webhook.py:2196",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-52a525635811",
+      "direction": "inbound",
+      "endpoint": "commit_deep_delete_by_pick_code",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/<pick_code>/deep-delete/commit",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity",
+        "body.token"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        202,
+        400,
+        404,
+        410
+      ],
+      "source": "routes/p115.py:2396",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-d5b5cdc5106f",
+      "direction": "inbound",
+      "endpoint": "prepare_deep_delete_by_pick_code",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/<pick_code>/deep-delete/prepare",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity",
+        "body.root_item_id",
+        "body.anchor_item_id",
+        "body.item_type"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        400,
+        404,
+        409
+      ],
+      "source": "routes/p115.py:2383",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-f04a41c9ac19",
+      "direction": "inbound",
+      "endpoint": "sync_intro_snapshot_by_pick_code",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/<pick_code>/intro-sync",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity",
+        "query.emby_item_id"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        404
+      ],
+      "source": "routes/p115.py:2178",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-c0b2b42ff285",
+      "direction": "inbound",
+      "endpoint": "accept_emby_item_by_pick_code",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/<pick_code>/item-ready",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity",
+        "query.emby_item_id"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        404,
+        409
+      ],
+      "source": "routes/p115.py:2191",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-4d43478b1b45",
+      "direction": "inbound",
+      "endpoint": "trigger_metadata_backfill_by_pick_code",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/<pick_code>/metadata/backfill",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        202,
+        200,
+        404,
+        409
+      ],
+      "source": "routes/p115.py:2133",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-7429ffea250f",
+      "direction": "inbound",
+      "endpoint": "commit_deep_delete_by_sha1",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity",
+        "body.token"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        202,
+        400,
+        404,
+        410
+      ],
+      "source": "routes/p115.py:2404",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-37ae031c1496",
+      "direction": "inbound",
+      "endpoint": "prepare_deep_delete_by_sha1",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity",
+        "body.root_item_id",
+        "body.anchor_item_id",
+        "body.item_type"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        400,
+        404,
+        409
+      ],
+      "source": "routes/p115.py:2391",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-812d67208b80",
+      "direction": "inbound",
+      "endpoint": "sync_intro_snapshot_by_sha1",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/sha1/<sha1>/intro-sync",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity",
+        "query.emby_item_id"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        404
+      ],
+      "source": "routes/p115.py:2186",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-bd5deb601b60",
+      "direction": "inbound",
+      "endpoint": "accept_emby_item_by_sha1",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/sha1/<sha1>/item-ready",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity",
+        "query.emby_item_id"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        200,
+        404,
+        409
+      ],
+      "source": "routes/p115.py:2199",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "none",
+      "contract_id": "bridge-inbound-1d1229762a72",
+      "direction": "inbound",
+      "endpoint": "trigger_metadata_backfill_by_sha1",
+      "fixtures": [
+        "verification/fixtures/http/bridge-validation-errors.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/api/p115/mediainfo/sha1/<sha1>/metadata/backfill",
+      "redactions": [
+        "Authorization",
+        "Cookie",
+        "X-Emby-Token",
+        "path.identity",
+        "filesystem paths",
+        "external URLs",
+        "user identifiers"
+      ],
+      "request_fields": [
+        "path.identity"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_statuses": [
+        202,
+        200,
+        404,
+        409
+      ],
+      "source": "routes/p115.py:2141",
+      "status": "legacy",
+      "target_stage": "P6",
+      "transport": "http",
+      "validation_method": "golden-master-and-stub-contract",
+      "validation_owner": "p115/bridge"
+    },
+    {
+      "auth": "emby-token",
+      "contract_id": "bridge-outbound-bd603f7ded88",
+      "direction": "outbound",
+      "fixtures": [
+        "verification/fixtures/stubs/external-services.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/ETKMediaInfo/Origin",
+      "redactions": [
+        "query.api_key",
+        "header.X-Emby-Token",
+        "body.Url"
+      ],
+      "request_fields": [
+        "query.api_key",
+        "body.Url"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_fields": [
+        "Configured|configured"
+      ],
+      "response_statuses": [
+        200
+      ],
+      "source": "handler/emby.py:106",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "emby-token",
+      "contract_id": "bridge-outbound-cba147d1ffa7",
+      "direction": "outbound",
+      "fixtures": [
+        "verification/fixtures/stubs/external-services.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/ETKMediaInfo/DiscoveryUrl",
+      "redactions": [
+        "query.api_key",
+        "header.X-Emby-Token",
+        "body.Url"
+      ],
+      "request_fields": [
+        "query.api_key",
+        "body.Url"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_fields": [
+        "Configured|configured"
+      ],
+      "response_statuses": [
+        200
+      ],
+      "source": "handler/emby.py:128",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "emby-token",
+      "contract_id": "bridge-outbound-25c06ef77764",
+      "direction": "outbound",
+      "fixtures": [
+        "verification/fixtures/stubs/external-services.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/Items/{item_id}/ETKMediaInfo",
+      "redactions": [
+        "query.api_key",
+        "header.X-Emby-Token",
+        "body.Url"
+      ],
+      "request_fields": [
+        "header.X-Emby-Token",
+        "body.MediaSourceInfo",
+        "body.Chapters"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_fields": [
+        "StreamCount?",
+        "PreservedExternalStreamCount?"
+      ],
+      "response_statuses": [
+        200
+      ],
+      "source": "handler/emby.py:180",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "emby-token",
+      "contract_id": "bridge-outbound-c7a91deffe62",
+      "direction": "outbound",
+      "fixtures": [
+        "verification/fixtures/stubs/external-services.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/Items/{item_id}/ETKMediaInfo/Intro",
+      "redactions": [
+        "query.api_key",
+        "header.X-Emby-Token",
+        "body.Url"
+      ],
+      "request_fields": [
+        "body.IntroStartTicks",
+        "body.IntroEndTicks"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_fields": [],
+      "response_statuses": [
+        200
+      ],
+      "source": "handler/emby.py:240",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "emby-token",
+      "contract_id": "bridge-outbound-98d57e7098ff",
+      "direction": "outbound",
+      "fixtures": [
+        "verification/fixtures/stubs/external-services.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/Items/{item_id}/ETKMediaInfo/Credits",
+      "redactions": [
+        "query.api_key",
+        "header.X-Emby-Token",
+        "body.Url"
+      ],
+      "request_fields": [
+        "body.CreditsStartTicks"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_fields": [],
+      "response_statuses": [
+        200
+      ],
+      "source": "handler/emby.py:286",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "stub-contract",
+      "validation_owner": "media/bridge"
+    },
+    {
+      "auth": "emby-token",
+      "contract_id": "bridge-outbound-ba258edf5155",
+      "direction": "outbound",
+      "fixtures": [
+        "verification/fixtures/stubs/external-services.json"
+      ],
+      "method": "POST",
+      "new_owner": null,
+      "path": "/Items/{item_id}/ETKMediaInfo/Chapters",
+      "redactions": [
+        "query.api_key",
+        "header.X-Emby-Token",
+        "body.Url"
+      ],
+      "request_fields": [
+        "body.Clear*",
+        "body.*Ticks?"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "response_fields": [],
+      "response_statuses": [
+        200
+      ],
+      "source": "handler/emby.py:329",
+      "status": "legacy",
+      "target_stage": "P5",
+      "transport": "http",
+      "validation_method": "stub-contract",
+      "validation_owner": "media/bridge"
+    }
+  ],
+  "generator": "scripts/refactor/export_bridge_contracts.py",
+  "limitations": [
+    "The Bridge DLL source is not part of this repository; outbound response schemas cover only fields consumed by ETK.",
+    "Success payloads that depend on database or external adapters require sanitized fixtures and local stubs."
+  ],
+  "metrics": {
+    "outbound_bridge_contract_count": 6,
+    "required_inbound_contract_count": 24,
+    "total_contract_count": 30
+  },
+  "schema_version": 1,
+  "source_scope": [
+    "routes/webhook.py",
+    "routes/p115.py",
+    "handler/emby.py"
+  ]
+}

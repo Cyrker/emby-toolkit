@@ -1,0 +1,3149 @@
+{
+  "baseline_variances": {
+    "duplicate_static_indexes": {
+      "idx_mm_asset_details_gin": [
+        {
+          "definition": "CREATE INDEX idx_mm_asset_details_gin ON media_metadata USING GIN(asset_details_json)",
+          "name": "idx_mm_asset_details_gin",
+          "source": "database/connection.py:1095",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_asset_details_gin ON media_metadata USING GIN(asset_details_json)",
+          "name": "idx_mm_asset_details_gin",
+          "source": "database/connection.py:1111",
+          "table": "media_metadata",
+          "unique": false
+        }
+      ]
+    }
+  },
+  "generator": "scripts/refactor/export_tables.py",
+  "limitations": [
+    "Static DDL is a candidate baseline, not an authoritative PostgreSQL schema dump.",
+    "Dynamic schema_upgrades and deprecated table/column loops require isolated database verification."
+  ],
+  "metrics": {
+    "duplicate_static_index_name_count": 1,
+    "static_alter_statement_count": 3,
+    "static_index_statement_count": 68,
+    "table_count": 39,
+    "unique_static_index_name_count": 67
+  },
+  "schema_version": 1,
+  "source_scope": [
+    "database/connection.py"
+  ],
+  "tables": [
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "INTEGER NOT NULL UNIQUE",
+          "name": "tmdb_person_id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "actor_name"
+        },
+        {
+          "definition": "TEXT",
+          "name": "profile_path"
+        },
+        {
+          "definition": "INTEGER DEFAULT 1900",
+          "name": "config_start_year"
+        },
+        {
+          "definition": "TEXT DEFAULT 'Movie,TV'",
+          "name": "config_media_types"
+        },
+        {
+          "definition": "JSONB",
+          "name": "config_genres_include_json"
+        },
+        {
+          "definition": "JSONB",
+          "name": "config_genres_exclude_json"
+        },
+        {
+          "definition": "TEXT DEFAULT 'active'",
+          "name": "status"
+        },
+        {
+          "definition": "JSONB",
+          "name": "last_scanned_tmdb_ids_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_checked_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "added_at"
+        },
+        {
+          "definition": "REAL DEFAULT 6.0",
+          "name": "config_min_rating"
+        },
+        {
+          "definition": "BOOLEAN NOT NULL DEFAULT FALSE",
+          "name": "config_main_role_only"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 10",
+          "name": "config_min_vote_count"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-8f330f3b52c9",
+      "create_sql": "CREATE TABLE IF NOT EXISTS actor_subscriptions ( id SERIAL PRIMARY KEY, tmdb_person_id INTEGER NOT NULL UNIQUE, actor_name TEXT NOT NULL, profile_path TEXT, config_start_year INTEGER DEFAULT 1900, config_media_types TEXT DEFAULT 'Movie,TV', config_genres_include_json JSONB, config_genres_exclude_json JSONB, status TEXT DEFAULT 'active', last_scanned_tmdb_ids_json JSONB, last_checked_at TIMESTAMP WITH TIME ZONE, added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), config_min_rating REAL DEFAULT 6.0, config_main_role_only BOOLEAN NOT NULL DEFAULT FALSE, config_min_vote_count INTEGER NOT NULL DEFAULT 10 )",
+      "indexes_static": [],
+      "name": "actor_subscriptions",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:410",
+      "status": "legacy",
+      "target_domains": [
+        "subscription",
+        "people"
+      ],
+      "target_stage": "P7",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "subscription/people"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "setting_key"
+        },
+        {
+          "definition": "JSONB",
+          "name": "value_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "last_updated_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-9b7b3844d336",
+      "create_sql": "CREATE TABLE IF NOT EXISTS app_settings ( setting_key TEXT PRIMARY KEY, value_json JSONB, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [],
+      "name": "app_settings",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:106",
+      "status": "legacy",
+      "target_domains": [
+        "system"
+      ],
+      "target_stage": "P2",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "system"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "item_type"
+        },
+        {
+          "definition": "JSONB",
+          "name": "best_version_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "last_updated_at"
+        }
+      ],
+      "constraints_static": [
+        "-- 核心指针：指向 media_metadata 表的复合主键 tmdb_id TEXT NOT NULL",
+        "-- 任务元数据 status TEXT DEFAULT 'pending'",
+        "-- 'pending'",
+        "'processed'",
+        "'ignored' -- 决策结果 versions_info_json JSONB",
+        "-- 复合唯一约束，确保每个媒体项只有一个待办任务 UNIQUE (tmdb_id, item_type)"
+      ],
+      "contract_id": "table-06cdc8ae8bf4",
+      "create_sql": "CREATE TABLE IF NOT EXISTS cleanup_index ( id SERIAL PRIMARY KEY, -- 核心指针：指向 media_metadata 表的复合主键 tmdb_id TEXT NOT NULL, item_type TEXT NOT NULL, -- 任务元数据 status TEXT DEFAULT 'pending', -- 'pending', 'processed', 'ignored' -- 决策结果 versions_info_json JSONB, best_version_json JSONB, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- 复合唯一约束，确保每个媒体项只有一个待办任务 UNIQUE (tmdb_id, item_type) )",
+      "indexes_static": [],
+      "name": "cleanup_index",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:503",
+      "status": "legacy",
+      "target_domains": [
+        "subscription",
+        "people"
+      ],
+      "target_stage": "P7",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "subscription/people"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "tmdb_collection_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "overview"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_checked_at"
+        },
+        {
+          "definition": "TEXT",
+          "name": "poster_path"
+        },
+        {
+          "definition": "TEXT",
+          "name": "backdrop_path"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "metadata_schema_version"
+        },
+        {
+          "definition": "BOOLEAN NOT NULL DEFAULT FALSE",
+          "name": "is_active"
+        },
+        {
+          "definition": "TEXT DEFAULT 'Movie' NOT NULL",
+          "name": "item_type"
+        },
+        {
+          "definition": "JSONB",
+          "name": "all_tmdb_ids_json"
+        }
+      ],
+      "constraints_static": [
+        "-- 主键改为 TMDb ID emby_collection_id TEXT UNIQUE",
+        "-- Emby ID 改为唯一约束，允许为空 name TEXT"
+      ],
+      "contract_id": "table-4f82ae25f961",
+      "create_sql": "CREATE TABLE IF NOT EXISTS collections_info ( tmdb_collection_id TEXT PRIMARY KEY, -- 主键改为 TMDb ID emby_collection_id TEXT UNIQUE, -- Emby ID 改为唯一约束，允许为空 name TEXT, overview TEXT, last_checked_at TIMESTAMP WITH TIME ZONE, poster_path TEXT, backdrop_path TEXT, metadata_schema_version INTEGER NOT NULL DEFAULT 0, is_active BOOLEAN NOT NULL DEFAULT FALSE, item_type TEXT DEFAULT 'Movie' NOT NULL, all_tmdb_ids_json JSONB );",
+      "indexes_static": [],
+      "name": "collections_info",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:190",
+      "status": "legacy",
+      "target_domains": [
+        "collection"
+      ],
+      "target_stage": "P8",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "collection"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL UNIQUE",
+          "name": "name"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "type"
+        },
+        {
+          "definition": "JSONB NOT NULL",
+          "name": "definition_json"
+        },
+        {
+          "definition": "TEXT DEFAULT 'active'",
+          "name": "status"
+        },
+        {
+          "definition": "TEXT",
+          "name": "emby_collection_id"
+        },
+        {
+          "definition": "JSONB",
+          "name": "allowed_user_ids"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_synced_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TEXT",
+          "name": "item_type"
+        },
+        {
+          "definition": "INTEGER DEFAULT 0",
+          "name": "in_library_count"
+        },
+        {
+          "definition": "JSONB",
+          "name": "generated_media_info_json"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "sort_order"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-3567d1dedfe4",
+      "create_sql": "CREATE TABLE IF NOT EXISTS custom_collections ( id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, type TEXT NOT NULL, definition_json JSONB NOT NULL, status TEXT DEFAULT 'active', emby_collection_id TEXT, allowed_user_ids JSONB, last_synced_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), item_type TEXT, in_library_count INTEGER DEFAULT 0, generated_media_info_json JSONB, sort_order INTEGER NOT NULL DEFAULT 0 )",
+      "indexes_static": [],
+      "name": "custom_collections",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:207",
+      "status": "legacy",
+      "target_domains": [
+        "collection"
+      ],
+      "target_stage": "P8",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "collection"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "user_id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "item_id"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [
+        "PRIMARY KEY (user_id, item_id)"
+      ],
+      "contract_id": "table-35d52e3c0a77",
+      "create_sql": "CREATE TABLE IF NOT EXISTS emby_favorite_items ( user_id TEXT NOT NULL, item_id TEXT NOT NULL, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), PRIMARY KEY (user_id, item_id) )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_emby_favorite_items_item ON emby_favorite_items (item_id)",
+          "name": "idx_emby_favorite_items_item",
+          "source": "database/connection.py:185",
+          "table": "emby_favorite_items",
+          "unique": false
+        }
+      ],
+      "name": "emby_favorite_items",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:176",
+      "status": "legacy",
+      "target_domains": [
+        "identity",
+        "users"
+      ],
+      "target_stage": "P3/P8",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "identity/users"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "BIGINT PRIMARY KEY",
+          "name": "emby_item_id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "item_type"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "title"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "original_title"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "series_name"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "search_compact"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "pinyin_full"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "pinyin_initials"
+        },
+        {
+          "definition": "TEXT[] NOT NULL DEFAULT '{}'",
+          "name": "search_ngrams"
+        },
+        {
+          "definition": "TEXT[] NOT NULL DEFAULT '{}'",
+          "name": "pinyin_ngrams"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-90370b358a77",
+      "create_sql": "CREATE TABLE IF NOT EXISTS emby_search_index ( emby_item_id BIGINT PRIMARY KEY, item_type TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', original_title TEXT NOT NULL DEFAULT '', series_name TEXT NOT NULL DEFAULT '', search_compact TEXT NOT NULL DEFAULT '', pinyin_full TEXT NOT NULL DEFAULT '', pinyin_initials TEXT NOT NULL DEFAULT '', search_ngrams TEXT[] NOT NULL DEFAULT '{}', pinyin_ngrams TEXT[] NOT NULL DEFAULT '{}', updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW() )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_emby_search_ngrams ON emby_search_index USING GIN(search_ngrams)",
+          "name": "idx_emby_search_ngrams",
+          "source": "database/connection.py:135",
+          "table": "emby_search_index",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_emby_search_pinyin_ngrams ON emby_search_index USING GIN(pinyin_ngrams)",
+          "name": "idx_emby_search_pinyin_ngrams",
+          "source": "database/connection.py:139",
+          "table": "emby_search_index",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_emby_search_type ON emby_search_index (item_type)",
+          "name": "idx_emby_search_type",
+          "source": "database/connection.py:143",
+          "table": "emby_search_index",
+          "unique": false
+        }
+      ],
+      "name": "emby_search_index",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:114",
+      "status": "legacy",
+      "target_domains": [
+        "media"
+      ],
+      "target_stage": "P5",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "media"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "token"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()",
+          "name": "started_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-08f5f06d8411",
+      "create_sql": "CREATE TABLE IF NOT EXISTS emby_search_rebuild_state ( token TEXT PRIMARY KEY, started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW() )",
+      "indexes_static": [],
+      "name": "emby_search_rebuild_state",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:129",
+      "status": "legacy",
+      "target_domains": [
+        "media"
+      ],
+      "target_stage": "P5",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "media"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "name"
+        },
+        {
+          "definition": "BOOLEAN",
+          "name": "is_administrator"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_seen_at"
+        },
+        {
+          "definition": "TEXT",
+          "name": "profile_image_tag"
+        },
+        {
+          "definition": "JSONB",
+          "name": "policy_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "last_updated_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-1b13870cddc1",
+      "create_sql": "CREATE TABLE IF NOT EXISTS emby_users ( id TEXT PRIMARY KEY, name TEXT NOT NULL, is_administrator BOOLEAN, last_seen_at TIMESTAMP WITH TIME ZONE, profile_image_tag TEXT, policy_json JSONB, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [],
+      "name": "emby_users",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:149",
+      "status": "legacy",
+      "target_domains": [
+        "identity",
+        "users"
+      ],
+      "target_stage": "P3/P8",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "identity/users"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "emby_user_id"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT 'active'",
+          "name": "status"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "expiration_date"
+        },
+        {
+          "definition": "TEXT DEFAULT 'self-registered'",
+          "name": "created_by"
+        }
+      ],
+      "constraints_static": [
+        "-- active(激活)",
+        "expired(过期)",
+        "disabled(禁用) registration_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+        "-- 核心字段：用户的到期时间 notes TEXT",
+        "-- 'self-registered' 或 'admin' template_id INTEGER",
+        "FOREIGN KEY(emby_user_id) REFERENCES emby_users(id) ON DELETE CASCADE",
+        "FOREIGN KEY(template_id) REFERENCES user_templates(id) ON DELETE SET NULL"
+      ],
+      "contract_id": "table-cdf1a1fd2964",
+      "create_sql": "CREATE TABLE IF NOT EXISTS emby_users_extended ( emby_user_id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'active', -- active(激活), expired(过期), disabled(禁用) registration_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(), expiration_date TIMESTAMP WITH TIME ZONE, -- 核心字段：用户的到期时间 notes TEXT, created_by TEXT DEFAULT 'self-registered', -- 'self-registered' 或 'admin' template_id INTEGER, FOREIGN KEY(emby_user_id) REFERENCES emby_users(id) ON DELETE CASCADE, FOREIGN KEY(template_id) REFERENCES user_templates(id) ON DELETE SET NULL )",
+      "indexes_static": [],
+      "name": "emby_users_extended",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:564",
+      "status": "legacy",
+      "target_domains": [
+        "identity",
+        "users"
+      ],
+      "target_stage": "P3/P8",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "identity/users"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "item_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "item_name"
+        },
+        {
+          "definition": "TEXT",
+          "name": "reason"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "failed_at"
+        },
+        {
+          "definition": "TEXT",
+          "name": "error_message"
+        },
+        {
+          "definition": "TEXT",
+          "name": "item_type"
+        },
+        {
+          "definition": "REAL",
+          "name": "score"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-755a9eeffbf9",
+      "create_sql": "CREATE TABLE IF NOT EXISTS failed_log ( item_id TEXT PRIMARY KEY, item_name TEXT, reason TEXT, failed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), error_message TEXT, item_type TEXT, score REAL )",
+      "indexes_static": [],
+      "name": "failed_log",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:86",
+      "status": "legacy",
+      "target_domains": [
+        "operations"
+      ],
+      "target_stage": "P3",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "operations"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT 'active'",
+          "name": "status"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        }
+      ],
+      "constraints_static": [
+        "-- 核心字段：独一无二的邀请码 token TEXT NOT NULL UNIQUE",
+        "-- 关联到使用的模板 template_id INTEGER NOT NULL",
+        "-- 本次邀请的有效期，可以覆盖模板的默认值 expiration_days INTEGER NOT NULL",
+        "-- 状态: active(可用)",
+        "used(已用)",
+        "expired(过期) -- 邀请链接本身的有效期 expires_at TIMESTAMP WITH TIME ZONE",
+        "-- 记录被哪个新用户使用了 used_by_user_id TEXT",
+        "FOREIGN KEY(template_id) REFERENCES user_templates(id) ON DELETE CASCADE"
+      ],
+      "contract_id": "table-33cd5e40bb5f",
+      "create_sql": "CREATE TABLE IF NOT EXISTS invitations ( id SERIAL PRIMARY KEY, -- 核心字段：独一无二的邀请码 token TEXT NOT NULL UNIQUE, -- 关联到使用的模板 template_id INTEGER NOT NULL, -- 本次邀请的有效期，可以覆盖模板的默认值 expiration_days INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'active', -- 状态: active(可用), used(已用), expired(过期) -- 邀请链接本身的有效期 expires_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- 记录被哪个新用户使用了 used_by_user_id TEXT, FOREIGN KEY(template_id) REFERENCES user_templates(id) ON DELETE CASCADE )",
+      "indexes_static": [],
+      "name": "invitations",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:544",
+      "status": "legacy",
+      "target_domains": [
+        "identity",
+        "users"
+      ],
+      "target_stage": "P3/P8",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "identity/users"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "source_url"
+        },
+        {
+          "definition": "CHAR(64) NOT NULL",
+          "name": "content_hash"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "relative_path"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "mime_type"
+        },
+        {
+          "definition": "BIGINT NOT NULL",
+          "name": "byte_size"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "last_accessed_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-de0b6a2fe15f",
+      "create_sql": "CREATE TABLE IF NOT EXISTS media_image_cache ( source_url TEXT PRIMARY KEY, content_hash CHAR(64) NOT NULL, relative_path TEXT NOT NULL, mime_type TEXT NOT NULL, byte_size BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_media_image_cache_hash ON media_image_cache (content_hash)",
+          "name": "idx_media_image_cache_hash",
+          "source": "database/connection.py:327",
+          "table": "media_image_cache",
+          "unique": false
+        }
+      ],
+      "name": "media_image_cache",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:315",
+      "status": "legacy",
+      "target_domains": [
+        "media"
+      ],
+      "target_stage": "P5",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "media"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "item_type"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "tmdb_id"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT -1",
+          "name": "season_number"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT -1",
+          "name": "episode_number"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '[]'::jsonb",
+          "name": "policy_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '[]'::jsonb",
+          "name": "images_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [
+        "PRIMARY KEY ( item_type, tmdb_id, season_number, episode_number )"
+      ],
+      "contract_id": "table-3779f4166204",
+      "create_sql": "CREATE TABLE IF NOT EXISTS media_image_policy_cache ( item_type TEXT NOT NULL, tmdb_id TEXT NOT NULL, season_number INTEGER NOT NULL DEFAULT -1, episode_number INTEGER NOT NULL DEFAULT -1, policy_json JSONB NOT NULL DEFAULT '[]'::jsonb, images_json JSONB NOT NULL DEFAULT '[]'::jsonb, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), PRIMARY KEY ( item_type, tmdb_id, season_number, episode_number ) )",
+      "indexes_static": [],
+      "name": "media_image_policy_cache",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:332",
+      "status": "legacy",
+      "target_domains": [
+        "media"
+      ],
+      "target_stage": "P5",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "media"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "item_type"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '[]'::jsonb",
+          "name": "emby_item_ids_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '[]'::jsonb",
+          "name": "file_sha1_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '[]'::jsonb",
+          "name": "file_pickcode_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "date_added"
+        },
+        {
+          "definition": "JSONB",
+          "name": "asset_details_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "first_requested_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_subscribed_at"
+        },
+        {
+          "definition": "TEXT",
+          "name": "title"
+        },
+        {
+          "definition": "TEXT",
+          "name": "original_title"
+        },
+        {
+          "definition": "TEXT",
+          "name": "original_language"
+        },
+        {
+          "definition": "TEXT",
+          "name": "overview"
+        },
+        {
+          "definition": "TEXT",
+          "name": "tagline"
+        },
+        {
+          "definition": "JSONB",
+          "name": "overview_embedding"
+        },
+        {
+          "definition": "DATE",
+          "name": "release_date"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "release_year"
+        },
+        {
+          "definition": "DATE",
+          "name": "last_air_date"
+        },
+        {
+          "definition": "TEXT",
+          "name": "poster_path"
+        },
+        {
+          "definition": "CHAR(64)",
+          "name": "screenshot_hash"
+        },
+        {
+          "definition": "TEXT",
+          "name": "backdrop_path"
+        },
+        {
+          "definition": "TEXT",
+          "name": "logo_path"
+        },
+        {
+          "definition": "TEXT",
+          "name": "thumb_path"
+        },
+        {
+          "definition": "TEXT",
+          "name": "homepage"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "runtime_minutes"
+        },
+        {
+          "definition": "REAL",
+          "name": "rating"
+        },
+        {
+          "definition": "JSONB",
+          "name": "official_rating_json"
+        },
+        {
+          "definition": "TEXT",
+          "name": "custom_rating"
+        },
+        {
+          "definition": "JSONB",
+          "name": "genres_json"
+        },
+        {
+          "definition": "JSONB",
+          "name": "actors_json"
+        },
+        {
+          "definition": "JSONB",
+          "name": "directors_json"
+        },
+        {
+          "definition": "JSONB",
+          "name": "production_companies_json"
+        },
+        {
+          "definition": "JSONB",
+          "name": "networks_json"
+        },
+        {
+          "definition": "JSONB",
+          "name": "countries_json"
+        },
+        {
+          "definition": "JSONB",
+          "name": "keywords_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "last_updated_at"
+        },
+        {
+          "definition": "TEXT",
+          "name": "ignore_reason"
+        },
+        {
+          "definition": "JSONB",
+          "name": "tags_json"
+        },
+        {
+          "definition": "BOOLEAN NOT NULL DEFAULT FALSE",
+          "name": "metadata_ready"
+        },
+        {
+          "definition": "BOOLEAN NOT NULL DEFAULT FALSE",
+          "name": "actors_ready"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "metadata_schema_version"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "season_number"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "episode_number"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "force_ended"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "watchlist_last_checked_at"
+        },
+        {
+          "definition": "TEXT",
+          "name": "watchlist_tmdb_status"
+        },
+        {
+          "definition": "JSONB",
+          "name": "watchlist_next_episode_json"
+        },
+        {
+          "definition": "JSONB",
+          "name": "watchlist_missing_info_json"
+        },
+        {
+          "definition": "JSONB",
+          "name": "last_episode_to_air_json"
+        },
+        {
+          "definition": "INTEGER DEFAULT 0",
+          "name": "total_episodes"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "total_episodes_locked"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "waiting_for_completed_pack"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "active_washing"
+        },
+        {
+          "definition": "JSONB DEFAULT '{}'::jsonb",
+          "name": "watchlist_version_lock_json"
+        },
+        {
+          "definition": "JSONB DEFAULT '{}'::jsonb",
+          "name": "washing_snapshot_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        }
+      ],
+      "constraints_static": [
+        "-- 核心标识符 tmdb_id TEXT NOT NULL",
+        "-- 'Movie'",
+        "'Series'",
+        "'Season'",
+        "'Episode' -- 媒体库状态 in_library BOOLEAN DEFAULT FALSE NOT NULL",
+        "-- 订阅与状态管理 subscription_status TEXT NOT NULL DEFAULT 'NONE'",
+        "-- 'NONE'",
+        "'WANTED'",
+        "'SUBSCRIBED'",
+        "'IGNORED'",
+        "'PENDING_RELEASE'",
+        "'REQUESTED'",
+        "'PAUSED' subscription_sources_json JSONB NOT NULL DEFAULT '[]'::jsonb",
+        "-- 核心与扩展元数据 imdb_id TEXT",
+        "-- 剧集专属与层级数据 parent_series_tmdb_id TEXT",
+        "-- 追剧专属字段 watching_status TEXT DEFAULT 'NONE'",
+        "-- 'NONE'",
+        "'Watching'",
+        "'Paused'",
+        "'Completed'",
+        "'Pending' paused_until DATE",
+        "-- 洗版优先级快照（主动洗版门禁用） washing_level INTEGER",
+        "-- 内部管理字段 last_synced_at TIMESTAMP WITH TIME ZONE",
+        "-- 主键 PRIMARY KEY (tmdb_id, item_type)"
+      ],
+      "contract_id": "table-95a5b9ee8f66",
+      "create_sql": "CREATE TABLE IF NOT EXISTS media_metadata ( -- 核心标识符 tmdb_id TEXT NOT NULL, item_type TEXT NOT NULL, -- 'Movie', 'Series', 'Season', 'Episode' -- 媒体库状态 in_library BOOLEAN DEFAULT FALSE NOT NULL, emby_item_ids_json JSONB NOT NULL DEFAULT '[]'::jsonb, file_sha1_json JSONB NOT NULL DEFAULT '[]'::jsonb, file_pickcode_json JSONB NOT NULL DEFAULT '[]'::jsonb, date_added TIMESTAMP WITH TIME ZONE, asset_details_json JSONB, -- 订阅与状态管理 subscription_status TEXT NOT NULL DEFAULT 'NONE', -- 'NONE', 'WANTED', 'SUBSCRIBED', 'IGNORED', 'PENDING_RELEASE', 'REQUESTED', 'PAUSED' subscription_sources_json JSONB NOT NULL DEFAULT '[]'::jsonb, first_requested_at TIMESTAMP WITH TIME ZONE, last_subscribed_at TIMESTAMP WITH TIME ZONE, -- 核心与扩展元数据 imdb_id TEXT, title TEXT, original_title TEXT, original_language TEXT, overview TEXT, tagline TEXT, overview_embedding JSONB, release_date DATE, release_year INTEGER, last_air_date DATE, poster_path TEXT, screenshot_hash CHAR(64), backdrop_path TEXT, logo_path TEXT, thumb_path TEXT, homepage TEXT, runtime_minutes INTEGER, rating REAL, official_rating_json JSONB, custom_rating TEXT, genres_json JSONB, actors_json JSONB, directors_json JSONB, production_companies_json JSONB, networks_json JSONB, countries_json JSONB, keywords_json JSONB, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), ignore_reason TEXT, tags_json JSONB, metadata_ready BOOLEAN NOT NULL DEFAULT FALSE, actors_ready BOOLEAN NOT NULL DEFAULT FALSE, metadata_schema_version INTEGER NOT NULL DEFAULT 0, -- 剧集专属与层级数据 parent_series_tmdb_id TEXT, season_number INTEGER, episode_number INTEGER, -- 追剧专属字段 watching_status TEXT DEFAULT 'NONE', -- 'NONE', 'Watching', 'Paused', 'Completed', 'Pending' paused_until DATE, force_ended BOOLEAN DEFAULT FALSE, watchlist_last_checked_at TIMESTAMP WITH TIME ZONE, watchlist_tmdb_status TEXT, watchlist_next_episode_json JSONB, watchlist_missing_info_json JSONB, last_episode_to_air_json JSONB, total_episodes INTEGER DEFAULT 0, total_episodes_locked BOOLEAN DEFAULT FALSE, waiting_for_completed_pack BOOLEAN DEFAULT FALSE, active_washing BOOLEAN DEFAULT FALSE, watchlist_version_lock_json JSONB DEFAULT '{}'::jsonb, -- 洗版优先级快照（主动洗版门禁用） washing_level INTEGER, washing_snapshot_json JSONB DEFAULT '{}'::jsonb, -- 内部管理字段 last_synced_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- 主键 PRIMARY KEY (tmdb_id, item_type) )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_mm_in_library ON media_metadata (in_library)",
+          "name": "idx_mm_in_library",
+          "source": "database/connection.py:1069",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_release_year ON media_metadata (release_year)",
+          "name": "idx_mm_release_year",
+          "source": "database/connection.py:1072",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_parent_series ON media_metadata (parent_series_tmdb_id)",
+          "name": "idx_mm_parent_series",
+          "source": "database/connection.py:1075",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_screenshot_hash ON media_metadata (screenshot_hash) WHERE screenshot_hash IS NOT NULL",
+          "name": "idx_mm_screenshot_hash",
+          "source": "database/connection.py:1076",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_subscription_status ON media_metadata (subscription_status) WHERE in_library = FALSE",
+          "name": "idx_mm_subscription_status",
+          "source": "database/connection.py:1079",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_emby_ids_gin ON media_metadata USING GIN(emby_item_ids_json)",
+          "name": "idx_mm_emby_ids_gin",
+          "source": "database/connection.py:1082",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_subscription_sources_gin ON media_metadata USING GIN(subscription_sources_json)",
+          "name": "idx_mm_subscription_sources_gin",
+          "source": "database/connection.py:1083",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_parent_series_season ON media_metadata (parent_series_tmdb_id, season_number)",
+          "name": "idx_mm_parent_series_season",
+          "source": "database/connection.py:1087",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_item_type ON media_metadata (item_type)",
+          "name": "idx_mm_item_type",
+          "source": "database/connection.py:1089",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_asset_details_gin ON media_metadata USING GIN(asset_details_json)",
+          "name": "idx_mm_asset_details_gin",
+          "source": "database/connection.py:1095",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_file_sha1_json_gin ON media_metadata USING GIN(file_sha1_json)",
+          "name": "idx_mm_file_sha1_json_gin",
+          "source": "database/connection.py:1099",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_file_pickcode_json_gin ON media_metadata USING GIN(file_pickcode_json)",
+          "name": "idx_mm_file_pickcode_json_gin",
+          "source": "database/connection.py:1100",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_episode_parent_library ON media_metadata (parent_series_tmdb_id, item_type, in_library) WHERE item_type = 'Episode'",
+          "name": "idx_mm_episode_parent_library",
+          "source": "database/connection.py:1101",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_genres_gin ON media_metadata USING GIN(genres_json jsonb_path_ops)",
+          "name": "idx_mm_genres_gin",
+          "source": "database/connection.py:1105",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_tags_gin ON media_metadata USING GIN(tags_json jsonb_path_ops)",
+          "name": "idx_mm_tags_gin",
+          "source": "database/connection.py:1106",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_countries_gin ON media_metadata USING GIN(countries_json jsonb_path_ops)",
+          "name": "idx_mm_countries_gin",
+          "source": "database/connection.py:1107",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_companies_gin ON media_metadata USING GIN(production_companies_json jsonb_path_ops)",
+          "name": "idx_mm_companies_gin",
+          "source": "database/connection.py:1108",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_networks_gin ON media_metadata USING GIN(networks_json jsonb_path_ops)",
+          "name": "idx_mm_networks_gin",
+          "source": "database/connection.py:1109",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_keywords_gin ON media_metadata USING GIN(keywords_json jsonb_path_ops)",
+          "name": "idx_mm_keywords_gin",
+          "source": "database/connection.py:1110",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_asset_details_gin ON media_metadata USING GIN(asset_details_json)",
+          "name": "idx_mm_asset_details_gin",
+          "source": "database/connection.py:1111",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_directors_gin ON media_metadata USING GIN(directors_json jsonb_path_ops)",
+          "name": "idx_mm_directors_gin",
+          "source": "database/connection.py:1114",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_actors_gin ON media_metadata USING GIN(actors_json jsonb_path_ops)",
+          "name": "idx_mm_actors_gin",
+          "source": "database/connection.py:1115",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_date_added_desc ON media_metadata (date_added DESC)",
+          "name": "idx_mm_date_added_desc",
+          "source": "database/connection.py:1119",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_rating_desc ON media_metadata (rating DESC)",
+          "name": "idx_mm_rating_desc",
+          "source": "database/connection.py:1120",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_release_date_desc ON media_metadata (release_date DESC)",
+          "name": "idx_mm_release_date_desc",
+          "source": "database/connection.py:1121",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_washing_level ON media_metadata (washing_level) WHERE washing_level IS NOT NULL AND in_library = TRUE",
+          "name": "idx_mm_washing_level",
+          "source": "database/connection.py:1134",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_type_parent ON media_metadata (item_type, parent_series_tmdb_id)",
+          "name": "idx_mm_type_parent",
+          "source": "database/connection.py:1141",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_watching_status ON media_metadata (watching_status) WHERE watching_status != 'NONE'",
+          "name": "idx_mm_watching_status",
+          "source": "database/connection.py:1142",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_episode_parent_season_ep_library ON media_metadata (parent_series_tmdb_id, season_number, episode_number) WHERE item_type='Episode' AND in_library=TRUE",
+          "name": "idx_mm_episode_parent_season_ep_library",
+          "source": "database/connection.py:1165",
+          "table": "media_metadata",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_mm_season_parent_status ON media_metadata (parent_series_tmdb_id, season_number, watching_status) WHERE item_type='Season'",
+          "name": "idx_mm_season_parent_status",
+          "source": "database/connection.py:1166",
+          "table": "media_metadata",
+          "unique": false
+        }
+      ],
+      "name": "media_metadata",
+      "new_owner": null,
+      "post_create_alters": [
+        {
+          "operation": "DROP COLUMN IF EXISTS watchlist_is_airing",
+          "source": "database/connection.py:992",
+          "table": "media_metadata"
+        }
+      ],
+      "source": "database/connection.py:226",
+      "status": "legacy",
+      "target_domains": [
+        "media"
+      ],
+      "target_stage": "P5",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "media"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "pick_code"
+        },
+        {
+          "definition": "BIGINT DEFAULT 0",
+          "name": "size"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "washing_level"
+        },
+        {
+          "definition": "JSONB DEFAULT '{}'::jsonb",
+          "name": "washing_snapshot_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [
+        "-- 115 的 cid (文件夹) 或 fid (文件) parent_id TEXT NOT NULL",
+        "-- 父目录 ID (根目录为 '0') name TEXT NOT NULL",
+        "-- 文件/文件夹名称 local_path TEXT",
+        "-- 本地映射路径 (如果已同步到本地) sha1 TEXT",
+        "-- 最后同步时间 -- 复合唯一约束：同一个父目录下不能有同名文件 (用于快速查找) -- 注意：115 实际上允许同名，但在我们的管理逻辑中通常假设唯一，或者只缓存最新的 CONSTRAINT uniq_p115_parent_name UNIQUE (parent_id, name)"
+      ],
+      "contract_id": "table-1650ca2632a8",
+      "create_sql": "CREATE TABLE IF NOT EXISTS p115_filesystem_cache ( id TEXT PRIMARY KEY, -- 115 的 cid (文件夹) 或 fid (文件) parent_id TEXT NOT NULL, -- 父目录 ID (根目录为 '0') name TEXT NOT NULL, -- 文件/文件夹名称 local_path TEXT, -- 本地映射路径 (如果已同步到本地) sha1 TEXT, pick_code TEXT, size BIGINT DEFAULT 0, washing_level INTEGER, washing_snapshot_json JSONB DEFAULT '{}'::jsonb, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- 最后同步时间 -- 复合唯一约束：同一个父目录下不能有同名文件 (用于快速查找) -- 注意：115 实际上允许同名，但在我们的管理逻辑中通常假设唯一，或者只缓存最新的 CONSTRAINT uniq_p115_parent_name UNIQUE (parent_id, name) )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_p115_parent_id ON p115_filesystem_cache (parent_id)",
+          "name": "idx_p115_parent_id",
+          "source": "database/connection.py:1125",
+          "table": "p115_filesystem_cache",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_p115_name ON p115_filesystem_cache (name)",
+          "name": "idx_p115_name",
+          "source": "database/connection.py:1127",
+          "table": "p115_filesystem_cache",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_p115_sha1_upper ON p115_filesystem_cache (UPPER(sha1)) WHERE sha1 IS NOT NULL AND sha1 <> ''",
+          "name": "idx_p115_sha1_upper",
+          "source": "database/connection.py:1129",
+          "table": "p115_filesystem_cache",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_p115_pick_code ON p115_filesystem_cache (pick_code) WHERE pick_code IS NOT NULL AND pick_code <> ''",
+          "name": "idx_p115_pick_code",
+          "source": "database/connection.py:1131",
+          "table": "p115_filesystem_cache",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_p115_local_path ON p115_filesystem_cache (local_path) WHERE local_path IS NOT NULL AND local_path <> ''",
+          "name": "idx_p115_local_path",
+          "source": "database/connection.py:1132",
+          "table": "p115_filesystem_cache",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_p115_washing_level ON p115_filesystem_cache (washing_level) WHERE washing_level IS NOT NULL",
+          "name": "idx_p115_washing_level",
+          "source": "database/connection.py:1133",
+          "table": "p115_filesystem_cache",
+          "unique": false
+        }
+      ],
+      "name": "p115_filesystem_cache",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:579",
+      "status": "legacy",
+      "target_domains": [
+        "p115",
+        "ingestion"
+      ],
+      "target_stage": "P6",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "p115/ingestion"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "failure_key"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "kind"
+        },
+        {
+          "definition": "INTEGER NOT NULL",
+          "name": "algorithm_version"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT 'season'",
+          "name": "scope"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "series_tmdb_id"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "season_number"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "sha1"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "reason"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "sample_count"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "episode_count"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [
+        "PRIMARY KEY (failure_key, kind, algorithm_version)"
+      ],
+      "contract_id": "table-25ce1289b8a8",
+      "create_sql": "CREATE TABLE IF NOT EXISTS p115_intro_detection_failures ( failure_key TEXT NOT NULL, kind TEXT NOT NULL, algorithm_version INTEGER NOT NULL, scope TEXT NOT NULL DEFAULT 'season', series_tmdb_id TEXT NOT NULL DEFAULT '', season_number INTEGER NOT NULL DEFAULT 0, sha1 TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL DEFAULT '', sample_count INTEGER NOT NULL DEFAULT 0, episode_count INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), PRIMARY KEY (failure_key, kind, algorithm_version) )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_p115_intro_detection_failures_kind ON p115_intro_detection_failures (kind, algorithm_version)",
+          "name": "idx_p115_intro_detection_failures_kind",
+          "source": "database/connection.py:638",
+          "table": "p115_intro_detection_failures",
+          "unique": false
+        }
+      ],
+      "name": "p115_intro_detection_failures",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:621",
+      "status": "legacy",
+      "target_domains": [
+        "p115",
+        "ingestion"
+      ],
+      "target_stage": "P6",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "p115/ingestion"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "sha1"
+        },
+        {
+          "definition": "BYTEA NOT NULL",
+          "name": "fingerprint_zlib"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "fingerprint_count"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 600",
+          "name": "sample_seconds"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-db36af9ee574",
+      "create_sql": "CREATE TABLE IF NOT EXISTS p115_intro_fingerprint_cache ( sha1 TEXT PRIMARY KEY, fingerprint_zlib BYTEA NOT NULL, fingerprint_count INTEGER NOT NULL DEFAULT 0, sample_seconds INTEGER NOT NULL DEFAULT 600, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [],
+      "name": "p115_intro_fingerprint_cache",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:610",
+      "status": "legacy",
+      "target_domains": [
+        "p115",
+        "ingestion"
+      ],
+      "target_stage": "P6",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "p115/ingestion"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "failure_key"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "kind"
+        },
+        {
+          "definition": "INTEGER NOT NULL",
+          "name": "algorithm_version"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "attempts"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "last_sample_seconds"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "last_reason"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "series_tmdb_id"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "season_number"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT ''",
+          "name": "sha1"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [
+        "PRIMARY KEY (failure_key, kind, algorithm_version)"
+      ],
+      "contract_id": "table-530c2595db1a",
+      "create_sql": "CREATE TABLE IF NOT EXISTS p115_intro_fingerprint_failures ( failure_key TEXT NOT NULL, kind TEXT NOT NULL, algorithm_version INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, last_sample_seconds INTEGER NOT NULL DEFAULT 0, last_reason TEXT NOT NULL DEFAULT '', series_tmdb_id TEXT NOT NULL DEFAULT '', season_number INTEGER NOT NULL DEFAULT 0, sha1 TEXT NOT NULL DEFAULT '', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), PRIMARY KEY (failure_key, kind, algorithm_version) )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_p115_intro_fingerprint_failures_kind ON p115_intro_fingerprint_failures (kind, algorithm_version)",
+          "name": "idx_p115_intro_fingerprint_failures_kind",
+          "source": "database/connection.py:657",
+          "table": "p115_intro_fingerprint_failures",
+          "unique": false
+        }
+      ],
+      "name": "p115_intro_fingerprint_failures",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:641",
+      "status": "legacy",
+      "target_domains": [
+        "p115",
+        "ingestion"
+      ],
+      "target_stage": "P6",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "p115/ingestion"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "sha1"
+        },
+        {
+          "definition": "JSONB",
+          "name": "mediainfo_json"
+        },
+        {
+          "definition": "JSONB",
+          "name": "raw_ffprobe_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "INTEGER DEFAULT 0",
+          "name": "hit_count"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-4e7ee3efef71",
+      "create_sql": "CREATE TABLE IF NOT EXISTS p115_mediainfo_cache ( sha1 TEXT PRIMARY KEY, mediainfo_json JSONB, raw_ffprobe_json JSONB, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), hit_count INTEGER DEFAULT 0 )",
+      "indexes_static": [],
+      "name": "p115_mediainfo_cache",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:599",
+      "status": "legacy",
+      "target_domains": [
+        "p115",
+        "ingestion"
+      ],
+      "target_stage": "P6",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "p115/ingestion"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT UNIQUE NOT NULL",
+          "name": "file_id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "original_name"
+        },
+        {
+          "definition": "TEXT",
+          "name": "media_type"
+        },
+        {
+          "definition": "TEXT",
+          "name": "target_cid"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "season_number"
+        }
+      ],
+      "constraints_static": [
+        "-- 115 原始文件/文件夹ID (使用UNIQUE防止重复记录) pick_code TEXT UNIQUE",
+        "-- 原始名称 renamed_name TEXT",
+        "-- 整理后的名称 status TEXT NOT NULL",
+        "-- 'success' 或 'unrecognized' fail_reason TEXT",
+        "-- 识别失败原因 tmdb_id TEXT",
+        "-- 目标分类CID category_name TEXT",
+        "-- 目标分类名称 processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()"
+      ],
+      "contract_id": "table-9178e3939383",
+      "create_sql": "CREATE TABLE IF NOT EXISTS p115_organize_records ( id SERIAL PRIMARY KEY, file_id TEXT UNIQUE NOT NULL, -- 115 原始文件/文件夹ID (使用UNIQUE防止重复记录) pick_code TEXT UNIQUE, original_name TEXT NOT NULL, -- 原始名称 renamed_name TEXT, -- 整理后的名称 status TEXT NOT NULL, -- 'success' 或 'unrecognized' fail_reason TEXT, -- 识别失败原因 tmdb_id TEXT, media_type TEXT, target_cid TEXT, -- 目标分类CID category_name TEXT, -- 目标分类名称 processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), season_number INTEGER )",
+      "indexes_static": [],
+      "name": "p115_organize_records",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:743",
+      "status": "legacy",
+      "target_domains": [
+        "p115",
+        "ingestion"
+      ],
+      "target_stage": "P6",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "p115/ingestion"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "record_key"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "record_type"
+        },
+        {
+          "definition": "TEXT",
+          "name": "mapping_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "local_path"
+        },
+        {
+          "definition": "TEXT",
+          "name": "relative_path"
+        },
+        {
+          "definition": "TEXT",
+          "name": "target_cid"
+        },
+        {
+          "definition": "TEXT",
+          "name": "pick_code"
+        },
+        {
+          "definition": "TEXT",
+          "name": "status"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "payload_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [
+        "CONSTRAINT chk_p115_upload_record_type CHECK (record_type IN ('job', 'completed'))"
+      ],
+      "contract_id": "table-0661d1e5c85d",
+      "create_sql": "CREATE TABLE IF NOT EXISTS p115_upload_records ( record_key TEXT PRIMARY KEY, record_type TEXT NOT NULL, mapping_id TEXT, local_path TEXT, relative_path TEXT, target_cid TEXT, pick_code TEXT, status TEXT, payload_json JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), CONSTRAINT chk_p115_upload_record_type CHECK (record_type IN ('job', 'completed')) )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_p115_upload_records_type_status ON p115_upload_records (record_type, status)",
+          "name": "idx_p115_upload_records_type_status",
+          "source": "database/connection.py:699",
+          "table": "p115_upload_records",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_p115_upload_records_pick_code ON p115_upload_records (pick_code) WHERE pick_code IS NOT NULL",
+          "name": "idx_p115_upload_records_pick_code",
+          "source": "database/connection.py:700",
+          "table": "p115_upload_records",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_p115_upload_records_mapping ON p115_upload_records (mapping_id, record_type)",
+          "name": "idx_p115_upload_records_mapping",
+          "source": "database/connection.py:701",
+          "table": "p115_upload_records",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_p115_upload_records_local_path ON p115_upload_records (local_path) WHERE record_type = 'completed'",
+          "name": "idx_p115_upload_records_local_path",
+          "source": "database/connection.py:702",
+          "table": "p115_upload_records",
+          "unique": false
+        }
+      ],
+      "name": "p115_upload_records",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:683",
+      "status": "legacy",
+      "target_domains": [
+        "p115",
+        "ingestion"
+      ],
+      "target_stage": "P6",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "p115/ingestion"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT UNIQUE",
+          "name": "douban_celebrity_id"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "last_updated_at"
+        }
+      ],
+      "constraints_static": [
+        "-- 核心身份标识 (建议以 TMDb ID 为主键，因为影视刮削高度依赖 TMDb) tmdb_person_id INTEGER PRIMARY KEY",
+        "-- 其他平台的 ID 映射 imdb_id TEXT UNIQUE",
+        "-- 基础元数据 primary_name TEXT NOT NULL",
+        "-- 主要译名 (原 map 表字段) original_name TEXT",
+        "-- 原名 (原 metadata 表字段) profile_path TEXT",
+        "-- 头像路径 gender INTEGER",
+        "-- 性别 adult BOOLEAN",
+        "-- 是否成人影星 popularity REAL",
+        "-- 热度 -- 时间戳 last_synced_at TIMESTAMP WITH TIME ZONE"
+      ],
+      "contract_id": "table-f2314381266c",
+      "create_sql": "CREATE TABLE IF NOT EXISTS person_metadata ( -- 核心身份标识 (建议以 TMDb ID 为主键，因为影视刮削高度依赖 TMDb) tmdb_person_id INTEGER PRIMARY KEY, -- 其他平台的 ID 映射 imdb_id TEXT UNIQUE, douban_celebrity_id TEXT UNIQUE, -- 基础元数据 primary_name TEXT NOT NULL, -- 主要译名 (原 map 表字段) original_name TEXT, -- 原名 (原 metadata 表字段) profile_path TEXT, -- 头像路径 gender INTEGER, -- 性别 adult BOOLEAN, -- 是否成人影星 popularity REAL, -- 热度 -- 时间戳 last_synced_at TIMESTAMP WITH TIME ZONE, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [],
+      "name": "person_metadata",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:386",
+      "status": "legacy",
+      "target_domains": [
+        "media"
+      ],
+      "target_stage": "P5",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "media"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "item_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "item_name"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "processed_at"
+        },
+        {
+          "definition": "REAL",
+          "name": "score"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "assets_synced_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_emby_modified_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-8ae4bf5642fb",
+      "create_sql": "CREATE TABLE IF NOT EXISTS processed_log ( item_id TEXT PRIMARY KEY, item_name TEXT, processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), score REAL, assets_synced_at TIMESTAMP WITH TIME ZONE, last_emby_modified_at TIMESTAMP WITH TIME ZONE )",
+      "indexes_static": [],
+      "name": "processed_log",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:76",
+      "status": "legacy",
+      "target_domains": [
+        "operations"
+      ],
+      "target_stage": "P3",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "operations"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "tmdb_id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "item_type"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT -1",
+          "name": "season_number"
+        },
+        {
+          "definition": "TEXT",
+          "name": "reason"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "matched_rule_id"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "last_checked_at"
+        }
+      ],
+      "constraints_static": [
+        "-- 对于电影，我们将使用-1作为占位符 status TEXT NOT NULL",
+        "-- 主键保持不变，但现在 season_number 有了默认值，不会再插入 NULL PRIMARY KEY (tmdb_id, item_type, season_number)"
+      ],
+      "contract_id": "table-ed24903c198b",
+      "create_sql": "CREATE TABLE IF NOT EXISTS resubscribe_index ( tmdb_id TEXT NOT NULL, item_type TEXT NOT NULL, season_number INTEGER NOT NULL DEFAULT -1, -- 对于电影，我们将使用-1作为占位符 status TEXT NOT NULL, reason TEXT, matched_rule_id INTEGER, last_checked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- 主键保持不变，但现在 season_number 有了默认值，不会再插入 NULL PRIMARY KEY (tmdb_id, item_type, season_number) )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_ri_tmdb_type ON resubscribe_index (tmdb_id, item_type)",
+          "name": "idx_ri_tmdb_type",
+          "source": "database/connection.py:1091",
+          "table": "resubscribe_index",
+          "unique": false
+        }
+      ],
+      "name": "resubscribe_index",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:486",
+      "status": "legacy",
+      "target_domains": [
+        "subscription",
+        "people"
+      ],
+      "target_stage": "P7",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "subscription/people"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL UNIQUE",
+          "name": "name"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT TRUE",
+          "name": "enabled"
+        },
+        {
+          "definition": "JSONB DEFAULT '[]'::jsonb",
+          "name": "scope_rules"
+        },
+        {
+          "definition": "INTEGER DEFAULT 0",
+          "name": "sort_order"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "resubscribe_resolution_enabled"
+        },
+        {
+          "definition": "INT DEFAULT 1920",
+          "name": "resubscribe_resolution_threshold"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "resubscribe_audio_enabled"
+        },
+        {
+          "definition": "JSONB",
+          "name": "resubscribe_audio_missing_languages"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "resubscribe_subtitle_enabled"
+        },
+        {
+          "definition": "JSONB",
+          "name": "resubscribe_subtitle_missing_languages"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "resubscribe_quality_enabled"
+        },
+        {
+          "definition": "JSONB",
+          "name": "resubscribe_quality_include"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "resubscribe_effect_enabled"
+        },
+        {
+          "definition": "JSONB",
+          "name": "resubscribe_effect_include"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "resubscribe_subtitle_effect_only"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "resubscribe_filesize_enabled"
+        },
+        {
+          "definition": "TEXT DEFAULT 'lt'",
+          "name": "resubscribe_filesize_operator"
+        },
+        {
+          "definition": "REAL DEFAULT 10.0",
+          "name": "resubscribe_filesize_threshold_gb"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "resubscribe_codec_enabled"
+        },
+        {
+          "definition": "JSONB",
+          "name": "resubscribe_codec_include"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "resubscribe_subtitle_skip_if_audio_exists"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "custom_resubscribe_enabled"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "consistency_check_enabled"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "consistency_must_match_resolution"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "consistency_must_match_group"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "consistency_must_match_code"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "consistency_must_match_codec"
+        },
+        {
+          "definition": "TEXT DEFAULT 'resubscribe'",
+          "name": "rule_type"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "filter_rating_enabled"
+        },
+        {
+          "definition": "REAL DEFAULT 0",
+          "name": "filter_rating_min"
+        },
+        {
+          "definition": "TEXT DEFAULT 'episode'",
+          "name": "delete_mode"
+        },
+        {
+          "definition": "INTEGER DEFAULT 0",
+          "name": "delete_delay_seconds"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "filter_rating_ignore_zero"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "filter_missing_episodes_enabled"
+        },
+        {
+          "definition": "TEXT DEFAULT 'moviepilot'",
+          "name": "resubscribe_source"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "resubscribe_entire_season"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-22e6821d3d3e",
+      "create_sql": "CREATE TABLE IF NOT EXISTS resubscribe_rules ( id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, enabled BOOLEAN DEFAULT TRUE, scope_rules JSONB DEFAULT '[]'::jsonb, sort_order INTEGER DEFAULT 0, resubscribe_resolution_enabled BOOLEAN DEFAULT FALSE, resubscribe_resolution_threshold INT DEFAULT 1920, resubscribe_audio_enabled BOOLEAN DEFAULT FALSE, resubscribe_audio_missing_languages JSONB, resubscribe_subtitle_enabled BOOLEAN DEFAULT FALSE, resubscribe_subtitle_missing_languages JSONB, resubscribe_quality_enabled BOOLEAN DEFAULT FALSE, resubscribe_quality_include JSONB, resubscribe_effect_enabled BOOLEAN DEFAULT FALSE, resubscribe_effect_include JSONB, resubscribe_subtitle_effect_only BOOLEAN DEFAULT FALSE, resubscribe_filesize_enabled BOOLEAN DEFAULT FALSE, resubscribe_filesize_operator TEXT DEFAULT 'lt', resubscribe_filesize_threshold_gb REAL DEFAULT 10.0, resubscribe_codec_enabled BOOLEAN DEFAULT FALSE, resubscribe_codec_include JSONB, resubscribe_subtitle_skip_if_audio_exists BOOLEAN DEFAULT FALSE, custom_resubscribe_enabled BOOLEAN DEFAULT FALSE, consistency_check_enabled BOOLEAN DEFAULT FALSE, consistency_must_match_resolution BOOLEAN DEFAULT FALSE, consistency_must_match_group BOOLEAN DEFAULT FALSE, consistency_must_match_code BOOLEAN DEFAULT FALSE, consistency_must_match_codec BOOLEAN DEFAULT FALSE, rule_type TEXT DEFAULT 'resubscribe', filter_rating_enabled BOOLEAN DEFAULT FALSE, filter_rating_min REAL DEFAULT 0, delete_mode TEXT DEFAULT 'episode', delete_delay_seconds INTEGER DEFAULT 0, filter_rating_ignore_zero BOOLEAN DEFAULT FALSE, filter_missing_episodes_enabled BOOLEAN DEFAULT FALSE, resubscribe_source TEXT DEFAULT 'moviepilot', resubscribe_entire_season BOOLEAN DEFAULT FALSE )",
+      "indexes_static": [],
+      "name": "resubscribe_rules",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:443",
+      "status": "legacy",
+      "target_domains": [
+        "subscription",
+        "people"
+      ],
+      "target_stage": "P7",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "subscription/people"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL UNIQUE",
+          "name": "channel_id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "center_source_id"
+        },
+        {
+          "definition": "INTEGER REFERENCES shared_rapid_sources(id) ON DELETE SET NULL",
+          "name": "local_source_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "hub_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "manifest_hash"
+        },
+        {
+          "definition": "TEXT",
+          "name": "share_code"
+        },
+        {
+          "definition": "TEXT",
+          "name": "receive_code"
+        },
+        {
+          "definition": "TEXT",
+          "name": "share_url"
+        },
+        {
+          "definition": "TEXT",
+          "name": "share_title"
+        },
+        {
+          "definition": "TEXT",
+          "name": "root_fid"
+        },
+        {
+          "definition": "TEXT",
+          "name": "root_cid"
+        },
+        {
+          "definition": "TEXT",
+          "name": "root_name"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "file_count"
+        },
+        {
+          "definition": "BIGINT DEFAULT 0",
+          "name": "total_size"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT 'creating'",
+          "name": "status"
+        },
+        {
+          "definition": "TEXT",
+          "name": "review_status"
+        },
+        {
+          "definition": "TEXT",
+          "name": "status_message"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "fail_count"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "raw_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_checked_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_reported_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-4ffa545ab978",
+      "create_sql": "CREATE TABLE IF NOT EXISTS shared_completed_season_share_channels ( id SERIAL PRIMARY KEY, channel_id TEXT NOT NULL UNIQUE, center_source_id TEXT NOT NULL, local_source_id INTEGER REFERENCES shared_rapid_sources(id) ON DELETE SET NULL, hub_id TEXT, manifest_hash TEXT, share_code TEXT, receive_code TEXT, share_url TEXT, share_title TEXT, root_fid TEXT, root_cid TEXT, root_name TEXT, file_count INTEGER NOT NULL DEFAULT 0, total_size BIGINT DEFAULT 0, status TEXT NOT NULL DEFAULT 'creating', review_status TEXT, status_message TEXT, fail_count INTEGER NOT NULL DEFAULT 0, raw_json JSONB NOT NULL DEFAULT '{}'::jsonb, last_checked_at TIMESTAMP WITH TIME ZONE, last_reported_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_scssc_channel ON shared_completed_season_share_channels (channel_id)",
+          "name": "idx_scssc_channel",
+          "source": "database/connection.py:1159",
+          "table": "shared_completed_season_share_channels",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_scssc_center_source ON shared_completed_season_share_channels (center_source_id, status, updated_at DESC)",
+          "name": "idx_scssc_center_source",
+          "source": "database/connection.py:1160",
+          "table": "shared_completed_season_share_channels",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_scssc_status_check ON shared_completed_season_share_channels (status, last_checked_at NULLS FIRST, updated_at ASC)",
+          "name": "idx_scssc_status_check",
+          "source": "database/connection.py:1161",
+          "table": "shared_completed_season_share_channels",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_scssc_share_code ON shared_completed_season_share_channels (share_code) WHERE share_code IS NOT NULL AND share_code <> ''",
+          "name": "idx_scssc_share_code",
+          "source": "database/connection.py:1162",
+          "table": "shared_completed_season_share_channels",
+          "unique": false
+        }
+      ],
+      "name": "shared_completed_season_share_channels",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:861",
+      "status": "legacy",
+      "target_domains": [
+        "sharing"
+      ],
+      "target_stage": "P9",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "sharing"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "event_type"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "delta"
+        },
+        {
+          "definition": "TEXT",
+          "name": "reason"
+        },
+        {
+          "definition": "TEXT",
+          "name": "ref_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "source_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "virtual_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "tmdb_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "item_type"
+        },
+        {
+          "definition": "TEXT",
+          "name": "title"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "raw_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-448f271fc3b2",
+      "create_sql": "CREATE TABLE IF NOT EXISTS shared_credit_ledger_local ( id SERIAL PRIMARY KEY, event_type TEXT NOT NULL, delta INTEGER NOT NULL DEFAULT 0, reason TEXT, ref_id TEXT, source_id TEXT, virtual_id TEXT, tmdb_id TEXT, item_type TEXT, title TEXT, raw_json JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_shared_credit_ledger_created ON shared_credit_ledger_local (created_at DESC)",
+          "name": "idx_shared_credit_ledger_created",
+          "source": "database/connection.py:1138",
+          "table": "shared_credit_ledger_local",
+          "unique": false
+        }
+      ],
+      "name": "shared_credit_ledger_local",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:725",
+      "status": "legacy",
+      "target_domains": [
+        "sharing"
+      ],
+      "target_stage": "P9",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "sharing"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "INTEGER PRIMARY KEY DEFAULT 1",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "device_id"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "credit"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "contributed_sources"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "consumed_sources"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "transfer_success"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "transfer_failed"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "wanted_gaps"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "shared_sources"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "raw_ffprobe"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "remote_devices"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "raw_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [
+        "CONSTRAINT shared_credit_snapshot_singleton CHECK (id = 1)"
+      ],
+      "contract_id": "table-7d5c24869ef9",
+      "create_sql": "CREATE TABLE IF NOT EXISTS shared_credit_snapshot ( id INTEGER PRIMARY KEY DEFAULT 1, device_id TEXT, credit INTEGER NOT NULL DEFAULT 0, contributed_sources INTEGER NOT NULL DEFAULT 0, consumed_sources INTEGER NOT NULL DEFAULT 0, transfer_success INTEGER NOT NULL DEFAULT 0, transfer_failed INTEGER NOT NULL DEFAULT 0, wanted_gaps INTEGER NOT NULL DEFAULT 0, shared_sources INTEGER NOT NULL DEFAULT 0, raw_ffprobe INTEGER NOT NULL DEFAULT 0, remote_devices INTEGER NOT NULL DEFAULT 0, raw_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), CONSTRAINT shared_credit_snapshot_singleton CHECK (id = 1) )",
+      "indexes_static": [],
+      "name": "shared_credit_snapshot",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:705",
+      "status": "legacy",
+      "target_domains": [
+        "sharing"
+      ],
+      "target_stage": "P9",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "sharing"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "INTEGER NOT NULL REFERENCES shared_rapid_sources(id) ON DELETE CASCADE",
+          "name": "local_source_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "fid"
+        },
+        {
+          "definition": "TEXT",
+          "name": "pick_code"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "sha1"
+        },
+        {
+          "definition": "TEXT",
+          "name": "preid"
+        },
+        {
+          "definition": "BIGINT DEFAULT 0",
+          "name": "size"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "file_name"
+        },
+        {
+          "definition": "TEXT",
+          "name": "relative_path"
+        },
+        {
+          "definition": "TEXT",
+          "name": "tmdb_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "item_type"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "season_number"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "episode_number"
+        },
+        {
+          "definition": "TEXT",
+          "name": "center_file_id"
+        },
+        {
+          "definition": "BOOLEAN NOT NULL DEFAULT FALSE",
+          "name": "raw_ffprobe_uploaded"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "media_signature_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "rapid_meta_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "raw_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-a6902ff252e2",
+      "create_sql": "CREATE TABLE IF NOT EXISTS shared_rapid_source_files ( id SERIAL PRIMARY KEY, local_source_id INTEGER NOT NULL REFERENCES shared_rapid_sources(id) ON DELETE CASCADE, fid TEXT, pick_code TEXT, sha1 TEXT NOT NULL, preid TEXT, size BIGINT DEFAULT 0, file_name TEXT NOT NULL, relative_path TEXT, tmdb_id TEXT, item_type TEXT, season_number INTEGER, episode_number INTEGER, center_file_id TEXT, raw_ffprobe_uploaded BOOLEAN NOT NULL DEFAULT FALSE, media_signature_json JSONB NOT NULL DEFAULT '{}'::jsonb, rapid_meta_json JSONB NOT NULL DEFAULT '{}'::jsonb, raw_json JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_srsf_source ON shared_rapid_source_files (local_source_id)",
+          "name": "idx_srsf_source",
+          "source": "database/connection.py:1153",
+          "table": "shared_rapid_source_files",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_srsf_sha1 ON shared_rapid_source_files (UPPER(sha1))",
+          "name": "idx_srsf_sha1",
+          "source": "database/connection.py:1154",
+          "table": "shared_rapid_source_files",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_srsf_episode ON shared_rapid_source_files (tmdb_id, season_number, episode_number)",
+          "name": "idx_srsf_episode",
+          "source": "database/connection.py:1155",
+          "table": "shared_rapid_source_files",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_srsf_source_episode_sha1 ON shared_rapid_source_files (local_source_id, tmdb_id, season_number, episode_number, UPPER(sha1))",
+          "name": "idx_srsf_source_episode_sha1",
+          "source": "database/connection.py:1156",
+          "table": "shared_rapid_source_files",
+          "unique": false
+        }
+      ],
+      "name": "shared_rapid_source_files",
+      "new_owner": null,
+      "post_create_alters": [
+        {
+          "operation": "ADD COLUMN IF NOT EXISTS preid TEXT",
+          "source": "database/connection.py:1146",
+          "table": "shared_rapid_source_files"
+        }
+      ],
+      "source": "database/connection.py:806",
+      "status": "legacy",
+      "target_domains": [
+        "sharing"
+      ],
+      "target_stage": "P9",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "sharing"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL UNIQUE",
+          "name": "source_key"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "source_kind"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "tmdb_id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "item_type"
+        },
+        {
+          "definition": "TEXT",
+          "name": "parent_series_tmdb_id"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "season_number"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "episode_number"
+        },
+        {
+          "definition": "TEXT",
+          "name": "title"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "release_year"
+        },
+        {
+          "definition": "TEXT",
+          "name": "sha1"
+        },
+        {
+          "definition": "TEXT",
+          "name": "preid"
+        },
+        {
+          "definition": "BIGINT DEFAULT 0",
+          "name": "size"
+        },
+        {
+          "definition": "TEXT",
+          "name": "file_name"
+        },
+        {
+          "definition": "TEXT",
+          "name": "root_fid"
+        },
+        {
+          "definition": "TEXT",
+          "name": "root_name"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT 'local'",
+          "name": "source_provider"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT 'active'",
+          "name": "status"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 1",
+          "name": "manifest_version"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "file_count"
+        },
+        {
+          "definition": "BIGINT NOT NULL DEFAULT 0",
+          "name": "total_size"
+        },
+        {
+          "definition": "BOOLEAN NOT NULL DEFAULT FALSE",
+          "name": "is_clean_version"
+        },
+        {
+          "definition": "REAL",
+          "name": "clean_version_confidence"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "clean_version_meta_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "media_signature_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "rapid_meta_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "raw_json"
+        },
+        {
+          "definition": "TEXT",
+          "name": "last_error"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "reported_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "disabled_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [
+        "-- movie / episode / completed_season center_source_id TEXT",
+        "-- active / available / updating / inconsistent / incomplete / disabled / error center_status TEXT NOT NULL DEFAULT 'local'",
+        "-- local / reported / failed / disabled manifest_hash TEXT"
+      ],
+      "contract_id": "table-4c54e4925f56",
+      "create_sql": "CREATE TABLE IF NOT EXISTS shared_rapid_sources ( id SERIAL PRIMARY KEY, source_key TEXT NOT NULL UNIQUE, source_kind TEXT NOT NULL, -- movie / episode / completed_season center_source_id TEXT, tmdb_id TEXT NOT NULL, item_type TEXT NOT NULL, parent_series_tmdb_id TEXT, season_number INTEGER, episode_number INTEGER, title TEXT, release_year INTEGER, sha1 TEXT, preid TEXT, size BIGINT DEFAULT 0, file_name TEXT, root_fid TEXT, root_name TEXT, source_provider TEXT NOT NULL DEFAULT 'local', status TEXT NOT NULL DEFAULT 'active', -- active / available / updating / inconsistent / incomplete / disabled / error center_status TEXT NOT NULL DEFAULT 'local', -- local / reported / failed / disabled manifest_hash TEXT, manifest_version INTEGER NOT NULL DEFAULT 1, file_count INTEGER NOT NULL DEFAULT 0, total_size BIGINT NOT NULL DEFAULT 0, is_clean_version BOOLEAN NOT NULL DEFAULT FALSE, clean_version_confidence REAL, clean_version_meta_json JSONB NOT NULL DEFAULT '{}'::jsonb, media_signature_json JSONB NOT NULL DEFAULT '{}'::jsonb, rapid_meta_json JSONB NOT NULL DEFAULT '{}'::jsonb, raw_json JSONB NOT NULL DEFAULT '{}'::jsonb, last_error TEXT, reported_at TIMESTAMP WITH TIME ZONE, disabled_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_srs_status_updated ON shared_rapid_sources (status, updated_at DESC)",
+          "name": "idx_srs_status_updated",
+          "source": "database/connection.py:1147",
+          "table": "shared_rapid_sources",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_srs_center_source ON shared_rapid_sources (source_kind, center_source_id)",
+          "name": "idx_srs_center_source",
+          "source": "database/connection.py:1148",
+          "table": "shared_rapid_sources",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_srs_media ON shared_rapid_sources (tmdb_id, item_type, season_number, episode_number)",
+          "name": "idx_srs_media",
+          "source": "database/connection.py:1149",
+          "table": "shared_rapid_sources",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_srs_sha1 ON shared_rapid_sources (UPPER(sha1)) WHERE sha1 IS NOT NULL AND sha1 <> ''",
+          "name": "idx_srs_sha1",
+          "source": "database/connection.py:1150",
+          "table": "shared_rapid_sources",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_srs_effective_share_scan ON shared_rapid_sources (source_kind, tmdb_id, season_number, episode_number, status, center_status) WHERE status IN ('active','available','updating') AND center_status <> 'disabled'",
+          "name": "idx_srs_effective_share_scan",
+          "source": "database/connection.py:1152",
+          "table": "shared_rapid_sources",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_srs_status_center_updated ON shared_rapid_sources (status, center_status, updated_at ASC, id ASC)",
+          "name": "idx_srs_status_center_updated",
+          "source": "database/connection.py:1164",
+          "table": "shared_rapid_sources",
+          "unique": false
+        }
+      ],
+      "name": "shared_rapid_sources",
+      "new_owner": null,
+      "post_create_alters": [
+        {
+          "operation": "ADD COLUMN IF NOT EXISTS preid TEXT",
+          "source": "database/connection.py:1145",
+          "table": "shared_rapid_sources"
+        }
+      ],
+      "source": "database/connection.py:765",
+      "status": "legacy",
+      "target_domains": [
+        "sharing"
+      ],
+      "target_stage": "P9",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "sharing"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "source_kind"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "source_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "tmdb_id"
+        },
+        {
+          "definition": "TEXT",
+          "name": "item_type"
+        },
+        {
+          "definition": "TEXT",
+          "name": "parent_series_tmdb_id"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "season_number"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "episode_number"
+        },
+        {
+          "definition": "TEXT",
+          "name": "title"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "release_year"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "file_count"
+        },
+        {
+          "definition": "BIGINT NOT NULL DEFAULT 0",
+          "name": "total_size"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT 'virtual'",
+          "name": "status"
+        },
+        {
+          "definition": "INTEGER NOT NULL DEFAULT 0",
+          "name": "watched_count"
+        },
+        {
+          "definition": "REAL NOT NULL DEFAULT 0",
+          "name": "played_percent"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '[]'::jsonb",
+          "name": "strm_paths_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "source_payload_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '[]'::jsonb",
+          "name": "files_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_played_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "promoted_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-2a0a097ba5d7",
+      "create_sql": "CREATE TABLE IF NOT EXISTS shared_virtual_imports ( id SERIAL PRIMARY KEY, source_kind TEXT NOT NULL, source_id TEXT NOT NULL, tmdb_id TEXT, item_type TEXT, parent_series_tmdb_id TEXT, season_number INTEGER, episode_number INTEGER, title TEXT, release_year INTEGER, file_count INTEGER NOT NULL DEFAULT 0, total_size BIGINT NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'virtual', watched_count INTEGER NOT NULL DEFAULT 0, played_percent REAL NOT NULL DEFAULT 0, strm_paths_json JSONB NOT NULL DEFAULT '[]'::jsonb, source_payload_json JSONB NOT NULL DEFAULT '{}'::jsonb, files_json JSONB NOT NULL DEFAULT '[]'::jsonb, last_played_at TIMESTAMP WITH TIME ZONE, promoted_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_svi_status_updated ON shared_virtual_imports (status, updated_at DESC)",
+          "name": "idx_svi_status_updated",
+          "source": "database/connection.py:1157",
+          "table": "shared_virtual_imports",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_svi_media ON shared_virtual_imports (tmdb_id, item_type, season_number, episode_number)",
+          "name": "idx_svi_media",
+          "source": "database/connection.py:1158",
+          "table": "shared_virtual_imports",
+          "unique": false
+        }
+      ],
+      "name": "shared_virtual_imports",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:832",
+      "status": "legacy",
+      "target_domains": [
+        "sharing"
+      ],
+      "target_stage": "P9",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "sharing"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "fingerprint"
+        },
+        {
+          "definition": "TEXT",
+          "name": "tmdb_id"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "season_number"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '[]'::jsonb",
+          "name": "episode_json"
+        },
+        {
+          "definition": "TEXT",
+          "name": "reason"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "expires_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-36c950c5930f",
+      "create_sql": "CREATE TABLE IF NOT EXISTS subscribe_assistant_delete_records ( fingerprint TEXT PRIMARY KEY, tmdb_id TEXT, season_number INTEGER, episode_json JSONB NOT NULL DEFAULT '[]'::jsonb, reason TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), expires_at TIMESTAMP WITH TIME ZONE )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_sas_delete_records_expires ON subscribe_assistant_delete_records (expires_at)",
+          "name": "idx_sas_delete_records_expires",
+          "source": "database/connection.py:1137",
+          "table": "subscribe_assistant_delete_records",
+          "unique": false
+        }
+      ],
+      "name": "subscribe_assistant_delete_records",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:373",
+      "status": "legacy",
+      "target_domains": [
+        "subscription",
+        "people"
+      ],
+      "target_stage": "P7",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "subscription/people"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "tmdb_id"
+        },
+        {
+          "definition": "TEXT NOT NULL DEFAULT 'Series'",
+          "name": "item_type"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "season_number"
+        },
+        {
+          "definition": "INTEGER",
+          "name": "subscribe_id"
+        },
+        {
+          "definition": "INTEGER DEFAULT 0",
+          "name": "scope_total"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "scope_json"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "subscribe_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_checked_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-d4299a5e4e3d",
+      "create_sql": "CREATE TABLE IF NOT EXISTS subscribe_assistant_snapshots ( id SERIAL PRIMARY KEY, tmdb_id TEXT NOT NULL, item_type TEXT NOT NULL DEFAULT 'Series', season_number INTEGER, subscribe_id INTEGER, scope_total INTEGER DEFAULT 0, scope_json JSONB NOT NULL DEFAULT '{}'::jsonb, subscribe_json JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), last_checked_at TIMESTAMP WITH TIME ZONE )",
+      "indexes_static": [
+        {
+          "definition": "CREATE INDEX idx_sas_snapshots_media ON subscribe_assistant_snapshots (tmdb_id, item_type, season_number)",
+          "name": "idx_sas_snapshots_media",
+          "source": "database/connection.py:1135",
+          "table": "subscribe_assistant_snapshots",
+          "unique": false
+        },
+        {
+          "definition": "CREATE INDEX idx_sas_snapshots_checked ON subscribe_assistant_snapshots (last_checked_at)",
+          "name": "idx_sas_snapshots_checked",
+          "source": "database/connection.py:1136",
+          "table": "subscribe_assistant_snapshots",
+          "unique": false
+        }
+      ],
+      "name": "subscribe_assistant_snapshots",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:357",
+      "status": "legacy",
+      "target_domains": [
+        "subscription",
+        "people"
+      ],
+      "target_stage": "P7",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "subscription/people"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "state_key"
+        },
+        {
+          "definition": "JSONB NOT NULL DEFAULT '{}'::jsonb",
+          "name": "state_json"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "updated_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-72274586be13",
+      "create_sql": "CREATE TABLE IF NOT EXISTS subscribe_assistant_state ( state_key TEXT PRIMARY KEY, state_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [],
+      "name": "subscribe_assistant_state",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:348",
+      "status": "legacy",
+      "target_domains": [
+        "subscription",
+        "people"
+      ],
+      "target_stage": "P7",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "subscription/people"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT PRIMARY KEY",
+          "name": "original_text"
+        },
+        {
+          "definition": "TEXT",
+          "name": "translated_text"
+        },
+        {
+          "definition": "TEXT",
+          "name": "engine_used"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "last_updated_at"
+        }
+      ],
+      "constraints_static": [],
+      "contract_id": "table-b89ccead984e",
+      "create_sql": "CREATE TABLE IF NOT EXISTS translation_cache ( original_text TEXT PRIMARY KEY, translated_text TEXT, engine_used TEXT, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "indexes_static": [],
+      "name": "translation_cache",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:97",
+      "status": "legacy",
+      "target_domains": [
+        "media"
+      ],
+      "target_stage": "P5",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "media"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "user_id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "item_id"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "is_favorite"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE",
+          "name": "played"
+        },
+        {
+          "definition": "BIGINT DEFAULT 0",
+          "name": "playback_position_ticks"
+        },
+        {
+          "definition": "INTEGER DEFAULT 0",
+          "name": "play_count"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE",
+          "name": "last_played_date"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "last_updated_at"
+        }
+      ],
+      "constraints_static": [
+        "PRIMARY KEY (user_id, item_id)"
+      ],
+      "contract_id": "table-34b266c39ef7",
+      "create_sql": "CREATE TABLE IF NOT EXISTS user_media_data ( user_id TEXT NOT NULL, item_id TEXT NOT NULL, is_favorite BOOLEAN DEFAULT FALSE, played BOOLEAN DEFAULT FALSE, playback_position_ticks BIGINT DEFAULT 0, play_count INTEGER DEFAULT 0, last_played_date TIMESTAMP WITH TIME ZONE, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), PRIMARY KEY (user_id, item_id) )",
+      "indexes_static": [],
+      "name": "user_media_data",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:162",
+      "status": "legacy",
+      "target_domains": [
+        "identity",
+        "users"
+      ],
+      "target_stage": "P3/P8",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "identity/users"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL UNIQUE",
+          "name": "name"
+        },
+        {
+          "definition": "TEXT",
+          "name": "description"
+        },
+        {
+          "definition": "TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
+          "name": "created_at"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE NOT NULL",
+          "name": "allow_unrestricted_subscriptions"
+        },
+        {
+          "definition": "BOOLEAN DEFAULT FALSE NOT NULL",
+          "name": "personal_play_account_only"
+        },
+        {
+          "definition": "INTEGER DEFAULT 0 NOT NULL",
+          "name": "max_concurrent_streams"
+        }
+      ],
+      "constraints_static": [
+        "-- 核心字段：存储一个完整的 Emby 用户策略 JSON 对象 emby_policy_json JSONB NOT NULL",
+        "-- 模板默认的有效期（天数），0 表示永久 default_expiration_days INTEGER DEFAULT 30"
+      ],
+      "contract_id": "table-04f87a082d38",
+      "create_sql": "CREATE TABLE IF NOT EXISTS user_templates ( id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT, -- 核心字段：存储一个完整的 Emby 用户策略 JSON 对象 emby_policy_json JSONB NOT NULL, -- 模板默认的有效期（天数），0 表示永久 default_expiration_days INTEGER DEFAULT 30, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), allow_unrestricted_subscriptions BOOLEAN DEFAULT FALSE NOT NULL, personal_play_account_only BOOLEAN DEFAULT FALSE NOT NULL, max_concurrent_streams INTEGER DEFAULT 0 NOT NULL )",
+      "indexes_static": [],
+      "name": "user_templates",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:527",
+      "status": "legacy",
+      "target_domains": [
+        "identity",
+        "users"
+      ],
+      "target_stage": "P3/P8",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "identity/users"
+    },
+    {
+      "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+      "columns_static": [
+        {
+          "definition": "SERIAL PRIMARY KEY",
+          "name": "id"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "name"
+        },
+        {
+          "definition": "TEXT NOT NULL",
+          "name": "media_type"
+        }
+      ],
+      "constraints_static": [
+        "-- 'Movie' 或 'Series' target_cids JSONB DEFAULT '[]'::jsonb",
+        "-- 适用的 115 目录 CID priorities JSONB DEFAULT '[]'::jsonb",
+        "-- 优先级规则数组 sort_order INTEGER DEFAULT 0"
+      ],
+      "contract_id": "table-0f5816c259d4",
+      "create_sql": "CREATE TABLE IF NOT EXISTS washing_priority_groups ( id SERIAL PRIMARY KEY, name TEXT NOT NULL, media_type TEXT NOT NULL, -- 'Movie' 或 'Series' target_cids JSONB DEFAULT '[]'::jsonb, -- 适用的 115 目录 CID priorities JSONB DEFAULT '[]'::jsonb, -- 优先级规则数组 sort_order INTEGER DEFAULT 0 )",
+      "indexes_static": [],
+      "name": "washing_priority_groups",
+      "new_owner": null,
+      "post_create_alters": [],
+      "source": "database/connection.py:431",
+      "status": "legacy",
+      "target_domains": [
+        "subscription",
+        "people"
+      ],
+      "target_stage": "P7",
+      "validation_method": "postgres-schema-contract",
+      "validation_owner": "subscription/people"
+    }
+  ],
+  "unattached_alters": [],
+  "unattached_indexes": []
+}

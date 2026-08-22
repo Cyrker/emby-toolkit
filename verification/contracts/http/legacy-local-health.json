@@ -1,0 +1,29 @@
+{
+  "environment": "disposable-local-legacy-reference",
+  "external_credentials_used": false,
+  "health": {
+    "latency_ms": {
+      "max": 11.034,
+      "min": 0.702,
+      "p50": 1.026,
+      "p95": 2.064,
+      "samples": 50
+    },
+    "request": {
+      "method": "GET",
+      "path": "/api/health"
+    },
+    "response": {
+      "content_types": [
+        "application/json"
+      ],
+      "json": {
+        "status": "ok"
+      },
+      "statuses": [
+        200
+      ]
+    }
+  },
+  "schema_version": 1
+}

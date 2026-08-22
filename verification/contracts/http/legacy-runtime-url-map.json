@@ -1,0 +1,4003 @@
+{
+  "rule_count": 345,
+  "raw_method_binding_count": 874,
+  "contract_method_binding_count": 362,
+  "rules": [
+    {
+      "endpoint": "serve",
+      "path": "/",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "serve",
+      "path": "/<path:path>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_cleanup_offline_media",
+      "path": "/api/actions/cleanup-offline-media",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_clear_vectors",
+      "path": "/api/actions/clear-vectors",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_clear_review_items",
+      "path": "/api/actions/clear_review_items",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_clear_tables",
+      "path": "/api/actions/clear_tables",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_mark_item_processed",
+      "path": "/api/actions/mark_item_processed/<item_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_prepare_for_library_rebuild",
+      "path": "/api/actions/prepare-for-library-rebuild",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "actions.api_reprocess_all_review_items",
+      "path": "/api/actions/reprocess_all_review_items",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "actions.api_reprocess_item",
+      "path": "/api/actions/reprocess_item/<item_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_translate_cast_sa",
+      "path": "/api/actions/translate_cast_sa",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "actor_subscriptions.handle_actor_subscriptions",
+      "path": "/api/actor-subscriptions",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "actor_subscriptions.handle_single_actor_subscription",
+      "path": "/api/actor-subscriptions/<int:sub_id>",
+      "methods_raw": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PUT"
+      ],
+      "methods_contract": [
+        "DELETE",
+        "GET",
+        "PUT"
+      ]
+    },
+    {
+      "endpoint": "actor_subscriptions.refresh_single_actor_subscription",
+      "path": "/api/actor-subscriptions/<int:sub_id>/refresh",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "actor_subscriptions.handle_default_actor_config",
+      "path": "/api/actor-subscriptions/default-config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "actor_subscriptions.api_search_actors",
+      "path": "/api/actor-subscriptions/search",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.get_all_invitations",
+      "path": "/api/admin/invitations",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.create_invitation",
+      "path": "/api/admin/invitations",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.delete_invitation",
+      "path": "/api/admin/invitations/<int:invitation_id>",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.get_all_templates",
+      "path": "/api/admin/user_templates",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.create_template",
+      "path": "/api/admin/user_templates",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.delete_template",
+      "path": "/api/admin/user_templates/<int:template_id>",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.update_template",
+      "path": "/api/admin/user_templates/<int:template_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "PUT"
+      ],
+      "methods_contract": [
+        "PUT"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.get_all_managed_users",
+      "path": "/api/admin/users",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.delete_user",
+      "path": "/api/admin/users/<string:user_id>",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.set_user_expiration",
+      "path": "/api/admin/users/<string:user_id>/expiration",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.set_user_status",
+      "path": "/api/admin/users/<string:user_id>/status",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.change_user_template",
+      "path": "/api/admin/users/<string:user_id>/template",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_get_ai_models",
+      "path": "/api/ai/models",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_get_ai_prompts",
+      "path": "/api/ai/prompts",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "system.api_save_ai_prompts",
+      "path": "/api/ai/prompts",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_reset_ai_prompts",
+      "path": "/api/ai/prompts/reset",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_test_ai_connection",
+      "path": "/api/ai/test",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "unified_auth_bp.check_system_status",
+      "path": "/api/auth/check_status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "unified_auth_bp.emby_only_login",
+      "path": "/api/auth/login",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "unified_auth_bp.logout",
+      "path": "/api/auth/logout",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "unified_auth_bp.reauthorize_emby_service",
+      "path": "/api/auth/reauthorize",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "unified_auth_bp.request_recovery_token",
+      "path": "/api/auth/request_recovery",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "unified_auth_bp.service_authorization_status",
+      "path": "/api/auth/service_status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "unified_auth_bp.save_emby_config",
+      "path": "/api/auth/setup",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "unified_auth_bp.verify_recovery_token",
+      "path": "/api/auth/verify_recovery",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.clear_tagging_now",
+      "path": "/api/auto_tagging/clear_now",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.get_tagging_rules",
+      "path": "/api/auto_tagging/rules",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.save_tagging_rules",
+      "path": "/api/auto_tagging/rules",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.run_tagging_now",
+      "path": "/api/auto_tagging/run_now",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_cleanup_bp.clear_all_cleanup_tasks",
+      "path": "/api/cleanup/clear_all",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_cleanup_bp.delete_cleanup_tasks",
+      "path": "/api/cleanup/delete",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_cleanup_bp.delete_single_version",
+      "path": "/api/cleanup/delete_version",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_cleanup_bp.execute_cleanup_tasks",
+      "path": "/api/cleanup/execute",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_cleanup_bp.ignore_cleanup_tasks",
+      "path": "/api/cleanup/ignore",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_cleanup_bp.trigger_cleanup_scan",
+      "path": "/api/cleanup/scan",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_cleanup_bp.get_cleanup_settings",
+      "path": "/api/cleanup/settings",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_cleanup_bp.save_cleanup_settings",
+      "path": "/api/cleanup/settings",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_cleanup_bp.get_cleanup_tasks",
+      "path": "/api/cleanup/tasks",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "collections.api_delete_collection",
+      "path": "/api/collections/<emby_collection_id>",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "collections.api_get_collection_provider_metadata",
+      "path": "/api/collections/provider/metadata/<tmdb_collection_id>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "collections.api_search_collection_provider",
+      "path": "/api/collections/provider/search",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "collections.api_get_collection_settings",
+      "path": "/api/collections/settings",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "collections.api_save_collection_settings",
+      "path": "/api/collections/settings",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "collections.api_get_collections_status",
+      "path": "/api/collections/status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "system.api_get_config",
+      "path": "/api/config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "system.api_save_config",
+      "path": "/api/config",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "cover_generator_config.get_cover_generator_config",
+      "path": "/api/config/cover_generator",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "cover_generator_config.save_cover_generator_config",
+      "path": "/api/config/cover_generator",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "cover_generator_config.get_all_libraries",
+      "path": "/api/config/cover_generator/libraries",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "cover_generator_config.api_generate_cover_preview",
+      "path": "/api/config/cover_generator/preview",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_delete_custom_theme",
+      "path": "/api/config/custom_theme",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "system.api_save_custom_theme",
+      "path": "/api/config/custom_theme",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_all_custom_collections",
+      "path": "/api/custom_collections",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_create_custom_collection",
+      "path": "/api/custom_collections",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_delete_custom_collection",
+      "path": "/api/custom_collections/<int:collection_id>",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_update_custom_collection",
+      "path": "/api/custom_collections/<int:collection_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "PUT"
+      ],
+      "methods_contract": [
+        "PUT"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_fix_media_match_in_custom_collection",
+      "path": "/api/custom_collections/<int:collection_id>/fix_match",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_custom_collection_status",
+      "path": "/api/custom_collections/<int:collection_id>/status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_country_mapping",
+      "path": "/api/custom_collections/config/country_mapping",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_save_country_mapping",
+      "path": "/api/custom_collections/config/country_mapping",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_country_defaults",
+      "path": "/api/custom_collections/config/country_mapping/defaults",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_emby_libraries_for_filter",
+      "path": "/api/custom_collections/config/emby_libraries",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_emby_users",
+      "path": "/api/custom_collections/config/emby_users",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_junk_file_patterns",
+      "path": "/api/custom_collections/config/junk_file_patterns",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_save_junk_file_patterns",
+      "path": "/api/custom_collections/config/junk_file_patterns",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_junk_file_pattern_defaults",
+      "path": "/api/custom_collections/config/junk_file_patterns/defaults",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_keyword_mapping",
+      "path": "/api/custom_collections/config/keyword_mapping",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_save_keyword_mapping",
+      "path": "/api/custom_collections/config/keyword_mapping",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_keyword_defaults",
+      "path": "/api/custom_collections/config/keyword_mapping/defaults",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_keywords_for_filter",
+      "path": "/api/custom_collections/config/keywords",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_language_mapping",
+      "path": "/api/custom_collections/config/language_mapping",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_save_language_mapping",
+      "path": "/api/custom_collections/config/language_mapping",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_language_defaults",
+      "path": "/api/custom_collections/config/language_mapping/defaults",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_languages_for_filter",
+      "path": "/api/custom_collections/config/languages",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_movie_genres_config",
+      "path": "/api/custom_collections/config/movie_genres",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_rating_mapping",
+      "path": "/api/custom_collections/config/rating_mapping",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_save_rating_mapping",
+      "path": "/api/custom_collections/config/rating_mapping",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_rating_mapping_defaults",
+      "path": "/api/custom_collections/config/rating_mapping/defaults",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_rating_priority",
+      "path": "/api/custom_collections/config/rating_priority",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_save_rating_priority",
+      "path": "/api/custom_collections/config/rating_priority",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_rating_priority_defaults",
+      "path": "/api/custom_collections/config/rating_priority/defaults",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_release_group_mapping",
+      "path": "/api/custom_collections/config/release_group_mapping",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_save_release_group_mapping",
+      "path": "/api/custom_collections/config/release_group_mapping",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_release_group_defaults",
+      "path": "/api/custom_collections/config/release_group_mapping/defaults",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_studio_mapping",
+      "path": "/api/custom_collections/config/studio_mapping",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_save_studio_mapping",
+      "path": "/api/custom_collections/config/studio_mapping",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_studio_defaults",
+      "path": "/api/custom_collections/config/studio_mapping/defaults",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_studios_for_filter",
+      "path": "/api/custom_collections/config/studios",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_tags_for_filter",
+      "path": "/api/custom_collections/config/tags",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_tmdb_countries",
+      "path": "/api/custom_collections/config/tmdb_countries",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_tmdb_movie_genres",
+      "path": "/api/custom_collections/config/tmdb_movie_genres",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_search_tmdb_companies",
+      "path": "/api/custom_collections/config/tmdb_search_companies",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_search_tmdb_persons",
+      "path": "/api/custom_collections/config/tmdb_search_persons",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_tmdb_tv_genres",
+      "path": "/api/custom_collections/config/tmdb_tv_genres",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_tv_genres_config",
+      "path": "/api/custom_collections/config/tv_genres",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_unified_ratings",
+      "path": "/api/custom_collections/config/unified_ratings",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_save_unified_ratings",
+      "path": "/api/custom_collections/config/unified_ratings",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_unified_ratings_defaults",
+      "path": "/api/custom_collections/config/unified_ratings/defaults",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_get_unified_ratings_for_filter",
+      "path": "/api/custom_collections/config/unified_ratings_options",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "custom_collections.api_update_custom_collections_order",
+      "path": "/api/custom_collections/update_order",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_correct_all_sequences",
+      "path": "/api/database/correct-sequences",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_export_database",
+      "path": "/api/database/export",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_import_database",
+      "path": "/api/database/import",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_preview_backup_file",
+      "path": "/api/database/preview-backup",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_get_stats_core",
+      "path": "/api/database/stats/core",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_get_stats_library",
+      "path": "/api/database/stats/library",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_get_stats_rankings",
+      "path": "/api/database/stats/rankings",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_get_stats_subscription",
+      "path": "/api/database/stats/subscription",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_get_stats_system",
+      "path": "/api/database/stats/system",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_get_db_tables",
+      "path": "/api/database/tables",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "discover_bp.api_get_discover_keywords",
+      "path": "/api/discover/config/keywords",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "discover_bp.api_get_discover_languages",
+      "path": "/api/discover/config/languages",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "discover_bp.api_get_discover_studios",
+      "path": "/api/discover/config/studios",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "discover_bp.get_recommendation_pool",
+      "path": "/api/discover/daily_recommendation",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "discover_bp.get_genres",
+      "path": "/api/discover/genres/<string:media_type>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "discover_bp.discover_movies",
+      "path": "/api/discover/movie",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "discover_bp.search_media_handler",
+      "path": "/api/discover/search",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "discover_bp.get_tmdb_tv_details_proxy",
+      "path": "/api/discover/tmdb/tv/<int:tv_id>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "discover_bp.trigger_recommendation_update",
+      "path": "/api/discover/trigger_recommendation_update",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "discover_bp.discover_tv_shows",
+      "path": "/api/discover/tv",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.activate_emby_collection",
+      "path": "/api/emby/collections/activate",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.emby_webhook",
+      "path": "/api/emby/events",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.trigger_emby_intro_detection_backfill",
+      "path": "/api/emby/intro-detection/backfill",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.get_emby_metadata_by_path",
+      "path": "/api/emby/metadata",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.trigger_emby_metadata_backfill",
+      "path": "/api/emby/metadata/backfill",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.trigger_emby_item_metadata_backfill",
+      "path": "/api/emby/metadata/backfill/item",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.trigger_emby_items_metadata_backfill",
+      "path": "/api/emby/metadata/backfill/items",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.trigger_emby_library_metadata_backfill",
+      "path": "/api/emby/metadata/backfill/library",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.refresh_emby_metadata_images",
+      "path": "/api/emby/metadata/images/refresh",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.search_emby_metadata_images",
+      "path": "/api/emby/metadata/images/search",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.sync_emby_metadata_images",
+      "path": "/api/emby/metadata/images/sync",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.proxy_emby_plugin_update",
+      "path": "/api/emby/plugin-update",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.search_emby_index",
+      "path": "/api/emby/search",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.update_emby_search_index",
+      "path": "/api/emby/search/index",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_get_emby_user_views",
+      "path": "/api/emby/user/<user_id>/views",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_get_emby_libraries",
+      "path": "/api/emby_libraries",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "health_check",
+      "path": "/api/health",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.proxy_external_image",
+      "path": "/api/image_proxy",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "logs.list_log_files",
+      "path": "/api/logs/list",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "logs.search_all_logs",
+      "path": "/api/logs/search",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "logs.search_logs_with_context",
+      "path": "/api/logs/search_context",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "logs.view_log_file",
+      "path": "/api/logs/view",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_batch_delete_media",
+      "path": "/api/media/batch_delete",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_get_media_for_editing",
+      "path": "/api/media_for_editing/<item_id>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_get_intro_credit_chapters",
+      "path": "/api/media_info/chapters/<item_id>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_save_intro_credit_chapters",
+      "path": "/api/media_info/chapters/<item_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_get_media_info_for_edit",
+      "path": "/api/media_info/edit/<item_id>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_save_media_info_for_edit",
+      "path": "/api/media_info/edit/<item_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_get_series_episodes_for_edit",
+      "path": "/api/media_info/series/<series_id>/episodes",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.auto_save_auth",
+      "path": "/api/p115/auto_save_auth",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.save_manual_cookie",
+      "path": "/api/p115/cookie",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_cookie_qrcode",
+      "path": "/api/p115/cookie_qrcode",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.check_cookie_qrcode_status",
+      "path": "/api/p115/cookie_qrcode/status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.handle_default_stream_config",
+      "path": "/api/p115/default_stream_config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.list_115_directories",
+      "path": "/api/p115/dirs",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.handle_episode_regex_rules",
+      "path": "/api/p115/episode_regex_rules",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_cached_mediainfo_by_pick_code",
+      "path": "/api/p115/mediainfo/<pick_code>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.commit_deep_delete_by_pick_code",
+      "path": "/api/p115/mediainfo/<pick_code>/deep-delete/commit",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.prepare_deep_delete_by_pick_code",
+      "path": "/api/p115/mediainfo/<pick_code>/deep-delete/prepare",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.sync_intro_snapshot_by_pick_code",
+      "path": "/api/p115/mediainfo/<pick_code>/intro-sync",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.accept_emby_item_by_pick_code",
+      "path": "/api/p115/mediainfo/<pick_code>/item-ready",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_cached_metadata_by_pick_code",
+      "path": "/api/p115/mediainfo/<pick_code>/metadata",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.trigger_metadata_backfill_by_pick_code",
+      "path": "/api/p115/mediainfo/<pick_code>/metadata/backfill",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_cached_mediainfo_by_sha1",
+      "path": "/api/p115/mediainfo/sha1/<sha1>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.commit_deep_delete_by_sha1",
+      "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.prepare_deep_delete_by_sha1",
+      "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.sync_intro_snapshot_by_sha1",
+      "path": "/api/p115/mediainfo/sha1/<sha1>/intro-sync",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.accept_emby_item_by_sha1",
+      "path": "/api/p115/mediainfo/sha1/<sha1>/item-ready",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_cached_metadata_by_sha1",
+      "path": "/api/p115/mediainfo/sha1/<sha1>/metadata",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.trigger_metadata_backfill_by_sha1",
+      "path": "/api/p115/mediainfo/sha1/<sha1>/metadata/backfill",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.create_115_directory",
+      "path": "/api/p115/mkdir",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.play_115_video",
+      "path": "/api/p115/play/<pick_code>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.play_115_video",
+      "path": "/api/p115/play/<pick_code>/<path:filename>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_play_pool_config",
+      "path": "/api/p115/play_pool",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.save_play_pool_config",
+      "path": "/api/p115/play_pool",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.add_play_pool_account",
+      "path": "/api/p115/play_pool/accounts",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.delete_play_pool_account",
+      "path": "/api/p115/play_pool/accounts/<account_id>",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "115_bp.update_play_pool_account",
+      "path": "/api/p115/play_pool/accounts/<account_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "PUT"
+      ],
+      "methods_contract": [
+        "PUT"
+      ]
+    },
+    {
+      "endpoint": "115_bp.speedtest_play_pool_account",
+      "path": "/api/p115/play_pool/accounts/<account_id>/speedtest",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.cleanup_play_pool_sessions",
+      "path": "/api/p115/play_pool/cleanup",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_play_pool_cookie_qrcode",
+      "path": "/api/p115/play_pool/cookie_qrcode",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.check_play_pool_cookie_qrcode_status",
+      "path": "/api/p115/play_pool/cookie_qrcode/status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.delete_user_play_pool_account",
+      "path": "/api/p115/play_pool/user-account",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_user_play_pool_account",
+      "path": "/api/p115/play_pool/user-account",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.save_user_play_pool_account",
+      "path": "/api/p115/play_pool/user-account",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_user_play_pool_rewards",
+      "path": "/api/p115/play_pool/user-account/rewards",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_qrcode",
+      "path": "/api/p115/qrcode",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.check_qrcode_status",
+      "path": "/api/p115/qrcode/status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.quick_deploy_115",
+      "path": "/api/p115/quick_deploy",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_organize_records",
+      "path": "/api/p115/records",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.delete_organize_record",
+      "path": "/api/p115/records/<int:record_id>",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "115_bp.empty_recycle_bin",
+      "path": "/api/p115/recycle_bin/empty",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.handle_release_groups",
+      "path": "/api/p115/release_groups",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.handle_rename_config",
+      "path": "/api/p115/rename_config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.export_rename_config_to_mp",
+      "path": "/api/p115/rename_config/mp/export",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.import_rename_config_from_mp",
+      "path": "/api/p115/rename_config/mp/import",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.preview_rename_config",
+      "path": "/api/p115/rename_config/preview",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.replace_strm_files",
+      "path": "/api/p115/replace_strm",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.handle_sorting_rules",
+      "path": "/api/p115/sorting_rules",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.speedtest_115_download",
+      "path": "/api/p115/speedtest",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_115_status",
+      "path": "/api/p115/status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_local_directories",
+      "path": "/api/p115/system/directories",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.get_temp_dir_config",
+      "path": "/api/p115/temp_dir_config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "115_bp.save_temp_dir_config",
+      "path": "/api/p115/temp_dir_config",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.empty_unrecognized_files",
+      "path": "/api/p115/unrecognized/empty",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.handle_upload_monitor_config",
+      "path": "/api/p115/upload_monitor/config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.handle_washing_priority_config",
+      "path": "/api/p115/washing_priority_config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.handle_washing_priority_groups",
+      "path": "/api/p115/washing_priority_groups",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "115_bp.trigger_washing_priority_recalculate",
+      "path": "/api/p115/washing_priority_recalculate",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "user_portal_bp.get_account_info",
+      "path": "/api/portal/account-info",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "user_portal_bp.get_dashboard_stats",
+      "path": "/api/portal/dashboard-stats",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "user_portal_bp.get_playback_report",
+      "path": "/api/portal/playback-report",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "user_portal_bp.request_subscription",
+      "path": "/api/portal/subscribe",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "user_portal_bp.get_subscription_history",
+      "path": "/api/portal/subscription-history",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "user_portal_bp.get_subscription_stats",
+      "path": "/api/portal/subscription-stats",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "user_portal_bp.get_telegram_bot_info",
+      "path": "/api/portal/telegram-bot-info",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "user_portal_bp.save_telegram_chat_id",
+      "path": "/api/portal/telegram-chat-id",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "user_portal_bp.upload_avatar",
+      "path": "/api/portal/upload-avatar",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_preview_processed_cast",
+      "path": "/api/preview_processed_cast/<item_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.test_proxy_connection",
+      "path": "/api/proxy/test",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.register_with_invite",
+      "path": "/api/register/invite",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "user_management_bp.validate_invite_token",
+      "path": "/api/register/invite/validate/<string:token>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "resubscribe.batch_action",
+      "path": "/api/resubscribe/batch_action",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "resubscribe.get_emby_libraries_for_rules",
+      "path": "/api/resubscribe/libraries",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "resubscribe.get_library_status",
+      "path": "/api/resubscribe/library_status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "resubscribe.trigger_refresh_status",
+      "path": "/api/resubscribe/refresh_status",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "resubscribe.trigger_resubscribe_all",
+      "path": "/api/resubscribe/resubscribe_all",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "resubscribe.get_rules",
+      "path": "/api/resubscribe/rules",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "resubscribe.create_rule",
+      "path": "/api/resubscribe/rules",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "resubscribe.delete_rule",
+      "path": "/api/resubscribe/rules/<int:rule_id>",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "resubscribe.update_rule",
+      "path": "/api/resubscribe/rules/<int:rule_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "PUT"
+      ],
+      "methods_contract": [
+        "PUT"
+      ]
+    },
+    {
+      "endpoint": "resubscribe.update_rules_order",
+      "path": "/api/resubscribe/rules/order",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_get_review_items",
+      "path": "/api/review_items",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "database_admin.api_get_review_reasons",
+      "path": "/api/review_reasons",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_search_emby_library",
+      "path": "/api/search_emby_library",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_search_studios",
+      "path": "/api/search_studios",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_register_center_device",
+      "path": "/api/shared/resources/center/device/register",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_center_device_status",
+      "path": "/api/shared/resources/center/device/status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_center_import",
+      "path": "/api/shared/resources/center/import",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_replenish_prepare",
+      "path": "/api/shared/resources/center/replenish/prepare",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_center_sources",
+      "path": "/api/shared/resources/center/sources",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_center_source_children",
+      "path": "/api/shared/resources/center/sources/children",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_center_source_detail",
+      "path": "/api/shared/resources/center/sources/detail",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_center_sources_home",
+      "path": "/api/shared/resources/center/sources/home",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_center_source_tags",
+      "path": "/api/shared/resources/center/sources/tags",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_shared_resource_config",
+      "path": "/api/shared/resources/config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_credit_ledger",
+      "path": "/api/shared/resources/credit/ledger",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_refresh_credit",
+      "path": "/api/shared/resources/credit/refresh",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_run_maintenance",
+      "path": "/api/shared/resources/maintenance/run",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_search_shareable_media",
+      "path": "/api/shared/resources/media/search",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_share_requests",
+      "path": "/api/shared/resources/share-requests",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_share_request_cancel",
+      "path": "/api/shared/resources/share-requests/<group_id>/cancel",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_share_request_co",
+      "path": "/api/shared/resources/share-requests/<group_id>/co-request",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_share_request_param_options",
+      "path": "/api/shared/resources/share-requests/param-options",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_share_request_quote",
+      "path": "/api/shared/resources/share-requests/quote",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_share_request_tmdb_search",
+      "path": "/api/shared/resources/share-requests/tmdb/search",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_list_local_sources",
+      "path": "/api/shared/resources/shares",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_disable_local_source",
+      "path": "/api/shared/resources/shares/<int:source_id>/cancel",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_check_local_source",
+      "path": "/api/shared/resources/shares/<int:source_id>/check",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_delete_local_source",
+      "path": "/api/shared/resources/shares/<int:source_id>/delete",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "DELETE",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_report_local_source",
+      "path": "/api/shared/resources/shares/<int:source_id>/report-center",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_reregister_local_source",
+      "path": "/api/shared/resources/shares/<int:source_id>/reregister",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_cancel_completed_season_share_channel",
+      "path": "/api/shared/resources/shares/<int:source_id>/share/cancel",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_disable_local_sources_batch",
+      "path": "/api/shared/resources/shares/cancel-batch",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_delete_local_sources_batch",
+      "path": "/api/shared/resources/shares/delete-batch",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_manual_create",
+      "path": "/api/shared/resources/shares/manual-create",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_manual_validate",
+      "path": "/api/shared/resources/shares/manual-validate",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_reregister_local_sources_batch",
+      "path": "/api/shared/resources/shares/reregister-batch",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_shared_resource_summary",
+      "path": "/api/shared/resources/summary",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_virtual_imports",
+      "path": "/api/shared/resources/virtual-imports",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_delete_virtual_import",
+      "path": "/api/shared/resources/virtual-imports/<int:virtual_id>",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "shared_resource_bp.api_promote_virtual_import",
+      "path": "/api/shared/resources/virtual-imports/<int:virtual_id>/promote",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_get_task_status",
+      "path": "/api/status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.trigger_cloud_download",
+      "path": "/api/subscription/cloud/download",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.get_cloud_resources",
+      "path": "/api/subscription/cloud/resources",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.get_hdhive_authorize_url",
+      "path": "/api/subscription/hdhive/authorize_url",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.trigger_hdhive_checkin",
+      "path": "/api/subscription/hdhive/checkin",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.clear_hdhive_authorization",
+      "path": "/api/subscription/hdhive/clear_authorization",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.handle_hdhive_config",
+      "path": "/api/subscription/hdhive/config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.trigger_hdhive_download",
+      "path": "/api/subscription/hdhive/download",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.get_hdhive_resources",
+      "path": "/api/subscription/hdhive/resources",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.handle_hdhive_subscriptions",
+      "path": "/api/subscription/hdhive/subscriptions",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.delete_hdhive_subscription",
+      "path": "/api/subscription/hdhive/subscriptions/<int:subscription_id>",
+      "methods_raw": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "DELETE"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.check_hdhive_subscription",
+      "path": "/api/subscription/hdhive/subscriptions/check",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.get_mp_config",
+      "path": "/api/subscription/mp/config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.save_mp_config",
+      "path": "/api/subscription/mp/config",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.get_subscription_status",
+      "path": "/api/subscription/status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_unified_subscription_status",
+      "path": "/api/subscription/status",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_get_subscription_strategy",
+      "path": "/api/subscription/strategy",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_save_subscription_strategy",
+      "path": "/api/subscription/strategy",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.tg_userbot_clear_session",
+      "path": "/api/subscription/tg_userbot/clear_session",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.get_tg_config",
+      "path": "/api/subscription/tg_userbot/config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.save_tg_config",
+      "path": "/api/subscription/tg_userbot/config",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.tg_userbot_login",
+      "path": "/api/subscription/tg_userbot/login",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.tg_userbot_logout",
+      "path": "/api/subscription/tg_userbot/logout",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.tg_userbot_send_code",
+      "path": "/api/subscription/tg_userbot/send_code",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "subscription_bp.tg_userbot_status",
+      "path": "/api/subscription/tg_userbot/status",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_get_all_subscriptions_for_management",
+      "path": "/api/subscriptions/all",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "system.get_about_info",
+      "path": "/api/system/about_info",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "system.activate_pro",
+      "path": "/api/system/activate_pro",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_get_menu_config",
+      "path": "/api/system/menu_config",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "system.api_save_menu_config",
+      "path": "/api/system/menu_config",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_reset_menu_config",
+      "path": "/api/system/menu_config/reset",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_get_pro_pricing",
+      "path": "/api/system/pro_pricing",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "system.restart_container",
+      "path": "/api/system/restart",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.transfer_pro",
+      "path": "/api/system/transfer_pro",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.stream_update_progress",
+      "path": "/api/system/update/stream",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "tasks.get_available_tasks",
+      "path": "/api/tasks/available",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "tasks.run_task",
+      "path": "/api/tasks/run",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_get_telegram_notification_templates",
+      "path": "/api/telegram/templates",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "system.api_save_telegram_notification_templates",
+      "path": "/api/telegram/templates",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "system.api_test_telegram_connection",
+      "path": "/api/telegram/test",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_get_tmdb_images",
+      "path": "/api/tmdb_images/<item_id>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "system.api_handle_trigger_stop_task",
+      "path": "/api/trigger_stop_task",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_update_edited_cast_sa",
+      "path": "/api/update_media_cast_sa/<item_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_api.api_update_media_image",
+      "path": "/api/update_media_image/<item_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "watchlist.api_get_watchlist",
+      "path": "/api/watchlist",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "watchlist.api_add_to_watchlist",
+      "path": "/api/watchlist/add",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "watchlist.api_batch_force_end_watchlist_items",
+      "path": "/api/watchlist/batch_force_end",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "watchlist.api_batch_remove_from_watchlist",
+      "path": "/api/watchlist/batch_remove",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "watchlist.api_batch_update_watchlist_status",
+      "path": "/api/watchlist/batch_update_status",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "watchlist.api_trigger_single_watchlist_refresh",
+      "path": "/api/watchlist/refresh/<item_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "watchlist.api_remove_from_watchlist",
+      "path": "/api/watchlist/remove/<item_id>",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "watchlist.api_watchlist_settings",
+      "path": "/api/watchlist/settings",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "watchlist.api_update_watchlist_status",
+      "path": "/api/watchlist/update_status",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "watchlist.api_update_total_episodes",
+      "path": "/api/watchlist/update_total_episodes",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    },
+    {
+      "endpoint": "media_proxy.proxy_emby_image",
+      "path": "/image_proxy/<path:image_path>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "static",
+      "path": "/static/<path:filename>",
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "methods_contract": [
+        "GET"
+      ]
+    },
+    {
+      "endpoint": "webhook_bp.emby_webhook",
+      "path": "/webhook/emby",
+      "methods_raw": [
+        "OPTIONS",
+        "POST"
+      ],
+      "methods_contract": [
+        "POST"
+      ]
+    }
+  ]
+}

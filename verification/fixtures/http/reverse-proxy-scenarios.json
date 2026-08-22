@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source",
+    "captured_live": false,
+    "source": "reverse_proxy.py:1703"
+  },
+  "scenarios": [
+    {
+      "case_id": "inactive-license-health-exception",
+      "request": {
+        "method": "GET",
+        "path": "/api/health"
+      },
+      "expected_status": 200
+    },
+    {
+      "case_id": "inactive-license-denied",
+      "request": {
+        "method": "GET",
+        "path": "/Users"
+      },
+      "expected_status": 403,
+      "expected_content_type": "application/json"
+    },
+    {
+      "case_id": "non-etk-strm-no-transcode-fallback",
+      "request": {
+        "method": "GET",
+        "path": "/Videos/fixture-item/stream"
+      },
+      "expected_status": 409
+    },
+    {
+      "case_id": "virtual-play-redirect",
+      "request": {
+        "method": "GET",
+        "path": "/Videos/fixture-virtual-item/stream"
+      },
+      "expected_status": 302,
+      "expected_headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Location": "https://example.invalid/fixture-playback"
+      }
+    }
+  ]
+}

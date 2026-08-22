@@ -1,0 +1,168 @@
+{
+  "captured_on": "2026-08-23",
+  "database": {
+    "column_count": 478,
+    "constraint_count": 60,
+    "constraint_type_counts": {
+      "check": 2,
+      "foreign_key": 5,
+      "primary_key": 39,
+      "unique": 14
+    },
+    "index_count": 120,
+    "nonempty_tables": {
+      "app_settings": 2
+    },
+    "pg_catalog_fixture": "verification/contracts/db/legacy-pg-catalog.json",
+    "schema_fixture": "verification/contracts/db/legacy-schema.sql",
+    "server_version": "16.14",
+    "server_version_num": "160014",
+    "table_count": 39
+  },
+  "docs": {
+    "byte_count": 5049547,
+    "command": "npm ci --prefer-offline --no-audit --no-fund && npm run docs:build",
+    "file_count": 137,
+    "result": "passed",
+    "tree_sha256": "f38cc600c599f3cc3f189a50c6040f05299b52baf984b5bd987647c62a2969f9",
+    "vitepress_version": "1.6.4"
+  },
+  "environment": {
+    "config": "new-empty-disposable-directory",
+    "external_credentials_used": false,
+    "external_network_access": false,
+    "host_bridge_ip_masquerade": false,
+    "media_mounts_used": false,
+    "network_internal": true,
+    "published_ports": [
+      "127.0.0.1:15257->5257 during browser validation only"
+    ],
+    "source_mount_read_only": true
+  },
+  "frontend_reference": {
+    "api_auth_status": {
+      "body": {
+        "message": "系统未配置",
+        "status": "setup_required"
+      },
+      "status": 200
+    },
+    "browser": "Codex in-app browser",
+    "external_requests_performed": false,
+    "login_page": {
+      "path": "/login",
+      "rendered_controls": [
+        "username",
+        "password",
+        "login",
+        "reset configuration"
+      ],
+      "title": "Emby Toolkit"
+    },
+    "protected_route": {
+      "requested_path": "/DatabaseStats",
+      "result_path": "/setup"
+    },
+    "root_content_type": "text/html; charset=utf-8",
+    "root_status": 200,
+    "setup_page": {
+      "path": "/setup",
+      "rendered_controls": [
+        "Emby server URL",
+        "administrator username",
+        "administrator password",
+        "test and save"
+      ],
+      "title": "Emby Toolkit"
+    },
+    "submitted_forms": false
+  },
+  "legacy_runtime": {
+    "generate_nginx_config_exit_code": 0,
+    "container_local_health": {
+      "body": {
+        "status": "ok"
+      },
+      "latency_ms": {
+        "max": 6.615,
+        "min": 0.173,
+        "p50": 0.204,
+        "p95": 0.36,
+        "samples": 50
+      },
+      "status": 200
+    },
+    "host_loopback_health_fixture": "verification/contracts/http/legacy-local-health.json",
+    "memory_mib": 219.3,
+    "proxy_runtime_method_binding_count": 6,
+    "proxy_runtime_route_fixture": "verification/contracts/http/legacy-proxy-runtime-routes.json",
+    "proxy_runtime_rule_count": 3,
+    "proxy_runtime_url_map_fixture": "verification/contracts/http/legacy-proxy-runtime-url-map.json",
+    "route_diff_fixture": "verification/contracts/http/static-vs-runtime-route-diff.json",
+    "runtime_combined_normalized_method_binding_count": 368,
+    "runtime_contract_method_binding_count": 362,
+    "runtime_route_fixture": "verification/contracts/http/legacy-runtime-routes.json",
+    "runtime_rule_count": 345,
+    "runtime_url_map_fixture": "verification/contracts/http/legacy-runtime-url-map.json",
+    "startup_seconds_approximate": 3,
+    "stop": {
+      "exit_code": 137,
+      "result": "sigterm-timeout",
+      "timeout_seconds": 15
+    }
+  },
+  "local_database_query_latency_ms": {
+    "dynamic_config_lookup": {
+      "max": 0.246,
+      "min": 0.037,
+      "p50": 0.048,
+      "p95": 0.068,
+      "samples": 100
+    },
+    "media_count": {
+      "max": 4.961,
+      "min": 0.065,
+      "p50": 0.113,
+      "p95": 0.258,
+      "samples": 100
+    },
+    "p115_cache_count": {
+      "max": 1.151,
+      "min": 0.038,
+      "p50": 0.049,
+      "p95": 0.058,
+      "samples": 100
+    },
+    "shared_ledger_count": {
+      "max": 0.291,
+      "min": 0.035,
+      "p50": 0.043,
+      "p95": 0.048,
+      "samples": 100
+    }
+  },
+  "limitations": [
+    "The legacy reference uses PostgreSQL 16 because that is the legacy image baseline; PostgreSQL 18 is verified from P2 onward.",
+    "No real Emby, 115, TMDb, MoviePilot, Bridge, shared center, Telegram, or HDHive request was sent.",
+    "Task dispatch, business-query latency, and external timeout behavior were not exercised because the isolated reference had no authorized external test systems.",
+    "The legacy frontend logs its generic initialization-error message when setup_required is intentionally raised; setup and protected-route redirection still render correctly.",
+    "The dependency image was committed from the already prepared local test container after Docker Hub metadata access failed twice; a third unchanged full build was not attempted.",
+    "The legacy process did not exit within 15 seconds after SIGTERM and required Docker to terminate it."
+  ],
+  "postgres_memory_mib": 70.47,
+  "schema_version": 1,
+  "task_dispatch_probe": {
+    "external_adapter_calls": false,
+    "final_status": {
+      "current_action": "无",
+      "is_running": false,
+      "last_action": "P0 disposable task probe",
+      "message": "处理完成。",
+      "progress": 100
+    },
+    "kind": "synthetic no-external legacy TaskManager probe",
+    "network": "none",
+    "submitted": true,
+    "worker_stopped_cleanly": true
+  }
+}

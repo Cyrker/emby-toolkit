@@ -1,0 +1,5431 @@
+{
+    "tables": [
+        {
+            "name": "actor_subscriptions",
+            "schema": "public"
+        },
+        {
+            "name": "app_settings",
+            "schema": "public"
+        },
+        {
+            "name": "cleanup_index",
+            "schema": "public"
+        },
+        {
+            "name": "collections_info",
+            "schema": "public"
+        },
+        {
+            "name": "custom_collections",
+            "schema": "public"
+        },
+        {
+            "name": "emby_favorite_items",
+            "schema": "public"
+        },
+        {
+            "name": "emby_search_index",
+            "schema": "public"
+        },
+        {
+            "name": "emby_search_rebuild_state",
+            "schema": "public"
+        },
+        {
+            "name": "emby_users",
+            "schema": "public"
+        },
+        {
+            "name": "emby_users_extended",
+            "schema": "public"
+        },
+        {
+            "name": "failed_log",
+            "schema": "public"
+        },
+        {
+            "name": "invitations",
+            "schema": "public"
+        },
+        {
+            "name": "media_image_cache",
+            "schema": "public"
+        },
+        {
+            "name": "media_image_policy_cache",
+            "schema": "public"
+        },
+        {
+            "name": "media_metadata",
+            "schema": "public"
+        },
+        {
+            "name": "p115_filesystem_cache",
+            "schema": "public"
+        },
+        {
+            "name": "p115_intro_detection_failures",
+            "schema": "public"
+        },
+        {
+            "name": "p115_intro_fingerprint_cache",
+            "schema": "public"
+        },
+        {
+            "name": "p115_intro_fingerprint_failures",
+            "schema": "public"
+        },
+        {
+            "name": "p115_mediainfo_cache",
+            "schema": "public"
+        },
+        {
+            "name": "p115_organize_records",
+            "schema": "public"
+        },
+        {
+            "name": "p115_upload_records",
+            "schema": "public"
+        },
+        {
+            "name": "person_metadata",
+            "schema": "public"
+        },
+        {
+            "name": "processed_log",
+            "schema": "public"
+        },
+        {
+            "name": "resubscribe_index",
+            "schema": "public"
+        },
+        {
+            "name": "resubscribe_rules",
+            "schema": "public"
+        },
+        {
+            "name": "shared_completed_season_share_channels",
+            "schema": "public"
+        },
+        {
+            "name": "shared_credit_ledger_local",
+            "schema": "public"
+        },
+        {
+            "name": "shared_credit_snapshot",
+            "schema": "public"
+        },
+        {
+            "name": "shared_rapid_source_files",
+            "schema": "public"
+        },
+        {
+            "name": "shared_rapid_sources",
+            "schema": "public"
+        },
+        {
+            "name": "shared_virtual_imports",
+            "schema": "public"
+        },
+        {
+            "name": "subscribe_assistant_delete_records",
+            "schema": "public"
+        },
+        {
+            "name": "subscribe_assistant_snapshots",
+            "schema": "public"
+        },
+        {
+            "name": "subscribe_assistant_state",
+            "schema": "public"
+        },
+        {
+            "name": "translation_cache",
+            "schema": "public"
+        },
+        {
+            "name": "user_media_data",
+            "schema": "public"
+        },
+        {
+            "name": "user_templates",
+            "schema": "public"
+        },
+        {
+            "name": "washing_priority_groups",
+            "schema": "public"
+        }
+    ],
+    "columns": [
+        {
+            "name": "id",
+            "table": "actor_subscriptions",
+            "default": "nextval('actor_subscriptions_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "tmdb_person_id",
+            "table": "actor_subscriptions",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "actor_name",
+            "table": "actor_subscriptions",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "profile_path",
+            "table": "actor_subscriptions",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "config_start_year",
+            "table": "actor_subscriptions",
+            "default": "1900",
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "config_media_types",
+            "table": "actor_subscriptions",
+            "default": "'Movie,TV'::text",
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "config_genres_include_json",
+            "table": "actor_subscriptions",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "config_genres_exclude_json",
+            "table": "actor_subscriptions",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "status",
+            "table": "actor_subscriptions",
+            "default": "'active'::text",
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "last_scanned_tmdb_ids_json",
+            "table": "actor_subscriptions",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "last_checked_at",
+            "table": "actor_subscriptions",
+            "default": null,
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "added_at",
+            "table": "actor_subscriptions",
+            "default": "now()",
+            "ordinal": 12,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "config_min_rating",
+            "table": "actor_subscriptions",
+            "default": "6.0",
+            "ordinal": 13,
+            "nullable": true,
+            "udt_name": "float4",
+            "data_type": "real"
+        },
+        {
+            "name": "config_main_role_only",
+            "table": "actor_subscriptions",
+            "default": "false",
+            "ordinal": 14,
+            "nullable": false,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "config_min_vote_count",
+            "table": "actor_subscriptions",
+            "default": "10",
+            "ordinal": 15,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "setting_key",
+            "table": "app_settings",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "value_json",
+            "table": "app_settings",
+            "default": null,
+            "ordinal": 2,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "last_updated_at",
+            "table": "app_settings",
+            "default": "now()",
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "cleanup_index",
+            "default": "nextval('cleanup_index_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "cleanup_index",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_type",
+            "table": "cleanup_index",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "status",
+            "table": "cleanup_index",
+            "default": "'pending'::text",
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "versions_info_json",
+            "table": "cleanup_index",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "best_version_json",
+            "table": "cleanup_index",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "created_at",
+            "table": "cleanup_index",
+            "default": "now()",
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "last_updated_at",
+            "table": "cleanup_index",
+            "default": "now()",
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "tmdb_collection_id",
+            "table": "collections_info",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "emby_collection_id",
+            "table": "collections_info",
+            "default": null,
+            "ordinal": 2,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "name",
+            "table": "collections_info",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "overview",
+            "table": "collections_info",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "last_checked_at",
+            "table": "collections_info",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "poster_path",
+            "table": "collections_info",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "backdrop_path",
+            "table": "collections_info",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "metadata_schema_version",
+            "table": "collections_info",
+            "default": "0",
+            "ordinal": 8,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "is_active",
+            "table": "collections_info",
+            "default": "false",
+            "ordinal": 9,
+            "nullable": false,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "item_type",
+            "table": "collections_info",
+            "default": "'Movie'::text",
+            "ordinal": 10,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "all_tmdb_ids_json",
+            "table": "collections_info",
+            "default": null,
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "id",
+            "table": "custom_collections",
+            "default": "nextval('custom_collections_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "name",
+            "table": "custom_collections",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "type",
+            "table": "custom_collections",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "definition_json",
+            "table": "custom_collections",
+            "default": null,
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "status",
+            "table": "custom_collections",
+            "default": "'active'::text",
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "emby_collection_id",
+            "table": "custom_collections",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "allowed_user_ids",
+            "table": "custom_collections",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "last_synced_at",
+            "table": "custom_collections",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "created_at",
+            "table": "custom_collections",
+            "default": "now()",
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "item_type",
+            "table": "custom_collections",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "in_library_count",
+            "table": "custom_collections",
+            "default": "0",
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "generated_media_info_json",
+            "table": "custom_collections",
+            "default": null,
+            "ordinal": 12,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "sort_order",
+            "table": "custom_collections",
+            "default": "0",
+            "ordinal": 13,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "user_id",
+            "table": "emby_favorite_items",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_id",
+            "table": "emby_favorite_items",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "updated_at",
+            "table": "emby_favorite_items",
+            "default": "now()",
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "emby_item_id",
+            "table": "emby_search_index",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int8",
+            "data_type": "bigint"
+        },
+        {
+            "name": "item_type",
+            "table": "emby_search_index",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "title",
+            "table": "emby_search_index",
+            "default": "''::text",
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "original_title",
+            "table": "emby_search_index",
+            "default": "''::text",
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "series_name",
+            "table": "emby_search_index",
+            "default": "''::text",
+            "ordinal": 5,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "search_compact",
+            "table": "emby_search_index",
+            "default": "''::text",
+            "ordinal": 6,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "pinyin_full",
+            "table": "emby_search_index",
+            "default": "''::text",
+            "ordinal": 7,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "pinyin_initials",
+            "table": "emby_search_index",
+            "default": "''::text",
+            "ordinal": 8,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "search_ngrams",
+            "table": "emby_search_index",
+            "default": "'{}'::text[]",
+            "ordinal": 9,
+            "nullable": false,
+            "udt_name": "_text",
+            "data_type": "ARRAY"
+        },
+        {
+            "name": "pinyin_ngrams",
+            "table": "emby_search_index",
+            "default": "'{}'::text[]",
+            "ordinal": 10,
+            "nullable": false,
+            "udt_name": "_text",
+            "data_type": "ARRAY"
+        },
+        {
+            "name": "updated_at",
+            "table": "emby_search_index",
+            "default": "now()",
+            "ordinal": 11,
+            "nullable": false,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "token",
+            "table": "emby_search_rebuild_state",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "started_at",
+            "table": "emby_search_rebuild_state",
+            "default": "now()",
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "emby_users",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "name",
+            "table": "emby_users",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "is_administrator",
+            "table": "emby_users",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "last_seen_at",
+            "table": "emby_users",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "profile_image_tag",
+            "table": "emby_users",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "policy_json",
+            "table": "emby_users",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "last_updated_at",
+            "table": "emby_users",
+            "default": "now()",
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "emby_user_id",
+            "table": "emby_users_extended",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "status",
+            "table": "emby_users_extended",
+            "default": "'active'::text",
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "registration_date",
+            "table": "emby_users_extended",
+            "default": "now()",
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "expiration_date",
+            "table": "emby_users_extended",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "notes",
+            "table": "emby_users_extended",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "created_by",
+            "table": "emby_users_extended",
+            "default": "'self-registered'::text",
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "template_id",
+            "table": "emby_users_extended",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "telegram_chat_id",
+            "table": "emby_users_extended",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_id",
+            "table": "failed_log",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_name",
+            "table": "failed_log",
+            "default": null,
+            "ordinal": 2,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "reason",
+            "table": "failed_log",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "failed_at",
+            "table": "failed_log",
+            "default": "now()",
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "error_message",
+            "table": "failed_log",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_type",
+            "table": "failed_log",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "score",
+            "table": "failed_log",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "float4",
+            "data_type": "real"
+        },
+        {
+            "name": "id",
+            "table": "invitations",
+            "default": "nextval('invitations_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "token",
+            "table": "invitations",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "template_id",
+            "table": "invitations",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "expiration_days",
+            "table": "invitations",
+            "default": null,
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "status",
+            "table": "invitations",
+            "default": "'active'::text",
+            "ordinal": 5,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "expires_at",
+            "table": "invitations",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "created_at",
+            "table": "invitations",
+            "default": "now()",
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "used_by_user_id",
+            "table": "invitations",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "source_url",
+            "table": "media_image_cache",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "content_hash",
+            "table": "media_image_cache",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "bpchar",
+            "data_type": "character"
+        },
+        {
+            "name": "relative_path",
+            "table": "media_image_cache",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "mime_type",
+            "table": "media_image_cache",
+            "default": null,
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "byte_size",
+            "table": "media_image_cache",
+            "default": null,
+            "ordinal": 5,
+            "nullable": false,
+            "udt_name": "int8",
+            "data_type": "bigint"
+        },
+        {
+            "name": "created_at",
+            "table": "media_image_cache",
+            "default": "now()",
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "last_accessed_at",
+            "table": "media_image_cache",
+            "default": "now()",
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "item_type",
+            "table": "media_image_policy_cache",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "media_image_policy_cache",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "season_number",
+            "table": "media_image_policy_cache",
+            "default": "'-1'::integer",
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "episode_number",
+            "table": "media_image_policy_cache",
+            "default": "'-1'::integer",
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "policy_json",
+            "table": "media_image_policy_cache",
+            "default": "'[]'::jsonb",
+            "ordinal": 5,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "images_json",
+            "table": "media_image_policy_cache",
+            "default": "'[]'::jsonb",
+            "ordinal": 6,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "updated_at",
+            "table": "media_image_policy_cache",
+            "default": "now()",
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_type",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "in_library",
+            "table": "media_metadata",
+            "default": "false",
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "emby_item_ids_json",
+            "table": "media_metadata",
+            "default": "'[]'::jsonb",
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "file_sha1_json",
+            "table": "media_metadata",
+            "default": "'[]'::jsonb",
+            "ordinal": 5,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "file_pickcode_json",
+            "table": "media_metadata",
+            "default": "'[]'::jsonb",
+            "ordinal": 6,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "date_added",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "asset_details_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "subscription_status",
+            "table": "media_metadata",
+            "default": "'NONE'::text",
+            "ordinal": 9,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "subscription_sources_json",
+            "table": "media_metadata",
+            "default": "'[]'::jsonb",
+            "ordinal": 10,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "first_requested_at",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "last_subscribed_at",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 12,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "imdb_id",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 13,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "title",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 14,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "original_title",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 15,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "original_language",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 16,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "overview",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 17,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "tagline",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 18,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "overview_embedding",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 19,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "release_date",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 20,
+            "nullable": true,
+            "udt_name": "date",
+            "data_type": "date"
+        },
+        {
+            "name": "release_year",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 21,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "last_air_date",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 22,
+            "nullable": true,
+            "udt_name": "date",
+            "data_type": "date"
+        },
+        {
+            "name": "poster_path",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 23,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "screenshot_hash",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 24,
+            "nullable": true,
+            "udt_name": "bpchar",
+            "data_type": "character"
+        },
+        {
+            "name": "backdrop_path",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 25,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "logo_path",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 26,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "thumb_path",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 27,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "homepage",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 28,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "runtime_minutes",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 29,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "rating",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 30,
+            "nullable": true,
+            "udt_name": "float4",
+            "data_type": "real"
+        },
+        {
+            "name": "official_rating_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 31,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "custom_rating",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 32,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "genres_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 33,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "actors_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 34,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "directors_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 35,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "production_companies_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 36,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "networks_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 37,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "countries_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 38,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "keywords_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 39,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "last_updated_at",
+            "table": "media_metadata",
+            "default": "now()",
+            "ordinal": 40,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "ignore_reason",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 41,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "tags_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 42,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "metadata_ready",
+            "table": "media_metadata",
+            "default": "false",
+            "ordinal": 43,
+            "nullable": false,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "actors_ready",
+            "table": "media_metadata",
+            "default": "false",
+            "ordinal": 44,
+            "nullable": false,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "metadata_schema_version",
+            "table": "media_metadata",
+            "default": "0",
+            "ordinal": 45,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "parent_series_tmdb_id",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 46,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "season_number",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 47,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "episode_number",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 48,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "watching_status",
+            "table": "media_metadata",
+            "default": "'NONE'::text",
+            "ordinal": 49,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "paused_until",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 50,
+            "nullable": true,
+            "udt_name": "date",
+            "data_type": "date"
+        },
+        {
+            "name": "force_ended",
+            "table": "media_metadata",
+            "default": "false",
+            "ordinal": 51,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "watchlist_last_checked_at",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 52,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "watchlist_tmdb_status",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 53,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "watchlist_next_episode_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 54,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "watchlist_missing_info_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 55,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "last_episode_to_air_json",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 56,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "total_episodes",
+            "table": "media_metadata",
+            "default": "0",
+            "ordinal": 57,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "total_episodes_locked",
+            "table": "media_metadata",
+            "default": "false",
+            "ordinal": 58,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "waiting_for_completed_pack",
+            "table": "media_metadata",
+            "default": "false",
+            "ordinal": 59,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "active_washing",
+            "table": "media_metadata",
+            "default": "false",
+            "ordinal": 60,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "watchlist_version_lock_json",
+            "table": "media_metadata",
+            "default": "'{}'::jsonb",
+            "ordinal": 61,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "washing_level",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 62,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "washing_snapshot_json",
+            "table": "media_metadata",
+            "default": "'{}'::jsonb",
+            "ordinal": 63,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "last_synced_at",
+            "table": "media_metadata",
+            "default": null,
+            "ordinal": 64,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "created_at",
+            "table": "media_metadata",
+            "default": "now()",
+            "ordinal": 65,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "p115_filesystem_cache",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "parent_id",
+            "table": "p115_filesystem_cache",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "name",
+            "table": "p115_filesystem_cache",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "local_path",
+            "table": "p115_filesystem_cache",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "sha1",
+            "table": "p115_filesystem_cache",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "pick_code",
+            "table": "p115_filesystem_cache",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "size",
+            "table": "p115_filesystem_cache",
+            "default": "0",
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "int8",
+            "data_type": "bigint"
+        },
+        {
+            "name": "washing_level",
+            "table": "p115_filesystem_cache",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "washing_snapshot_json",
+            "table": "p115_filesystem_cache",
+            "default": "'{}'::jsonb",
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "updated_at",
+            "table": "p115_filesystem_cache",
+            "default": "now()",
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "failure_key",
+            "table": "p115_intro_detection_failures",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "kind",
+            "table": "p115_intro_detection_failures",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "algorithm_version",
+            "table": "p115_intro_detection_failures",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "scope",
+            "table": "p115_intro_detection_failures",
+            "default": "'season'::text",
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "series_tmdb_id",
+            "table": "p115_intro_detection_failures",
+            "default": "''::text",
+            "ordinal": 5,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "season_number",
+            "table": "p115_intro_detection_failures",
+            "default": "0",
+            "ordinal": 6,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "sha1",
+            "table": "p115_intro_detection_failures",
+            "default": "''::text",
+            "ordinal": 7,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "reason",
+            "table": "p115_intro_detection_failures",
+            "default": "''::text",
+            "ordinal": 8,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "sample_count",
+            "table": "p115_intro_detection_failures",
+            "default": "0",
+            "ordinal": 9,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "episode_count",
+            "table": "p115_intro_detection_failures",
+            "default": "0",
+            "ordinal": 10,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "created_at",
+            "table": "p115_intro_detection_failures",
+            "default": "now()",
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "updated_at",
+            "table": "p115_intro_detection_failures",
+            "default": "now()",
+            "ordinal": 12,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "sha1",
+            "table": "p115_intro_fingerprint_cache",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "fingerprint_zlib",
+            "table": "p115_intro_fingerprint_cache",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "bytea",
+            "data_type": "bytea"
+        },
+        {
+            "name": "fingerprint_count",
+            "table": "p115_intro_fingerprint_cache",
+            "default": "0",
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "sample_seconds",
+            "table": "p115_intro_fingerprint_cache",
+            "default": "600",
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "updated_at",
+            "table": "p115_intro_fingerprint_cache",
+            "default": "now()",
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "failure_key",
+            "table": "p115_intro_fingerprint_failures",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "kind",
+            "table": "p115_intro_fingerprint_failures",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "algorithm_version",
+            "table": "p115_intro_fingerprint_failures",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "attempts",
+            "table": "p115_intro_fingerprint_failures",
+            "default": "0",
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "last_sample_seconds",
+            "table": "p115_intro_fingerprint_failures",
+            "default": "0",
+            "ordinal": 5,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "last_reason",
+            "table": "p115_intro_fingerprint_failures",
+            "default": "''::text",
+            "ordinal": 6,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "series_tmdb_id",
+            "table": "p115_intro_fingerprint_failures",
+            "default": "''::text",
+            "ordinal": 7,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "season_number",
+            "table": "p115_intro_fingerprint_failures",
+            "default": "0",
+            "ordinal": 8,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "sha1",
+            "table": "p115_intro_fingerprint_failures",
+            "default": "''::text",
+            "ordinal": 9,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "created_at",
+            "table": "p115_intro_fingerprint_failures",
+            "default": "now()",
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "updated_at",
+            "table": "p115_intro_fingerprint_failures",
+            "default": "now()",
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "sha1",
+            "table": "p115_mediainfo_cache",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "mediainfo_json",
+            "table": "p115_mediainfo_cache",
+            "default": null,
+            "ordinal": 2,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "raw_ffprobe_json",
+            "table": "p115_mediainfo_cache",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "created_at",
+            "table": "p115_mediainfo_cache",
+            "default": "now()",
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "hit_count",
+            "table": "p115_mediainfo_cache",
+            "default": "0",
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "id",
+            "table": "p115_organize_records",
+            "default": "nextval('p115_organize_records_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "file_id",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "pick_code",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "original_name",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "renamed_name",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "status",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 6,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "fail_reason",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "media_type",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "target_cid",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "category_name",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "processed_at",
+            "table": "p115_organize_records",
+            "default": "now()",
+            "ordinal": 12,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "season_number",
+            "table": "p115_organize_records",
+            "default": null,
+            "ordinal": 13,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "record_key",
+            "table": "p115_upload_records",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "record_type",
+            "table": "p115_upload_records",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "mapping_id",
+            "table": "p115_upload_records",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "local_path",
+            "table": "p115_upload_records",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "relative_path",
+            "table": "p115_upload_records",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "target_cid",
+            "table": "p115_upload_records",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "pick_code",
+            "table": "p115_upload_records",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "status",
+            "table": "p115_upload_records",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "payload_json",
+            "table": "p115_upload_records",
+            "default": "'{}'::jsonb",
+            "ordinal": 9,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "created_at",
+            "table": "p115_upload_records",
+            "default": "now()",
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "updated_at",
+            "table": "p115_upload_records",
+            "default": "now()",
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "tmdb_person_id",
+            "table": "person_metadata",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "imdb_id",
+            "table": "person_metadata",
+            "default": null,
+            "ordinal": 2,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "douban_celebrity_id",
+            "table": "person_metadata",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "primary_name",
+            "table": "person_metadata",
+            "default": null,
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "original_name",
+            "table": "person_metadata",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "profile_path",
+            "table": "person_metadata",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "gender",
+            "table": "person_metadata",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "adult",
+            "table": "person_metadata",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "popularity",
+            "table": "person_metadata",
+            "default": null,
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "float4",
+            "data_type": "real"
+        },
+        {
+            "name": "last_synced_at",
+            "table": "person_metadata",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "last_updated_at",
+            "table": "person_metadata",
+            "default": "now()",
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "item_id",
+            "table": "processed_log",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_name",
+            "table": "processed_log",
+            "default": null,
+            "ordinal": 2,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "processed_at",
+            "table": "processed_log",
+            "default": "now()",
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "score",
+            "table": "processed_log",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "float4",
+            "data_type": "real"
+        },
+        {
+            "name": "assets_synced_at",
+            "table": "processed_log",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "last_emby_modified_at",
+            "table": "processed_log",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "resubscribe_index",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_type",
+            "table": "resubscribe_index",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "season_number",
+            "table": "resubscribe_index",
+            "default": "'-1'::integer",
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "status",
+            "table": "resubscribe_index",
+            "default": null,
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "reason",
+            "table": "resubscribe_index",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "matched_rule_id",
+            "table": "resubscribe_index",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "last_checked_at",
+            "table": "resubscribe_index",
+            "default": "now()",
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "resubscribe_rules",
+            "default": "nextval('resubscribe_rules_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "name",
+            "table": "resubscribe_rules",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "enabled",
+            "table": "resubscribe_rules",
+            "default": "true",
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "scope_rules",
+            "table": "resubscribe_rules",
+            "default": "'[]'::jsonb",
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "sort_order",
+            "table": "resubscribe_rules",
+            "default": "0",
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "resubscribe_resolution_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "resubscribe_resolution_threshold",
+            "table": "resubscribe_rules",
+            "default": "1920",
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "resubscribe_audio_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "resubscribe_audio_missing_languages",
+            "table": "resubscribe_rules",
+            "default": null,
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "resubscribe_subtitle_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "resubscribe_subtitle_missing_languages",
+            "table": "resubscribe_rules",
+            "default": null,
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "resubscribe_quality_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 12,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "resubscribe_quality_include",
+            "table": "resubscribe_rules",
+            "default": null,
+            "ordinal": 13,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "resubscribe_effect_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 14,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "resubscribe_effect_include",
+            "table": "resubscribe_rules",
+            "default": null,
+            "ordinal": 15,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "resubscribe_subtitle_effect_only",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 16,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "resubscribe_filesize_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 17,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "resubscribe_filesize_operator",
+            "table": "resubscribe_rules",
+            "default": "'lt'::text",
+            "ordinal": 18,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "resubscribe_filesize_threshold_gb",
+            "table": "resubscribe_rules",
+            "default": "10.0",
+            "ordinal": 19,
+            "nullable": true,
+            "udt_name": "float4",
+            "data_type": "real"
+        },
+        {
+            "name": "resubscribe_codec_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 20,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "resubscribe_codec_include",
+            "table": "resubscribe_rules",
+            "default": null,
+            "ordinal": 21,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "resubscribe_subtitle_skip_if_audio_exists",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 22,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "custom_resubscribe_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 23,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "consistency_check_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 24,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "consistency_must_match_resolution",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 25,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "consistency_must_match_group",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 26,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "consistency_must_match_code",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 27,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "consistency_must_match_codec",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 28,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "rule_type",
+            "table": "resubscribe_rules",
+            "default": "'resubscribe'::text",
+            "ordinal": 29,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "filter_rating_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 30,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "filter_rating_min",
+            "table": "resubscribe_rules",
+            "default": "0",
+            "ordinal": 31,
+            "nullable": true,
+            "udt_name": "float4",
+            "data_type": "real"
+        },
+        {
+            "name": "delete_mode",
+            "table": "resubscribe_rules",
+            "default": "'episode'::text",
+            "ordinal": 32,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "delete_delay_seconds",
+            "table": "resubscribe_rules",
+            "default": "0",
+            "ordinal": 33,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "filter_rating_ignore_zero",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 34,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "filter_missing_episodes_enabled",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 35,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "resubscribe_source",
+            "table": "resubscribe_rules",
+            "default": "'moviepilot'::text",
+            "ordinal": 36,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "resubscribe_entire_season",
+            "table": "resubscribe_rules",
+            "default": "false",
+            "ordinal": 37,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "id",
+            "table": "shared_completed_season_share_channels",
+            "default": "nextval('shared_completed_season_share_channels_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "channel_id",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "center_source_id",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "local_source_id",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "hub_id",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "manifest_hash",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "share_code",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "receive_code",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "share_url",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "share_title",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "root_fid",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "root_cid",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 12,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "root_name",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 13,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "file_count",
+            "table": "shared_completed_season_share_channels",
+            "default": "0",
+            "ordinal": 14,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "total_size",
+            "table": "shared_completed_season_share_channels",
+            "default": "0",
+            "ordinal": 15,
+            "nullable": true,
+            "udt_name": "int8",
+            "data_type": "bigint"
+        },
+        {
+            "name": "status",
+            "table": "shared_completed_season_share_channels",
+            "default": "'creating'::text",
+            "ordinal": 16,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "review_status",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 17,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "status_message",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 18,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "fail_count",
+            "table": "shared_completed_season_share_channels",
+            "default": "0",
+            "ordinal": 19,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "raw_json",
+            "table": "shared_completed_season_share_channels",
+            "default": "'{}'::jsonb",
+            "ordinal": 20,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "last_checked_at",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 21,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "last_reported_at",
+            "table": "shared_completed_season_share_channels",
+            "default": null,
+            "ordinal": 22,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "created_at",
+            "table": "shared_completed_season_share_channels",
+            "default": "now()",
+            "ordinal": 23,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "updated_at",
+            "table": "shared_completed_season_share_channels",
+            "default": "now()",
+            "ordinal": 24,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "shared_credit_ledger_local",
+            "default": "nextval('shared_credit_ledger_local_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "event_type",
+            "table": "shared_credit_ledger_local",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "delta",
+            "table": "shared_credit_ledger_local",
+            "default": "0",
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "reason",
+            "table": "shared_credit_ledger_local",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "ref_id",
+            "table": "shared_credit_ledger_local",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "source_id",
+            "table": "shared_credit_ledger_local",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "virtual_id",
+            "table": "shared_credit_ledger_local",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "shared_credit_ledger_local",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_type",
+            "table": "shared_credit_ledger_local",
+            "default": null,
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "title",
+            "table": "shared_credit_ledger_local",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "raw_json",
+            "table": "shared_credit_ledger_local",
+            "default": "'{}'::jsonb",
+            "ordinal": 11,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "created_at",
+            "table": "shared_credit_ledger_local",
+            "default": "now()",
+            "ordinal": 12,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "shared_credit_snapshot",
+            "default": "1",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "device_id",
+            "table": "shared_credit_snapshot",
+            "default": null,
+            "ordinal": 2,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "credit",
+            "table": "shared_credit_snapshot",
+            "default": "0",
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "contributed_sources",
+            "table": "shared_credit_snapshot",
+            "default": "0",
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "consumed_sources",
+            "table": "shared_credit_snapshot",
+            "default": "0",
+            "ordinal": 5,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "transfer_success",
+            "table": "shared_credit_snapshot",
+            "default": "0",
+            "ordinal": 6,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "transfer_failed",
+            "table": "shared_credit_snapshot",
+            "default": "0",
+            "ordinal": 7,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "wanted_gaps",
+            "table": "shared_credit_snapshot",
+            "default": "0",
+            "ordinal": 8,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "shared_sources",
+            "table": "shared_credit_snapshot",
+            "default": "0",
+            "ordinal": 9,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "raw_ffprobe",
+            "table": "shared_credit_snapshot",
+            "default": "0",
+            "ordinal": 10,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "remote_devices",
+            "table": "shared_credit_snapshot",
+            "default": "0",
+            "ordinal": 11,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "raw_json",
+            "table": "shared_credit_snapshot",
+            "default": "'{}'::jsonb",
+            "ordinal": 12,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "updated_at",
+            "table": "shared_credit_snapshot",
+            "default": "now()",
+            "ordinal": 13,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "shared_rapid_source_files",
+            "default": "nextval('shared_rapid_source_files_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "local_source_id",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "fid",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "pick_code",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "sha1",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 5,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "preid",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "size",
+            "table": "shared_rapid_source_files",
+            "default": "0",
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "int8",
+            "data_type": "bigint"
+        },
+        {
+            "name": "file_name",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 8,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "relative_path",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_type",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "season_number",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 12,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "episode_number",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 13,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "center_file_id",
+            "table": "shared_rapid_source_files",
+            "default": null,
+            "ordinal": 14,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "raw_ffprobe_uploaded",
+            "table": "shared_rapid_source_files",
+            "default": "false",
+            "ordinal": 15,
+            "nullable": false,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "media_signature_json",
+            "table": "shared_rapid_source_files",
+            "default": "'{}'::jsonb",
+            "ordinal": 16,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "rapid_meta_json",
+            "table": "shared_rapid_source_files",
+            "default": "'{}'::jsonb",
+            "ordinal": 17,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "raw_json",
+            "table": "shared_rapid_source_files",
+            "default": "'{}'::jsonb",
+            "ordinal": 18,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "created_at",
+            "table": "shared_rapid_source_files",
+            "default": "now()",
+            "ordinal": 19,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "updated_at",
+            "table": "shared_rapid_source_files",
+            "default": "now()",
+            "ordinal": 20,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "shared_rapid_sources",
+            "default": "nextval('shared_rapid_sources_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "source_key",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "source_kind",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "center_source_id",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 5,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_type",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 6,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "parent_series_tmdb_id",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "season_number",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "episode_number",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "title",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "release_year",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "sha1",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 12,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "preid",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 13,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "size",
+            "table": "shared_rapid_sources",
+            "default": "0",
+            "ordinal": 14,
+            "nullable": true,
+            "udt_name": "int8",
+            "data_type": "bigint"
+        },
+        {
+            "name": "file_name",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 15,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "root_fid",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 16,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "root_name",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 17,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "source_provider",
+            "table": "shared_rapid_sources",
+            "default": "'local'::text",
+            "ordinal": 18,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "status",
+            "table": "shared_rapid_sources",
+            "default": "'active'::text",
+            "ordinal": 19,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "center_status",
+            "table": "shared_rapid_sources",
+            "default": "'local'::text",
+            "ordinal": 20,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "manifest_hash",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 21,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "manifest_version",
+            "table": "shared_rapid_sources",
+            "default": "1",
+            "ordinal": 22,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "file_count",
+            "table": "shared_rapid_sources",
+            "default": "0",
+            "ordinal": 23,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "total_size",
+            "table": "shared_rapid_sources",
+            "default": "0",
+            "ordinal": 24,
+            "nullable": false,
+            "udt_name": "int8",
+            "data_type": "bigint"
+        },
+        {
+            "name": "is_clean_version",
+            "table": "shared_rapid_sources",
+            "default": "false",
+            "ordinal": 25,
+            "nullable": false,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "clean_version_confidence",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 26,
+            "nullable": true,
+            "udt_name": "float4",
+            "data_type": "real"
+        },
+        {
+            "name": "clean_version_meta_json",
+            "table": "shared_rapid_sources",
+            "default": "'{}'::jsonb",
+            "ordinal": 27,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "media_signature_json",
+            "table": "shared_rapid_sources",
+            "default": "'{}'::jsonb",
+            "ordinal": 28,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "rapid_meta_json",
+            "table": "shared_rapid_sources",
+            "default": "'{}'::jsonb",
+            "ordinal": 29,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "raw_json",
+            "table": "shared_rapid_sources",
+            "default": "'{}'::jsonb",
+            "ordinal": 30,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "last_error",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 31,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "reported_at",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 32,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "disabled_at",
+            "table": "shared_rapid_sources",
+            "default": null,
+            "ordinal": 33,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "created_at",
+            "table": "shared_rapid_sources",
+            "default": "now()",
+            "ordinal": 34,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "updated_at",
+            "table": "shared_rapid_sources",
+            "default": "now()",
+            "ordinal": 35,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "shared_virtual_imports",
+            "default": "nextval('shared_virtual_imports_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "source_kind",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "source_id",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_type",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "parent_series_tmdb_id",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "season_number",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "episode_number",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "title",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "release_year",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "file_count",
+            "table": "shared_virtual_imports",
+            "default": "0",
+            "ordinal": 11,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "total_size",
+            "table": "shared_virtual_imports",
+            "default": "0",
+            "ordinal": 12,
+            "nullable": false,
+            "udt_name": "int8",
+            "data_type": "bigint"
+        },
+        {
+            "name": "status",
+            "table": "shared_virtual_imports",
+            "default": "'virtual'::text",
+            "ordinal": 13,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "watched_count",
+            "table": "shared_virtual_imports",
+            "default": "0",
+            "ordinal": 14,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "played_percent",
+            "table": "shared_virtual_imports",
+            "default": "0",
+            "ordinal": 15,
+            "nullable": false,
+            "udt_name": "float4",
+            "data_type": "real"
+        },
+        {
+            "name": "strm_paths_json",
+            "table": "shared_virtual_imports",
+            "default": "'[]'::jsonb",
+            "ordinal": 16,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "source_payload_json",
+            "table": "shared_virtual_imports",
+            "default": "'{}'::jsonb",
+            "ordinal": 17,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "files_json",
+            "table": "shared_virtual_imports",
+            "default": "'[]'::jsonb",
+            "ordinal": 18,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "last_played_at",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 19,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "promoted_at",
+            "table": "shared_virtual_imports",
+            "default": null,
+            "ordinal": 20,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "created_at",
+            "table": "shared_virtual_imports",
+            "default": "now()",
+            "ordinal": 21,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "updated_at",
+            "table": "shared_virtual_imports",
+            "default": "now()",
+            "ordinal": 22,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "fingerprint",
+            "table": "subscribe_assistant_delete_records",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "subscribe_assistant_delete_records",
+            "default": null,
+            "ordinal": 2,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "season_number",
+            "table": "subscribe_assistant_delete_records",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "episode_json",
+            "table": "subscribe_assistant_delete_records",
+            "default": "'[]'::jsonb",
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "reason",
+            "table": "subscribe_assistant_delete_records",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "created_at",
+            "table": "subscribe_assistant_delete_records",
+            "default": "now()",
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "expires_at",
+            "table": "subscribe_assistant_delete_records",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "subscribe_assistant_snapshots",
+            "default": "nextval('subscribe_assistant_snapshots_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "tmdb_id",
+            "table": "subscribe_assistant_snapshots",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_type",
+            "table": "subscribe_assistant_snapshots",
+            "default": "'Series'::text",
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "season_number",
+            "table": "subscribe_assistant_snapshots",
+            "default": null,
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "subscribe_id",
+            "table": "subscribe_assistant_snapshots",
+            "default": null,
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "scope_total",
+            "table": "subscribe_assistant_snapshots",
+            "default": "0",
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "scope_json",
+            "table": "subscribe_assistant_snapshots",
+            "default": "'{}'::jsonb",
+            "ordinal": 7,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "subscribe_json",
+            "table": "subscribe_assistant_snapshots",
+            "default": "'{}'::jsonb",
+            "ordinal": 8,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "created_at",
+            "table": "subscribe_assistant_snapshots",
+            "default": "now()",
+            "ordinal": 9,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "last_checked_at",
+            "table": "subscribe_assistant_snapshots",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "state_key",
+            "table": "subscribe_assistant_state",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "state_json",
+            "table": "subscribe_assistant_state",
+            "default": "'{}'::jsonb",
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "updated_at",
+            "table": "subscribe_assistant_state",
+            "default": "now()",
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "original_text",
+            "table": "translation_cache",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "translated_text",
+            "table": "translation_cache",
+            "default": null,
+            "ordinal": 2,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "engine_used",
+            "table": "translation_cache",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "last_updated_at",
+            "table": "translation_cache",
+            "default": "now()",
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "user_id",
+            "table": "user_media_data",
+            "default": null,
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "item_id",
+            "table": "user_media_data",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "is_favorite",
+            "table": "user_media_data",
+            "default": "false",
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "played",
+            "table": "user_media_data",
+            "default": "false",
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "playback_position_ticks",
+            "table": "user_media_data",
+            "default": "0",
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "int8",
+            "data_type": "bigint"
+        },
+        {
+            "name": "play_count",
+            "table": "user_media_data",
+            "default": "0",
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "last_played_date",
+            "table": "user_media_data",
+            "default": null,
+            "ordinal": 7,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "last_updated_at",
+            "table": "user_media_data",
+            "default": "now()",
+            "ordinal": 8,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "id",
+            "table": "user_templates",
+            "default": "nextval('user_templates_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "name",
+            "table": "user_templates",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "description",
+            "table": "user_templates",
+            "default": null,
+            "ordinal": 3,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "emby_policy_json",
+            "table": "user_templates",
+            "default": null,
+            "ordinal": 4,
+            "nullable": false,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "default_expiration_days",
+            "table": "user_templates",
+            "default": "30",
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "created_at",
+            "table": "user_templates",
+            "default": "now()",
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "timestamptz",
+            "data_type": "timestamp with time zone"
+        },
+        {
+            "name": "allow_unrestricted_subscriptions",
+            "table": "user_templates",
+            "default": "false",
+            "ordinal": 7,
+            "nullable": false,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "personal_play_account_only",
+            "table": "user_templates",
+            "default": "false",
+            "ordinal": 8,
+            "nullable": false,
+            "udt_name": "bool",
+            "data_type": "boolean"
+        },
+        {
+            "name": "max_concurrent_streams",
+            "table": "user_templates",
+            "default": "0",
+            "ordinal": 9,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "source_emby_user_id",
+            "table": "user_templates",
+            "default": null,
+            "ordinal": 10,
+            "nullable": true,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "emby_configuration_json",
+            "table": "user_templates",
+            "default": null,
+            "ordinal": 11,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "id",
+            "table": "washing_priority_groups",
+            "default": "nextval('washing_priority_groups_id_seq'::regclass)",
+            "ordinal": 1,
+            "nullable": false,
+            "udt_name": "int4",
+            "data_type": "integer"
+        },
+        {
+            "name": "name",
+            "table": "washing_priority_groups",
+            "default": null,
+            "ordinal": 2,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "media_type",
+            "table": "washing_priority_groups",
+            "default": null,
+            "ordinal": 3,
+            "nullable": false,
+            "udt_name": "text",
+            "data_type": "text"
+        },
+        {
+            "name": "target_cids",
+            "table": "washing_priority_groups",
+            "default": "'[]'::jsonb",
+            "ordinal": 4,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "priorities",
+            "table": "washing_priority_groups",
+            "default": "'[]'::jsonb",
+            "ordinal": 5,
+            "nullable": true,
+            "udt_name": "jsonb",
+            "data_type": "jsonb"
+        },
+        {
+            "name": "sort_order",
+            "table": "washing_priority_groups",
+            "default": "0",
+            "ordinal": 6,
+            "nullable": true,
+            "udt_name": "int4",
+            "data_type": "integer"
+        }
+    ],
+    "indexes": [
+        {
+            "name": "actor_subscriptions_pkey",
+            "table": "actor_subscriptions",
+            "definition": "CREATE UNIQUE INDEX actor_subscriptions_pkey ON public.actor_subscriptions USING btree (id)"
+        },
+        {
+            "name": "actor_subscriptions_tmdb_person_id_key",
+            "table": "actor_subscriptions",
+            "definition": "CREATE UNIQUE INDEX actor_subscriptions_tmdb_person_id_key ON public.actor_subscriptions USING btree (tmdb_person_id)"
+        },
+        {
+            "name": "app_settings_pkey",
+            "table": "app_settings",
+            "definition": "CREATE UNIQUE INDEX app_settings_pkey ON public.app_settings USING btree (setting_key)"
+        },
+        {
+            "name": "cleanup_index_pkey",
+            "table": "cleanup_index",
+            "definition": "CREATE UNIQUE INDEX cleanup_index_pkey ON public.cleanup_index USING btree (id)"
+        },
+        {
+            "name": "cleanup_index_tmdb_id_item_type_key",
+            "table": "cleanup_index",
+            "definition": "CREATE UNIQUE INDEX cleanup_index_tmdb_id_item_type_key ON public.cleanup_index USING btree (tmdb_id, item_type)"
+        },
+        {
+            "name": "collections_info_emby_collection_id_key",
+            "table": "collections_info",
+            "definition": "CREATE UNIQUE INDEX collections_info_emby_collection_id_key ON public.collections_info USING btree (emby_collection_id)"
+        },
+        {
+            "name": "collections_info_pkey",
+            "table": "collections_info",
+            "definition": "CREATE UNIQUE INDEX collections_info_pkey ON public.collections_info USING btree (tmdb_collection_id)"
+        },
+        {
+            "name": "custom_collections_name_key",
+            "table": "custom_collections",
+            "definition": "CREATE UNIQUE INDEX custom_collections_name_key ON public.custom_collections USING btree (name)"
+        },
+        {
+            "name": "custom_collections_pkey",
+            "table": "custom_collections",
+            "definition": "CREATE UNIQUE INDEX custom_collections_pkey ON public.custom_collections USING btree (id)"
+        },
+        {
+            "name": "emby_favorite_items_pkey",
+            "table": "emby_favorite_items",
+            "definition": "CREATE UNIQUE INDEX emby_favorite_items_pkey ON public.emby_favorite_items USING btree (user_id, item_id)"
+        },
+        {
+            "name": "idx_emby_favorite_items_item",
+            "table": "emby_favorite_items",
+            "definition": "CREATE INDEX idx_emby_favorite_items_item ON public.emby_favorite_items USING btree (item_id)"
+        },
+        {
+            "name": "emby_search_index_pkey",
+            "table": "emby_search_index",
+            "definition": "CREATE UNIQUE INDEX emby_search_index_pkey ON public.emby_search_index USING btree (emby_item_id)"
+        },
+        {
+            "name": "idx_emby_search_ngrams",
+            "table": "emby_search_index",
+            "definition": "CREATE INDEX idx_emby_search_ngrams ON public.emby_search_index USING gin (search_ngrams)"
+        },
+        {
+            "name": "idx_emby_search_pinyin_ngrams",
+            "table": "emby_search_index",
+            "definition": "CREATE INDEX idx_emby_search_pinyin_ngrams ON public.emby_search_index USING gin (pinyin_ngrams)"
+        },
+        {
+            "name": "idx_emby_search_type",
+            "table": "emby_search_index",
+            "definition": "CREATE INDEX idx_emby_search_type ON public.emby_search_index USING btree (item_type)"
+        },
+        {
+            "name": "emby_search_rebuild_state_pkey",
+            "table": "emby_search_rebuild_state",
+            "definition": "CREATE UNIQUE INDEX emby_search_rebuild_state_pkey ON public.emby_search_rebuild_state USING btree (token)"
+        },
+        {
+            "name": "emby_users_pkey",
+            "table": "emby_users",
+            "definition": "CREATE UNIQUE INDEX emby_users_pkey ON public.emby_users USING btree (id)"
+        },
+        {
+            "name": "emby_users_extended_pkey",
+            "table": "emby_users_extended",
+            "definition": "CREATE UNIQUE INDEX emby_users_extended_pkey ON public.emby_users_extended USING btree (emby_user_id)"
+        },
+        {
+            "name": "failed_log_pkey",
+            "table": "failed_log",
+            "definition": "CREATE UNIQUE INDEX failed_log_pkey ON public.failed_log USING btree (item_id)"
+        },
+        {
+            "name": "invitations_pkey",
+            "table": "invitations",
+            "definition": "CREATE UNIQUE INDEX invitations_pkey ON public.invitations USING btree (id)"
+        },
+        {
+            "name": "invitations_token_key",
+            "table": "invitations",
+            "definition": "CREATE UNIQUE INDEX invitations_token_key ON public.invitations USING btree (token)"
+        },
+        {
+            "name": "idx_media_image_cache_hash",
+            "table": "media_image_cache",
+            "definition": "CREATE INDEX idx_media_image_cache_hash ON public.media_image_cache USING btree (content_hash)"
+        },
+        {
+            "name": "media_image_cache_pkey",
+            "table": "media_image_cache",
+            "definition": "CREATE UNIQUE INDEX media_image_cache_pkey ON public.media_image_cache USING btree (source_url)"
+        },
+        {
+            "name": "media_image_policy_cache_pkey",
+            "table": "media_image_policy_cache",
+            "definition": "CREATE UNIQUE INDEX media_image_policy_cache_pkey ON public.media_image_policy_cache USING btree (item_type, tmdb_id, season_number, episode_number)"
+        },
+        {
+            "name": "idx_mm_actors_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_actors_gin ON public.media_metadata USING gin (actors_json jsonb_path_ops)"
+        },
+        {
+            "name": "idx_mm_asset_details_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_asset_details_gin ON public.media_metadata USING gin (asset_details_json)"
+        },
+        {
+            "name": "idx_mm_companies_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_companies_gin ON public.media_metadata USING gin (production_companies_json jsonb_path_ops)"
+        },
+        {
+            "name": "idx_mm_countries_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_countries_gin ON public.media_metadata USING gin (countries_json jsonb_path_ops)"
+        },
+        {
+            "name": "idx_mm_date_added_desc",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_date_added_desc ON public.media_metadata USING btree (date_added DESC)"
+        },
+        {
+            "name": "idx_mm_directors_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_directors_gin ON public.media_metadata USING gin (directors_json jsonb_path_ops)"
+        },
+        {
+            "name": "idx_mm_emby_ids_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_emby_ids_gin ON public.media_metadata USING gin (emby_item_ids_json)"
+        },
+        {
+            "name": "idx_mm_episode_parent_library",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_episode_parent_library ON public.media_metadata USING btree (parent_series_tmdb_id, item_type, in_library) WHERE (item_type = 'Episode'::text)"
+        },
+        {
+            "name": "idx_mm_episode_parent_season_ep_library",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_episode_parent_season_ep_library ON public.media_metadata USING btree (parent_series_tmdb_id, season_number, episode_number) WHERE ((item_type = 'Episode'::text) AND (in_library = true))"
+        },
+        {
+            "name": "idx_mm_file_pickcode_json_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_file_pickcode_json_gin ON public.media_metadata USING gin (file_pickcode_json)"
+        },
+        {
+            "name": "idx_mm_file_sha1_json_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_file_sha1_json_gin ON public.media_metadata USING gin (file_sha1_json)"
+        },
+        {
+            "name": "idx_mm_genres_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_genres_gin ON public.media_metadata USING gin (genres_json jsonb_path_ops)"
+        },
+        {
+            "name": "idx_mm_in_library",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_in_library ON public.media_metadata USING btree (in_library)"
+        },
+        {
+            "name": "idx_mm_item_type",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_item_type ON public.media_metadata USING btree (item_type)"
+        },
+        {
+            "name": "idx_mm_keywords_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_keywords_gin ON public.media_metadata USING gin (keywords_json jsonb_path_ops)"
+        },
+        {
+            "name": "idx_mm_networks_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_networks_gin ON public.media_metadata USING gin (networks_json jsonb_path_ops)"
+        },
+        {
+            "name": "idx_mm_parent_series",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_parent_series ON public.media_metadata USING btree (parent_series_tmdb_id)"
+        },
+        {
+            "name": "idx_mm_parent_series_season",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_parent_series_season ON public.media_metadata USING btree (parent_series_tmdb_id, season_number)"
+        },
+        {
+            "name": "idx_mm_rating_desc",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_rating_desc ON public.media_metadata USING btree (rating DESC)"
+        },
+        {
+            "name": "idx_mm_release_date_desc",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_release_date_desc ON public.media_metadata USING btree (release_date DESC)"
+        },
+        {
+            "name": "idx_mm_release_year",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_release_year ON public.media_metadata USING btree (release_year)"
+        },
+        {
+            "name": "idx_mm_screenshot_hash",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_screenshot_hash ON public.media_metadata USING btree (screenshot_hash) WHERE (screenshot_hash IS NOT NULL)"
+        },
+        {
+            "name": "idx_mm_season_parent_status",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_season_parent_status ON public.media_metadata USING btree (parent_series_tmdb_id, season_number, watching_status) WHERE (item_type = 'Season'::text)"
+        },
+        {
+            "name": "idx_mm_subscription_sources_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_subscription_sources_gin ON public.media_metadata USING gin (subscription_sources_json)"
+        },
+        {
+            "name": "idx_mm_subscription_status",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_subscription_status ON public.media_metadata USING btree (subscription_status) WHERE (in_library = false)"
+        },
+        {
+            "name": "idx_mm_tags_gin",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_tags_gin ON public.media_metadata USING gin (tags_json jsonb_path_ops)"
+        },
+        {
+            "name": "idx_mm_type_parent",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_type_parent ON public.media_metadata USING btree (item_type, parent_series_tmdb_id)"
+        },
+        {
+            "name": "idx_mm_washing_level",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_washing_level ON public.media_metadata USING btree (washing_level) WHERE ((washing_level IS NOT NULL) AND (in_library = true))"
+        },
+        {
+            "name": "idx_mm_watching_status",
+            "table": "media_metadata",
+            "definition": "CREATE INDEX idx_mm_watching_status ON public.media_metadata USING btree (watching_status) WHERE (watching_status <> 'NONE'::text)"
+        },
+        {
+            "name": "media_metadata_pkey",
+            "table": "media_metadata",
+            "definition": "CREATE UNIQUE INDEX media_metadata_pkey ON public.media_metadata USING btree (tmdb_id, item_type)"
+        },
+        {
+            "name": "idx_p115_local_path",
+            "table": "p115_filesystem_cache",
+            "definition": "CREATE INDEX idx_p115_local_path ON public.p115_filesystem_cache USING btree (local_path) WHERE ((local_path IS NOT NULL) AND (local_path <> ''::text))"
+        },
+        {
+            "name": "idx_p115_name",
+            "table": "p115_filesystem_cache",
+            "definition": "CREATE INDEX idx_p115_name ON public.p115_filesystem_cache USING btree (name)"
+        },
+        {
+            "name": "idx_p115_parent_id",
+            "table": "p115_filesystem_cache",
+            "definition": "CREATE INDEX idx_p115_parent_id ON public.p115_filesystem_cache USING btree (parent_id)"
+        },
+        {
+            "name": "idx_p115_pick_code",
+            "table": "p115_filesystem_cache",
+            "definition": "CREATE INDEX idx_p115_pick_code ON public.p115_filesystem_cache USING btree (pick_code) WHERE ((pick_code IS NOT NULL) AND (pick_code <> ''::text))"
+        },
+        {
+            "name": "idx_p115_sha1_upper",
+            "table": "p115_filesystem_cache",
+            "definition": "CREATE INDEX idx_p115_sha1_upper ON public.p115_filesystem_cache USING btree (upper(sha1)) WHERE ((sha1 IS NOT NULL) AND (sha1 <> ''::text))"
+        },
+        {
+            "name": "idx_p115_washing_level",
+            "table": "p115_filesystem_cache",
+            "definition": "CREATE INDEX idx_p115_washing_level ON public.p115_filesystem_cache USING btree (washing_level) WHERE (washing_level IS NOT NULL)"
+        },
+        {
+            "name": "p115_filesystem_cache_pkey",
+            "table": "p115_filesystem_cache",
+            "definition": "CREATE UNIQUE INDEX p115_filesystem_cache_pkey ON public.p115_filesystem_cache USING btree (id)"
+        },
+        {
+            "name": "uniq_p115_parent_name",
+            "table": "p115_filesystem_cache",
+            "definition": "CREATE UNIQUE INDEX uniq_p115_parent_name ON public.p115_filesystem_cache USING btree (parent_id, name)"
+        },
+        {
+            "name": "idx_p115_intro_detection_failures_kind",
+            "table": "p115_intro_detection_failures",
+            "definition": "CREATE INDEX idx_p115_intro_detection_failures_kind ON public.p115_intro_detection_failures USING btree (kind, algorithm_version)"
+        },
+        {
+            "name": "p115_intro_detection_failures_pkey",
+            "table": "p115_intro_detection_failures",
+            "definition": "CREATE UNIQUE INDEX p115_intro_detection_failures_pkey ON public.p115_intro_detection_failures USING btree (failure_key, kind, algorithm_version)"
+        },
+        {
+            "name": "p115_intro_fingerprint_cache_pkey",
+            "table": "p115_intro_fingerprint_cache",
+            "definition": "CREATE UNIQUE INDEX p115_intro_fingerprint_cache_pkey ON public.p115_intro_fingerprint_cache USING btree (sha1)"
+        },
+        {
+            "name": "idx_p115_intro_fingerprint_failures_kind",
+            "table": "p115_intro_fingerprint_failures",
+            "definition": "CREATE INDEX idx_p115_intro_fingerprint_failures_kind ON public.p115_intro_fingerprint_failures USING btree (kind, algorithm_version)"
+        },
+        {
+            "name": "p115_intro_fingerprint_failures_pkey",
+            "table": "p115_intro_fingerprint_failures",
+            "definition": "CREATE UNIQUE INDEX p115_intro_fingerprint_failures_pkey ON public.p115_intro_fingerprint_failures USING btree (failure_key, kind, algorithm_version)"
+        },
+        {
+            "name": "p115_mediainfo_cache_pkey",
+            "table": "p115_mediainfo_cache",
+            "definition": "CREATE UNIQUE INDEX p115_mediainfo_cache_pkey ON public.p115_mediainfo_cache USING btree (sha1)"
+        },
+        {
+            "name": "p115_organize_records_file_id_key",
+            "table": "p115_organize_records",
+            "definition": "CREATE UNIQUE INDEX p115_organize_records_file_id_key ON public.p115_organize_records USING btree (file_id)"
+        },
+        {
+            "name": "p115_organize_records_pick_code_key",
+            "table": "p115_organize_records",
+            "definition": "CREATE UNIQUE INDEX p115_organize_records_pick_code_key ON public.p115_organize_records USING btree (pick_code)"
+        },
+        {
+            "name": "p115_organize_records_pkey",
+            "table": "p115_organize_records",
+            "definition": "CREATE UNIQUE INDEX p115_organize_records_pkey ON public.p115_organize_records USING btree (id)"
+        },
+        {
+            "name": "idx_p115_upload_records_local_path",
+            "table": "p115_upload_records",
+            "definition": "CREATE INDEX idx_p115_upload_records_local_path ON public.p115_upload_records USING btree (local_path) WHERE (record_type = 'completed'::text)"
+        },
+        {
+            "name": "idx_p115_upload_records_mapping",
+            "table": "p115_upload_records",
+            "definition": "CREATE INDEX idx_p115_upload_records_mapping ON public.p115_upload_records USING btree (mapping_id, record_type)"
+        },
+        {
+            "name": "idx_p115_upload_records_pick_code",
+            "table": "p115_upload_records",
+            "definition": "CREATE INDEX idx_p115_upload_records_pick_code ON public.p115_upload_records USING btree (pick_code) WHERE (pick_code IS NOT NULL)"
+        },
+        {
+            "name": "idx_p115_upload_records_type_status",
+            "table": "p115_upload_records",
+            "definition": "CREATE INDEX idx_p115_upload_records_type_status ON public.p115_upload_records USING btree (record_type, status)"
+        },
+        {
+            "name": "p115_upload_records_pkey",
+            "table": "p115_upload_records",
+            "definition": "CREATE UNIQUE INDEX p115_upload_records_pkey ON public.p115_upload_records USING btree (record_key)"
+        },
+        {
+            "name": "person_metadata_douban_celebrity_id_key",
+            "table": "person_metadata",
+            "definition": "CREATE UNIQUE INDEX person_metadata_douban_celebrity_id_key ON public.person_metadata USING btree (douban_celebrity_id)"
+        },
+        {
+            "name": "person_metadata_imdb_id_key",
+            "table": "person_metadata",
+            "definition": "CREATE UNIQUE INDEX person_metadata_imdb_id_key ON public.person_metadata USING btree (imdb_id)"
+        },
+        {
+            "name": "person_metadata_pkey",
+            "table": "person_metadata",
+            "definition": "CREATE UNIQUE INDEX person_metadata_pkey ON public.person_metadata USING btree (tmdb_person_id)"
+        },
+        {
+            "name": "processed_log_pkey",
+            "table": "processed_log",
+            "definition": "CREATE UNIQUE INDEX processed_log_pkey ON public.processed_log USING btree (item_id)"
+        },
+        {
+            "name": "idx_ri_tmdb_type",
+            "table": "resubscribe_index",
+            "definition": "CREATE INDEX idx_ri_tmdb_type ON public.resubscribe_index USING btree (tmdb_id, item_type)"
+        },
+        {
+            "name": "resubscribe_index_pkey",
+            "table": "resubscribe_index",
+            "definition": "CREATE UNIQUE INDEX resubscribe_index_pkey ON public.resubscribe_index USING btree (tmdb_id, item_type, season_number)"
+        },
+        {
+            "name": "resubscribe_rules_name_key",
+            "table": "resubscribe_rules",
+            "definition": "CREATE UNIQUE INDEX resubscribe_rules_name_key ON public.resubscribe_rules USING btree (name)"
+        },
+        {
+            "name": "resubscribe_rules_pkey",
+            "table": "resubscribe_rules",
+            "definition": "CREATE UNIQUE INDEX resubscribe_rules_pkey ON public.resubscribe_rules USING btree (id)"
+        },
+        {
+            "name": "idx_scssc_center_source",
+            "table": "shared_completed_season_share_channels",
+            "definition": "CREATE INDEX idx_scssc_center_source ON public.shared_completed_season_share_channels USING btree (center_source_id, status, updated_at DESC)"
+        },
+        {
+            "name": "idx_scssc_channel",
+            "table": "shared_completed_season_share_channels",
+            "definition": "CREATE INDEX idx_scssc_channel ON public.shared_completed_season_share_channels USING btree (channel_id)"
+        },
+        {
+            "name": "idx_scssc_share_code",
+            "table": "shared_completed_season_share_channels",
+            "definition": "CREATE INDEX idx_scssc_share_code ON public.shared_completed_season_share_channels USING btree (share_code) WHERE ((share_code IS NOT NULL) AND (share_code <> ''::text))"
+        },
+        {
+            "name": "idx_scssc_status_check",
+            "table": "shared_completed_season_share_channels",
+            "definition": "CREATE INDEX idx_scssc_status_check ON public.shared_completed_season_share_channels USING btree (status, last_checked_at NULLS FIRST, updated_at)"
+        },
+        {
+            "name": "shared_completed_season_share_channels_channel_id_key",
+            "table": "shared_completed_season_share_channels",
+            "definition": "CREATE UNIQUE INDEX shared_completed_season_share_channels_channel_id_key ON public.shared_completed_season_share_channels USING btree (channel_id)"
+        },
+        {
+            "name": "shared_completed_season_share_channels_pkey",
+            "table": "shared_completed_season_share_channels",
+            "definition": "CREATE UNIQUE INDEX shared_completed_season_share_channels_pkey ON public.shared_completed_season_share_channels USING btree (id)"
+        },
+        {
+            "name": "idx_shared_credit_ledger_created",
+            "table": "shared_credit_ledger_local",
+            "definition": "CREATE INDEX idx_shared_credit_ledger_created ON public.shared_credit_ledger_local USING btree (created_at DESC)"
+        },
+        {
+            "name": "shared_credit_ledger_local_pkey",
+            "table": "shared_credit_ledger_local",
+            "definition": "CREATE UNIQUE INDEX shared_credit_ledger_local_pkey ON public.shared_credit_ledger_local USING btree (id)"
+        },
+        {
+            "name": "shared_credit_snapshot_pkey",
+            "table": "shared_credit_snapshot",
+            "definition": "CREATE UNIQUE INDEX shared_credit_snapshot_pkey ON public.shared_credit_snapshot USING btree (id)"
+        },
+        {
+            "name": "idx_srsf_episode",
+            "table": "shared_rapid_source_files",
+            "definition": "CREATE INDEX idx_srsf_episode ON public.shared_rapid_source_files USING btree (tmdb_id, season_number, episode_number)"
+        },
+        {
+            "name": "idx_srsf_sha1",
+            "table": "shared_rapid_source_files",
+            "definition": "CREATE INDEX idx_srsf_sha1 ON public.shared_rapid_source_files USING btree (upper(sha1))"
+        },
+        {
+            "name": "idx_srsf_source",
+            "table": "shared_rapid_source_files",
+            "definition": "CREATE INDEX idx_srsf_source ON public.shared_rapid_source_files USING btree (local_source_id)"
+        },
+        {
+            "name": "idx_srsf_source_episode_sha1",
+            "table": "shared_rapid_source_files",
+            "definition": "CREATE INDEX idx_srsf_source_episode_sha1 ON public.shared_rapid_source_files USING btree (local_source_id, tmdb_id, season_number, episode_number, upper(sha1))"
+        },
+        {
+            "name": "shared_rapid_source_files_pkey",
+            "table": "shared_rapid_source_files",
+            "definition": "CREATE UNIQUE INDEX shared_rapid_source_files_pkey ON public.shared_rapid_source_files USING btree (id)"
+        },
+        {
+            "name": "idx_srs_center_source",
+            "table": "shared_rapid_sources",
+            "definition": "CREATE INDEX idx_srs_center_source ON public.shared_rapid_sources USING btree (source_kind, center_source_id)"
+        },
+        {
+            "name": "idx_srs_effective_share_scan",
+            "table": "shared_rapid_sources",
+            "definition": "CREATE INDEX idx_srs_effective_share_scan ON public.shared_rapid_sources USING btree (source_kind, tmdb_id, season_number, episode_number, status, center_status) WHERE ((status = ANY (ARRAY['active'::text, 'available'::text, 'updating'::text])) AND (center_status <> 'disabled'::text))"
+        },
+        {
+            "name": "idx_srs_media",
+            "table": "shared_rapid_sources",
+            "definition": "CREATE INDEX idx_srs_media ON public.shared_rapid_sources USING btree (tmdb_id, item_type, season_number, episode_number)"
+        },
+        {
+            "name": "idx_srs_sha1",
+            "table": "shared_rapid_sources",
+            "definition": "CREATE INDEX idx_srs_sha1 ON public.shared_rapid_sources USING btree (upper(sha1)) WHERE ((sha1 IS NOT NULL) AND (sha1 <> ''::text))"
+        },
+        {
+            "name": "idx_srs_status_center_updated",
+            "table": "shared_rapid_sources",
+            "definition": "CREATE INDEX idx_srs_status_center_updated ON public.shared_rapid_sources USING btree (status, center_status, updated_at, id)"
+        },
+        {
+            "name": "idx_srs_status_updated",
+            "table": "shared_rapid_sources",
+            "definition": "CREATE INDEX idx_srs_status_updated ON public.shared_rapid_sources USING btree (status, updated_at DESC)"
+        },
+        {
+            "name": "shared_rapid_sources_pkey",
+            "table": "shared_rapid_sources",
+            "definition": "CREATE UNIQUE INDEX shared_rapid_sources_pkey ON public.shared_rapid_sources USING btree (id)"
+        },
+        {
+            "name": "shared_rapid_sources_source_key_key",
+            "table": "shared_rapid_sources",
+            "definition": "CREATE UNIQUE INDEX shared_rapid_sources_source_key_key ON public.shared_rapid_sources USING btree (source_key)"
+        },
+        {
+            "name": "idx_svi_media",
+            "table": "shared_virtual_imports",
+            "definition": "CREATE INDEX idx_svi_media ON public.shared_virtual_imports USING btree (tmdb_id, item_type, season_number, episode_number)"
+        },
+        {
+            "name": "idx_svi_status_updated",
+            "table": "shared_virtual_imports",
+            "definition": "CREATE INDEX idx_svi_status_updated ON public.shared_virtual_imports USING btree (status, updated_at DESC)"
+        },
+        {
+            "name": "shared_virtual_imports_pkey",
+            "table": "shared_virtual_imports",
+            "definition": "CREATE UNIQUE INDEX shared_virtual_imports_pkey ON public.shared_virtual_imports USING btree (id)"
+        },
+        {
+            "name": "idx_sas_delete_records_expires",
+            "table": "subscribe_assistant_delete_records",
+            "definition": "CREATE INDEX idx_sas_delete_records_expires ON public.subscribe_assistant_delete_records USING btree (expires_at)"
+        },
+        {
+            "name": "subscribe_assistant_delete_records_pkey",
+            "table": "subscribe_assistant_delete_records",
+            "definition": "CREATE UNIQUE INDEX subscribe_assistant_delete_records_pkey ON public.subscribe_assistant_delete_records USING btree (fingerprint)"
+        },
+        {
+            "name": "idx_sas_snapshots_checked",
+            "table": "subscribe_assistant_snapshots",
+            "definition": "CREATE INDEX idx_sas_snapshots_checked ON public.subscribe_assistant_snapshots USING btree (last_checked_at)"
+        },
+        {
+            "name": "idx_sas_snapshots_media",
+            "table": "subscribe_assistant_snapshots",
+            "definition": "CREATE INDEX idx_sas_snapshots_media ON public.subscribe_assistant_snapshots USING btree (tmdb_id, item_type, season_number)"
+        },
+        {
+            "name": "subscribe_assistant_snapshots_pkey",
+            "table": "subscribe_assistant_snapshots",
+            "definition": "CREATE UNIQUE INDEX subscribe_assistant_snapshots_pkey ON public.subscribe_assistant_snapshots USING btree (id)"
+        },
+        {
+            "name": "subscribe_assistant_state_pkey",
+            "table": "subscribe_assistant_state",
+            "definition": "CREATE UNIQUE INDEX subscribe_assistant_state_pkey ON public.subscribe_assistant_state USING btree (state_key)"
+        },
+        {
+            "name": "translation_cache_pkey",
+            "table": "translation_cache",
+            "definition": "CREATE UNIQUE INDEX translation_cache_pkey ON public.translation_cache USING btree (original_text)"
+        },
+        {
+            "name": "user_media_data_pkey",
+            "table": "user_media_data",
+            "definition": "CREATE UNIQUE INDEX user_media_data_pkey ON public.user_media_data USING btree (user_id, item_id)"
+        },
+        {
+            "name": "user_templates_name_key",
+            "table": "user_templates",
+            "definition": "CREATE UNIQUE INDEX user_templates_name_key ON public.user_templates USING btree (name)"
+        },
+        {
+            "name": "user_templates_pkey",
+            "table": "user_templates",
+            "definition": "CREATE UNIQUE INDEX user_templates_pkey ON public.user_templates USING btree (id)"
+        },
+        {
+            "name": "washing_priority_groups_pkey",
+            "table": "washing_priority_groups",
+            "definition": "CREATE UNIQUE INDEX washing_priority_groups_pkey ON public.washing_priority_groups USING btree (id)"
+        }
+    ],
+    "database": "etk",
+    "constraints": [
+        {
+            "name": "actor_subscriptions_pkey",
+            "type": "primary_key",
+            "table": "actor_subscriptions",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "actor_subscriptions_tmdb_person_id_key",
+            "type": "unique",
+            "table": "actor_subscriptions",
+            "definition": "UNIQUE (tmdb_person_id)"
+        },
+        {
+            "name": "app_settings_pkey",
+            "type": "primary_key",
+            "table": "app_settings",
+            "definition": "PRIMARY KEY (setting_key)"
+        },
+        {
+            "name": "cleanup_index_pkey",
+            "type": "primary_key",
+            "table": "cleanup_index",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "cleanup_index_tmdb_id_item_type_key",
+            "type": "unique",
+            "table": "cleanup_index",
+            "definition": "UNIQUE (tmdb_id, item_type)"
+        },
+        {
+            "name": "collections_info_emby_collection_id_key",
+            "type": "unique",
+            "table": "collections_info",
+            "definition": "UNIQUE (emby_collection_id)"
+        },
+        {
+            "name": "collections_info_pkey",
+            "type": "primary_key",
+            "table": "collections_info",
+            "definition": "PRIMARY KEY (tmdb_collection_id)"
+        },
+        {
+            "name": "custom_collections_name_key",
+            "type": "unique",
+            "table": "custom_collections",
+            "definition": "UNIQUE (name)"
+        },
+        {
+            "name": "custom_collections_pkey",
+            "type": "primary_key",
+            "table": "custom_collections",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "emby_favorite_items_pkey",
+            "type": "primary_key",
+            "table": "emby_favorite_items",
+            "definition": "PRIMARY KEY (user_id, item_id)"
+        },
+        {
+            "name": "emby_search_index_pkey",
+            "type": "primary_key",
+            "table": "emby_search_index",
+            "definition": "PRIMARY KEY (emby_item_id)"
+        },
+        {
+            "name": "emby_search_rebuild_state_pkey",
+            "type": "primary_key",
+            "table": "emby_search_rebuild_state",
+            "definition": "PRIMARY KEY (token)"
+        },
+        {
+            "name": "emby_users_pkey",
+            "type": "primary_key",
+            "table": "emby_users",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "emby_users_extended_emby_user_id_fkey",
+            "type": "foreign_key",
+            "table": "emby_users_extended",
+            "definition": "FOREIGN KEY (emby_user_id) REFERENCES emby_users(id) ON DELETE CASCADE"
+        },
+        {
+            "name": "emby_users_extended_pkey",
+            "type": "primary_key",
+            "table": "emby_users_extended",
+            "definition": "PRIMARY KEY (emby_user_id)"
+        },
+        {
+            "name": "emby_users_extended_template_id_fkey",
+            "type": "foreign_key",
+            "table": "emby_users_extended",
+            "definition": "FOREIGN KEY (template_id) REFERENCES user_templates(id) ON DELETE SET NULL"
+        },
+        {
+            "name": "failed_log_pkey",
+            "type": "primary_key",
+            "table": "failed_log",
+            "definition": "PRIMARY KEY (item_id)"
+        },
+        {
+            "name": "invitations_pkey",
+            "type": "primary_key",
+            "table": "invitations",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "invitations_template_id_fkey",
+            "type": "foreign_key",
+            "table": "invitations",
+            "definition": "FOREIGN KEY (template_id) REFERENCES user_templates(id) ON DELETE CASCADE"
+        },
+        {
+            "name": "invitations_token_key",
+            "type": "unique",
+            "table": "invitations",
+            "definition": "UNIQUE (token)"
+        },
+        {
+            "name": "media_image_cache_pkey",
+            "type": "primary_key",
+            "table": "media_image_cache",
+            "definition": "PRIMARY KEY (source_url)"
+        },
+        {
+            "name": "media_image_policy_cache_pkey",
+            "type": "primary_key",
+            "table": "media_image_policy_cache",
+            "definition": "PRIMARY KEY (item_type, tmdb_id, season_number, episode_number)"
+        },
+        {
+            "name": "media_metadata_pkey",
+            "type": "primary_key",
+            "table": "media_metadata",
+            "definition": "PRIMARY KEY (tmdb_id, item_type)"
+        },
+        {
+            "name": "p115_filesystem_cache_pkey",
+            "type": "primary_key",
+            "table": "p115_filesystem_cache",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "uniq_p115_parent_name",
+            "type": "unique",
+            "table": "p115_filesystem_cache",
+            "definition": "UNIQUE (parent_id, name)"
+        },
+        {
+            "name": "p115_intro_detection_failures_pkey",
+            "type": "primary_key",
+            "table": "p115_intro_detection_failures",
+            "definition": "PRIMARY KEY (failure_key, kind, algorithm_version)"
+        },
+        {
+            "name": "p115_intro_fingerprint_cache_pkey",
+            "type": "primary_key",
+            "table": "p115_intro_fingerprint_cache",
+            "definition": "PRIMARY KEY (sha1)"
+        },
+        {
+            "name": "p115_intro_fingerprint_failures_pkey",
+            "type": "primary_key",
+            "table": "p115_intro_fingerprint_failures",
+            "definition": "PRIMARY KEY (failure_key, kind, algorithm_version)"
+        },
+        {
+            "name": "p115_mediainfo_cache_pkey",
+            "type": "primary_key",
+            "table": "p115_mediainfo_cache",
+            "definition": "PRIMARY KEY (sha1)"
+        },
+        {
+            "name": "p115_organize_records_file_id_key",
+            "type": "unique",
+            "table": "p115_organize_records",
+            "definition": "UNIQUE (file_id)"
+        },
+        {
+            "name": "p115_organize_records_pick_code_key",
+            "type": "unique",
+            "table": "p115_organize_records",
+            "definition": "UNIQUE (pick_code)"
+        },
+        {
+            "name": "p115_organize_records_pkey",
+            "type": "primary_key",
+            "table": "p115_organize_records",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "chk_p115_upload_record_type",
+            "type": "check",
+            "table": "p115_upload_records",
+            "definition": "CHECK (record_type = ANY (ARRAY['job'::text, 'completed'::text]))"
+        },
+        {
+            "name": "p115_upload_records_pkey",
+            "type": "primary_key",
+            "table": "p115_upload_records",
+            "definition": "PRIMARY KEY (record_key)"
+        },
+        {
+            "name": "person_metadata_douban_celebrity_id_key",
+            "type": "unique",
+            "table": "person_metadata",
+            "definition": "UNIQUE (douban_celebrity_id)"
+        },
+        {
+            "name": "person_metadata_imdb_id_key",
+            "type": "unique",
+            "table": "person_metadata",
+            "definition": "UNIQUE (imdb_id)"
+        },
+        {
+            "name": "person_metadata_pkey",
+            "type": "primary_key",
+            "table": "person_metadata",
+            "definition": "PRIMARY KEY (tmdb_person_id)"
+        },
+        {
+            "name": "processed_log_pkey",
+            "type": "primary_key",
+            "table": "processed_log",
+            "definition": "PRIMARY KEY (item_id)"
+        },
+        {
+            "name": "resubscribe_index_pkey",
+            "type": "primary_key",
+            "table": "resubscribe_index",
+            "definition": "PRIMARY KEY (tmdb_id, item_type, season_number)"
+        },
+        {
+            "name": "resubscribe_rules_name_key",
+            "type": "unique",
+            "table": "resubscribe_rules",
+            "definition": "UNIQUE (name)"
+        },
+        {
+            "name": "resubscribe_rules_pkey",
+            "type": "primary_key",
+            "table": "resubscribe_rules",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "shared_completed_season_share_channels_channel_id_key",
+            "type": "unique",
+            "table": "shared_completed_season_share_channels",
+            "definition": "UNIQUE (channel_id)"
+        },
+        {
+            "name": "shared_completed_season_share_channels_local_source_id_fkey",
+            "type": "foreign_key",
+            "table": "shared_completed_season_share_channels",
+            "definition": "FOREIGN KEY (local_source_id) REFERENCES shared_rapid_sources(id) ON DELETE SET NULL"
+        },
+        {
+            "name": "shared_completed_season_share_channels_pkey",
+            "type": "primary_key",
+            "table": "shared_completed_season_share_channels",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "shared_credit_ledger_local_pkey",
+            "type": "primary_key",
+            "table": "shared_credit_ledger_local",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "shared_credit_snapshot_pkey",
+            "type": "primary_key",
+            "table": "shared_credit_snapshot",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "shared_credit_snapshot_singleton",
+            "type": "check",
+            "table": "shared_credit_snapshot",
+            "definition": "CHECK (id = 1)"
+        },
+        {
+            "name": "shared_rapid_source_files_local_source_id_fkey",
+            "type": "foreign_key",
+            "table": "shared_rapid_source_files",
+            "definition": "FOREIGN KEY (local_source_id) REFERENCES shared_rapid_sources(id) ON DELETE CASCADE"
+        },
+        {
+            "name": "shared_rapid_source_files_pkey",
+            "type": "primary_key",
+            "table": "shared_rapid_source_files",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "shared_rapid_sources_pkey",
+            "type": "primary_key",
+            "table": "shared_rapid_sources",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "shared_rapid_sources_source_key_key",
+            "type": "unique",
+            "table": "shared_rapid_sources",
+            "definition": "UNIQUE (source_key)"
+        },
+        {
+            "name": "shared_virtual_imports_pkey",
+            "type": "primary_key",
+            "table": "shared_virtual_imports",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "subscribe_assistant_delete_records_pkey",
+            "type": "primary_key",
+            "table": "subscribe_assistant_delete_records",
+            "definition": "PRIMARY KEY (fingerprint)"
+        },
+        {
+            "name": "subscribe_assistant_snapshots_pkey",
+            "type": "primary_key",
+            "table": "subscribe_assistant_snapshots",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "subscribe_assistant_state_pkey",
+            "type": "primary_key",
+            "table": "subscribe_assistant_state",
+            "definition": "PRIMARY KEY (state_key)"
+        },
+        {
+            "name": "translation_cache_pkey",
+            "type": "primary_key",
+            "table": "translation_cache",
+            "definition": "PRIMARY KEY (original_text)"
+        },
+        {
+            "name": "user_media_data_pkey",
+            "type": "primary_key",
+            "table": "user_media_data",
+            "definition": "PRIMARY KEY (user_id, item_id)"
+        },
+        {
+            "name": "user_templates_name_key",
+            "type": "unique",
+            "table": "user_templates",
+            "definition": "UNIQUE (name)"
+        },
+        {
+            "name": "user_templates_pkey",
+            "type": "primary_key",
+            "table": "user_templates",
+            "definition": "PRIMARY KEY (id)"
+        },
+        {
+            "name": "washing_priority_groups_pkey",
+            "type": "primary_key",
+            "table": "washing_priority_groups",
+            "definition": "PRIMARY KEY (id)"
+        }
+    ],
+    "server_version": "16.14",
+    "server_version_num": "160014"
+}

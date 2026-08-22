@@ -1,0 +1,126 @@
+{
+  "classification": {
+    "application_identity_note": "The API SPA and Proxy applications both own GET / and GET /<path:path> on distinct process roles. Contract identity includes application so this intentional overlap is not mistaken for one implementation.",
+    "method_normalization_artifacts": {
+      "items": [
+        {
+          "application": "api",
+          "method": "HEAD",
+          "path": "/api/p115/play/<pick_code>"
+        },
+        {
+          "application": "api",
+          "method": "HEAD",
+          "path": "/api/p115/play/<pick_code>/<path:filename>"
+        },
+        {
+          "application": "proxy",
+          "method": "HEAD",
+          "path": "/<path:path>"
+        },
+        {
+          "application": "proxy",
+          "method": "OPTIONS",
+          "path": "/<path:path>"
+        }
+      ],
+      "likely_reason": "The runtime contract export removes Flask implicit HEAD/OPTIONS; these do not establish missing HTTP behavior."
+    },
+    "runtime_only": {
+      "items": [
+        {
+          "application": "api",
+          "method": "GET",
+          "path": "/"
+        },
+        {
+          "application": "api",
+          "method": "GET",
+          "path": "/<path:path>"
+        },
+        {
+          "application": "api",
+          "method": "GET",
+          "path": "/api/health"
+        },
+        {
+          "application": "api",
+          "method": "GET",
+          "path": "/static/<path:filename>"
+        },
+        {
+          "application": "proxy",
+          "method": "GET",
+          "path": "/static/<path:filename>"
+        }
+      ],
+      "likely_reason": "Created by the PyArmor/bootstrap Flask app rather than decorators in routes/*.py or by Flask's implicit static routing. The API /api/health and SPA fallbacks are bootstrap-defined; both Flask applications add their own /static route."
+    },
+    "static_only": {
+      "items": [],
+      "likely_reason": "No normalized static-only contract remains after both Flask apps are exported."
+    }
+  },
+  "comparison_key": "application+method+path",
+  "counts": {
+    "runtime_api_method_bindings_contract": 362,
+    "runtime_api_rules": 345,
+    "runtime_method_bindings_normalized": 368,
+    "runtime_proxy_method_bindings_contract": 6,
+    "runtime_proxy_rules": 3,
+    "static_decorators": 343,
+    "static_method_bindings_normalized": 363,
+    "static_method_bindings_unfiltered": 367
+  },
+  "normalization": "HEAD and OPTIONS removed from both sets to avoid Flask implicit-method noise",
+  "runtime_only_normalized": [
+    {
+      "application": "api",
+      "method": "GET",
+      "path": "/"
+    },
+    {
+      "application": "api",
+      "method": "GET",
+      "path": "/<path:path>"
+    },
+    {
+      "application": "api",
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "application": "api",
+      "method": "GET",
+      "path": "/static/<path:filename>"
+    },
+    {
+      "application": "proxy",
+      "method": "GET",
+      "path": "/static/<path:filename>"
+    }
+  ],
+  "static_only_normalized": [],
+  "static_only_unfiltered": [
+    {
+      "application": "api",
+      "method": "HEAD",
+      "path": "/api/p115/play/<pick_code>"
+    },
+    {
+      "application": "api",
+      "method": "HEAD",
+      "path": "/api/p115/play/<pick_code>/<path:filename>"
+    },
+    {
+      "application": "proxy",
+      "method": "HEAD",
+      "path": "/<path:path>"
+    },
+    {
+      "application": "proxy",
+      "method": "OPTIONS",
+      "path": "/<path:path>"
+    }
+  ]
+}

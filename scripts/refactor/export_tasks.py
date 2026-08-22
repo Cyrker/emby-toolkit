@@ -1,0 +1,209 @@
+from __future__ import annotations
+
+import argparse
+import ast
+from pathlib import Path
+from typing import Any
+
+from manifest_common import (
+    ManifestError,
+    REPO_ROOT,
+    apply_contract_override,
+    dump_yaml_compatible_json,
+    evaluate_static,
+    parse_python,
+    source_ref,
+    stable_id,
+)
+
+
+P5_TASKS = {
+    "populate-metadata",
+    "backfill-media-metadata",
+    "role-translation",
+    "actor-translation",
+    "restore_mediainfo",
+    "restore-nfo-and-images",
+}
+P6_TASKS = {
+    "scan-monitor-folders",
+    "scan-organize-115",
+    "full-sync-strm",
+    "backfill-organize-record-tmdb-ids",
+    "monitor-115-life-events",
+    "sync-115-directory-tree",
+    "play-pool-daily-speedtest",
+    "intro-fingerprint-backfill",
+    "repair-p115-fingerprints",
+}
+P7_TASKS = {
+    "enrich-aliases",
+    "process-watchlist",
+    "subscribe-assistant-maintenance",
+    "actor-tracking",
+    "auto-subscribe",
+    "refresh_completed_series",
+    "add-all-series-to-watchlist",
+    "resubscribe-library",
+    "manual_subscribe_batch",
+    "scan_old_seasons_backfill",
+    "update-resubscribe-cache",
+    "merge-duplicate-actors",
+    "purge-ghost-actors",
+    "recalculate_library_washing_priorities",
+}
+P8_TASKS = {
+    "custom-collections",
+    "generate-all-covers",
+    "generate-custom-collection-covers",
+    "sync-all-user-data",
+    "generate_embeddings",
+    "system-auto-update",
+    "process_all_custom_collections",
+    "process-single-custom-collection",
+    "scan-cleanup-issues",
+    "update-daily-theme",
+    "refresh-collections",
+    "execute-auto-tagging-rules",
+    "fill-studio-images",
+    "check-expired-users",
+    "manual-correct-organize-records",
+}
+P9_TASKS = {
+    "hdhive-auto-checkin",
+    "shared-resource-maintenance",
+    "share-all-library",
+    "shared-share-status-sync",
+}
+
+
+def _task_owner(task_key: str) -> tuple[str, list[str]]:
+    if task_key in {"task-chain-high-freq", "task-chain-low-freq"}:
+        return "P4", ["operations"]
+    if task_key in P5_TASKS:
+        return "P5", ["media", "ingestion"]
+    if task_key in P6_TASKS:
+        return "P6", ["p115", "ingestion"]
+    if task_key in P7_TASKS:
+        return "P7", ["subscription", "people"]
+    if task_key in P8_TASKS:
+        return "P8", ["collection", "users", "operations"]
+    if task_key in P9_TASKS:
+        return "P9", ["sharing"]
+    raise ManifestError(f"task owner mapping missing for {task_key}")
+
+
+def _find_assignment(tree: ast.Module, name: str) -> ast.Assign:
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if any(isinstance(target, ast.Name) and target.id == name for target in node.targets):
+            return node
+    raise ManifestError(f"assignment {name} not found")
+
+
+def _help_texts(tree: ast.Module) -> dict[str, str]:
+    node = _find_assignment(tree, "TASK_HELP_TEXTS")
+    value = evaluate_static(node.value)
+    return {str(key): str(text) for key, text in value.items()}
+
+
+def export_tasks() -> dict[str, Any]:
+    path = REPO_ROOT / "tasks/core.py"
+    _, tree = parse_python(path)
+    registry = _find_assignment(tree, "full_registry")
+    if not isinstance(registry.value, ast.Dict):
+        raise ManifestError("full_registry is not a dictionary literal")
+    help_texts = _help_texts(tree)
+    entries: list[dict[str, Any]] = []
+    for key_node, value_node in zip(registry.value.keys, registry.value.values):
+        if key_node is None:
+            continue
+        task_key = str(evaluate_static(key_node))
+        if not isinstance(value_node, (ast.Tuple, ast.List)) or len(value_node.elts) != 4:
+            raise ManifestError(f"invalid task tuple for {task_key} at {source_ref(path, value_node.lineno)}")
+        function_node, name_node, processor_node, chain_node = value_node.elts
+        if not isinstance(function_node, (ast.Name, ast.Attribute)):
+            raise ManifestError(f"invalid task function for {task_key}")
+        function_name = function_node.id if isinstance(function_node, ast.Name) else function_node.attr
+        stage, domains = _task_owner(task_key)
+        display_name = str(evaluate_static(name_node))
+        explicit_help = help_texts.get(task_key)
+        entries.append(
+            apply_contract_override(
+            {
+                "contract_id": stable_id("task", task_key),
+                "task_key": task_key,
+                "function": function_name,
+                "display_name": display_name,
+                "help": explicit_help or display_name,
+                "help_source": "TASK_HELP_TEXTS" if explicit_help else "display_name_fallback",
+                "processor_type": str(evaluate_static(processor_node)),
+                "chain_eligible": bool(evaluate_static(chain_node)),
+                "visible_in": [
+                    "all",
+                    *(["chain"] if bool(evaluate_static(chain_node)) else []),
+                    *(
+                        ["manual"]
+                        if bool(evaluate_static(chain_node))
+                        and task_key not in {"task-chain-high-freq", "task-chain-low-freq"}
+                        else []
+                    ),
+                ],
+                "source": source_ref(path, key_node.lineno),
+                "target_domains": domains,
+                "target_stage": stage,
+                "status": "legacy",
+                "new_owner": None,
+                "retirement_approval": None,
+                "validation_owner": "/".join(domains),
+                "validation_method": "task-registry-contract",
+            },
+            "tasks",
+            )
+        )
+    entries.sort(key=lambda item: item["task_key"])
+    fallback_help = [
+        item["task_key"] for item in entries if item["help_source"] == "display_name_fallback"
+    ]
+    registry_keys = {item["task_key"] for item in entries}
+    orphan_help = sorted(set(help_texts) - registry_keys)
+    return {
+        "schema_version": 1,
+        "generator": "scripts/refactor/export_tasks.py",
+        "source_scope": ["tasks/core.py:get_task_registry"],
+        "metrics": {
+            "task_key_count": len(entries),
+            "chain_eligible_count": sum(1 for item in entries if item["chain_eligible"]),
+            "manual_visible_count": sum(1 for item in entries if "manual" in item["visible_in"]),
+            "display_name_help_fallback_count": len(fallback_help),
+            "orphan_help_text_count": len(orphan_help),
+        },
+        "baseline_variances": {
+            "task_keys_without_explicit_help": fallback_help,
+            "help_keys_without_registered_task": orphan_help,
+            "manual_hidden_keys_are_not_chain_eligible": [
+                "task-chain-high-freq",
+                "task-chain-low-freq",
+            ],
+        },
+        "tasks": entries,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Export the legacy task ownership manifest.")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=REPO_ROOT / "verification/contracts/task-ownership.yaml",
+    )
+    args = parser.parse_args()
+    payload = export_tasks()
+    dump_yaml_compatible_json(args.output, payload)
+    print(f"task_keys={payload['metrics']['task_key_count']} output={args.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

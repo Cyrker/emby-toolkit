@@ -1,0 +1,732 @@
+{
+  "baseline_variances": {
+    "plan_page_route_count": 23,
+    "resolution": "Preserve every source route; no route is retired without explicit approval.",
+    "router_guard_requires_admin": "declared but not enforced",
+    "source_page_route_count": 24
+  },
+  "generator": "scripts/refactor/export_frontend_routes.py",
+  "metrics": {
+    "declared_admin_route_count": 2,
+    "page_route_count": 24,
+    "public_route_count": 3,
+    "redirect_route_count": 1,
+    "requires_auth_route_count": 21,
+    "route_entry_count": 25,
+    "vue_file_count": 55
+  },
+  "routes": [
+    {
+      "component": null,
+      "contract_id": "frontend-route-8a5edab28263",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": null
+      },
+      "name": null,
+      "new_owner": null,
+      "path": "/",
+      "props": null,
+      "redirect": "/DatabaseStats",
+      "source": "frontend/src/router/index.js:56",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "DatabaseStats",
+      "contract_id": "frontend-route-30d6a91c61c3",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "DatabaseStats",
+      "new_owner": null,
+      "path": "/DatabaseStats",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:61",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "ActorSubscriptionPage",
+      "contract_id": "frontend-route-fd7b2f806f50",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "ActorSubscriptions",
+      "new_owner": null,
+      "path": "/actor-subscriptions",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:122",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": null,
+      "contract_id": "frontend-route-867250c7e7b2",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": "../components/AutoTaggingPage.vue",
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "AutoTaggingPage",
+      "new_owner": null,
+      "path": "/auto-tagging",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:91",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "TmdbCollectionsPage",
+      "contract_id": "frontend-route-aa7dbdaec508",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "Collections",
+      "new_owner": null,
+      "path": "/collections",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:103",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": null,
+      "contract_id": "frontend-route-fbce5c89f76a",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": "../components/CustomCollectionsManager.vue",
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "CustomCollectionsManager",
+      "new_owner": null,
+      "path": "/custom-collections",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:109",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "DiscoverPage",
+      "contract_id": "frontend-route-0bafeafd1e1b",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "Discover",
+      "new_owner": null,
+      "path": "/discover",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:185",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": null,
+      "contract_id": "frontend-route-f0ded3af00c8",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": "../components/MediaEditPage.vue",
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "MediaEditPage",
+      "new_owner": null,
+      "path": "/edit-media/:itemId",
+      "props": true,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:115",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "Login",
+      "contract_id": "frontend-route-7e93fba0bc7a",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": true,
+        "requires_admin": null,
+        "requires_auth": false
+      },
+      "name": "Login",
+      "new_owner": null,
+      "path": "/login",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:28",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": null,
+      "contract_id": "frontend-route-eb2d68c44b19",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": "../components/MediaCleanupPage.vue",
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "MediaCleanupPage",
+      "new_owner": null,
+      "path": "/media-cleanup",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:153",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "OrganizeRecordsPage",
+      "contract_id": "frontend-route-fa2e4cfdfbcc",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "OrganizeRecords",
+      "new_owner": null,
+      "path": "/organize-records",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:67",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "RegisterPage",
+      "contract_id": "frontend-route-144a6d00d0c6",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": true,
+        "requires_admin": null,
+        "requires_auth": false
+      },
+      "name": "Register",
+      "new_owner": null,
+      "path": "/register/invite/:token",
+      "props": true,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:46",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "ReleasesPage",
+      "contract_id": "frontend-route-95799bc57a34",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "Releases",
+      "new_owner": null,
+      "path": "/releases",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:128",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": null,
+      "contract_id": "frontend-route-711c5699b516",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": "../components/ResubscribePage.vue",
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "ResubscribePage",
+      "new_owner": null,
+      "path": "/resubscribe",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:140",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "ReviewList",
+      "contract_id": "frontend-route-0d38c8cdf5fe",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "ReviewList",
+      "new_owner": null,
+      "path": "/review",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:73",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "CoverGeneratorConfig",
+      "contract_id": "frontend-route-146f6475fcac",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "CoverGeneratorConfig",
+      "new_owner": null,
+      "path": "/settings/cover-generator",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:134",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "GeneralSettingsPage",
+      "contract_id": "frontend-route-9905e2cb5928",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "settings-general",
+      "new_owner": null,
+      "path": "/settings/general",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:85",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "SchedulerSettingsPage",
+      "contract_id": "frontend-route-c6ce8dd5028b",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "settings-scheduler",
+      "new_owner": null,
+      "path": "/settings/scheduler",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:79",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "SetupPage",
+      "contract_id": "frontend-route-ffd42e51b0ce",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": true,
+        "requires_admin": null,
+        "requires_auth": false
+      },
+      "name": "Setup",
+      "new_owner": null,
+      "path": "/setup",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:37",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "SharedResourceManagerPage",
+      "contract_id": "frontend-route-ad048adfa5a6",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": true,
+        "requires_auth": true
+      },
+      "name": "SharedResourceManager",
+      "new_owner": null,
+      "path": "/shared-resources",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:147",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "EmbyStatsPage",
+      "contract_id": "frontend-route-f25e38ad7515",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": true,
+        "requires_auth": true
+      },
+      "name": "EmbyStats",
+      "new_owner": null,
+      "path": "/stats",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:179",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": null,
+      "contract_id": "frontend-route-9135603ba426",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": "../components/UnifiedSubscriptionsPage.vue",
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "UnifiedSubscriptions",
+      "new_owner": null,
+      "path": "/unified-subscriptions",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:165",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "UserCenterPage",
+      "contract_id": "frontend-route-64a4511cc8b4",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "UserCenter",
+      "new_owner": null,
+      "path": "/user-center",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:171",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "UserManagementPage",
+      "contract_id": "frontend-route-7b916d9fb08f",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "UserManagement",
+      "new_owner": null,
+      "path": "/user-management",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:159",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    },
+    {
+      "component": "WatchlistPage",
+      "contract_id": "frontend-route-fc7e5616902b",
+      "guard_enforcement": {
+        "public": "enforced",
+        "requires_admin": "not_enforced_by_router_guard",
+        "requires_auth": "implicit_for_non_public_routes"
+      },
+      "lazy_component": null,
+      "meta": {
+        "public": null,
+        "requires_admin": null,
+        "requires_auth": true
+      },
+      "name": "Watchlist",
+      "new_owner": null,
+      "path": "/watchlist",
+      "props": null,
+      "redirect": null,
+      "source": "frontend/src/router/index.js:97",
+      "status": "legacy",
+      "target_domain": "frontend",
+      "target_stage": "P10",
+      "validation_method": "frontend-route-contract",
+      "validation_owner": "frontend"
+    }
+  ],
+  "schema_version": 1,
+  "source_scope": [
+    "frontend/src/router/index.js",
+    "frontend/src/**/*.vue"
+  ],
+  "vue_files": [
+    "frontend/src/App.vue",
+    "frontend/src/AppContent.vue",
+    "frontend/src/MainLayout.vue",
+    "frontend/src/PublicLayout.vue",
+    "frontend/src/components/ActorSubscriptionPage.vue",
+    "frontend/src/components/AutoTaggingPage.vue",
+    "frontend/src/components/CoverGeneratorConfig.vue",
+    "frontend/src/components/CustomCollectionsManager.vue",
+    "frontend/src/components/DatabaseStats.vue",
+    "frontend/src/components/DiscoverPage.vue",
+    "frontend/src/components/EmbyStatsPage.vue",
+    "frontend/src/components/HDHiveResourceModal.vue",
+    "frontend/src/components/InvitationList.vue",
+    "frontend/src/components/LogViewer.vue",
+    "frontend/src/components/Login.vue",
+    "frontend/src/components/MediaCleanupPage.vue",
+    "frontend/src/components/MediaEditPage.vue",
+    "frontend/src/components/OrganizeRecordsPage.vue",
+    "frontend/src/components/RegisterPage.vue",
+    "frontend/src/components/ReleasesPage.vue",
+    "frontend/src/components/ResubscribePage.vue",
+    "frontend/src/components/ReviewList.vue",
+    "frontend/src/components/Setup.vue",
+    "frontend/src/components/ShareRequestCreateModal.vue",
+    "frontend/src/components/SharedResourceManagerPage.vue",
+    "frontend/src/components/ThemeEditor.vue",
+    "frontend/src/components/TmdbCollectionsPage.vue",
+    "frontend/src/components/UnifiedSubscriptionsPage.vue",
+    "frontend/src/components/UserCenterPage.vue",
+    "frontend/src/components/UserList.vue",
+    "frontend/src/components/UserManagementPage.vue",
+    "frontend/src/components/UserTemplates.vue",
+    "frontend/src/components/WatchlistPage.vue",
+    "frontend/src/components/modals/AddSubscriptionModal.vue",
+    "frontend/src/components/modals/DefaultConfigModal.vue",
+    "frontend/src/components/modals/MappingManager.vue",
+    "frontend/src/components/modals/SubscriptionConfigForm.vue",
+    "frontend/src/components/modals/SubscriptionDetailsModal.vue",
+    "frontend/src/components/modals/TmdbDiscoveryHelper.vue",
+    "frontend/src/components/settings/ChangePassword.vue",
+    "frontend/src/components/settings/DefaultStreamConfigModal.vue",
+    "frontend/src/components/settings/EpisodeRegexConfigModal.vue",
+    "frontend/src/components/settings/GeneralSettingsPage.vue",
+    "frontend/src/components/settings/HDHiveConfigModal.vue",
+    "frontend/src/components/settings/MediaCleanupSettingsPage.vue",
+    "frontend/src/components/settings/MoviePilotConfigModal.vue",
+    "frontend/src/components/settings/PlayPoolConfigModal.vue",
+    "frontend/src/components/settings/RenameConfigModal.vue",
+    "frontend/src/components/settings/ResubscribeSettingsPage.vue",
+    "frontend/src/components/settings/RuleManagerModal.vue",
+    "frontend/src/components/settings/SchedulerSettingsPage.vue",
+    "frontend/src/components/settings/TGMonitorModal.vue",
+    "frontend/src/components/settings/TelegramTemplateModal.vue",
+    "frontend/src/components/settings/UploadMonitorConfigModal.vue",
+    "frontend/src/components/settings/WashingPriorityModal.vue"
+  ]
+}

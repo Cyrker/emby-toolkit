@@ -1,0 +1,4790 @@
+{
+  "baseline_variances": {
+    "duplicate_config_definitions": {
+      "p115_media_root_name": [
+        {
+          "declared_type": "string",
+          "default": "根目录",
+          "section": "115",
+          "source": "config_manager.py:189"
+        },
+        {
+          "declared_type": "string",
+          "default": "媒体库",
+          "section": "115",
+          "source": "config_manager.py:200"
+        }
+      ],
+      "proxy_native_view_order": [
+        {
+          "declared_type": "str",
+          "default": "before",
+          "section": "ReverseProxy",
+          "source": "config_manager.py:156"
+        },
+        {
+          "declared_type": "str",
+          "default": "before",
+          "section": "ReverseProxy",
+          "source": "config_manager.py:157"
+        }
+      ]
+    },
+    "environment_precedence_review": [
+      {
+        "key": "tmdb_api_base_url",
+        "note": "The environment value is loaded into bootstrap memory and then overwritten by the dynamic merge.",
+        "source": "config_manager.py:318"
+      }
+    ],
+    "standalone_default_semantics": "app_settings has no database-level value default; callers apply key-specific fallbacks."
+  },
+  "bootstrap": [
+    {
+      "contract_id": "config-0bede088c7be",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "Authentication",
+          "source": "config_manager.py:133"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "auth_enabled",
+      "mutability": "process_bootstrap",
+      "new_owner": null,
+      "secret": false,
+      "section": "Authentication",
+      "source": "config_manager.py:133",
+      "status": "legacy",
+      "storage": "config.ini",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-48a207b2d44a",
+      "declared_type": "string",
+      "default": "localhost",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "localhost",
+          "section": "Database",
+          "source": "config_manager.py:127"
+        }
+      ],
+      "environment_aliases": [
+        "DB_HOST"
+      ],
+      "key": "db_host",
+      "mutability": "process_bootstrap",
+      "new_owner": null,
+      "secret": false,
+      "section": "Database",
+      "source": "config_manager.py:127",
+      "status": "legacy",
+      "storage": "config.ini",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-b4c16391ffe2",
+      "declared_type": "string",
+      "default": "emby_toolkit",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "emby_toolkit",
+          "section": "Database",
+          "source": "config_manager.py:131"
+        }
+      ],
+      "environment_aliases": [
+        "DB_NAME"
+      ],
+      "key": "db_name",
+      "mutability": "process_bootstrap",
+      "new_owner": null,
+      "secret": false,
+      "section": "Database",
+      "source": "config_manager.py:131",
+      "status": "legacy",
+      "storage": "config.ini",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-2e48e91c2d81",
+      "declared_type": "string",
+      "default": "your_password",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "your_password",
+          "section": "Database",
+          "source": "config_manager.py:130"
+        }
+      ],
+      "environment_aliases": [
+        "DB_PASSWORD"
+      ],
+      "key": "db_password",
+      "mutability": "process_bootstrap",
+      "new_owner": null,
+      "secret": true,
+      "section": "Database",
+      "source": "config_manager.py:130",
+      "status": "legacy",
+      "storage": "config.ini",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-87b4623a0312",
+      "declared_type": "int",
+      "default": 5432,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 5432,
+          "section": "Database",
+          "source": "config_manager.py:128"
+        }
+      ],
+      "environment_aliases": [
+        "DB_PORT"
+      ],
+      "key": "db_port",
+      "mutability": "process_bootstrap",
+      "new_owner": null,
+      "secret": false,
+      "section": "Database",
+      "source": "config_manager.py:128",
+      "status": "legacy",
+      "storage": "config.ini",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-a0e71f8f2e7d",
+      "declared_type": "string",
+      "default": "postgres",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "postgres",
+          "section": "Database",
+          "source": "config_manager.py:129"
+        }
+      ],
+      "environment_aliases": [
+        "DB_USER"
+      ],
+      "key": "db_user",
+      "mutability": "process_bootstrap",
+      "new_owner": null,
+      "secret": false,
+      "section": "Database",
+      "source": "config_manager.py:129",
+      "status": "legacy",
+      "storage": "config.ini",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-16f78a7d6317",
+      "declared_type": "string",
+      "default": "admin",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "admin",
+          "section": "Authentication",
+          "source": "config_manager.py:134"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "username",
+      "mutability": "process_bootstrap",
+      "new_owner": null,
+      "secret": false,
+      "section": "Authentication",
+      "source": "config_manager.py:134",
+      "status": "legacy",
+      "storage": "config.ini",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    }
+  ],
+  "config_response_only_fields": [
+    "emby_server_id",
+    "custom_theme",
+    "masked.pro_license_key",
+    "*_auto_detected",
+    "*_auto_detected_error",
+    "*_effective"
+  ],
+  "dynamic": [
+    {
+      "contract_id": "config-2701c2711711",
+      "declared_type": "string",
+      "default": "zh-CN,zh;q=0.9,en;q=0.8",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "zh-CN,zh;q=0.9,en;q=0.8",
+          "section": "Network",
+          "source": "config_manager.py:225"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "accept_language",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Network",
+      "source": "config_manager.py:225",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-b3ca39c0533a",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "Actor",
+          "source": "config_manager.py:255"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "actor_main_role_only",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Actor",
+      "source": "config_manager.py:255",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-499a2c24b17c",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "Actor",
+          "source": "config_manager.py:254"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "actor_role_add_prefix",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Actor",
+      "source": "config_manager.py:254",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-1bcc683818fb",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "AITranslation",
+          "source": "config_manager.py:229"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_api_key",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": true,
+      "section": "AITranslation",
+      "source": "config_manager.py:229",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-ffdd9b00668b",
+      "declared_type": "string",
+      "default": "https://api.siliconflow.cn/v1",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "https://api.siliconflow.cn/v1",
+          "section": "AITranslation",
+          "source": "config_manager.py:231"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_base_url",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:231",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-cba033725581",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "AITranslation",
+          "source": "config_manager.py:239"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_joke_fallback",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:239",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-6619b9cf7862",
+      "declared_type": "string",
+      "default": "Qwen/Qwen2.5-72B-Instruct",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "Qwen/Qwen2.5-72B-Instruct",
+          "section": "AITranslation",
+          "source": "config_manager.py:230"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_model_name",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:230",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-67781020aef6",
+      "declared_type": "string",
+      "default": "openai",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "openai",
+          "section": "AITranslation",
+          "source": "config_manager.py:228"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_provider",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:228",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-af919e3cbd66",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "AITranslation",
+          "source": "config_manager.py:238"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_recognition",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:238",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-eaa926deb98a",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "AITranslation",
+          "source": "config_manager.py:234"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_translate_actor_role",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:234",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-1a2749befc19",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "AITranslation",
+          "source": "config_manager.py:237"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_translate_episode_overview",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:237",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-f3e9528f158b",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "AITranslation",
+          "source": "config_manager.py:236"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_translate_overview",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:236",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-0f7a303dc4cd",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "AITranslation",
+          "source": "config_manager.py:235"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_translate_title",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:235",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-827562e94afd",
+      "declared_type": "string",
+      "default": "fast",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "fast",
+          "section": "AITranslation",
+          "source": "config_manager.py:233"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_translation_mode",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:233",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-5ee91ad144da",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "AITranslation",
+          "source": "config_manager.py:232"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "ai_vector",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "AITranslation",
+      "source": "config_manager.py:232",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-891ac870d1a7",
+      "declared_type": "float",
+      "default": 1.0,
+      "definition_history": [
+        {
+          "declared_type": "float",
+          "default": 1.0,
+          "section": "DoubanAPI",
+          "source": "config_manager.py:170"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "api_douban_default_cooldown_seconds",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "DoubanAPI",
+      "source": "config_manager.py:170",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-e5675f8985d8",
+      "declared_type": "float",
+      "default": 0.5,
+      "definition_history": [
+        {
+          "declared_type": "float",
+          "default": 0.5,
+          "section": "General",
+          "source": "config_manager.py:212"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "delay_between_items_sec",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "General",
+      "source": "config_manager.py:212",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-6a80fd2e0ecc",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "DoubanAPI",
+          "source": "config_manager.py:171"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "douban_cookie",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": true,
+      "section": "DoubanAPI",
+      "source": "config_manager.py:171",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-b62463e0e2ac",
+      "declared_type": "boolean",
+      "default": true,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": true,
+          "section": "DoubanAPI",
+          "source": "config_manager.py:172"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "douban_enable_online_api",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "DoubanAPI",
+      "source": "config_manager.py:172",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-f55e4081d721",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "Emby",
+          "source": "config_manager.py:142"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "emby_api_key",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": true,
+      "section": "Emby",
+      "source": "config_manager.py:142",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-558c554a8352",
+      "declared_type": "int",
+      "default": 60,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 60,
+          "section": "Emby",
+          "source": "config_manager.py:145"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "emby_api_timeout",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Emby",
+      "source": "config_manager.py:145",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-b7c51dc6ea80",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "Emby",
+          "source": "config_manager.py:144"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "emby_auth_mode",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Emby",
+      "source": "config_manager.py:144",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-d1776f998a88",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "Emby",
+          "source": "config_manager.py:141"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "emby_public_url",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Emby",
+      "source": "config_manager.py:141",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-271ce6f5e07c",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "Emby",
+          "source": "config_manager.py:140"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "emby_server_url",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Emby",
+      "source": "config_manager.py:140",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-7553e1dd9e67",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "Emby",
+          "source": "config_manager.py:143"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "emby_user_id",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Emby",
+      "source": "config_manager.py:143",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-97d6e007a1d5",
+      "declared_type": "string",
+      "default": "http://192.168.1.X:5257",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "http://192.168.1.X:5257",
+          "section": "115",
+          "source": "config_manager.py:203"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "etk_server_url",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:203",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-9c7bcb609f51",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "115",
+          "source": "config_manager.py:204"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "etk_server_url_manual",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:204",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-33dfecdcd6f8",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "General",
+          "source": "config_manager.py:215"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "extract_thumb",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "General",
+      "source": "config_manager.py:215",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-dfabe2151a6a",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "GitHub",
+          "source": "config_manager.py:165"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "github_token",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": true,
+      "section": "GitHub",
+      "source": "config_manager.py:165",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-8fed126f7eda",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "General",
+          "source": "config_manager.py:217"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "keyword_to_tags",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "General",
+      "source": "config_manager.py:217",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-d1cee3be237a",
+      "declared_type": "list",
+      "default": [],
+      "definition_history": [
+        {
+          "declared_type": "list",
+          "default": [],
+          "section": "Emby",
+          "source": "config_manager.py:146"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "libraries_to_process",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Emby",
+      "source": "config_manager.py:146",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-5466f77dd0b0",
+      "declared_type": "string",
+      "default": "/mnt/media",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "/mnt/media",
+          "section": "115",
+          "source": "config_manager.py:202"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "local_strm_root",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:202",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-6ea529d9743a",
+      "declared_type": "int",
+      "default": 10,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 10,
+          "section": "Logging",
+          "source": "config_manager.py:259"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "log_rotation_backup_count",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Logging",
+      "source": "config_manager.py:259",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-e2a8abe52197",
+      "declared_type": "int",
+      "default": 5,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 5,
+          "section": "Logging",
+          "source": "config_manager.py:258"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "log_rotation_size_mb",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Logging",
+      "source": "config_manager.py:258",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-724b1ab067d8",
+      "declared_type": "int",
+      "default": 50,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 50,
+          "section": "General",
+          "source": "config_manager.py:213"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "max_actors_to_process",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "General",
+      "source": "config_manager.py:213",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-6a4c1960c07d",
+      "declared_type": "int",
+      "default": 0,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 0,
+          "section": "General",
+          "source": "config_manager.py:214"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "max_episode_actors_to_process",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "General",
+      "source": "config_manager.py:214",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-c77c87d09a51",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "General",
+          "source": "config_manager.py:219"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "media_image_archive_enabled",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "General",
+      "source": "config_manager.py:219",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-d8462c72f6c5",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "General",
+          "source": "config_manager.py:220"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "media_image_archive_path",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "General",
+      "source": "config_manager.py:220",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-0afd313eb77a",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "Monitor",
+          "source": "config_manager.py:175"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "monitor_enabled",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Monitor",
+      "source": "config_manager.py:175",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-7e200ca6da91",
+      "declared_type": "list",
+      "default": [],
+      "definition_history": [
+        {
+          "declared_type": "list",
+          "default": [],
+          "section": "Monitor",
+          "source": "config_manager.py:180"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "monitor_exclude_dirs",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Monitor",
+      "source": "config_manager.py:180",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-55baaf710551",
+      "declared_type": "int",
+      "default": 0,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 0,
+          "section": "Monitor",
+          "source": "config_manager.py:181"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "monitor_exclude_refresh_delay",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Monitor",
+      "source": "config_manager.py:181",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-1ad3d6c81e9d",
+      "declared_type": "list",
+      "default": [
+        ".mp4",
+        ".mkv",
+        ".avi",
+        ".mov",
+        ".iso",
+        ".ts",
+        ".strm"
+      ],
+      "definition_history": [
+        {
+          "declared_type": "list",
+          "default": [
+            ".mp4",
+            ".mkv",
+            ".avi",
+            ".mov",
+            ".iso",
+            ".ts",
+            ".strm"
+          ],
+          "section": "Monitor",
+          "source": "config_manager.py:177"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "monitor_extensions",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Monitor",
+      "source": "config_manager.py:177",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-80e580e6a407",
+      "declared_type": "list",
+      "default": [],
+      "definition_history": [
+        {
+          "declared_type": "list",
+          "default": [],
+          "section": "Monitor",
+          "source": "config_manager.py:176"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "monitor_paths",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Monitor",
+      "source": "config_manager.py:176",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-4fd73882c930",
+      "declared_type": "int",
+      "default": 2,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 2,
+          "section": "Monitor",
+          "source": "config_manager.py:179"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "monitor_scan_batch_size",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Monitor",
+      "source": "config_manager.py:179",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-397431b5a22a",
+      "declared_type": "int",
+      "default": 10,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 10,
+          "section": "Monitor",
+          "source": "config_manager.py:178"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "monitor_scan_max_tasks",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Monitor",
+      "source": "config_manager.py:178",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-87f2af15475f",
+      "declared_type": "boolean",
+      "default": true,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": true,
+          "section": "Monitor",
+          "source": "config_manager.py:182"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "monitor_sha1_pc_search",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Monitor",
+      "source": "config_manager.py:182",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-8e154e33112b",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "Network",
+          "source": "config_manager.py:223"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "network_http_proxy_url",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Network",
+      "source": "config_manager.py:223",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-1a805da92dfe",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "Network",
+          "source": "config_manager.py:222"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "network_proxy_enabled",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Network",
+      "source": "config_manager.py:222",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-cb9d323e9605",
+      "declared_type": "string",
+      "default": "openapi",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "openapi",
+          "section": "115",
+          "source": "config_manager.py:192"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_api_priority",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:192",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-13efeeaabde4",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "115",
+          "source": "config_manager.py:209"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_app_id",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:209",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-64b22e16e64c",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "115",
+          "source": "config_manager.py:201"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_copy_play_enabled",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:201",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-ab26bd95fb8b",
+      "declared_type": "boolean",
+      "default": true,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": true,
+          "section": "115",
+          "source": "config_manager.py:207"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_download_subs",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:207",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-aacbb1aa9a25",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "115",
+          "source": "config_manager.py:205"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_enable_sync_delete",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:205",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-34e2119a50fa",
+      "declared_type": "list",
+      "default": [
+        "mp4",
+        "mkv",
+        "avi",
+        "ts",
+        "iso",
+        "mov",
+        "m2ts",
+        "srt",
+        "ass",
+        "ssa"
+      ],
+      "definition_history": [
+        {
+          "declared_type": "list",
+          "default": [
+            "mp4",
+            "mkv",
+            "avi",
+            "ts",
+            "iso",
+            "mov",
+            "m2ts",
+            "srt",
+            "ass",
+            "ssa"
+          ],
+          "section": "115",
+          "source": "config_manager.py:195"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_extensions",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:195",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-6ec552e2417c",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "115",
+          "source": "config_manager.py:208"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_local_cleanup",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:208",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-a831be9dbf3b",
+      "declared_type": "int",
+      "default": 3,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 3,
+          "section": "115",
+          "source": "config_manager.py:191"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_max_workers",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:191",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-55cf5fd3bf7c",
+      "declared_type": "string",
+      "default": "0",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "0",
+          "section": "115",
+          "source": "config_manager.py:199"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_media_root_cid",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:199",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-d5377e6d17c3",
+      "declared_type": "string",
+      "default": "媒体库",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "根目录",
+          "section": "115",
+          "source": "config_manager.py:189"
+        },
+        {
+          "declared_type": "string",
+          "default": "媒体库",
+          "section": "115",
+          "source": "config_manager.py:200"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_media_root_name",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:200",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-c9fe937c91af",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "115",
+          "source": "config_manager.py:206"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_mediainfo_assisted_recognition",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:206",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-b574f061b0d7",
+      "declared_type": "int",
+      "default": 10,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 10,
+          "section": "115",
+          "source": "config_manager.py:194"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_min_video_size",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:194",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-c960931ff2fa",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "115",
+          "source": "config_manager.py:193"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_mp_classify",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:193",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-ca36ff575781",
+      "declared_type": "float",
+      "default": 1.0,
+      "definition_history": [
+        {
+          "declared_type": "float",
+          "default": 1.0,
+          "section": "115",
+          "source": "config_manager.py:190"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_request_interval",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:190",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-ce7d6c5299c7",
+      "declared_type": "string",
+      "default": "0",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "0",
+          "section": "115",
+          "source": "config_manager.py:185"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_save_path_cid",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:185",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-fe3c6bb09e3d",
+      "declared_type": "string",
+      "default": "根目录",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "根目录",
+          "section": "115",
+          "source": "config_manager.py:186"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_save_path_name",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:186",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-0a26abf8b54e",
+      "declared_type": "string",
+      "default": "0",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "0",
+          "section": "115",
+          "source": "config_manager.py:187"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_unrecognized_cid",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:187",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-0b25c5195a6c",
+      "declared_type": "string",
+      "default": "未识别",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "未识别",
+          "section": "115",
+          "source": "config_manager.py:188"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "p115_unrecognized_name",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "115",
+      "source": "config_manager.py:188",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-42fff09665a1",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "ReverseProxy",
+          "source": "config_manager.py:153"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "proxy_allow_transcoding",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "ReverseProxy",
+      "source": "config_manager.py:153",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-0bfe4e4fe86e",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "ReverseProxy",
+          "source": "config_manager.py:152"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "proxy_discovery_url_manual",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "ReverseProxy",
+      "source": "config_manager.py:152",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-19e40fc050b2",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "ReverseProxy",
+          "source": "config_manager.py:149"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "proxy_enabled",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "ReverseProxy",
+      "source": "config_manager.py:149",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-29dc7b11bf79",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "ReverseProxy",
+          "source": "config_manager.py:151"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "proxy_lock_discovery_address",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "ReverseProxy",
+      "source": "config_manager.py:151",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-56e1ba32f252",
+      "declared_type": "boolean",
+      "default": true,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": true,
+          "section": "ReverseProxy",
+          "source": "config_manager.py:154"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "proxy_merge_native_libraries",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "ReverseProxy",
+      "source": "config_manager.py:154",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-4d184dcb905f",
+      "declared_type": "str",
+      "default": "before",
+      "definition_history": [
+        {
+          "declared_type": "str",
+          "default": "before",
+          "section": "ReverseProxy",
+          "source": "config_manager.py:156"
+        },
+        {
+          "declared_type": "str",
+          "default": "before",
+          "section": "ReverseProxy",
+          "source": "config_manager.py:157"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "proxy_native_view_order",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "ReverseProxy",
+      "source": "config_manager.py:157",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-9bcf6f84669d",
+      "declared_type": "list",
+      "default": [],
+      "definition_history": [
+        {
+          "declared_type": "list",
+          "default": [],
+          "section": "ReverseProxy",
+          "source": "config_manager.py:155"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "proxy_native_view_selection",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "ReverseProxy",
+      "source": "config_manager.py:155",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-82f222c01be4",
+      "declared_type": "int",
+      "default": 8097,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 8097,
+          "section": "ReverseProxy",
+          "source": "config_manager.py:150"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "proxy_port",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "ReverseProxy",
+      "source": "config_manager.py:150",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-400baa8f93e9",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "ReverseProxy",
+          "source": "config_manager.py:158"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "proxy_show_missing_placeholders",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "ReverseProxy",
+      "source": "config_manager.py:158",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-2ab25b09360c",
+      "declared_type": "boolean",
+      "default": true,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": true,
+          "section": "General",
+          "source": "config_manager.py:216"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "remove_actors_without_avatars",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "General",
+      "source": "config_manager.py:216",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-c3bfe38c81c3",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "General",
+          "source": "config_manager.py:218"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "studio_to_chinese",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "General",
+      "source": "config_manager.py:218",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-a8b3a1f9f51e",
+      "declared_type": "string",
+      "default": "hbq0405/emby-toolkit:latest",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "hbq0405/emby-toolkit:latest",
+          "section": "GitHub",
+          "source": "config_manager.py:167"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "system_update_helper_image",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "GitHub",
+      "source": "config_manager.py:167",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-526f497f4e55",
+      "declared_type": "string",
+      "default": "docker_helper",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "docker_helper",
+          "section": "GitHub",
+          "source": "config_manager.py:166"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "system_update_strategy",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "GitHub",
+      "source": "config_manager.py:166",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-5d721cd968c6",
+      "declared_type": "string",
+      "default": "0 2 * * *",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "0 2 * * *",
+          "section": "Scheduler",
+          "source": "config_manager.py:244"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "task_chain_cron",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Scheduler",
+      "source": "config_manager.py:244",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-9fb56283b713",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "Scheduler",
+          "source": "config_manager.py:243"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "task_chain_enabled",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Scheduler",
+      "source": "config_manager.py:243",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-a3dd85aec321",
+      "declared_type": "string",
+      "default": "0 5 * * 0",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "0 5 * * 0",
+          "section": "Scheduler",
+          "source": "config_manager.py:249"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "task_chain_low_freq_cron",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Scheduler",
+      "source": "config_manager.py:249",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-cb680421c9b8",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "Scheduler",
+          "source": "config_manager.py:248"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "task_chain_low_freq_enabled",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Scheduler",
+      "source": "config_manager.py:248",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-3007c3d41ef6",
+      "declared_type": "int",
+      "default": 0,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 0,
+          "section": "Scheduler",
+          "source": "config_manager.py:251"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "task_chain_low_freq_max_runtime_minutes",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Scheduler",
+      "source": "config_manager.py:251",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-f949c842eb2b",
+      "declared_type": "list",
+      "default": [],
+      "definition_history": [
+        {
+          "declared_type": "list",
+          "default": [],
+          "section": "Scheduler",
+          "source": "config_manager.py:250"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "task_chain_low_freq_sequence",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Scheduler",
+      "source": "config_manager.py:250",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-5f5498fea0df",
+      "declared_type": "int",
+      "default": 0,
+      "definition_history": [
+        {
+          "declared_type": "int",
+          "default": 0,
+          "section": "Scheduler",
+          "source": "config_manager.py:246"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "task_chain_max_runtime_minutes",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Scheduler",
+      "source": "config_manager.py:246",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-464935eabb03",
+      "declared_type": "list",
+      "default": [],
+      "definition_history": [
+        {
+          "declared_type": "list",
+          "default": [],
+          "section": "Scheduler",
+          "source": "config_manager.py:245"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "task_chain_sequence",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Scheduler",
+      "source": "config_manager.py:245",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-9cd8971c2f95",
+      "declared_type": "password",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "password",
+          "default": "",
+          "section": "Telegram",
+          "source": "config_manager.py:262"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "telegram_bot_token",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": true,
+      "section": "Telegram",
+      "source": "config_manager.py:262",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-e968f9a11f03",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "Telegram",
+          "source": "config_manager.py:263"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "telegram_channel_id",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Telegram",
+      "source": "config_manager.py:263",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-877752dd6626",
+      "declared_type": "list",
+      "default": [
+        "library_new",
+        "transfer_success",
+        "recognize_fail",
+        "intercept_notify"
+      ],
+      "definition_history": [
+        {
+          "declared_type": "list",
+          "default": [
+            "library_new",
+            "transfer_success",
+            "recognize_fail",
+            "intercept_notify"
+          ],
+          "section": "Telegram",
+          "source": "config_manager.py:265"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "telegram_notify_types",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Telegram",
+      "source": "config_manager.py:265",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-395c0c033bd4",
+      "declared_type": "list",
+      "default": [
+        "task-chain-high-freq",
+        "task-chain-low-freq",
+        "scan-organize-115",
+        "populate-metadata",
+        "process-watchlist",
+        "scan-cleanup-issues",
+        "system-auto-update"
+      ],
+      "definition_history": [
+        {
+          "declared_type": "list",
+          "default": [
+            "task-chain-high-freq",
+            "task-chain-low-freq",
+            "scan-organize-115",
+            "populate-metadata",
+            "process-watchlist",
+            "scan-cleanup-issues",
+            "system-auto-update"
+          ],
+          "section": "Telegram",
+          "source": "config_manager.py:264"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "tg_menu_tasks",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Telegram",
+      "source": "config_manager.py:264",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-165d953fe158",
+      "declared_type": "string",
+      "default": "https://api.themoviedb.org/3",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "https://api.themoviedb.org/3",
+          "section": "TMDB",
+          "source": "config_manager.py:162"
+        }
+      ],
+      "environment_aliases": [
+        "TMDB_API_BASE_URL"
+      ],
+      "key": "tmdb_api_base_url",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "TMDB",
+      "source": "config_manager.py:162",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-6684ad06b6f7",
+      "declared_type": "string",
+      "default": "",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "",
+          "section": "TMDB",
+          "source": "config_manager.py:161"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "tmdb_api_key",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": true,
+      "section": "TMDB",
+      "source": "config_manager.py:161",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-1a93b05b89dc",
+      "declared_type": "string",
+      "default": "zh",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "zh",
+          "section": "TMDB",
+          "source": "config_manager.py:164"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "tmdb_image_language_preference",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "TMDB",
+      "source": "config_manager.py:164",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-3809b34c2618",
+      "declared_type": "boolean",
+      "default": false,
+      "definition_history": [
+        {
+          "declared_type": "boolean",
+          "default": false,
+          "section": "TMDB",
+          "source": "config_manager.py:163"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "tmdb_include_adult",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "TMDB",
+      "source": "config_manager.py:163",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "contract_id": "config-7dabacb95659",
+      "declared_type": "string",
+      "default": "Mozilla/5.0 ...",
+      "definition_history": [
+        {
+          "declared_type": "string",
+          "default": "Mozilla/5.0 ...",
+          "section": "Network",
+          "source": "config_manager.py:224"
+        }
+      ],
+      "environment_aliases": [],
+      "key": "user_agent",
+      "mutability": "dynamic_reload",
+      "new_owner": null,
+      "secret": false,
+      "section": "Network",
+      "source": "config_manager.py:224",
+      "status": "legacy",
+      "storage": "app_settings.dynamic_app_config",
+      "target_stage": "P2",
+      "validation_method": "config-contract",
+      "validation_owner": "system/configuration"
+    }
+  ],
+  "environment_aliases": [
+    {
+      "config_key": "db_host",
+      "environment": "DB_HOST"
+    },
+    {
+      "config_key": "db_name",
+      "environment": "DB_NAME"
+    },
+    {
+      "config_key": "db_password",
+      "environment": "DB_PASSWORD"
+    },
+    {
+      "config_key": "db_port",
+      "environment": "DB_PORT"
+    },
+    {
+      "config_key": "db_user",
+      "environment": "DB_USER"
+    },
+    {
+      "config_key": "tmdb_api_base_url",
+      "environment": "TMDB_API_BASE_URL"
+    }
+  ],
+  "generator": "scripts/refactor/export_config.py",
+  "metrics": {
+    "app_config_key_count": 103,
+    "bootstrap_key_count": 7,
+    "duplicate_definition_key_count": 2,
+    "dynamic_key_count": 96,
+    "standalone_setting_key_count": 52,
+    "unresolved_setting_call_count": 0
+  },
+  "runtime_derived_config": [
+    {
+      "key": "is_pro_active",
+      "sources": [
+        "scheduler_manager.py:62",
+        "routes/system.py:933"
+      ],
+      "storage": "process_memory"
+    },
+    {
+      "key": "pro_expire_time",
+      "sources": [
+        "scheduler_manager.py:597",
+        "routes/system.py:933"
+      ],
+      "storage": "app_settings_and_process_memory"
+    },
+    {
+      "key": "app_base_url",
+      "sources": [
+        "routes/user_management.py:124"
+      ],
+      "storage": "request_fallback_only"
+    }
+  ],
+  "schema_version": 1,
+  "source_scope": [
+    "config_manager.py",
+    "constants.py",
+    "**/*.py app_settings calls"
+  ],
+  "standalone_app_settings": [
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/actor_subscriptions.py:115"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/actor_subscriptions.py:62"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/actor_subscriptions.py:83"
+        }
+      ],
+      "contract_id": "setting-5ba80aa585a1",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "actor_subscriptions_default_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "ai_translator.py:190"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/system.py:830"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/system.py:853"
+        },
+        {
+          "operation": "delete_setting",
+          "source": "routes/system.py:867"
+        }
+      ],
+      "contract_id": "setting-8b5d4b6e57d7",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "ai_user_prompts",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/media.py:744"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/media.py:751"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/webhook.py:1409"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/media.py:2027"
+        }
+      ],
+      "contract_id": "setting-e051fdb1e272",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "auto_tagging_rules",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:5991"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:918"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/custom_collections.py:928"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:946"
+        }
+      ],
+      "contract_id": "setting-0fb2a0d3b30f",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "country_mapping",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/cover_generator_config.py:68"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/cover_generator_config.py:93"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/webhook.py:1261"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/covers.py:144"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/covers.py:25"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/custom_collections.py:143"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/custom_collections.py:647"
+        }
+      ],
+      "contract_id": "setting-4640efe53366",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "cover_generator_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "save_setting",
+          "source": "routes/system.py:1017"
+        },
+        {
+          "operation": "delete_setting",
+          "source": "routes/system.py:1031"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/system.py:998"
+        }
+      ],
+      "contract_id": "setting-7ec712db14dc",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "custom_menu_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "save_setting",
+          "source": "config_manager.py:412"
+        },
+        {
+          "operation": "get_setting",
+          "source": "config_manager.py:424"
+        },
+        {
+          "operation": "delete_setting",
+          "source": "config_manager.py:437"
+        }
+      ],
+      "contract_id": "setting-edf9539d7423",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "custom_theme",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "config_manager.py:348"
+        },
+        {
+          "operation": "get_setting",
+          "source": "config_manager.py:383"
+        },
+        {
+          "operation": "save_setting",
+          "source": "config_manager.py:396"
+        }
+      ],
+      "contract_id": "setting-b98815c0d5db",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "dynamic_app_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/hdhive_client.py:32"
+        },
+        {
+          "operation": "save_setting",
+          "source": "handler/hdhive_client.py:55"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/subscription.py:163"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/subscription.py:265"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/hdhive.py:258"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/hdhive.py:312"
+        }
+      ],
+      "contract_id": "setting-661ff4c6620c",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "hdhive_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:7481"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:793"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/custom_collections.py:816"
+        }
+      ],
+      "contract_id": "setting-d13014cf63c7",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "junk_file_patterns",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/metadata_provider_db.py:776"
+        },
+        {
+          "operation": "get_setting",
+          "source": "database/queries_db.py:14"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:5988"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:750"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/custom_collections.py:759"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:830"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:23"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:692"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:763"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/discover.py:168"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/discover.py:24"
+        }
+      ],
+      "contract_id": "setting-39010fa9f8bc",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "keyword_mapping",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_media_analyzer.py:885"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_play_pool.py:1240"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:5992"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:967"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/custom_collections.py:976"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:992"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:667"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/helpers.py:135"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/shared_resource_tasks.py:3926"
+        }
+      ],
+      "contract_id": "setting-cb05995f9ed2",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "language_mapping",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/shared_center_client.py:111"
+        }
+      ],
+      "contract_id": "setting-ab3540f4bf93",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "license_key",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": true,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/maintenance_db.py:93"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/media_cleanup.py:142"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/media_cleanup.py:265"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/cleanup.py:227"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/cleanup.py:310"
+        }
+      ],
+      "contract_id": "setting-29dc7244e442",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "media_cleanup_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/media_cleanup.py:155"
+        }
+      ],
+      "contract_id": "setting-eeeb0909b1ca",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "media_cleanup_delete_delay",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/maintenance_db.py:96"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/media_cleanup.py:154"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/cleanup.py:315"
+        }
+      ],
+      "contract_id": "setting-7f0b0c8e6a3e",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "media_cleanup_keep_one_per_res",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/media_cleanup.py:153"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/cleanup.py:311"
+        }
+      ],
+      "contract_id": "setting-1b258e693ea5",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "media_cleanup_library_ids",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/media_cleanup.py:152"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/cleanup.py:228"
+        }
+      ],
+      "contract_id": "setting-525eb0daec99",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "media_cleanup_rules",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "actor_subscription_processor.py:40"
+        },
+        {
+          "operation": "get_setting",
+          "source": "database/settings_db.py:464"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1099"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1172"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1259"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1327"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1381"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1444"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1518"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1557"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1579"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1609"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1637"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1656"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1675"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:1760"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:357"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:397"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:473"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:592"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:76"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/moviepilot.py:96"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:10629"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/database_admin.py:85"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/media.py:31"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/media.py:35"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/media.py:40"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/media.py:535"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/media.py:585"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/subscription.py:117"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/subscription.py:24"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/subscription.py:56"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/user_portal.py:53"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/watchlist.py:52"
+        },
+        {
+          "operation": "get_setting",
+          "source": "services/subscribe_assistant/manager.py:47"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/helpers.py:945"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/resubscribe.py:994"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/subscriptions.py:1339"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/subscriptions.py:1347"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/subscriptions.py:785"
+        },
+        {
+          "operation": "get_setting",
+          "source": "watchlist_processor.py:70"
+        }
+      ],
+      "contract_id": "setting-eb42ec4e7b38",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "mp_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/tmdb_collections.py:138"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/tmdb_collections.py:403"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/tmdb_collections.py:305"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/tmdb_collections.py:338"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/tmdb_collections.py:345"
+        }
+      ],
+      "contract_id": "setting-071d07c7913b",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "native_collections_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_media_analyzer.py:447"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:786"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:796"
+        },
+        {
+          "operation": "save_setting",
+          "source": "handler/p115_service.py:797"
+        }
+      ],
+      "contract_id": "setting-70ed8338395f",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_auth_tokens",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": true,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_copy_play.py:154"
+        },
+        {
+          "operation": "save_setting",
+          "source": "handler/p115_copy_play.py:159"
+        }
+      ],
+      "contract_id": "setting-b6661bf5b234",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_copy_play_active_sources",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_copy_play.py:145"
+        },
+        {
+          "operation": "save_setting",
+          "source": "handler/p115_copy_play.py:150"
+        }
+      ],
+      "contract_id": "setting-403056a983cd",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_copy_play_clones",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_media_analyzer.py:1863"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_media_analyzer.py:339"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/p115.py:3339"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/p115.py:3352"
+        }
+      ],
+      "contract_id": "setting-c04d846dbf0c",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_default_stream_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:6848"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/p115.py:2924"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/p115.py:2936"
+        }
+      ],
+      "contract_id": "setting-8d2b1199b60e",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_episode_regex_rules",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_play_pool.py:391"
+        },
+        {
+          "operation": "save_setting",
+          "source": "handler/p115_play_pool.py:441"
+        }
+      ],
+      "contract_id": "setting-90de55ebcf99",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_play_pool_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_play_pool.py:633"
+        },
+        {
+          "operation": "save_setting",
+          "source": "handler/p115_play_pool.py:638"
+        }
+      ],
+      "contract_id": "setting-3ff546971deb",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_play_pool_sessions",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_play_pool.py:159"
+        },
+        {
+          "operation": "save_setting",
+          "source": "handler/p115_play_pool.py:216"
+        }
+      ],
+      "contract_id": "setting-b81cef705214",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_play_pool_user_cookie_rewards",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": true,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/settings_db.py:373"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:6010"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_upload_monitor.py:914"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/shared_subscription_service.py:4968"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/p115.py:1699"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/p115.py:2562"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/p115.py:2597"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/p115.py:1648"
+        }
+      ],
+      "contract_id": "setting-e817c8fd27c1",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_rename_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:199"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:5761"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:6024"
+        },
+        {
+          "operation": "save_setting",
+          "source": "handler/p115_service.py:7370"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/p115.py:1474"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/p115.py:1897"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/p115.py:1923"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/p115.py:2019"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/p115.py:1472"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/p115.py:1642"
+        }
+      ],
+      "contract_id": "setting-9f2158f24dde",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_sorting_rules",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_temp_dir.py:32"
+        },
+        {
+          "operation": "save_setting",
+          "source": "handler/p115_temp_dir.py:56"
+        }
+      ],
+      "contract_id": "setting-497d9f940ded",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_temp_dir_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_upload_monitor.py:111"
+        },
+        {
+          "operation": "save_setting",
+          "source": "handler/p115_upload_monitor.py:116"
+        }
+      ],
+      "contract_id": "setting-9c5e65b39ae5",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_upload_monitor_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "save_setting",
+          "source": "reverse_proxy.py:108"
+        },
+        {
+          "operation": "get_setting",
+          "source": "reverse_proxy.py:93"
+        }
+      ],
+      "contract_id": "setting-c2a679ada51b",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_virtual_play_sessions",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/settings_db.py:362"
+        },
+        {
+          "operation": "save_setting",
+          "source": "database/settings_db.py:385"
+        }
+      ],
+      "contract_id": "setting-76801fa87ade",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_washing_priority_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/settings_db.py:304"
+        }
+      ],
+      "contract_id": "setting-9fd0793fc158",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "p115_washing_priority_recalculate_state",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "save_setting",
+          "source": "routes/system.py:930"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/system.py:976"
+        },
+        {
+          "operation": "get_setting",
+          "source": "scheduler_manager.py:44"
+        }
+      ],
+      "contract_id": "setting-0dc53344d583",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "pro_expire_time",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/shared_center_client.py:111"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/system.py:222"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/system.py:928"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/system.py:974"
+        },
+        {
+          "operation": "get_setting",
+          "source": "scheduler_manager.py:43"
+        }
+      ],
+      "contract_id": "setting-68b3a424ed9a",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "pro_license_key",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": true,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/queries_db.py:117"
+        },
+        {
+          "operation": "get_setting",
+          "source": "database/queries_db.py:99"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:5989"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:1054"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/custom_collections.py:1068"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:312"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:479"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:95"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/helpers.py:2128"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/media.py:600"
+        }
+      ],
+      "contract_id": "setting-209f458f6088",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "rating_mapping",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:5990"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:1088"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/custom_collections.py:1102"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/helpers.py:2129"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/media.py:601"
+        }
+      ],
+      "contract_id": "setting-84df55648a58",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "rating_priority",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:754"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:855"
+        },
+        {
+          "operation": "save_setting",
+          "source": "tasks/discover.py:133"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/discover.py:151"
+        },
+        {
+          "operation": "save_setting",
+          "source": "tasks/discover.py:265"
+        }
+      ],
+      "contract_id": "setting-e12f1ddd30da",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "recommendation_pool",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "save_setting",
+          "source": "tasks/discover.py:135"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/discover.py:187"
+        },
+        {
+          "operation": "save_setting",
+          "source": "tasks/discover.py:203"
+        },
+        {
+          "operation": "save_setting",
+          "source": "tasks/discover.py:225"
+        },
+        {
+          "operation": "save_setting",
+          "source": "tasks/discover.py:266"
+        }
+      ],
+      "contract_id": "setting-10e4f4bb6eef",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "recommendation_pool_page",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:755"
+        },
+        {
+          "operation": "save_setting",
+          "source": "tasks/discover.py:134"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/discover.py:162"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/discover.py:177"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/discover.py:40"
+        }
+      ],
+      "contract_id": "setting-c27c8264cf43",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "recommendation_theme_index",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:771"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/custom_collections.py:781"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/helpers.py:292"
+        }
+      ],
+      "contract_id": "setting-7f779664171a",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "release_group_mapping",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/settings_db.py:619"
+        },
+        {
+          "operation": "get_setting",
+          "source": "database/settings_db.py:738"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "database/settings_db.py:746"
+        },
+        {
+          "operation": "save_setting",
+          "source": "database/settings_db.py:748"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/intro_detection_service.py:380"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "handler/p115_temp_dir.py:321"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "handler/shared_center_client.py:194"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "handler/shared_intro_service.py:22"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "handler/shared_subscription_service.py:1574"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "handler/shared_subscription_service.py:1588"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "routes/shared_resource.py:106"
+        },
+        {
+          "operation": "save_shared_resource_config",
+          "source": "routes/shared_resource.py:138"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "routes/shared_resource.py:1491"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "routes/webhook.py:350"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "routes/webhook.py:850"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "scheduler_manager.py:448"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "tasks/shared_resource_tasks.py:2352"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "tasks/shared_resource_tasks.py:3151"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "tasks/shared_resource_tasks.py:57"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "tasks/shared_resource_tasks.py:614"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "tasks/shared_resource_tasks.py:71"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "tasks/shared_resource_tasks.py:8044"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "watchlist_processor.py:758"
+        },
+        {
+          "operation": "get_shared_resource_config",
+          "source": "watchlist_processor.py:91"
+        }
+      ],
+      "contract_id": "setting-d3d6fded59b2",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "shared_resource_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "tasks/shared_resource_tasks.py:3927"
+        }
+      ],
+      "contract_id": "setting-365ee1017f1a",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "stream_feature_mapping",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/metadata_provider_db.py:785"
+        },
+        {
+          "operation": "get_setting",
+          "source": "database/queries_db.py:53"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:5987"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:849"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/custom_collections.py:858"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:877"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:52"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/discover.py:709"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/media.py:3027"
+        }
+      ],
+      "contract_id": "setting-6bc8ebb39e01",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "studio_mapping",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/settings_db.py:471"
+        },
+        {
+          "operation": "save_setting",
+          "source": "database/settings_db.py:481"
+        },
+        {
+          "operation": "save_setting",
+          "source": "database/settings_db.py:503"
+        }
+      ],
+      "contract_id": "setting-fac06b386ddb",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "subscription_quota_state",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/media.py:694"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/media.py:735"
+        },
+        {
+          "operation": "get_setting",
+          "source": "services/subscribe_assistant/manager.py:57"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/subscriptions.py:1338"
+        }
+      ],
+      "contract_id": "setting-db208fbe932e",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "subscription_strategy_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/telegram.py:464"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/system.py:541"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/system.py:554"
+        }
+      ],
+      "contract_id": "setting-53c2f1bca10f",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "telegram_notification_templates",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "handler/tg_userbot.py:59"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/media.py:48"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/subscription.py:1409"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/subscription.py:1428"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/subscription.py:31"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/subscriptions.py:434"
+        }
+      ],
+      "contract_id": "setting-14cae362f8a1",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "tg_userbot_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:1022"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/custom_collections.py:1032"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/custom_collections.py:1126"
+        }
+      ],
+      "contract_id": "setting-b40c37628115",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "unified_ratings",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "get_setting",
+          "source": "database/settings_db.py:626"
+        },
+        {
+          "operation": "save_setting",
+          "source": "database/settings_db.py:633"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/intro_detection_service.py:373"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/intro_detection_service.py:400"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/intro_detection_service.py:415"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/subscription.py:57"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/watchlist.py:407"
+        },
+        {
+          "operation": "get_setting",
+          "source": "routes/watchlist.py:433"
+        },
+        {
+          "operation": "save_setting",
+          "source": "routes/watchlist.py:459"
+        },
+        {
+          "operation": "get_setting",
+          "source": "services/subscribe_assistant/manager.py:46"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/helpers.py:1655"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/subscriptions.py:1165"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/subscriptions.py:1585"
+        },
+        {
+          "operation": "get_setting",
+          "source": "tasks/subscriptions.py:937"
+        },
+        {
+          "operation": "get_setting",
+          "source": "watchlist_processor.py:1487"
+        },
+        {
+          "operation": "get_setting",
+          "source": "watchlist_processor.py:1825"
+        },
+        {
+          "operation": "get_setting",
+          "source": "watchlist_processor.py:2146"
+        },
+        {
+          "operation": "get_setting",
+          "source": "watchlist_processor.py:387"
+        }
+      ],
+      "contract_id": "setting-d1dd5a22454a",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "key": "watchlist_config",
+      "mutability": "runtime_dynamic",
+      "new_owner": null,
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "legacy",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "app-settings-contract",
+      "validation_owner": "system/configuration"
+    }
+  ],
+  "unresolved_dynamic_setting_calls": []
+}

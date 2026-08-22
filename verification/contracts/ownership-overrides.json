@@ -1,0 +1,13 @@
+{
+  "contracts": {
+    "bridge_contracts": {},
+    "configs": {},
+    "frontend_routes": {},
+    "route_bindings": {},
+    "route_decorators": {},
+    "settings": {},
+    "tables": {},
+    "tasks": {}
+  },
+  "schema_version": 1
+}

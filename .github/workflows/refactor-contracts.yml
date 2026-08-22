@@ -1,0 +1,38 @@
+name: Refactor Contract Baseline
+
+on:
+  pull_request:
+  push:
+    branches:
+      - codex/refactor-mainline
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check Python syntax
+        run: python -m compileall -q -x 'node_modules|frontend|local_data|pyarmor_runtime_000000' .
+
+      - name: Verify generated manifests and ownership overlay
+        run: python scripts/refactor/check_manifests.py
+
+      - name: Scan sanitized fixtures
+        run: |
+          python scripts/refactor/scan_fixture_secrets.py verification/fixtures
+          python scripts/refactor/scan_fixture_secrets.py verification/contracts/http
+          python scripts/refactor/scan_fixture_secrets.py verification/contracts/db
+
+      - name: Run contract tooling tests
+        run: python -m unittest discover -s verification/contracts -p 'test_*.py'

@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source",
+    "captured_live": false,
+    "sources": [
+      "routes/webhook.py:1667",
+      "database/metadata_provider_db.py:958"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "movie-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/emby/metadata",
+        "query": {
+          "path": "/fixture/media/movie/example.mkv",
+          "item_type": "Movie"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "item_type": "Movie",
+          "tmdb_id": "1001",
+          "series_tmdb_id": "",
+          "imdb_id": "tt0001001",
+          "name": "Fixture Movie",
+          "original_title": "Fixture Movie",
+          "overview": "Sanitized movie metadata.",
+          "tagline": null,
+          "premiere_date": "2026-01-01",
+          "end_date": null,
+          "production_year": 2026,
+          "community_rating": 8.1,
+          "official_rating": "PG-13",
+          "custom_rating": null,
+          "runtime_minutes": 120,
+          "genres": [
+            "Drama"
+          ],
+          "tags": [],
+          "studios": [],
+          "season_number": null,
+          "episode_number": null,
+          "actors_ready": true,
+          "people": [],
+          "collections": [],
+          "_screenshot_hash": "",
+          "_emby_item_ids": [
+            "90001"
+          ],
+          "images": {
+            "primary": "https://example.invalid/images/movie-primary.jpg",
+            "backdrop": null,
+            "logo": null,
+            "thumb": null
+          }
+        }
+      }
+    },
+    {
+      "case_id": "series-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/emby/metadata",
+        "query": {
+          "path": "/fixture/media/series",
+          "item_type": "Series"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "item_type": "Series",
+          "tmdb_id": "2001",
+          "series_tmdb_id": "2001",
+          "imdb_id": null,
+          "name": "Fixture Series",
+          "original_title": "Fixture Series",
+          "overview": "Sanitized series metadata.",
+          "tagline": null,
+          "premiere_date": "2026-01-01",
+          "end_date": null,
+          "production_year": 2026,
+          "community_rating": 8.2,
+          "official_rating": "TV-14",
+          "custom_rating": null,
+          "runtime_minutes": 45,
+          "genres": [
+            "Drama"
+          ],
+          "tags": [],
+          "studios": [],
+          "season_number": null,
+          "episode_number": null,
+          "actors_ready": false,
+          "people": [],
+          "collections": [],
+          "_screenshot_hash": "",
+          "_emby_item_ids": [
+            "91000"
+          ],
+          "images": {
+            "primary": null,
+            "backdrop": null,
+            "logo": null,
+            "thumb": null
+          }
+        }
+      }
+    },
+    {
+      "case_id": "season-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/emby/metadata",
+        "query": {
+          "path": "/fixture/media/series/season-01",
+          "item_type": "Season",
+          "season_number": 1
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "item_type": "Season",
+          "tmdb_id": "2001-S01",
+          "series_tmdb_id": "2001",
+          "imdb_id": null,
+          "name": "Season 1",
+          "original_title": "Season 1",
+          "overview": "Sanitized season metadata.",
+          "tagline": null,
+          "premiere_date": "2026-01-01",
+          "end_date": null,
+          "production_year": 2026,
+          "community_rating": 8.2,
+          "official_rating": "TV-14",
+          "custom_rating": null,
+          "runtime_minutes": null,
+          "genres": [
+            "Drama"
+          ],
+          "tags": [],
+          "studios": [],
+          "season_number": 1,
+          "episode_number": null,
+          "actors_ready": false,
+          "people": [],
+          "collections": [],
+          "_screenshot_hash": "",
+          "_emby_item_ids": [
+            "91001"
+          ],
+          "images": {
+            "primary": null,
+            "backdrop": null,
+            "logo": null,
+            "thumb": null
+          }
+        }
+      }
+    },
+    {
+      "case_id": "episode-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/emby/metadata",
+        "query": {
+          "path": "/fixture/media/series/season-01/episode-01.strm",
+          "item_type": "Episode",
+          "season_number": 1,
+          "episode_number": 1
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "item_type": "Episode",
+          "tmdb_id": "2001-S01E01",
+          "series_tmdb_id": "2001",
+          "imdb_id": null,
+          "name": "Episode 1",
+          "original_title": "Episode 1",
+          "overview": "Sanitized episode metadata.",
+          "tagline": null,
+          "premiere_date": "2026-01-01",
+          "end_date": null,
+          "production_year": 2026,
+          "community_rating": 8.2,
+          "official_rating": "TV-14",
+          "custom_rating": null,
+          "runtime_minutes": 45,
+          "genres": [
+            "Drama"
+          ],
+          "tags": [],
+          "studios": [],
+          "season_number": 1,
+          "episode_number": 1,
+          "actors_ready": false,
+          "people": [],
+          "collections": [],
+          "_screenshot_hash": "",
+          "_emby_item_ids": [
+            "91011"
+          ],
+          "images": {
+            "primary": null,
+            "backdrop": null,
+            "logo": null,
+            "thumb": null
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "kind": "logical-anonymous-fixture",
+  "captured_live": false,
+  "entities": {
+    "media": [
+      {
+        "tmdb_id": "1001",
+        "item_type": "Movie",
+        "in_library": true,
+        "emby_item_ids": [
+          "90001"
+        ],
+        "pick_codes": [
+          "PICKCODE_FIXTURE_001"
+        ],
+        "sha1": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ]
+      },
+      {
+        "tmdb_id": "2001",
+        "item_type": "Series",
+        "in_library": true,
+        "emby_item_ids": [
+          "91000"
+        ]
+      },
+      {
+        "tmdb_id": "2001-S01",
+        "item_type": "Season",
+        "parent_series_tmdb_id": "2001",
+        "season_number": 1,
+        "emby_item_ids": [
+          "91001"
+        ]
+      },
+      {
+        "tmdb_id": "2001-S01E01",
+        "item_type": "Episode",
+        "parent_series_tmdb_id": "2001",
+        "season_number": 1,
+        "episode_number": 1,
+        "emby_item_ids": [
+          "91011"
+        ],
+        "pick_codes": [
+          "PICKCODE_FIXTURE_002"
+        ],
+        "sha1": [
+          "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ]
+      }
+    ],
+    "subscription": {
+      "status": "WANTED",
+      "source": "fixture-manual",
+      "quota_delta": 0
+    },
+    "sharing": {
+      "source_id": "fixture-source-001",
+      "credit_ledger_delta": 0,
+      "status": "available"
+    },
+    "user": {
+      "emby_user_id": "fixture-user-001",
+      "name": "Fixture User",
+      "is_administrator": false
+    },
+    "task": {
+      "task_key": "populate-metadata",
+      "status": "pending",
+      "progress": 0
+    }
+  }
+}

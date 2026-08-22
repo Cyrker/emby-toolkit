@@ -1,0 +1,85 @@
+{
+  "baseline_revision": "main@00786dcd632c08a25016276d2531d650ab9ee00c",
+  "baseline_variances": {
+    "config": {
+      "duplicate_config_definitions": {
+        "p115_media_root_name": [
+          {
+            "declared_type": "string",
+            "default": "根目录",
+            "section": "115",
+            "source": "config_manager.py:189"
+          },
+          {
+            "declared_type": "string",
+            "default": "媒体库",
+            "section": "115",
+            "source": "config_manager.py:200"
+          }
+        ],
+        "proxy_native_view_order": [
+          {
+            "declared_type": "str",
+            "default": "before",
+            "section": "ReverseProxy",
+            "source": "config_manager.py:156"
+          },
+          {
+            "declared_type": "str",
+            "default": "before",
+            "section": "ReverseProxy",
+            "source": "config_manager.py:157"
+          }
+        ]
+      },
+      "environment_precedence_review": [
+        {
+          "key": "tmdb_api_base_url",
+          "note": "The environment value is loaded into bootstrap memory and then overwritten by the dynamic merge.",
+          "source": "config_manager.py:318"
+        }
+      ],
+      "standalone_default_semantics": "app_settings has no database-level value default; callers apply key-specific fallbacks."
+    },
+    "frontend_page_routes": {
+      "plan_page_route_count": 23,
+      "resolution": "Preserve every source route; no route is retired without explicit approval.",
+      "router_guard_requires_admin": "declared but not enforced",
+      "source_page_route_count": 24
+    },
+    "task_help": {
+      "help_keys_without_registered_task": [
+        "contribute-mediainfo"
+      ],
+      "manual_hidden_keys_are_not_chain_eligible": [
+        "task-chain-high-freq",
+        "task-chain-low-freq"
+      ],
+      "task_keys_without_explicit_help": [
+        "play-pool-daily-speedtest"
+      ]
+    }
+  },
+  "count_mismatches": {},
+  "counts": {
+    "blueprints": 22,
+    "legacy_python_files": 126,
+    "method_bindings": 367,
+    "route_decorators": 343,
+    "tables": 39,
+    "task_keys": 50,
+    "vue_files": 55
+  },
+  "expected_counts": {
+    "blueprints": 22,
+    "legacy_python_files": 126,
+    "method_bindings": 367,
+    "route_decorators": 343,
+    "tables": 39,
+    "task_keys": 50,
+    "vue_files": 55
+  },
+  "generated_by": "scripts/refactor/export_manifests.py",
+  "legacy_source_sha256": "26dd86b583e7539c273f63418e30b8932a305b53e1e31765652f6a8150a6e895",
+  "schema_version": 1
+}

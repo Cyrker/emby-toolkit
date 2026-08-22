@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source",
+    "captured_live": false,
+    "sources": [
+      "routes/p115.py:2022",
+      "handler/emby.py:150"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "pick-code-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/mediainfo/PICKCODE_FIXTURE_001"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "MediaSourceInfo": {
+            "MediaStreams": []
+          },
+          "Chapters": []
+        }
+      }
+    },
+    {
+      "case_id": "sha1-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "MediaSourceInfo": {
+            "MediaStreams": []
+          },
+          "Chapters": []
+        }
+      }
+    }
+  ]
+}

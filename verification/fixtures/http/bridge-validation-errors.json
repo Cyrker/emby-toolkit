@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source",
+    "captured_live": false
+  },
+  "cases": [
+    {
+      "case_id": "metadata-invalid-request",
+      "source": "routes/webhook.py:1674",
+      "request": {
+        "method": "GET",
+        "path": "/api/emby/metadata",
+        "query": {}
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "error": "invalid metadata path request"
+        }
+      }
+    },
+    {
+      "case_id": "backfill-item-missing-id",
+      "source": "routes/webhook.py:1880",
+      "request": {
+        "method": "POST",
+        "path": "/api/emby/metadata/backfill/item",
+        "body": {}
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "ok": false,
+          "error": "emby_item_id is required"
+        }
+      }
+    },
+    {
+      "case_id": "plugin-event-invalid-source",
+      "source": "routes/webhook.py:2272",
+      "request": {
+        "method": "POST",
+        "path": "/api/emby/events",
+        "body": {
+          "_etk_source": "fixture-invalid-source",
+          "Event": "playback.start"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "status": "invalid_plugin_event"
+        }
+      }
+    },
+    {
+      "case_id": "mediainfo-invalid-sha1",
+      "source": "routes/p115.py:2022",
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/mediainfo/sha1/not-a-sha1"
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "error": "invalid sha1"
+        }
+      }
+    },
+    {
+      "case_id": "deep-delete-missing-token",
+      "source": "routes/p115.py:2324",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/commit",
+        "body": {}
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "ok": false,
+          "error": "missing token"
+        }
+      }
+    }
+  ]
+}

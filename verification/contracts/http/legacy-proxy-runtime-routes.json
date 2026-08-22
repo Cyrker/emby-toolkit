@@ -1,0 +1,30 @@
+{
+  "method_binding_count": 6,
+  "rule_count": 3,
+  "rules": [
+    {
+      "endpoint": "proxy_all",
+      "methods": [
+        "GET"
+      ],
+      "path": "/"
+    },
+    {
+      "endpoint": "proxy_all",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST",
+        "PUT"
+      ],
+      "path": "/<path:path>"
+    },
+    {
+      "endpoint": "static",
+      "methods": [
+        "GET"
+      ],
+      "path": "/static/<path:filename>"
+    }
+  ]
+}

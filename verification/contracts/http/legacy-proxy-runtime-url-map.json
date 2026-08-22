@@ -1,0 +1,49 @@
+{
+  "contract_method_binding_count": 6,
+  "raw_method_binding_count": 12,
+  "rule_count": 3,
+  "rules": [
+    {
+      "endpoint": "proxy_all",
+      "methods_contract": [
+        "GET"
+      ],
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "path": "/"
+    },
+    {
+      "endpoint": "proxy_all",
+      "methods_contract": [
+        "DELETE",
+        "GET",
+        "POST",
+        "PUT"
+      ],
+      "methods_raw": [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST",
+        "PUT"
+      ],
+      "path": "/<path:path>"
+    },
+    {
+      "endpoint": "static",
+      "methods_contract": [
+        "GET"
+      ],
+      "methods_raw": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "path": "/static/<path:filename>"
+    }
+  ]
+}
