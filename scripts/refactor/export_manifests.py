@@ -32,7 +32,17 @@ EXPECTED = {
 
 
 def _legacy_python_files() -> list[str]:
-    excluded = {".git", ".venv", "frontend", "node_modules", "local_data", "scripts", "verification", "src"}
+    excluded = {
+        ".git",
+        ".venv",
+        "frontend",
+        "local_data",
+        "migrations",
+        "node_modules",
+        "scripts",
+        "src",
+        "verification",
+    }
     return sorted(
         relative_path(path)
         for path in REPO_ROOT.rglob("*.py")

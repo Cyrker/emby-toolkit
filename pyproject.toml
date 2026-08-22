@@ -43,6 +43,13 @@ dependencies = [
   "websocket-client==1.9.0",
   "werkzeug>=3.1,<4",
   "zhipuai==2.1.5.20250825",
+  "alembic>=1,<2",
+  "prometheus-client>=0.22,<1",
+  "psycopg[binary]>=3,<4",
+  "psycopg-pool>=3,<4",
+  "pydantic-settings>=2,<3",
+  "sqlalchemy>=2,<3",
+  "structlog>=25,<26",
 ]
 
 [project.scripts]
@@ -55,6 +62,7 @@ dev = [
   "pytest>=8.4,<10",
   "pytest-cov>=7,<8",
   "ruff>=0.15,<1",
+  "testcontainers[postgres]>=4,<5",
 ]
 
 [tool.hatch.version]

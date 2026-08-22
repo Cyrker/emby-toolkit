@@ -24,6 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     api.add_argument("--host", default="0.0.0.0")
     api.add_argument("--port", type=_port, default=5257)
     api.add_argument("--log-level", default="info")
+    api.add_argument("--log-format", choices=("console", "json"), default=None)
     api.set_defaults(handler=_run_api)
 
     proxy = commands.add_parser("proxy", help="run the gevent HTTP/WebSocket proxy host")
@@ -52,14 +53,23 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _run_api(args: argparse.Namespace) -> int:
+    import os
+
     import uvicorn
 
+    from etk.platform.observability import configure_logging
+
+    log_format = args.log_format or os.environ.get("ETK_LOG_FORMAT", "console").casefold()
+    if log_format not in {"console", "json"}:
+        raise ValueError("ETK_LOG_FORMAT must be 'console' or 'json'")
+    configure_logging(json_output=log_format == "json", level=args.log_level)
     uvicorn.run(
         "etk.bootstrap.app_factory:create_app",
         factory=True,
         host=args.host,
         port=args.port,
         log_level=args.log_level,
+        log_config=None,
     )
     return 0
 

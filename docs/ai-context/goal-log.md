@@ -206,6 +206,94 @@ Next:
   integration, Greenfield Compose platform, and baseline observability.
 - Keep all real external-system Live Acceptance pending.
 
+## P2
+
+Status: DONE
+
+Evidence:
+
+- Added contract-backed Pydantic v2 Settings, the legacy INI/database adapter, an explicit lazy
+  `AppContainer`, and PostgreSQL-backed dynamic/standalone config storage. Non-empty
+  `ETK_DATABASE_URL`, legacy `DB_*`, and `[Database]` INI bootstrap paths now resolve the same
+  database URL; an empty ETK URL correctly falls back. Dynamic JSONB updates use one atomic merge
+  so stale snapshots cannot erase concurrent or unknown keys. Malformed INI loads defaults but is
+  not overwritten by an explicit save.
+- Added SQLAlchemy 2 Engine/Session/Repository/UoW, psycopg 3 and independent `psycopg_pool`,
+  bounded transaction retry for only SQLSTATE `40001`/`40P01`, and retryable lifecycle shutdown.
+  A raw-pool shutdown with an active lease now times out explicitly, keeps the pool retryable, and
+  succeeds after the lease is returned; `AppContainer` retains only failed resources for retry.
+- Added Alembic revision `0001_p2_legacy_baseline` with a self-contained SQL pack. Migration SQL is
+  byte-identical to the P0 reference dump with SHA-256
+  `0cf4c65f703b1f852145c902d25cb5481efaa0d8e3e4e2d4ca2fc37e9d915de3`.
+- Extended the committed PG16 catalog and comparator with `character_maximum_length`,
+  `numeric_precision`, `numeric_scale`, and `datetime_precision` for all 478 columns. Synthetic and
+  real PG18 mutation tests prove `character(64) -> character(32)` is rejected and restored.
+- Added structured stdlib/structlog logging, Trace ID middleware, Prometheus metrics, and recursive
+  sensitive-value filtering. Exception text, URL userinfo/query credentials, quoted values with
+  spaces, and Authorization Bearer tokens are covered without removing adjacent safe query data.
+- Added the digest-pinned PostgreSQL 18 Greenfield Compose platform, migration gate, internal-network
+  option, PG18 data-volume path, migration pack in `Dockerfile.refactor`, and a P2 CI workflow. The
+  pinned PostgreSQL digest is a multi-architecture OCI index with amd64 and arm64 manifests.
+- Real disposable PostgreSQL 18 integration passed: `17 passed`. It asserted version `180006`,
+  Alembic upgrade, downgrade/upgrade behavior, UoW rollback, raw pool lifecycle, dynamic config
+  merge, type-width mutation rejection, and a catalog match of 39 tables, 478 columns,
+  60 constraints, and 120 indexes.
+- Final permanent verification passed: `79 passed, 5 skipped, 1 warning` in the default suite; all
+  five skipped tests are the PG18 container tests covered by the separate real run. The two legacy
+  embedded unittest modules passed 66 tests. Ruff check, Ruff format check, Pyright, 195-file
+  Python 3.12 AST parsing, manifest regeneration/check, three fixture/contract secret scans,
+  Compose config, forbidden platform/bootstrap import scan, and `git diff --check` passed.
+- `uv lock --check` resolves 155 packages and `uv sync --frozen` checks 151 installed packages.
+  Migration/catalog assets, dependency lock, workflow, Compose, and final diff passed two
+  independent read-only audits after seven high findings were fixed; both final verdicts found no
+  remaining blocker/high in their assigned P2 slices.
+- Built final local arm64 image
+  `sha256:8a11aaacc7e5526a5c97e7c9fe5958681b5fb4e2bef3d6066ed76428e8c375b2`
+  (332,394,957 bytes). It contains Alembic and the migration pack, excludes `web_app.py` and
+  PyArmor, handles empty ETK URL fallback, redacts the added credential cases, and runs CLI help.
+- Final image Smoke used project `etk-p2-commit-20260823`, an internal network, fresh PG18 and
+  `/config` volumes, no published ports, and no real external credentials. Migration exited 0;
+  catalog comparison returned `match=true`; health and metrics returned 200; Trace ID propagated;
+  auth returned `setup_required`. API SIGTERM exited 143 with `oom=false` after task-worker,
+  Scheduler, and Uvicorn shutdown markers. All containers, network, and volumes were removed, and
+  a label audit found zero remnants.
+
+Recorded residuals and limitations:
+
+- The planned Starlette `WSGIMiddleware` compatibility mount still emits one deprecation warning;
+  P11 removes this temporary legacy dependency. The retained legacy runtime also emits existing
+  third-party `iterdir` SyntaxWarnings during image startup.
+- P2 intentionally leaves the compatibility `init_db()` path active after Alembic; final schema
+  comparison remains exact. Removing legacy startup schema work is deferred to P11 by the plan.
+- Real Emby, 115, MoviePilot, shared center, Telegram, HDHive, production database, webhook,
+  release, push, deployment, and external writes were not used and remain Live Acceptance pending.
+
+Primary verification commands:
+
+```text
+uv lock --check
+uv sync --frozen
+ETK_RUN_POSTGRES_INTEGRATION=1 uv run pytest verification/integration/platform -q
+uv run pytest verification -q
+uv run python -m unittest handler.p115_media_recognition handler.tg_media_candidate_flow
+uv run ruff check main.py src/etk verification/application verification/unit/platform verification/integration/platform scripts/refactor/compare_schema.py
+uv run ruff format --check main.py src/etk verification/application verification/unit/platform verification/integration/platform scripts/refactor/compare_schema.py
+uv run pyright main.py src/etk verification/application verification/unit/platform verification/integration/platform scripts/refactor/compare_schema.py
+python3 scripts/refactor/check_manifests.py
+python3 scripts/refactor/scan_fixture_secrets.py verification/fixtures
+python3 scripts/refactor/scan_fixture_secrets.py verification/contracts/http
+python3 scripts/refactor/scan_fixture_secrets.py verification/contracts/db
+docker compose -f docker/compose.refactor.yml config -q
+docker build -f Dockerfile.refactor -t etk-p2-mainline:local .
+git diff --check
+```
+
+Next:
+
+- Implement P3 System, Identity, and Operations routers/use cases from the committed route and
+  configuration contracts. Keep the compatibility fallback until each route has a verified new owner.
+- Keep all real external-system Live Acceptance pending.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -225,4 +313,4 @@ Read first:
 
 Next:
 
-- Continue P2 from the P1 stage commit. Keep all Live Acceptance items pending.
+- Continue P3 from the P2 stage commit. Keep all Live Acceptance items pending.

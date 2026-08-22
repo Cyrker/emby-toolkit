@@ -51,6 +51,8 @@ COPY main.py \
      monitor_service.py \
      ./
 COPY src/ ./src/
+COPY alembic.ini ./alembic.ini
+COPY migrations/ ./migrations/
 COPY handler/ ./handler/
 COPY database/ ./database/
 COPY tasks/ ./tasks/

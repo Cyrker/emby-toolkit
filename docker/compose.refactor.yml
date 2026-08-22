@@ -1,0 +1,86 @@
+name: etk-refactor-greenfield
+
+x-app-environment: &app-environment
+  APP_DATA_DIR: /config
+  CONFIG_DIR: /config
+  DB_HOST: db
+  DB_PORT: "5432"
+  DB_USER: etk
+  DB_PASSWORD: etk-greenfield-only
+  DB_NAME: etk
+  ETK_DATABASE_URL: postgresql+psycopg://etk:etk-greenfield-only@db:5432/etk
+
+x-app-image: &app-image
+  build:
+    context: ..
+    dockerfile: Dockerfile.refactor
+    target: runtime
+  image: etk-refactor:local
+
+services:
+  db:
+    image: postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+    environment:
+      POSTGRES_DB: etk
+      POSTGRES_USER: etk
+      POSTGRES_PASSWORD: etk-greenfield-only
+    ports:
+      - "${ETK_PG_PORT:-15432}:5432"
+    volumes:
+      # PostgreSQL 18's image declares /var/lib/postgresql, not the old /data path.
+      - pg18_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U etk -d etk"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    networks:
+      - etk-greenfield
+
+  migrate:
+    <<: *app-image
+    command: ["alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+    environment: *app-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - etk-greenfield
+
+  api:
+    <<: *app-image
+    command: ["python", "/app/main.py", "api", "--host", "0.0.0.0", "--port", "5257"]
+    environment: *app-environment
+    ports:
+      - "${ETK_API_PORT:-15257}:5257"
+    volumes:
+      - app_config:/config
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5257/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - etk-greenfield
+
+networks:
+  etk-greenfield:
+    driver: bridge
+    internal: ${ETK_INTERNAL_NETWORK:-false}
+
+volumes:
+  app_config:
+    labels:
+      com.etk.environment: greenfield
+  pg18_data:
+    labels:
+      com.etk.environment: greenfield

@@ -1,0 +1,72 @@
+name: Refactor PostgreSQL Platform
+
+on:
+  pull_request:
+  push:
+    branches:
+      - codex/refactor-mainline
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-platform:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+        env:
+          POSTGRES_DB: etk
+          POSTGRES_USER: etk
+          POSTGRES_PASSWORD: etk-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U etk -d etk"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      ETK_DATABASE_URL: postgresql+psycopg://etk:etk-ci-only@127.0.0.1:5432/etk
+      ETK_TEST_DATABASE_URL: postgresql+psycopg://etk:etk-ci-only@127.0.0.1:5432/etk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: python -m pip install "uv==0.11.3"
+
+      - name: Sync locked dependencies
+        run: uv sync --frozen
+
+      - name: Lint and type-check platform slice
+        run: |
+          uv run ruff check src/etk/platform src/etk/bootstrap scripts/refactor/compare_schema.py verification/unit/platform verification/integration/platform verification/application/p2
+          uv run ruff format --check src/etk/platform src/etk/bootstrap scripts/refactor/compare_schema.py verification/unit/platform verification/integration/platform verification/application/p2
+          uv run pyright src/etk/platform src/etk/bootstrap scripts/refactor/compare_schema.py verification/unit/platform verification/integration/platform verification/application/p2
+
+      - name: Validate Greenfield Compose
+        run: docker compose -f docker/compose.refactor.yml config -q
+
+      - name: Run platform unit and application tests
+        run: uv run pytest verification/unit/platform verification/application/p2 -q
+
+      - name: Upgrade empty PostgreSQL 18 database
+        run: uv run alembic upgrade head
+
+      - name: Compare PostgreSQL catalog
+        run: >-
+          uv run python scripts/refactor/compare_schema.py
+          verification/contracts/db/legacy-pg-catalog.json
+          "$ETK_DATABASE_URL"
+
+      - name: Run platform integration tests
+        run: uv run pytest verification/integration/platform -q
