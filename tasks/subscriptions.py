@@ -4,6 +4,7 @@ import time
 import re
 import json
 import inspect
+import hashlib
 from datetime import datetime, timedelta
 import logging
 from typing import Any, List, Dict
@@ -21,11 +22,11 @@ from .helpers import is_movie_subscribable, check_series_completion, parse_serie
 from handler.hdhive_client import HDHiveClient
 from tasks.hdhive import task_download_from_hdhive, filter_hdhive_resources
 try:
-    from handler.tg_userbot import TGUserBotManager, tg_task_queue
+    from handler.tg_userbot import tg_task_queue
 except Exception:
-    TGUserBotManager = None
     tg_task_queue = None
 from handler.tg_media_candidate import build_channel_task_payload
+from etk.compatibility.tg_control_bridge import TelegramControlBridge, submit_persistent_legacy_task
 
 try:
     from handler.shared_subscription_service import (
@@ -423,14 +424,6 @@ def _channel_resource_block_rule(resource: Dict):
     """
     resource = resource or {}
 
-    if TGUserBotManager is not None:
-        try:
-            manager = TGUserBotManager.get_instance()
-            if hasattr(manager, 'is_resource_blocked_by_rules'):
-                return manager.is_resource_blocked_by_rules(resource)
-        except Exception as e:
-            logger.warning(f"  ➜ [频道搜索] 调用 UserBot 拦截规则检查失败，将使用本地兜底检查: {e}")
-
     cfg = settings_db.get_setting('tg_userbot_config') or {}
     rules = cfg.get('block_keywords') or []
     if not rules:
@@ -631,10 +624,6 @@ def _enqueue_channel_resource_download(resource: Dict, tmdb_id, media_type: str,
 
 def _try_download_from_channel_first(tmdb_id, media_type, title, item_label='媒体', target_season=None, require_complete=False, year=None):
     """统一订阅自动流程的频道历史搜索兜底；剧集/季必须启用季过滤。"""
-    if TGUserBotManager is None:
-        logger.info('  ➜ [频道搜索] 当前环境未加载 TGUserBotManager，跳过频道搜索。')
-        return False
-
     if not title:
         logger.info('  ➜ [频道搜索] 缺少标题，跳过频道搜索。')
         return False
@@ -647,27 +636,29 @@ def _try_download_from_channel_first(tmdb_id, media_type, title, item_label='媒
             season_suffix = f' S{target_season}'
 
     try:
-        manager = TGUserBotManager.get_instance()
-        if not hasattr(manager, 'search_channel_resources'):
-            logger.info('  ➜ [频道搜索] tg_userbot.py 尚未支持频道历史搜索，跳过。')
-            return False
-
         logger.info(
             f'  ➜ [策略] {item_label}《{title}》{season_suffix} 启用频道历史搜索兜底；'
             f'{"已启用季过滤，" if media_type == "tv" and target_season is not None else ""}'
             f'{"只收完结包" if require_complete else "不强制完结包"}。'
         )
 
-        search_result = manager.search_channel_resources(
-            query=title,
-            media_type=media_type,
-            tmdb_id=tmdb_id,
-            limit=50,
-            extra_queries=_build_channel_extra_queries(title, year=year, target_season=target_season),
-            timeout=35,
-            include_tmdb_query=False,
-            strict_title_match=True,
+        bridge = TelegramControlBridge()
+        command_id = bridge.enqueue(
+            "search",
+            {
+                "query": title,
+                "media_type": media_type,
+                "tmdb_id": tmdb_id,
+                "year": year,
+                "limit": 50,
+                "extra_queries": _build_channel_extra_queries(title, year=year, target_season=target_season),
+                "timeout": 35,
+                "include_tmdb_query": False,
+                "strict_title_match": True,
+            },
         )
+        command = bridge.wait(command_id, timeout_seconds=40)
+        search_result = command.get("result") or {}
 
         if not search_result.get('ok'):
             logger.info(f"  ➜ [频道搜索] 未能执行频道搜索：{search_result.get('error') or '未知原因'}")
@@ -1974,3 +1965,86 @@ def task_auto_subscribe(processor):
     except Exception as e:
         logger.error(f"  ➜ {task_name} 任务失败: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"错误: {e}")
+        raise
+
+
+def task_download_hdhive_resource(
+    processor=None,
+    *,
+    slug=None,
+    tmdb_id=None,
+    media_type=None,
+    title=None,
+    hdhive_resource=None,
+    operation_id=None,
+):
+    """Worker adapter that converts reported HDHive failures into failed Jobs."""
+    del processor
+    result = task_download_from_hdhive(
+        None,
+        slug,
+        tmdb_id,
+        media_type,
+        title,
+        hdhive_resource,
+        operation_id=operation_id,
+    )
+    reported_failure = result is False or (
+        isinstance(result, dict)
+        and any(result.get(key) is False for key in ("ok", "success", "state") if key in result)
+    )
+    if reported_failure:
+        message = result.get("message") if isinstance(result, dict) else None
+        raise RuntimeError(str(message or "HDHive 转存任务报告失败"))
+    return dict(result) if isinstance(result, dict) else {"ok": True}
+
+
+def submit_hdhive_download_job(
+    *,
+    slug=None,
+    tmdb_id=None,
+    media_type=None,
+    title=None,
+    hdhive_resource=None,
+    delivery_id=None,
+) -> bool:
+    bucket = int(time.time() // 300)
+    delivery_identity = {
+        "source": "web" if not delivery_id else "explicit",
+        "delivery_id": str(delivery_id or ""),
+        "slug": str(slug or ""),
+        "tmdb_id": str(tmdb_id or ""),
+        "media_type": str(media_type or ""),
+        "bucket": bucket if not delivery_id else None,
+    }
+    operation_id = hashlib.sha256(
+        json.dumps(delivery_identity, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    safe_resource = {
+        key: value
+        for key, value in dict(hdhive_resource or {}).items()
+        if key in {"slug", "title", "name", "tmdb_id", "media_type", "pan_type", "unlock_points"}
+    }
+    return submit_persistent_legacy_task(
+        task_download_hdhive_resource,
+        task_name="影巢资源转存",
+        kwargs={
+            "slug": slug,
+            "tmdb_id": tmdb_id,
+            "media_type": media_type,
+            "title": title,
+            "hdhive_resource": safe_resource,
+            "operation_id": operation_id,
+        },
+        max_attempts=3,
+        idempotency_key=operation_id,
+        idempotency_scope="hdhive-download-delivery:v2",
+    )
+
+
+def task_process_channel_transfer(processor=None, *, payload=None):
+    """Worker adapter for one durable Telegram channel transfer."""
+    del processor
+    from handler.tg_userbot import process_tg_transfer_payload
+
+    return process_tg_transfer_payload(payload or {})

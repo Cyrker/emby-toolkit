@@ -170,6 +170,12 @@ def _user_reward_entry(rewards, user_id):
 
 
 def public_user_reward(user_id):
+    try:
+        summary = user_db.get_play_pool_reward_summary(user_id)
+    except Exception:
+        summary = {}
+    if summary:
+        return summary
     entry = _user_reward_entry(_load_user_rewards(), user_id)
     total_days = float(entry.get("total_days") or 0)
     return {
@@ -199,22 +205,37 @@ def _reward_user_cookie(account, *, notify_user=False, speed_text="", error_text
     usable = bool(account.get("enabled") and account.get("cookie") and not error_text)
     reward_days = 0.8 if _safe_bool(account.get("shared"), False) else 0.5
     today = _today_key()
-    rewards = _load_user_rewards()
-    entry = _user_reward_entry(rewards, user_id)
     rewarded = False
-    if usable and entry.get("last_reward_date") != today:
+    if usable:
         try:
-            new_expiration = user_db.extend_user_expiration_days(user_id, reward_days)
-            entry.update({
-                "last_reward_date": today,
-                "last_reward_days": reward_days,
-                "last_reward_mode": "shared" if _safe_bool(account.get("shared"), False) else "private",
-                "total_days": round(float(entry.get("total_days") or 0) + reward_days, 2),
-                "last_expiration_date": new_expiration or "",
-            })
-            rewards[str(user_id)] = entry
-            settings_db.save_setting(PLAY_POOL_USER_REWARD_KEY, rewards)
-            rewarded = True
+            reward_mode = "shared" if _safe_bool(account.get("shared"), False) else "private"
+            grant = user_db.grant_play_pool_reward_once(
+                user_id,
+                today,
+                "play_pool_cookie_daily",
+                reward_days,
+                reward_mode,
+            )
+            rewarded = bool(grant.get("granted"))
+            if rewarded:
+                try:
+                    rewards = _load_user_rewards()
+                    entry = _user_reward_entry(rewards, user_id)
+                    entry.update({
+                        "last_reward_date": today,
+                        "last_reward_days": reward_days,
+                        "last_reward_mode": reward_mode,
+                        "total_days": round(float(entry.get("total_days") or 0) + reward_days, 2),
+                        "last_expiration_date": grant.get("expiration_date") or "",
+                    })
+                    rewards[str(user_id)] = entry
+                    settings_db.save_setting(PLAY_POOL_USER_REWARD_KEY, rewards)
+                except Exception:
+                    logger.warning(
+                        "  ➜ [小号播放] 奖励已原子发放，但兼容汇总投影更新失败: user_id=%s",
+                        user_id,
+                        exc_info=True,
+                    )
         except Exception as e:
             logger.error("  ➜ [小号播放] 用户 Cookie 奖励发放失败: user_id=%s, err=%s", user_id, e, exc_info=True)
             error_text = f"奖励发放失败: {e}"
@@ -244,7 +265,12 @@ def _reward_user_cookie(account, *, notify_user=False, speed_text="", error_text
             send_telegram_message(chat_id, escape_markdown(send_text))
         except Exception as e:
             logger.warning("  ➜ [小号播放] 发送用户 Cookie 测速通知失败: user_id=%s, err=%s", user_id, e)
-    return {"rewarded": rewarded, "reward_days": reward_days if rewarded else 0.0, "summary": summary}
+    return {
+        "rewarded": rewarded,
+        "reward_days": reward_days if rewarded else 0.0,
+        "summary": summary,
+        "error": error_text if usable and str(error_text).startswith("奖励发放失败:") else "",
+    }
 
 
 def _find_account_by_id(account_id):
@@ -1981,6 +2007,9 @@ def run_daily_speedtest_and_rewards(update_status=None):
                 error_text=result["error"],
             )
             result["reward_days"] = reward.get("reward_days", 0.0)
+            if reward.get("error"):
+                result["success"] = False
+                result["error"] = str(reward.get("error"))
         except Exception as e:
             error_text = str(e)
             _mark_account(account_id, {
@@ -2013,4 +2042,16 @@ def run_daily_speedtest_and_rewards(update_status=None):
         ok_count = len([x for x in results if x.get("success")])
         update_status(100, f"小号池每日测速完成，通过 {ok_count}/{total}")
     logger.info("  ➜ [小号池每日测速] 完成，通过 %s/%s", len([x for x in results if x.get("success")]), total)
-    return {"skipped": False, "results": results}
+    failed_count = len([item for item in results if not item.get("success")])
+    return {
+        "ok": failed_count == 0,
+        "status": "succeeded" if failed_count == 0 else "partial",
+        "skipped": False,
+        "failed_count": failed_count,
+        "results": results,
+        "message": (
+            f"小号池每日测速完成，通过 {total - failed_count}/{total}"
+            if failed_count
+            else f"小号池每日测速完成，全部 {total} 个账号通过"
+        ),
+    }

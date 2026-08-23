@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from functools import partial
@@ -7,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
+from starlette.concurrency import run_in_threadpool
+from starlette.requests import Request
 
 from etk.compatibility.flask_app import (
     LazyCompatibilityApplication,
@@ -18,16 +21,24 @@ from etk.compatibility.system_defaults import LegacyStandaloneSettingsDefaults
 from etk.domains.identity import (
     IdentityService,
     LegacyEmbyIdentityGateway,
+    PersistentPostAuthorizationSubmitter,
     RuntimeConfigurationWriter,
     SqlAlchemyIdentityRepository,
 )
 from etk.domains.identity.router import router as identity_router
 from etk.domains.operations.database import DatabaseReadService, SqlAlchemyDatabaseReadRepository
 from etk.domains.operations.database_router import router as database_read_router
+from etk.domains.operations.job_router import router as job_router
+from etk.domains.operations.jobs import (
+    JobSubmissionService,
+    LegacyProcessorReadiness,
+    PersistentRuntimeStatusReader,
+)
 from etk.domains.operations.log_router import router as log_router
 from etk.domains.operations.logs import LocalLogStorage, LogService
-from etk.domains.operations.runtime import LegacyRuntimeStatusReader, ManifestTaskCatalog
+from etk.domains.operations.runtime import ManifestTaskCatalog
 from etk.domains.operations.runtime_router import router as runtime_query_router
+from etk.domains.operations.system_runtime_router import router as system_runtime_router
 from etk.domains.system.compatibility import LegacyConfigurationGateway
 from etk.domains.system.configuration import ConfigurationService
 from etk.domains.system.configuration_router import router as configuration_router
@@ -38,12 +49,15 @@ from etk.domains.system.repository import SqlAlchemyAppSettingsRepository
 from etk.domains.system.standalone import StandaloneSettingsService
 from etk.domains.system.standalone_router import router as standalone_settings_router
 from etk.platform import AppContainer, LegacyConfigAdapter, PostgresLegacyConfigStore, Settings
+from etk.platform.jobs import PostgresExecutionGuard, PostgresJobStore
 from etk.platform.observability import MetricsMiddleware, TraceIdMiddleware, get_metrics, metrics_response
+from etk.platform.tasks import TaskRegistry
 from etk.platform.web import CookieSessionMiddleware
 
 from .runtime_supervisor import RuntimeRole, RuntimeState, RuntimeSupervisor, get_runtime_supervisor
 
 _LEGACY_DATABASE_ENVIRONMENT = ("DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME")
+logger = logging.getLogger(__name__)
 
 
 def create_app(
@@ -54,6 +68,7 @@ def create_app(
     secret_key: bytes | None = None,
     supervisor: RuntimeSupervisor | None = None,
     container: AppContainer | None = None,
+    runtime_config_synchronizer: Any = None,
 ) -> FastAPI:
     """Build the ASGI application without importing or starting legacy runtime modules."""
     runtime = supervisor or get_runtime_supervisor()
@@ -65,10 +80,68 @@ def create_app(
         app_container, config_adapter = container, None
     if owns_container:
         _register_identity_providers(app_container, runtime)
+        _register_job_providers(app_container)
         _register_operation_query_providers(app_container)
         _register_log_providers(app_container, data_dir)
         _register_database_read_providers(app_container)
         _register_system_providers(app_container, runtime)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        persistent_gateway = None
+        background_gateway = None
+        try:
+            if start_runtime:
+                from etk.compatibility.background import (
+                    PersistentBackgroundGateway,
+                    install_persistent_background_gateway,
+                )
+                from etk.compatibility.persistent_tasks import LazyPersistentTaskManagerGateway
+                from task_manager import install_persistent_submission_gateway
+
+                persistent_gateway = LazyPersistentTaskManagerGateway(lambda: app_container.use_case("operations.jobs"))
+                background_gateway = PersistentBackgroundGateway(lambda: app_container.use_case("operations.jobs"))
+                install_persistent_submission_gateway(persistent_gateway)
+                install_persistent_background_gateway(background_gateway)
+                runtime.start(role=RuntimeRole.API, background=False)
+            yield
+        finally:
+            try:
+                try:
+                    if background_gateway is not None:
+                        from etk.compatibility.background import clear_persistent_background_gateway
+
+                        clear_persistent_background_gateway(background_gateway)
+                    if persistent_gateway is not None:
+                        from task_manager import clear_persistent_submission_gateway
+
+                        clear_persistent_submission_gateway(persistent_gateway)
+                finally:
+                    if start_runtime:
+                        runtime.stop()
+            finally:
+                app_container.close()
+
+    app = FastAPI(title="Emby Toolkit", lifespan=lifespan)
+    configuration_synchronizer = runtime_config_synchronizer
+    if configuration_synchronizer is None and start_runtime and owns_container:
+        from .config_sync import ApiRuntimeConfigSynchronizer, SqlAlchemyDynamicConfigReader
+
+        snapshot_reader = SqlAlchemyDynamicConfigReader(
+            lambda: app_container.database.unit_of_work(),
+        )
+
+        def consume_settings(settings: Settings) -> None:
+            app_container.settings = settings
+            app.state.settings = settings
+
+        configuration_synchronizer = ApiRuntimeConfigSynchronizer(
+            snapshot_reader=snapshot_reader.read,
+            settings_provider=lambda: app_container.settings,
+            settings_consumer=consume_settings,
+            runtime=runtime,
+        )
+
     compatibility_app = LazyCompatibilityApplication(
         partial(
             create_flask_app,
@@ -76,29 +149,31 @@ def create_app(
             data_dir=data_dir,
             secret_key=secret_key,
             supervisor=runtime,
+            configuration_synchronizer=configuration_synchronizer,
         )
     )
-
-    @asynccontextmanager
-    async def lifespan(_: FastAPI):
-        if start_runtime:
-            runtime.start(role=RuntimeRole.API, background=True)
-        try:
-            if start_runtime:
-                compatibility_app.materialize()
-            yield
-        finally:
-            try:
-                if start_runtime:
-                    runtime.stop()
-            finally:
-                app_container.close()
-
-    app = FastAPI(title="Emby Toolkit", lifespan=lifespan)
     app.state.runtime_supervisor = runtime
     app.state.container = app_container
     app.state.config_adapter = config_adapter
     app.state.settings = app_container.settings
+    app.state.configuration_synchronizer = configuration_synchronizer
+
+    @app.middleware("http")
+    async def synchronize_runtime_configuration(request: Request, call_next: Any) -> Any:
+        if (
+            configuration_synchronizer is not None
+            and request.url.path.startswith("/api/")
+            and request.url.path != "/api/health"
+        ):
+            try:
+                await run_in_threadpool(configuration_synchronizer.synchronize)
+            except Exception:
+                logger.exception("API runtime configuration synchronization failed")
+                return fastapi_json_response(
+                    {"status": "error", "message": "运行配置同步失败，请稍后重试"},
+                    status_code=503,
+                )
+        return await call_next(request)
 
     platform_metrics = get_metrics()
     app.add_middleware(MetricsMiddleware, metrics=platform_metrics)
@@ -108,6 +183,8 @@ def create_app(
 
     app.include_router(identity_router)
     app.include_router(runtime_query_router)
+    app.include_router(job_router)
+    app.include_router(system_runtime_router)
     app.include_router(log_router)
     app.include_router(database_read_router)
     app.include_router(configuration_router)
@@ -175,14 +252,41 @@ def _register_identity_providers(
             repository=current.repository("identity"),
             gateway=current.client("identity"),
             configuration=RuntimeConfigurationWriter(current, supervisor),
+            post_authorization=PersistentPostAuthorizationSubmitter(lambda: current.use_case("operations.jobs")),
         ),
     )
 
 
 def _register_operation_query_providers(container: AppContainer) -> None:
     task_manifest = Path(__file__).resolve().parents[3] / "verification" / "contracts" / "task-ownership.yaml"
-    container.register_use_case("runtime-status", lambda _: LegacyRuntimeStatusReader())
     container.register_use_case("task-catalog", lambda _: ManifestTaskCatalog(task_manifest))
+
+
+def _register_job_providers(container: AppContainer) -> None:
+    task_fixture = (
+        Path(__file__).resolve().parents[3] / "verification" / "fixtures" / "tasks" / "ordered-task-catalog.json"
+    )
+    container.register_repository(
+        "operations.jobs",
+        lambda current: PostgresJobStore(
+            lambda: current.database.unit_of_work(),
+            execution_guard=PostgresExecutionGuard(current.database.raw_pool),
+        ),
+    )
+    container.register_use_case(
+        "operations.jobs",
+        lambda current: JobSubmissionService(
+            current.repository("operations.jobs"),
+            TaskRegistry.from_fixture(task_fixture),
+        ),
+    )
+    container.register_use_case(
+        "runtime-status",
+        lambda current: PersistentRuntimeStatusReader(
+            current.use_case("operations.jobs"),
+        ),
+    )
+    container.register_client("operations.job-readiness", lambda _: LegacyProcessorReadiness())
 
 
 def _register_log_providers(container: AppContainer, data_dir: Path | None) -> None:
@@ -285,8 +389,11 @@ def _create_database_runtime(container: AppContainer) -> Any:
     settings: Settings = container.settings
     database_url = os.environ.get("ETK_DATABASE_URL") or _database_url_from_settings(settings)
     runtime = DatabaseRuntime.create(
-        EngineConfig(database_url, application_name="etk-api"),
-        raw_pool_config=PsycopgPoolConfig(database_url, application_name="etk-api-raw"),
+        EngineConfig(database_url, application_name=f"etk-{os.environ.get('ETK_PROCESS_ROLE', 'api')}"),
+        raw_pool_config=PsycopgPoolConfig(
+            database_url,
+            application_name=f"etk-{os.environ.get('ETK_PROCESS_ROLE', 'api')}-raw",
+        ),
     )
     try:
         runtime.start()

@@ -2112,13 +2112,22 @@ def api_center_import():
         message = f"虚拟入库完成：{len(strm_paths)}/{len(files)}"
         return jsonify({'success': True, 'message': message, 'data': {'ok': True, 'virtual': True, 'item': row, 'preflight': prepared.get('preflight') or {}}})
 
-    event = {'event_id': '', 'source_kind': source_kind, 'source_ref_id': source_id, 'payload_json': source}
-    # 前端手动秒传不经过后台长轮询 poll_and_consume_once，不能直接调用
-    # handler.shared_subscription_service.consume_device_event；否则会绕过秒传许可 lease。
-    result = shared_tasks.consume_device_event_with_transfer_gate(event, ack=False)
-    status = 200 if result.get('ok') else 400
-    message = result.get('message') or f"秒传完成：{result.get('success_count', 0)}/{result.get('total', 0)}"
-    return jsonify({'success': bool(result.get('ok')), 'message': message, 'data': result}), status
+    try:
+        handle = shared_tasks.submit_shared_center_transfer_job(
+            'center_import',
+            source,
+            intent_id=str(request.headers.get('idempotency-key') or '').strip() or None,
+        )
+    except Exception as e:
+        logger.error(f"提交共享中心转存 Job 失败: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': f'持久任务提交失败: {e}', 'data': {'ok': False}}), 503
+    job_id = str(handle.job_id)
+    return jsonify({
+        'success': True,
+        'message': '共享中心转存任务已提交',
+        'job_id': job_id,
+        'data': {'ok': True, 'accepted': True, 'job_id': job_id},
+    })
 
 
 @shared_resource_bp.route('/virtual-imports', methods=['GET'])
@@ -2161,19 +2170,23 @@ def api_promote_virtual_import(virtual_id: int):
         return jsonify({'success': False, 'message': '虚拟记录缺少中心源 payload，无法正式入库'}), 400
     source_kind = source.get('source_kind') or row.get('source_kind') or ''
     source_id = source.get('source_id') or source.get('source_ref_id') or row.get('source_id') or ''
-    marked = shared_virtual_db.mark_active_washing_for_virtual_import(virtual_id, True)
-    logger.info(f"  ➜ [虚拟入库] 手动转正已开启 active_washing 特权：virtual_id={virtual_id}, rows={marked}")
-    event = {'event_id': '', 'source_kind': source_kind, 'source_ref_id': source_id, 'payload_json': {**source, '_virtual_auto_promote': True, '_virtual_id': virtual_id}}
-    result = shared_tasks.consume_device_event_with_transfer_gate(event, ack=False)
-    status = 200 if result.get('ok') else 400
-    if result.get('ok'):
-        item = shared_virtual_db.update_virtual_import(virtual_id, status='promoting', promoted_at='NOW()')
-        return jsonify({
-            'success': True,
-            'message': result.get('message') or '已提交转正，等待正式入库完成后清理虚拟记录',
-            'data': {'result': result, 'item': item},
-        }), status
-    return jsonify({'success': False, 'message': result.get('message') or '正式入库失败', 'data': result}), status
+    try:
+        handle = shared_tasks.submit_shared_center_transfer_job(
+            'virtual_promote',
+            source,
+            virtual_id=virtual_id,
+            intent_id=str(request.headers.get('idempotency-key') or '').strip() or None,
+        )
+    except Exception as e:
+        logger.error(f"提交虚拟入库转正 Job 失败: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': f'持久任务提交失败: {e}', 'data': {'ok': False}}), 503
+    job_id = str(handle.job_id)
+    return jsonify({
+        'success': True,
+        'message': '已提交转正，等待正式入库完成后清理虚拟记录',
+        'job_id': job_id,
+        'data': {'ok': True, 'accepted': True, 'job_id': job_id},
+    })
 
 
 @shared_resource_bp.route('/center/device/register', methods=['POST'])
@@ -2188,10 +2201,6 @@ def api_register_center_device():
             'p115_shared_resource_enabled': True,
         })
         saved = _save_shared_config(cfg)
-        try:
-            shared_tasks.ensure_shared_device_event_listener()
-        except Exception:
-            pass
         return jsonify({'success': True, 'message': '共享资源中心已按 ServerID 重新连接，监听已刷新', 'data': saved, 'device': resp})
     except requests.exceptions.RequestException as e:
         logger.warning(f"  ➜ [共享资源] 连接中心设备注册请求失败: {e}", exc_info=True)

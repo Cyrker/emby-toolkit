@@ -1,9 +1,9 @@
 # tasks/hdhive.py
+import hashlib
 import re
-import time
 import logging
 from handler.hdhive_client import HDHiveClient
-from handler.p115_service import P115Service, P115CacheManager, SmartOrganizer, get_config
+from handler.p115_service import P115CacheManager
 from handler.telegram import send_hdhive_checkin_notification
 from database import settings_db
 import task_manager
@@ -12,231 +12,61 @@ import config_manager
 
 logger = logging.getLogger(__name__)
 
-def task_download_from_hdhive(api_key=None, slug=None, tmdb_id=None, media_type=None, title=None, hdhive_resource=None):
-    """
-    核心任务：从影巢解锁 -> 转存 115 -> 搜索真实ID -> 精准整理
-    """
-    logger.info(f"=== ➜ 开始从影巢获取资源: {title} (TMDB: {tmdb_id}) ===")
-    
-    # api_key 参数仅保留兼容旧调用签名；新版影巢授权通过统一 Relay + OpenAPI OAuth 完成。
-    hdhive = HDHiveClient()
-    if not hdhive.ping():
-        auth_url = ''
+def task_download_from_hdhive(
+    api_key=None,
+    slug=None,
+    tmdb_id=None,
+    media_type=None,
+    title=None,
+    hdhive_resource=None,
+    operation_id=None,
+):
+    """Durable HDHive unlock -> P115 transfer workflow with effect receipts."""
+
+    del api_key, hdhive_resource
+    logger.info("=== ➜ 开始处理影巢资源: title=%s, tmdb=%s ===", title, tmdb_id)
+
+    from etk.compatibility.tg_resource_operations import (
+        acquire_hdhive_unlock_receipt,
+        complete_hdhive_unlock_receipt,
+        execute_hdhive_p115_effect,
+    )
+
+    receipt = acquire_hdhive_unlock_receipt(str(slug or ""), str(operation_id or slug or ""))
+    if receipt.get("completed"):
+        return {"ok": True, "reconciled": True, "message": "影巢资源此前已完成转存"}
+
+    result = execute_hdhive_p115_effect(
+        unlock_secret_ref=str(receipt["secret_ref"]),
+        unlock_owner_key=str(receipt["effect_key"]),
+        operation_id=str(receipt["operation_key"]),
+        semantic_source_hash=str(receipt["semantic_source_hash"]),
+    )
+    receive_title = str(result.get("receive_title") or "").strip()
+    if receive_title and tmdb_id and title:
         try:
-            auth_url = hdhive.authorize_url()
+            P115CacheManager.save_transfer_context(
+                root_name=receive_title,
+                tmdb_id=tmdb_id,
+                media_type=media_type,
+                title=title,
+                source="hdhive-share-import",
+                source_kind="hdhive",
+                source_kinds=["hdhive", "transfer_context"],
+                confidence="high",
+                authority_role="expected",
+                evidence=[f"hdhive:{hashlib.sha256(str(slug or '').encode('utf-8')).hexdigest()}"],
+            )
         except Exception:
-            auth_url = ''
-        if auth_url:
-            logger.error(f"  ➜ 影巢尚未完成 OpenAPI 授权，无法解锁资源。请到影巢设置页授权，或打开授权链接: {auth_url}")
-        else:
-            logger.error("  ➜ 影巢尚未完成 OpenAPI 授权，无法解锁资源。请到影巢设置页完成授权。")
-        return False
-
-    unlock_data = hdhive.unlock_resource(slug)
-    
-    if not unlock_data:
-        logger.error("  ➜ 影巢资源解锁失败，可能积分不足或资源已失效。")
-        return False
-
-    share_url = unlock_data.get("url") or ""
-    full_url = unlock_data.get("full_url") or ""
-    
-    client = P115Service.get_client()
-    if not client:
-        logger.error("  ➜ 115 客户端未初始化，无法处理任务。")
-        return False
-
-    config = get_config()
-    save_cid = config.get(constants.CONFIG_OPTION_115_SAVE_PATH_CID) 
-    if not save_cid or str(save_cid) == '0':
-        logger.error("  ➜ 未配置 115 待整理目录，无法处理任务。")
-        return False
-
-    # ==========================================
-    # ★ 分支 1：处理磁力链 / ED2K (提交离线下载)
-    # ==========================================
-    def _to_str(val):
-        return "\n".join(val) if isinstance(val, list) else str(val or "")
-        
-    combined_url = _to_str(share_url) + "\n" + _to_str(full_url)
-    magnet_ed2k_links = re.findall(r'(magnet:\?xt=urn:btih:[a-zA-Z0-9]+.*?|ed2k://\|file\|.*?\|/)', combined_url, re.IGNORECASE)
-
-    if magnet_ed2k_links:
-        logger.info(f"  ➜ 检测到 {len(magnet_ed2k_links)} 个磁力/ED2K链接，准备批量提交离线下载...")
-        
-        # 1. 提交前：获取目标目录前 50 个文件的快照
-        existing_fids = set()
-        try:
-            res_before = client.fs_files({'cid': save_cid, 'limit': 50})
-            if res_before and res_before.get('data'):
-                existing_fids = {str(item.get('fid') or item.get('file_id')) for item in res_before.get('data', [])}
-        except Exception as e:
-            logger.debug(f"  ➜ 获取目录快照失败: {e}")
-
-        # 2. 批量构造 payload
-        payload = {"wp_path_id": save_cid}
-        for i, u in enumerate(magnet_ed2k_links):
-            payload[f"url[{i}]"] = u
-            
-        res = client.offline_add_urls(payload)
-        
-        if res and res.get('state'):
-            logger.info(f"=== 🎉 影巢磁力/ED2K 离线下载任务提交成功！(共 {len(magnet_ed2k_links)} 个任务) ===")
-            
-            # 3. 等待 5 秒钟让 115 服务器反应一下
-            logger.info("  ➜ 等待 5 秒后检查是否已秒传...")
-            time.sleep(5)
-            
-            # 4. 提交后：再次获取目录比对
-            has_new_file = False
-            try:
-                res_after = client.fs_files({'cid': save_cid, 'limit': 50})
-                if res_after and res_after.get('data'):
-                    current_fids = {str(item.get('fid') or item.get('file_id')) for item in res_after.get('data', [])}
-                    new_fids = current_fids - existing_fids
-                    if new_fids:
-                        has_new_file = True
-                        logger.info(f"  ➜ 发现 {len(new_fids)} 个新文件/目录，离线秒传成功！")
-            except Exception as e:
-                logger.debug(f"  ➜ 检查新文件失败: {e}")
-
-            # 5. 踢一脚整理任务
-            if has_new_file:
-                try:
-                    import threading
-                    threading.Timer(
-                        1.0,
-                        task_manager.trigger_115_organize_task,
-                        kwargs={'reason': 'hdhive_download'},
-                    ).start()
-                    logger.info("  ➜ 已成功唤醒 115 智能整理任务！")
-                except Exception as e:
-                    logger.error(f"  ➜ 唤醒整理任务失败: {e}")
-            else:
-                logger.info("  ➜ 暂未发现新文件，可能仍在缓慢下载中，将由系统定时任务兜底处理。")
-
-            return True
-        else:
-            err = res.get('error_msg') or res.get('message') or str(res) or '未知错误'
-            logger.error(f"  ➜ 离线下载提交失败: {err}")
-            return False
-
-    # ==========================================
-    # ★ 分支 2：处理 115 官方分享链接 (秒传转存)
-    # ==========================================
-    access_code = unlock_data.get("access_code")
-    
-    # ★★★ 提取码兜底逻辑 ★★★
-    if not access_code:
-        pwd_match = re.search(r'(?:pwd|password|code)=([a-zA-Z0-9]+)', full_url + "&" + share_url, re.IGNORECASE)
-        if pwd_match:
-            access_code = pwd_match.group(1)
-            
-    access_code = access_code or ""
-    
-    # 提取分享码
-    match = re.search(r'(?:115\.com|115cdn\.com|anxia\.com)/s/([a-zA-Z0-9]+)', combined_url)
-    if not match:
-        logger.error(f"  ➜ 无法从链接中提取 115 分享码，且不是磁力链接: {share_url} | {full_url}")
-        return False
-        
-    share_code = match.group(1)
-    logger.info(f"  ➜ 成功获取 115 分享码: {share_code}, 提取码: {access_code}")
-    logger.info(f"  ➜ 正在转存到 115 待整理目录 (CID: {save_cid})...")
-    try:
-        import_res = client.share_import(share_code, access_code, save_cid)
-        
-        # ★ 1：兼容 state 为 True (布尔值) 或 1 (数字/字符串) 的情况
-        if not import_res or not import_res.get('state'):
-            logger.error(f"  ➜ 115 转存失败: {import_res.get('error_msg', import_res)}")
-            return False
-            
-        receive_title = import_res.get('data', {}).get('receive_title')
-        logger.info(f"  ➜ 115 转存成功！文件/目录名: {receive_title}")
-        
-        if not receive_title:
-            logger.warning("  ➜ 转存成功但未返回文件名，交由全局定时扫描任务处理。")
-            return True
-
-        try:
-            if tmdb_id and title:
-                P115CacheManager.save_transfer_context(
-                    root_name=receive_title,
-                    tmdb_id=tmdb_id,
-                    media_type=media_type,
-                    title=title,
-                    source='hdhive-share-import',
-                    source_kind='hdhive',
-                    source_kinds=['hdhive', 'transfer_context'],
-                    confidence='high',
-                    authority_role='expected',
-                    evidence=[f'hdhive:{slug or ""}'],
-                )
-        except Exception as e:
-            logger.debug(f"  ➜ 保存影巢转存整理上下文失败: {receive_title} -> {e}")
-
-        # ★ 2：去待整理目录搜索刚刚转存的文件，获取真实的 file_id (增加重试逻辑)
-        logger.info(f"  ➜ 正在定位转存文件，准备执行精准整理...")
-        
-        target_item = None
-        max_retries = 3
-        
-        for attempt in range(1, max_retries + 1):
-            # 递增等待时间：2秒, 4秒, 6秒
-            wait_time = attempt * 2
-            logger.debug(f"  ➜ 等待 {wait_time} 秒后进行第 {attempt}/{max_retries} 次搜索...")
-            time.sleep(wait_time)
-            
-            try:
-                search_res = client.fs_files({'cid': save_cid, 'search_value': receive_title, 'limit': 10})
-                saved_items = search_res.get('data', [])
-                
-                for item in saved_items:
-                    name = item.get('fn') or item.get('file_name') or item.get('n')
-                    if name == receive_title:
-                        target_item = item
-                        break
-                        
-                if target_item:
-                    logger.info(f"  ➜ 第 {attempt} 次搜索成功定位到文件！")
-                    break
-                else:
-                    logger.debug(f"  ➜ 第 {attempt} 次搜索未找到文件，115 索引可能尚未同步。")
-            except Exception as e:
-                logger.warning(f"  ➜ 第 {attempt} 次搜索请求发生异常: {e}")
-                
-        if not target_item:
-            logger.warning(f"  ➜ 经过 {max_retries} 次重试，仍未能精准定位到文件 '{receive_title}'，将交由全局定时扫描任务处理。")
-            return True
-
-        # 构造 root_item 触发 SmartOrganizer (补全 pc, sha1, fs 等生成 STRM 必需的关键信息)
-        root_item = {
-            'fid': target_item.get('fid') or target_item.get('file_id'),
-            'fn': receive_title,
-            'fc': target_item.get('fc') if target_item.get('fc') is not None else target_item.get('file_category', '1'),
-            'pid': save_cid,
-            'pc': target_item.get('pc') or target_item.get('pick_code'),
-            'sha1': target_item.get('sha1') or target_item.get('sha'),
-            'fs': target_item.get('fs') or target_item.get('size')
-        }
-        
-        organizer = SmartOrganizer(
-            client=client, 
-            tmdb_id=tmdb_id, 
-            media_type=media_type, 
-            original_title=title,
-            use_ai=False 
-        )
-        
-        target_cid = organizer.get_target_cid()
-        organizer.execute(root_item, target_cid)
-            
-        logger.info("=== 🎉 影巢资源极速秒传并精准整理完毕！ ===")
-        return True
-
-    except Exception as e:
-        logger.error(f"  ➜ 转存或整理过程中发生异常: {e}", exc_info=True)
-        return False
+            logger.warning("  ➜ 保存影巢转存整理上下文失败。", exc_info=True)
+    complete_hdhive_unlock_receipt(str(receipt["effect_key"]))
+    logger.info("=== 影巢资源已持久化转存并提交整理 ===")
+    return {
+        "ok": True,
+        "message": str(result.get("message") or "影巢资源转存完成"),
+        "organize_submitted": bool(result.get("organize_submitted")),
+        "reconciled": bool(result.get("reconciled")),
+    }
     
 def task_hdhive_auto_checkin(processor):
     """

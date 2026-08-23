@@ -52,6 +52,7 @@ COPY main.py \
      ./
 COPY src/ ./src/
 COPY verification/contracts/task-ownership.yaml ./verification/contracts/task-ownership.yaml
+COPY verification/fixtures/tasks/ordered-task-catalog.json ./verification/fixtures/tasks/ordered-task-catalog.json
 COPY alembic.ini ./alembic.ini
 COPY migrations/ ./migrations/
 COPY handler/ ./handler/

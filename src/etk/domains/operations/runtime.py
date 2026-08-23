@@ -9,6 +9,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from etk.platform.observability.redaction import redact_sensitive
+from etk.platform.tasks.catalog import LEGACY_TASK_KEY_ORDER
 
 
 class RuntimeStatusResponse(BaseModel):
@@ -82,5 +83,8 @@ class ManifestTaskCatalog:
             tasks = payload.get("tasks")
             if not isinstance(tasks, list) or len(tasks) != 50:
                 raise RuntimeError("task ownership manifest must contain exactly 50 tasks")
-            self._tasks = tuple(deepcopy(tasks))
+            tasks_by_key = {task.get("task_key"): task for task in tasks if isinstance(task, dict)}
+            if len(tasks_by_key) != len(tasks) or set(tasks_by_key) != set(LEGACY_TASK_KEY_ORDER):
+                raise RuntimeError("task ownership manifest must contain the frozen 50 task keys exactly once")
+            self._tasks = tuple(deepcopy(tasks_by_key[key]) for key in LEGACY_TASK_KEY_ORDER)
         return self._tasks

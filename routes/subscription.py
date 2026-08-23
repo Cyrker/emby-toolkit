@@ -5,13 +5,14 @@ from flask import Blueprint, jsonify, request
 from extensions import admin_required
 from database import settings_db
 from handler.hdhive_client import HDHiveClient
-from tasks.hdhive import task_download_from_hdhive, filter_hdhive_resources
-from handler.tg_userbot import TGUserBotManager, tg_task_queue
+from tasks.hdhive import filter_hdhive_resources
+from handler.tg_userbot import tg_task_queue
 from handler.tg_media_candidate import build_channel_task_payload
 from handler.shared_center_client import SharedCenterClient, shared_center_enabled
-from handler.shared_subscription_service import consume_center_source_payload
 from services.subscribe_assistant.config import default_assistant_config_dict
-from etk.compatibility.background import spawn
+from tasks.shared_resource_tasks import submit_shared_center_transfer_job
+from tasks.subscriptions import submit_hdhive_download_job
+from etk.compatibility.tg_control_bridge import TelegramControlBridge
 
 subscription_bp = Blueprint('subscription_bp', __name__, url_prefix='/api/subscription')
 logger = logging.getLogger(__name__)
@@ -1175,21 +1176,24 @@ def get_cloud_resources():
 
     # 2. TG 频道历史资源。只搜索已配置监听列表中的频道。
     try:
-        manager = TGUserBotManager.get_instance()
-        if not hasattr(manager, 'search_channel_resources'):
-            warnings.append('当前 handler/tg_userbot.py 尚未包含频道历史搜索能力，请替换新版 tg_userbot.py。')
-        elif title:
-            tg_res = manager.search_channel_resources(
-                query=title,
-                media_type=media_type,
-                tmdb_id=tmdb_id,
-                year=year,
-                limit=channel_limit,
-                extra_queries=_build_cloud_extra_queries(title, year=year),
-                timeout=35,
-                include_tmdb_query=False,
-                strict_title_match=True,
+        if title:
+            bridge = TelegramControlBridge()
+            command_id = bridge.enqueue(
+                "search",
+                {
+                    "query": title,
+                    "media_type": media_type,
+                    "tmdb_id": tmdb_id,
+                    "year": year,
+                    "limit": channel_limit,
+                    "extra_queries": _build_cloud_extra_queries(title, year=year),
+                    "timeout": 35,
+                    "include_tmdb_query": False,
+                    "strict_title_match": True,
+                },
             )
+            command = bridge.wait(command_id, timeout_seconds=40)
+            tg_res = command.get("result") or {}
 
             if not tg_res.get('ok') and tg_res.get('error'):
                 warnings.append(tg_res.get('error'))
@@ -1253,29 +1257,24 @@ def trigger_cloud_download():
         if not source_kind or not source_id:
             return jsonify({"success": False, "message": "共享池资源缺少 source_kind/source_id，无法秒传"}), 400
 
-        # 列表页为了秒开只返回季包壳；公共连载季真正秒传前必须展开一次，拿到该季 children。
-        if source_kind == 'season_hub' and not (shared_source.get('children') or shared_source.get('pack_items')):
-            try:
-                child_resp = SharedCenterClient().list_display_children(
-                    source_kind='season_hub',
-                    source_id=source_id,
-                    hub_id=shared_source.get('hub_id') or source_id,
-                    limit=5000,
-                )
-                children = child_resp.get('children') or child_resp.get('items') or []
-                pack_items = child_resp.get('pack_items') or children
-                shared_source['children'] = children
-                shared_source['pack_items'] = pack_items
-            except Exception as e:
-                return jsonify({"success": False, "message": f"加载共享池季包明细失败：{e}"}), 500
-
         mode = str(data.get('mode') or resource.get('preferred_transfer_mode') or resource.get('transfer_mode') or 'rapid').strip().lower()
-        result = consume_center_source_payload(shared_source, mode=mode)
-        ok = bool(result.get('ok') or result.get('success'))
-        status_code = 200 if ok else 400
-        action = '转存' if (result.get('transfer_mode') == 'share' or mode == 'share') else '秒传'
-        msg = result.get('message') or (f"共享池{action}完成：{result.get('success_count', 0)}/{result.get('total', 0)}" if ok else f"共享池{action}失败")
-        return jsonify({"success": ok, "message": msg, "data": result}), status_code
+        try:
+            handle = submit_shared_center_transfer_job(
+                'cloud_download',
+                shared_source,
+                mode=mode,
+                intent_id=str(request.headers.get('idempotency-key') or '').strip() or None,
+            )
+        except Exception as e:
+            logger.error(f"提交共享池转存 Job 失败: {e}", exc_info=True)
+            return jsonify({"success": False, "message": f"持久任务提交失败: {e}"}), 503
+        job_id = str(handle.job_id)
+        return jsonify({
+            "success": True,
+            "message": "共享池转存任务已提交",
+            "job_id": job_id,
+            "data": {"ok": True, "accepted": True, "job_id": job_id},
+        })
 
     if source_type in {'hdhive', 'hive', '影巢'} or slug:
         if not slug:
@@ -1285,7 +1284,17 @@ def trigger_cloud_download():
         if not client.ping():
             return jsonify({"success": False, "message": "请先完成影巢授权"}), 401
 
-        spawn(task_download_from_hdhive, None, slug, tmdb_id, media_type, title, resource)
+        try:
+            submit_hdhive_download_job(
+                slug=slug,
+                tmdb_id=tmdb_id,
+                media_type=media_type,
+                title=title,
+                hdhive_resource=resource,
+            )
+        except Exception as e:
+            logger.error(f"提交影巢转存 Job 失败: {e}", exc_info=True)
+            return jsonify({"success": False, "message": f"持久任务提交失败: {e}"}), 503
         return jsonify({"success": True, "message": "已向 115 发送影巢资源转存指令，后台正在处理！"})
 
     if source_type in {'channel', 'tg', 'telegram', '频道'} or resource.get('target_link') or resource.get('magnet_url'):
@@ -1294,18 +1303,22 @@ def trigger_cloud_download():
         if not target_link and not magnet_url:
             return jsonify({"success": False, "message": "频道资源缺少可转存链接"}), 400
 
-        tg_task_queue.put(
-            build_channel_task_payload(
-                resource,
-                is_brainless=True,
-                is_keyword_matched=True,
-                is_subscribe=False,
-                title_override=title,
-                tmdb_id_override=tmdb_id,
-                media_type_override=media_type,
-                year_override=data.get('year') or resource.get('year'),
+        try:
+            tg_task_queue.put(
+                build_channel_task_payload(
+                    resource,
+                    is_brainless=True,
+                    is_keyword_matched=True,
+                    is_subscribe=False,
+                    title_override=title,
+                    tmdb_id_override=tmdb_id,
+                    media_type_override=media_type,
+                    year_override=data.get('year') or resource.get('year'),
+                )
             )
-        )
+        except Exception as e:
+            logger.error(f"提交频道转存 Job 失败: {e}", exc_info=True)
+            return jsonify({"success": False, "message": f"持久任务提交失败: {e}"}), 503
         return jsonify({"success": True, "message": "已推送频道资源转存任务，后台正在处理！"})
 
     return jsonify({"success": False, "message": "未知资源来源，无法执行转存"}), 400
@@ -1360,8 +1373,17 @@ def trigger_hdhive_download():
     if not client.ping():
         return jsonify({"success": False, "message": "请先完成影巢授权"}), 401
 
-    # task_download_from_hdhive 的第一个参数保留兼容旧函数签名，新版 HDHiveClient 会忽略该参数。
-    spawn(task_download_from_hdhive, None, slug, tmdb_id, media_type, title, data)
+    try:
+        submit_hdhive_download_job(
+            slug=slug,
+            tmdb_id=tmdb_id,
+            media_type=media_type,
+            title=title,
+            hdhive_resource=data,
+        )
+    except Exception as e:
+        logger.error(f"提交影巢转存 Job 失败: {e}", exc_info=True)
+        return jsonify({"success": False, "message": f"持久任务提交失败: {e}"}), 503
     return jsonify({"success": True, "message": "已向 115 发送转存指令，后台正在处理！"})
 
 
@@ -1415,31 +1437,29 @@ def get_tg_config():
 @subscription_bp.route('/tg_userbot/config', methods=['POST'])
 @admin_required
 def save_tg_config():
-    """保存独立的频道监听配置，并根据状态控制后台进程"""
+    """保存 desired state；Coordinator leader 负责应用后台进程变更。"""
     new_cfg = dict(request.json or {})
     new_cfg.pop('api_id', None)
     new_cfg.pop('api_hash', None)
     settings_db.save_setting('tg_userbot_config', new_cfg)
     
-    manager = TGUserBotManager.get_instance()
-    if new_cfg.get('enabled'):
-        manager.start() # 如果启用了，立刻启动/重启
-    else:
-        manager.stop()  # 如果关闭了，立刻停止
-        
     return jsonify({"success": True, "message": "频道订阅监听配置已保存生效"})
 
 @subscription_bp.route('/tg_userbot/status', methods=['GET'])
 @admin_required
 def tg_userbot_status():
-    manager = TGUserBotManager.get_instance()
-    return jsonify({"success": True, "data": manager.get_status()})
+    try:
+        return jsonify({"success": True, "data": TelegramControlBridge().get_runtime_status()})
+    except Exception as e:
+        logger.error(f"读取 TG 持久状态失败: {e}", exc_info=True)
+        return jsonify({"success": False, "message": f"读取状态失败: {e}"}), 503
 
 @subscription_bp.route('/tg_userbot/send_code', methods=['POST'])
 @admin_required
 def tg_userbot_send_code():
     try:
-        TGUserBotManager.get_instance().send_login_code()
+        bridge = TelegramControlBridge()
+        bridge.wait(bridge.enqueue("send_code"), timeout_seconds=45)
         return jsonify({"success": True, "message": "验证码已发送到您的 Telegram 客户端"})
     except Exception as e:
         logger.error(f"发送验证码失败: {e}", exc_info=True)
@@ -1448,10 +1468,12 @@ def tg_userbot_send_code():
 @subscription_bp.route('/tg_userbot/login', methods=['POST'])
 @admin_required
 def tg_userbot_login():
-    code = request.json.get('code')
+    code = (request.json or {}).get('code')
     if not code: return jsonify({"success": False, "message": "请输入验证码"})
     try:
-        res = TGUserBotManager.get_instance().submit_login_code(code)
+        bridge = TelegramControlBridge()
+        command = bridge.wait(bridge.enqueue("login", {"code": str(code)}), timeout_seconds=45)
+        res = command.get("result") or {}
         if res.get('success'):
             return jsonify({"success": True, "message": "登录成功！监听服务已启动。"})
         else:
@@ -1462,14 +1484,21 @@ def tg_userbot_login():
 @subscription_bp.route('/tg_userbot/logout', methods=['POST'])
 @admin_required
 def tg_userbot_logout():
-    TGUserBotManager.get_instance().logout()
-    return jsonify({"success": True, "message": "已注销并清除凭证"})
+    try:
+        bridge = TelegramControlBridge()
+        bridge.wait(bridge.enqueue("logout"), timeout_seconds=45)
+        return jsonify({"success": True, "message": "已注销并清除凭证"})
+    except Exception as e:
+        logger.error(f"TG 注销失败: {e}", exc_info=True)
+        return jsonify({"success": False, "message": f"注销失败: {e}"}), 503
 
 @subscription_bp.route('/tg_userbot/clear_session', methods=['POST'])
 @admin_required
 def tg_userbot_clear_session():
     try:
-        result = TGUserBotManager.get_instance().clear_session_files()
+        bridge = TelegramControlBridge()
+        command = bridge.wait(bridge.enqueue("clear_session"), timeout_seconds=45)
+        result = command.get("result") or {}
         deleted = result.get('deleted') or []
         if deleted:
             message = f"已清理 TG 登录会话文件：{'、'.join(deleted)}"

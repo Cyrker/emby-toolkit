@@ -121,6 +121,7 @@ class Settings(BaseSettings):
     proxy_show_missing_placeholders: bool = False
     remove_actors_without_avatars: bool = True
     studio_to_chinese: bool = False
+    # Legacy compatibility keys; Greenfield split-role update paths never consume caller-selected helpers.
     system_update_helper_image: str = "hbq0405/emby-toolkit:latest"
     system_update_strategy: str = "docker_helper"
     task_chain_cron: str = "0 2 * * *"

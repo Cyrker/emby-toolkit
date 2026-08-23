@@ -11,7 +11,7 @@ from psycopg2 import sql
 from collections import defaultdict
 import task_manager
 import handler.emby as emby
-from handler.p115_service import WebhookDeleteBuffer
+from handler.p115_service import delete_115_files_by_webhook
 import config_manager
 import constants
 from database import connection, cleanup_db, settings_db, maintenance_db, queries_db, media_db
@@ -611,7 +611,7 @@ def task_execute_cleanup(processor, task_ids: List[int], **kwargs):
 
         if all_pickcodes_to_delete and sync_delete:
             logger.info(f"  ➜ 正在将 {len(all_pickcodes_to_delete)} 个文件加入 115 网盘联动删除队列...")
-            WebhookDeleteBuffer.add(all_pickcodes_to_delete)
+            delete_115_files_by_webhook(all_pickcodes_to_delete)
 
         if all_deleted_paths:
             logger.info(f"  ➜ 正在通知 Emby 刷新 {len(all_deleted_paths)} 个被删除的路径...")
@@ -628,3 +628,5 @@ def task_execute_cleanup(processor, task_ids: List[int], **kwargs):
     except Exception as e:
         logger.error(f"执行 '{task_name}' 任务时发生严重错误: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"任务失败: {e}")
+        if task_manager.has_persistent_execution():
+            raise

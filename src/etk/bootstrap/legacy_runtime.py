@@ -5,6 +5,7 @@ import logging
 import re
 import shutil
 from collections.abc import Mapping
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, cast
 
@@ -26,6 +27,7 @@ class LegacyRuntimeAdapter:
         self._config: dict[str, Any] = {}
         self._processors = LegacyProcessors()
         self._monitor: Any = None
+        self._role: RuntimeRole | None = None
         self._background = False
         self._started = False
 
@@ -46,12 +48,13 @@ class LegacyRuntimeAdapter:
 
         config_manager.load_config()
         self._config = config_manager.APP_CONFIG
+        self._role = role
         self._configure_file_logging()
         connection.init_db()
         self._ensure_cover_generator_fonts()
         self._replace_processors()
 
-        self._background = bool(background and role is RuntimeRole.API)
+        self._background = bool(background and role is RuntimeRole.COORDINATOR)
         if self._background:
             self._start_background_services()
         self._started = True
@@ -60,57 +63,101 @@ class LegacyRuntimeAdapter:
         import config_manager
         import task_manager
 
-        if self._background and task_manager.is_task_running():
+        if task_manager.is_task_running():
             raise RuntimeReloadError(
                 "configuration reload is unavailable while a task is running",
                 compensated=True,
             )
-        try:
-            previous_persisted, previous_memory = config_manager.capture_dynamic_config_state()
-        except Exception as exc:
-            raise RuntimeReloadError(
-                "configuration reload could not capture the previous state",
-                compensated=True,
-            ) from exc
+        with config_manager.dynamic_config_write_lock():
+            try:
+                previous_persisted, previous_memory = config_manager.capture_dynamic_config_state()
+            except Exception as exc:
+                raise RuntimeReloadError(
+                    "configuration reload could not capture the previous state",
+                    compensated=True,
+                ) from exc
 
-        persistence_started = False
+            persistence_started = False
+            runtime_reload_started = False
+            try:
+                persistence_started = True
+                config_manager.save_config(dict(new_config))
+                self._config = config_manager.APP_CONFIG
+                runtime_reload_started = True
+                self._reload_runtime_components()
+            except Exception as reload_error:
+                rollback_errors: list[Exception] = []
+                if persistence_started:
+                    try:
+                        config_manager.restore_dynamic_config_state(
+                            previous_persisted,
+                            previous_memory,
+                            expected_updates=dict(new_config),
+                        )
+                    except Exception as exc:
+                        rollback_errors.append(exc)
+                        logger.exception("Failed to restore the previous persisted configuration")
+                    finally:
+                        self._config = config_manager.APP_CONFIG
+                if runtime_reload_started:
+                    try:
+                        self._reload_runtime_components()
+                    except Exception as exc:
+                        rollback_errors.append(exc)
+                        logger.exception("Failed to restore the previous compatibility runtime")
+                if rollback_errors:
+                    failures = ExceptionGroup(
+                        "configuration reload and rollback failed",
+                        [reload_error, *rollback_errors],
+                    )
+                    raise RuntimeReloadError(
+                        "configuration reload failed and rollback was incomplete",
+                        compensated=False,
+                    ) from failures
+                raise RuntimeReloadError(
+                    "configuration reload failed; the previous state was restored",
+                    compensated=True,
+                ) from reload_error
+
+    def apply_persisted_config_snapshot(self, new_config: Mapping[str, Any]) -> None:
+        """Apply an already committed database snapshot without writing it again."""
+
+        import config_manager
+        import task_manager
+
+        if task_manager.is_task_running():
+            raise RuntimeReloadError(
+                "configuration reload is unavailable while a task is running",
+                compensated=True,
+            )
+        previous_memory = deepcopy(config_manager.APP_CONFIG)
         runtime_reload_started = False
         try:
-            persistence_started = True
-            config_manager.save_config(dict(new_config))
+            config_manager.APP_CONFIG.update(deepcopy(dict(new_config)))
             self._config = config_manager.APP_CONFIG
             runtime_reload_started = True
             self._reload_runtime_components()
         except Exception as reload_error:
+            config_manager.APP_CONFIG.clear()
+            config_manager.APP_CONFIG.update(previous_memory)
+            self._config = config_manager.APP_CONFIG
             rollback_errors: list[Exception] = []
-            if persistence_started:
-                try:
-                    config_manager.restore_dynamic_config_state(
-                        previous_persisted,
-                        previous_memory,
-                    )
-                except Exception as exc:
-                    rollback_errors.append(exc)
-                    logger.exception("Failed to restore the previous persisted configuration")
-                finally:
-                    self._config = config_manager.APP_CONFIG
             if runtime_reload_started:
                 try:
                     self._reload_runtime_components()
                 except Exception as exc:
                     rollback_errors.append(exc)
-                    logger.exception("Failed to restore the previous compatibility runtime")
+                    logger.exception("Failed to restore the previous compatibility runtime snapshot")
             if rollback_errors:
-                failures = ExceptionGroup(
-                    "configuration reload and rollback failed",
+                raise RuntimeReloadError(
+                    "persisted configuration reload failed and rollback was incomplete",
+                    compensated=False,
+                ) from ExceptionGroup(
+                    "persisted configuration reload and rollback failed",
                     [reload_error, *rollback_errors],
                 )
-                raise RuntimeReloadError(
-                    "configuration reload failed and rollback was incomplete",
-                    compensated=False,
-                ) from failures
             raise RuntimeReloadError(
-                "configuration reload failed; the previous state was restored",
+                "persisted configuration reload failed; the previous snapshot was restored",
                 compensated=True,
             ) from reload_error
 
@@ -119,10 +166,8 @@ class LegacyRuntimeAdapter:
         if not self._background:
             return
 
-        from scheduler_manager import scheduler_manager
         from tasks.p115 import LifeEventMonitorDaemon
 
-        scheduler_manager.update_all_scheduled_jobs()
         self._restart_monitor()
         LifeEventMonitorDaemon.start_or_update()
         self._refresh_shared_device_event_listener(reason="config_reload")
@@ -151,6 +196,7 @@ class LegacyRuntimeAdapter:
         self._raise_shutdown_errors(errors)
 
         self._monitor = None
+        self._role = None
         self._background = False
         self._started = False
         self._config = {}
@@ -270,7 +316,6 @@ class LegacyRuntimeAdapter:
         from ai_translator import AITranslator
         from core_processor import MediaProcessor
         from handler.douban import DoubanApi
-        from tasks.core import get_task_registry
         from watchlist_processor import WatchlistProcessor
 
         current_config = dict(self._config)
@@ -324,10 +369,15 @@ class LegacyRuntimeAdapter:
             ActorSubscriptionProcessor,
             config=current_config,
         )
+        task_registry: dict[str, Any] = {}
+        if self._role is RuntimeRole.WORKER:
+            from tasks.core import get_task_registry
+
+            task_registry = dict(get_task_registry())
         return (
             LegacyProcessors(media=media, watchlist=watchlist, actor=actor),
             server_id,
-            dict(get_task_registry()),
+            task_registry,
         )
 
     @staticmethod
@@ -433,12 +483,8 @@ class LegacyRuntimeAdapter:
         return self._normalize_pro_tier((config_manager.APP_CONFIG or {}).get("pro_license_key"))
 
     def _start_background_services(self) -> None:
-        import task_manager
-        from scheduler_manager import scheduler_manager
         from tasks.p115 import LifeEventMonitorDaemon
 
-        task_manager.start_task_worker_if_not_running()
-        scheduler_manager.start()
         self._refresh_shared_device_event_listener(reason="startup")
         LifeEventMonitorDaemon.start_or_update()
         self._restart_monitor()
@@ -446,16 +492,12 @@ class LegacyRuntimeAdapter:
         self._refresh_vector_cache_service()
 
     def _stop_background_services(self, errors: list[BaseException]) -> None:
-        import task_manager
         from handler import telegram
         from handler.custom_collection import RecommendationEngine
         from handler.intro_detection_service import stop_intro_detection_worker
         from handler.tg_userbot import TGUserBotManager, stop_tg_task_consumer
-        from scheduler_manager import scheduler_manager
         from tasks.shared_resource_tasks import stop_shared_device_event_listener
 
-        self._capture(errors, task_manager.clear_task_queue)
-        self._capture_result(errors, "task worker", task_manager.stop_task_worker)
         if self._monitor is not None:
             self._capture_result(errors, "monitor service", self._monitor.stop)
         self._capture_result(errors, "shared-device listener", stop_shared_device_event_listener)
@@ -464,7 +506,6 @@ class LegacyRuntimeAdapter:
         self._capture_result(errors, "Telegram bot", telegram.stop_telegram_bot)
         self._capture_result(errors, "vector-cache refresh", RecommendationEngine.stop_auto_refresh_loop)
         self._capture_result(errors, "intro-detection worker", stop_intro_detection_worker)
-        self._capture(errors, scheduler_manager.shutdown)
 
     def _restart_monitor(self) -> None:
         from monitor_service import MonitorService

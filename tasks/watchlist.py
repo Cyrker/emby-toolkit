@@ -13,6 +13,7 @@ from database import watchlist_db, request_db
 from psycopg2.extras import execute_values
 from watchlist_processor import STATUS_WATCHING, STATUS_PAUSED, STATUS_COMPLETED
 from services.subscribe_assistant.manager import SubscribeAssistantManager
+from etk.platform.tasks import TaskOutcome
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,8 @@ def task_process_watchlist(
         if tmdb_id: task_name = f"单项追剧更新 (TMDb ID: {tmdb_id})"
         logger.error(f"执行 '{task_name}' 时发生顶层错误: {e}", exc_info=True)
         progress_updater(-1, f"启动任务时发生错误: {e}")
+        if task_manager.has_persistent_execution():
+            raise
 
 # --- 全量刷新已完结剧集任务 ---
 def task_refresh_completed_series(processor):
@@ -128,19 +131,25 @@ def task_add_all_series_to_watchlist(processor):
             
             # 4. 并发执行校准
             processed_count = 0
+            item_failures = []
             
             def worker(series_data):
                 try:
                     # 调用单体处理逻辑，它会自动修正状态 (Completed -> Watching)
                     processor._process_one_series(series_data, skip_logical_share_dispatch=True)
+                    return None
                 except Exception as e:
                     logger.error(f"校准剧集 {series_data.get('item_name')} 失败: {e}")
+                    return str(series_data.get('tmdb_id') or series_data.get('item_name') or 'unknown')
 
             # 使用线程池
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                 futures = [executor.submit(worker, s) for s in candidates]
                 
                 for future in concurrent.futures.as_completed(futures):
+                    failed_item = future.result()
+                    if failed_item:
+                        item_failures.append(failed_item)
                     processed_count += 1
                     # 进度条从 40% 走到 100%
                     progress = 40 + int((processed_count / total_count) * 60)
@@ -151,15 +160,27 @@ def task_add_all_series_to_watchlist(processor):
             final_message = f"任务完成：已扫描并校准了 {total_count} 部剧集的状态。"
             logger.info(f"  ➜ {final_message}")
             task_manager.update_status_from_thread(100, final_message)
+            if item_failures:
+                return TaskOutcome.partial(
+                    f"{final_message}；{len(item_failures)} 项校准失败。",
+                    {
+                        'processed': total_count,
+                        'failed': len(item_failures),
+                        'failed_items': item_failures,
+                    },
+                )
+            return TaskOutcome.succeeded(final_message, {'processed': total_count, 'failed': 0})
 
         else:
             final_message = "扫描完成！没有发现需要处理的剧集。"
             logger.info(f"  ➜ {final_message}")
             task_manager.update_status_from_thread(100, final_message)
+            return TaskOutcome.skipped(final_message)
 
     except Exception as e:
         logger.error(f"执行 '{task_name}' 任务时发生严重错误: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"任务失败: {e}")
+        return TaskOutcome.failed(f"{task_name}失败")
 
 # --- 补全旧季任务 ---
 def task_scan_old_seasons_backfill(processor):
@@ -288,3 +309,5 @@ def task_intro_fingerprint_backfill(processor):
     except Exception as e:
         logger.error(f"执行 '{task_name}' 时发生错误: {e}", exc_info=True)
         progress_updater(-1, f"任务失败: {e}")
+        if task_manager.has_persistent_execution():
+            raise

@@ -4,12 +4,14 @@ import hashlib
 import json
 import logging
 import math
+import os
 import queue
 import re
 import threading
 import time
 from contextlib import contextmanager
 from typing import Any, Dict, List
+from uuid import uuid4
 
 import requests
 import task_manager
@@ -17,14 +19,21 @@ import config_manager
 import constants
 import extensions
 import utils
-from database import shared_credit_db, shared_share_db, settings_db
+from database import shared_credit_db, shared_share_db, shared_virtual_db, settings_db
 from database.connection import get_db_connection
 from handler.shared_center_client import SharedCenterClient, shared_center_enabled, _current_server_id_hash
 from handler import shared_subscription_service as shared_subscription_service
 from handler.shared_subscription_service import poll_and_consume_once as _raw_poll_and_consume_once
+from handler.p115_service import get_115_account_id, p115_expected_account
 from handler import tmdb as tmdb_handler
+from etk.compatibility.background import submit_persistent_background
+from etk.compatibility.shared_transfer_effects import (
+    SharedTransferEffectStore,
+    SharedTransferSecretStore,
+)
+from etk.platform.jobs import PersistentEffectIndeterminate
+from etk.platform.tasks import TaskOutcome
 from tasks.helpers import extract_quality_source_from_filename, normalize_quality_source
-from etk.compatibility.background import spawn
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +45,473 @@ _FULL_SHARE_LOCK = threading.Lock()
 _CENTER_CONFIG_WARNED_REASONS = set()
 _LISTENER_FAILURE_WARN_THRESHOLD = 3
 _LISTENER_BACKOFF_MAX_SECONDS = 300
+_PERSISTENT_TRANSFER_ACTIONS = {'center_import', 'virtual_promote', 'cloud_download'}
+_PERSISTENT_TRANSFER_RAW_LINK_RE = re.compile(
+    r'(?:magnet:\?|ed2k://|https?://|ftp://|115\.com/s/|[?&](?:authkey|passkey|signature|token)=)',
+    re.IGNORECASE,
+)
+_PERSISTENT_TRANSFER_SEMANTIC_FIELDS = (
+    'asset_id',
+    'content_hash',
+    'episode_number',
+    'file_id',
+    'file_size',
+    'hub_id',
+    'logical_group_id',
+    'manifest_hash',
+    'preid',
+    'revision',
+    'season_number',
+    'sha1',
+    'size',
+    'version_id',
+)
+
+
+def _persistent_transfer_semantic_item(source, *, fallback_kind=''):
+    source = source if isinstance(source, dict) else {}
+    source_kind = str(source.get('source_kind') or source.get('kind') or fallback_kind or '').strip().lower()
+    source_id = str(
+        source.get('source_id')
+        or source.get('source_ref_id')
+        or source.get('asset_id')
+        or source.get('file_id')
+        or ''
+    ).strip()
+    if _PERSISTENT_TRANSFER_RAW_LINK_RE.search(source_kind) or _PERSISTENT_TRANSFER_RAW_LINK_RE.search(source_id):
+        raise ValueError('共享转存 source identity 不能包含原始链接')
+    identity = {}
+    if source_kind:
+        identity['source_kind'] = source_kind
+    if source_id:
+        identity['source_id'] = source_id
+    for key in _PERSISTENT_TRANSFER_SEMANTIC_FIELDS:
+        value = source.get(key)
+        if (
+            value not in (None, '', [], {})
+            and type(value) in {bool, int, float, str}
+            and not (isinstance(value, str) and _PERSISTENT_TRANSFER_RAW_LINK_RE.search(value))
+        ):
+            identity[key] = value
+    rapid_meta = source.get('rapid_meta_json')
+    if isinstance(rapid_meta, dict):
+        semantic_rapid = {
+            key: rapid_meta.get(key)
+            for key in ('asset_id', 'file_id', 'file_size', 'preid', 'sha1', 'size')
+            if rapid_meta.get(key) not in (None, '', [], {})
+            and type(rapid_meta.get(key)) in {bool, int, float, str}
+            and not (
+                isinstance(rapid_meta.get(key), str)
+                and _PERSISTENT_TRANSFER_RAW_LINK_RE.search(str(rapid_meta.get(key)))
+            )
+        }
+        if semantic_rapid:
+            identity['rapid_meta'] = semantic_rapid
+    return identity
+
+
+def _persistent_transfer_semantic_source(source):
+    if not isinstance(source, dict):
+        raise ValueError('共享转存 source 必须是对象')
+    identity = _persistent_transfer_semantic_item(source)
+    if not identity.get('source_kind') or not identity.get('source_id'):
+        raise ValueError('共享转存缺少 source_kind/source_id')
+
+    source_ids = sorted(
+        {
+            str(value or '').strip()
+            for value in (source.get('source_ids') or [])
+            if str(value or '').strip()
+            and not _PERSISTENT_TRANSFER_RAW_LINK_RE.search(str(value or ''))
+        }
+    ) if isinstance(source.get('source_ids'), list) else []
+    if source_ids:
+        identity['source_ids'] = source_ids
+
+    raw_children = source.get('children') or source.get('pack_items') or []
+    if isinstance(raw_children, list):
+        children = [
+            _persistent_transfer_semantic_item(item, fallback_kind=str(identity['source_kind']))
+            for item in raw_children
+            if isinstance(item, dict)
+        ]
+        children = [item for item in children if item]
+        if children:
+            identity['children'] = sorted(
+                children,
+                key=lambda item: json.dumps(item, ensure_ascii=False, separators=(',', ':'), sort_keys=True),
+            )
+    return identity
+
+
+def _persistent_transfer_identity(action, source, mode='rapid', virtual_id=None):
+    semantic_source = _persistent_transfer_semantic_source(source)
+    identity = {
+        'action': action,
+        'mode': str(mode or 'rapid').strip().lower(),
+        'source': semantic_source,
+        'virtual_id': int(virtual_id) if virtual_id is not None else None,
+    }
+    encoded = json.dumps(identity, ensure_ascii=False, separators=(',', ':'), sort_keys=True).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _persistent_transfer_source_hash(source):
+    semantic_source = _persistent_transfer_semantic_source(source)
+    encoded = json.dumps(semantic_source, ensure_ascii=False, separators=(',', ':'), sort_keys=True).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _persistent_transfer_effect_identity(action, source, account_id, target_cid, mode='rapid', virtual_id=None):
+    identity = {
+        'account_id': str(account_id),
+        'action': str(action),
+        'mode': str(mode or 'rapid').strip().lower(),
+        'source_hash': _persistent_transfer_source_hash(source),
+        'target_cid': str(target_cid),
+        'virtual_id': int(virtual_id) if virtual_id is not None else None,
+    }
+    encoded = json.dumps(identity, ensure_ascii=False, separators=(',', ':'), sort_keys=True).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _persistent_transfer_secret_reference(intent_id, effect_key):
+    encoded = f'shared-transfer-secret:v1\0{intent_id}\0{effect_key}'.encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def submit_shared_center_transfer_job(action, source, *, mode='rapid', virtual_id=None, intent_id=None):
+    """Submit a strict-JSON shared-center transfer for Worker execution."""
+    action = str(action or '').strip()
+    if action not in _PERSISTENT_TRANSFER_ACTIONS:
+        raise ValueError(f'未知共享转存动作: {action}')
+    if not isinstance(source, dict):
+        raise ValueError('共享转存 source 必须是对象')
+    frozen_source = json.loads(json.dumps(source, ensure_ascii=False, allow_nan=False))
+    semantic_source = _persistent_transfer_semantic_source(frozen_source)
+    account_id = str(get_115_account_id() or '').strip()
+    if not account_id:
+        raise RuntimeError('共享转存无法绑定稳定的 115 账号身份')
+    target_cid = shared_subscription_service._configured_target_cid()
+    delivery_intent = str(intent_id or uuid4().hex).strip()
+    if not delivery_intent or len(delivery_intent) > 255:
+        raise ValueError('共享转存 intent_id 无效')
+    effect_key = _persistent_transfer_effect_identity(
+        action,
+        semantic_source,
+        account_id,
+        target_cid,
+        mode,
+        virtual_id,
+    )
+    secret_store = SharedTransferSecretStore()
+    secret_ref, secret_created = secret_store.create(
+        {'source': frozen_source},
+        owner_key=effect_key,
+        reference=_persistent_transfer_secret_reference(delivery_intent, effect_key),
+    )
+    try:
+        return submit_persistent_background(
+            run_shared_center_transfer_persistent,
+            args=(action, semantic_source),
+            kwargs={
+                'mode': str(mode or 'rapid').strip().lower(),
+                'virtual_id': int(virtual_id) if virtual_id is not None else None,
+                'event_id': f'manual-{delivery_intent}',
+                'intent_id': delivery_intent,
+                'expected_account_id': account_id,
+                'expected_target_cid': target_cid,
+                'effect_key': effect_key,
+                'source_secret_ref': secret_ref,
+            },
+            max_attempts=5,
+            timeout_seconds=1800,
+            idempotency_scope=f'shared-transfer-intent:v2:{action}',
+            idempotency_key=delivery_intent,
+        )
+    except Exception:
+        if secret_created:
+            secret_store.destroy(secret_ref, effect_key)
+        raise
+
+
+def _persistent_transfer_explicit_rejection(result):
+    if not isinstance(result, dict) or result.get('indeterminate') is True:
+        return False
+    status = str(result.get('status') or result.get('reason') or '').strip().lower()
+    return bool(
+        result.get('rejected') is True
+        or result.get('denied') is True
+        or result.get('blocked') is True
+        or status in {'blocked', 'denied', 'expired', 'invalid', 'not_found', 'rejected'}
+    )
+
+
+def run_shared_center_transfer_persistent(
+    action: str,
+    source: dict[str, Any],
+    *,
+    mode: str = 'rapid',
+    virtual_id: int | None = None,
+    event_id: str = '',
+    intent_id: str = '',
+    expected_account_id: str = '',
+    expected_target_cid: str = '',
+    effect_key: str = '',
+    source_secret_ref: str = '',
+) -> dict[str, Any]:
+    """Execute one shared-center transfer in a persistent Worker attempt."""
+    action = str(action or '').strip()
+    if action not in _PERSISTENT_TRANSFER_ACTIONS:
+        raise ValueError(f'未知共享转存动作: {action}')
+    if not isinstance(source, dict):
+        raise ValueError('共享转存 source 必须是对象')
+    submitted_source = _persistent_transfer_semantic_source(dict(source))
+    virtual_id_value = int(virtual_id) if virtual_id is not None else None
+    if action == 'virtual_promote' and virtual_id_value is None:
+        raise ValueError('虚拟转正缺少 virtual_id')
+
+    def required_virtual_id() -> int:
+        if virtual_id_value is None:
+            raise ValueError('虚拟转正缺少 virtual_id')
+        return virtual_id_value
+    source_kind = str(submitted_source['source_kind'])
+    source_id = str(submitted_source['source_id'])
+    frozen_source_hash = _persistent_transfer_source_hash(submitted_source)
+    intent_id = str(intent_id or '').strip()
+    expected_account_id = str(expected_account_id or '').strip()
+    expected_target_cid = str(expected_target_cid or '').strip()
+    effect_key = str(effect_key or '').strip().lower()
+    source_secret_ref = str(source_secret_ref or '').strip().lower()
+    if not intent_id or not expected_account_id or not expected_target_cid or not effect_key:
+        raise ValueError('共享转存 Job 缺少冻结的 intent/account/target/effect identity')
+    expected_effect_key = _persistent_transfer_effect_identity(
+        action,
+        submitted_source,
+        expected_account_id,
+        expected_target_cid,
+        mode,
+        virtual_id_value,
+    )
+    if effect_key != expected_effect_key:
+        raise RuntimeError('共享转存 effect identity 与冻结 payload 不一致')
+
+    secret_store = SharedTransferSecretStore() if source_secret_ref else None
+    if secret_store is not None:
+        secret = secret_store.consume(source_secret_ref, effect_key)
+        secret_source = secret.payload.get('source')
+        if not isinstance(secret_source, dict):
+            raise RuntimeError('共享转存 secret payload 缺少 source')
+        if _persistent_transfer_semantic_source(secret_source) != submitted_source:
+            raise RuntimeError('共享转存 secret source 与冻结语义身份不一致')
+        source = dict(secret_source)
+    else:
+        source = dict(source)
+
+    if action == 'cloud_download' and source_kind == 'season_hub' and not (
+        source.get('children') or source.get('pack_items')
+    ):
+        child_resp = SharedCenterClient().list_display_children(
+            source_kind='season_hub',
+            source_id=source_id,
+            hub_id=source.get('hub_id') or source_id,
+            limit=5000,
+        )
+        children = child_resp.get('children') or child_resp.get('items') or []
+        source['children'] = children
+        source['pack_items'] = child_resp.get('pack_items') or children
+
+    source_id_hash = hashlib.sha256(f'{source_kind}\0{source_id}'.encode()).hexdigest()
+    evidence = {
+        'account_id': expected_account_id,
+        'action': action,
+        'intent_id': intent_id,
+        'mode': str(mode or 'rapid').strip().lower(),
+        'source_hash': frozen_source_hash,
+        'source_id_hash': source_id_hash,
+        'source_kind': source_kind,
+        'target_cid': expected_target_cid,
+        'virtual_id': virtual_id_value,
+    }
+    active_washing_started = False
+    external_effect_started = False
+    effect_store = SharedTransferEffectStore()
+
+    def destroy_secret():
+        if secret_store is not None and source_secret_ref:
+            secret_store.destroy(source_secret_ref, effect_key)
+
+    def mark_virtual_reconcile_required():
+        if action == 'virtual_promote' and active_washing_started:
+            try:
+                shared_virtual_db.update_virtual_import(required_virtual_id(), status='reconcile_required')
+            except Exception:
+                logger.exception('虚拟转正进入不确定状态后更新对账标记失败：virtual_id=%s', virtual_id)
+
+    try:
+        with p115_expected_account(expected_account_id), shared_subscription_service.persistent_transfer_target(
+            expected_target_cid,
+            expected_account_id=expected_account_id,
+            effect_key=effect_key,
+        ):
+            task_manager.persistent_execution_checkpoint()
+            effect, created = effect_store.prepare(effect_key, evidence)
+            if not created:
+                if effect.status == 'succeeded':
+                    destroy_secret()
+                    item = None
+                    if action == 'virtual_promote':
+                        item = shared_virtual_db.update_virtual_import(
+                            required_virtual_id(),
+                            status='promoting',
+                            promoted_at='NOW()',
+                        )
+                    return {
+                        'ok': True,
+                        'action': action,
+                        'source_kind': source_kind,
+                        'source_id': source_id,
+                        'deduplicated': True,
+                        'effect_key': effect_key,
+                        'item': _safe_virtual_transfer_item(item),
+                    }
+                raise PersistentEffectIndeterminate(
+                    f'共享转存 effect {effect_key} 已处于 {effect.status}，禁止自动重放'
+                )
+
+            if action == 'virtual_promote':
+                marked = shared_virtual_db.mark_active_washing_for_virtual_import(required_virtual_id(), True)
+                active_washing_started = True
+                logger.info(
+                    "  ➜ [虚拟入库] Worker 已开启 active_washing 特权：virtual_id=%s, rows=%s",
+                    virtual_id,
+                    marked,
+                )
+                source.update({'_virtual_auto_promote': True, '_virtual_id': required_virtual_id()})
+
+            task_manager.persistent_execution_checkpoint()
+            task_manager.record_persistent_effect_started(f'shared-transfer:{effect_key}')
+            external_effect_started = True
+            if action == 'cloud_download':
+                result = shared_subscription_service.consume_center_source_payload(source, mode=mode)
+                ok = bool(result.get('ok') or result.get('success')) if isinstance(result, dict) else False
+            else:
+                event = {
+                    'event_id': str(event_id or ''),
+                    'source_kind': source_kind,
+                    'source_ref_id': source_id,
+                    'payload_json': source,
+                }
+                result = consume_device_event_with_transfer_gate(event, ack=False)
+                ok = bool(result.get('ok')) if isinstance(result, dict) else False
+
+            if not ok:
+                message = result.get('message') if isinstance(result, dict) else None
+                if _persistent_transfer_explicit_rejection(result):
+                    destroy_secret()
+                raise PersistentEffectIndeterminate(message or '共享转存结果无法证明外部 effect 未发生')
+
+            effect_store.mark_succeeded(effect_key)
+            task_manager.record_persistent_effect_committed(f'shared-transfer:{effect_key}')
+            destroy_secret()
+
+        item = None
+        if action == 'virtual_promote':
+            item = shared_virtual_db.update_virtual_import(
+                required_virtual_id(),
+                status='promoting',
+                promoted_at='NOW()',
+            )
+        return {
+            'ok': True,
+            'action': action,
+            'source_kind': source_kind,
+            'source_id': source_id,
+            'result': _safe_persistent_transfer_result(result),
+            'item': _safe_virtual_transfer_item(item),
+            'effect_key': effect_key,
+        }
+    except PersistentEffectIndeterminate as exc:
+        try:
+            effect_store.mark_indeterminate(
+                effect_key,
+                {'error_hash': hashlib.sha256(f'{type(exc).__name__}\0{exc}'.encode()).hexdigest()},
+            )
+        except Exception:
+            logger.exception('共享转存不确定状态写入 effect ledger 失败：effect=%s', effect_key)
+        mark_virtual_reconcile_required()
+        raise
+    except Exception as exc:
+        current_effect = effect_store.read(effect_key)
+        if current_effect is not None and current_effect.status == 'prepared':
+            if not external_effect_started:
+                try:
+                    if action == 'virtual_promote' and active_washing_started:
+                        shared_virtual_db.mark_active_washing_for_virtual_import(required_virtual_id(), False)
+                    if not effect_store.discard_prepared(effect_key):
+                        raise RuntimeError('共享转存 prepared receipt 未能安全释放')
+                except Exception as cleanup_exc:
+                    try:
+                        effect_store.mark_indeterminate(
+                            effect_key,
+                            {
+                                'error_hash': hashlib.sha256(
+                                    f'{type(cleanup_exc).__name__}\0{cleanup_exc}'.encode()
+                                ).hexdigest()
+                            },
+                        )
+                    except Exception:
+                        logger.exception('共享转存安全回收失败后写入不确定状态失败：effect=%s', effect_key)
+                    mark_virtual_reconcile_required()
+                    raise PersistentEffectIndeterminate('共享转存 effect 前状态回收失败，禁止自动重放') from exc
+                raise
+            try:
+                effect_store.mark_indeterminate(
+                    effect_key,
+                    {'error_hash': hashlib.sha256(f'{type(exc).__name__}\0{exc}'.encode()).hexdigest()},
+                )
+            except Exception:
+                logger.exception('共享转存异常后写入不确定状态失败：effect=%s', effect_key)
+            mark_virtual_reconcile_required()
+            raise PersistentEffectIndeterminate('共享转存失败且 provider effect 无法安全重放') from exc
+        if action == 'virtual_promote' and active_washing_started:
+            try:
+                shared_virtual_db.mark_active_washing_for_virtual_import(required_virtual_id(), False)
+            except Exception:
+                logger.exception(
+                    "  ➜ [虚拟入库] Worker 转正失败后回收 active_washing 特权失败：virtual_id=%s",
+                    virtual_id,
+                )
+        raise
+
+
+def _safe_persistent_transfer_result(result):
+    if not isinstance(result, dict):
+        return {'ok': False}
+    allowed = (
+        'ok',
+        'success',
+        'skipped',
+        'blocked',
+        'blocked_reason',
+        'source_kind',
+        'success_count',
+        'total',
+        'transfer_mode',
+        'count',
+        'action_type',
+    )
+    return {key: result.get(key) for key in allowed if key in result}
+
+
+def _safe_virtual_transfer_item(item):
+    if not isinstance(item, dict):
+        return None
+    return {
+        key: item.get(key)
+        for key in ('id', 'status', 'promoted_at')
+        if key in item
+    }
 
 
 def _cfg_bool(value: Any, default: bool = False) -> bool:
@@ -6379,15 +6855,16 @@ def _task_status(progress: int, message: str) -> None:
         pass
 
 
-def share_all_library(processor=None, max_items: int = 100000) -> Dict[str, Any]:
+def share_all_library(processor: Any = None, max_items: int = 100000) -> dict[str, Any] | TaskOutcome:
     """一键登记媒体库。
 
     扫描阶段通过 progress_callback 持续更新顶部任务栏；登记阶段再逐个更新进度。
     兼容旧调用 share_all_library(1000)，任务系统调用时第一个参数为 processor。
     """
+    runtime_processor: Any = processor
     if isinstance(processor, (int, float)) and max_items == 100000:
         max_items = int(processor)
-        processor = None
+        runtime_processor = None
 
     if not _enabled():
         _task_status(0, '共享资源未启用，跳过一键登记。')
@@ -6410,7 +6887,11 @@ def share_all_library(processor=None, max_items: int = 100000) -> Dict[str, Any]
             return_stats=True,
             progress_callback=_scan_progress,
         )
+        if not isinstance(candidate_stats, dict):
+            raise RuntimeError('共享资源候选扫描返回了无效统计结构')
         candidates = candidate_stats.get('items') or []
+        if not isinstance(candidates, list) or any(not isinstance(item, dict) for item in candidates):
+            raise RuntimeError('共享资源候选扫描返回了无效 items 结构')
         total = len(candidates)
         skipped_existing = int(candidate_stats.get('skipped_existing') or 0)
         skipped_duplicate = int(candidate_stats.get('skipped_duplicate') or 0)
@@ -6419,14 +6900,28 @@ def share_all_library(processor=None, max_items: int = 100000) -> Dict[str, Any]
         existing_summary = candidate_stats.get('existing_index') or {}
         timings = candidate_stats.get('timings') or {}
 
-        _task_status(10, f'扫描完成：媒体候选 {scanned}，已排除有效共享 {skipped_existing}，已跳过季级条目 {skipped_season_candidate}，待登记 {total}。')
+        _task_status(
+            10,
+            f'扫描完成：媒体候选 {scanned}，已排除有效共享 {skipped_existing}，'
+            f'已跳过季级条目 {skipped_season_candidate}，待登记 {total}。',
+        )
         logger.info(
-            '  ➜ [共享资源] 一键登记媒体库扫描完成：扫描 %s，跳过已有有效共享 %s，跳过季级条目 %s，跳过重复候选 %s，待登记 %s，已有索引=%s，耗时=%s',
-            scanned, skipped_existing, skipped_season_candidate, skipped_duplicate, total, existing_summary, timings,
+            '  ➜ [共享资源] 一键登记媒体库扫描完成：扫描 %s，跳过已有有效共享 %s，'
+            '跳过季级条目 %s，跳过重复候选 %s，待登记 %s，已有索引=%s，耗时=%s',
+            scanned,
+            skipped_existing,
+            skipped_season_candidate,
+            skipped_duplicate,
+            total,
+            existing_summary,
+            timings,
         )
 
         if total <= 0:
-            msg = f'无需登记：扫描 {scanned} 个候选，已排除有效共享 {skipped_existing} 个，已跳过季级条目 {skipped_season_candidate} 个。'
+            msg = (
+                f'无需登记：扫描 {scanned} 个候选，已排除有效共享 {skipped_existing} 个，'
+                f'已跳过季级条目 {skipped_season_candidate} 个。'
+            )
             _task_status(100, msg)
             logger.info(f"  ➜ [共享资源] 一键登记媒体库完成：{msg}")
             return {
@@ -6445,7 +6940,11 @@ def share_all_library(processor=None, max_items: int = 100000) -> Dict[str, Any]
         ok = failed = 0
         items = []
         for idx, cand in enumerate(candidates, 1):
-            if processor is not None and hasattr(processor, 'is_stop_requested') and processor.is_stop_requested():
+            if (
+                runtime_processor is not None
+                and hasattr(runtime_processor, 'is_stop_requested')
+                and runtime_processor.is_stop_requested()
+            ):
                 msg = f'任务已中断：已处理 {idx - 1}/{total}，成功 {ok}，失败 {failed}。'
                 _task_status(max(10, min(99, int(10 + ((idx - 1) / max(total, 1)) * 85))), msg)
                 logger.info(f"  ➜ [共享资源] 一键登记媒体库中断：{msg}")
@@ -6466,7 +6965,10 @@ def share_all_library(processor=None, max_items: int = 100000) -> Dict[str, Any]
 
             title = cand.get('title') or cand.get('display_title') or cand.get('tmdb_id') or f'候选 {idx}'
             progress = max(10, min(95, int(10 + ((idx - 1) / max(total, 1)) * 85)))
-            _task_status(progress, f'正在登记 {idx}/{total}：{title}（成功 {ok}，失败 {failed}，已跳过 {skipped_existing}）')
+            _task_status(
+                progress,
+                f'正在登记 {idx}/{total}：{title}（成功 {ok}，失败 {failed}，已跳过 {skipped_existing}）',
+            )
             try:
                 res = register_candidate_to_center(cand, source_provider='rapid_all_library')
                 item = {
@@ -6484,19 +6986,27 @@ def share_all_library(processor=None, max_items: int = 100000) -> Dict[str, Any]
                 if idx % 10 == 0 or idx == total:
                     _task_status(
                         max(10, min(95, int(10 + (idx / max(total, 1)) * 85))),
-                        f'一键登记进度：{idx}/{total}，成功 {ok}，失败 {failed}，已跳过 {skipped_existing}。'
+                        f'一键登记进度：{idx}/{total}，成功 {ok}，失败 {failed}，已跳过 {skipped_existing}。',
                     )
-                    logger.info(f"  ➜ [共享资源] 一键登记媒体库进度：{idx}/{total}，成功 {ok}，失败 {failed}，已跳过 {skipped_existing}")
+                    logger.info(
+                        f"  ➜ [共享资源] 一键登记媒体库进度：{idx}/{total}，成功 {ok}，失败 {failed}，"
+                        f"已跳过 {skipped_existing}"
+                    )
             except Exception as e:
                 failed += 1
                 items.append({'title': title, 'ok': False, 'message': str(e)})
                 logger.warning(f"  ➜ [共享资源] 一键登记媒体库失败: {title} -> {e}")
 
-        msg = f'一键登记完成：扫描 {scanned}，跳过已有有效共享 {skipped_existing}，跳过季级条目 {skipped_season_candidate}，登记成功 {ok}，失败 {failed}。'
+        msg = (
+            f'一键登记完成：扫描 {scanned}，跳过已有有效共享 {skipped_existing}，'
+            f'跳过季级条目 {skipped_season_candidate}，登记成功 {ok}，失败 {failed}。'
+        )
         _task_status(100, msg)
-        logger.info(f"  ➜ [共享资源] 一键登记媒体库完成：候选 {total}，成功 {ok}，失败 {failed}，跳过季级条目 {skipped_season_candidate}，已跳过 {skipped_existing}")
-        return {
-            'ok': True,
+        logger.info(
+            f"  ➜ [共享资源] 一键登记媒体库完成：候选 {total}，成功 {ok}，失败 {failed}，"
+            f"跳过季级条目 {skipped_season_candidate}，已跳过 {skipped_existing}"
+        )
+        details = {
             'total': total,
             'success': ok,
             'failed': failed,
@@ -6506,8 +7016,12 @@ def share_all_library(processor=None, max_items: int = 100000) -> Dict[str, Any]
             'scanned': scanned,
             'items': items[:50],
             'timings': timings,
-            'message': msg,
         }
+        if failed and ok:
+            return TaskOutcome.partial(msg, details)
+        if failed:
+            return TaskOutcome.failed(msg, details)
+        return TaskOutcome.succeeded(msg, details)
     finally:
         _FULL_SHARE_LOCK.release()
 
@@ -8595,10 +9109,13 @@ def task_shared_resource_maintenance(processor=None, maintenance_silent: bool = 
             logger.info('  ➜ [共享资源维护] 共享资源未启用，跳过。')
         return {'ok': False, 'message': '共享资源未启用'}
     result = {'ok': True}
-    try:
-        result['device_event_listener'] = ensure_shared_device_event_listener()
-    except Exception as e:
-        result['listener_error'] = str(e)
+    if os.environ.get('ETK_PROCESS_ROLE', '').strip().casefold() == 'coordinator':
+        try:
+            result['device_event_listener'] = ensure_shared_device_event_listener()
+        except Exception as e:
+            result['listener_error'] = str(e)
+    else:
+        result['device_event_listener'] = {'started': False, 'owner': 'coordinator'}
     try:
         result['offline_cleanup'] = _cleanup_offline_local_sources(limit=300)
     except Exception as e:
@@ -8648,17 +9165,17 @@ def task_shared_resource_maintenance(processor=None, maintenance_silent: bool = 
 def trigger_shared_resource_maintenance_task() -> bool:
     try:
         return bool(task_manager.submit_task(task_shared_resource_maintenance, task_name='共享资源维护', processor_type='media'))
-    except Exception:
-        spawn(task_shared_resource_maintenance)
-        return True
+    except Exception as e:
+        logger.error(f"  ➜ [共享资源维护] 持久任务提交失败: {e}", exc_info=True)
+        return False
 
 
 def trigger_share_all_library_task() -> bool:
     try:
         return bool(task_manager.submit_task(share_all_library, task_name='一键登记媒体库', processor_type='media'))
-    except Exception:
-        spawn(share_all_library)
-        return True
+    except Exception as e:
+        logger.error(f"  ➜ [共享资源] 一键登记持久任务提交失败: {e}", exc_info=True)
+        return False
 
 
 def task_shared_share_status_sync_high_freq(processor=None, maintenance_silent: bool = True):

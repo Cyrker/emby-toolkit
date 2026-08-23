@@ -1,5 +1,6 @@
 # routes/p115.py
 import logging
+import hashlib
 import threading
 from queue import Queue
 from datetime import datetime, timedelta
@@ -16,14 +17,20 @@ from flask import Blueprint, jsonify, request, redirect, Response, stream_with_c
 from extensions import admin_required, emby_login_required
 from database import settings_db
 from handler import moviepilot, emby
-from handler.p115_service import P115Service, P115CacheManager, get_config
+from handler.p115_service import P115Service, P115CacheManager, get_115_account_id, get_config
 from handler.etk_plugin_update import is_etk_plugin_installed
 from handler.p115_rename import P115RenameRenderer
 from handler import p115_play_pool
 import constants
 import config_manager
 from functools import lru_cache, wraps
-from etk.compatibility.background import spawn
+from etk.compatibility.background import (
+    lookup_persistent_background,
+    persistent_background_gateway_installed,
+    spawn,
+    submit_persistent_background,
+)
+from etk.platform.jobs import IdempotencyConflictError
 
 # 115扫码登录相关变量 (OAuth 2.0 + PKCE 模式)
 _qrcode_data = {
@@ -39,8 +46,50 @@ p115_bp = Blueprint('115_bp', __name__, url_prefix='/api/p115')
 logger = logging.getLogger(__name__)
 
 _DEEP_DELETE_TTL_SECONDS = 300
-_deep_delete_lock = threading.Lock()
-_deep_delete_snapshots = {}
+_DEEP_DELETE_SETTING_PREFIX = 'runtime.deep_delete_snapshot.'
+_QUICK_DEPLOY_START_TIMEOUT_SECONDS = 30
+_QUICK_DEPLOY_TIMEOUT_SECONDS = 1800
+_QUICK_DEPLOY_SCHEMA_VERSION = 1
+
+
+def _store_deep_delete_snapshot(token, snapshot):
+    from database.connection import get_db_connection
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM app_settings
+                WHERE setting_key LIKE %s
+                  AND last_updated_at < NOW() - make_interval(secs => %s)
+                """,
+                (f'{_DEEP_DELETE_SETTING_PREFIX}%', _DEEP_DELETE_TTL_SECONDS),
+            )
+            cursor.execute(
+                """
+                INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (setting_key) DO UPDATE
+                SET value_json = EXCLUDED.value_json, last_updated_at = NOW()
+                """,
+                (f'{_DEEP_DELETE_SETTING_PREFIX}{token}', json.dumps(snapshot, ensure_ascii=False)),
+            )
+        conn.commit()
+
+
+def _claim_deep_delete_snapshot(token):
+    from database.connection import get_db_connection
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM app_settings WHERE setting_key = %s RETURNING value_json",
+                (f'{_DEEP_DELETE_SETTING_PREFIX}{token}',),
+            )
+            row = cursor.fetchone()
+        conn.commit()
+    value = row.get('value_json') if row else None
+    return json.loads(value) if isinstance(value, str) else value
 
 
 def _build_deep_delete_file_snapshots(pickcodes):
@@ -350,12 +399,22 @@ def check_qrcode_status():
         if access_token and refresh_token:
             try:
                 # ★ 直接调用小金库存钱函数
-                from handler.p115_service import save_115_tokens
-                save_115_tokens(access_token, refresh_token)
+                from handler.p115_service import extract_115_account_id, save_115_tokens
+                save_115_tokens(
+                    access_token,
+                    refresh_token,
+                    account_id=extract_115_account_id(status.get('user_info')),
+                    credential_type='openapi',
+                )
                 logger.info(f"  ➜ [115] 扫码成功！Token 已保存。")
                     
             except Exception as e:
                 logger.error(f"  ➜ 保存 Token 失败: {e}")
+                return jsonify({
+                    "success": False,
+                    "status": "error",
+                    "message": f"授权信息无法绑定到稳定的 115 账号: {e}",
+                }), 500
         
         return jsonify({
             "success": True,
@@ -460,7 +519,7 @@ def check_cookie_qrcode_status():
                     
                     # ★ 保存到独立数据库，连同 app_type 一起保存！
                     from handler.p115_service import save_115_tokens
-                    save_115_tokens(None, None, cookie_str, app_type)
+                    save_115_tokens(None, None, cookie_str, app_type, credential_type='cookie')
                     
                     P115Service.reset_cookie_client()
                     return jsonify({"success": True, "status": "success", "message": "Cookie 获取成功！"})
@@ -480,7 +539,7 @@ def save_manual_cookie():
     app_type = request.json.get('app_type', 'web').strip() 
     try:
         from handler.p115_service import save_115_tokens
-        save_115_tokens(None, None, cookie_str, app_type)
+        save_115_tokens(None, None, cookie_str, app_type, credential_type='cookie')
         P115Service.reset_cookie_client()
         return jsonify({"success": True, "message": "Cookie 已保存"})
     except Exception as e:
@@ -643,7 +702,12 @@ def auto_save_auth():
         if access_token and refresh_token:
             # 2. 保存到数据库
             from handler.p115_service import save_115_tokens, P115Service
-            save_115_tokens(access_token, refresh_token)
+            save_115_tokens(
+                access_token,
+                refresh_token,
+                account_id=token_data.get('user_id'),
+                credential_type='openapi',
+            )
             
             # 强制清空旧的 OpenAPI 客户端缓存，让它立即使用新 Token
             with P115Service._lock:
@@ -972,6 +1036,19 @@ def get_115_status():
                         result["valid"] = True
                         result["msg"] = "Token 有效 (OpenAPI)"
                         result["user_info"] = user_resp.get('data', {})
+                        try:
+                            from handler.p115_service import extract_115_account_id, save_115_tokens
+                            account_id = extract_115_account_id(result["user_info"])
+                            if account_id:
+                                save_115_tokens(
+                                    None,
+                                    None,
+                                    account_id=account_id,
+                                    credential_type='openapi',
+                                    expected_access_token=openapi_client.access_token,
+                                )
+                        except Exception as identity_error:
+                            logger.warning(f"  ➜ [115] 持久化稳定账号 ID 失败: {identity_error}")
                         
                         # 如果也有 Cookie，顺便轻量级探测一下 (★ 绝对不初始化 P115Client)
                         if cookie:
@@ -1591,12 +1668,43 @@ def _p115_deploy_emby_libraries(local_root, category_dirs):
     return libraries
 
 
-def _quick_deploy_payload(progress=None):
+def _quick_deploy_desired_state_hash():
+    config = get_config()
+    account_id = get_115_account_id()
+    if not account_id:
+        raise ValueError('无法确认稳定的 115 账号身份，请刷新授权状态或重新授权后再试')
+    desired = {
+        'schema_version': _QUICK_DEPLOY_SCHEMA_VERSION,
+        'p115_account_id': account_id,
+        'emby_server_url': str(config.get(constants.CONFIG_OPTION_EMBY_SERVER_URL) or '').strip().rstrip('/'),
+        'local_strm_root': os.path.normpath(str(config.get(constants.CONFIG_OPTION_LOCAL_STRM_ROOT) or '')),
+        'etk_server_url': str(config.get(constants.CONFIG_OPTION_ETK_SERVER_URL) or '').strip().rstrip('/'),
+        'p115_roots': ['ETK媒体库', 'ETK待整理', 'ETK未识别'],
+        'emby_libraries': [
+            ['国漫', 'tvshows'], ['日番', 'tvshows'], ['美漫', 'tvshows'],
+            ['国产片', 'movies'], ['日韩片', 'movies'], ['欧美片', 'movies'],
+            ['国产剧', 'tvshows'], ['日韩剧', 'tvshows'], ['欧美剧', 'tvshows'],
+        ],
+    }
+    encoded = json.dumps(desired, ensure_ascii=False, separators=(',', ':'), sort_keys=True).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _quick_deploy_idempotency_key():
+    supplied = str(request.headers.get('Idempotency-Key') or '').strip()
+    if supplied:
+        if len(supplied) > 255 or any(ord(char) < 0x21 or ord(char) > 0x7E for char in supplied):
+            raise ValueError('Idempotency-Key 必须是 1-255 个可打印 ASCII 字符')
+        return supplied
+    return secrets.token_urlsafe(24)
+
+
+def _quick_deploy_payload(progress=None, *, expected_account_id=None):
     def emit(percent, text):
         if progress:
             progress(percent, text)
 
-    client = P115Service.get_client()
+    client = P115Service.get_client(expected_account_id=expected_account_id)
     config = get_config()
     missing = []
     if not client:
@@ -1656,15 +1764,7 @@ def _quick_deploy_payload(progress=None):
     emit(30, '正在创建本地 STRM 镜像目录')
     local_dirs = _p115_create_local_mirror(local_root, category_dirs)
 
-    emit(45, '正在写入 115 基础配置')
-    monitor_paths = config.get(constants.CONFIG_OPTION_MONITOR_PATHS, [])
-    if not isinstance(monitor_paths, list):
-        monitor_paths = []
-    norm_local_root = os.path.normpath(str(local_root))
-    existing_monitor_paths = [str(p) for p in monitor_paths if str(p or '').strip()]
-    if norm_local_root not in {os.path.normpath(p) for p in existing_monitor_paths}:
-        existing_monitor_paths.append(local_root)
-
+    emit(45, '正在准备 115 基础配置')
     dynamic_config = {
         constants.CONFIG_OPTION_115_SAVE_PATH_CID: save_root['cid'],
         constants.CONFIG_OPTION_115_SAVE_PATH_NAME: save_root['name'],
@@ -1673,14 +1773,8 @@ def _quick_deploy_payload(progress=None):
         constants.CONFIG_OPTION_115_MEDIA_ROOT_CID: media_root['cid'],
         constants.CONFIG_OPTION_115_MEDIA_ROOT_NAME: media_root['name'],
         constants.CONFIG_OPTION_115_MP_CLASSIFY: False,
-        constants.CONFIG_OPTION_115_API_PRIORITY: config.get(constants.CONFIG_OPTION_115_API_PRIORITY, 'openapi'),
-        constants.CONFIG_OPTION_115_MIN_VIDEO_SIZE: config.get(constants.CONFIG_OPTION_115_MIN_VIDEO_SIZE, 10),
-        constants.CONFIG_OPTION_115_EXTENSIONS: config.get(constants.CONFIG_OPTION_115_EXTENSIONS, ['mkv', 'mp4', 'iso', 'ts', 'm2ts']),
         constants.CONFIG_OPTION_MONITOR_ENABLED: True,
-        constants.CONFIG_OPTION_MONITOR_PATHS: existing_monitor_paths,
     }
-    config_manager.save_config(dynamic_config)
-
     emit(55, '正在写入重命名配置')
     rename_config = {
         'keep_original_name': False,
@@ -1708,9 +1802,10 @@ def _quick_deploy_payload(progress=None):
     emit(82, '正在创建 Emby 媒体库')
     emby_libraries = _p115_deploy_emby_libraries(local_root, category_dirs)
     library_ids = [item['id'] for item in emby_libraries if item.get('id')]
-    if library_ids:
-        dynamic_config[constants.CONFIG_OPTION_EMBY_LIBRARIES_TO_PROCESS] = library_ids
-        config_manager.save_config({constants.CONFIG_OPTION_EMBY_LIBRARIES_TO_PROCESS: library_ids})
+    if len(emby_libraries) != 9 or len(library_ids) != 9 or len(set(library_ids)) != 9:
+        raise RuntimeError('Emby 媒体库未完整收敛到 9 个唯一资源')
+    dynamic_config[constants.CONFIG_OPTION_EMBY_LIBRARIES_TO_PROCESS] = library_ids
+    dynamic_config = config_manager.save_config_with_monitor_path(dynamic_config, local_root)
 
     tree = {
         'media_root': {**media_root, 'children': [category_dirs['动漫'], category_dirs['电影'], category_dirs['剧集']]},
@@ -1729,12 +1824,151 @@ def _quick_deploy_payload(progress=None):
     }
 
 
+def _quick_deploy_persistent_operation(desired_state_hash):
+    import task_manager
+
+    task_manager.persistent_execution_checkpoint()
+    with settings_db.p115_auth_write_lock():
+        if desired_state_hash != _quick_deploy_desired_state_hash():
+            raise RuntimeError('一键部署目标配置在任务开始前发生变化，请重新确认部署')
+        expected_account_id = get_115_account_id()
+        if not expected_account_id:
+            raise RuntimeError('一键部署无法绑定稳定的 115 账号身份')
+        effect_label = 'quick-deploy:configuration-and-provider-workflow'
+        task_manager.record_persistent_effect_started(effect_label)
+
+        def emit(progress, message):
+            task_manager.persistent_execution_checkpoint()
+            task_manager.update_status_from_thread(progress, message)
+
+        result = _quick_deploy_payload(
+            emit,
+            expected_account_id=expected_account_id,
+        )
+        task_manager.record_persistent_effect_committed(effect_label)
+        return result
+
+
+def _submit_quick_deploy_persistent(idempotency_key, desired_state_hash):
+    return submit_persistent_background(
+        _quick_deploy_persistent_operation,
+        args=(desired_state_hash,),
+        max_attempts=3,
+        timeout_seconds=_QUICK_DEPLOY_TIMEOUT_SECONDS,
+        idempotency_key=idempotency_key,
+        idempotency_scope='quick-deploy',
+    )
+
+
+def _synchronize_quick_deploy_configuration(dynamic_config):
+    try:
+        synchronizer = current_app.extensions.get('etk_runtime_configuration_synchronizer')
+    except RuntimeError:
+        synchronizer = None
+    if synchronizer is not None:
+        synchronizer.synchronize()
+        return
+    from etk.bootstrap.runtime_supervisor import get_runtime_supervisor
+
+    get_runtime_supervisor().save_config_and_reload(dynamic_config)
+
+
+def _quick_deploy_persistent_events(handle):
+    last_progress = None
+    last_message = None
+    submitted_at = time.monotonic()
+    execution_deadline = None
+    while True:
+        projection = handle.projection()
+        if projection is None:
+            yield {'type': 'done', 'success': False, 'message': '持久任务状态已丢失'}
+            return
+        job = projection.job
+        now = time.monotonic()
+        if job.status.value in {'running', 'cancel_requested'} and execution_deadline is None:
+            execution_deadline = now + _QUICK_DEPLOY_TIMEOUT_SECONDS + 5
+        if job.status.value in {'queued', 'retry_wait'} and now - submitted_at >= _QUICK_DEPLOY_START_TIMEOUT_SECONDS:
+            handle.kill()
+            yield {
+                'type': 'done',
+                'success': False,
+                'message': '一键部署任务未在限定时间内开始，请检查 Coordinator 和 Worker 状态',
+            }
+            return
+        if execution_deadline is not None and now >= execution_deadline and not job.status.terminal:
+            handle.kill()
+            yield {'type': 'done', 'success': False, 'message': '一键部署任务执行超时，已请求取消'}
+            return
+        if (job.progress, job.progress_message) != (last_progress, last_message) and job.progress_message:
+            last_progress, last_message = job.progress, job.progress_message
+            yield {'type': 'progress', 'percent': job.progress, 'message': job.progress_message}
+        if job.status.terminal:
+            if job.status.value == 'succeeded':
+                data = job.result or {}
+                dynamic_config = data.get('config') if isinstance(data, dict) else None
+                if not isinstance(dynamic_config, dict):
+                    yield {'type': 'done', 'success': False, 'message': '一键部署任务缺少可重载的配置结果'}
+                    return
+                try:
+                    _synchronize_quick_deploy_configuration(dynamic_config)
+                except Exception as exc:
+                    logger.exception('  ➜ [115一键部署] Worker 已完成，但 API 配置快照重载失败。')
+                    yield {
+                        'type': 'done',
+                        'success': False,
+                        'message': f'一键部署已执行，但 API 配置重载失败: {exc}',
+                    }
+                    return
+                yield {
+                    'type': 'done',
+                    'success': True,
+                    'message': '115 网盘基础配置已部署完成',
+                    'data': data,
+                }
+            else:
+                error = job.error_summary or {}
+                yield {
+                    'type': 'done',
+                    'success': False,
+                    'message': error.get('message') or job.progress_message or '一键部署任务失败',
+                }
+            return
+        time.sleep(0.25)
+
+
 @p115_bp.route('/quick_deploy', methods=['POST'])
 @admin_required
 def quick_deploy_115():
     """一键部署 115 基础目录、分类、重命名、洗版规则、本地目录和 Emby 媒体库。"""
+    gateway_installed = persistent_background_gateway_installed()
+    if current_app.config.get('ETK_COMPATIBILITY_HOST') and not gateway_installed:
+        return jsonify({
+            'success': False,
+            'message': '持久任务服务不可用，请检查 API、Coordinator、Worker 和 Redis 状态',
+        }), 503
+
+    handle = None
+    if gateway_installed:
+        try:
+            handle = _submit_quick_deploy_persistent(
+                _quick_deploy_idempotency_key(),
+                _quick_deploy_desired_state_hash(),
+            )
+        except ValueError as exc:
+            return jsonify({'success': False, 'message': str(exc)}), 400
+        except IdempotencyConflictError as exc:
+            return jsonify({'success': False, 'message': str(exc)}), 409
+        except Exception as exc:
+            logger.exception('  ➜ [115一键部署] 持久任务提交失败。')
+            return jsonify({'success': False, 'message': f'持久任务提交失败: {exc}'}), 503
+
     if request.args.get('stream') == '1':
         def generate():
+            if handle is not None:
+                yield json.dumps({'type': 'accepted', 'job_id': str(handle.job_id)}, ensure_ascii=False) + '\n'
+                for event in _quick_deploy_persistent_events(handle):
+                    yield json.dumps(event, ensure_ascii=False) + '\n'
+                return
             q = Queue()
 
             def progress(percent, text):
@@ -1761,7 +1995,16 @@ def quick_deploy_115():
         return response
 
     try:
-        data = _quick_deploy_payload()
+        if handle is not None:
+            completed_event = None
+            for event in _quick_deploy_persistent_events(handle):
+                if event.get('type') == 'done':
+                    completed_event = event
+            if not completed_event or not completed_event.get('success'):
+                raise RuntimeError((completed_event or {}).get('message') or '一键部署持久任务失败')
+            data = completed_event.get('data') or {}
+        else:
+            data = _quick_deploy_payload()
         return jsonify({
             'success': True,
             'message': '115 网盘基础配置已部署完成',
@@ -1848,14 +2091,10 @@ def trigger_washing_priority_recalculate():
     payload = request.json or {}
     item_type = payload.get('item_type') or 'all'
     limit = payload.get('limit')
-    background = payload.get('background', True)
     force_full = payload.get('full') is True
 
     try:
-        from tasks.p115 import (
-            task_recalculate_library_washing_priorities,
-            submit_washing_priority_recalculate_task,
-        )
+        from tasks.p115 import submit_washing_priority_recalculate_task
 
         affected_scope = None
         scope_revision = None
@@ -1870,21 +2109,14 @@ def trigger_washing_priority_recalculate():
                     "data": {"scanned_items": 0, "updated_items": 0},
                 })
 
-        if background is False or str(background).strip().lower() in ('0', 'false', 'no'):
-            result = task_recalculate_library_washing_priorities(
-                item_type=item_type,
-                limit=limit,
-                affected_scope=affected_scope,
-                scope_revision=scope_revision,
-            )
-            return jsonify({"success": True, "message": "洗版优先级重算完成", "data": result})
-
-        submit_washing_priority_recalculate_task(
+        submitted = submit_washing_priority_recalculate_task(
             item_type=item_type,
             limit=limit,
             affected_scope=affected_scope,
             scope_revision=scope_revision,
         )
+        if not submitted:
+            raise RuntimeError('洗版优先级重算任务提交失败')
         return jsonify({"success": True, "message": "受影响媒体项的优先级重算任务已在后台启动"})
     except Exception as e:
         logger.error(f"  ➜ [洗版优先级重算] 启动失败: {e}", exc_info=True)
@@ -2252,14 +2484,7 @@ def _prepare_deep_delete_response(sha1, expected_pick_code=''):
             'local_only': True,
             'virtual_id': virtual_id,
         }
-        with _deep_delete_lock:
-            expired = [
-                key for key, value in _deep_delete_snapshots.items()
-                if now - float(value.get('created_at') or 0) > _DEEP_DELETE_TTL_SECONDS
-            ]
-            for key in expired:
-                _deep_delete_snapshots.pop(key, None)
-            _deep_delete_snapshots[token] = snapshot
+        _store_deep_delete_snapshot(token, snapshot)
 
         logger.info(
             '  ➜ [ETK 深度删除] 已准备虚拟入库本地善后：%s（类型 %s，EmbyID=%s，VirtualID=%s）。',
@@ -2306,14 +2531,7 @@ def _prepare_deep_delete_response(sha1, expected_pick_code=''):
         'pickcodes': pickcodes,
         'p115_file_snapshots': _build_deep_delete_file_snapshots(pickcodes),
     }
-    with _deep_delete_lock:
-        expired = [
-            key for key, value in _deep_delete_snapshots.items()
-            if now - float(value.get('created_at') or 0) > _DEEP_DELETE_TTL_SECONDS
-        ]
-        for key in expired:
-            _deep_delete_snapshots.pop(key, None)
-        _deep_delete_snapshots[token] = snapshot
+    _store_deep_delete_snapshot(token, snapshot)
 
     logger.info(
         '  ➜ [ETK 深度删除] 已准备删除：%s（类型=%s，范围=%s，EmbyID=%s，PickCode=%s 个）。',
@@ -2322,57 +2540,87 @@ def _prepare_deep_delete_response(sha1, expected_pick_code=''):
     return jsonify({'ok': True, 'token': token, 'pickcode_count': len(pickcodes)})
 
 
+def _process_deep_delete_snapshot(snapshot):
+    from database import maintenance_db
+
+    try:
+        local_only = bool(snapshot.get('local_only'))
+        if not local_only:
+            from handler.p115_service import delete_115_files_by_webhook
+
+            delete_115_files_by_webhook(
+                snapshot['pickcodes'],
+                file_snapshots=snapshot.get('p115_file_snapshots') or [],
+            )
+        else:
+            logger.info(
+                '  ➜ [ETK 深度删除] 虚拟入库删除仅执行本地善后，跳过 115 网盘联动：EmbyID=%s，VirtualID=%s。',
+                snapshot['item_id'],
+                snapshot.get('virtual_id') or '-',
+            )
+        maintenance_db.cleanup_deleted_media_item(
+            item_id=snapshot['item_id'],
+            item_name=snapshot['item_name'],
+            item_type=snapshot['item_type'],
+            series_id_from_webhook=snapshot.get('series_id') or None,
+            local_only=local_only,
+        )
+        return {'ok': True, 'local_only': local_only, 'item_id': snapshot['item_id']}
+    except Exception:
+        logger.exception(
+            '  ➜ [ETK 深度删除] 处理 Emby 媒体项失败：EmbyID=%s。',
+            snapshot.get('item_id'),
+        )
+        raise
+
+
 def _commit_deep_delete_response():
     payload = request.get_json(silent=True) or {}
     token = str(payload.get('token') or '').strip()
     if not token:
         return jsonify({'ok': False, 'error': 'missing token'}), 400
-    with _deep_delete_lock:
-        snapshot = _deep_delete_snapshots.pop(token, None)
+    snapshot = _claim_deep_delete_snapshot(token)
     if not snapshot:
+        if persistent_background_gateway_installed():
+            handle = lookup_persistent_background(
+                idempotency_scope='deep-delete',
+                idempotency_key=token,
+            )
+            if handle is not None:
+                projection = handle.projection()
+                positional = projection.job.request_payload.get('positional_parameters', []) if projection else []
+                recovered = positional[0] if positional and isinstance(positional[0], dict) else {}
+                return _deep_delete_accepted_response(handle, recovered)
         return jsonify({'ok': False, 'error': 'delete snapshot not found'}), 404
     if time.time() - float(snapshot.get('created_at') or 0) > _DEEP_DELETE_TTL_SECONDS:
         return jsonify({'ok': False, 'error': 'delete snapshot expired'}), 410
 
-    def _process_deep_delete():
-        try:
-            from database import maintenance_db
-            local_only = bool(snapshot.get('local_only'))
-            if not local_only:
-                from handler.p115_service import delete_115_files_by_webhook
-
-                delete_115_files_by_webhook(
-                    snapshot['pickcodes'],
-                    file_snapshots=snapshot.get('p115_file_snapshots') or [],
-                )
-            else:
-                logger.info(
-                    '  ➜ [ETK 深度删除] 虚拟入库删除仅执行本地善后，跳过 115 网盘联动：EmbyID=%s，VirtualID=%s。',
-                    snapshot['item_id'],
-                    snapshot.get('virtual_id') or '-',
-                )
-            maintenance_db.cleanup_deleted_media_item(
-                item_id=snapshot['item_id'],
-                item_name=snapshot['item_name'],
-                item_type=snapshot['item_type'],
-                series_id_from_webhook=snapshot.get('series_id') or None,
-                local_only=local_only,
-            )
-        except Exception:
-            logger.exception(
-                '  ➜ [ETK 深度删除] 处理 Emby 媒体项失败：EmbyID=%s。',
-                snapshot['item_id'],
-            )
-
-    spawn(_process_deep_delete)
+    try:
+        handle = submit_persistent_background(
+            _process_deep_delete_snapshot,
+            args=(snapshot,),
+            max_attempts=5,
+            timeout_seconds=900,
+            idempotency_key=token,
+            idempotency_scope='deep-delete',
+        )
+    except Exception as exc:
+        _store_deep_delete_snapshot(token, snapshot)
+        logger.exception('  ➜ [ETK 深度删除] 持久任务提交失败，删除快照已恢复。')
+        return jsonify({'ok': False, 'error': f'failed to submit delete job: {exc}'}), 500
     logger.info(
         '  ➜ [ETK 深度删除] 已确认删除并提交后续处理：%s（类型=%s，EmbyID=%s）。',
         snapshot['item_name'], snapshot['item_type'], snapshot['item_id'],
     )
+    return _deep_delete_accepted_response(handle, snapshot)
+
+
+def _deep_delete_accepted_response(handle, snapshot):
     return jsonify({
         'ok': True,
         'accepted': True,
-        'pickcode_count': len(snapshot['pickcodes']),
+        'job_id': str(handle.job_id),
+        'pickcode_count': len(snapshot.get('pickcodes') or []),
         'local_only': bool(snapshot.get('local_only')),
     }), 202
 
@@ -3085,60 +3333,37 @@ def empty_recycle_bin():
 @p115_bp.route('/unrecognized/empty', methods=['POST'])
 @admin_required
 def empty_unrecognized_files():
-    """一键清空未识别目录物理文件及本地记录"""
+    """提交持久任务，清空未识别目录物理文件及对应本地事实。"""
     config = get_config()
     un_cid = config.get(constants.CONFIG_OPTION_115_UNRECOGNIZED_CID)
     
     if not un_cid or str(un_cid) == '0':
         return jsonify({"success": False, "message": "未配置未识别目录，无法执行清空。"})
 
-    client = P115Service.get_client()
-    if not client:
-        return jsonify({"success": False, "message": "115客户端未初始化"}), 500
-
+    account_id = get_115_account_id()
+    if not account_id:
+        return jsonify({"success": False, "message": "无法确认稳定的 115 账号身份"}), 400
     try:
-        # 1. 循环获取未识别目录下的所有文件/文件夹
-        offset = 0
-        limit = 1000
-        fids_to_delete = []
-        
-        while True:
-            res = client.fs_files({'cid': un_cid, 'limit': limit, 'offset': offset, 'record_open_time': 0})
-            if not res.get('state'): break
-            items = res.get('data', [])
-            if not items: break
-            
-            fids_to_delete.extend([item.get('fid') or item.get('file_id') for item in items])
-            if len(items) < limit: break
-            offset += limit
-            
-        # 2. 分批删除网盘物理文件 (防止 URL 过长报错)
-        deleted_count = 0
-        if fids_to_delete:
-            chunk_size = 500
-            for i in range(0, len(fids_to_delete), chunk_size):
-                chunk = fids_to_delete[i:i+chunk_size]
-                del_res = client.fs_delete(chunk)
-                if del_res.get('state'):
-                    deleted_count += len(chunk)
-                else:
-                    logger.error(f"  ➜ 清空未识别物理文件失败: {del_res}")
-        
-        # 3. 清理本地数据库中的未识别记录
-        from database.connection import get_db_connection
-        with get_db_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("DELETE FROM p115_organize_records WHERE status = 'unrecognized'")
-                db_deleted = cursor.rowcount
-                conn.commit()
-                
+        from tasks.p115 import submit_empty_unrecognized_files_task
+
+        supplied_key = str(request.headers.get('Idempotency-Key') or '').strip()
+        if supplied_key and (len(supplied_key) > 255 or not supplied_key.isascii() or not supplied_key.isprintable()):
+            return jsonify({"success": False, "message": "Idempotency-Key 必须是 1-255 个可打印 ASCII 字符"}), 400
+        handle = submit_empty_unrecognized_files_task(
+            str(un_cid),
+            account_id,
+            idempotency_key=supplied_key or secrets.token_urlsafe(24),
+        )
+        job_id = str(handle.job_id)
         return jsonify({
-            "success": True, 
-            "message": f"清空完毕！删除了 {deleted_count} 个网盘文件，清理了 {db_deleted} 条本地记录。"
+            "success": True,
+            "message": "未识别目录清空任务已提交",
+            "job_id": job_id,
+            "data": {"accepted": True, "job_id": job_id},
         })
     except Exception as e:
-        logger.error(f"  ➜ 清空未识别目录异常: {e}", exc_info=True)
-        return jsonify({"success": False, "message": str(e)}), 500
+        logger.error(f"  ➜ 提交清空未识别目录任务失败: {e}", exc_info=True)
+        return jsonify({"success": False, "message": f"持久任务提交失败: {e}"}), 503
 
 @p115_bp.route('/system/directories', methods=['GET'])
 @admin_required

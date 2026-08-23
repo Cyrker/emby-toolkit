@@ -5,6 +5,7 @@ import json
 from fastapi import APIRouter, Request
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, ValidationError
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
 from werkzeug.exceptions import BadRequest, InternalServerError, UnsupportedMediaType
 
@@ -108,7 +109,12 @@ async def login(request: Request):
     if invalid is not None:
         return invalid
     assert isinstance(payload, LoginRequest)
-    return _response(_service(request).login(payload, get_request_session(request)))
+    result = await run_in_threadpool(
+        _service(request).login,
+        payload,
+        get_request_session(request),
+    )
+    return _response(result)
 
 
 @router.post("/request_recovery", response_model=StatusResponse)
@@ -146,7 +152,7 @@ async def setup(request: Request):
     if invalid is not None:
         return invalid
     assert isinstance(payload, SetupRequest)
-    return _response(service.setup(payload, session))
+    return _response(await run_in_threadpool(service.setup, payload, session))
 
 
 @router.get("/service_status", response_model=ServiceStatusResponse)
@@ -170,7 +176,7 @@ async def reauthorize(request: Request):
     if invalid is not None:
         return invalid
     assert isinstance(payload, ReauthorizeRequest)
-    return _response(_service(request).reauthorize(payload))
+    return _response(await run_in_threadpool(_service(request).reauthorize, payload))
 
 
 @router.post("/logout", response_model=StatusResponse)

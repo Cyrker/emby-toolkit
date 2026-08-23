@@ -10,7 +10,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import handler.emby as emby
 import task_manager
 from database import connection, user_db
-from extensions import SYSTEM_UPDATE_MARKERS, SYSTEM_UPDATE_LOCK
+from etk.compatibility.persistent_runtime_state import put_ttl_marker
+from etk.platform.tasks import TaskOutcome
+from extensions import RECURSION_SUPPRESSION_WINDOW
 
 logger = logging.getLogger(__name__)
 
@@ -201,12 +203,12 @@ def task_check_expired_users(processor):
     except Exception as e:
         logger.error(f"  ➜ 检查过期用户时，查询数据库失败: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, "任务失败：查询数据库出错")
-        return
+        return TaskOutcome.failed("查询过期用户失败")
 
     if not expired_users:
         logger.info("  ➜ 本次检查未发现已过期的用户。")
         task_manager.update_status_from_thread(100, "任务完成：未发现过期用户")
-        return
+        return TaskOutcome.skipped("未发现过期用户")
 
     total_to_disable = len(expired_users)
     logger.warning(f"  ➜ 检测到 {total_to_disable} 个已过期的用户，准备开始禁用...")
@@ -217,6 +219,7 @@ def task_check_expired_users(processor):
     api_key = config.get("emby_api_key")
 
     successful_disables = 0
+    failed_users = []
     for i, user_info in enumerate(expired_users):
         if processor.is_stop_requested():
             logger.warning("  ➜ 任务被用户中止。")
@@ -251,9 +254,11 @@ def task_check_expired_users(processor):
                 successful_disables += 1
             else:
                 logger.error(f"  ➜ 禁用 Emby 用户 '{user_name}' (ID: {user_id}) 失败，请检查 Emby API 连接。")
+                failed_users.append(str(user_id))
 
         except Exception as e:
             logger.error(f"  ➜ 处理过期用户 '{user_name}' (ID: {user_id}) 时发生未知错误: {e}", exc_info=True)
+            failed_users.append(str(user_id))
             continue # 即使单个用户处理失败，也继续处理下一个
 
     final_message = f"  ➜ 任务完成。共成功禁用 {successful_disables}/{total_to_disable} 个过期用户。"
@@ -262,6 +267,20 @@ def task_check_expired_users(processor):
     
     logger.info(f">>> [{task_name}] {final_message}")
     task_manager.update_status_from_thread(100, final_message)
+    if failed_users:
+        return TaskOutcome.partial(
+            final_message,
+            {
+                'successful': successful_disables,
+                'failed': len(failed_users),
+                'failed_user_ids': failed_users,
+                'total': total_to_disable,
+            },
+        )
+    return TaskOutcome.succeeded(
+        final_message,
+        {'successful': successful_disables, 'failed': 0, 'total': total_to_disable},
+    )
 
 def task_auto_sync_template_on_policy_change(processor, updated_user_id: str):
     """
@@ -346,9 +365,12 @@ def task_auto_sync_template_on_policy_change(processor, updated_user_id: str):
 
                         logger.info(f"    ├─ 正在将 '{template_name}' 的新策略应用到用户 '{user_name_to_push}'...")
                         
-                        # 记录下我们即将要更新这个用户，时间精确到当前
-                        with SYSTEM_UPDATE_LOCK:
-                            SYSTEM_UPDATE_MARKERS[user_id_to_push] = time.time()
+                        # Worker 写入持久标记，API 收到回调后可跨进程原子消费。
+                        put_ttl_marker(
+                            "emby-user-policy-update",
+                            user_id_to_push,
+                            RECURSION_SUPPRESSION_WINDOW,
+                        )
                         
                         # ★★★ 核心修复开始 ★★★
                         # 1. 复制一份源策略，因为我们要针对每个用户修改 IsDisabled 字段

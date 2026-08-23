@@ -1,0 +1,2229 @@
+{
+  "components": {
+    "schemas": {
+      "AboutInfoResponse": {
+        "properties": {
+          "current_version": {
+            "title": "Current Version",
+            "type": "string"
+          },
+          "releases": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Releases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "current_version",
+          "releases"
+        ],
+        "title": "AboutInfoResponse",
+        "type": "object"
+      },
+      "AuthCheckResponse": {
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "status": {
+            "enum": [
+              "setup_required",
+              "logged_in",
+              "login_required"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthUser"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "AuthCheckResponse",
+        "type": "object"
+      },
+      "AuthUser": {
+        "properties": {
+          "allow_unrestricted_subscriptions": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Unrestricted Subscriptions"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_admin": {
+            "default": false,
+            "title": "Is Admin",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "user_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Type"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "AuthUser",
+        "type": "object"
+      },
+      "AuthorizationDetails": {
+        "properties": {
+          "auth_mode": {
+            "const": "user_token",
+            "default": "user_token",
+            "title": "Auth Mode",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_name": {
+            "default": "",
+            "title": "User Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "user_id"
+        ],
+        "title": "AuthorizationDetails",
+        "type": "object"
+      },
+      "ConfigurationResponse": {
+        "additionalProperties": true,
+        "title": "ConfigurationResponse",
+        "type": "object"
+      },
+      "ConfigurationSavedResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "ConfigurationSavedResponse",
+        "type": "object"
+      },
+      "DatabaseStatusResponse": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "items": {},
+                "type": "array"
+              }
+            ],
+            "title": "Data"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "title": "DatabaseStatusResponse",
+        "type": "object"
+      },
+      "DatabaseTableListResponse": {
+        "items": {
+          "type": "string"
+        },
+        "title": "DatabaseTableListResponse",
+        "type": "array"
+      },
+      "ExternalObjectResponse": {
+        "additionalProperties": true,
+        "title": "ExternalObjectResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LogContextBlock": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "file",
+          "date",
+          "lines"
+        ],
+        "title": "LogContextBlock",
+        "type": "object"
+      },
+      "LogSearchMatch": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "line_num": {
+            "title": "Line Num",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file",
+          "line_num",
+          "content",
+          "date"
+        ],
+        "title": "LogSearchMatch",
+        "type": "object"
+      },
+      "LoginResponse": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/AuthUser"
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "title": "LoginResponse",
+        "type": "object"
+      },
+      "MenuConfigResponse": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "items": {},
+            "type": "array"
+          }
+        ],
+        "title": "MenuConfigResponse"
+      },
+      "MessageResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "MessageResponse",
+        "type": "object"
+      },
+      "ObjectMapResponse": {
+        "additionalProperties": true,
+        "title": "ObjectMapResponse",
+        "type": "object"
+      },
+      "PromptsResetResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "prompts": {
+            "additionalProperties": true,
+            "title": "Prompts",
+            "type": "object"
+          }
+        },
+        "required": [
+          "message",
+          "prompts"
+        ],
+        "title": "PromptsResetResponse",
+        "type": "object"
+      },
+      "ReauthorizeResponse": {
+        "properties": {
+          "authorization": {
+            "$ref": "#/components/schemas/AuthorizationDetails"
+          },
+          "library_config": {
+            "additionalProperties": true,
+            "title": "Library Config",
+            "type": "object"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "plugin_install": {
+            "additionalProperties": true,
+            "title": "Plugin Install",
+            "type": "object"
+          },
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "plugin_install",
+          "library_config",
+          "authorization"
+        ],
+        "title": "ReauthorizeResponse",
+        "type": "object"
+      },
+      "ReviewItemResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "failed_at": {
+            "title": "Failed At"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Item Id"
+          },
+          "item_name": {
+            "title": "Item Name",
+            "type": "string"
+          },
+          "item_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Type"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "score": {
+            "title": "Score"
+          }
+        },
+        "required": [
+          "item_id",
+          "item_name"
+        ],
+        "title": "ReviewItemResponse",
+        "type": "object"
+      },
+      "ReviewItemsResponse": {
+        "properties": {
+          "current_page": {
+            "title": "Current Page",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "per_page": {
+            "title": "Per Page",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "total_items": {
+            "title": "Total Items",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total_items",
+          "total_pages",
+          "current_page",
+          "per_page",
+          "query",
+          "reason"
+        ],
+        "title": "ReviewItemsResponse",
+        "type": "object"
+      },
+      "RuntimeStatusResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "current_action": {
+            "default": "",
+            "title": "Current Action",
+            "type": "string"
+          },
+          "is_running": {
+            "default": false,
+            "title": "Is Running",
+            "type": "boolean"
+          },
+          "last_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Action"
+          },
+          "logs": {
+            "items": {},
+            "title": "Logs",
+            "type": "array"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "default": 0,
+            "title": "Progress"
+          }
+        },
+        "title": "RuntimeStatusResponse",
+        "type": "object"
+      },
+      "ServiceStatusResponse": {
+        "properties": {
+          "authorized": {
+            "title": "Authorized",
+            "type": "boolean"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorized"
+        ],
+        "title": "ServiceStatusResponse",
+        "type": "object"
+      },
+      "SetupResponse": {
+        "properties": {
+          "library_config": {
+            "additionalProperties": true,
+            "title": "Library Config",
+            "type": "object"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "plugin_install": {
+            "additionalProperties": true,
+            "title": "Plugin Install",
+            "type": "object"
+          },
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/AuthUser"
+          }
+        },
+        "required": [
+          "message",
+          "plugin_install",
+          "library_config",
+          "user"
+        ],
+        "title": "SetupResponse",
+        "type": "object"
+      },
+      "StatusResponse": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "StatusResponse",
+        "type": "object"
+      },
+      "StringMapResponse": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "title": "StringMapResponse",
+        "type": "object"
+      },
+      "TaskDefinitionResponse": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "help": {
+            "title": "Help",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "processor_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processor Type"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "help",
+          "description"
+        ],
+        "title": "TaskDefinitionResponse",
+        "type": "object"
+      },
+      "TelegramTemplatesSavedResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "templates": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Templates",
+            "type": "object"
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "templates"
+        ],
+        "title": "TelegramTemplatesSavedResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Emby Toolkit",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/ai/models": {
+      "post": {
+        "operationId": "list_ai_models_api_ai_models_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "ai_api_key": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Ai Api Key"
+                  },
+                  "ai_base_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Ai Base Url"
+                  },
+                  "ai_model_name": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Ai Model Name"
+                  },
+                  "ai_provider": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Ai Provider"
+                  }
+                },
+                "title": "AIConfigurationRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Ai Models",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/ai/prompts": {
+      "get": {
+        "operationId": "get_ai_prompts_api_ai_prompts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectMapResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Ai Prompts",
+        "tags": [
+          "system"
+        ]
+      },
+      "post": {
+        "operationId": "save_ai_prompts_api_ai_prompts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "ObjectRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Save Ai Prompts",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/ai/prompts/reset": {
+      "post": {
+        "operationId": "reset_ai_prompts_api_ai_prompts_reset_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromptsResetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reset Ai Prompts",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/ai/test": {
+      "post": {
+        "operationId": "test_ai_api_ai_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "ai_api_key": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Ai Api Key"
+                  },
+                  "ai_base_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Ai Base Url"
+                  },
+                  "ai_model_name": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Ai Model Name"
+                  },
+                  "ai_provider": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Ai Provider"
+                  }
+                },
+                "title": "AIConfigurationRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Test Ai",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/auth/check_status": {
+      "get": {
+        "operationId": "check_status_api_auth_check_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Check Status",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "password": {
+                    "default": "",
+                    "title": "Password",
+                    "type": "string"
+                  },
+                  "username": {
+                    "default": "",
+                    "title": "Username",
+                    "type": "string"
+                  }
+                },
+                "title": "LoginRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/reauthorize": {
+      "post": {
+        "operationId": "reauthorize_api_auth_reauthorize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "password": {
+                    "default": "",
+                    "title": "Password",
+                    "type": "string"
+                  },
+                  "url": {
+                    "default": "",
+                    "title": "Url",
+                    "type": "string"
+                  },
+                  "username": {
+                    "default": "",
+                    "title": "Username",
+                    "type": "string"
+                  }
+                },
+                "title": "ReauthorizeRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthorizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reauthorize",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/request_recovery": {
+      "post": {
+        "operationId": "request_recovery_api_auth_request_recovery_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Request Recovery",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/service_status": {
+      "get": {
+        "operationId": "service_status_api_auth_service_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Service Status",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/setup": {
+      "post": {
+        "operationId": "setup_api_auth_setup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "password": {
+                    "default": "",
+                    "title": "Password",
+                    "type": "string"
+                  },
+                  "url": {
+                    "default": "",
+                    "title": "Url",
+                    "type": "string"
+                  },
+                  "username": {
+                    "default": "",
+                    "title": "Username",
+                    "type": "string"
+                  }
+                },
+                "title": "SetupRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Setup",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/auth/verify_recovery": {
+      "post": {
+        "operationId": "verify_recovery_api_auth_verify_recovery_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "token": {
+                    "default": "",
+                    "title": "Token",
+                    "type": "string"
+                  }
+                },
+                "title": "RecoveryVerifyRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Verify Recovery",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/config": {
+      "get": {
+        "operationId": "read_config_api_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Config",
+        "tags": [
+          "system"
+        ]
+      },
+      "post": {
+        "operationId": "save_config_api_config_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "ConfigurationUpdateRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationSavedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Save Config",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/config/custom_theme": {
+      "delete": {
+        "operationId": "delete_custom_theme_api_config_custom_theme_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete Custom Theme",
+        "tags": [
+          "system"
+        ]
+      },
+      "post": {
+        "operationId": "save_custom_theme_api_config_custom_theme_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "ObjectRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Save Custom Theme",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/database/stats/core": {
+      "get": {
+        "operationId": "database_stats_core_api_database_stats_core_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Stats Core",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/database/stats/library": {
+      "get": {
+        "operationId": "database_stats_library_api_database_stats_library_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Stats Library",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/database/stats/rankings": {
+      "get": {
+        "operationId": "database_stats_rankings_api_database_stats_rankings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Stats Rankings",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/database/stats/system": {
+      "get": {
+        "operationId": "database_stats_system_api_database_stats_system_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Stats System",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/database/tables": {
+      "get": {
+        "operationId": "database_tables_api_database_tables_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseTableListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Tables",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/jobs/{job_id}": {
+      "get": {
+        "operationId": "get_job_api_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Job Api Jobs  Job Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Job",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/jobs/{job_id}/cancel": {
+      "post": {
+        "operationId": "cancel_job_api_jobs__job_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Job Api Jobs  Job Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Job",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/logs/list": {
+      "get": {
+        "operationId": "list_log_files_api_logs_list_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response List Log Files Api Logs List Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Log Files",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/logs/search": {
+      "get": {
+        "operationId": "search_all_logs_api_logs_search_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LogSearchMatch"
+                  },
+                  "title": "Response Search All Logs Api Logs Search Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Search All Logs",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/logs/search_context": {
+      "get": {
+        "operationId": "search_logs_with_context_api_logs_search_context_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LogContextBlock"
+                  },
+                  "title": "Response Search Logs With Context Api Logs Search Context Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Search Logs With Context",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/logs/view": {
+      "get": {
+        "operationId": "view_log_file_api_logs_view_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "View Log File",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/proxy/test": {
+      "post": {
+        "operationId": "test_proxy_api_proxy_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Url"
+                  }
+                },
+                "title": "ProxyTestRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Test Proxy",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/review_items": {
+      "get": {
+        "operationId": "review_items_api_review_items_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewItemsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Review Items",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/review_reasons": {
+      "get": {
+        "operationId": "review_reasons_api_review_reasons_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Review Reasons",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/status": {
+      "get": {
+        "operationId": "get_runtime_status_api_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Runtime Status",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/system/about_info": {
+      "get": {
+        "operationId": "about_info_api_system_about_info_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AboutInfoResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "About Info",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/activate_pro": {
+      "post": {
+        "operationId": "activate_pro_api_system_activate_pro_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "license_key": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "License Key"
+                  }
+                },
+                "title": "LicenseRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Activate Pro",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/menu_config": {
+      "get": {
+        "operationId": "get_menu_config_api_system_menu_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MenuConfigResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Menu Config",
+        "tags": [
+          "system"
+        ]
+      },
+      "post": {
+        "operationId": "save_menu_config_api_system_menu_config_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "items": {},
+                    "type": "array"
+                  }
+                ],
+                "title": "MenuConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Save Menu Config",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/menu_config/reset": {
+      "post": {
+        "operationId": "reset_menu_config_api_system_menu_config_reset_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reset Menu Config",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/pro_pricing": {
+      "get": {
+        "operationId": "pro_pricing_api_system_pro_pricing_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pro Pricing",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/restart": {
+      "post": {
+        "operationId": "restart_system_api_system_restart_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Restart System Api System Restart Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Restart System",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/system/transfer_pro": {
+      "post": {
+        "operationId": "transfer_pro_api_system_transfer_pro_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "license_key": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "License Key"
+                  }
+                },
+                "title": "LicenseRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Transfer Pro",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/update/stream": {
+      "get": {
+        "operationId": "stream_update_api_system_update_stream_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Stream Update Api System Update Stream Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stream Update",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/tasks/available": {
+      "get": {
+        "operationId": "get_available_tasks_api_tasks_available_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "context",
+            "required": false,
+            "schema": {
+              "default": "chain",
+              "title": "Context",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskDefinitionResponse"
+                  },
+                  "title": "Response Get Available Tasks Api Tasks Available Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Available Tasks",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/tasks/run": {
+      "post": {
+        "operationId": "run_task_api_tasks_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "task_name": {
+                    "title": "Task Name",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "task_name"
+                ],
+                "title": "TaskRunRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Task Api Tasks Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Run Task",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/telegram/templates": {
+      "get": {
+        "operationId": "get_telegram_notification_templates_api_telegram_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringMapResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Telegram Notification Templates",
+        "tags": [
+          "system"
+        ]
+      },
+      "post": {
+        "operationId": "save_telegram_notification_templates_api_telegram_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "templates": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Templates"
+                  }
+                },
+                "title": "TelegramTemplatesRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramTemplatesSavedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Save Telegram Notification Templates",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/telegram/test": {
+      "post": {
+        "operationId": "test_telegram_api_telegram_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "chat_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Chat Id"
+                  },
+                  "token": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Token"
+                  }
+                },
+                "title": "TelegramTestRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Test Telegram",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/trigger_stop_task": {
+      "post": {
+        "operationId": "stop_current_task_api_trigger_stop_task_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stop Current Task Api Trigger Stop Task Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stop Current Task",
+        "tags": [
+          "operations"
+        ]
+      }
+    }
+  }
+}

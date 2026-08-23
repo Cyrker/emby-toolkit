@@ -19,7 +19,14 @@ from etk.platform.db import DatabaseRuntime, EngineConfig
 from scripts.refactor.compare_schema import collect_catalog
 
 TIMEZONE = "Asia/Shanghai"
-EXPECTED_TABLE_COUNT = 39
+LEGACY_TABLE_COUNT = 39
+P4_PLATFORM_TABLES = {
+    "idempotency_records",
+    "job_attempts",
+    "job_runs",
+    "outbox_events",
+}
+EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(P4_PLATFORM_TABLES)
 _FIXTURE_TABLES = (
     "failed_log",
     "processed_log",
@@ -70,7 +77,7 @@ def test_pg18_empty_migrated_schema_executes_all_database_read_queries(
         assert connection.scalar(text("SHOW server_version_num")).startswith("18")
         assert (
             connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version"))
-            == "0001_p2_legacy_baseline"
+            == "0002_p4_persistent_jobs"
         )
 
     service = _service(database_runtime)
@@ -102,6 +109,7 @@ def test_pg18_empty_migrated_schema_executes_all_database_read_queries(
     assert len(table_names) == EXPECTED_TABLE_COUNT
     assert table_names == sorted(table_names)
     assert {"failed_log", "media_metadata", "p115_mediainfo_cache"}.issubset(table_names)
+    assert P4_PLATFORM_TABLES.issubset(table_names)
     assert service.review_items(page=1, per_page=20, query="", reason="") == {
         "items": [],
         "total_items": 0,
@@ -259,6 +267,7 @@ def test_pg18_default_app_factory_serves_all_database_read_routes(
 
     assert all(response.status_code == 200 for response in responses.values())
     assert len(responses["/api/database/tables"].json()) == EXPECTED_TABLE_COUNT
+    assert P4_PLATFORM_TABLES.issubset(responses["/api/database/tables"].json())
     assert responses["/api/review_items"].json()["items"] == []
     assert data_dir.exists() is False
 

@@ -38,18 +38,22 @@ class LegacyEmbyIdentityGateway:
         return emby.test_connection(base_url, access_token)
 
     def install_plugin(self, authorization: Mapping[str, Any], settings: Settings) -> Mapping[str, Any]:
+        from etk.platform.control_plane import ControlPlaneClient
         from handler.emby_discovery import resolve_etk_service_url, validate_internal_service_url
-        from handler.etk_plugin_update import ensure_etk_plugin_installed
 
         manual = str(settings.etk_server_url_manual or "").strip()
         origin = (
             validate_internal_service_url(manual) if manual else resolve_etk_service_url(settings.to_runtime_dict())
         )
-        return ensure_etk_plugin_installed(
-            str(authorization["_normalized_url"]),
-            str(authorization["AccessToken"]),
-            origin,
+        result = ControlPlaneClient().install_emby_plugin(
+            emby_url=str(authorization["_normalized_url"]),
+            emby_token=str(authorization["AccessToken"]),
+            etk_origin=origin,
         )
+        plugin_install = result.get("plugin_install")
+        if not isinstance(plugin_install, Mapping):
+            raise RuntimeError("control-plane response is missing plugin_install")
+        return dict(plugin_install)
 
     def configure_libraries(
         self,

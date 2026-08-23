@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source-contract",
+    "source": "src/etk/domains/operations/system_runtime_router.py",
+    "captured_live": false
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/system/update/stream"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/restart"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "admin-required",
+      "response": {
+        "status": 403,
+        "content_type": "application/json",
+        "body": {
+          "status": "error",
+          "message": "需要 Emby 管理员权限才能执行此操作"
+        }
+      }
+    },
+    {
+      "case_id": "update-busy",
+      "response": {
+        "status": 409,
+        "content_type": "application/json",
+        "body": {
+          "error": "后台有任务正在运行，请稍后再试。"
+        }
+      }
+    },
+    {
+      "case_id": "update-submit-error",
+      "response": {
+        "status": 500,
+        "content_type": "application/json",
+        "body": {
+          "error": "服务器内部错误: fixture submit failure"
+        }
+      }
+    },
+    {
+      "case_id": "update-done",
+      "response": {
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "headers": {
+          "x-etk-job-id": "00000000-0000-0000-0000-000000000001",
+          "cache-control": "no-cache",
+          "x-accel-buffering": "no"
+        },
+        "events": [
+          {
+            "status": "正在执行 fixture 更新"
+          },
+          {
+            "status": "fixture 更新完成",
+            "event": "DONE",
+            "updated": true,
+            "current_version": "1.0.0",
+            "target_version": "1.1.0"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "update-no-update",
+      "response": {
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "events": [
+          {
+            "status": "fixture 已是最新版本",
+            "event": "NO_UPDATE",
+            "updated": false,
+            "current_version": "1.1.0",
+            "target_version": "1.1.0"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "update-error",
+      "response": {
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "events": [
+          {
+            "status": "fixture 更新失败",
+            "event": "ERROR"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "update-reported-error",
+      "response": {
+        "status": 200,
+        "content_type": "text/event-stream; charset=utf-8",
+        "events": [
+          {
+            "status": "fixture daemon unavailable",
+            "event": "ERROR"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "restart-success",
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "message": "重启任务已提交。",
+          "job_id": "00000000-0000-0000-0000-000000000001"
+        }
+      }
+    },
+    {
+      "case_id": "restart-submit-error",
+      "response": {
+        "status": 500,
+        "content_type": "application/json",
+        "body": {
+          "error": "发生意外错误: fixture submit failure"
+        }
+      }
+    }
+  ]
+}

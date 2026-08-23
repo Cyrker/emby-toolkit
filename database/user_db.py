@@ -2,6 +2,8 @@
 import psycopg2
 import uuid
 import json
+import hashlib
+import re
 from psycopg2.extras import execute_values
 import logging
 from typing import List, Dict, Any, Optional, Tuple # 导入 Tuple
@@ -995,6 +997,161 @@ def extend_user_expiration_days(user_id: str, days: float) -> Optional[str]:
     except Exception as e:
         logger.error(f"延长用户 {user_id} 有效期失败: {e}", exc_info=True)
         raise
+
+
+def grant_play_pool_reward_once(
+    user_id: str,
+    reward_date: str,
+    reward_type: str,
+    reward_days: float,
+    reward_mode: str,
+) -> Dict[str, Any]:
+    """Atomically reserve a daily reward receipt and extend the user's entitlement."""
+    user_id = str(user_id or '').strip()
+    reward_date = str(reward_date or '').strip()
+    reward_type = str(reward_type or '').strip().lower()
+    reward_mode = str(reward_mode or '').strip().lower()
+    days = float(reward_days or 0)
+    if not user_id:
+        raise ValueError('奖励缺少用户 ID')
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', reward_date):
+        raise ValueError('奖励日期必须使用 YYYY-MM-DD')
+    if not re.fullmatch(r'[a-z0-9][a-z0-9._-]{0,63}', reward_type):
+        raise ValueError('奖励类型无效')
+    if days <= 0:
+        raise ValueError('奖励天数必须为正数')
+
+    user_hash = hashlib.sha256(user_id.encode('utf-8')).hexdigest()
+    setting_key = f'etk:p4:play-pool-reward:v1:{user_hash}:{reward_date}:{reward_type}'
+    receipt = {
+        'version': 1,
+        'user_id_hash': user_hash,
+        'reward_date': reward_date,
+        'reward_type': reward_type,
+        'reward_days': days,
+        'reward_mode': reward_mode,
+        'expiration_date': '',
+    }
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES (%s, %s::jsonb, NOW())
+                    ON CONFLICT (setting_key) DO NOTHING
+                    RETURNING setting_key
+                    """,
+                    (setting_key, json.dumps(receipt, ensure_ascii=False, separators=(',', ':'))),
+                )
+                inserted = cursor.fetchone()
+                if not inserted:
+                    cursor.execute(
+                        "SELECT value_json FROM app_settings WHERE setting_key = %s",
+                        (setting_key,),
+                    )
+                    existing = cursor.fetchone() or {}
+                    value = existing.get('value_json') if isinstance(existing, dict) else existing[0]
+                    value = value if isinstance(value, dict) else {}
+                    conn.commit()
+                    return {
+                        'granted': False,
+                        'setting_key': setting_key,
+                        'expiration_date': str(value.get('expiration_date') or ''),
+                        'receipt': value,
+                    }
+
+                cursor.execute(
+                    "SELECT 1 FROM emby_users_extended WHERE emby_user_id = %s",
+                    (user_id,),
+                )
+                if not cursor.fetchone():
+                    cursor.execute(
+                        """
+                        INSERT INTO emby_users_extended (emby_user_id, status, created_by)
+                        VALUES (%s, 'active', 'cookie-reward')
+                        """,
+                        (user_id,),
+                    )
+                cursor.execute(
+                    """
+                    UPDATE emby_users_extended
+                    SET expiration_date = GREATEST(COALESCE(expiration_date, NOW()), NOW())
+                        + (%s * INTERVAL '1 day')
+                    WHERE emby_user_id = %s
+                    RETURNING expiration_date
+                    """,
+                    (days, user_id),
+                )
+                updated = cursor.fetchone()
+                expiration_value = (
+                    updated.get('expiration_date')
+                    if isinstance(updated, dict)
+                    else (updated[0] if updated else None)
+                )
+                expiration = (
+                    expiration_value.isoformat()
+                    if expiration_value
+                    else ''
+                )
+                receipt['expiration_date'] = expiration
+                cursor.execute(
+                    """
+                    UPDATE app_settings
+                    SET value_json = %s::jsonb, last_updated_at = NOW()
+                    WHERE setting_key = %s
+                    """,
+                    (json.dumps(receipt, ensure_ascii=False, separators=(',', ':')), setting_key),
+                )
+                conn.commit()
+                return {
+                    'granted': True,
+                    'setting_key': setting_key,
+                    'expiration_date': expiration,
+                    'receipt': receipt,
+                }
+    except Exception as e:
+        logger.error(f'原子发放用户 {user_id} 播放池奖励失败: {e}', exc_info=True)
+        raise
+
+
+def get_play_pool_reward_summary(user_id: str) -> Dict[str, Any]:
+    user_id = str(user_id or '').strip()
+    if not user_id:
+        return {}
+    user_hash = hashlib.sha256(user_id.encode('utf-8')).hexdigest()
+    prefix = f'etk:p4:play-pool-reward:v1:{user_hash}:'
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT value_json
+                    FROM app_settings
+                    WHERE setting_key LIKE %s
+                    ORDER BY setting_key DESC
+                    """,
+                    (prefix + '%',),
+                )
+                rows = cursor.fetchall()
+    except Exception as e:
+        logger.error(f'读取用户 {user_id} 播放池奖励汇总失败: {e}', exc_info=True)
+        raise
+    receipts = []
+    for row in rows:
+        value = row.get('value_json') if isinstance(row, dict) else row[0]
+        if isinstance(value, dict):
+            receipts.append(value)
+    if not receipts:
+        return {}
+    latest = receipts[0]
+    return {
+        'total_days': round(sum(float(item.get('reward_days') or 0) for item in receipts), 2),
+        'last_reward_days': float(latest.get('reward_days') or 0),
+        'last_reward_date': str(latest.get('reward_date') or ''),
+        'last_reward_mode': str(latest.get('reward_mode') or ''),
+        'last_expiration_date': str(latest.get('expiration_date') or ''),
+    }
 
 def delete_user_from_db(user_id: str) -> int:
     """从本地数据库删除一个用户，返回受影响行数。"""

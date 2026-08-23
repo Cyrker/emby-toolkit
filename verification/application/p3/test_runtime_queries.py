@@ -15,6 +15,7 @@ from etk.platform import AppContainer, Settings
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TASK_MANIFEST = REPO_ROOT / "verification" / "contracts" / "task-ownership.yaml"
+ORDERED_TASK_FIXTURE = REPO_ROOT / "verification" / "fixtures" / "tasks" / "ordered-task-catalog.json"
 RUNTIME_FIXTURE = REPO_ROOT / "verification" / "fixtures" / "http" / "runtime-query-routes.json"
 SECRET_KEY = b"p3-runtime-query-session-key"
 
@@ -73,7 +74,11 @@ def test_runtime_fixture_and_manifest_catalog_cover_query_contracts() -> None:
     all_tasks = catalog.available("all")
     chain_tasks = catalog.available("chain")
     manual_tasks = catalog.available("manual")
+    ordered_fixture = json.loads(ORDERED_TASK_FIXTURE.read_text(encoding="utf-8"))
     assert len(all_tasks) == 50
+    assert [task["key"] for task in all_tasks] == ordered_fixture["contexts"]["all"]
+    assert [task["key"] for task in chain_tasks] == ordered_fixture["contexts"]["chain"]
+    assert [task["key"] for task in manual_tasks] == ordered_fixture["contexts"]["manual"]
     assert catalog.available("invalid") == chain_tasks
     assert all("processor_type" in task for task in all_tasks)
     assert all("processor_type" not in task for task in chain_tasks + manual_tasks)

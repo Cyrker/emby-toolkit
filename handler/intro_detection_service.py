@@ -175,7 +175,6 @@ def enqueue_item(
         if not _claim_recent(job_key):
             return {"ok": True, "queued": False, "skipped": True, "reason": "duplicate"}
 
-        _start_worker()
         payload = {
             "kind": "item",
             "item": {
@@ -194,6 +193,12 @@ def enqueue_item(
             "trigger": trigger,
             "queued_at": time.time(),
         }
+        import task_manager
+
+        if task_manager.has_persistent_execution():
+            _process_job(payload)
+            return {"ok": True, "queued": True, "completed": True, "item_id": item_id}
+        _start_worker()
         _queue.put_nowait(payload)
         logger.info(
             "  ➜ [片头片尾提取] 已入队：%s S%sE%s（队列 %s）",
@@ -233,7 +238,11 @@ def enqueue_imported_episode_ids(
         if not ids:
             return {"ok": True, "queued": 0, "skipped": True, "reason": "empty"}
 
-        _start_worker()
+        import task_manager
+
+        persistent = task_manager.has_persistent_execution()
+        if not persistent:
+            _start_worker()
         queued = 0
         unresolved = 0
         for item_id in ids:
@@ -245,19 +254,23 @@ def enqueue_imported_episode_ids(
                 continue
             if not _claim_recent(f"{INTRO_JOB_TRIGGER_IMPORT}:{item_id}"):
                 continue
-            _queue.put_nowait({
+            payload = {
                 "kind": "episode",
                 "episode": _episode_to_payload(ref),
                 "trigger": INTRO_JOB_TRIGGER_PLAYBACK if playback_followup else INTRO_JOB_TRIGGER_IMPORT,
                 "queued_at": time.time(),
-            })
+            }
+            if persistent:
+                _process_job(payload)
+            else:
+                _queue.put_nowait(payload)
             queued += 1
         if queued:
             logger.info(
                 "  ➜ [片头片尾提取] 入库后已确认分集落库，入队 %s/%s 集（队列 %s）。",
                 queued,
                 len(ids),
-                _queue.qsize(),
+                0 if persistent else _queue.qsize(),
             )
         if unresolved:
             logger.debug(
@@ -319,14 +332,19 @@ def enqueue_playback_halfway(item: Dict[str, Any]) -> Dict[str, Any]:
 
 def enqueue_active_backfill(limit: int = 50, *, force: bool = False) -> Dict[str, Any]:
     """Queue one missing Episode per season for the configured trigger scope."""
+    persistent = False
     try:
+        import task_manager
+
+        persistent = task_manager.has_persistent_execution()
         mode = get_trigger_mode()
         if mode == INTRO_TRIGGER_MODE_PLAYBACK:
             return {"ok": True, "queued": False, "skipped": True, "reason": "playback_realtime_only"}
         if mode == INTRO_TRIGGER_MODE_OFF or (not force and mode != INTRO_TRIGGER_MODE_IMPORT):
             return {"ok": True, "queued": False, "skipped": True, "reason": "disabled"}
 
-        _start_worker()
+        if not persistent:
+            _start_worker()
         selected_library_ids = _intro_detection_library_ids()
         batch_limit = max(1, min(int(limit or 50), 200))
         if mode == INTRO_TRIGGER_MODE_IMPORT:
@@ -347,27 +365,42 @@ def enqueue_active_backfill(limit: int = 50, *, force: bool = False) -> Dict[str
             if not _claim_recent(key):
                 continue
             try:
-                _queue.put_nowait({
+                payload = {
                     "kind": "backfill",
                     "episode": _episode_to_payload(ref),
                     "trigger": INTRO_JOB_TRIGGER_BACKFILL,
                     "queued_at": time.time(),
-                })
+                }
+                if persistent:
+                    _process_job(payload)
+                else:
+                    _queue.put_nowait(payload)
                 queued += 1
             except queue.Full:
                 break
 
-        logger.info("  ➜ [片头片尾提取] %s查漏入队完成：%s/%s", scope_label, queued, len(refs))
+        action = "处理完成" if persistent else "入队完成"
+        logger.info("  ➜ [片头片尾提取] %s查漏%s：%s/%s", scope_label, action, queued, len(refs))
         return {
             "ok": True,
             "queued": queued > 0,
+            "completed": persistent,
             "count": queued,
             "candidates": len(refs),
             "scope": "library" if mode == INTRO_TRIGGER_MODE_IMPORT else "favorite",
         }
     except Exception as e:
+        if persistent:
+            raise
         logger.warning("  ➜ [片头片尾提取] 活跃追剧查漏入队失败: %s", e)
         return {"ok": False, "queued": False, "reason": "service_unavailable", "error": str(e)}
+
+
+def run_active_backfill_persistent(limit: int = 50, *, force: bool = False) -> Dict[str, Any]:
+    result = enqueue_active_backfill(limit=limit, force=force)
+    if not result.get("ok"):
+        raise RuntimeError(result.get("error") or result.get("reason") or "intro backfill failed")
+    return result
 
 
 def get_trigger_mode() -> str:
@@ -1105,6 +1138,21 @@ def _schedule_next_batch_if_needed(
     if not has_intro and not has_credits:
         return
 
+    import task_manager
+
+    if task_manager.has_persistent_execution():
+        submitted = task_manager.submit_task(
+            task_process_intro_continuation,
+            task_name=f"片头片尾继续处理: {target.series_title}",
+            processor_type='media',
+            episode=_episode_to_payload(target),
+            trigger=trigger,
+            silent=True,
+        )
+        if not submitted:
+            raise RuntimeError("intro continuation Job was not accepted")
+        return
+
     def enqueue_later() -> None:
         try:
             _queue.put_nowait({
@@ -1128,6 +1176,18 @@ def _schedule_next_batch_if_needed(
             )
 
     spawn_later(BATCH_CONTINUATION_DELAY_SECONDS, enqueue_later)
+
+
+def task_process_intro_continuation(_processor, *, episode: Dict[str, Any], trigger: str) -> None:
+    _process_job(
+        {
+            "kind": "episode",
+            "episode": dict(episode),
+            "trigger": trigger,
+            "queued_at": time.time(),
+            "continuation": True,
+        }
+    )
 
 
 def _resolve_episode_ref(job: Dict[str, Any]) -> Optional[EpisodeRef]:

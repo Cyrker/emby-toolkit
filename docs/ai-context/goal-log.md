@@ -380,6 +380,116 @@ Next:
   and the 50-key executable task mapping. Keep the compatibility fallback until P11.
 - Keep all real external-system Live Acceptance pending.
 
+## P4
+
+Status: DONE
+
+Evidence:
+
+- Added a PostgreSQL-backed persistent Job Store, attempt/run/outbox tables, Alembic revision
+  `0002_p4_persistent_jobs`, Celery 5/Redis 7 delivery, a leader-elected Coordinator, API task
+  projection, cancellation, timeout, retry, lease recovery, task chaining, and the executable
+  registry for all 50 frozen task keys. Scheduler startup remains disabled by default.
+- Made execution fencing explicit across no-effect, inflight, and committed phases. Direct Job
+  timeout, cancellation, and shutdown persist terminal/fence state before the single-concurrency
+  Worker attempt process is terminated after `ETK_JOB_TERMINATION_GRACE_SECONDS`; effects that may
+  have started enter `indeterminate` reconciliation and are never automatically replayed.
+- Added signal-safe sticky shutdown handling and Celery initialization-race requeue behavior.
+  Control-plane actions now use `prepare -> execute -> status(request_id)` certainty with
+  `confirmed-no-effect`, `unknown`, and `observed-complete` states plus persisted abandoned-effect
+  markers. Only failures proven to have no external effect may resume the same Job ID.
+- Hardened persistent external-effect boundaries: P115 cache replacement occurs only after every
+  authoritative page succeeds; shared-center secrets use owner-bound opaque TTL references and do
+  not enter durable payloads; semantic effect identities exclude display and secret fields;
+  virtual-washing cancellation releases pre-effect receipts; organize children freeze account and
+  target bindings; all-failed library sharing no longer reports success; play-pool rewards use an
+  atomic receipt ledger.
+- Split the Greenfield runtime into API, Worker, Coordinator, migrate, and Docker control-plane
+  roles. Only control-plane receives the Docker socket; token storage is control-plane read/write
+  and Worker read-only. Target selection is allowlisted by exact Emby Server ID and excludes the
+  ETK service by image/name/Compose service identity without treating unrelated Compose metadata
+  paths as service identity. Split-role self-update fails closed before a Docker write.
+- Final default verification passed `432 passed, 66 skipped, 1 warning` in 11.98 seconds. The 66
+  skips are explicit opt-in PostgreSQL/Celery integration cases covered by the separate real local
+  runs. The warning is the planned Starlette `WSGIMiddleware` compatibility deprecation for P11.
+- Disposable PostgreSQL 18 verification passed `69 passed, 9 skipped`; the schema reached Alembic
+  head `0002_p4_persistent_jobs` with 39 legacy tables plus `idempotency_records`, `job_attempts`,
+  `job_runs`, and `outbox_events` (43 total). The nine skips are only the independently gated
+  Celery/Redis suite.
+- Combined disposable PostgreSQL 18 + Redis + real Celery Worker/Coordinator verification passed
+  `58 passed, 1 warning` in 83.25 seconds. It covered duplicate delivery, Redis outage/recovery,
+  Worker `kill -9` and lease recovery, cancel/timeout, leader failover, idle/active `SIGTERM`,
+  PostgreSQL persistence, and Worker runtime control. CI enables this suite with
+  `ETK_RUN_CELERY_REDIS_INTEGRATION=1`.
+- The two embedded legacy unittest modules passed 66 tests. Pyright reported 0 errors and 0
+  warnings; scoped Ruff check and Ruff format check passed across 144 files; all touched legacy
+  Python passed `F821`, `py_compile`, and repository-wide `compileall`. Manifest, P4 OpenAPI,
+  fixture/HTTP/database secret scans, Compose config, and `git diff --check` were clean.
+- Frozen assets remain internally consistent: 126 legacy Python files, 55 Vue files, 22
+  Blueprints, 343 route decorators, 367 method/path bindings, 50 task keys, and 39 legacy tables.
+  The ordered task catalog was re-exported structurally from AST source signatures.
+- Frontend Node behavior tests passed all 4 cases; `frontend npm ci` and the Vite production build
+  passed. Root `npm ci` and the VitePress documentation build passed. The tracked Windows root
+  dependency snapshot was restored after macOS validation, and `node_modules` is absent from the
+  P4 Git diff.
+- Built final local arm64 image
+  `sha256:14e71aa7f8871fe46ae5c0a39e9d00ddf817431207e458a00f0bd047b585429a`
+  (334,763,134 bytes). It contains the frontend assets and excludes `web_app.py` and PyArmor.
+- Final isolated smoke used Compose project `etk-p4-gf-0823a`, fresh PG18/Redis/config volumes, an
+  internal network, Fake Emby/auth services, no external credentials, and scheduler disabled. API,
+  Worker, Coordinator, and control-plane health passed; the schema was PG18/43 tables/head 0002;
+  socket/token role boundaries passed; allowlist and exact Server ID prepare succeeded; Server ID
+  mismatch returned confirmed-no-effect; split-role update failed closed; a Redis/Celery
+  `sync-115-directory-tree` Job succeeded against empty local configuration. Docker Compose
+  `down -v --remove-orphans` left zero project containers, networks, or volumes, and the exact
+  temporary smoke directory was deleted afterward.
+- The local stage commit title is `refactor(p4): add persistent task runtime`; its SHA is recorded
+  by Git history rather than amended back into this same commit.
+
+Recorded residuals and limitations:
+
+- Python cannot safely force-stop a provider call inside its thread. A single-concurrency Worker
+  attempt process is the isolation boundary: after the grace period the runtime persists a fence
+  and then uses `SIGKILL`. A call interrupted after effect start is deliberately indeterminate and
+  requires reconciliation; this design does not claim exactly-once external effects.
+- Telegram exposes no provider idempotency key, so provider success between send and local ledger
+  completion remains at-least-once. Shared center, 115, Telegram, HDHive, and MoviePilot response
+  schemas and eventual-consistency behavior remain Live Acceptance pending.
+- Play-pool reward receipts are atomic, but a notification after the transaction may still be
+  lost. Control-plane intentionally holds the high-privilege Docker socket in the only role that
+  can update; production Docker/Emby acceptance remains pending. Greenfield split-role auto-update
+  is disabled, with the complete release workflow deferred to a later stage.
+- The frontend application bundle remains about 3.37 MB and Vite warns above 500 kB. Existing npm
+  `source-map`/`glob` deprecations remain. Starlette WSGI compatibility is retained until P11.
+- No real Emby, 115, MoviePilot, shared center, Telegram, HDHive, production database, old
+  `/config`, credential, webhook, release, push, deployment, or external write was used or accepted.
+
+Primary verification commands:
+
+```text
+uv run pytest -p no:cacheprovider verification -q
+ETK_RUN_POSTGRES_INTEGRATION=1 uv run pytest -p no:cacheprovider verification/integration/p3 verification/integration/p4 verification/integration/platform -q
+ETK_RUN_POSTGRES_INTEGRATION=1 ETK_RUN_CELERY_REDIS_INTEGRATION=1 uv run pytest -p no:cacheprovider verification/integration/p4 -q
+uv run python -m unittest handler.p115_media_recognition handler.tg_media_candidate_flow
+uv run ruff check main.py src/etk verification/application/p4 verification/architecture verification/contracts/test_p4_openapi.py verification/integration/p4 verification/unit/platform/p4 scripts/refactor/export_openapi.py
+uv run ruff format --check main.py src/etk verification/application/p4 verification/architecture verification/contracts/test_p4_openapi.py verification/integration/p4 verification/unit/platform/p4 scripts/refactor/export_openapi.py
+uv run pyright main.py src/etk verification/application/p4 verification/architecture verification/contracts/test_p4_openapi.py verification/integration/p4 verification/unit/platform/p4 scripts/refactor/export_openapi.py
+python3 scripts/refactor/export_manifests.py
+python3 scripts/refactor/check_manifests.py
+uv run python scripts/refactor/export_openapi.py --check
+uv run python scripts/refactor/scan_fixture_secrets.py verification/fixtures
+uv run python scripts/refactor/scan_fixture_secrets.py verification/contracts/http
+uv run python scripts/refactor/scan_fixture_secrets.py verification/contracts/db
+docker compose -f docker/compose.refactor.yml config -q
+docker build -f Dockerfile.refactor -t etk-p4-mainline:local .
+git diff --check
+```
+
+Next:
+
+- Implement P5 Media, Metadata, Image, Bridge, and Emby event ownership from the P4 stage commit.
+- Keep all real external-system Live Acceptance pending.
+
 ## LIVE
 
 Status: HUMAN_PENDING

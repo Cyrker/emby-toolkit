@@ -27,6 +27,7 @@ from database.metadata_provider_db import (
     MEDIA_METADATA_SCHEMA_VERSION,
     needs_metadata_backfill,
 )
+from etk.platform.tasks import TaskOutcome
 from .helpers import parse_full_asset_details, translate_tmdb_metadata_recursively
 from extensions import UPDATING_METADATA
 
@@ -756,6 +757,7 @@ def task_populate_metadata_cache(
     
     total_updated_count = 0
     total_offline_count = 0
+    write_failure_count = 0
 
     try:
         task_manager.update_status_from_thread(0, f"阶段1/3: 建立差异基准 ({sync_mode})...")
@@ -866,7 +868,7 @@ def task_populate_metadata_cache(
             message = f"在库媒体元数据均已达到结构版本 v{MEDIA_METADATA_SCHEMA_VERSION}。"
             logger.info(f"  ➜ {message}")
             task_manager.update_status_from_thread(100, message)
-            return
+            return TaskOutcome.skipped(message)
 
         logger.info("  ➜ 正在预加载 Emby 文件夹路径映射...")
         folder_map = emby.get_all_folder_mappings(processor.emby_url, processor.emby_api_key)
@@ -1794,6 +1796,7 @@ def task_populate_metadata_cache(
                             cursor.execute(sql, tuple(values))
                         except Exception as e:
                             cursor.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name};")
+                            write_failure_count += 1
                             logger.error(f"写入失败 {metadata.get('tmdb_id')}: {e}")
                     
                     # --- B. 执行子集离线对账 ---
@@ -1857,10 +1860,28 @@ def task_populate_metadata_cache(
         )
         logger.info(f"  ➜ {final_msg}")
         task_manager.update_status_from_thread(100, final_msg)
+        if write_failure_count:
+            return TaskOutcome.partial(
+                f"{final_msg}；另有 {write_failure_count} 个数据库写入失败。",
+                {
+                    "failed_writes": write_failure_count,
+                    "processed_roots": processed_count,
+                    "updated_items": total_updated_count,
+                },
+            )
+        return TaskOutcome.succeeded(
+            final_msg,
+            {
+                "processed_roots": processed_count,
+                "updated_items": total_updated_count,
+                "offline_items": total_offline_count,
+            },
+        )
 
     except Exception as e:
         logger.error(f"执行 '{task_name}' 任务时发生严重错误: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"任务失败: {e}")
+        return TaskOutcome.failed(f"{task_name}失败")
 
 
 def task_backfill_media_metadata(processor):

@@ -1,13 +1,11 @@
 import json
 import logging
 import os
-import time
 import posixpath
-
-import docker
 
 import config_manager
 import constants
+import docker
 import handler.github as github
 import task_manager
 
@@ -18,6 +16,10 @@ DEFAULT_IMAGE_NAME_TAG = 'hbq0405/emby-toolkit:latest'
 DEFAULT_UPDATE_STRATEGY = 'docker_helper'
 DEFAULT_HELPER_IMAGE = 'hbq0405/emby-toolkit:latest'
 UPDATE_STATUS_FILE = 'system_update_result.json'
+SPLIT_ROLE_UPDATE_DISABLED_MESSAGE = (
+    'Greenfield split-role 自动更新已禁用：尚未实现覆盖迁移、Worker drain 和全部进程角色的 release workflow。'
+)
+_SPLIT_PROCESS_ROLES = frozenset({'api', 'worker', 'coordinator', 'control-plane'})
 
 
 def _normalize_version_tag(value):
@@ -743,9 +745,18 @@ def _run_watchtower(client, container_name, version_info):
 
 
 def _update_process_generator(container_name, image_name_tag, strategy=None, helper_image=None):
+    if _is_split_role_runtime():
+        yield {
+            "status": SPLIT_ROLE_UPDATE_DISABLED_MESSAGE,
+            "event": "ERROR",
+            "current_version": None,
+            "target_version": None,
+        }
+        return
+
     client = None
     proxies_config = config_manager.get_proxies_for_requests()
-    old_env = os.environ.copy()
+    docker_environment = os.environ.copy()
     version_info = get_system_update_version_info()
     current_version = version_info.get('current_version')
     target_version = version_info.get('target_version')
@@ -754,12 +765,12 @@ def _update_process_generator(container_name, image_name_tag, strategy=None, hel
     try:
         if proxies_config and proxies_config.get('https'):
             proxy_url = proxies_config['https']
-            os.environ['HTTPS_PROXY'] = proxy_url
-            os.environ['HTTP_PROXY'] = proxy_url
+            docker_environment['HTTPS_PROXY'] = proxy_url
+            docker_environment['HTTP_PROXY'] = proxy_url
             yield {"status": f"检测到代理配置，将通过 {proxy_url} 拉取镜像...", "current_version": current_version, "target_version": target_version}
 
         try:
-            client = docker.from_env()
+            client = docker.from_env(environment=docker_environment)
         except Exception as e:
             yield {"status": f"无法连接 Docker 守护进程: {e}", "event": "ERROR", "current_version": current_version, "target_version": target_version}
             return
@@ -847,74 +858,51 @@ def _update_process_generator(container_name, image_name_tag, strategy=None, hel
     except Exception as e:
         yield {"status": f"更新过程中发生未知错误: {str(e)}", "event": "ERROR", "current_version": current_version, "target_version": target_version}
     finally:
-        os.environ.clear()
-        os.environ.update(old_env)
+        if client is not None:
+            close = getattr(client, 'close', None)
+            if callable(close):
+                close()
 
 
 def task_check_and_update_container(processor):
-    update_target = resolve_update_target(getattr(processor, 'config', {}) or {})
-    strategy_info = resolve_update_strategy(getattr(processor, 'config', {}) or {})
-    container_name = update_target['container_name']
-    image_name_tag = update_target['docker_image_name']
-    strategy_name = strategy_info['strategy']
-    helper_image = strategy_info['helper_image']
-    _log_trace(f"--- 开始执行系统更新检查 (容器: {container_name}, 策略: {strategy_name}) ---")
-    task_manager.update_status_from_thread(0, "准备检查更新...")
+    del processor
+    if _is_split_role_runtime():
+        _log_trace("--- Greenfield split-role 系统自动更新已拒绝 ---")
+        task_manager.update_status_from_thread(-1, SPLIT_ROLE_UPDATE_DISABLED_MESSAGE)
+        return {
+            "ok": False,
+            "updated": False,
+            "message": SPLIT_ROLE_UPDATE_DISABLED_MESSAGE,
+            "status": "disabled",
+        }
+
+    target_service = str(os.environ.get('ETK_SYSTEM_TARGET_SERVICE') or 'api').strip()
+    _log_trace(f"--- 开始执行系统更新检查 (服务: {target_service}) ---")
+    task_manager.update_status_from_thread(0, "准备向系统 control-plane 提交更新...")
     result = {
         "ok": False,
         "updated": False,
         "message": "",
-        "strategy": strategy_name,
-        "helper_image": helper_image,
-        **get_system_update_version_info(),
     }
 
-    generator = _update_process_generator(container_name, image_name_tag, strategy=strategy_name, helper_image=helper_image)
-
     try:
-        for event in generator:
-            msg = event.get('status', '')
-            evt_type = event.get('event')
-            if event.get('current_version'):
-                result['current_version'] = event.get('current_version')
-            if event.get('target_version'):
-                result['target_version'] = event.get('target_version')
+        from etk.platform.control_plane import ControlPlaneClient
 
-            if evt_type == 'ERROR':
-                logger.error(f"  ➜ {msg}")
-                task_manager.update_status_from_thread(-1, f"更新失败: {msg}")
-                result.update({"ok": False, "updated": False, "message": msg, "status": "error"})
-                return result
-
-            logger.info(f"  ➜ {msg}")
-
-            if "拉取" in msg:
-                task_manager.update_status_from_thread(30, msg)
-            elif "应用更新" in msg or "Docker Helper" in msg or "Watchtower" in msg:
-                task_manager.update_status_from_thread(80, msg)
-            elif evt_type == 'NO_UPDATE':
-                task_manager.update_status_from_thread(100, "已是最新版本")
-                result.update({"ok": True, "updated": False, "message": msg, "status": "up_to_date"})
-
-            if evt_type == 'RESTARTING':
-                logger.warning("  ➜ 系统即将重启以应用更新...")
-                task_manager.update_status_from_thread(100, "系统正在重启...")
-                result.update({"ok": True, "updated": True, "message": msg, "status": "restarting"})
-                time.sleep(1)
-            elif evt_type == 'DONE':
-                result.update({
-                    "ok": True,
-                    "updated": bool(event.get('updated', result.get('updated'))),
-                    "message": msg,
-                    "status": "done",
-                })
-
+        task_manager.update_status_from_thread(10, "系统更新已提交 control-plane，等待目标服务恢复...")
+        control_result = ControlPlaneClient().update_service(target_service)
+        result.update(control_result)
+        result["ok"] = True
+        if result.get("status") == "up_to_date":
+            task_manager.update_status_from_thread(100, "已是最新版本")
+        else:
+            task_manager.update_status_from_thread(100, "系统更新已完成并观察到目标服务恢复")
     except Exception as e:
         logger.error(f"更新任务异常: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, "任务异常")
         result.update({"ok": False, "updated": False, "message": f"任务异常: {e}", "status": "exception"})
 
-    if not result.get('message'):
-        result.update({"ok": True, "updated": False, "message": "更新检查完成。", "status": "done"})
-
     return result
+
+
+def _is_split_role_runtime():
+    return str(os.environ.get('ETK_PROCESS_ROLE') or '').strip().lower() in _SPLIT_PROCESS_ROLES

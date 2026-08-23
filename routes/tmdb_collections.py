@@ -2,7 +2,8 @@
 
 from flask import Blueprint, request, jsonify
 import logging
-from etk.compatibility.background import spawn, spawn_later
+from etk.compatibility.background import spawn
+from etk.compatibility.persistent_runtime_state import release_once, reserve_once
 # 导入需要的模块
 from database import custom_collection_db, tmdb_collection_db, settings_db
 from extensions import admin_required, DELETING_COLLECTIONS
@@ -15,7 +16,7 @@ from handler import emby
 collections_bp = Blueprint('collections', __name__, url_prefix='/api/collections')
 
 logger = logging.getLogger(__name__)
-_MISSING_COLLECTION_CLEANUPS = set()
+MISSING_COLLECTION_CLEANUP_LEASE_SECONDS = 15 * 60
 
 
 def _collection_image_url(path):
@@ -98,8 +99,9 @@ def _find_matching_emby_collection_ids(tmdb_collection_id, row):
     return verified_ids, base_url, api_key, user_id
 
 
-def _cleanup_missing_collection(tmdb_collection_id, row):
+def _cleanup_missing_collection(tmdb_collection_id, reservation_token):
     try:
+        row = tmdb_collection_db.get_native_collection_by_tmdb_id(tmdb_collection_id)
         matches, base_url, api_key, user_id = _find_matching_emby_collection_ids(
             tmdb_collection_id,
             row,
@@ -110,8 +112,7 @@ def _cleanup_missing_collection(tmdb_collection_id, row):
                 tmdb_collection_id,
             )
         for collection_id, item in matches:
-            DELETING_COLLECTIONS.add(collection_id)
-            spawn_later(10, DELETING_COLLECTIONS.discard, collection_id)
+            DELETING_COLLECTIONS.add_for(collection_id, 10)
             emby.empty_collection_in_emby(collection_id, base_url, api_key, user_id)
             remaining = emby.get_emby_item_details(
                 collection_id,
@@ -152,14 +153,31 @@ def _cleanup_missing_collection(tmdb_collection_id, row):
             tmdb_collection_id,
         )
     finally:
-        _MISSING_COLLECTION_CLEANUPS.discard(tmdb_collection_id)
+        release_once(
+            "tmdb-missing-collection-cleanup",
+            tmdb_collection_id,
+            reservation_token,
+        )
 
 
 def _schedule_missing_collection_cleanup(tmdb_collection_id, row):
-    if tmdb_collection_id in _MISSING_COLLECTION_CLEANUPS:
+    del row
+    reservation_token = reserve_once(
+        "tmdb-missing-collection-cleanup",
+        tmdb_collection_id,
+        MISSING_COLLECTION_CLEANUP_LEASE_SECONDS,
+    )
+    if reservation_token is None:
         return
-    _MISSING_COLLECTION_CLEANUPS.add(tmdb_collection_id)
-    spawn(_cleanup_missing_collection, tmdb_collection_id, row)
+    try:
+        spawn(_cleanup_missing_collection, tmdb_collection_id, reservation_token)
+    except Exception:
+        release_once(
+            "tmdb-missing-collection-cleanup",
+            tmdb_collection_id,
+            reservation_token,
+        )
+        raise
 
 
 @collections_bp.route('/provider/metadata/<tmdb_collection_id>', methods=['GET'])
@@ -266,10 +284,7 @@ def api_delete_collection(emby_collection_id):
 
         if not all([base_url, api_key, user_id]):
             return jsonify({"error": "Emby 配置不完整，无法执行删除操作"}), 500
-        DELETING_COLLECTIONS.add(emby_collection_id)
-        def _clear_flag():
-            DELETING_COLLECTIONS.discard(emby_collection_id)
-        spawn_later(10, _clear_flag)
+        DELETING_COLLECTIONS.add_for(emby_collection_id, 10)
         # 2. 第一步：清空合集 (移除所有成员)
         # 这一步是为了防止 Emby 只是删除了合集壳子但没解绑关系，或者删除失败
         logger.info(f"  ➜ [删除合集] 步骤1: 正在清空合集 {emby_collection_id} 的成员...")

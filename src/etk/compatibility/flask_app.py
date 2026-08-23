@@ -77,6 +77,7 @@ def create_flask_app(
     data_dir: Path | None = None,
     secret_key: bytes | None = None,
     supervisor: RuntimeSupervisorLike | None = None,
+    configuration_synchronizer: Any = None,
     blueprint_specs: Sequence[tuple[str, str]] = LEGACY_BLUEPRINTS,
 ) -> Flask:
     resolved_static = (static_dir or _default_static_dir()).resolve()
@@ -93,6 +94,8 @@ def create_flask_app(
     app.config["ETK_COMPATIBILITY_HOST"] = True
     if supervisor is not None:
         app.extensions["etk_runtime_supervisor"] = supervisor
+    if configuration_synchronizer is not None:
+        app.extensions["etk_runtime_configuration_synchronizer"] = configuration_synchronizer
 
     for blueprint in _load_blueprints(blueprint_specs):
         app.register_blueprint(blueprint)

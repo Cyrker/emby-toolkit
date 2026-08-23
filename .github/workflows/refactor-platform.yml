@@ -1,4 +1,4 @@
-name: Refactor PostgreSQL Platform
+name: Refactor PostgreSQL and Task Platform
 
 on:
   pull_request:
@@ -27,10 +27,20 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
+      redis:
+        image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
 
     env:
       ETK_DATABASE_URL: postgresql+psycopg://etk:etk-ci-only@127.0.0.1:5432/etk
       ETK_TEST_DATABASE_URL: postgresql+psycopg://etk:etk-ci-only@127.0.0.1:5432/etk
+      ETK_REDIS_URL: redis://127.0.0.1:6379/0
 
     steps:
       - name: Checkout
@@ -47,20 +57,28 @@ jobs:
       - name: Sync locked dependencies
         run: uv sync --frozen
 
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run P4 frontend behavior tests
+        run: node --test verification/application/p4/test_quick_deploy_intent.mjs verification/application/p4/test_config_diff.mjs
+
       - name: Lint and type-check platform slice
         run: |
-          uv run ruff check src/etk/platform src/etk/bootstrap scripts/refactor/compare_schema.py verification/unit/platform verification/integration/platform verification/application/p2
-          uv run ruff format --check src/etk/platform src/etk/bootstrap scripts/refactor/compare_schema.py verification/unit/platform verification/integration/platform verification/application/p2
-          uv run pyright src/etk/platform src/etk/bootstrap scripts/refactor/compare_schema.py verification/unit/platform verification/integration/platform verification/application/p2
+          uv run ruff check src/etk/platform src/etk/processes src/etk/bootstrap src/etk/domains/operations scripts/refactor/compare_schema.py verification/unit/platform verification/integration/platform verification/integration/p4 verification/application/p2 verification/application/p4
+          uv run ruff format --check src/etk/platform src/etk/processes src/etk/bootstrap src/etk/domains/operations scripts/refactor/compare_schema.py verification/unit/platform verification/integration/platform verification/integration/p4 verification/application/p2 verification/application/p4
+          uv run pyright src/etk/platform src/etk/processes src/etk/bootstrap src/etk/domains/operations scripts/refactor/compare_schema.py verification/unit/platform verification/integration/platform verification/integration/p4 verification/application/p2 verification/application/p4
 
       - name: Validate Greenfield Compose
         run: docker compose -f docker/compose.refactor.yml config -q
 
       - name: Run platform unit and application tests
-        run: uv run pytest verification/unit/platform verification/application/p2 -q
+        run: uv run pytest verification/unit/platform verification/application/p2 verification/application/p4 -q
 
-      - name: Upgrade empty PostgreSQL 18 database
-        run: uv run alembic upgrade head
+      - name: Upgrade empty PostgreSQL 18 database to legacy baseline
+        run: uv run alembic upgrade 0001_p2_legacy_baseline
 
       - name: Compare PostgreSQL catalog
         run: >-
@@ -68,5 +86,10 @@ jobs:
           verification/contracts/db/legacy-pg-catalog.json
           "$ETK_DATABASE_URL"
 
+      - name: Upgrade PostgreSQL 18 database to P4 head
+        run: uv run alembic upgrade head
+
       - name: Run platform integration tests
-        run: uv run pytest verification/integration/platform -q
+        env:
+          ETK_RUN_CELERY_REDIS_INTEGRATION: "1"
+        run: uv run pytest verification/integration/platform verification/integration/p4 -q

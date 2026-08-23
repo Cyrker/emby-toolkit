@@ -162,7 +162,10 @@ def test_flask_compatibility_routes_spa_static_and_setup_contract(tmp_path: Path
     assert not is_tg_task_consumer_running()
 
 
-def test_runtime_startup_materializes_compatibility_app_before_health(tmp_path: Path, monkeypatch) -> None:
+def test_p4_api_startup_keeps_compatibility_app_lazy_and_owns_no_background_services(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     data_dir = tmp_path / "data"
     static_dir = tmp_path / "static"
     static_dir.mkdir()
@@ -179,8 +182,9 @@ def test_runtime_startup_materializes_compatibility_app_before_health(tmp_path: 
     )
 
     with TestClient(app) as client:
-        assert app.state.compatibility_app.flask_app is not None
+        assert app.state.compatibility_app.flask_app is None
         assert client.get("/api/health").json() == {"status": "ok"}
-        assert events == [("start", RuntimeRole.API, True)]
+        assert app.state.compatibility_app.flask_app is None
+        assert events == [("start", RuntimeRole.API, False)]
 
-    assert events == [("start", RuntimeRole.API, True), ("stop",)]
+    assert events == [("start", RuntimeRole.API, False), ("stop",)]

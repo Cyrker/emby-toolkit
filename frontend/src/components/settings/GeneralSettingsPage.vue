@@ -2124,6 +2124,11 @@ import {
   SparklesOutline as SparklesIcon
 } from '@vicons/ionicons5';
 import { useConfig } from '../../composables/useConfig.js';
+import {
+  assertQuickDeployResponse,
+  clearQuickDeployIntent,
+  getQuickDeployIntent
+} from './quickDeployIntent.js';
 import RenameConfigModal from './RenameConfigModal.vue';
 import EpisodeRegexConfigModal from './EpisodeRegexConfigModal.vue';
 import RuleManagerModal from './RuleManagerModal.vue'; 
@@ -3432,17 +3437,17 @@ const handleQuickDeploy115 = () => {
     quickDeployStatus.value = '正在启动一键部署...';
     quickDeployLocalDirs.value = [];
     quickDeployEmbyLibraries.value = [];
+    let finalEvent = null;
     try {
-      const response = await fetch('/api/p115/quick_deploy?stream=1', { method: 'POST' });
-      if (!response.ok || !response.body) {
-        throw new Error(`请求失败: HTTP ${response.status}`);
-      }
+      const response = await fetch('/api/p115/quick_deploy?stream=1', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': getQuickDeployIntent() }
+      });
+      await assertQuickDeployResponse(response);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
-      let finalEvent = null;
-
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -3466,6 +3471,7 @@ const handleQuickDeploy115 = () => {
         if (event.type === 'done') finalEvent = event;
       }
 
+      if (finalEvent) clearQuickDeployIntent();
       if (!finalEvent?.success) {
         throw new Error(finalEvent?.message || '一键部署失败');
       }

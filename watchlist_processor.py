@@ -24,6 +24,14 @@ import logging
 from etk.compatibility.background import spawn
 
 logger = logging.getLogger(__name__)
+
+
+def _has_persistent_execution() -> bool:
+    import task_manager
+
+    return task_manager.has_persistent_execution()
+
+
 # ✨✨✨ Tmdb状态翻译字典 ✨✨✨
 TMDB_STATUS_TRANSLATION = {
     "Ended": "已完结",
@@ -262,6 +270,7 @@ class WatchlistProcessor:
         self.progress_callback = progress_callback
         task_name = "并发追剧更新"
         if tmdb_id: task_name = f"单项追剧更新 (TMDb ID: {tmdb_id})"
+        persistent_execution = _has_persistent_execution()
 
         precise_new_episode_ids = []
         for eid in new_episode_ids or []:
@@ -313,6 +322,7 @@ class WatchlistProcessor:
                 self.progress_callback(5, f"开始并发处理 {total} 部剧集...")
                 
                 processed_count = 0
+                failures: list[Exception] = []
                 lock = threading.Lock()
 
                 def worker_process_series(series: dict):
@@ -332,6 +342,8 @@ class WatchlistProcessor:
                         return "处理成功"
                     except Exception as e:
                         logger.error(f"处理剧集 {series_name} 时发生错误: {e}", exc_info=False)
+                        if persistent_execution:
+                            raise
                         return f"处理失败: {e}"
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -350,6 +362,8 @@ class WatchlistProcessor:
                             logger.trace(f"'{series_name}' - {result}")
                         except Exception as exc:
                             logger.error(f"任务 '{series_name}' 执行时产生未捕获的异常: {exc}")
+                            if persistent_execution:
+                                failures.append(exc)
 
                         with lock:
                             processed_count += 1
@@ -359,6 +373,9 @@ class WatchlistProcessor:
                             progress,
                             f"剧集处理: {processed_count}/{total} - {series_name[:15]}..."
                         )
+
+                if failures:
+                    raise ExceptionGroup(f"智能追剧并发处理失败（{len(failures)} 个剧集）", failures)
                 
                 if not self.is_stop_requested():
                     self.progress_callback(100, "追剧检查完成。")
@@ -368,6 +385,8 @@ class WatchlistProcessor:
         except Exception as e:
             logger.error(f"执行 '{task_name}' 时发生严重错误: {e}", exc_info=True)
             self.progress_callback(-1, f"错误: {e}")
+            if persistent_execution:
+                raise
         finally:
             self.progress_callback = None
 
@@ -1561,6 +1580,8 @@ class WatchlistProcessor:
             return
         except Exception as assistant_error:
             logger.warning(f"  ➜ [订阅助手] 增强同步失败，已停止旧 MP 订阅策略回退: {assistant_error}", exc_info=True)
+            if _has_persistent_execution():
+                raise
 
     def _check_season_consistency(self, tmdb_id: str, season_number: int, expected_episode_count: int) -> bool:
         """统一调用 tasks.helpers.check_season_consistency，保留旧方法名兼容现有调用。"""

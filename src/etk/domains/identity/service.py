@@ -27,7 +27,13 @@ from .models import (
     StatusResponse,
     error_result,
 )
-from .ports import ConfigurationWriter, EmbyIdentityGateway, IdentityRepository
+from .ports import (
+    ConfigurationWriter,
+    EmbyIdentityGateway,
+    IdentityRepository,
+    PostAuthorizationSubmission,
+    PostAuthorizationSubmitter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,12 +84,14 @@ class IdentityService:
         repository: IdentityRepository,
         gateway: EmbyIdentityGateway,
         configuration: ConfigurationWriter,
+        post_authorization: PostAuthorizationSubmitter,
         recovery_tokens: RecoveryTokenStore | None = None,
     ) -> None:
         self._settings = settings
         self.repository = repository
         self._gateway = gateway
         self._configuration = configuration
+        self._post_authorization_submitter = post_authorization
         self._recovery_tokens = recovery_tokens or RecoveryTokenStore()
 
     def check_status(self, session: SessionState) -> IdentityResult:
@@ -187,9 +195,16 @@ class IdentityService:
         except Exception:
             logger.exception("Saving Emby service authorization failed")
             return error_result("保存配置失败，请检查日志", status_code=500)
-        plugin_install, library_config = self._post_authorization(authorization, settings)
         user = _authorization_user(authorization)
         self._start_session(user, session)
+        try:
+            plugin_install, library_config = self._post_authorization(settings)
+        except Exception:
+            logger.exception("Submitting post-authorization workflow failed")
+            return error_result(
+                "Emby 服务授权已保存，但插件与媒体库配置任务提交失败，请检查任务服务",
+                status_code=503,
+            )
         logger.info("Emby administrator service authorization saved without account password")
         return IdentityResult(
             SetupResponse(
@@ -229,7 +244,14 @@ class IdentityService:
         except Exception:
             logger.exception("Reauthorizing Emby service failed")
             return error_result("保存服务授权失败，请检查日志", status_code=500)
-        plugin_install, library_config = self._post_authorization(authorization, settings)
+        try:
+            plugin_install, library_config = self._post_authorization(settings)
+        except Exception:
+            logger.exception("Submitting reauthorization workflow failed")
+            return error_result(
+                "Emby 服务授权已更新，但插件与媒体库配置任务提交失败，请检查任务服务",
+                status_code=503,
+            )
         user = _authorization_user(authorization)
         return IdentityResult(
             ReauthorizeResponse(
@@ -316,20 +338,10 @@ class IdentityService:
 
     def _post_authorization(
         self,
-        authorization: Mapping[str, Any],
         settings: Settings,
     ) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
-        try:
-            plugin_install = self._gateway.install_plugin(authorization, settings)
-        except Exception as exc:
-            logger.exception("ETK plugin installation after authorization failed")
-            plugin_install = {"ok": False, "message": str(exc)}
-        try:
-            library_config = self._gateway.configure_libraries(authorization, plugin_install)
-        except Exception as exc:
-            logger.exception("Emby library configuration after authorization failed")
-            library_config = {"ok": False, "message": str(exc)}
-        return plugin_install, library_config
+        submission = self._post_authorization_submitter.submit(settings)
+        return _post_authorization_projection(submission)
 
     def _start_session(self, user: Mapping[str, Any], session: SessionState) -> None:
         try:
@@ -347,6 +359,71 @@ class IdentityService:
         )
 
 
+def _post_authorization_projection(
+    submission: PostAuthorizationSubmission,
+) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    job_id = submission.job_id
+    if submission.status == "succeeded":
+        result = dict(submission.result or {})
+        plugin_value = result.get("plugin_install")
+        library_value = result.get("library_config")
+        plugin_install = (
+            dict(plugin_value)
+            if isinstance(plugin_value, Mapping)
+            else {
+                "ok": False,
+                "status": "succeeded",
+                "message": "插件任务已完成，但持久化结果缺少插件状态",
+            }
+        )
+        library_config = (
+            dict(library_value)
+            if isinstance(library_value, Mapping)
+            else {
+                "ok": False,
+                "status": "succeeded",
+                "message": "插件任务已完成，但持久化结果缺少媒体库状态",
+            }
+        )
+        plugin_install.setdefault("job_id", job_id)
+        library_config.setdefault("job_id", job_id)
+        return plugin_install, library_config
+
+    if submission.status in {"queued", "running", "retry_wait", "cancel_requested"}:
+        plugin_message = "ETK 插件安装任务已恢复" if submission.resumed else "ETK 插件安装任务已提交"
+        plugin_install = {
+            "ok": False,
+            "status": "pending",
+            "message": plugin_message,
+            "job_id": job_id,
+        }
+        library_config = {
+            "ok": False,
+            "status": "pending",
+            "message": "媒体库加速配置等待插件安装完成",
+            "job_id": job_id,
+        }
+        return plugin_install, library_config
+
+    error = dict(submission.error or {})
+    message = str(error.get("message") or "插件与媒体库配置任务未完成")
+    if submission.error_type == "PersistentEffectIndeterminate":
+        message = f"{message}；外部写入结果未知，未自动重放"
+    plugin_install = {
+        "ok": False,
+        "status": submission.status,
+        "message": message,
+        "job_id": job_id,
+    }
+    library_config = {
+        "ok": False,
+        "status": submission.status,
+        "message": "媒体库加速配置任务未完成",
+        "job_id": job_id,
+    }
+    return plugin_install, library_config
+
+
 def _authorization_user(authorization: Mapping[str, Any]) -> dict[str, Any]:
     user = authorization.get("User")
     return dict(user) if isinstance(user, Mapping) else {}
@@ -362,6 +439,8 @@ def _authorization_message(
     plugin_install: Mapping[str, Any],
     library_config: Mapping[str, Any],
 ) -> str:
+    if plugin_install.get("status") == "pending" or library_config.get("status") == "pending":
+        return f"{prefix}，ETK 插件与媒体库配置任务已提交"
     if not plugin_install.get("ok"):
         return f"{prefix}；ETK 插件自动安装失败：{plugin_install.get('message', '未知错误')}"
     message = f"{prefix}，{plugin_install.get('message', 'ETK 插件已就绪')}"

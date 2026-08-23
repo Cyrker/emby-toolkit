@@ -199,18 +199,7 @@ def sync_intro_from_emby_item(sha1: str, item_id: str, *, expected_pick_code: st
     if changed:
         file_name = str(item.get("Name") or "").strip()
 
-        def _upload():
-            try:
-                upload_intro_for_cache_sha1(
-                    sha1,
-                    mediainfo,
-                    file_name=file_name,
-                    reason="emby_item_updated",
-                )
-            except Exception as e:
-                logger.debug(f"  ➜ [共享片头] Emby 片头后台上传失败: {sha1[:12]}... -> {e}")
-
-        spawn(_upload)
+        spawn(_upload_intro_snapshot, sha1, mediainfo, file_name)
         series_name = str(item.get("SeriesName") or "").strip()
         season_number = item.get("ParentIndexNumber")
         episode_number = item.get("IndexNumber")
@@ -223,6 +212,19 @@ def sync_intro_from_emby_item(sha1: str, item_id: str, *, expected_pick_code: st
             f"{sha1[:12]}...（{len(chapters)} 个章节）"
         )
     return {"ok": True, "updated": changed, "chapter_count": len(chapters)}
+
+
+def _upload_intro_snapshot(sha1: str, mediainfo: Any, file_name: str = "") -> Dict[str, Any]:
+    try:
+        return upload_intro_for_cache_sha1(
+            sha1,
+            mediainfo,
+            file_name=file_name,
+            reason="emby_item_updated",
+        )
+    except Exception as e:
+        logger.debug(f"  ➜ [共享片头] Emby 片头后台上传失败: {sha1[:12]}... -> {e}")
+        raise
 
 
 def upload_intro_for_cache_sha1(sha1: str, mediainfo: Any, *, file_name: str = "", reason: str = "") -> Dict[str, Any]:

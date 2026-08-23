@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import types
 from collections.abc import Callable, Mapping
+from contextlib import contextmanager
 from copy import deepcopy
 from typing import Any
 
@@ -21,9 +22,15 @@ class FakeConfigManager(types.ModuleType):
         self.APP_CONFIG: dict[str, Any] = deepcopy(self.persisted)
         self.fail_save_after_write = False
         self.restore_calls = 0
+        self.concurrent_updates_on_restore: dict[str, Any] = {}
+        self.restore_expected_updates: dict[str, Any] | None = None
 
     def capture_dynamic_config_state(self) -> tuple[dict[str, Any], dict[str, Any]]:
         return deepcopy(self.persisted), deepcopy(self.APP_CONFIG)
+
+    @contextmanager
+    def dynamic_config_write_lock(self):
+        yield
 
     def save_config(self, updates: dict[str, Any]) -> None:
         self.persisted.update(deepcopy(updates))
@@ -35,11 +42,25 @@ class FakeConfigManager(types.ModuleType):
         self,
         persisted: dict[str, Any],
         in_memory: dict[str, Any],
+        *,
+        expected_updates: dict[str, Any] | None = None,
     ) -> None:
         self.restore_calls += 1
-        self.persisted = deepcopy(persisted)
+        self.restore_expected_updates = deepcopy(expected_updates)
+        self.persisted.update(deepcopy(self.concurrent_updates_on_restore))
+        if expected_updates is None:
+            self.persisted = deepcopy(persisted)
+        else:
+            for key, expected in expected_updates.items():
+                if self.persisted.get(key) != expected:
+                    continue
+                if key in persisted:
+                    self.persisted[key] = deepcopy(persisted[key])
+                else:
+                    self.persisted.pop(key, None)
         self.APP_CONFIG.clear()
         self.APP_CONFIG.update(deepcopy(in_memory))
+        self.APP_CONFIG.update(deepcopy(self.persisted))
 
 
 def _install_runtime_modules(monkeypatch, events: list[str]) -> FakeConfigManager:
@@ -135,10 +156,8 @@ def test_runtime_failure_restores_exact_config_and_rebuilds_previous_services(mo
     assert config_manager.restore_calls == 1
     assert events == [
         "processors",
-        "scheduler",
         "monitor",
         "processors",
-        "scheduler",
         "monitor",
         "life-event-monitor",
         "shared-listener",
@@ -151,7 +170,6 @@ def test_runtime_failure_restores_exact_config_and_rebuilds_previous_services(mo
     assert config_manager.persisted["revision"] == 3
     assert events == [
         "processors",
-        "scheduler",
         "monitor",
         "life-event-monitor",
         "shared-listener",
@@ -179,6 +197,54 @@ def test_partial_persistence_failure_rolls_back_without_restarting_services(monk
     assert config_manager.APP_CONFIG == {"revision": 1, "removed_on_failure": "preserved"}
     assert config_manager.restore_calls == 1
     assert events == []
+
+
+def test_reload_rollback_preserves_a_concurrent_worker_commit(monkeypatch) -> None:
+    events: list[str] = []
+    config_manager = _install_runtime_modules(monkeypatch, events)
+    config_manager.concurrent_updates_on_restore = {"worker_key": "committed"}
+    adapter = _configured_adapter(
+        monkeypatch,
+        config_manager,
+        events,
+        fail_once="monitor",
+    )
+
+    with pytest.raises(RuntimeReloadError, match="previous state was restored"):
+        adapter.save_config_and_reload({"revision": 2, "new_key": "temporary"})
+
+    assert config_manager.persisted == {
+        "revision": 1,
+        "removed_on_failure": "preserved",
+        "worker_key": "committed",
+    }
+    assert config_manager.APP_CONFIG == config_manager.persisted
+    assert config_manager.restore_expected_updates == {"revision": 2, "new_key": "temporary"}
+
+
+def test_persisted_snapshot_reload_does_not_write_the_database_again(monkeypatch) -> None:
+    events: list[str] = []
+    config_manager = _install_runtime_modules(monkeypatch, events)
+    adapter = _configured_adapter(
+        monkeypatch,
+        config_manager,
+        events,
+        fail_once=None,
+    )
+
+    adapter.apply_persisted_config_snapshot({"revision": 2, "monitor_enabled": True})
+
+    assert config_manager.persisted == {"revision": 1, "removed_on_failure": "preserved"}
+    assert config_manager.APP_CONFIG["revision"] == 2
+    assert config_manager.APP_CONFIG["monitor_enabled"] is True
+    assert events == [
+        "processors",
+        "monitor",
+        "life-event-monitor",
+        "shared-listener",
+        "telegram",
+        "vector-cache",
+    ]
 
 
 class SnapshotRuntimeAdapter:

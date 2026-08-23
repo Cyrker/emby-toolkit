@@ -16,6 +16,7 @@ from etk.bootstrap.app_factory import create_app
 from etk.bootstrap.runtime_supervisor import RuntimeSupervisor
 from etk.compatibility.session_codec import LegacySessionCodec, configure_legacy_session
 from etk.domains.identity import IdentityService, RecoveryTokenStore
+from etk.domains.identity.ports import PostAuthorizationSubmission
 from etk.platform import AppContainer, Settings
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -96,6 +97,20 @@ class FakeEmbyIdentityGateway:
         return deepcopy(self.library_result)
 
 
+class FakePostAuthorizationSubmitter:
+    def __init__(self) -> None:
+        self.settings: list[Settings] = []
+
+    def submit(self, settings: Settings) -> PostAuthorizationSubmission:
+        self.settings.append(settings)
+        return PostAuthorizationSubmission(
+            job_id="00000000-0000-0000-0000-0000000001aa",
+            status="queued",
+            reused=False,
+            resumed=False,
+        )
+
+
 class RecordingConfigurationWriter:
     def __init__(self, holder: SettingsHolder) -> None:
         self.holder = holder
@@ -146,12 +161,14 @@ def _build_app(
     holder = SettingsHolder(_configured_settings() if configured else Settings())
     repository = FakeIdentityRepository()
     gateway = FakeEmbyIdentityGateway()
+    post_authorization = FakePostAuthorizationSubmitter()
     configuration = RecordingConfigurationWriter(holder)
     service = IdentityService(
         settings=lambda: holder.value,
         repository=repository,
         gateway=gateway,
         configuration=configuration,
+        post_authorization=post_authorization,
         recovery_tokens=RecoveryTokenStore(token_factory=lambda: "fixture-token"),
     )
     container = AppContainer(

@@ -234,11 +234,11 @@ def api_trigger_single_watchlist_refresh(item_id):
 
     item_name = watchlist_db.get_watchlist_item_name(tmdb_id) or "未知剧集"
 
-    # 使用 lambda 包装器，并将 tmdb_id 作为关键字参数传递给主任务
     task_manager.submit_task(
-        lambda processor: task_process_watchlist(processor, tmdb_id=tmdb_id),
+        task_process_watchlist,
         f"手动刷新: {item_name}",
-        processor_type='watchlist'
+        processor_type='watchlist',
+        tmdb_id=tmdb_id,
     )
     
     return jsonify({"message": f"《{item_name}》的刷新任务已在后台启动！"}), 202

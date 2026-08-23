@@ -9,6 +9,9 @@ x-app-environment: &app-environment
   DB_PASSWORD: etk-greenfield-only
   DB_NAME: etk
   ETK_DATABASE_URL: postgresql+psycopg://etk:etk-greenfield-only@db:5432/etk
+  ETK_REDIS_URL: redis://redis:6379/0
+  ETK_TASK_QUEUE: legacy.serial
+  ETK_CONTROL_PLANE_URL: http://control-plane:5260
 
 x-app-image: &app-image
   build:
@@ -49,10 +52,26 @@ services:
     networks:
       - etk-greenfield
 
+  redis:
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis7_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    networks:
+      - etk-greenfield
+
   api:
     <<: *app-image
     command: ["python", "/app/main.py", "api", "--host", "0.0.0.0", "--port", "5257"]
-    environment: *app-environment
+    environment:
+      <<: *app-environment
+      ETK_PROCESS_ROLE: api
     ports:
       - "${ETK_API_PORT:-15257}:5257"
     volumes:
@@ -62,12 +81,119 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      control-plane:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5257/api/health"]
       interval: 5s
       timeout: 3s
       retries: 30
       start_period: 20s
+    restart: unless-stopped
+    networks:
+      - etk-greenfield
+
+  control-plane:
+    <<: *app-image
+    command: ["python", "/app/main.py", "control-plane", "--host", "0.0.0.0", "--port", "5260"]
+    environment:
+      <<: *app-environment
+      ETK_PROCESS_ROLE: control-plane
+      ETK_CONTROL_PLANE_ALLOWED_SERVICES: api
+      ETK_CONTROL_PLANE_EMBY_ALLOWED_SERVICES: "${ETK_CONTROL_PLANE_EMBY_ALLOWED_SERVICES:-}"
+      ETK_CONTROL_PLANE_SERVICE: control-plane
+      ETK_CONTROL_PLANE_LEDGER_FILE: /config/control-plane-commands.json
+      ETK_CONTROL_PLANE_TOKEN_FILE: /run/etk-control-plane/control-plane.token
+    volumes:
+      - app_config:/config
+      - control_plane_runtime:/run/etk-control-plane
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5260/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - etk-greenfield
+
+  worker:
+    <<: *app-image
+    command: ["python", "/app/main.py", "worker", "--log-level", "INFO", "--concurrency", "1"]
+    environment:
+      <<: *app-environment
+      ETK_PROCESS_ROLE: worker
+      ETK_WORKER_CONCURRENCY: "1"
+      ETK_CONTROL_PLANE_TOKEN_FILE: /run/etk-control-plane/control-plane.token
+    volumes:
+      - app_config:/config
+      - control_plane_runtime:/run/etk-control-plane:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      control-plane:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "/app/main.py", "worker-health", "--timeout", "2"]
+      interval: 5s
+      timeout: 4s
+      retries: 30
+      start_period: 20s
+    stop_grace_period: 45s
+    restart: unless-stopped
+    networks:
+      - etk-greenfield
+
+  coordinator:
+    <<: *app-image
+    command: ["python", "/app/main.py", "coordinator", "--health-file", "/tmp/etk-coordinator-health.json"]
+    environment:
+      <<: *app-environment
+      ETK_PROCESS_ROLE: coordinator
+      # Disposable Greenfield runs never trigger real scheduled side effects.
+      ETK_COORDINATOR_SCHEDULES_ENABLED: "${ETK_COORDINATOR_SCHEDULES_ENABLED:-false}"
+      ETK_COORDINATOR_HEALTH_FILE: /tmp/etk-coordinator-health.json
+    volumes:
+      - app_config:/config
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "/app/main.py",
+          "coordinator-health",
+          "--health-file",
+          "/tmp/etk-coordinator-health.json",
+          "--max-age",
+          "10",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    stop_grace_period: 30s
     restart: unless-stopped
     networks:
       - etk-greenfield
@@ -82,5 +208,11 @@ volumes:
     labels:
       com.etk.environment: greenfield
   pg18_data:
+    labels:
+      com.etk.environment: greenfield
+  redis7_data:
+    labels:
+      com.etk.environment: greenfield
+  control_plane_runtime:
     labels:
       com.etk.environment: greenfield

@@ -3,6 +3,7 @@ import json
 import sys
 import types
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from unittest import mock
 
@@ -24,6 +25,7 @@ def _install_test_stubs():
     settings_db_mod.get_washing_skip_scope = lambda default='directory': default
     settings_db_mod.get_washing_priority_config = lambda default_conflict_mode='replace': {'conflict_mode': default_conflict_mode}
     settings_db_mod.save_washing_priority_config = lambda value: value
+    settings_db_mod.p115_auth_write_lock = nullcontext
     sys.modules.setdefault("database.settings_db", settings_db_mod)
 
     database_pkg = types.ModuleType("database")

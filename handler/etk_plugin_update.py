@@ -4,16 +4,14 @@ import re
 import tarfile
 import threading
 import time
-from urllib.parse import urlsplit
 
-import docker
 import requests
 
 import config_manager
 import constants
-from handler.emby import configure_etk_plugin_origin, emby_client
+import docker
 from etk.compatibility.background import spawn_later
-
+from handler.emby import configure_etk_plugin_origin, emby_client
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +20,7 @@ PLUGIN_DLL_NAME = 'ETKMediaInfoBridge.dll'
 PLUGIN_TASK_KEY = 'ETKMediaInfoBridgeUpdate'
 LATEST_RELEASE_API = 'https://api.github.com/repos/hbq0405/etk-mediainfo-bridge/releases/latest'
 LATEST_RELEASE_DOWNLOAD = 'https://github.com/hbq0405/etk-mediainfo-bridge/releases/latest/download/ETKMediaInfoBridge.dll'
+PLUGIN_INSTALL_ALLOW_LABEL = 'com.embytoolkit.control-plane.plugin-install'
 _START_LOCK = threading.Lock()
 _STARTED = False
 
@@ -126,11 +125,14 @@ def _is_emby_container(container):
     image = str((config.get('Image')) or '').lower()
     name = str(container.name or '').lower()
     labels = config.get('Labels') or {}
-    label_values = ' '.join(str(value or '').lower() for value in labels.values())
+    service = str(labels.get('com.docker.compose.service') or '').lower()
 
     # ETK's own container/image contains "emby-toolkit"; do not count it as an
     # Emby server candidate, especially in host-network deployments.
-    haystack = ' '.join([image, name, label_values])
+    # Compose metadata also contains host paths such as project.config_files.
+    # Those paths may include "emby-toolkit" for every service in the project,
+    # so only container identity fields participate in the ETK self-exclusion.
+    haystack = ' '.join([image, name, service])
     excluded_markers = (
         'emby-toolkit',
         'etk-mediainfo-bridge',
@@ -170,52 +172,54 @@ def _container_label(container):
     return f"{container.name or '<unknown>'} ({image or 'unknown image'})"
 
 
+def _is_plugin_install_allowlisted(container, allowed_services):
+    attrs = container.attrs or {}
+    labels = ((attrs.get('Config') or {}).get('Labels') or {})
+    service = str(labels.get('com.docker.compose.service') or '').strip()
+    opted_in = str(labels.get(PLUGIN_INSTALL_ALLOW_LABEL) or '').strip().lower() == 'true'
+    return opted_in or service in allowed_services
+
+
 def _public_server_id(base_url):
+    session = requests.Session()
+    session.trust_env = False
     try:
-        response = requests.get(f"{base_url.rstrip('/')}/System/Info/Public", timeout=3)
+        response = session.get(f"{base_url.rstrip('/')}/System/Info/Public", timeout=3)
         response.raise_for_status()
         data = response.json() or {}
         return str(data.get('Id') or data.get('ServerId') or '').strip()
     except Exception:
         return ''
+    finally:
+        session.close()
 
 
-def _resolve_emby_container(client, base_url, api_key):
-    parsed = urlsplit(base_url)
-    target_host = str(parsed.hostname or '').strip().lower()
-    target_port = parsed.port or (443 if parsed.scheme == 'https' else 80)
-    containers = [item for item in client.containers.list() if _is_emby_container(item)]
-    direct = []
-    for container in containers:
-        ips, aliases = _container_network_values(container)
-        attrs = container.attrs or {}
-        port_map = ((attrs.get('NetworkSettings') or {}).get('Ports') or {})
-        published_ports = {
-            int(binding.get('HostPort'))
-            for bindings in port_map.values() if bindings
-            for binding in bindings
-            if str(binding.get('HostPort') or '').isdigit()
-        }
-        if target_host in {value.lower() for value in ips} or target_host in aliases or target_port in published_ports:
-            direct.append(container)
-    if len(direct) == 1:
-        return direct[0]
-
+def _resolve_emby_container(client, base_url, api_key, *, allowed_services=()):
     target_info = _emby_get_json(base_url, api_key, '/System/Info')
     target_server_id = str(target_info.get('Id') or target_info.get('ServerId') or '').strip()
+    if not target_server_id:
+        raise RuntimeError('已授权的 Emby 未返回稳定 Server ID，拒绝修改任何 Docker 容器')
+
+    service_allowlist = {str(value).strip() for value in allowed_services if str(value).strip()}
+    containers = [
+        item
+        for item in client.containers.list()
+        if _is_emby_container(item) and _is_plugin_install_allowlisted(item, service_allowlist)
+    ]
     matched = []
-    for container in direct or containers:
-        if target_server_id and any(
+    for container in containers:
+        if any(
             _public_server_id(url) == target_server_id
             for url in _candidate_emby_urls(container)
         ):
             matched.append(container)
     if len(matched) == 1:
         return matched[0]
-    if not direct and len(containers) == 1:
-        return containers[0]
     labels = ', '.join(_container_label(item) for item in containers) or 'none'
-    raise RuntimeError(f'无法从 Docker 中唯一定位已授权的 Emby 容器，候选容器: {labels}')
+    raise RuntimeError(
+        '无法在插件安装 allowlist 中唯一定位 Server ID 与已授权服务严格一致的 Emby 容器，'
+        f'候选容器: {labels}'
+    )
 
 
 def _resolve_plugins_path(container):
@@ -265,7 +269,36 @@ def _wait_for_plugin(base_url, api_key, timeout_seconds=180):
     return None
 
 
-def ensure_etk_plugin_installed(base_url, api_key, etk_url=''):
+def preflight_etk_plugin_install(base_url, api_key, *, allowed_services=()):
+    """Validate authorization and the local Docker target without writing it."""
+    base_url = str(base_url or '').strip().rstrip('/')
+    api_key = str(api_key or '').strip()
+    if not base_url or not api_key:
+        raise ValueError('缺少 Emby 服务地址或授权 Token')
+
+    plugins = _emby_get_json(base_url, api_key, '/Plugins')
+    if _find_plugin(plugins) is not None:
+        return {'already_installed': True}
+
+    client = docker.from_env()
+    try:
+        container = _resolve_emby_container(
+            client,
+            base_url,
+            api_key,
+            allowed_services=allowed_services,
+        )
+        plugins_path = _resolve_plugins_path(container)
+        return {
+            'already_installed': False,
+            'container_name': str(container.name or ''),
+            'plugins_path': plugins_path,
+        }
+    finally:
+        client.close()
+
+
+def ensure_etk_plugin_installed(base_url, api_key, etk_url='', *, allowed_services=(), effect_started=None):
     """Install the bridge into the authorized Docker Emby, then restart and verify it."""
     base_url = str(base_url or '').strip().rstrip('/')
     api_key = str(api_key or '').strip()
@@ -275,6 +308,8 @@ def ensure_etk_plugin_installed(base_url, api_key, etk_url=''):
 
     try:
         if is_etk_plugin_installed(base_url, api_key):
+            if etk_url and callable(effect_started):
+                effect_started()
             origin_configured = bool(etk_url and configure_etk_plugin_origin(base_url, api_key, etk_url))
             return {
                 'ok': True,
@@ -286,9 +321,16 @@ def ensure_etk_plugin_installed(base_url, api_key, etk_url=''):
         logger.info('  ➜ [插件自动安装] Emby 尚未安装 ETK MediaInfo Bridge，开始下载安装。')
         client = docker.from_env()
         try:
-            container = _resolve_emby_container(client, base_url, api_key)
+            container = _resolve_emby_container(
+                client,
+                base_url,
+                api_key,
+                allowed_services=allowed_services,
+            )
             plugins_path = _resolve_plugins_path(container)
             content = _download_latest_plugin_dll()
+            if callable(effect_started):
+                effect_started()
             _put_plugin_dll(container, plugins_path, content)
             logger.info('  ➜ [插件自动安装] 插件已写入 Emby 容器，正在重启使其生效。')
             container.restart(timeout=10)

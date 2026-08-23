@@ -2,7 +2,6 @@
 
 from flask import Blueprint, request, jsonify
 import logging
-from etk.compatibility.background import spawn_later
 import json
 import re
 import psycopg2
@@ -303,12 +302,7 @@ def api_delete_custom_collection(collection_id):
             
             # ★★★ 核心修改：加入“免打扰名单” ★★★
             # ==================================================================
-            DELETING_COLLECTIONS.add(emby_id_to_empty)
-            
-            # 20秒后移除标记 (自建合集涉及大量成员移除，Webhook可能会飞一会儿，给长一点时间)
-            def _clear_flag():
-                DELETING_COLLECTIONS.discard(emby_id_to_empty)
-            spawn_later(20, _clear_flag)
+            DELETING_COLLECTIONS.add_for(emby_id_to_empty, 20)
             emby.empty_collection_in_emby(
                 collection_id=emby_id_to_empty,
                 base_url=config_manager.APP_CONFIG.get('emby_server_url'),

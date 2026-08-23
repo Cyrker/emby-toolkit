@@ -11,7 +11,13 @@ import re
 import threading
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
-from etk.compatibility.background import spawn, spawn_later
+from contextlib import contextmanager
+from etk.compatibility.background import (
+    persistent_background_gateway_installed,
+    spawn,
+    spawn_later,
+    submit_persistent_background,
+)
 from typing import Any, Dict
 import time
 import config_manager
@@ -31,6 +37,38 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 FORCE_CACHE_MEDIAINFO = True
+_P115_EXPECTED_ACCOUNT_CONTEXT = threading.local()
+
+
+@contextmanager
+def p115_expected_account(expected_account_id):
+    """Bind all nested ``P115Service.get_client`` calls to one stable account."""
+
+    expected = _normalize_115_account_id(expected_account_id)
+    if not expected:
+        raise ValueError("expected 115 account_id is required")
+    previous = getattr(_P115_EXPECTED_ACCOUNT_CONTEXT, "account_id", None)
+    if previous and previous != expected:
+        raise RuntimeError(
+            f"115 account context conflict: expected={previous}, requested={expected}"
+        )
+    _P115_EXPECTED_ACCOUNT_CONTEXT.account_id = expected
+    try:
+        yield expected
+    finally:
+        if previous:
+            _P115_EXPECTED_ACCOUNT_CONTEXT.account_id = previous
+        else:
+            try:
+                del _P115_EXPECTED_ACCOUNT_CONTEXT.account_id
+            except AttributeError:
+                pass
+
+
+def _has_persistent_execution():
+    import task_manager
+
+    return task_manager.has_persistent_execution()
 
 
 def _normalize_p115_move_target_cid(cid):
@@ -791,33 +829,207 @@ def get_115_tokens():
         return auth_data.get('access_token'), auth_data.get('refresh_token'), cookie, app_type
     return None, None, None, 'web'
 
-def save_115_tokens(access_token, refresh_token, cookie=None, app_type=None):
-    """唯一真理：只写入独立数据库"""
-    existing = settings_db.get_setting('p115_auth_tokens') or {}
-    settings_db.save_setting('p115_auth_tokens', {
-        'access_token': access_token if access_token is not None else existing.get('access_token'),
-        'refresh_token': refresh_token if refresh_token is not None else existing.get('refresh_token'),
-        'cookie': cookie if cookie is not None else existing.get('cookie'),
-        # ★ 新增：保存 app_type
-        'app_type': app_type if app_type is not None else existing.get('app_type', 'web')
-    })
+
+def _normalize_115_account_id(value):
+    account_id = str(value or '').strip()
+    return account_id if account_id.isdigit() else None
+
+
+def extract_115_account_id(user_info=None, cookie=None):
+    """Extract the stable account ID documented by the 115 OpenAPI client."""
+    if isinstance(user_info, dict):
+        account_id = _normalize_115_account_id(user_info.get('user_id'))
+        if account_id:
+            return account_id
+    match = re.search(r'(?:^|;\s*)UID=([^;]+)', str(cookie or ''), re.IGNORECASE)
+    if not match:
+        return None
+    return _normalize_115_account_id(match.group(1).partition('_')[0])
+
+
+def get_115_account_id():
+    auth_data = settings_db.get_setting('p115_auth_tokens') or {}
+    metadata_account_id = _normalize_115_account_id(auth_data.get('account_id'))
+    has_openapi = bool(auth_data.get('access_token') or auth_data.get('refresh_token'))
+    has_cookie = bool(str(auth_data.get('cookie') or '').strip())
+    openapi_account_id = _normalize_115_account_id(auth_data.get('openapi_account_id'))
+    cookie_account_id = _normalize_115_account_id(auth_data.get('cookie_account_id')) or extract_115_account_id(
+        cookie=auth_data.get('cookie')
+    )
+
+    # A legacy single-account record is unambiguous only when one credential backend exists.
+    if has_openapi and not openapi_account_id and not has_cookie:
+        openapi_account_id = metadata_account_id
+    if has_cookie and not cookie_account_id:
+        return None
+    if has_openapi and has_cookie and not openapi_account_id:
+        return None
+
+    configured_ids = []
+    if has_openapi:
+        configured_ids.append(openapi_account_id)
+    if has_cookie:
+        configured_ids.append(cookie_account_id)
+    if any(not value for value in configured_ids):
+        return None
+    unique_ids = {value for value in configured_ids if value}
+    if len(unique_ids) > 1:
+        return None
+    resolved = next(iter(unique_ids), metadata_account_id or cookie_account_id)
+    if metadata_account_id and resolved and metadata_account_id != resolved:
+        return None
+    return resolved
+
+
+def save_115_tokens(
+    access_token,
+    refresh_token,
+    cookie=None,
+    app_type=None,
+    account_id=None,
+    credential_type=None,
+    expected_access_token=None,
+    expected_refresh_token=None,
+):
+    """Atomically keep the Token/Cookie credential bundle on one stable account."""
+
+    source = str(credential_type or '').strip().lower()
+    if not source:
+        if access_token is not None or refresh_token is not None:
+            source = 'openapi'
+        elif cookie is not None:
+            source = 'cookie'
+        elif account_id is not None:
+            source = 'openapi'
+    if source not in {'', 'openapi', 'cookie', 'both'}:
+        raise ValueError(f"未知 115 凭据类型: {credential_type}")
+
+    changed = False
+    with settings_db.p115_auth_write_lock():
+        existing = settings_db.get_setting('p115_auth_tokens') or {}
+        if expected_access_token is not None and existing.get('access_token') != expected_access_token:
+            raise RuntimeError("115 OpenAPI 凭据已发生变化，拒绝覆盖较新的授权")
+        if expected_refresh_token is not None and existing.get('refresh_token') != expected_refresh_token:
+            raise RuntimeError("115 OpenAPI 刷新凭据已发生变化，拒绝覆盖较新的授权")
+        existing_account_id = _normalize_115_account_id(existing.get('account_id'))
+        existing_cookie = str(existing.get('cookie') or '').strip() or None
+        existing_cookie_account_id = _normalize_115_account_id(existing.get('cookie_account_id')) or (
+            extract_115_account_id(cookie=existing_cookie) if existing_cookie else None
+        )
+        existing_openapi_account_id = _normalize_115_account_id(existing.get('openapi_account_id'))
+        if (
+            not existing_openapi_account_id
+            and (existing.get('access_token') or existing.get('refresh_token'))
+            and not existing_cookie
+        ):
+            existing_openapi_account_id = existing_account_id
+
+        new_access_token = access_token if access_token is not None else existing.get('access_token')
+        new_refresh_token = refresh_token if refresh_token is not None else existing.get('refresh_token')
+        new_cookie = cookie if cookie is not None else existing_cookie
+        new_cookie = str(new_cookie or '').strip() or None
+        new_app_type = app_type if app_type is not None else existing.get('app_type', 'web')
+        new_openapi_account_id = existing_openapi_account_id
+        new_cookie_account_id = existing_cookie_account_id
+        resolved_account_id = _normalize_115_account_id(account_id)
+
+        if source in {'cookie', 'both'}:
+            parsed_cookie_account_id = extract_115_account_id(cookie=new_cookie)
+            if resolved_account_id and parsed_cookie_account_id and resolved_account_id != parsed_cookie_account_id:
+                raise ValueError("115 Cookie 与提供的账号身份不一致")
+            new_cookie_account_id = parsed_cookie_account_id or resolved_account_id
+
+        openapi_credentials_supplied = source in {'openapi', 'both'} and (
+            access_token is not None or refresh_token is not None
+        )
+        if source in {'openapi', 'both'}:
+            # A newly supplied token pair may belong to another account.  Never
+            # inherit the previous credential's identity for that write.
+            new_openapi_account_id = (
+                resolved_account_id
+                if openapi_credentials_supplied
+                else resolved_account_id or existing_openapi_account_id
+            )
+
+        if source in {'cookie', 'both'} and new_cookie and not new_cookie_account_id:
+            raise ValueError("无法从 115 Cookie 确认稳定账号身份")
+        if (
+            source in {'openapi', 'both'}
+            and openapi_credentials_supplied
+            and (new_access_token or new_refresh_token)
+            and not new_openapi_account_id
+        ):
+            raise ValueError("无法确认 115 OpenAPI Token 的稳定账号身份")
+
+        if source == 'openapi' and new_cookie:
+            if not new_openapi_account_id or new_cookie_account_id != new_openapi_account_id:
+                new_cookie = None
+                new_cookie_account_id = None
+                new_app_type = 'web'
+        elif source == 'cookie' and new_cookie and (new_access_token or new_refresh_token):
+            if not new_cookie_account_id or new_openapi_account_id != new_cookie_account_id:
+                new_access_token = None
+                new_refresh_token = None
+                new_openapi_account_id = None
+
+        configured_account_ids = []
+        if new_access_token or new_refresh_token:
+            configured_account_ids.append(new_openapi_account_id)
+        if new_cookie:
+            configured_account_ids.append(new_cookie_account_id)
+        configured_ids = {value for value in configured_account_ids if value}
+        if len(configured_ids) > 1:
+            raise ValueError("115 Token 与 Cookie 属于不同账号")
+        unified_account_id = (
+            next(iter(configured_ids))
+            if configured_account_ids and all(configured_account_ids)
+            else None
+        )
+        if not configured_account_ids:
+            unified_account_id = resolved_account_id or existing_account_id
+
+        payload = {
+            'access_token': new_access_token,
+            'refresh_token': new_refresh_token,
+            'cookie': new_cookie,
+            'app_type': new_app_type,
+            'account_id': unified_account_id,
+            'openapi_account_id': new_openapi_account_id if (new_access_token or new_refresh_token) else None,
+            'cookie_account_id': new_cookie_account_id if str(new_cookie or '').strip() else None,
+        }
+        changed = payload != existing
+        if changed:
+            settings_db.save_setting('p115_auth_tokens', payload)
+            service = globals().get('P115Service')
+            if service is not None:
+                service._openapi_client = None
+                service._token_cache = None
+                service.reset_cookie_client()
 
 _refresh_lock = threading.Lock()
 
-def refresh_115_token(failed_token=None):
+def refresh_115_token(failed_token=None, expected_account_id=None):
     """使用 refresh_token 换取新的 access_token (纯数据库读写)"""
     with _refresh_lock:
         try:
-            current_access, current_refresh, _, _ = get_115_tokens()
+            with settings_db.p115_auth_write_lock():
+                auth_data = settings_db.get_setting('p115_auth_tokens') or {}
+                current_access = auth_data.get('access_token')
+                current_refresh = auth_data.get('refresh_token')
+                current_account_id = _normalize_115_account_id(auth_data.get('openapi_account_id'))
+                if not current_account_id and not str(auth_data.get('cookie') or '').strip():
+                    current_account_id = _normalize_115_account_id(auth_data.get('account_id'))
             if not current_refresh:
                 return False
-                
+
+            expected_account_id = _normalize_115_account_id(expected_account_id)
+            if expected_account_id and current_account_id != expected_account_id:
+                logger.warning("  ➜ [115] Token 所属账号已切换，拒绝把旧请求重放到新账号。")
+                return False
+
             # ★ 并发防御：如果数据库里的 token 已经和刚才报错的 token 不一样了，说明别的线程刚续期完，直接放行！
             if failed_token and current_access and current_access != failed_token:
                 logger.info("  ➜ [115] 检测到 Token 已被其他线程续期，直接放行。")
-                if P115Service._openapi_client:
-                    P115Service._openapi_client.access_token = current_access
-                    P115Service._openapi_client.headers["Authorization"] = f"Bearer {current_access}"
                 return True
 
             url = "https://passportapi.115.com/open/refreshToken"
@@ -831,12 +1043,15 @@ def refresh_115_token(failed_token=None):
                 hours = round(expires_in / 3600, 1)
                 
                 # 写入数据库
-                save_115_tokens(new_access_token, new_refresh_token)
-                
-                if P115Service._openapi_client:
-                    P115Service._openapi_client.access_token = new_access_token
-                    P115Service._openapi_client.headers["Authorization"] = f"Bearer {new_access_token}"
-                
+                save_115_tokens(
+                    new_access_token,
+                    new_refresh_token,
+                    account_id=current_account_id,
+                    credential_type='openapi',
+                    expected_access_token=current_access,
+                    expected_refresh_token=current_refresh,
+                )
+
                 logger.info(f"  ➜ [115] Token 自动续期成功！有效时长 {hours} 小时。")
                 return True
             else:
@@ -851,10 +1066,11 @@ def refresh_115_token(failed_token=None):
 # ======================================================================
 class P115OpenAPIClient:
     """使用 Access Token 进行管理操作"""
-    def __init__(self, access_token):
+    def __init__(self, access_token, account_id=None):
         if not access_token:
             raise ValueError("Access Token 不能为空")
         self.access_token = access_token.strip()
+        self.account_id = _normalize_115_account_id(account_id)
         self.base_url = "https://proapi.115.com"
         self.headers = {
             "Authorization": f"Bearer {self.access_token}",
@@ -881,9 +1097,13 @@ class P115OpenAPIClient:
                 
                 if not resp.get("state") and resp.get("code") in [40140123, 40140124, 40140125, 40140126]:
                     logger.warning("  ➜ [115] 检测到 Token 已过期，正在触发自动续期...")
-                    if refresh_115_token(current_token):
+                    if refresh_115_token(current_token, expected_account_id=self.account_id):
                         logger.info("  ➜ [115] 续期完成，重新发送刚才失败的请求...")
-                        # ★ 这里也要改用 session
+                        refreshed_token, _, _, _ = get_115_tokens()
+                        if not refreshed_token:
+                            return {"state": False, "error_msg": "Token 续期后未找到新凭据"}
+                        self.access_token = refreshed_token
+                        self.headers["Authorization"] = f"Bearer {refreshed_token}"
                         return self.session.request(method, url, headers=self.headers, timeout=30, **kwargs).json()
                     else:
                         logger.error("  ➜ [115] 续期彻底失败，Token 已死亡，请前往 WebUI 重新扫码！")
@@ -1419,6 +1639,68 @@ def _p115_error_text(resp):
     if isinstance(resp, dict):
         return str(resp.get('error_msg') or resp.get('error') or resp.get('message') or resp.get('msg') or resp)
     return str(resp)
+
+
+def _p115_offline_source_hash(value):
+    text = str(value or '').strip()
+    magnet_match = re.search(r'(?i)(?:^|[?&])xt=urn:btih:([a-z0-9]+)', text)
+    if magnet_match:
+        token = magnet_match.group(1).strip()
+        if re.fullmatch(r'(?i)[0-9a-f]{40}', token):
+            return 'btih', token.lower()
+        if re.fullmatch(r'(?i)[a-z2-7]{32}', token):
+            try:
+                return 'btih', base64.b32decode(token.upper()).hex()
+            except Exception:
+                return None
+        return None
+    ed2k_match = re.search(r'(?i)^ed2k://\|file\|.*?\|\d+\|([0-9a-f]{32})\|', text)
+    if ed2k_match:
+        return 'ed2k', ed2k_match.group(1).lower()
+    return None
+
+
+def _p115_reconcile_offline_task_response(resp, expected_hash, target_cid):
+    expected = str(expected_hash or '').strip().lower()
+    target = str(target_cid or '0').strip() or '0'
+    if not isinstance(resp, dict) or not expected:
+        return {'status': 'unknown'}
+
+    matching_tasks = []
+    stack = [resp]
+    while stack:
+        current = stack.pop()
+        if isinstance(current, dict):
+            raw_hash = _p115_first(
+                current.get('info_hash'),
+                current.get('infoHash'),
+                current.get('hash'),
+                current.get('file_hash'),
+                current.get('ed2k_hash'),
+            )
+            if raw_hash is not None and re.sub(r'[^0-9a-z]', '', str(raw_hash).lower()) == expected:
+                matching_tasks.append(current)
+            stack.extend(current.values())
+        elif isinstance(current, (list, tuple)):
+            stack.extend(current)
+
+    for task in matching_tasks:
+        task_target = _p115_first(
+            task.get('wp_path_id'),
+            task.get('save_path_id'),
+            task.get('path_id'),
+            task.get('parent_id'),
+            task.get('pid'),
+        )
+        if target == '0' or (task_target is not None and str(task_target).strip() == target):
+            return {'status': 'confirmed'}
+    if matching_tasks:
+        return {'status': 'unknown'}
+
+    error_text = _p115_error_text(resp).casefold()
+    if any(marker in error_text for marker in ('任务不存在', '未找到任务', 'task not found', 'no such task')):
+        return {'status': 'absent'}
+    return {'status': 'unknown'}
 
 
 def _p115_is_severe_failure(resp_or_exc):
@@ -2128,6 +2410,17 @@ class P115CookieClient:
         r = self.request(url, method='POST', data=payload)
         return self._json_result(r)
 
+    def offline_task_reconcile(self, source_url, target_cid):
+        identity = _p115_offline_source_hash(source_url)
+        if identity is None or not self.webapi or not hasattr(self.webapi, 'clouddownload_task'):
+            return {'status': 'unknown'}
+        try:
+            resp = self.webapi.clouddownload_task(identity[1])
+        except Exception:
+            logger.warning("  ➜ [115离线] 查询离线任务对账状态失败。", exc_info=True)
+            return {'status': 'unknown'}
+        return _p115_reconcile_offline_task_response(resp, identity[1], target_cid)
+
     def share_import(self, share_code, receive_code, cid):
         # 放弃调用第三方库的 share_receive，直接使用最稳妥的官方原生 API
         # 官方接口完美支持直接传入 cid 保存到指定目录
@@ -2383,12 +2676,17 @@ class P115Service:
         token, _, _, _ = get_115_tokens()
         if not token:
             return None
+        account_id = get_115_account_id()
 
         with cls._lock:
             # 如果 client 不存在，或者 token 变了，重新初始化
-            if cls._openapi_client is None or getattr(cls._openapi_client, 'access_token', None) != token:
+            if (
+                cls._openapi_client is None
+                or getattr(cls._openapi_client, 'access_token', None) != token
+                or getattr(cls._openapi_client, 'account_id', None) != account_id
+            ):
                 try:
-                    cls._openapi_client = P115OpenAPIClient(token)
+                    cls._openapi_client = P115OpenAPIClient(token, account_id=account_id)
                     logger.info("  ➜ [115] OpenAPI 客户端已初始化")
                 except Exception as e:
                     logger.error(f"  ➜ 115 OpenAPI 客户端初始化失败: {e}")
@@ -2422,11 +2720,7 @@ class P115Service:
     @classmethod
     def get_cookie_client(cls):
         """获取播放客户端 (Cookie) - 延迟初始化，失败时重试"""
-        # 如果已经初始化过，直接返回
-        if cls._cookie_client is not None:
-            return cls._cookie_client
-        
-        # 未初始化，尝试初始化（可能容器重启后首次调用）
+        # 每次核对当前持久 Cookie，避免账号切换后复用其他进程中的旧客户端。
         return cls.init_cookie_client()
     
     @classmethod
@@ -2438,13 +2732,39 @@ class P115Service:
             logger.info("  ➜ [115] Cookie 客户端已重置，下次请求将重新初始化")
 
     @classmethod
-    def get_client(cls):
+    def get_client(cls, expected_account_id=None):
+        contextual_account_id = _normalize_115_account_id(
+            getattr(_P115_EXPECTED_ACCOUNT_CONTEXT, "account_id", None)
+        )
+        explicit_account_id = _normalize_115_account_id(expected_account_id)
+        if contextual_account_id and explicit_account_id and contextual_account_id != explicit_account_id:
+            raise RuntimeError(
+                "115 account context conflict: "
+                f"expected={contextual_account_id}, requested={explicit_account_id}"
+            )
+        expected_account_id = explicit_account_id or contextual_account_id
+        with settings_db.p115_auth_write_lock():
+            return cls._get_client_locked(expected_account_id=expected_account_id)
+
+    @classmethod
+    def _get_client_locked(cls, expected_account_id=None):
         """
         获取统一客户端：
         文件管理/整理操作 -> 按 115 API 优先级 Cookie/OpenAPI 自动切换
         清空回收站/上传初始化 -> 强制 OpenAPI
         转存/离线/生活事件 -> 强制 Cookie
         """
+        access_token, refresh_token, cookie_value, _ = get_115_tokens()
+        account_id = get_115_account_id()
+        if (access_token or refresh_token or str(cookie_value or '').strip()) and not account_id:
+            logger.error("  ➜ [115] Token/Cookie 凭据没有绑定到同一个稳定账号，拒绝创建组合客户端。")
+            return None
+        expected_account_id = _normalize_115_account_id(expected_account_id)
+        if expected_account_id and account_id != expected_account_id:
+            raise RuntimeError(
+                f"115 账号在任务开始后发生变化：expected={expected_account_id}, current={account_id or '-'}"
+            )
+
         openapi = cls.get_openapi_client()
         cookie = cls.get_cookie_client()
         
@@ -2452,9 +2772,14 @@ class P115Service:
             return None
 
         class StrictSplitClient:
-            def __init__(self, openapi_client, cookie_client):
+            def __init__(self, openapi_client, cookie_client, stable_account_id):
                 self._openapi = openapi_client
                 self._cookie = cookie_client
+                self._account_id = stable_account_id
+
+            @property
+            def account_id(self):
+                return self._account_id
 
             @property
             def raw_client(self):
@@ -2845,12 +3170,17 @@ class P115Service:
                 try:
                     cached_cid = P115CacheManager.get_cid(parent_cid, folder_name)
                     if cached_cid:
-                        return {
-                            "state": True,
-                            "cid": str(cached_cid),
-                            "data": {"file_id": str(cached_cid), "cid": str(cached_cid)},
-                            "_from_cache": "db"
-                        }
+                        if _p115_is_visible_child_dir(self, parent_cid, folder_name, cached_cid):
+                            return {
+                                "state": True,
+                                "cid": str(cached_cid),
+                                "data": {"file_id": str(cached_cid), "cid": str(cached_cid)},
+                                "_from_cache": "db"
+                            }
+                        logger.warning(
+                            f"  ➜ [115] 忽略当前账号不可见的目录缓存: "
+                            f"parent={parent_cid}, name={folder_name}, cid={cached_cid}"
+                        )
                 except Exception as e:
                     logger.debug(f"  ➜ [115] mkdir 前读取目录缓存失败: parent={parent_cid}, name={folder_name}, err={e}")
 
@@ -3512,6 +3842,12 @@ class P115Service:
                     raise Exception("未配置 115 Cookie，无法执行离线下载")
                 return self._cookie.offline_add_urls(payload)
 
+            def offline_task_reconcile(self, source_url, target_cid):
+                self._rate_limit()
+                if not self._cookie:
+                    return {'status': 'unknown'}
+                return self._cookie.offline_task_reconcile(source_url, target_cid)
+
             def share_import(self, share_code, receive_code, cid):
                 self._rate_limit()
                 if not self._cookie:
@@ -3603,7 +3939,7 @@ class P115Service:
                     raise Exception("未配置 115 Cookie，无法删除分享")
                 return self._cookie.share_delete(share_code)
 
-        return StrictSplitClient(openapi, cookie)
+        return StrictSplitClient(openapi, cookie, account_id)
     
     @classmethod
     def get_cookies(cls):
@@ -5783,6 +6119,13 @@ class P115DeleteBuffer:
 
     @classmethod
     def add(cls, fids=None, base_cids=None, check_save_path=False):
+        if _has_persistent_execution():
+            normalized_fids = list(fids or [])
+            normalized_cids = list(base_cids or []) if isinstance(base_cids, (list, set, tuple)) else []
+            if base_cids and not normalized_cids:
+                normalized_cids = [base_cids]
+            cls._flush_items(normalized_fids, normalized_cids, bool(check_save_path))
+            return
         with cls._lock:
             if fids:
                 cls._fids_to_delete.update(fids)
@@ -10742,6 +11085,99 @@ def _identify_media_enhanced(filename, main_dir_name=None, has_season_subdirs=Fa
 # ======================================================================
 # ★★★ Webhook 深度删除缓冲队列 (实现并发删除请求的批量合并) ★★★
 # ======================================================================
+def _p115_delete_not_found_response(response):
+    if not isinstance(response, dict):
+        return False
+    code = str(response.get('code') or response.get('errno') or '').strip()
+    message = str(
+        response.get('error_msg')
+        or response.get('message')
+        or response.get('msg')
+        or response.get('error')
+        or ''
+    ).lower()
+    return code in {'20004', '70004', '404'} or any(
+        marker in message
+        for marker in ('不存在', 'not found', 'no such file', 'file not exist')
+    )
+
+
+def _p115_remote_node_exists(client, node_id, parent_id):
+    """Return True/False only when 115 gives an authoritative presence result."""
+    node_id = str(node_id or '').strip()
+    parent_id = str(parent_id or '').strip()
+    if not node_id:
+        return False
+
+    if parent_id:
+        offset = 0
+        limit = 1000
+        while True:
+            response = client.fs_files({
+                'cid': parent_id,
+                'limit': limit,
+                'offset': offset,
+                'record_open_time': 0,
+            })
+            if not isinstance(response, dict) or not response.get('state'):
+                if _p115_delete_not_found_response(response):
+                    return False
+                return None
+            items = response.get('data') or []
+            if not isinstance(items, list):
+                return None
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                item_id = str(item.get('fid') or item.get('file_id') or item.get('id') or '').strip()
+                if item_id == node_id:
+                    return True
+            if len(items) < limit:
+                return False
+            offset += limit
+
+    response = client.fs_get_info(node_id)
+    if isinstance(response, dict) and response.get('state'):
+        data = response.get('data') or {}
+        if isinstance(data, dict):
+            found_id = str(data.get('fid') or data.get('file_id') or data.get('id') or node_id).strip()
+            return found_id == node_id
+        return True
+    if _p115_delete_not_found_response(response):
+        return False
+    return None
+
+
+def _p115_delete_nodes_with_reconciliation(client, node_parent_map, node_ids):
+    """Avoid replaying an already-completed external delete after a Worker crash."""
+    pending = []
+    for node_id in node_ids:
+        presence = _p115_remote_node_exists(client, node_id, node_parent_map.get(node_id))
+        if presence is None:
+            logger.warning(f"  ➜ [深度删除] 无法确认 115 节点状态，保留重试: FID={node_id}")
+            return False
+        if presence:
+            pending.append(node_id)
+
+    if not pending:
+        logger.info("  ➜ [深度删除] 待删节点均已不存在，按上次外部删除成功继续本地收口。")
+        return True
+
+    response = client.fs_delete(pending)
+    if isinstance(response, dict) and response.get('state'):
+        return True
+
+    # A lost/ambiguous response can follow a successful remote effect. Reconcile
+    # before deciding that the whole batch needs another attempt.
+    for node_id in pending:
+        presence = _p115_remote_node_exists(client, node_id, node_parent_map.get(node_id))
+        if presence is not False:
+            logger.error(f"  ➜ [深度删除] 115 API 删除失败且节点仍存在或状态未知: FID={node_id}")
+            return False
+    logger.info("  ➜ [深度删除] 删除响应失败但所有节点已不存在，按远端效果成功继续本地收口。")
+    return True
+
+
 class WebhookDeleteBuffer:
     _lock = threading.Lock()
     _pickcodes = set()
@@ -10983,12 +11419,10 @@ class WebhookDeleteBuffer:
                             logger.info("  ➜ [深度删除] 联动删除已关闭，取消调用 115 删除 API。")
                             return []
                         logger.info(f"  ➜ [深度删除] 本地推导完毕！向 115 发送批量删除指令 (共 {len(final_api_ids)} 个顶级节点)...")
-                        resp = client.fs_delete(final_api_ids)
-                        
-                        if resp.get('state'):
+                        if _p115_delete_nodes_with_reconciliation(client, node_parent_map, final_api_ids):
                             logger.info(f"  ➜ [深度删除] 115 网盘文件/空目录已移入回收站。")
                         else:
-                            logger.error(f"  ➜ [深度删除] 115 API 删除失败: {resp}")
+                            logger.error("  ➜ [深度删除] 115 API 删除未能确认完成。")
                             return pickcodes # API 失败则不清理本地库，保持一致性
 
                     # =================================================================
@@ -11025,9 +11459,43 @@ def delete_115_files_by_webhook(pickcodes, file_snapshots=None):
     if not config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_115_ENABLE_SYNC_DELETE, False):
         logger.info("  ➜ [深度删除] 联动删除未开启，跳过网盘及上传源文件清理。")
         return
+    normalized_pickcodes = list(dict.fromkeys(
+        str(pickcode or '').strip()
+        for pickcode in pickcodes
+        if str(pickcode or '').strip()
+    ))
+    normalized_snapshots = [
+        {
+            'id': str(snapshot.get('fid') or snapshot.get('id') or '').strip(),
+            'parent_id': str(snapshot.get('parent_id') or '').strip(),
+            'pick_code': str(snapshot.get('pick_code') or '').strip(),
+        }
+        for snapshot in file_snapshots or []
+        if isinstance(snapshot, dict)
+        and str(snapshot.get('pick_code') or '').strip()
+        and str(snapshot.get('fid') or snapshot.get('id') or '').strip()
+    ]
+    if not _has_persistent_execution() and persistent_background_gateway_installed():
+        request_identity = json.dumps(
+            {
+                'pickcodes': normalized_pickcodes,
+                'snapshots': normalized_snapshots,
+            },
+            ensure_ascii=False,
+            separators=(',', ':'),
+            sort_keys=True,
+        ).encode('utf-8')
+        return submit_persistent_background(
+            delete_115_files_by_webhook,
+            args=(normalized_pickcodes, normalized_snapshots),
+            max_attempts=6,
+            timeout_seconds=900,
+            idempotency_scope='p115-webhook-delete',
+            idempotency_key=hashlib.sha256(request_identity).hexdigest(),
+        )
     try:
         from handler.p115_upload_monitor import delete_local_sources_by_pickcodes
-        local_result = delete_local_sources_by_pickcodes(pickcodes)
+        local_result = delete_local_sources_by_pickcodes(normalized_pickcodes)
         if local_result.get('matched'):
             logger.info(
                 "  ➜ [深度删除] 上传监控本地联动结果: "
@@ -11037,7 +11505,26 @@ def delete_115_files_by_webhook(pickcodes, file_snapshots=None):
             )
     except Exception as e:
         logger.error(f"  ➜ [深度删除] 上传监控本地联动失败: {e}", exc_info=True)
-    WebhookDeleteBuffer.add(pickcodes, file_snapshots=file_snapshots)
+    if _has_persistent_execution():
+        snapshot_map = {
+            str(snapshot.get('pick_code') or '').strip(): {
+                'id': str(snapshot.get('fid') or snapshot.get('id') or '').strip(),
+                'parent_id': str(snapshot.get('parent_id') or '').strip(),
+                'pick_code': str(snapshot.get('pick_code') or '').strip(),
+            }
+            for snapshot in normalized_snapshots
+            if isinstance(snapshot, dict)
+            and str(snapshot.get('pick_code') or '').strip()
+            and str(snapshot.get('fid') or snapshot.get('id') or '').strip()
+        }
+        retry_pickcodes = WebhookDeleteBuffer._process_batch(
+            normalized_pickcodes,
+            file_snapshots=snapshot_map,
+        )
+        if retry_pickcodes:
+            raise RuntimeError(f"115 delete requires retry for {len(retry_pickcodes)} item(s)")
+        return
+    WebhookDeleteBuffer.add(normalized_pickcodes, file_snapshots=normalized_snapshots)
 
 # ======================================================================
 # ★★★ 手动纠错后共享 RAW 覆盖上传触发器 ★★★
@@ -11052,6 +11539,14 @@ def _kick_shared_raw_reupload_detached(reason: str = '', delay: float = 8.0):
     被中心网络波动拖死。后续需要强制重登记时，由共享资源维护任务扫描 dirty_raw。
     """
     global _LAST_SHARED_RAW_REUPLOAD_AT
+
+    if _has_persistent_execution():
+        from tasks.shared_resource_tasks import trigger_shared_resource_maintenance_task
+
+        logger.info(f"  ➜ [批量重组] 提交持久 Rapid 共享维护：{reason or 'manual-reorganize-raw-fix'}")
+        if not trigger_shared_resource_maintenance_task():
+            raise RuntimeError("共享 RAW 重传维护 Job 未被接受")
+        return {'started': True, 'persistent': True, 'message': '已提交持久 Rapid 共享维护'}
 
     now = time.time()
     with _SHARED_RAW_REUPLOAD_LOCK:
@@ -11112,13 +11607,15 @@ class ManualCorrectTaskQueue:
         try:
             import task_manager
 
-            def _queued_manual_correct_task(processor=None):
-                return _batch_manual_correct(record_ids, tmdb_id, media_type, target_cid, season_num)
-
             success = task_manager.submit_task(
                 task_function=_queued_manual_correct_task,
                 task_name=f"手动重组整理记录({len(record_ids)}条)",
                 processor_type='media',
+                record_ids=record_ids,
+                tmdb_id=tmdb_id,
+                media_type=media_type,
+                target_cid=target_cid,
+                season_num=season_num,
             )
             if success:
                 logger.info(
@@ -11138,6 +11635,19 @@ def manual_correct_organize_record(record_id, tmdb_id, media_type, target_cid, s
     """手动纠错兼容入口：保留旧 API 的 2 秒合批，但最终必须进入媒体任务队列。"""
     ManualCorrectTaskQueue.add(record_id, tmdb_id, media_type, target_cid, season_num)
     return True
+
+
+def _queued_manual_correct_task(
+    processor=None,
+    *,
+    record_ids,
+    tmdb_id,
+    media_type,
+    target_cid,
+    season_num=None,
+):
+    del processor
+    return _batch_manual_correct(record_ids, tmdb_id, media_type, target_cid, season_num)
 
 
 def _batch_manual_correct(record_ids, tmdb_id, media_type, target_cid, season_num=None):
@@ -11334,6 +11844,8 @@ def _batch_manual_correct(record_ids, tmdb_id, media_type, target_cid, season_nu
             logger.debug(f"  ➜ [批量重组] 共享媒体信息重传触发结果：{kick}")
     except Exception as e:
         logger.debug(f"  ➜ [批量重组] 标记共享 RAW 重传失败: {e}")
+        if _has_persistent_execution():
+            raise
 
     # ★ 查找并重组关联字幕 (批量)
     sub_items = []

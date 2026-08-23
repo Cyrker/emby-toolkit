@@ -12,6 +12,8 @@ import config_manager
 import constants
 from database import settings_db
 from database.connection import get_db_connection
+from etk.compatibility.background import submit_persistent_background
+from etk.platform.tasks import TaskOutcome
 import handler.tmdb as tmdb
 
 # 从 115 服务主模块导入核心类和辅助函数
@@ -26,6 +28,7 @@ from handler.p115_service import (
     _identify_media_enhanced,
     _transfer_context_to_recognition_hints,
     _normalize_p115_move_target_cid,
+    p115_expected_account,
     resolve_p115_sorting_target_by_local_path,
 )
 from handler.p115_media_analyzer import P115MediaAnalyzerMixin
@@ -34,6 +37,139 @@ from handler.home_video_nfo import build_missing_emby_metadata, match_nfo_to_str
 
 logger = logging.getLogger(__name__)
 FORCE_CACHE_MEDIAINFO = True
+_UNRECOGNIZED_DELETE_BATCH_SIZE = 500
+
+
+def _list_unrecognized_remote_fids(client, unrecognized_cid):
+    offset = 0
+    limit = 1000
+    fids = []
+    while True:
+        response = client.fs_files(
+            {
+                'cid': str(unrecognized_cid),
+                'limit': limit,
+                'offset': offset,
+                'record_open_time': 0,
+            }
+        )
+        if not isinstance(response, dict) or not response.get('state'):
+            message = response.get('error_msg') or response.get('message') if isinstance(response, dict) else None
+            raise RuntimeError(message or '读取 115 未识别目录失败')
+        items = response.get('data') or []
+        if not isinstance(items, list):
+            raise RuntimeError('115 未识别目录返回了无效文件列表')
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            fid = str(item.get('fid') or item.get('file_id') or '').strip()
+            if fid and fid not in fids:
+                fids.append(fid)
+        if len(items) < limit:
+            break
+        offset += limit
+    return fids
+
+
+def _cached_unrecognized_fids(unrecognized_cid):
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT record.file_id
+                FROM p115_organize_records AS record
+                JOIN p115_filesystem_cache AS cache ON cache.id = record.file_id
+                WHERE record.status = 'unrecognized'
+                  AND cache.parent_id = %s
+                """,
+                (str(unrecognized_cid),),
+            )
+            return {
+                str(row.get('file_id') or '').strip()
+                for row in cursor.fetchall()
+                if str(row.get('file_id') or '').strip()
+            }
+
+
+def _cleanup_confirmed_unrecognized_fids(fids):
+    confirmed = sorted({str(fid or '').strip() for fid in fids if str(fid or '').strip()})
+    if not confirmed:
+        return 0
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM p115_organize_records
+                WHERE status = 'unrecognized' AND file_id = ANY(%s)
+                """,
+                (confirmed,),
+            )
+            deleted_records = cursor.rowcount or 0
+            cursor.execute("DELETE FROM p115_filesystem_cache WHERE id = ANY(%s)", (confirmed,))
+        conn.commit()
+    return deleted_records
+
+
+def run_empty_unrecognized_files_persistent(unrecognized_cid, expected_account_id):
+    """Delete remote batches and only then remove their corresponding local facts."""
+    import task_manager
+
+    unrecognized_cid = str(unrecognized_cid or '').strip()
+    expected_account_id = str(expected_account_id or '').strip()
+    if not unrecognized_cid or unrecognized_cid == '0':
+        raise ValueError('未配置未识别目录，无法执行清空')
+    if not expected_account_id:
+        raise ValueError('无法确认稳定的 115 账号身份')
+
+    with settings_db.p115_unrecognized_delete_lock(), settings_db.p115_auth_write_lock():
+        task_manager.persistent_execution_checkpoint()
+        client = P115Service.get_client(expected_account_id=expected_account_id)
+        if not client:
+            raise RuntimeError('115 客户端未初始化')
+
+        frozen_fids = _list_unrecognized_remote_fids(client, unrecognized_cid)
+        remote_fids = set(frozen_fids)
+        cached_fids = _cached_unrecognized_fids(unrecognized_cid)
+        reconciled_fids = sorted(cached_fids - remote_fids)
+        local_deleted = _cleanup_confirmed_unrecognized_fids(reconciled_fids)
+        deleted_count = 0
+
+        for index in range(0, len(frozen_fids), _UNRECOGNIZED_DELETE_BATCH_SIZE):
+            task_manager.persistent_execution_checkpoint()
+            batch = frozen_fids[index:index + _UNRECOGNIZED_DELETE_BATCH_SIZE]
+            effect_label = f'p115-unrecognized-delete:{unrecognized_cid}:{index}:{len(batch)}'
+            task_manager.record_persistent_effect_started(effect_label)
+            response = client.fs_delete(batch)
+            if not isinstance(response, dict) or not response.get('state'):
+                message = response.get('error_msg') or response.get('message') if isinstance(response, dict) else None
+                raise RuntimeError(message or f'115 未识别目录删除批次失败: offset={index}')
+            deleted_count += len(batch)
+            local_deleted += _cleanup_confirmed_unrecognized_fids(batch)
+            task_manager.record_persistent_effect_committed(effect_label)
+
+        return {
+            'ok': True,
+            'deleted_count': deleted_count,
+            'local_deleted': local_deleted,
+            'reconciled_count': len(reconciled_fids),
+            'unrecognized_cid': unrecognized_cid,
+        }
+
+
+def submit_empty_unrecognized_files_task(
+    unrecognized_cid,
+    expected_account_id,
+    *,
+    idempotency_key=None,
+):
+    return submit_persistent_background(
+        run_empty_unrecognized_files_persistent,
+        args=(str(unrecognized_cid), str(expected_account_id)),
+        max_attempts=5,
+        timeout_seconds=1800,
+        idempotency_scope='p115-unrecognized-delete',
+        idempotency_key=idempotency_key,
+    )
 
 
 def task_backfill_organize_record_tmdb_ids(processor=None):
@@ -1035,7 +1171,31 @@ class _StandaloneProber(P115MediaAnalyzerMixin):
     def __init__(self, client):
         self.client = client
 
-def task_scan_and_organize_115(processor=None):
+def task_scan_and_organize_115(
+    processor=None,
+    expected_account_id=None,
+    expected_target_cid=None,
+):
+    if expected_account_id:
+        with p115_expected_account(expected_account_id):
+            return _task_scan_and_organize_115_bound(
+                processor,
+                expected_account_id=expected_account_id,
+                expected_target_cid=expected_target_cid,
+            )
+    return _task_scan_and_organize_115_bound(
+        processor,
+        expected_account_id=None,
+        expected_target_cid=expected_target_cid,
+    )
+
+
+def _task_scan_and_organize_115_bound(
+    processor=None,
+    *,
+    expected_account_id=None,
+    expected_target_cid=None,
+):
     """
     [任务链] 主动扫描 115 待整理目录 (V3 流水线并发版：边扫边理，火力全开)
     """
@@ -1052,11 +1212,15 @@ def task_scan_and_organize_115(processor=None):
 
     update_progress(5, "正在初始化 115 客户端与目录扫描...")
 
-    client = P115Service.get_client()
-    if not client: raise Exception("无法初始化 115 客户端")
-
     config = get_config()
     cid_val = config.get(constants.CONFIG_OPTION_115_SAVE_PATH_CID)
+    if expected_target_cid is not None and str(cid_val or '0') != str(expected_target_cid):
+        raise RuntimeError(
+            f"115 目标目录在整理任务开始前发生变化：expected={expected_target_cid}, current={cid_val or '0'}"
+        )
+    client = P115Service.get_client(expected_account_id=expected_account_id)
+    if not client: raise Exception("无法初始化 115 客户端")
+
     save_val = config.get(constants.CONFIG_OPTION_115_SAVE_PATH_NAME, '待整理')
     use_ai = config.get(constants.CONFIG_OPTION_AI_RECOGNITION, False)
     ai_translator = processor.ai_translator if processor and hasattr(processor, 'ai_translator') else None
@@ -1160,8 +1324,9 @@ def task_scan_and_organize_115(processor=None):
 
             def reject_disc_root(detected_path):
                 if not top_id or not unidentified_cid:
-                    logger.error(f"  ➜ [原盘拦截] 无法移动 '{top_name}' 到未识别：缺少目录 ID。")
-                    return 0, 0
+                    raise RuntimeError(
+                        f"[原盘拦截] 无法移动 '{top_name}' 到未识别：缺少目录 ID"
+                    )
                 try:
                     move_res = client.fs_move([top_id], unidentified_cid)
                     if isinstance(move_res, dict) and not move_res.get('state'):
@@ -1173,7 +1338,7 @@ def task_scan_and_organize_115(processor=None):
                     return 0, 1
                 except Exception as e:
                     logger.error(f"  ➜ [原盘拦截] 移动 '{top_name}' 到未识别失败: {e}")
-                    return 0, 0
+                    raise RuntimeError(f"[原盘拦截] 移动 '{top_name}' 到未识别失败") from e
 
             if is_folder and _is_disc_structure_dir(top_name):
                 return reject_disc_root(top_name)
@@ -1378,21 +1543,38 @@ def task_scan_and_organize_115(processor=None):
                     if season_num is not None: organizer.forced_season = season_num
                     
                     # 执行整理 (直接传 None，让 execute 内部统一计算最终的 target_cid)
-                    if organizer.execute(g_files, None, skip_gc=True):
-                        local_processed += len(g_files)
-                        if transfer_context:
-                            P115CacheManager.delete_transfer_context(top_name, g_top_name, title)
+                    if not organizer.execute(g_files, None, skip_gc=True):
+                        raise RuntimeError(f"整理器报告失败: {g_top_name}")
+                    local_processed += len(g_files)
+                    if transfer_context:
+                        P115CacheManager.delete_transfer_context(top_name, g_top_name, title)
                 except Exception as e:
                     logger.error(f"  ➜ 整理出错 (组: {g_top_name}): {e}")
+                    raise
 
             if cleanup_cids:
                 P115DeleteBuffer.add(fids=[], base_cids=list(cleanup_cids))
 
             # 移入未识别
-            if local_unidentified and unidentified_cid:
-                u_fids = [i.get('fid') or i.get('file_id') for i in local_unidentified]
+            if local_unidentified:
+                if not unidentified_cid:
+                    raise RuntimeError("存在未识别项，但未识别目录不可用")
+                u_fids = [
+                    i.get('fid') or i.get('file_id')
+                    for i in local_unidentified
+                    if i.get('fid') or i.get('file_id')
+                ]
+                if not u_fids:
+                    raise RuntimeError("未识别项缺少可移动的文件 ID")
                 try:
-                    client.fs_move(u_fids, unidentified_cid)
+                    move_res = client.fs_move(u_fids, unidentified_cid)
+                    if not isinstance(move_res, dict) or move_res.get('state') is not True:
+                        message = (
+                            move_res.get('error_msg') or move_res.get('error') or move_res.get('message')
+                            if isinstance(move_res, dict)
+                            else None
+                        )
+                        raise RuntimeError(message or '115 移动未识别项失败')
                     
                     from handler.telegram import send_unrecognized_notification
                     from handler.p115_service import P115RecordManager
@@ -1411,6 +1593,7 @@ def task_scan_and_organize_115(processor=None):
                             )
                 except Exception as e:
                     logger.error(f"  ➜ 移入未识别失败: {e}")
+                    raise RuntimeError("移入 115 未识别目录失败") from e
 
             return local_processed, len(local_unidentified)
 
@@ -1421,6 +1604,7 @@ def task_scan_and_organize_115(processor=None):
         total_processed = 0
         total_unidentified = 0
         completed_roots = 0
+        root_errors = []
 
         import concurrent.futures
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -1434,9 +1618,23 @@ def task_scan_and_organize_115(processor=None):
                     total_unidentified += u_count
                 except Exception as e:
                     logger.error(f"  ➜ 处理根目录项时发生异常: {e}")
+                    root_item = futures[future]
+                    root_name = (
+                        root_item.get('fn')
+                        or root_item.get('n')
+                        or root_item.get('file_name')
+                        or '<unknown>'
+                    )
+                    root_errors.append(f"{root_name}: {e}")
                 
                 prog = 10 + int((completed_roots / total_root_items) * 90)
                 update_progress(prog, f"正在并发整理... ({completed_roots}/{total_root_items})")
+
+        if root_errors:
+            preview = "; ".join(root_errors[:5])
+            if len(root_errors) > 5:
+                preview += f"; 其他 {len(root_errors) - 5} 项失败"
+            raise RuntimeError(f"115 并发整理有 {len(root_errors)} 个根目录失败: {preview}")
 
         final_msg = f"扫描结束！成功归类 {total_processed} 个，移入未识别 {total_unidentified} 个。"
         logger.info(f"=== {final_msg} ===")
@@ -1444,7 +1642,8 @@ def task_scan_and_organize_115(processor=None):
 
     except Exception as e:
         logger.error(f"  ➜ 115 扫描任务异常: {e}", exc_info=True)
-        update_progress(100, f"扫描异常结束: {e}")
+        update_progress(-1, f"扫描失败: {e}")
+        raise
 
 def task_sync_115_directory_tree(processor=None):
     """
@@ -1466,13 +1665,15 @@ def task_sync_115_directory_tree(processor=None):
 
     client = P115Service.get_client()
     if not client: 
-        update_progress(100, "115 客户端未初始化，任务结束。")
-        return
+        message = "115 客户端未初始化，任务结束。"
+        update_progress(100, message)
+        return TaskOutcome.skipped(message)
 
     raw_rules = settings_db.get_setting('p115_sorting_rules')
     if not raw_rules: 
-        update_progress(100, "未配置分类规则，无需同步。")
-        return
+        message = "未配置分类规则，无需同步。"
+        update_progress(100, message)
+        return TaskOutcome.skipped(message)
     
     rules = json.loads(raw_rules) if isinstance(raw_rules, str) else raw_rules
     
@@ -1485,12 +1686,15 @@ def task_sync_115_directory_tree(processor=None):
                 target_dirs[cid_str] = display_name
 
     if not target_dirs:
-        update_progress(100, "未找到有效的分类目标目录 CID，任务结束。")
-        return
+        message = "未找到有效的分类目标目录 CID，任务结束。"
+        update_progress(100, message)
+        return TaskOutcome.skipped(message)
 
     total_cached = 0
     total_cleaned = 0
     total_cids = len(target_dirs)
+    completed_cids = 0
+    root_errors = []
     
     for idx, (cid, dir_name) in enumerate(target_dirs.items()):
         base_prog = int((idx / total_cids) * 100)
@@ -1502,17 +1706,31 @@ def task_sync_115_directory_tree(processor=None):
         
         # ★ 核心新增：记录本次从网盘真实扫到的所有子目录 ID
         current_valid_sub_cids = set()
+        scan_complete = False
         
         while True:
             if processor and getattr(processor, 'is_stop_requested', lambda: False)():
-                update_progress(100, "任务已被用户手动终止。")
-                return
+                message = "任务已被用户手动终止。"
+                update_progress(100, message)
+                return TaskOutcome.skipped(message)
 
             try:
-                res = client.fs_files({'cid': cid, 'limit': limit, 'offset': offset, 'record_open_time': 0, 'count_folders': 0})
-                data = res.get('data', [])
+                res = client.fs_files(
+                    {'cid': cid, 'limit': limit, 'offset': offset, 'record_open_time': 0, 'count_folders': 0}
+                )
+                if not isinstance(res, dict) or res.get('state') is not True:
+                    message = (
+                        res.get('error_msg') or res.get('error') or res.get('message')
+                        if isinstance(res, dict)
+                        else None
+                    )
+                    raise RuntimeError(message or '115 目录树分页返回失败状态')
+                data = res.get('data')
+                if not isinstance(data, list):
+                    raise RuntimeError('115 目录树分页返回了无效 data 结构')
                 
                 if not data: 
+                    scan_complete = True
                     break
                 
                 page_count += 1
@@ -1521,6 +1739,8 @@ def task_sync_115_directory_tree(processor=None):
                 with get_db_connection() as conn:
                     with conn.cursor() as cursor:
                         for item in data:
+                            if not isinstance(item, dict):
+                                raise RuntimeError('115 目录树分页包含无效目录项')
                             fc_val = item.get('fc') if item.get('fc') is not None else item.get('type')
                             if str(fc_val) == '0':
                                 sub_cid = item.get('fid') or item.get('file_id')
@@ -1544,16 +1764,24 @@ def task_sync_115_directory_tree(processor=None):
                                     dir_count_in_page += 1
                         conn.commit()
                 
-                update_progress(base_prog, f"  ➜ [{dir_name}] | 翻阅第 {page_count} 页 | 新增/更新 {dir_count_in_page} 个目录...")
+                update_progress(
+                    base_prog,
+                    f"  ➜ [{dir_name}] | 翻阅第 {page_count} 页 | 新增/更新 {dir_count_in_page} 个目录...",
+                )
                 
                 if len(data) < limit:
+                    scan_complete = True
                     break
                     
                 offset += limit
                 
             except Exception as e:
                 logger.error(f"  ➜ 同步目录树异常 [{dir_name}]: {e}")
-                break 
+                root_errors.append({'cid': str(cid), 'name': str(dir_name), 'error': str(e)})
+                break
+
+        if not scan_complete:
+            continue
 
         # =================================================================
         # ★★★ 核心新增：清理本地数据库中多余的失效目录 ★★★
@@ -1578,10 +1806,28 @@ def task_sync_115_directory_tree(processor=None):
                         cleaned_count = len(invalid_cids)
                         total_cleaned += cleaned_count
                         logger.info(f"  ➜ [{dir_name}] 清理了 {cleaned_count} 个已失效的本地目录缓存。")
+            completed_cids += 1
         except Exception as e:
             logger.error(f"  ➜ 清理失效目录异常 [{dir_name}]: {e}")
+            root_errors.append({'cid': str(cid), 'name': str(dir_name), 'error': str(e)})
 
-    update_progress(100, f"=== 同步结束！共更新 {total_cached} 个目录，清理 {total_cleaned} 个失效缓存 ===")
+    details = {
+        'roots_total': total_cids,
+        'roots_completed': completed_cids,
+        'roots_failed': len(root_errors),
+        'cached': total_cached,
+        'cleaned': total_cleaned,
+        'errors': root_errors,
+    }
+    message = f"同步结束：共更新 {total_cached} 个目录，清理 {total_cleaned} 个失效缓存"
+    if root_errors:
+        failed_message = f"{message}；{len(root_errors)} 个根目录未完成权威分页，已跳过清理"
+        update_progress(-1, failed_message)
+        if completed_cids:
+            return TaskOutcome.partial(failed_message, details)
+        return TaskOutcome.failed(failed_message, details)
+    update_progress(100, f"=== {message} ===")
+    return TaskOutcome.succeeded(message, details)
 
 def task_full_sync_strm_and_subs(processor=None, *, home_video_only=False):
     """
@@ -3484,17 +3730,12 @@ def submit_washing_priority_recalculate_task(
     item_type = item_type or 'all'
     limit = limit if limit not in ('', None) else None
 
-    def _task(processor=None):
-        return task_recalculate_library_washing_priorities(
-            processor=processor,
-            item_type=item_type,
-            limit=limit,
-            affected_scope=affected_scope,
-            scope_revision=scope_revision,
-        )
-
-    task_manager.submit_task(
-        _task,
+    return task_manager.submit_task(
+        task_recalculate_library_washing_priorities,
         task_name="重算受影响媒体洗版优先级",
-        processor_type='media'
+        processor_type='media',
+        item_type=item_type,
+        limit=limit,
+        affected_scope=affected_scope,
+        scope_revision=scope_revision,
     )

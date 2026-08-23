@@ -2,8 +2,9 @@
 import threading
 import logging
 import os
+from contextlib import contextmanager
 from queue import Queue
-from typing import Optional, Callable, Union, Literal
+from typing import Optional, Callable, Union, Literal, Any, Protocol
 
 # 导入类型提示，注意使用字符串避免循环导入
 from core_processor import MediaProcessor
@@ -35,6 +36,82 @@ _pending_organize_lock = threading.Lock()
 _pending_organize_sources = []
 
 _BACKGROUND_TASK_NICE = 10
+
+
+class PersistentSubmissionGateway(Protocol):
+    """Compatibility port installed by P4 API/Worker process roles."""
+
+    def submit(
+        self,
+        task_function: Callable,
+        task_name: str,
+        processor_type: ProcessorType,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        *,
+        silent: bool,
+        max_attempts: int = 1,
+        idempotency_key: str | None = None,
+        idempotency_scope: str | None = None,
+    ) -> bool: ...
+
+    def is_busy(self) -> bool: ...
+
+    def status(self) -> dict[str, Any]: ...
+
+
+class PersistentExecutionProgress(Protocol):
+    def update(self, progress: int, message: str) -> None: ...
+
+    def checkpoint(self) -> None: ...
+
+    def record_started_effect(self, label: str) -> None: ...
+
+    def record_committed_effect(self, label: str) -> None: ...
+
+    def record_abandoned_effect(self, label: str) -> None: ...
+
+    def control_state(self) -> dict[str, Any]: ...
+
+
+_persistent_gateway_lock = threading.RLock()
+_persistent_gateway: PersistentSubmissionGateway | None = None
+_persistent_execution: PersistentExecutionProgress | None = None
+
+
+def install_persistent_submission_gateway(gateway: PersistentSubmissionGateway) -> None:
+    global _persistent_gateway
+    with _persistent_gateway_lock:
+        _persistent_gateway = gateway
+
+
+def clear_persistent_submission_gateway(gateway: PersistentSubmissionGateway | None = None) -> None:
+    global _persistent_gateway
+    with _persistent_gateway_lock:
+        if gateway is None or _persistent_gateway is gateway:
+            _persistent_gateway = None
+
+
+@contextmanager
+def persistent_execution(progress: PersistentExecutionProgress):
+    """Route legacy progress callbacks to the current persistent Job.
+
+    The P4 compatibility queue is intentionally serial within a Worker
+    process, so a process-local binding also captures callbacks emitted by
+    helper threads spawned by a legacy handler.
+    """
+
+    global _persistent_execution
+    with _persistent_gateway_lock:
+        if _persistent_execution is not None:
+            raise RuntimeError("a persistent task execution is already bound")
+        _persistent_execution = progress
+    try:
+        yield
+    finally:
+        with _persistent_gateway_lock:
+            if _persistent_execution is progress:
+                _persistent_execution = None
 
 
 def _lower_background_task_priority() -> None:
@@ -105,13 +182,94 @@ def update_status_from_thread(progress: int, message: str):
         except Exception:
             background_task_status["progress"] = progress
     background_task_status["message"] = message
+    with _persistent_gateway_lock:
+        persistent = _persistent_execution
+    if persistent is not None:
+        try:
+            persistent.update(progress, message)
+        except Exception:
+            logger.exception("Unable to persist task progress callback")
+
+
+def has_persistent_execution() -> bool:
+    with _persistent_gateway_lock:
+        return _persistent_execution is not None
+
+
+def current_persistent_execution_job_id() -> str | None:
+    """Return the durable Job identity bound to the current Worker operation."""
+    with _persistent_gateway_lock:
+        persistent = _persistent_execution
+    job_id = getattr(persistent, 'job_id', None) if persistent is not None else None
+    return str(job_id) if job_id else None
+
+
+def persistent_execution_checkpoint() -> None:
+    """Stop at a cooperative boundary before the next persistent side effect."""
+    with _persistent_gateway_lock:
+        persistent = _persistent_execution
+    if persistent is not None:
+        persistent.checkpoint()
+
+
+def record_persistent_effect_committed(label: str) -> None:
+    """Record that a provider or database effect completed during this attempt."""
+    with _persistent_gateway_lock:
+        persistent = _persistent_execution
+    if persistent is not None:
+        persistent.record_committed_effect(str(label))
+
+
+def record_persistent_effect_started(label: str) -> None:
+    """Mark entry into an external write whose provider outcome may become ambiguous."""
+    with _persistent_gateway_lock:
+        persistent = _persistent_execution
+    if persistent is not None:
+        persistent.record_started_effect(str(label))
+
+
+def record_persistent_effect_abandoned(label: str) -> None:
+    """Clear an in-flight marker after the provider confirms no effect began."""
+    with _persistent_gateway_lock:
+        persistent = _persistent_execution
+    if persistent is not None:
+        persistent.record_abandoned_effect(str(label))
+
+
+def persistent_execution_control_state() -> dict[str, Any]:
+    with _persistent_gateway_lock:
+        persistent = _persistent_execution
+    if persistent is None:
+        return {
+            "persistent": False,
+            "cancel_requested": False,
+            "timed_out": False,
+            "inflight_effects": [],
+            "committed_effects": [],
+        }
+    return dict(persistent.control_state())
 
 def get_task_status() -> dict:
     """获取当前后台任务的状态。"""
+    with _persistent_gateway_lock:
+        gateway = _persistent_gateway
+    if gateway is not None:
+        try:
+            return dict(gateway.status())
+        except Exception:
+            logger.exception("Unable to query persistent task status")
     return background_task_status.copy()
 
 def is_task_running() -> bool:
     """检查是否有后台任务正在运行。"""
+    with _persistent_gateway_lock:
+        gateway = _persistent_gateway
+    if gateway is not None:
+        try:
+            return bool(gateway.is_busy())
+        except Exception:
+            logger.exception("Unable to query persistent task lock")
+            return True
     return task_lock.locked()
 
 def _execute_task_with_lock(task_function: Callable, task_name: str, processor: Union[MediaProcessor, WatchlistProcessor, ActorSubscriptionProcessor], *args, silent: bool = False, **kwargs):
@@ -243,6 +401,20 @@ def submit_task(task_function: Callable, task_name: str, processor_type: Process
     注意：task_lock 同时被工人线程持有。这里必须非阻塞获取锁，
     否则任务内部再次 submit_task 时会在同一线程内死等自己释放锁。
     """
+    with _persistent_gateway_lock:
+        gateway = _persistent_gateway
+    if gateway is not None:
+        return bool(
+            gateway.submit(
+                task_function,
+                task_name,
+                processor_type,
+                tuple(args),
+                dict(kwargs),
+                silent=silent,
+            )
+        )
+
     from logger_setup import frontend_log_queue # 延迟导入以避免循环
 
     acquired = task_lock.acquire(blocking=False)
@@ -250,7 +422,6 @@ def submit_task(task_function: Callable, task_name: str, processor_type: Process
         if not silent:
             logger.debug(f"  ➜ 任务 '{task_name}' 提交失败：已有任务正在运行。")
         return False
-
     try:
         if background_task_status["is_running"]:
             if not silent:

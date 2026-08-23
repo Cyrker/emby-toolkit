@@ -3,7 +3,6 @@ import os
 import re
 import asyncio
 import threading
-import queue
 import logging
 import time
 import urllib.parse
@@ -25,12 +24,13 @@ from handler.tg_media_candidate import (
 )
 from database.connection import get_db_connection
 # 队列消费者由显式进程生命周期启动。
-from etk.compatibility.background import spawn_later
+from etk.compatibility.tg_control_bridge import DurableTelegramTaskQueue
+from etk.platform.jobs import normalize_json_object
 
 logger = logging.getLogger(__name__)
 
 # 线程安全的队列，用于把 asyncio 线程的数据传递给 gevent 协程
-tg_task_queue = queue.Queue()
+tg_task_queue = DurableTelegramTaskQueue()
 
 class TGUserBotManager:
     _instance = None
@@ -480,13 +480,13 @@ class TGUserBotManager:
             or '影巢' in text
         ):
             logger.debug(
-                "  ➜ [频道监听] 收到影巢推送候选：chat=@%s(%s), sender=@%s(%s), urls=%s, text=%s",
+                "  ➜ [频道监听] 收到影巢推送候选：chat=@%s(%s), sender=@%s(%s), message_id=%s, url_count=%s",
                 chat_username or '-',
                 chat_id or '-',
                 sender_username or '-',
                 sender_id or '-',
-                all_urls[:5],
-                self._normalize_text(text)[:160],
+                getattr(event.message, 'id', None),
+                len(all_urls),
             )
         candidate = build_tg_media_candidate(
             text,
@@ -1156,147 +1156,88 @@ class TGUserBotManager:
 # =================================================================
 # ★★★ ETK 侧的消费者协程 (处理队列中的任务) (保持不变)
 # =================================================================
-_TG_OFFLINE_LINK_RE = re.compile(
-    r'(magnet:\?xt=urn:btih:[a-zA-Z0-9]+.*?|ed2k://\|file\|.*?\|/)',
-    re.IGNORECASE | re.DOTALL,
-)
 
 
-def _extract_tg_offline_links(*values):
-    text_parts = []
-    for value in values:
-        if isinstance(value, list):
-            text_parts.extend(str(item or '') for item in value)
-        else:
-            text_parts.append(str(value or ''))
-
-    links = []
-    seen = set()
-    for link in _TG_OFFLINE_LINK_RE.findall("\n".join(text_parts)):
-        link = str(link or '').strip()
-        key = link.lower()
-        if link and key not in seen:
-            seen.add(key)
-            links.append(link)
-    return links
 
 
-def _submit_tg_offline_links(client, links, target_cid, task, log_prefix):
-    links = [str(link or '').strip() for link in (links or []) if str(link or '').strip()]
-    if not links:
-        return False
-
-    payload = {"wp_path_id": target_cid}
-    for index, link in enumerate(links):
-        payload[f"url[{index}]"] = link
-
-    res = client.offline_add_urls(payload)
-    if res and res.get('state'):
-        logger.info(f"  ➜ {log_prefix} 离线下载任务提交成功！共 {len(links)} 个链接，正在触发整理...")
-
-        notify_types = config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_TELEGRAM_NOTIFY_TYPES, constants.DEFAULT_TELEGRAM_NOTIFY_TYPES)
-        if 'transfer_success' in notify_types:
-            try:
-                from handler.telegram import send_transfer_success_notification
-                task['is_offline'] = True
-                task['magnet_url'] = links[0]
-                send_transfer_success_notification(task)
-            except Exception as e:
-                logger.error(f"  ➜ {log_prefix} 发送离线通知失败: {e}")
-
-        try:
-            import task_manager
-            spawn_later(
-                10.0,
-                task_manager.trigger_115_organize_task,
-                reason='tg_offline_download',
-            )
-        except Exception:
-            pass
-        return True
-
-    err = (res or {}).get('error_msg') or (res or {}).get('message') or str(res) or '未知错误'
-    logger.error(f"  ➜ {log_prefix} 离线提交失败: {err}")
-    return False
 
 
-_TG_TASK_CONSUMER_SENTINEL = object()
 _TG_TASK_CONSUMER_LOCK = threading.Lock()
-_TG_TASK_CONSUMER_STOP = threading.Event()
-_tg_task_consumer_thread = None
 
 
-def _process_tg_queue():
-    import requests 
+_tg_task_consumer_enabled = False
 
-    while True:
+def _tg_transfer_skipped(reason, message):
+    return {"ok": True, "status": "skipped", "reason": str(reason), "message": str(message)}
+
+def _process_tg_queue(payload):
+    pending = payload
+    while pending is not None:
+        task, pending = pending, None
         try:
-            task = tg_task_queue.get() 
-            if task is _TG_TASK_CONSUMER_SENTINEL:
-                break
-            if _TG_TASK_CONSUMER_STOP.is_set():
-                continue
-            task_type = task.get('type')
-            
+            task_type = task.get("type")
+
             client = P115Service.get_client()
-            target_cid = config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_115_SAVE_PATH_CID, '0')
-            
+
             if not client:
-                logger.error("  ➜ [频道监听] 115 客户端未初始化，无法执行任务。")
-                continue
+                raise RuntimeError("115 客户端未初始化，无法执行频道转存任务")
 
             if task_type == "channel_resource_complex":
-                candidate = task.get('candidate') or {}
-                tmdb_id = task.get('tmdb_id')
-                title = task.get('title')
-                year = task.get('year')
-                target_link = task.get('target_link')
-                receive_code = task.get('receive_code', '')
-                season_number = task.get('season_number')
-                episode_number = task.get('episode_number')
-                is_pack = task.get('is_pack', False) 
-                is_brainless = task.get('is_brainless', False) 
-                is_keyword_matched = task.get('is_keyword_matched', False)
-                is_subscribe = task.get('is_subscribe', True)
-                is_hdhive_push = task.get('is_hdhive_push', False)
+                candidate = task.get("candidate") or {}
+                tmdb_id = task.get("tmdb_id")
+                title = task.get("title")
+                year = task.get("year")
+                season_number = task.get("season_number")
+                episode_number = task.get("episode_number")
+                is_pack = task.get("is_pack", False)
+                is_brainless = task.get("is_brainless", False)
+                is_keyword_matched = task.get("is_keyword_matched", False)
+                is_subscribe = task.get("is_subscribe", True)
+                is_hdhive_push = task.get("is_hdhive_push", False)
 
-                item_type = task.get('item_type', 'movie')
+                item_type = task.get("item_type", "movie")
                 candidate_hints = candidate_to_recognition_hints(candidate) if candidate else {}
                 if candidate_hints:
                     remember_candidate_hint(candidate_hints)
-                    tmdb_id = tmdb_id or candidate_hints.get('tmdb_id')
-                    title = candidate_hints.get('identify_title') or candidate_hints.get('clean_title') or title
-                    year = year or candidate_hints.get('year')
-                    item_type = candidate_hints.get('media_type') or item_type
+                    tmdb_id = tmdb_id or candidate_hints.get("tmdb_id")
+                    title = candidate_hints.get("identify_title") or candidate_hints.get("clean_title") or title
+                    year = year or candidate_hints.get("year")
+                    item_type = candidate_hints.get("media_type") or item_type
                     if season_number is None:
-                        season_number = candidate_hints.get('season_number')
+                        season_number = candidate_hints.get("season_number")
                     if episode_number is None:
-                        episode_number = candidate_hints.get('episode_number')
-                    task['tmdb_id'] = tmdb_id
-                    task['title'] = title
-                    task['year'] = year
-                    task['item_type'] = item_type
-                    task['season_number'] = season_number
-                    task['episode_number'] = episode_number
-                    task['is_special'] = bool(task.get('is_special') or candidate_hints.get('is_special'))
+                        episode_number = candidate_hints.get("episode_number")
+                    task["tmdb_id"] = tmdb_id
+                    task["title"] = title
+                    task["year"] = year
+                    task["item_type"] = item_type
+                    task["season_number"] = season_number
+                    task["episode_number"] = episode_number
+                    task["is_special"] = bool(task.get("is_special") or candidate_hints.get("is_special"))
 
                 if not tmdb_id and title:
-                    logger.debug(f"  ➜ [频道监听] 缺失 TMDB ID，正在通过 TMDb 接口反查: {title} ({year}), 严格限定类型: {'剧集' if item_type=='tv' else '电影'}...")
+                    logger.debug(
+                        f"  ➜ [频道监听] 缺失 TMDB ID，正在通过 TMDb 接口反查: {title} ({year}), 严格限定类型: {'剧集' if item_type == 'tv' else '电影'}..."
+                    )
                     from handler import tmdb
+
                     api_key = config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_TMDB_API_KEY)
                     results = tmdb.search_media(title, api_key, item_type=item_type, year=year)
                     if results:
-                        tmdb_id = str(results[0]['id'])
-                        task['tmdb_id'] = tmdb_id 
+                        tmdb_id = str(results[0]["id"])
+                        task["tmdb_id"] = tmdb_id
                         logger.debug(f"  ➜ [频道监听] 反查成功！精准匹配到 TMDB ID: {tmdb_id}")
                     else:
                         if is_brainless or is_keyword_matched or is_hdhive_push:
                             logger.warning(f"  ➜ [频道监听] 反查失败，但当前为【无脑/关键词/影巢推送】模式，强制放行！")
                         else:
-                            logger.warning(f"  ➜ [频道监听] 反查失败，TMDb 未找到该{'剧集' if item_type=='tv' else '电影'}，任务终止。")
-                            continue
+                            logger.warning(
+                                f"  ➜ [频道监听] 反查失败，TMDb 未找到该{'剧集' if item_type == 'tv' else '电影'}，任务终止。"
+                            )
+                            return _tg_transfer_skipped("tmdb_not_found", "TMDb 未找到频道资源")
 
-                if not tmdb_id and not (is_brainless or is_keyword_matched or is_hdhive_push): continue 
+                if not tmdb_id and not (is_brainless or is_keyword_matched or is_hdhive_push):
+                    return _tg_transfer_skipped("tmdb_identity_missing", "频道资源缺少 TMDb 身份")
 
                 should_process = is_brainless or is_keyword_matched or is_hdhive_push
                 # 如果没命中无脑/关键词，且开启了订阅转存，才去查库
@@ -1304,277 +1245,213 @@ def _process_tg_queue():
                     try:
                         with get_db_connection() as conn:
                             with conn.cursor() as cursor:
-                                cursor.execute("SELECT subscription_status FROM media_metadata WHERE tmdb_id = %s AND item_type = 'Movie'", (tmdb_id,))
+                                cursor.execute(
+                                    "SELECT subscription_status FROM media_metadata WHERE tmdb_id = %s AND item_type = 'Movie'",
+                                    (tmdb_id,),
+                                )
                                 row = cursor.fetchone()
-                                if row and row['subscription_status'] in ['WANTED', 'SUBSCRIBED', 'PENDING_RELEASE', 'PAUSED']:
+                                if row and row["subscription_status"] in [
+                                    "WANTED",
+                                    "SUBSCRIBED",
+                                    "PENDING_RELEASE",
+                                    "PAUSED",
+                                ]:
                                     should_process = True
-                                
+
                                 if not should_process:
-                                    cursor.execute("""
+                                    cursor.execute(
+                                        """
                                         SELECT subscription_status 
                                         FROM media_metadata 
                                         WHERE (tmdb_id = %s OR parent_series_tmdb_id = %s) 
                                         AND item_type = 'Season'
-                                    """, (tmdb_id, tmdb_id))
+                                    """,
+                                        (tmdb_id, tmdb_id),
+                                    )
                                     rows = cursor.fetchall()
                                     for r in rows:
-                                        if r['subscription_status'] in ['WANTED', 'SUBSCRIBED', 'PENDING_RELEASE', 'PAUSED']:
+                                        if r["subscription_status"] in [
+                                            "WANTED",
+                                            "SUBSCRIBED",
+                                            "PENDING_RELEASE",
+                                            "PAUSED",
+                                        ]:
                                             should_process = True
                                             break
-                                
+
                                 if not should_process:
-                                    cursor.execute("SELECT watching_status, waiting_for_completed_pack FROM media_metadata WHERE tmdb_id = %s AND item_type = 'Series'", (tmdb_id,))
+                                    cursor.execute(
+                                        "SELECT watching_status, waiting_for_completed_pack FROM media_metadata WHERE tmdb_id = %s AND item_type = 'Series'",
+                                        (tmdb_id,),
+                                    )
                                     row = cursor.fetchone()
                                     if row:
-                                        status = row['watching_status']
-                                        is_waiting = row.get('waiting_for_completed_pack', False)
+                                        status = row["watching_status"]
+                                        is_waiting = row.get("waiting_for_completed_pack", False)
 
-                                        if status in ['Watching', 'Paused', 'Pending']:
+                                        if status in ["Watching", "Paused", "Pending"]:
                                             should_process = True
-                                        
-                                        elif status == 'Completed' and task.get('is_completed_pack'):
+
+                                        elif status == "Completed" and task.get("is_completed_pack"):
                                             if is_waiting:
                                                 should_process = True
-                                                logger.info(f"  ➜ [TG洗版特权] 识别到完结包，且剧集正在等待洗版，特权放行！(TMDB: {tmdb_id})")
-                                                
-                                                cursor.execute("""
+                                                logger.info(
+                                                    f"  ➜ [TG洗版特权] 识别到完结包，且剧集正在等待洗版，特权放行！(TMDB: {tmdb_id})"
+                                                )
+
+                                                cursor.execute(
+                                                    """
                                                     UPDATE media_metadata 
                                                     SET waiting_for_completed_pack = FALSE,
                                                         active_washing = TRUE
                                                     WHERE tmdb_id = %s AND item_type = 'Series'
-                                                """, (tmdb_id,))
+                                                """,
+                                                    (tmdb_id,),
+                                                )
                                                 conn.commit()
                                             else:
-                                                logger.info(f"  ➜ [TG洗版拦截] 识别到完结包，但该剧集不需要洗版 (标志位为False)，已忽略。")
+                                                logger.info(
+                                                    f"  ➜ [TG洗版拦截] 识别到完结包，但该剧集不需要洗版 (标志位为False)，已忽略。"
+                                                )
                     except Exception as e:
                         logger.error(f"  ➜ [频道监听] 查库失败: {e}")
-                        continue
+                        raise RuntimeError("频道资源订阅状态查询失败") from e
 
                 if not should_process:
                     logger.debug(f"  ➜ [频道监听] 资源 (TMDB: {tmdb_id}) 不在已订阅/追剧列表中，已忽略。")
-                    continue
+                    return _tg_transfer_skipped("not_subscribed", "频道资源不在本机订阅或追剧范围")
 
-                if not (is_brainless or is_keyword_matched) and season_number is not None and episode_number is not None: 
+                if (
+                    not (is_brainless or is_keyword_matched)
+                    and season_number is not None
+                    and episode_number is not None
+                ):
                     from database import media_db
+
                     local_seasons = media_db.get_series_local_children_info(tmdb_id)
-                    if task.get('is_completed_pack'):
+                    if task.get("is_completed_pack"):
                         logger.info(f"  ➜ [频道监听] 这是一个完结洗版包，无视本地已有集数，强制放行转存！")
                     elif is_pack:
                         local_ep_count = len(local_seasons.get(season_number, []))
                         if local_ep_count >= episode_number:
-                            logger.debug(f"  ➜ [频道监听] 合集包 (TMDB: {tmdb_id} S{season_number:02d} 宣称 {episode_number} 集)，本地已有 {local_ep_count} 集，判定为已满足，跳过转存！")
-                            continue
+                            logger.debug(
+                                f"  ➜ [频道监听] 合集包 (TMDB: {tmdb_id} S{season_number:02d} 宣称 {episode_number} 集)，本地已有 {local_ep_count} 集，判定为已满足，跳过转存！"
+                            )
+                            return _tg_transfer_skipped("local_pack_complete", "本地已有足够集数")
                         else:
-                            logger.info(f"  ➜ [频道监听] 发现合集包 (S{season_number:02d} 宣称 {episode_number} 集)，本地仅有 {local_ep_count} 集，放行转存以补齐缺集！")
+                            logger.info(
+                                f"  ➜ [频道监听] 发现合集包 (S{season_number:02d} 宣称 {episode_number} 集)，本地仅有 {local_ep_count} 集，放行转存以补齐缺集！"
+                            )
                     else:
                         if season_number in local_seasons and episode_number in local_seasons[season_number]:
-                            logger.debug(f"  ➜ [频道监听] 单集资源 (TMDB: {tmdb_id} S{season_number:02d}E{episode_number:02d}) 本地已存在，跳过转存！")
-                            continue
-
-                share_code = None
-                
-                target_link = task.get('target_link')
-                magnet_url = task.get('magnet_url')
-
-                # --- 分支 A: 处理 115 分享链接 ---
-                if target_link:
-                    share_code = None
-                    if 'hdhive.com' in target_link:
-                        logger.debug(f"  ➜ [频道监听] 检测到 HDHive 资源链接，准备通过官方 API 获取真实地址 (将扣除积分)...")
-                        try:
-                            slug_match = re.search(r'hdhive\.com/resource/(?:115|magnet|ed2k|bt)?/?([a-fA-F0-9-]{32,36})', target_link)
-                            if not slug_match:
-                                logger.error(f"  ➜ [频道监听] 无法从影巢链接中提取 Slug 标识: {target_link}")
-                                continue
-                                
-                            slug = slug_match.group(1)
-
-                            # 新版 HDHive OpenAPI 已废弃个人 API Key 模式。
-                            # 频道监听这里不能再读取 hdhive_config.api_key，必须复用 ETK 统一的 OAuth Relay 授权。
-                            from handler.hdhive_client import HDHiveClient
-                            hd_client = HDHiveClient()
-
-                            if not hd_client.ping():
-                                logger.error("  ➜ [频道监听] 解析影巢链接失败：尚未完成影巢授权，请先在影巢配置页完成授权。")
-                                continue
-
-                            resource_data = hd_client.unlock_resource(slug)
-                            
-                            if resource_data and resource_data.get('url'):
-                                real_url = resource_data.get('url')
-                                full_url = resource_data.get('full_url', '')
-
-                                offline_links = _extract_tg_offline_links(real_url, full_url)
-                                if offline_links:
-                                    logger.debug(f"  ➜ [频道监听] 影巢 API 返回 {len(offline_links)} 个磁力/ED2K 链接，准备提交离线下载...")
-                                    _submit_tg_offline_links(client, offline_links, target_cid, task, "[频道监听]")
-                                    continue
-                                
-                                match = re.search(r'115(?:cdn)?\.com/s/([a-zA-Z0-9]+)', real_url)
-                                if match:
-                                    share_code = match.group(1)
-                                    
-                                    if resource_data.get('access_code'):
-                                        receive_code = resource_data.get('access_code')
-                                    if not receive_code:
-                                        pwd_match = re.search(r'(?:pwd|password|code)=([a-zA-Z0-9]+)', full_url + "&" + real_url, re.IGNORECASE)
-                                        if pwd_match:
-                                            receive_code = pwd_match.group(1)
-
-                                    if candidate_hints:
-                                        candidate_hints = dict(candidate_hints)
-                                        candidate_hints['target_link'] = real_url
-                                        candidate_hints['receive_code'] = receive_code or candidate_hints.get('receive_code')
-                                        remember_candidate_hint(candidate_hints)
-
-                                    if candidate:
-                                        candidate['target_link'] = real_url
-                                        candidate['receive_code'] = receive_code or candidate.get('receive_code')
-                                        task['candidate'] = candidate
-                                    task['target_link'] = real_url
-                                    task['receive_code'] = receive_code or task.get('receive_code', '')
-                                            
-                                    logger.debug(f"  ➜ [频道监听] 影巢 API 解析成功！真实 Share Code: {share_code}, 密码: {receive_code or '无'}")
-                                else:
-                                    logger.error(f"  ➜ [频道监听] 影巢 API 返回的 URL 中未找到 115 提取码: {real_url}")
-                                    continue
-                            else:
-                                logger.error("  ➜ [频道监听] 影巢 API 未返回真实的 115 链接，可能是积分不足或资源已失效。")
-                                continue
-                                
-                        except Exception as e:
-                            logger.error(f"  ➜ [频道监听] 请求影巢 API 异常: {e}")
-                            continue
-                    else:
-                        match = re.search(r'115(?:cdn)?\.com/s/([a-zA-Z0-9]+)', target_link)
-                        if match: share_code = match.group(1)
-
-                    if not share_code:
-                        logger.error("  ➜ [频道监听] 无法获取有效的 115 Share Code，任务终止。")
-                        continue
-
-                    logger.debug(f"  ➜ [频道监听] 命中订阅资源 (TMDB: {tmdb_id})！准备转存...")
-                    
-                    res = client.share_import(share_code, receive_code, target_cid)
-                    if res and res.get('state'):
-                        logger.info(f"  ➜ [频道监听] 资源转存成功！正在触发整理...")
-                        receive_title = (res.get('data') or {}).get('receive_title') if isinstance(res, dict) else None
-                        transfer_media_type = 'movie' if str(task.get('item_type') or '').lower() == 'movie' else 'tv'
-                        if receive_title and task.get('tmdb_id') and task.get('title'):
-                            authority_role = candidate_hints.get('authority_role') or 'advisory'
-                            transfer_source = candidate_hints.get('source') or 'tg-channel-import'
-                            transfer_source_kind = candidate_hints.get('source_kind') or transfer_source
-                            P115CacheManager.save_transfer_context(
-                                receive_title,
-                                task.get('tmdb_id'),
-                                transfer_media_type,
-                                task.get('title'),
-                                season_number=task.get('season_number'),
-                                episode_number=task.get('episode_number'),
-                                source=transfer_source,
-                                source_kind=transfer_source_kind,
-                                source_kinds=candidate_hints.get('source_kinds') or [transfer_source_kind],
-                                confidence=candidate_hints.get('confidence') or 'high',
-                                authority_role=authority_role,
-                                identify_title=candidate_hints.get('identify_title') or task.get('title'),
-                                clean_title=candidate_hints.get('clean_title') or task.get('title'),
-                                matched_rules=candidate_hints.get('matched_rules') or [],
-                                evidence=candidate_hints.get('evidence') or [],
-                                conflict_reason=candidate_hints.get('conflict_reason') or '',
-                                alias_titles=candidate_hints.get('alias_titles') or [],
-                                parse_version=candidate_hints.get('parse_version') or '',
-                                is_special=task.get('is_special'),
+                            logger.debug(
+                                f"  ➜ [频道监听] 单集资源 (TMDB: {tmdb_id} S{season_number:02d}E{episode_number:02d}) 本地已存在，跳过转存！"
                             )
-                        
-                        notify_types = config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_TELEGRAM_NOTIFY_TYPES, constants.DEFAULT_TELEGRAM_NOTIFY_TYPES)
-                        if 'transfer_success' in notify_types:
-                            try:
-                                from handler.telegram import send_transfer_success_notification
-                                send_transfer_success_notification(task)
-                            except Exception as e:
-                                logger.error(f"  ➜ [频道监听] 发送转存通知失败: {e}")
+                            return _tg_transfer_skipped("local_episode_exists", "本地已存在该集")
 
-                        try:
-                            import task_manager
-                            spawn_later(
-                                3.0,
-                                task_manager.trigger_115_organize_task,
-                                reason='tg_channel_share',
-                            )
-                        except: pass
-                    else:
-                        err = res.get('error_msg') or res.get('message') or str(res) or '未知错误'
-                        logger.error(f"  ➜ [频道监听] 转存失败: {err}")
+                resource_kind = str(task.get("resource_kind") or "").strip()
+                if resource_kind == "hdhive":
+                    from tasks.hdhive import task_download_from_hdhive
 
-                # --- 分支 B: 处理磁力/ED2K 离线下载 ---
-                elif magnet_url:
-                    logger.debug(f"  ➜ [频道监听] 命中订阅资源 (TMDB: {tmdb_id})！准备提交离线下载...")
-                    offline_links = _extract_tg_offline_links(magnet_url)
-                    if not offline_links:
-                        offline_links = [magnet_url]
-                    _submit_tg_offline_links(client, offline_links, target_cid, task, "[频道监听]")
+                    result = task_download_from_hdhive(
+                        slug=task.get("slug"),
+                        tmdb_id=tmdb_id,
+                        media_type=item_type,
+                        title=title,
+                        operation_id=task.get("delivery_key"),
+                    )
+                    if not isinstance(result, dict) or result.get("ok") is not True:
+                        raise RuntimeError(str((result or {}).get("message") or "HDHive 频道资源转存失败"))
+                    transfer = result
+                elif resource_kind in {"p115_share", "p115_offline"}:
+                    from etk.compatibility.tg_resource_operations import execute_channel_p115_effect
+
+                    transfer = execute_channel_p115_effect(task)
+                else:
+                    raise RuntimeError(f"频道资源缺少可执行的安全 resource_kind: {resource_kind or '-'}")
+
+                receive_title = str(transfer.get("receive_title") or "").strip()
+                if receive_title and task.get("tmdb_id") and task.get("title"):
+                    transfer_media_type = "movie" if str(task.get("item_type") or "").lower() == "movie" else "tv"
+                    authority_role = candidate_hints.get("authority_role") or "advisory"
+                    transfer_source = candidate_hints.get("source") or "tg-channel-import"
+                    transfer_source_kind = candidate_hints.get("source_kind") or transfer_source
+                    P115CacheManager.save_transfer_context(
+                        receive_title,
+                        task.get("tmdb_id"),
+                        transfer_media_type,
+                        task.get("title"),
+                        season_number=task.get("season_number"),
+                        episode_number=task.get("episode_number"),
+                        source=transfer_source,
+                        source_kind=transfer_source_kind,
+                        source_kinds=candidate_hints.get("source_kinds") or [transfer_source_kind],
+                        confidence=candidate_hints.get("confidence") or "high",
+                        authority_role=authority_role,
+                        identify_title=candidate_hints.get("identify_title") or task.get("title"),
+                        clean_title=candidate_hints.get("clean_title") or task.get("title"),
+                        matched_rules=candidate_hints.get("matched_rules") or [],
+                        evidence=candidate_hints.get("evidence") or [],
+                        conflict_reason=candidate_hints.get("conflict_reason") or "",
+                        alias_titles=candidate_hints.get("alias_titles") or [],
+                        parse_version=candidate_hints.get("parse_version") or "",
+                        is_special=task.get("is_special"),
+                    )
+
+                notify_types = config_manager.APP_CONFIG.get(
+                    constants.CONFIG_OPTION_TELEGRAM_NOTIFY_TYPES,
+                    constants.DEFAULT_TELEGRAM_NOTIFY_TYPES,
+                )
+                if "transfer_success" in notify_types:
+                    try:
+                        from handler.telegram import send_transfer_success_notification
+
+                        send_transfer_success_notification(task)
+                    except Exception:
+                        logger.warning("  ➜ [频道监听] 发送转存通知失败。", exc_info=True)
+                return {"ok": True, "status": "succeeded", "result": transfer}
 
             elif task_type == "offline_download":
-                target_url = task['url']
-                payload = {"url[0]": target_url, "wp_path_id": target_cid}
-                
-                res = client.offline_add_urls(payload)
-                if res and res.get('state'):
-                    logger.info(f"  ➜ [TG订阅] 离线下载任务提交成功！")
-                    try:
-                        import task_manager
-                        spawn_later(
-                            10.0,
-                            task_manager.trigger_115_organize_task,
-                            reason='tg_channel_offline',
-                        )
-                    except: pass
-                else:
-                    err = res.get('error_msg') or res.get('message') or str(res) or '未知错误'
-                    logger.error(f"  ➜ [频道监听] 离线提交失败: {err}")
+                from etk.compatibility.tg_resource_operations import execute_channel_p115_effect
+
+                transfer = execute_channel_p115_effect(task)
+                return {"ok": True, "status": "succeeded", "result": transfer}
 
         except Exception as e:
             logger.error(f"  ➜ [频道监听] 队列处理异常: {e}")
+            raise
+
+def process_tg_transfer_payload(payload):
+    """Worker entrypoint for one strict-JSON TG transfer payload."""
+    normalized = normalize_json_object(dict(payload), field="telegram_transfer_payload")
+    if normalized.get("type") not in {"channel_resource_complex", "offline_download"}:
+        raise ValueError(f"不支持的 TG 转存任务类型: {normalized.get('type')!r}")
+    outcome = _process_tg_queue(normalized)
+    if not isinstance(outcome, dict):
+        raise RuntimeError("TG 频道转存没有返回结构化 outcome")
+    if outcome.get("status") not in {"succeeded", "skipped"} or outcome.get("ok") is not True:
+        raise RuntimeError(str(outcome.get("message") or "TG 频道转存报告失败"))
+    return normalize_json_object(outcome, field="telegram_transfer_outcome")
+
 
 
 def start_tg_task_consumer():
-    """显式、幂等地启动 TG 到 115 的队列消费者。"""
-    global _tg_task_consumer_thread
+    """保留旧生命周期契约；转存由 durable Worker Job 执行，不再启动线程。"""
+    global _tg_task_consumer_enabled
     with _TG_TASK_CONSUMER_LOCK:
-        if _tg_task_consumer_thread and _tg_task_consumer_thread.is_alive():
-            return _tg_task_consumer_thread
-        _TG_TASK_CONSUMER_STOP.clear()
-        _tg_task_consumer_thread = threading.Thread(
-            target=_process_tg_queue,
-            daemon=True,
-            name="TG_Task_Consumer",
-        )
-        _tg_task_consumer_thread.start()
-        return _tg_task_consumer_thread
+        _tg_task_consumer_enabled = True
+    return True
 
 
 def stop_tg_task_consumer(timeout=5.0):
-    """停止队列消费者；停止期间新旧待处理项会被丢弃。"""
-    global _tg_task_consumer_thread
+    """关闭旧生命周期标志；没有本地队列或线程需要回收。"""
+    del timeout
+    global _tg_task_consumer_enabled
     with _TG_TASK_CONSUMER_LOCK:
-        thread = _tg_task_consumer_thread
-        if not thread or not thread.is_alive():
-            _tg_task_consumer_thread = None
-            return True
-        _TG_TASK_CONSUMER_STOP.set()
-        tg_task_queue.put(_TG_TASK_CONSUMER_SENTINEL)
-
-    if thread is not threading.current_thread():
-        thread.join(timeout=max(0.0, float(timeout)))
-
-    with _TG_TASK_CONSUMER_LOCK:
-        if thread.is_alive():
-            return False
-        if _tg_task_consumer_thread is thread:
-            _tg_task_consumer_thread = None
-        return True
+        _tg_task_consumer_enabled = False
+    return True
 
 
 def is_tg_task_consumer_running():
     with _TG_TASK_CONSUMER_LOCK:
-        return bool(_tg_task_consumer_thread and _tg_task_consumer_thread.is_alive())
+        return _tg_task_consumer_enabled

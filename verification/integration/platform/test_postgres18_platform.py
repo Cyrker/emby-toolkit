@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic import command
@@ -16,6 +17,12 @@ from scripts.refactor.compare_schema import collect_catalog, compare_catalogs, l
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = REPO_ROOT / "verification" / "contracts" / "db" / "legacy-pg-catalog.json"
 POSTGRES_18_IMAGE = "postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2"
+P4_PLATFORM_TABLES = {
+    "idempotency_records",
+    "job_attempts",
+    "job_runs",
+    "outbox_events",
+}
 
 
 @pytest.fixture(scope="session")
@@ -56,10 +63,14 @@ def migrated_postgres18_url(postgres18_url: str) -> str:
 
 def test_pg18_alembic_schema_matches_legacy_catalog(migrated_postgres18_url: str) -> None:
     expected = load_catalog(CATALOG_PATH)
-    actual = collect_catalog(migrated_postgres18_url)
+    complete_catalog = collect_catalog(migrated_postgres18_url)
+    actual = _legacy_catalog(complete_catalog)
     result = compare_catalogs(expected, actual)
 
-    assert actual["server_version_num"].startswith("18")
+    assert complete_catalog["server_version_num"].startswith("18")
+    assert {table["name"] for table in complete_catalog["tables"]} - {
+        table["name"] for table in actual["tables"]
+    } == P4_PLATFORM_TABLES
     assert result["counts"] == {
         "tables": {"expected": 39, "actual": 39},
         "columns": {"expected": 478, "actual": 478},
@@ -70,6 +81,14 @@ def test_pg18_alembic_schema_matches_legacy_catalog(migrated_postgres18_url: str
         key: {"missing": [], "unexpected": [], "changed": []} for key in ("tables", "columns", "constraints", "indexes")
     }
     assert result["match"] is True
+
+
+def _legacy_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
+    filtered = dict(catalog)
+    filtered["tables"] = [item for item in catalog["tables"] if item["name"] not in P4_PLATFORM_TABLES]
+    for family in ("columns", "constraints", "indexes"):
+        filtered[family] = [item for item in catalog[family] if item["table"] not in P4_PLATFORM_TABLES]
+    return filtered
 
 
 def test_pg18_uow_rollback_raw_pool_and_shutdown(migrated_postgres18_url: str) -> None:

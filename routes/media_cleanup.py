@@ -303,7 +303,7 @@ def delete_single_version():
     from database import media_db, maintenance_db
     from database.connection import get_db_connection
     from handler import emby
-    from handler.p115_service import WebhookDeleteBuffer
+    from handler.p115_service import delete_115_files_by_webhook
     
     config = config_manager.APP_CONFIG
     
@@ -380,7 +380,7 @@ def delete_single_version():
 
         if pickcodes_to_delete and sync_delete:
             logger.info(f"  ➜ 手动删除版本：正在将 {len(pickcodes_to_delete)} 个文件加入 115 网盘联动删除队列...")
-            WebhookDeleteBuffer.add(pickcodes_to_delete)
+            delete_115_files_by_webhook(pickcodes_to_delete)
 
         if deleted_paths:
             emby_url = config.get(constants.CONFIG_OPTION_EMBY_SERVER_URL)

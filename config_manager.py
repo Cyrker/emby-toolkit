@@ -373,35 +373,60 @@ def load_config():
     return APP_CONFIG, is_first_run
 
 # --- 保存配置 ---
+def _dynamic_config_updates(new_config: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        key: deepcopy(value)
+        for key, value in new_config.items()
+        if key in DYNAMIC_CONFIG_DEF
+    }
+
+
+def dynamic_config_write_lock():
+    return settings_db.dynamic_config_write_lock()
+
+
 def save_config(new_config: Dict[str, Any]):
-    """
-    【V4 - 健壮的合并保存模式】
-    """
+    """Atomically merge dynamic configuration without replacing concurrent keys."""
     global APP_CONFIG
-    
+
     try:
-        # 步骤 1: 从数据库加载当前完整的动态配置
-        full_dynamic_config = settings_db.get_setting('dynamic_app_config') or {}
-        
-        # 步骤 2: 将前端传入的新配置更新（合并）到这个完整的配置对象中
-        full_dynamic_config.update(new_config)
-        
-        # 步骤 3: 创建一个最终要保存的字典
-        dynamic_config_to_save = {
-            key: value
-            for key, value in full_dynamic_config.items()
-            if key in DYNAMIC_CONFIG_DEF
-        }
-        
-        # 步骤 4: 存回数据库
-        settings_db.save_setting('dynamic_app_config', dynamic_config_to_save)
-        
-        # 步骤 5: 更新内存
-        APP_CONFIG.update(dynamic_config_to_save)
+        updates = _dynamic_config_updates(new_config)
+        persisted = settings_db.merge_setting_mapping('dynamic_app_config', updates)
+        APP_CONFIG.update(deepcopy(persisted))
         logger.info("  ➜ 动态应用配置已成功合并保存到数据库，内存中的配置已同步。")
-        
+        return deepcopy(persisted)
     except Exception as e:
         logger.error(f"  ➜ 保存动态配置到数据库时失败: {e}", exc_info=True)
+        raise
+
+
+def save_config_with_monitor_path(new_config: Dict[str, Any], monitor_path: str) -> Dict[str, Any]:
+    """Merge quick-deploy values and one monitor path against the locked latest snapshot."""
+    global APP_CONFIG
+
+    updates = _dynamic_config_updates(new_config)
+    clean_path = str(monitor_path or '').strip()
+    if not clean_path:
+        raise ValueError("监控路径不能为空")
+    monitor_key = constants.CONFIG_OPTION_MONITOR_PATHS
+    normalized_path = os.path.normpath(clean_path)
+
+    def merge(current: Dict[str, Any]) -> Dict[str, Any]:
+        current.update(deepcopy(updates))
+        raw_paths = current.get(monitor_key, [])
+        paths = [str(path) for path in raw_paths if str(path or '').strip()] if isinstance(raw_paths, list) else []
+        if normalized_path not in {os.path.normpath(path) for path in paths}:
+            paths.append(clean_path)
+        current[monitor_key] = paths
+        return current
+
+    try:
+        persisted = settings_db.update_setting_mapping('dynamic_app_config', merge)
+        APP_CONFIG.update(deepcopy(persisted))
+        published_keys = {*updates, monitor_key}
+        return {key: deepcopy(persisted[key]) for key in published_keys if key in persisted}
+    except Exception as e:
+        logger.error(f"  ➜ 保存一键部署动态配置时失败: {e}", exc_info=True)
         raise
 
 
@@ -416,13 +441,31 @@ def capture_dynamic_config_state() -> Tuple[Dict[str, Any], Dict[str, Any]]:
 def restore_dynamic_config_state(
     persisted: Dict[str, Any],
     in_memory: Dict[str, Any],
+    *,
+    expected_updates: Optional[Dict[str, Any]] = None,
 ):
-    """Restore an exact pre-reload snapshot, including keys removed by a failed update."""
+    """Restore this writer's unchanged keys without erasing concurrent commits."""
+    if expected_updates is None:
+        try:
+            settings_db.save_setting('dynamic_app_config', deepcopy(persisted))
+        finally:
+            APP_CONFIG.clear()
+            APP_CONFIG.update(deepcopy(in_memory))
+        return
+
+    filtered_expected = _dynamic_config_updates(expected_updates)
+    restored = None
     try:
-        settings_db.save_setting('dynamic_app_config', deepcopy(persisted))
+        restored = settings_db.restore_setting_keys_if_unchanged(
+            'dynamic_app_config',
+            filtered_expected,
+            persisted,
+        )
     finally:
         APP_CONFIG.clear()
         APP_CONFIG.update(deepcopy(in_memory))
+        if restored is not None:
+            APP_CONFIG.update(deepcopy(restored))
 
 # ★★★ 保存自定义主题 ★★★
 def save_custom_theme(theme_data: dict):

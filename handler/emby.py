@@ -756,6 +756,12 @@ _ETK_LIBRARY_ITEM_TYPES = {
     'boxsets': {'BoxSet'},
     'mixed': {'Movie', 'BoxSet', 'Series', 'Season', 'Episode'},
 }
+_LIBRARY_RECONCILE_TIMEOUT_SECONDS = 10.0
+_LIBRARY_RECONCILE_POLL_INTERVAL_SECONDS = 0.2
+
+
+class EmbyLibraryConflictError(RuntimeError):
+    """The requested library overlaps an incompatible existing Emby library."""
 
 
 def _etk_item_types_for_library(folder: Dict[str, Any]) -> Set[str]:
@@ -781,14 +787,24 @@ def _apply_etk_library_defaults(options: Dict[str, Any], item_types: Set[str]) -
     ]
 
     type_options = []
+    configured_types = set()
     for value in updated.get('TypeOptions') or []:
         type_option = dict(value or {})
         if type_option.get('Type') in item_types:
+            configured_types.add(type_option['Type'])
             type_option['MetadataFetchers'] = ['ETK Metadata']
             type_option['MetadataFetcherOrder'] = ['ETK Metadata']
             type_option['ImageFetchers'] = ['ETK Images']
             type_option['ImageFetcherOrder'] = ['ETK Images']
         type_options.append(type_option)
+    for item_type in sorted(item_types - configured_types):
+        type_options.append({
+            'Type': item_type,
+            'MetadataFetchers': ['ETK Metadata'],
+            'MetadataFetcherOrder': ['ETK Metadata'],
+            'ImageFetchers': ['ETK Images'],
+            'ImageFetcherOrder': ['ETK Images'],
+        })
     updated['TypeOptions'] = type_options
     return updated
 
@@ -855,7 +871,15 @@ def configure_etk_library_defaults(base_url: str, api_key: str) -> Dict[str, Any
 def _library_options_with_etk(collection_type: str) -> Dict[str, Any]:
     metadata_fetchers = ['ETK Metadata']
     image_fetchers = ['ETK Images']
-    item_types = ['Movie', 'BoxSet'] if collection_type == 'movies' else ['Series', 'Season', 'Episode']
+    normalized_type = _normalize_library_collection_type(collection_type)
+    item_types = {
+        'movies': ['Movie', 'BoxSet'],
+        'tvshows': ['Series', 'Season', 'Episode'],
+        'boxsets': ['BoxSet'],
+        'mixed': ['Movie', 'BoxSet', 'Series', 'Season', 'Episode'],
+    }.get(normalized_type)
+    if item_types is None:
+        raise ValueError(f"不支持的 Emby 媒体库类型：{collection_type}")
     return {
         'EnableRealtimeMonitor': False,
         'SaveLocalMetadata': False,
@@ -878,6 +902,97 @@ def _library_options_with_etk(collection_type: str) -> Dict[str, Any]:
     }
 
 
+def _normalize_library_collection_type(value: Any) -> str:
+    normalized = str(value or '').strip().lower()
+    return normalized or 'mixed'
+
+
+def _normalize_library_path(value: Any) -> str:
+    raw_path = str(value or '').strip()
+    return os.path.normpath(raw_path) if raw_path else ''
+
+
+def _library_folder_id(folder: Dict[str, Any]) -> str:
+    for key in ('ItemId', 'Id'):
+        folder_id = str(folder.get(key) or '').strip()
+        if folder_id:
+            return folder_id
+    return ''
+
+
+def _library_folder_paths(folder: Dict[str, Any]) -> Set[str]:
+    return {
+        _normalize_library_path(value)
+        for value in (folder.get('Locations') or [])
+        if str(value or '').strip()
+    }
+
+
+def _find_exact_library_target(
+    folders: List[Dict[str, Any]],
+    name: str,
+    collection_type: str,
+    path: str,
+) -> Optional[Dict[str, Any]]:
+    exact_matches = []
+    for folder in folders:
+        folder_name = str(folder.get('Name') or '').strip()
+        same_name = folder_name == name
+        same_path = path in _library_folder_paths(folder)
+        if not same_name and not same_path:
+            continue
+
+        folder_type = _normalize_library_collection_type(folder.get('CollectionType'))
+        same_type = folder_type == collection_type
+        if same_name and same_path and same_type:
+            exact_matches.append(folder)
+            continue
+
+        folder_id = _library_folder_id(folder) or 'unknown'
+        raise EmbyLibraryConflictError(
+            "Emby 媒体库冲突："
+            f"目标 name={name!r}, path={path!r}, CollectionType={collection_type!r}；"
+            f"现有媒体库 id={folder_id!r}, name={folder_name!r}, "
+            f"paths={sorted(_library_folder_paths(folder))!r}, CollectionType={folder_type!r}"
+        )
+
+    if len(exact_matches) > 1:
+        ids = [_library_folder_id(folder) or 'unknown' for folder in exact_matches]
+        raise EmbyLibraryConflictError(f"Emby 中存在多个完全匹配的媒体库：{ids}")
+    return exact_matches[0] if exact_matches else None
+
+
+def _require_library_id(folder: Dict[str, Any], name: str) -> str:
+    folder_id = _library_folder_id(folder)
+    if not folder_id:
+        raise RuntimeError(f"Emby 媒体库《{name}》已可见，但未返回稳定 ID")
+    return folder_id
+
+
+def _ensure_etk_library_options(
+    base_url: str,
+    api_key: str,
+    folder: Dict[str, Any],
+    name: str,
+) -> None:
+    item_types = _etk_item_types_for_library(folder)
+    if not item_types:
+        raise EmbyLibraryConflictError(f"Emby 媒体库《{name}》的 CollectionType 不支持 ETK 配置")
+
+    current_options = folder.get('LibraryOptions') or {}
+    updated_options = _apply_etk_library_defaults(current_options, item_types)
+    if updated_options == current_options:
+        return
+
+    folder_id = _require_library_id(folder, name)
+    response = emby_client.post(
+        f"{base_url.rstrip('/')}/Library/VirtualFolders/LibraryOptions",
+        params={'api_key': api_key},
+        json={'Id': folder_id, 'LibraryOptions': updated_options},
+    )
+    response.raise_for_status()
+
+
 def _has_path_mapping_for_library(base_url: str, api_key: str, path: str) -> bool:
     """检查 Emby 是否能看到与目标路径一致的目录映射前缀。"""
     folder_map = get_all_folder_mappings(base_url, api_key)
@@ -895,47 +1010,76 @@ def _has_path_mapping_for_library(base_url: str, api_key: str, path: str) -> boo
 
 
 def create_library(base_url: str, api_key: str, name: str, collection_type: str, path: str) -> Dict[str, Any]:
-    """创建 Emby 媒体库；如果同名或同路径已存在则直接返回现有库。"""
+    """Reconcile one exact Emby library resource and return its stable ID."""
     if not all([base_url, api_key, name, collection_type, path]):
         raise ValueError("创建 Emby 媒体库缺少必要参数")
 
-    norm_path = os.path.normpath(path)
-    for folder in get_virtual_folders(base_url, api_key):
-        locations = folder.get('Locations') or []
-        if folder.get('Name') == name or norm_path in {os.path.normpath(p) for p in locations if p}:
-            return {
-                'name': folder.get('Name') or name,
-                'path': path,
-                'id': str(folder.get('ItemId') or folder.get('Id') or ''),
-                'created': False,
-            }
+    target_name = str(name).strip()
+    target_path = _normalize_library_path(path)
+    target_type = _normalize_library_collection_type(collection_type)
+    if not target_name or not target_path:
+        raise ValueError("创建 Emby 媒体库缺少必要参数")
+
+    existing = _find_exact_library_target(
+        get_virtual_folders(base_url, api_key),
+        target_name,
+        target_type,
+        target_path,
+    )
+    if existing is not None:
+        folder_id = _require_library_id(existing, target_name)
+        _ensure_etk_library_options(base_url, api_key, existing, target_name)
+        return {
+            'name': target_name,
+            'path': target_path,
+            'id': folder_id,
+            'created': False,
+        }
 
     payload = {
-        'Name': name,
-        'CollectionType': collection_type,
-        'Paths': [path],
+        'Name': target_name,
+        'CollectionType': target_type,
+        'Paths': [target_path],
         'RefreshLibrary': True,
-        'LibraryOptions': _library_options_with_etk(collection_type),
+        'LibraryOptions': _library_options_with_etk(target_type),
     }
     url = f"{base_url.rstrip('/')}/Library/VirtualFolders"
+    post_error = None
     try:
         response = emby_client.post(url, params={'api_key': api_key}, json=payload)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
-        raise RuntimeError(
-            f"Emby 创建媒体库失败：{name} -> {path}。请确认 ETK 的本地 STRM 根目录与 Emby 容器内的目录挂载路径完全一致。"
-        ) from e
+        post_error = e
 
-    for folder in get_virtual_folders(base_url, api_key):
-        locations = folder.get('Locations') or []
-        if folder.get('Name') == name or norm_path in {os.path.normpath(p) for p in locations if p}:
+    deadline = time.monotonic() + _LIBRARY_RECONCILE_TIMEOUT_SECONDS
+    while True:
+        folder = _find_exact_library_target(
+            get_virtual_folders(base_url, api_key),
+            target_name,
+            target_type,
+            target_path,
+        )
+        if folder is not None:
+            folder_id = _require_library_id(folder, target_name)
+            _ensure_etk_library_options(base_url, api_key, folder, target_name)
             return {
-                'name': folder.get('Name') or name,
-                'path': path,
-                'id': str(folder.get('ItemId') or folder.get('Id') or ''),
+                'name': target_name,
+                'path': target_path,
+                'id': folder_id,
                 'created': True,
             }
-    return {'name': name, 'path': path, 'id': '', 'created': True}
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            if post_error is not None:
+                raise RuntimeError(
+                    f"Emby 创建媒体库结果不确定且 reconciliation 超时：{target_name} -> {target_path}；"
+                    f"原始 POST 失败：{post_error}"
+                ) from post_error
+            raise RuntimeError(
+                f"Emby 创建媒体库超时：{target_name} -> {target_path}；"
+                "创建请求已提交，但未在限定时间内观察到完全匹配且带稳定 ID 的媒体库"
+            )
+        time.sleep(min(_LIBRARY_RECONCILE_POLL_INTERVAL_SECONDS, remaining))
 
 
 # --- 遍历指定的媒体库，通过分页获取所有独立的、未被聚合的媒体项 ---

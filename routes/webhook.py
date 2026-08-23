@@ -8,10 +8,24 @@ import re
 import json
 import requests
 from datetime import datetime, timezone
-from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask import Blueprint, Response, current_app, jsonify, request, stream_with_context
 from typing import Optional, List
 # 在线程型 WSGI fallback 中提供可停止的后台调用。
-from etk.compatibility.background import spawn, spawn_later
+from etk.compatibility.background import (
+    persistent_background_gateway_installed,
+    spawn,
+    spawn_later,
+    submit_persistent_background,
+)
+from etk.compatibility.persistent_runtime_state import (
+    claim_pending,
+    consume_ttl_marker,
+    finalize_pending,
+    merge_active_emby_series,
+    merge_metadata_update,
+    merge_moviepilot_batch,
+    release_pending,
+)
 
 import task_manager
 import handler.emby as emby
@@ -22,7 +36,7 @@ import config_manager
 import constants
 import handler.telegram as telegram
 import extensions
-from extensions import SYSTEM_UPDATE_MARKERS, SYSTEM_UPDATE_LOCK, RECURSION_SUPPRESSION_WINDOW, DELETING_COLLECTIONS, UPDATING_IMAGES, UPDATING_METADATA
+from extensions import RECURSION_SUPPRESSION_WINDOW, DELETING_COLLECTIONS, UPDATING_IMAGES, UPDATING_METADATA
 from core_processor import MediaProcessor
 from tasks.watchlist import task_process_watchlist
 from tasks.users import task_auto_sync_template_on_policy_change
@@ -72,6 +86,50 @@ ACTIVE_EMBY_DISPATCH_SEEN = {}
 ACTIVE_EMBY_DISPATCH_LOCK = threading.Lock()
 ACTIVE_EMBY_DISPATCH_DEBOUNCE_TIME = 10
 ACTIVE_EMBY_DISPATCH_SEEN_TTL = 120
+PERSISTENT_COALESCING_LEASE_SECONDS = 1920
+PERSISTENT_COALESCING_MAX_ATTEMPTS = 16
+PERSISTENT_COALESCING_TIMEOUT_SECONDS = 1860
+
+
+def _submit_persistent_coalesced_wake(namespace, wake, operation):
+    return submit_persistent_background(
+        operation,
+        args=(wake.batch_key, wake.version),
+        delay=wake.delay_seconds,
+        max_attempts=PERSISTENT_COALESCING_MAX_ATTEMPTS,
+        timeout_seconds=PERSISTENT_COALESCING_TIMEOUT_SECONDS,
+        idempotency_key=f"{wake.batch_key}:{wake.version}",
+        idempotency_scope=f"coalesced-wake:{namespace}",
+    )
+
+
+def _run_persistent_coalesced_wake(namespace, batch_key, wake_version, operation):
+    task_manager.persistent_execution_checkpoint()
+    claim = claim_pending(
+        namespace,
+        batch_key,
+        wake_version,
+        lease_seconds=PERSISTENT_COALESCING_LEASE_SECONDS,
+    )
+    if claim is None:
+        return None
+    try:
+        task_manager.persistent_execution_checkpoint()
+        effect_label = f'coalesced-wake:{namespace}:{batch_key}'
+        task_manager.record_persistent_effect_started(effect_label)
+        result = operation(claim.payload)
+    except Exception:
+        if not release_pending(namespace, batch_key, claim.owner_token):
+            logger.warning(
+                "  ➜ 持久合批任务失败后未释放 processing lease，owner 已变更: namespace=%s, key=%s",
+                namespace,
+                batch_key,
+            )
+        raise
+    task_manager.record_persistent_effect_committed(effect_label)
+    if not finalize_pending(namespace, batch_key, claim.owner_token):
+        raise RuntimeError(f"持久合批任务完成但无法 finalize owner: {namespace}:{batch_key}")
+    return result
 
 
 @webhook_bp.route('/api/emby/search', methods=['GET'])
@@ -149,6 +207,14 @@ def _flush_active_series_notification(series_key: str):
 
 
 def _enqueue_active_series_notification(item_details: dict, notification_type: str, new_episode_ids: List[str]):
+    if task_manager.has_persistent_execution():
+        telegram.send_media_notification(
+            item_details=item_details,
+            notification_type=notification_type,
+            new_episode_ids=new_episode_ids or None,
+        )
+        return
+
     provider_ids = item_details.get("ProviderIds") if isinstance(item_details.get("ProviderIds"), dict) else {}
     series_key = str(item_details.get("Id") or provider_ids.get("Tmdb") or item_details.get("Name") or "").strip()
     if not series_key:
@@ -243,6 +309,40 @@ def _consume_washing_notification_marker(emby_item_ids: List[str]) -> bool:
     except Exception as e:
         logger.warning(f"  ➜ [洗版通知] 消费洗版标记失败，沿用普通入库通知: {e}")
         return False
+
+
+def _send_media_notification_after_processing(
+    *,
+    item_details: dict,
+    item_type: str,
+    item_id: str,
+    precise_new_episode_ids: List[str],
+    is_new_item: bool,
+    aggregate_notification: bool,
+):
+    try:
+        notice_item_ids = precise_new_episode_ids if item_type == "Series" else [item_id]
+        is_washing = _consume_washing_notification_marker(notice_item_ids)
+        notification_type = "wash" if is_washing else (
+            "update" if precise_new_episode_ids and not is_new_item else "new"
+        )
+
+        if aggregate_notification and item_type == "Series" and precise_new_episode_ids:
+            _enqueue_active_series_notification(
+                item_details,
+                notification_type,
+                precise_new_episode_ids,
+            )
+        else:
+            telegram.send_media_notification(
+                item_details=item_details,
+                notification_type=notification_type,
+                new_episode_ids=precise_new_episode_ids or None,
+            )
+    except Exception as e:
+        logger.error(f"触发通知失败: {e}")
+        if task_manager.has_persistent_execution():
+            raise
 
 
 def _should_skip_non_etk_strm_webhook(item_type: str, item_name: str, item_path: str) -> bool:
@@ -493,6 +593,24 @@ def _submit_webhook_media_task(
     return False
 
 
+def _check_collection_survival_task(processor=None, *, collection_id, collection_name):
+    del processor
+    details = emby.get_emby_item_details(
+        item_id=collection_id,
+        emby_server_url=config_manager.APP_CONFIG.get("emby_server_url"),
+        emby_api_key=config_manager.APP_CONFIG.get("emby_api_key"),
+        user_id=config_manager.APP_CONFIG.get("emby_user_id"),
+        fields="Id",
+        silent_404=True,
+    )
+    if not details:
+        logger.info(f"  ➜ 合集《{collection_name}》已在 Emby 中消失，正在取消激活本地记录。")
+        logger.debug(f"  ➜ 已消失合集 ID：{collection_id}")
+        tmdb_collection_db.deactivate_native_collection_by_emby_id(collection_id)
+    else:
+        logger.debug(f"  ➜ 合集 '{collection_name}' 依然存在，无需操作。")
+
+
 def _is_same_pending_webhook_task(existing_task, new_task):
     return (
         existing_task.get("task_name") == new_task.get("task_name")
@@ -695,15 +813,20 @@ def _flush_mp_batch(key):
     if not files:
         return
 
+    return _process_mp_files(key, files, bool(task.get('has_video', False)))
+
+
+def _process_mp_files(key, files, has_video=False):
+    """Process an explicit JSON file batch without relying on API process memory."""
+
     client = P115Service.get_client()
     if not client:
-        logger.warning("  ➜ [MP合并整理] 115 客户端未初始化，任务取消。")
-        return
+        raise RuntimeError("MP合并整理无法执行：115 客户端未初始化")
 
     tmdb_id, media_type, season_num, episode_num = key
     title = files[0].get('title') or ''
 
-    video_text = "包含视频" if task.get('has_video', False) else "仅字幕或附属文件"
+    video_text = "包含视频" if has_video else "仅字幕或附属文件"
     logger.info(
         f"  ➜ [MP合并整理] 缓冲结束，开始处理 {len(files)} 个文件，{video_text}，TMDb：{tmdb_id}"
     )
@@ -745,26 +868,48 @@ def _flush_mp_batch(key):
             logger.info("  ➜ [MP直出] MP分类已开启：跳过整理/归类/重命名，生成 STRM 并缓存媒体信息。")
             ok = organizer.execute_mp_passthrough(file_nodes)
             if not ok:
-                logger.warning("  ➜ [MP直出] 直出处理未完全成功。")
+                raise RuntimeError("MP直出处理未完全成功")
         else:
             target_cid = organizer.get_target_cid(
                 season_num=organizer.forced_season if hasattr(organizer, 'forced_season') else None
             )
 
             if target_cid:
-                organizer.execute(file_nodes, target_cid, skip_gc=True)
+                if not organizer.execute(file_nodes, target_cid, skip_gc=True):
+                    raise RuntimeError("MP合并整理未完全成功")
             else:
                 logger.info("  ➜ [MP合并整理] 未命中分类规则，保持原样。")
 
     except Exception as e:
         logger.error(f"  ➜ [MP合并整理] 失败: {e}", exc_info=True)
+        raise
+
+
+def _wake_moviepilot_batch(batch_key: str, wake_version: int):
+    def process(payload):
+        batch_values = payload.get("batch_values") or []
+        files = payload.get("files") or []
+        if len(batch_values) != 4 or not files:
+            raise RuntimeError(f"MP持久缓冲批次状态无效: {batch_key}")
+        return _process_mp_files(
+            tuple(batch_values),
+            files,
+            bool(payload.get("has_video")),
+        )
+
+    return _run_persistent_coalesced_wake(
+        "moviepilot",
+        batch_key,
+        wake_version,
+        process,
+    )
+
 
 def _process_mp_passthrough_immediate(file_info):
     """MP直出模式：跳过缓冲，直接处理单文件"""
     client = P115Service.get_client()
     if not client:
-        logger.warning("  ➜ [MP直出] 115 客户端未初始化，任务取消。")
-        return
+        raise RuntimeError("MP直出无法执行：115 客户端未初始化")
 
     tmdb_id = file_info.get('tmdb_id')
     media_type = file_info.get('media_type')
@@ -806,17 +951,56 @@ def _process_mp_passthrough_immediate(file_info):
 
         ok = organizer.execute_mp_passthrough(file_nodes)
         if not ok:
-            logger.warning("  ➜ [MP直出] 直出处理未完全成功。")
+            raise RuntimeError("MP直出处理未完全成功")
 
     except Exception as e:
         logger.error(f"  ➜ [MP直出] 失败: {e}", exc_info=True)
+        raise
+
+
+def _update_local_user_policy(updated_user_id):
+    try:
+        user_details = emby.get_user_details(
+            updated_user_id,
+            config_manager.APP_CONFIG.get("emby_server_url"),
+            config_manager.APP_CONFIG.get("emby_api_key"),
+        )
+        if user_details and 'Policy' in user_details:
+            user_db.upsert_emby_users_batch([user_details])
+            logger.info(f"  ➜ Emby事件: 已更新用户 {updated_user_id} 的本地权限缓存。")
+    except Exception as e:
+        logger.error(f"  ➜ Emby事件更新本地 Policy 失败: {e}")
+        raise
+
 
 def _enqueue_mp_file(file_info):
     """将 MP 上传的文件加入缓冲池 (视频叫醒字幕机制)"""
+    file_name = file_info['name']
+    ext = file_name.split('.')[-1].lower() if '.' in file_name else ''
+    is_video = ext in ['mp4', 'mkv', 'avi', 'ts', 'iso', 'rmvb', 'wmv', 'mov', 'm2ts', 'flv', 'mpg']
+    key = (file_info['tmdb_id'], file_info['media_type'], file_info.get('season_num'), file_info.get('episode_num'))
+
+    from etk.compatibility.background import persistent_background_gateway_installed
+
+    if persistent_background_gateway_installed():
+        batch_key = json.dumps(list(key), ensure_ascii=False, separators=(',', ':'))
+        wake = merge_moviepilot_batch(
+            batch_key,
+            key,
+            file_info,
+            is_video=is_video,
+        )
+        _submit_persistent_coalesced_wake("moviepilot", wake, _wake_moviepilot_batch)
+        logger.info(
+            "  ➜ [MP持久缓冲] 文件 '%s' 已合并至批次 v%s，等待 %.1f 秒后尝试执行。",
+            file_name,
+            wake.version,
+            wake.delay_seconds,
+        )
+        return
+
     with MP_BATCH_LOCK:
         # 以 TMDB ID + 季号 + 集号 作为唯一批次 Key
-        key = (file_info['tmdb_id'], file_info['media_type'], file_info.get('season_num'), file_info.get('episode_num'))
-        
         if key not in MP_BATCH_QUEUE:
             MP_BATCH_QUEUE[key] = {
                 'files': [],
@@ -826,10 +1010,6 @@ def _enqueue_mp_file(file_info):
         
         task = MP_BATCH_QUEUE[key]
         task['files'].append(file_info)
-        
-        file_name = file_info['name']
-        ext = file_name.split('.')[-1].lower() if '.' in file_name else ''
-        is_video = ext in ['mp4', 'mkv', 'avi', 'ts', 'iso', 'rmvb', 'wmv', 'mov', 'm2ts', 'flv', 'mpg']
         
         if is_video:
             task['has_video'] = True
@@ -857,90 +1037,79 @@ def _shared_resource_auto_share_enabled() -> bool:
         return False
 
 
+def _run_shared_auto_share_batch(task_name: str, items: List[dict]):
+    from tasks.shared_resource_tasks import (
+        trigger_shared_rapid_register_batch_for_library_items,
+        trigger_shared_rapid_register_for_library_item,
+    )
+
+    created_total = 0
+    failed_total = 0
+    logger.info(f"  ➜ [共享资源] 入库后自动登记共享源：{task_name}，共 {len(items)} 个文件。")
+    if len(items) > 1:
+        batch_result = trigger_shared_rapid_register_batch_for_library_items(None, items) or {}
+        try:
+            created_total = int(batch_result.get('created', 0) or 0)
+        except Exception:
+            created_total = 0
+        try:
+            failed_total = int(batch_result.get('failed', 0) or 0)
+        except Exception:
+            failed_total = 1
+        raw_result = batch_result.get('raw_batch_result') or {}
+        logger.info(
+            "  ➜ [共享资源] 媒体信息预上传完成：%s，本次上传 %s 个，中心已有 %s 个，可用于秒传校验 %s 个。",
+            task_name,
+            raw_result.get('uploaded_count') or 0,
+            raw_result.get('skipped_existing') or 0,
+            raw_result.get('count') or 0,
+        )
+        if not batch_result.get('ok') or failed_total or not raw_result.get('ok'):
+            raise RuntimeError(
+                f"共享源登记失败: {task_name}，中心失败 {failed_total} 个，"
+                f"RAW 预上传状态={'成功' if raw_result.get('ok') else '失败'}"
+            )
+    else:
+        result = trigger_shared_rapid_register_for_library_item(None, **items[0]) or {}
+        try:
+            created_total = int(result.get('created', 0) or result.get('registered_count', 0) or 0)
+        except Exception:
+            created_total = 0
+        if not result.get('ok'):
+            raise RuntimeError(
+                f"共享源登记失败: {task_name}，{result.get('message') or result.get('error') or '中心登记未成功'}"
+            )
+
+    logger.info(
+        "  ➜ [共享资源] 入库共享源登记完成：%s，共 %s 个文件，成功 %s 个，失败 %s 个。",
+        task_name,
+        len(items),
+        created_total,
+        failed_total,
+    )
+    return {'ok': True, 'created': created_total, 'failed': failed_total}
+
+
 def _run_shared_auto_share_batch_detached(task_name: str, register_items: List[dict]):
-    """共享供给侧登记必须脱离 task_manager 单线程队列。
-
-    Emby 事件本身已经运行在 task_manager 的单 worker + task_lock 中。
-    如果这里再 submit_task，会在同一线程内二次获取 task_lock，导致事件任务假死。
-
-    Rapid v2 不再判断“是否有人需要”。只要共享资源开关已启用，
-    媒体入库完成并补齐指纹后，就立即把本机秒传源登记到中心。
-    """
+    """持久 Worker 同步登记；legacy 模式脱离 task_manager 单线程队列。"""
     items = [dict(x or {}) for x in (register_items or []) if isinstance(x, dict)]
     if not items:
-        return
+        return None
 
     if not _shared_resource_auto_share_enabled():
         logger.debug(f"  ➜ [共享资源] 共享资源未启用，跳过自动登记: {task_name}")
-        return
+        return None
+
+    if task_manager.has_persistent_execution():
+        return _run_shared_auto_share_batch(task_name, items)
 
     def _runner():
-        created_total = 0
-        failed_total = 0
         try:
-            from tasks.shared_resource_tasks import (
-                trigger_shared_rapid_register_batch_for_library_items,
-                trigger_shared_rapid_register_for_library_item,
-            )
-
-            logger.info(f"  ➜ [共享资源] 入库后自动登记共享源：{task_name}，共 {len(items)} 个文件。")
-            if len(items) > 1:
-                batch_result = trigger_shared_rapid_register_batch_for_library_items(None, items) or {}
-                try:
-                    created_total += int(batch_result.get('created', 0) or 0)
-                except Exception:
-                    pass
-                failed_total += int(batch_result.get('failed', 0) or 0)
-                raw_result = batch_result.get('raw_batch_result') or {}
-                logger.info(
-                    "  ➜ [共享资源] 媒体信息预上传完成：%s，本次上传 %s 个，中心已有 %s 个，可用于秒传校验 %s 个。",
-                    task_name,
-                    raw_result.get('uploaded_count') or 0,
-                    raw_result.get('skipped_existing') or 0,
-                    raw_result.get('count') or 0,
-                )
-                logger.info(
-                    "  ➜ [共享资源] 入库共享源登记完成：%s，共 %s 个文件，成功 %s 个，失败 %s 个。",
-                    task_name,
-                    len(items),
-                    created_total,
-                    failed_total,
-                )
-                return
-            for item in items:
-                try:
-                    result = trigger_shared_rapid_register_for_library_item(None, **item) or {}
-                    try:
-                        created_total += int(result.get('created', 0) or result.get('registered_count', 0) or 0)
-                    except Exception:
-                        pass
-                    if not result.get('ok'):
-                        failed_total += 1
-                        logger.debug(
-                            "  ➜ [共享资源] 入库登记未成功: %s，message=%s",
-                            item.get('emby_item_id') or item.get('tmdb_id') or '-',
-                            result.get('message', '') if isinstance(result, dict) else '',
-                        )
-                except Exception as item_err:
-                    failed_total += 1
-                    logger.warning(
-                        "  ➜ [共享资源] 入库登记单项失败: %s -> %s",
-                        item.get('emby_item_id') or item.get('tmdb_id') or '-',
-                        item_err,
-                        exc_info=True,
-                    )
-
-            logger.info(
-                "  ➜ [共享资源] 入库共享源登记完成：%s，共 %s 个文件，成功 %s 个，失败 %s 个。",
-                task_name,
-                len(items),
-                created_total,
-                failed_total,
-            )
+            _run_shared_auto_share_batch(task_name, items)
         except Exception as e:
             logger.warning(f"  ➜ [共享资源] 自动登记失败: {task_name} -> {e}", exc_info=True)
 
-    spawn(_runner)
+    return spawn(_runner)
 
 
 def _run_shared_auto_share_detached(task_name: str, **kwargs):
@@ -1002,6 +1171,8 @@ def _submit_shared_auto_share_after_library_ready(
             )
     except Exception as e:
         logger.warning(f"  ➜ [共享资源] 提交 webhook Rapid 共享源登记失败: {e}", exc_info=True)
+        if task_manager.has_persistent_execution():
+            raise
 
 def _get_processor_local_strm_root(processor) -> str:
     """从 MediaProcessor / 配置中提取本地 STRM 根目录，用于补齐 p115_filesystem_cache.local_path。"""
@@ -1148,6 +1319,79 @@ def _repair_webhook_p115_fingerprints_for_emby_ids(
         logger.warning(f"  ➜ [指纹补齐] 执行失败: {e}", exc_info=True)
         return 0
 
+def _submit_watchlist_refresh_after_media(
+    *,
+    item_name: str,
+    tmdb_id: str,
+    precise_new_episode_ids: List[str],
+    triggering_episode_ids: Optional[List[str]],
+) -> bool:
+    watching_ids = watchlist_db.get_watching_tmdb_ids()
+    is_watching = str(tmdb_id) in watching_ids
+    has_new_episodes = bool(precise_new_episode_ids)
+    has_virtual_episodes = bool(triggering_episode_ids and not precise_new_episode_ids)
+
+    if has_virtual_episodes:
+        logger.info(
+            f"  ➜ [虚拟入库] 《{item_name}》本次仅包含虚拟分集，"
+            "不作为新集范围触发联动，但仍刷新整剧追剧状态。"
+        )
+
+    if not is_watching and not has_new_episodes and not has_virtual_episodes:
+        logger.debug(f"  ➜ [智能追剧] 剧集 《{item_name}》 当前不在追剧列表中，且无新集触发，跳过刷新。")
+        return False
+
+    if not is_watching and has_new_episodes:
+        logger.info(f"  ➜ [智能追剧]  《{item_name}》 检测到有新集入库，重新开始追剧！")
+
+    refresh_scope_text = (
+        f"本次只刷新 {len(precise_new_episode_ids)} 个新增分集。"
+        if precise_new_episode_ids
+        else "本次刷新整部剧集。"
+    )
+    logger.info(f"  ➜ [智能追剧] 触发单项刷新：{refresh_scope_text}")
+    accepted = task_manager.submit_task(
+        task_process_watchlist,
+        task_name=f"刷新智能追剧: 《{item_name}》",
+        processor_type='watchlist',
+        tmdb_id=str(tmdb_id),
+        new_episode_ids=precise_new_episode_ids or None,
+        subscription_triggering_episode_ids=triggering_episode_ids or None,
+    )
+    if not accepted:
+        raise RuntimeError("watchlist Job was not accepted")
+    return True
+
+
+def _schedule_watchlist_refresh_after_media(
+    *,
+    item_name: str,
+    tmdb_id: str,
+    precise_new_episode_ids: List[str],
+    triggering_episode_ids: Optional[List[str]],
+):
+    if task_manager.has_persistent_execution():
+        return _submit_watchlist_refresh_after_media(
+            item_name=item_name,
+            tmdb_id=tmdb_id,
+            precise_new_episode_ids=precise_new_episode_ids,
+            triggering_episode_ids=triggering_episode_ids,
+        )
+
+    def _runner():
+        try:
+            _submit_watchlist_refresh_after_media(
+                item_name=item_name,
+                tmdb_id=tmdb_id,
+                precise_new_episode_ids=precise_new_episode_ids,
+                triggering_episode_ids=triggering_episode_ids,
+            )
+        except Exception as e:
+            logger.error(f"  ➜ 触发智能追剧任务失败: {e}")
+
+    return spawn(_runner)
+
+
 def _handle_full_processing_flow(processor: 'MediaProcessor', item_id: str, force_full_update: bool, new_episode_ids: Optional[List[str]] = None, is_new_item: bool = True, aggregate_notification: bool = False):
     """
     【Emby 事件统一入口】
@@ -1289,23 +1533,14 @@ def _handle_full_processing_flow(processor: 'MediaProcessor', item_id: str, forc
     logger.trace(f"  ➜ Emby 事件任务及所有后续流程完成: '{item_name_for_log}'")
 
     # 4. ★★★ 通知分流 ★★★
-    try:
-        # 如果提供了 new_episode_ids，说明是追更通知
-        # 如果 is_new_item 为 True，说明是新入库通知
-        notice_item_ids = precise_new_episode_ids if item_type == "Series" else [item_id]
-        is_washing = _consume_washing_notification_marker(notice_item_ids)
-        notif_type = 'wash' if is_washing else ('update' if (precise_new_episode_ids and not is_new_item) else 'new')
-        
-        if aggregate_notification and item_type == "Series" and precise_new_episode_ids:
-            _enqueue_active_series_notification(item_details, notif_type, precise_new_episode_ids)
-        else:
-            telegram.send_media_notification(
-                item_details=item_details,
-                notification_type=notif_type,
-                new_episode_ids=precise_new_episode_ids or None
-            )
-    except Exception as e:
-        logger.error(f"触发通知失败: {e}")
+    _send_media_notification_after_processing(
+        item_details=item_details,
+        item_type=item_type,
+        item_id=item_id,
+        precise_new_episode_ids=precise_new_episode_ids,
+        is_new_item=is_new_item,
+        aggregate_notification=aggregate_notification,
+    )
 
     logger.trace(f"  ➜ Emby 事件任务及所有后续流程完成: '{item_name_for_log}'")
 
@@ -1346,54 +1581,12 @@ def _handle_full_processing_flow(processor: 'MediaProcessor', item_id: str, forc
 
     # 刷新智能追剧状态 
     if item_type == "Series" and tmdb_id:
-        def _async_trigger_watchlist():
-            try:
-                watching_ids = watchlist_db.get_watching_tmdb_ids()
-                
-                # ★★★ 核心破局点：打破“不见兔子不撒鹰”的死锁 ★★★
-                is_watching = str(tmdb_id) in watching_ids
-                has_new_episodes = bool(precise_new_episode_ids) # 明确有新集物理文件入库
-                has_virtual_episodes = bool(new_episode_ids and not precise_new_episode_ids)
-                
-                # 如果既不在追剧列表中，又没有新集入库，才真正跳过
-                if has_virtual_episodes:
-                    logger.info(
-                        f"  ➜ [虚拟入库] 《{item_name_for_log}》本次仅包含虚拟分集，"
-                        "不作为新集范围触发联动，但仍刷新整剧追剧状态。"
-                    )
-
-                if not is_watching and not has_new_episodes and not has_virtual_episodes:
-                    logger.debug(f"  ➜ [智能追剧] 剧集 《{item_name_for_log}》 当前不在追剧列表中，且无新集触发，跳过刷新。")
-                    return
-                
-                # 如果不在追剧列表中，但是有新集入库 -> 新季复活，强制唤醒！
-                if not is_watching and has_new_episodes:
-                    logger.info(f"  ➜ [智能追剧]  《{item_name_for_log}》 检测到有新集入库，重新开始追剧！")
-
-                # =======================================================
-
-                # 新集指纹体检与共享源登记均已在 Emby 事件链中完成；watchlist_processor 只负责追剧状态刷新。
-                refresh_scope_text = (
-                    f"本次只刷新 {len(precise_new_episode_ids)} 个新增分集。"
-                    if precise_new_episode_ids
-                    else "本次刷新整部剧集。"
-                )
-                logger.info(
-                    f"  ➜ [智能追剧] 触发单项刷新：{refresh_scope_text}"
-                )
-                task_manager.submit_task(
-                    task_process_watchlist,
-                    task_name=f"刷新智能追剧: 《{item_name_for_log}》",
-                    processor_type='watchlist', 
-                    tmdb_id=str(tmdb_id),
-                    new_episode_ids=precise_new_episode_ids or None,
-                    subscription_triggering_episode_ids=new_episode_ids or None,
-                )
-            except Exception as e:
-                logger.error(f"  ➜ 触发智能追剧任务失败: {e}")
-
-        # 启动协程，不等待结果，直接让当前 Emby 事件任务结束
-        spawn(_async_trigger_watchlist)
+        _schedule_watchlist_refresh_after_media(
+            item_name=item_name_for_log,
+            tmdb_id=tmdb_id,
+            precise_new_episode_ids=precise_new_episode_ids,
+            triggering_episode_ids=new_episode_ids,
+        )
 
 def _handle_immediate_tagging_with_lib(item_id, item_name, lib_id, lib_name, known_rating=None):
     """
@@ -1477,12 +1670,16 @@ def _flush_active_emby_series_dispatch(series_id: str):
     if not pending:
         return
 
+    _dispatch_active_emby_series(series_id, pending.get("name") or "", sorted(pending["episode_ids"]))
+
+
+def _dispatch_active_emby_series(series_id: str, series_name: str, episode_ids):
+    episode_ids = sorted(str(value) for value in episode_ids if str(value or "").strip())
+
     processor = extensions.media_processor_instance
     if not processor:
-        return
+        return False
 
-    episode_ids = sorted(pending["episode_ids"])
-    series_name = pending.get("name") or ""
     if not series_name:
         series = emby.get_emby_item_details(
             series_id,
@@ -1504,7 +1701,7 @@ def _flush_active_emby_series_dispatch(series_id: str):
         series_name,
         len(episode_ids),
     )
-    _submit_webhook_media_task(
+    submitted = _submit_webhook_media_task(
         f"{task_prefix}: {series_name}",
         item_id=series_id,
         force_full_update=False,
@@ -1512,9 +1709,52 @@ def _flush_active_emby_series_dispatch(series_id: str):
         is_new_item=not already_processed,
         aggregate_notification=bool(episode_ids),
     )
+    return bool(submitted)
+
+
+def _wake_active_emby_series_dispatch(batch_key: str, wake_version: int):
+    def process(payload):
+        series_id = str(payload.get("series_id") or batch_key)
+        submitted = _dispatch_active_emby_series(
+            series_id,
+            str(payload.get("series_name") or ""),
+            payload.get("episode_ids") or [],
+        )
+        if not submitted:
+            raise RuntimeError(f"主动入库任务未持久分派: SeriesId={series_id}")
+        return True
+
+    return _run_persistent_coalesced_wake(
+        "active-emby-series-dispatch",
+        batch_key,
+        wake_version,
+        process,
+    )
 
 
 def _enqueue_active_emby_series_dispatch(series_id: str, series_name: str, episode_ids):
+    from etk.compatibility.background import persistent_background_gateway_installed
+
+    if persistent_background_gateway_installed():
+        normalized_episode_ids = sorted(str(x) for x in episode_ids if str(x or "").strip())
+        wake = merge_active_emby_series(
+            series_id,
+            series_name,
+            normalized_episode_ids,
+            delay_seconds=ACTIVE_EMBY_DISPATCH_DEBOUNCE_TIME,
+        )
+        _submit_persistent_coalesced_wake(
+            "active-emby-series-dispatch",
+            wake,
+            _wake_active_emby_series_dispatch,
+        )
+        logger.info(
+            "  ➜ [主动入库] 剧集 ItemID 已持久化合并等待分派: SeriesId=%s，事件新增 %s 集，批次 v%s。",
+            series_id,
+            len(normalized_episode_ids),
+            wake.version,
+        )
+        return
     with ACTIVE_EMBY_DISPATCH_LOCK:
         pending = ACTIVE_EMBY_DISPATCH_QUEUE.setdefault(
             series_id,
@@ -1610,12 +1850,32 @@ def _trigger_metadata_update_task(item_id, item_name):
     """触发元数据同步任务"""
     logger.info(f"  ➜ 防抖计时器到期，开始同步《{item_name}》的元数据缓存。")
     logger.debug(f"  ➜ 元数据缓存同步对象：item_id={item_id}")
-    task_manager.submit_task(
+    submitted = task_manager.submit_task(
         task_sync_all_metadata,
         task_name=f"元数据同步: {item_name}",
         processor_type='media',
         item_id=item_id,
         item_name=item_name
+    )
+    return bool(submitted)
+
+
+def _wake_metadata_update(batch_key: str, wake_version: int):
+    def process(payload):
+        item_id = str(payload.get("item_id") or batch_key)
+        submitted = _trigger_metadata_update_task(
+            item_id,
+            str(payload.get("item_name") or ""),
+        )
+        if not submitted:
+            raise RuntimeError(f"元数据同步任务未持久分派: item_id={item_id}")
+        return True
+
+    return _run_persistent_coalesced_wake(
+        "emby-metadata-update",
+        batch_key,
+        wake_version,
+        process,
     )
 
 
@@ -1922,7 +2182,36 @@ def trigger_emby_library_metadata_backfill():
 @webhook_bp.route('/api/emby/intro-detection/backfill', methods=['POST'])
 def trigger_emby_intro_detection_backfill():
     """Queue the opt-in active-watch intro fallback from the bridge task."""
-    from handler.intro_detection_service import enqueue_active_backfill
+    from handler.intro_detection_service import (
+        enqueue_active_backfill,
+        run_active_backfill_persistent,
+    )
+
+    if current_app.config.get('ETK_COMPATIBILITY_HOST'):
+        if not persistent_background_gateway_installed():
+            return jsonify({
+                'ok': False,
+                'submitted': False,
+                'reason': 'persistent_gateway_unavailable',
+            }), 503
+        try:
+            handle = submit_persistent_background(
+                run_active_backfill_persistent,
+                args=(50,),
+                kwargs={'force': False},
+            )
+        except Exception as e:
+            logger.warning("  ➜ [片头片尾提取] 持久查漏任务提交失败: %s", e, exc_info=True)
+            return jsonify({
+                'ok': False,
+                'submitted': False,
+                'reason': 'persistent_submit_failed',
+            }), 503
+        return jsonify({
+            'ok': True,
+            'submitted': True,
+            'job_id': str(handle.job_id),
+        }), 202
 
     result = enqueue_active_backfill()
     if result.get('ok'):
@@ -2371,36 +2660,18 @@ def emby_webhook():
 
         # --- 立即反查并更新本地 Policy ---
         try:
-            def _update_local_policy_task():
-                try:
-                    # 获取最新详情
-                    user_details = emby.get_user_details(
-                        updated_user_id, 
-                        config_manager.APP_CONFIG.get("emby_server_url"), 
-                        config_manager.APP_CONFIG.get("emby_api_key")
-                    )
-                    if user_details and 'Policy' in user_details:
-                        # 更新数据库
-                        user_db.upsert_emby_users_batch([user_details])
-                        logger.info(f"  ➜ Emby事件: 已更新用户 {updated_user_id} 的本地权限缓存。")
-                except Exception as e:
-                    logger.error(f"  ➜ Emby事件更新本地 Policy 失败: {e}")
-
-            # 异步执行，不阻塞 Emby 事件响应
-            spawn(_update_local_policy_task)
+            spawn(_update_local_user_policy, updated_user_id)
         except Exception as e:
             logger.error(f"启动 Policy 更新任务失败: {e}")
 
-        # ★★★ 核心逻辑: 在处理前，先检查信号旗 ★★★
-        with SYSTEM_UPDATE_LOCK:
-            last_update_time = SYSTEM_UPDATE_MARKERS.get(updated_user_id)
-            # 如果找到了标记，并且时间戳在我们的抑制窗口期内
-            if last_update_time and (time.time() - last_update_time) < RECURSION_SUPPRESSION_WINDOW:
-                logger.debug(f"  ➜ 忽略由系统内部同步触发的用户 '{updated_user_name}' 权限更新事件。")
-                # 为了保险起见，用完就删掉这个标记
-                del SYSTEM_UPDATE_MARKERS[updated_user_id]
-                # 直接返回成功，不再创建任何后台任务
-                return jsonify({"status": "event_ignored_system_triggered"}), 200
+        # Worker 写入的标记由 API 跨进程原子消费，同一标记只能抑制一次回调。
+        if consume_ttl_marker(
+            "emby-user-policy-update",
+            updated_user_id,
+            RECURSION_SUPPRESSION_WINDOW,
+        ):
+            logger.debug(f"  ➜ 忽略由系统内部同步触发的用户 '{updated_user_name}' 权限更新事件。")
+            return jsonify({"status": "event_ignored_system_triggered"}), 200
         
         # 如果上面的检查通过了（即这是一个正常的手动操作），才继续执行原来的逻辑
         logger.info(f"  ➜ 检测到用户 '{updated_user_name}' 的权限策略已更新，将分派后台任务检查模板同步。")
@@ -2606,27 +2877,12 @@ def emby_webhook():
         if collection_id:
             logger.info(f"  ➜ Emby事件: 合集 '{collection_name}' 有成员移除，正在检查合集存活状态...")
             
-            def _check_collection_survival_task(processor=None):
-                details = emby.get_emby_item_details(
-                    item_id=collection_id,
-                    emby_server_url=config_manager.APP_CONFIG.get("emby_server_url"),
-                    emby_api_key=config_manager.APP_CONFIG.get("emby_api_key"),
-                    user_id=config_manager.APP_CONFIG.get("emby_user_id"),
-                    fields="Id",
-                    silent_404=True
-                )
-                
-                if not details:
-                    logger.info(f"  ➜ 合集《{collection_name}》已在 Emby 中消失，正在取消激活本地记录。")
-                    logger.debug(f"  ➜ 已消失合集 ID：{collection_id}")
-                    tmdb_collection_db.deactivate_native_collection_by_emby_id(collection_id)
-                else:
-                    logger.debug(f"  ➜ 合集 '{collection_name}' 依然存在，无需操作。")
-
             task_manager.submit_task(
                 _check_collection_survival_task,
                 task_name=f"检查合集存活: {collection_name}",
-                processor_type='media'
+                processor_type='media',
+                collection_id=collection_id,
+                collection_name=collection_name,
             )
             return jsonify({"status": "collection_removal_check_started"}), 202
 
@@ -2691,6 +2947,27 @@ def emby_webhook():
 
     # --- 处理元数据更新事件 ---
     if event_type == "metadata.update":
+        from etk.compatibility.background import persistent_background_gateway_installed
+
+        if persistent_background_gateway_installed():
+            wake = merge_metadata_update(
+                id_to_process,
+                name_for_task,
+                delay_seconds=UPDATE_DEBOUNCE_TIME,
+            )
+            _submit_persistent_coalesced_wake(
+                "emby-metadata-update",
+                wake,
+                _wake_metadata_update,
+            )
+            logger.info(
+                "  ➜ 为 '%s' 合并持久化元数据同步事件，批次 v%s 将在 %s 秒后尝试执行。",
+                name_for_task,
+                wake.version,
+                UPDATE_DEBOUNCE_TIME,
+            )
+            return jsonify({"status": "metadata_update_task_debounced", "item_id": id_to_process}), 202
+
         with UPDATE_DEBOUNCE_LOCK:
             if id_to_process in UPDATE_DEBOUNCE_TIMERS:
                 old_timer = UPDATE_DEBOUNCE_TIMERS[id_to_process]

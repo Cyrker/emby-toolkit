@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 class RuntimeRole(StrEnum):
     API = "api"
+    WORKER = "worker"
+    COORDINATOR = "coordinator"
     PROXY = "proxy"
 
 
@@ -138,6 +140,10 @@ class RuntimeSupervisor:
         with self._operation_lock:
             self._save_config_and_reload(new_config)
 
+    def apply_persisted_config_snapshot(self, new_config: Mapping[str, Any]) -> None:
+        with self._operation_lock:
+            self._apply_persisted_config_snapshot(new_config)
+
     def _save_config_and_reload(self, new_config: Mapping[str, Any]) -> None:
         if not isinstance(new_config, Mapping):
             raise TypeError("new_config must be a mapping")
@@ -149,6 +155,30 @@ class RuntimeSupervisor:
             self._state = RuntimeState.RELOADING
             try:
                 adapter.save_config_and_reload(dict(new_config))
+            except BaseException as exc:
+                self._state = (
+                    RuntimeState.RUNNING
+                    if isinstance(exc, RuntimeReloadError) and exc.compensated
+                    else RuntimeState.FAILED
+                )
+                raise
+            else:
+                self._state = RuntimeState.RUNNING
+
+    def _apply_persisted_config_snapshot(self, new_config: Mapping[str, Any]) -> None:
+        if not isinstance(new_config, Mapping):
+            raise TypeError("new_config must be a mapping")
+
+        with self._lock:
+            if self._state is not RuntimeState.RUNNING or self._adapter is None:
+                raise RuntimeError("runtime is not running")
+            adapter = self._adapter
+            apply_snapshot = getattr(adapter, "apply_persisted_config_snapshot", None)
+            if not callable(apply_snapshot):
+                raise RuntimeError("runtime adapter cannot apply a persisted configuration snapshot")
+            self._state = RuntimeState.RELOADING
+            try:
+                apply_snapshot(dict(new_config))
             except BaseException as exc:
                 self._state = (
                     RuntimeState.RUNNING

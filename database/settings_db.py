@@ -3,16 +3,28 @@ import psycopg2
 import logging
 import json
 import re
+import threading
 import pytz
+from collections.abc import Callable, Mapping
+from contextlib import contextmanager
 from typing import Optional, Any, Dict
 from datetime import datetime
 
 from .connection import get_db_connection
+from etk.platform.config.locking import (
+    DYNAMIC_CONFIG_LOCK_KEY,
+    DYNAMIC_CONFIG_LOCK_NAMESPACE,
+    P115_AUTH_LOCK_KEY,
+    P115_UNRECOGNIZED_DELETE_LOCK_KEY,
+)
 import config_manager
 import constants
 
 logger = logging.getLogger(__name__)
 WASHING_PRIORITY_RECALCULATE_SETTING_KEY = 'p115_washing_priority_recalculate_state'
+_dynamic_config_lock_state = threading.local()
+_p115_auth_lock_state = threading.local()
+_p115_unrecognized_delete_lock_state = threading.local()
 
 # ======================================================================
 # 模块: 配置数据访问
@@ -46,7 +58,14 @@ def _save_setting_with_cursor(cursor, setting_key: str, value: Dict[str, Any]):
 
 def save_setting(setting_key: str, value: Dict[str, Any], *, log_success: bool = True):
     """【V2 - 重构版】向 app_settings 表中保存或更新一个设置项。"""
-    
+
+    if setting_key == 'dynamic_app_config':
+        with dynamic_config_write_lock():
+            return _save_setting_unlocked(setting_key, value, log_success=log_success)
+    return _save_setting_unlocked(setting_key, value, log_success=log_success)
+
+
+def _save_setting_unlocked(setting_key: str, value: Dict[str, Any], *, log_success: bool = True):
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
@@ -57,6 +76,210 @@ def save_setting(setting_key: str, value: Dict[str, Any], *, log_success: bool =
     except Exception as e:
         logger.error(f"  ➜ 保存设置 '{setting_key}' 时失败: {e}", exc_info=True)
         raise
+
+
+@contextmanager
+def dynamic_config_write_lock():
+    """Serialize dynamic config mutation and runtime compensation across processes."""
+
+    depth = int(getattr(_dynamic_config_lock_state, 'depth', 0))
+    if depth:
+        _dynamic_config_lock_state.depth = depth + 1
+        try:
+            yield
+        finally:
+            _dynamic_config_lock_state.depth = depth
+        return
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT pg_advisory_lock(%s, %s)",
+            (DYNAMIC_CONFIG_LOCK_NAMESPACE, DYNAMIC_CONFIG_LOCK_KEY),
+        )
+        conn.commit()
+        _dynamic_config_lock_state.depth = 1
+        try:
+            yield
+        finally:
+            _dynamic_config_lock_state.depth = 0
+            cursor.execute(
+                "SELECT pg_advisory_unlock(%s, %s)",
+                (DYNAMIC_CONFIG_LOCK_NAMESPACE, DYNAMIC_CONFIG_LOCK_KEY),
+            )
+            conn.commit()
+
+
+@contextmanager
+def p115_auth_write_lock():
+    """Serialize 115 credential replacement and Quick Deploy account snapshots."""
+
+    depth = int(getattr(_p115_auth_lock_state, 'depth', 0))
+    if depth:
+        _p115_auth_lock_state.depth = depth + 1
+        try:
+            yield
+        finally:
+            _p115_auth_lock_state.depth = depth
+        return
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT pg_advisory_lock(%s, %s)",
+            (DYNAMIC_CONFIG_LOCK_NAMESPACE, P115_AUTH_LOCK_KEY),
+        )
+        conn.commit()
+        _p115_auth_lock_state.depth = 1
+        try:
+            yield
+        finally:
+            _p115_auth_lock_state.depth = 0
+            cursor.execute(
+                "SELECT pg_advisory_unlock(%s, %s)",
+                (DYNAMIC_CONFIG_LOCK_NAMESPACE, P115_AUTH_LOCK_KEY),
+            )
+            conn.commit()
+
+
+@contextmanager
+def p115_unrecognized_delete_lock():
+    """Serialize destructive cleanup attempts for the configured unrecognized directory."""
+
+    depth = int(getattr(_p115_unrecognized_delete_lock_state, 'depth', 0))
+    if depth:
+        _p115_unrecognized_delete_lock_state.depth = depth + 1
+        try:
+            yield
+        finally:
+            _p115_unrecognized_delete_lock_state.depth = depth
+        return
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT pg_advisory_lock(%s, %s)",
+            (DYNAMIC_CONFIG_LOCK_NAMESPACE, P115_UNRECOGNIZED_DELETE_LOCK_KEY),
+        )
+        conn.commit()
+        _p115_unrecognized_delete_lock_state.depth = 1
+        try:
+            yield
+        finally:
+            _p115_unrecognized_delete_lock_state.depth = 0
+            cursor.execute(
+                "SELECT pg_advisory_unlock(%s, %s)",
+                (DYNAMIC_CONFIG_LOCK_NAMESPACE, P115_UNRECOGNIZED_DELETE_LOCK_KEY),
+            )
+            conn.commit()
+
+
+def merge_setting_mapping(setting_key: str, updates: Mapping[str, Any]) -> Dict[str, Any]:
+    """Atomically merge object fields and return the committed mapping."""
+
+    with dynamic_config_write_lock():
+        return _merge_setting_mapping_unlocked(setting_key, updates)
+
+
+def _merge_setting_mapping_unlocked(setting_key: str, updates: Mapping[str, Any]) -> Dict[str, Any]:
+    sql = """
+        INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+        VALUES (%s, %s, NOW())
+        ON CONFLICT (setting_key) DO UPDATE SET
+            value_json = COALESCE(app_settings.value_json, '{}'::jsonb) || EXCLUDED.value_json,
+            last_updated_at = NOW()
+        RETURNING value_json;
+    """
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql, (setting_key, json.dumps(dict(updates), ensure_ascii=False)))
+            row = cursor.fetchone()
+            conn.commit()
+    except Exception as e:
+        logger.error(f"  ➜ 合并设置 '{setting_key}' 时失败: {e}", exc_info=True)
+        raise
+
+    if row is None:
+        raise RuntimeError(f"合并设置 '{setting_key}' 时数据库未返回结果")
+    value = row['value_json'] if isinstance(row, Mapping) else row[0]
+    if not isinstance(value, dict):
+        raise TypeError(f"设置 '{setting_key}' 必须是 JSON 对象")
+    return dict(value)
+
+
+def update_setting_mapping(
+    setting_key: str,
+    updater: Callable[[Dict[str, Any]], Mapping[str, Any]],
+) -> Dict[str, Any]:
+    """Update one object setting while holding its PostgreSQL row lock."""
+
+    with dynamic_config_write_lock():
+        return _update_setting_mapping_unlocked(setting_key, updater)
+
+
+def _update_setting_mapping_unlocked(
+    setting_key: str,
+    updater: Callable[[Dict[str, Any]], Mapping[str, Any]],
+) -> Dict[str, Any]:
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                VALUES (%s, '{}'::jsonb, NOW())
+                ON CONFLICT (setting_key) DO NOTHING
+                """,
+                (setting_key,),
+            )
+            cursor.execute(
+                "SELECT value_json FROM app_settings WHERE setting_key = %s FOR UPDATE",
+                (setting_key,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                raise RuntimeError(f"更新设置 '{setting_key}' 时数据库未返回结果")
+            value = row['value_json'] if isinstance(row, Mapping) else row[0]
+            if not isinstance(value, dict):
+                raise TypeError(f"设置 '{setting_key}' 必须是 JSON 对象")
+            updated = updater(dict(value))
+            if not isinstance(updated, Mapping):
+                raise TypeError("设置更新函数必须返回映射")
+            committed = dict(updated)
+            cursor.execute(
+                """
+                UPDATE app_settings
+                SET value_json = %s, last_updated_at = NOW()
+                WHERE setting_key = %s
+                """,
+                (json.dumps(committed, ensure_ascii=False), setting_key),
+            )
+            conn.commit()
+            return committed
+    except Exception as e:
+        logger.error(f"  ➜ 更新设置 '{setting_key}' 时失败: {e}", exc_info=True)
+        raise
+
+
+def restore_setting_keys_if_unchanged(
+    setting_key: str,
+    expected_updates: Mapping[str, Any],
+    previous_values: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Restore only keys still equal to this writer's values."""
+
+    def restore(current: Dict[str, Any]) -> Dict[str, Any]:
+        for key, expected in expected_updates.items():
+            if key not in current or current[key] != expected:
+                continue
+            if key in previous_values:
+                current[key] = previous_values[key]
+            else:
+                current.pop(key, None)
+        return current
+
+    return update_setting_mapping(setting_key, restore)
 
 def _normalize_washing_conflict_mode(value: Any, default: str = 'replace') -> str:
     mode = str(value or default or '').strip().lower()

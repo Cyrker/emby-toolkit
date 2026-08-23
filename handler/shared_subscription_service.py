@@ -8,6 +8,7 @@ import os
 import re
 import threading
 import time
+from contextlib import contextmanager
 from typing import Any, Dict, List, Tuple
 
 import config_manager
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 _ORGANIZE_KICK_LOCK = threading.Lock()
 _LAST_ORGANIZE_KICK_AT = 0
+_PERSISTENT_TARGET_BINDING = threading.local()
 
 VIDEO_EXTS = {'.mkv', '.mp4', '.ts', '.m2ts', '.avi', '.mov', '.wmv', '.flv', '.rmvb', '.webm', '.iso'}
 _CENTER_BROADCAST_STRATEGIES = {'center_available_at_v1'}
@@ -43,7 +45,7 @@ class _MediainfoBuilder(P115MediaAnalyzerMixin):
     pass
 
 
-def _kick_115_organize_detached(reason: str = '', delay: float = 3.0) -> Dict[str, Any]:
+def _kick_115_organize_detached(reason: str = '', delay: float = 3.0) -> dict[str, Any]:
     global _LAST_ORGANIZE_KICK_AT
     now = time.time()
     with _ORGANIZE_KICK_LOCK:
@@ -51,16 +53,60 @@ def _kick_115_organize_detached(reason: str = '', delay: float = 3.0) -> Dict[st
             return {'started': False, 'message': '115 整理扫描刚触发过，本次不重复启动'}
         _LAST_ORGANIZE_KICK_AT = now
 
-    def _runner():
-        try:
-            import task_manager
-            logger.info(f"  ➜ [共享资源] 准备触发待整理扫描...")
-            task_manager.trigger_115_organize_task(reason=reason or 'shared_resource')
-        except Exception as e:
-            logger.error(f"  ➜ [共享资源] 触发 115 待整理扫描失败: {e}", exc_info=True)
-
-    spawn_later(delay, _runner)
+    expected_account_id = str(getattr(_PERSISTENT_TARGET_BINDING, 'account_id', '') or '').strip()
+    expected_target_cid = str(getattr(_PERSISTENT_TARGET_BINDING, 'target_cid', '') or '').strip()
+    effect_key = str(getattr(_PERSISTENT_TARGET_BINDING, 'effect_key', '') or '').strip()
+    spawn_later(
+        delay,
+        _run_115_organize,
+        reason,
+        expected_account_id,
+        expected_target_cid,
+        effect_key,
+    )
     return {'started': True, 'message': '已异步触发 115 待整理扫描'}
+
+
+def _run_115_organize(
+    reason: str = '',
+    expected_account_id: str = '',
+    expected_target_cid: str = '',
+    effect_key: str = '',
+) -> bool:
+    try:
+        import task_manager
+
+        logger.info("  ➜ [共享资源] 准备触发待整理扫描...")
+        frozen_binding = tuple(
+            str(value or '').strip()
+            for value in (expected_account_id, expected_target_cid, effect_key)
+        )
+        if any(frozen_binding):
+            if not all(frozen_binding):
+                raise RuntimeError('共享转存整理子任务缺少完整 account/target/effect binding')
+            from etk.compatibility.tg_control_bridge import submit_persistent_legacy_task
+            from tasks.core import task_scan_and_organize_115
+
+            return submit_persistent_legacy_task(
+                task_scan_and_organize_115,
+                task_name=f"115网盘整理({_get_organize_reason_label(reason)})",
+                kwargs={
+                    'expected_account_id': frozen_binding[0],
+                    'expected_target_cid': frozen_binding[1],
+                },
+                max_attempts=3,
+                idempotency_key=frozen_binding[2],
+                idempotency_scope='shared-transfer-organize:v1',
+            )
+        return bool(task_manager.trigger_115_organize_task(reason=reason or 'shared_resource'))
+    except Exception as e:
+        logger.error(f"  ➜ [共享资源] 触发 115 待整理扫描失败: {e}", exc_info=True)
+        raise
+
+
+def _get_organize_reason_label(reason: str) -> str:
+    text = str(reason or 'shared_resource').strip()
+    return text[:120]
 
 
 def _cfg(name: str, fallback: str, default=None):
@@ -308,11 +354,61 @@ def _normalize_rapid_file_info(file_info: Dict[str, Any]) -> Dict[str, Any]:
     return info
 
 
-def _target_cid() -> str:
+def _configured_target_cid() -> str:
     cid = str(_cfg('CONFIG_OPTION_115_SAVE_PATH_CID', 'p115_save_path_cid', '') or '').strip()
     if not cid or cid == '0':
         raise RuntimeError('未配置 115 待整理目录 CID（p115_save_path_cid），无法秒传共享资源')
     return cid
+
+
+def _target_cid() -> str:
+    configured = _configured_target_cid()
+    expected = str(getattr(_PERSISTENT_TARGET_BINDING, 'target_cid', '') or '').strip()
+    if expected and configured != expected:
+        raise RuntimeError(
+            f'115 待整理目录在共享转存 Job 开始后发生变化：expected={expected}, current={configured}'
+        )
+    return expected or configured
+
+
+@contextmanager
+def persistent_transfer_target(
+    expected_target_cid: str,
+    *,
+    expected_account_id: str = '',
+    effect_key: str = '',
+):
+    """Bind all nested shared-transfer target lookups to one submitted CID."""
+    expected = str(expected_target_cid or '').strip()
+    if not expected or expected == '0':
+        raise ValueError('共享转存缺少稳定的 115 目标 CID')
+    expected_account = str(expected_account_id or '').strip()
+    expected_effect = str(effect_key or '').strip().lower()
+    current = {
+        key: str(getattr(_PERSISTENT_TARGET_BINDING, key, '') or '').strip()
+        for key in ('target_cid', 'account_id', 'effect_key')
+    }
+    if current['target_cid'] and current['target_cid'] != expected:
+        raise RuntimeError(f"嵌套共享转存目标不一致：expected={current['target_cid']}, nested={expected}")
+    if current['account_id'] and expected_account and current['account_id'] != expected_account:
+        raise RuntimeError('嵌套共享转存账号不一致')
+    if current['effect_key'] and expected_effect and current['effect_key'] != expected_effect:
+        raise RuntimeError('嵌套共享转存 effect 不一致')
+    if _configured_target_cid() != expected:
+        raise RuntimeError('115 待整理目录在共享转存 Job 提交后发生变化，拒绝执行旧任务')
+    _PERSISTENT_TARGET_BINDING.target_cid = expected
+    if expected_account:
+        _PERSISTENT_TARGET_BINDING.account_id = expected_account
+    if expected_effect:
+        _PERSISTENT_TARGET_BINDING.effect_key = expected_effect
+    try:
+        yield
+    finally:
+        for key, value in current.items():
+            if value:
+                setattr(_PERSISTENT_TARGET_BINDING, key, value)
+            elif hasattr(_PERSISTENT_TARGET_BINDING, key):
+                delattr(_PERSISTENT_TARGET_BINDING, key)
 
 
 def _root_cid() -> str:
@@ -3653,6 +3749,19 @@ def _wait_rapid_transfer_lease_for_fallback(
         try:
             resp = _client_call_rapid_transfer_lease(client, request_payload) or {}
         except Exception as e:
+            import task_manager
+
+            if task_manager.has_persistent_execution():
+                logger.warning(
+                    f"  ➜ [共享资源] Rapid 回退许可状态未知，持久 Job 禁止 fail-open："
+                    f"{source_kind}:{source_id}, err={e}"
+                )
+                return {
+                    'ok': False,
+                    'blocked': True,
+                    'indeterminate': True,
+                    'reason': 'lease_api_unavailable',
+                }
             logger.debug(f"  ➜ [共享资源] Rapid 回退秒传许可接口不可用，按旧流程继续：{source_kind}:{source_id}, err={e}")
             return {'ok': True, 'skipped': True, 'reason': 'lease_api_unavailable', 'error': str(e)}
         last_resp = resp if isinstance(resp, dict) else {'raw': resp}
@@ -3674,6 +3783,21 @@ def _wait_rapid_transfer_lease_for_fallback(
         retry_after = max(5, min(retry_after, 120))
         reason = str(last_resp.get('reason') or 'deferred')
         if time.time() + retry_after > deadline:
+            import task_manager
+
+            if task_manager.has_persistent_execution():
+                logger.warning(
+                    f"  ➜ [共享资源] Rapid 回退许可等待超时，持久 Job 禁止 fail-open："
+                    f"{source_kind}:{source_id}, reason={reason}"
+                )
+                return {
+                    'ok': False,
+                    'blocked': True,
+                    'indeterminate': True,
+                    'reason': 'lease_wait_timeout',
+                    'lease': last_resp,
+                    'attempts': attempts,
+                }
             logger.warning(
                 f"  ➜ [共享资源] 分享转存失败后 Rapid 回退许可等待超时，转入旧流程："
                 f"{source_kind}:{source_id}, reason={reason}, last={last_resp}"
@@ -3727,6 +3851,19 @@ def _wait_rapid_transfer_lease_before_transfer(
         try:
             resp = _client_call_rapid_transfer_lease(client, request_payload) or {}
         except Exception as e:
+            import task_manager
+
+            if task_manager.has_persistent_execution():
+                logger.warning(
+                    f"  ➜ [共享资源] 秒传许可状态未知，持久 Job 禁止 fail-open："
+                    f"{source_kind}:{source_id}, err={e}"
+                )
+                return {
+                    'ok': False,
+                    'blocked': True,
+                    'indeterminate': True,
+                    'reason': 'lease_api_unavailable',
+                }
             logger.debug(f"  ➜ [共享资源] 秒传许可接口不可用，预检通过后按旧流程继续：{source_kind}:{source_id}, err={e}")
             return {'ok': True, 'skipped': True, 'reason': 'lease_api_unavailable', 'error': str(e)}
         last_resp = resp if isinstance(resp, dict) else {'raw': resp}
@@ -3748,6 +3885,21 @@ def _wait_rapid_transfer_lease_before_transfer(
         retry_after = max(5, min(retry_after, 120))
         reason = str(last_resp.get('reason') or 'deferred')
         if time.time() + retry_after > deadline:
+            import task_manager
+
+            if task_manager.has_persistent_execution():
+                logger.warning(
+                    f"  ➜ [共享资源] 秒传许可等待超时，持久 Job 禁止 fail-open："
+                    f"{source_kind}:{source_id}, reason={reason}"
+                )
+                return {
+                    'ok': False,
+                    'blocked': True,
+                    'indeterminate': True,
+                    'reason': 'lease_wait_timeout',
+                    'lease': last_resp,
+                    'attempts': attempts,
+                }
             logger.warning(
                 f"  ➜ [共享资源] 预检通过后秒传许可等待超时，转入旧流程并交由中心签名阀兜底："
                 f"{source_kind}:{source_id}, reason={reason}, last={last_resp}"
@@ -3883,6 +4035,25 @@ def _try_completed_season_share_transfer(
 
         status = _share_import_failed_status(resp)
         msg = f"115 分享转存失败，准备回退 Rapid：{resp}"
+        import task_manager
+
+        if task_manager.has_persistent_execution() and status not in {'expired', 'pending_review'}:
+            logger.warning(
+                f"  ➜ [共享资源] 115 分享转存结果不能证明 provider 未接受，"
+                f"持久 Job 禁止清理目录或回退 Rapid：source={source_id}, status={status}"
+            )
+            return {
+                'ok': False,
+                'attempted': True,
+                'indeterminate': True,
+                'transfer_mode': 'share',
+                'status': status,
+                'message': '115 分享转存结果不确定，已停止自动重放',
+                'share_target': {
+                    'target_cid': str(share_target.get('target_cid') or ''),
+                    'folder_cid': str(share_target.get('folder_cid') or ''),
+                },
+            }
         cleanup_result = _cleanup_rapid_temp_dir(share_target, reason=msg)
 
         # 只在确认分享源自身异常时污染中心通道状态。
@@ -3912,6 +4083,25 @@ def _try_completed_season_share_transfer(
         return {'ok': False, 'attempted': True, 'transfer_mode': 'share', 'channel': channel, 'response': resp, 'status': status, 'message': msg, 'share_target': share_target, 'cleanup_result': cleanup_result}
     except Exception as e:
         share_target = locals().get('share_target') if isinstance(locals().get('share_target'), dict) else {}
+        import task_manager
+
+        if task_manager.has_persistent_execution():
+            logger.warning(
+                f"  ➜ [共享资源] 115 分享转存异常后 provider 状态未知，"
+                f"持久 Job 保留接收目录并禁止 Rapid 回退：source={source_id}, err={e}"
+            )
+            return {
+                'ok': False,
+                'attempted': True,
+                'indeterminate': True,
+                'transfer_mode': 'share',
+                'status': 'unknown',
+                'message': '115 分享转存响应不确定，已停止自动重放',
+                'share_target': {
+                    'target_cid': str(share_target.get('target_cid') or ''),
+                    'folder_cid': str(share_target.get('folder_cid') or ''),
+                },
+            }
         cleanup_result = _cleanup_rapid_temp_dir(share_target, reason=f'分享转存异常：{e}') if share_target.get('share_import_temp_dir') else {}
         status = _share_import_failed_status({}, str(e))
         if channel_id and status in {'expired', 'pending_review'}:
@@ -4254,6 +4444,20 @@ def consume_device_event(event: Dict[str, Any], *, ack: bool = True) -> Dict[str
                 'rapid_target': {},
             }
         if share_transfer.get('attempted'):
+            if share_transfer.get('indeterminate'):
+                return {
+                    'ok': False,
+                    'indeterminate': True,
+                    'message': share_transfer.get('message') or '分享转存结果不确定，已停止自动重放',
+                    'event_id': event_id,
+                    'source_kind': source_kind,
+                    'source_id': source_id,
+                    'success_count': 0,
+                    'total': len(files),
+                    'errors': [],
+                    'transfer_mode': 'share',
+                    'share_transfer': share_transfer,
+                }
             logger.warning(
                 f"  ➜ [共享资源] 季包分享转存未成功，自动回退 Rapid 秒传："
                 f"source={source_kind}:{source_id}, reason={share_transfer.get('status') or share_transfer.get('reason') or '-'}"
@@ -4270,6 +4474,20 @@ def consume_device_event(event: Dict[str, Any], *, ack: bool = True) -> Dict[str
             if fallback_lease.get('blocked'):
                 lease = fallback_lease.get('lease') if isinstance(fallback_lease.get('lease'), dict) else {}
                 message = lease.get('message') or '中心秒传许可拒绝，跳过 Rapid 回退'
+                if fallback_lease.get('indeterminate'):
+                    return {
+                        'ok': False,
+                        'indeterminate': True,
+                        'message': '中心秒传许可状态不确定，已停止自动转存',
+                        'event_id': event_id,
+                        'source_kind': source_kind,
+                        'source_id': source_id,
+                        'success_count': 0,
+                        'total': len(files),
+                        'errors': [],
+                        'transfer_mode': 'rapid',
+                        'share_transfer': share_transfer,
+                    }
                 if ack and event_id:
                     try:
                         client.ack_device_events([event_id], result='skipped', message=message[:500])
@@ -4337,6 +4555,20 @@ def consume_device_event(event: Dict[str, Any], *, ack: bool = True) -> Dict[str
     if lease_wait.get('blocked'):
         lease = lease_wait.get('lease') if isinstance(lease_wait.get('lease'), dict) else {}
         message = lease.get('message') or '中心秒传许可拒绝，跳过该共享事件'
+        if lease_wait.get('indeterminate'):
+            return {
+                'ok': False,
+                'indeterminate': True,
+                'message': '中心秒传许可状态不确定，已停止自动转存',
+                'event_id': event_id,
+                'source_kind': source_kind,
+                'source_id': source_id,
+                'success_count': 0,
+                'total': len(files),
+                'errors': [],
+                'transfer_mode': 'rapid',
+                'lease': lease_wait,
+            }
         if ack and event_id:
             try:
                 client.ack_device_events([event_id], result='skipped', message=message[:500])

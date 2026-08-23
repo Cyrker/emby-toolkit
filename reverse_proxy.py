@@ -47,7 +47,7 @@ _PLAYBACK_INFO_LOCK = threading.Lock()
 _PLAYBACK_INFO_CACHE = {}
 _PLAY_CONCURRENCY_TTL_SECONDS = 8 * 60 * 60
 _PLAY_CONCURRENCY_LOCK = threading.Lock()
-_PLAY_CONCURRENCY_SESSIONS = {}
+_PLAY_CONCURRENCY_SESSIONS_KEY = "runtime.play_concurrency_sessions"
 _VIRTUAL_PLAY_SESSIONS_KEY = "p115_virtual_play_sessions"
 _VIRTUAL_PLAY_SESSION_TTL_SECONDS = 120
 _VIRTUAL_PLAY_LOCKS = {}
@@ -758,11 +758,46 @@ def _play_concurrency_session_key(user_id, item_id="", play_session_id="", devic
     return user_id
 
 
-def _cleanup_play_concurrency_sessions(now=None):
+def _cleanup_play_concurrency_sessions(sessions, now=None):
     now = now or time.time()
-    for key, session_info in list(_PLAY_CONCURRENCY_SESSIONS.items()):
+    for key, session_info in list(sessions.items()):
         if float(session_info.get('expires_at') or 0) < now:
-            _PLAY_CONCURRENCY_SESSIONS.pop(key, None)
+            sessions.pop(key, None)
+
+
+def _mutate_play_concurrency_sessions(mutation):
+    with _PLAY_CONCURRENCY_LOCK:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES (%s, '{}'::jsonb, NOW())
+                    ON CONFLICT (setting_key) DO NOTHING
+                    """,
+                    (_PLAY_CONCURRENCY_SESSIONS_KEY,),
+                )
+                cursor.execute(
+                    "SELECT value_json FROM app_settings WHERE setting_key = %s FOR UPDATE",
+                    (_PLAY_CONCURRENCY_SESSIONS_KEY,),
+                )
+                row = cursor.fetchone() or {}
+                value = row.get('value_json') if isinstance(row, dict) else row[0]
+                if isinstance(value, str):
+                    value = json.loads(value)
+                sessions = dict(value) if isinstance(value, dict) else {}
+                _cleanup_play_concurrency_sessions(sessions)
+                result = mutation(sessions)
+                cursor.execute(
+                    """
+                    UPDATE app_settings
+                    SET value_json = %s::jsonb, last_updated_at = NOW()
+                    WHERE setting_key = %s
+                    """,
+                    (json.dumps(sessions, ensure_ascii=False), _PLAY_CONCURRENCY_SESSIONS_KEY),
+                )
+            conn.commit()
+    return result
 
 
 def _is_same_play_concurrency_record(session_info, item_id="", play_session_id="", device_id="", client_signature=""):
@@ -802,25 +837,27 @@ def _clear_play_concurrency_session(user_id="", item_id="", play_session_id="", 
     play_session_id = str(play_session_id or "").strip()
     device_id = str(device_id or "").strip()
     key = _play_concurrency_session_key(user_id, item_id=item_id, play_session_id=play_session_id, device_id=device_id)
-    with _PLAY_CONCURRENCY_LOCK:
-        _cleanup_play_concurrency_sessions()
-        for session_key, session_info in list(_PLAY_CONCURRENCY_SESSIONS.items()):
+
+    def clear_matching(sessions):
+        for session_key, session_info in list(sessions.items()):
             if str(session_info.get("user_id") or "") != user_id:
                 continue
             if session_key == key:
-                _PLAY_CONCURRENCY_SESSIONS.pop(session_key, None)
+                sessions.pop(session_key, None)
                 continue
             if play_session_id and str(session_info.get("play_session_id") or "") == play_session_id:
-                _PLAY_CONCURRENCY_SESSIONS.pop(session_key, None)
+                sessions.pop(session_key, None)
                 continue
             if item_id and str(session_info.get("item_id") or "") == item_id:
-                _PLAY_CONCURRENCY_SESSIONS.pop(session_key, None)
+                sessions.pop(session_key, None)
                 continue
             if device_id and (
                 str(session_info.get("device_id") or "") == device_id
                 or session_key == f"{user_id}|client:{device_id}"
             ):
-                _PLAY_CONCURRENCY_SESSIONS.pop(session_key, None)
+                sessions.pop(session_key, None)
+
+    _mutate_play_concurrency_sessions(clear_matching)
 
 
 def clear_play_concurrency_for_playback_stop(data):
@@ -838,26 +875,28 @@ def clear_play_concurrency_for_playback_stop(data):
     if not user_id:
         return
 
-    removed = 0
-    with _PLAY_CONCURRENCY_LOCK:
-        _cleanup_play_concurrency_sessions()
-        for key, session_info in list(_PLAY_CONCURRENCY_SESSIONS.items()):
+    def clear_matching(sessions):
+        removed = 0
+        for key, session_info in list(sessions.items()):
             if str(session_info.get("user_id") or "") != user_id:
                 continue
             if play_session_id and str(session_info.get("play_session_id") or "") == play_session_id:
-                _PLAY_CONCURRENCY_SESSIONS.pop(key, None)
+                sessions.pop(key, None)
                 removed += 1
                 continue
             if item_id and str(session_info.get("item_id") or "") == item_id:
-                _PLAY_CONCURRENCY_SESSIONS.pop(key, None)
+                sessions.pop(key, None)
                 removed += 1
                 continue
             if device_id and (
                 str(session_info.get("device_id") or "") == device_id
                 or key == f"{user_id}|client:{device_id}"
             ):
-                _PLAY_CONCURRENCY_SESSIONS.pop(key, None)
+                sessions.pop(key, None)
                 removed += 1
+        return removed
+
+    removed = _mutate_play_concurrency_sessions(clear_matching)
     if removed:
         logger.debug("  ➜ [并发控制] 已通过播放停止清理会话: user_id=%s, item_id=%s, session=%s, count=%s", user_id, item_id or "-", play_session_id or "-", removed)
 
@@ -875,10 +914,10 @@ def _check_and_record_play_concurrency(user_id, item_id="", play_session_id=""):
     device_id = _current_play_concurrency_device_id()
     client_signature = _current_play_concurrency_client_signature()
     key = _play_concurrency_session_key(user_id, item_id=item_id, play_session_id=play_session_id, device_id=device_id)
-    with _PLAY_CONCURRENCY_LOCK:
-        _cleanup_play_concurrency_sessions(now)
+
+    def check_and_record(sessions):
         matched_key = None
-        for existing_key, session_info in _PLAY_CONCURRENCY_SESSIONS.items():
+        for existing_key, session_info in sessions.items():
             if str(session_info.get('user_id') or '') != user_id:
                 continue
             if existing_key == key:
@@ -897,18 +936,13 @@ def _check_and_record_play_concurrency(user_id, item_id="", play_session_id=""):
         if matched_key:
             record_key = matched_key
         active_keys = [
-            k for k, v in _PLAY_CONCURRENCY_SESSIONS.items()
+            k for k, v in sessions.items()
             if str(v.get('user_id') or '') == user_id
         ]
-        if record_key not in _PLAY_CONCURRENCY_SESSIONS and len(active_keys) >= max_streams:
-            user_name = user_db.get_username_by_id(user_id) or user_id
-            logger.warning(
-                "  ➜ [并发控制] 用户播放并发超限: user=%s(%s), active=%s, limit=%s, item_id=%s, key=%s",
-                user_name, user_id, len(active_keys), max_streams, item_id or "-", key
-            )
-            return Response("Playback concurrency limit exceeded.", status=429)
-        existing_info = _PLAY_CONCURRENCY_SESSIONS.get(record_key) or {}
-        _PLAY_CONCURRENCY_SESSIONS[record_key] = {
+        if record_key not in sessions and len(active_keys) >= max_streams:
+            return len(active_keys)
+        existing_info = sessions.get(record_key) or {}
+        sessions[record_key] = {
             "user_id": user_id,
             "item_id": item_id or str(existing_info.get("item_id") or ""),
             "play_session_id": play_session_id or str(existing_info.get("play_session_id") or ""),
@@ -917,6 +951,16 @@ def _check_and_record_play_concurrency(user_id, item_id="", play_session_id=""):
             "updated_at": now,
             "expires_at": now + _PLAY_CONCURRENCY_TTL_SECONDS,
         }
+        return None
+
+    active_count = _mutate_play_concurrency_sessions(check_and_record)
+    if active_count is not None:
+        user_name = user_db.get_username_by_id(user_id) or user_id
+        logger.warning(
+            "  ➜ [并发控制] 用户播放并发超限: user=%s(%s), active=%s, limit=%s, item_id=%s, key=%s",
+            user_name, user_id, active_count, max_streams, item_id or "-", key
+        )
+        return Response("Playback concurrency limit exceeded.", status=429)
     return None
 
 def _fetch_items_in_chunks(base_url, api_key, user_id, item_ids, fields):

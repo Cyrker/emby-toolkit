@@ -20,7 +20,7 @@
     },
     {
       "name": "custom_collections",
-      "source": "routes/custom_collections.py:30",
+      "source": "routes/custom_collections.py:29",
       "url_prefix": "/api/custom_collections",
       "variable": "custom_collections_bp"
     },
@@ -62,7 +62,7 @@
     },
     {
       "name": "115_bp",
-      "source": "routes/p115.py:38",
+      "source": "routes/p115.py:45",
       "url_prefix": "/api/p115",
       "variable": "p115_bp"
     },
@@ -80,7 +80,7 @@
     },
     {
       "name": "subscription_bp",
-      "source": "routes/subscription.py:16",
+      "source": "routes/subscription.py:17",
       "url_prefix": "/api/subscription",
       "variable": "subscription_bp"
     },
@@ -98,7 +98,7 @@
     },
     {
       "name": "collections",
-      "source": "routes/tmdb_collections.py:15",
+      "source": "routes/tmdb_collections.py:16",
       "url_prefix": "/api/collections",
       "variable": "collections_bp"
     },
@@ -128,7 +128,7 @@
     },
     {
       "name": "webhook_bp",
-      "source": "routes/webhook.py:48",
+      "source": "routes/webhook.py:62",
       "url_prefix": "",
       "variable": "webhook_bp"
     }
@@ -1316,7 +1316,7 @@
       "new_owner": null,
       "path": "/api/collections/<emby_collection_id>",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:251",
+      "source": "routes/tmdb_collections.py:269",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -1336,7 +1336,7 @@
       "new_owner": null,
       "path": "/api/collections/provider/metadata/<tmdb_collection_id>",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:165",
+      "source": "routes/tmdb_collections.py:183",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -1356,7 +1356,7 @@
       "new_owner": null,
       "path": "/api/collections/provider/search",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:199",
+      "source": "routes/tmdb_collections.py:217",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -1376,7 +1376,7 @@
       "new_owner": null,
       "path": "/api/collections/settings",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:299",
+      "source": "routes/tmdb_collections.py:314",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -1396,7 +1396,7 @@
       "new_owner": null,
       "path": "/api/collections/settings",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:324",
+      "source": "routes/tmdb_collections.py:339",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -1416,7 +1416,7 @@
       "new_owner": null,
       "path": "/api/collections/status",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:232",
+      "source": "routes/tmdb_collections.py:250",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -1604,7 +1604,7 @@
       "new_owner": null,
       "path": "/api/custom_collections",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:131",
+      "source": "routes/custom_collections.py:130",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1625,7 +1625,7 @@
       "new_owner": null,
       "path": "/api/custom_collections",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:192",
+      "source": "routes/custom_collections.py:191",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1646,7 +1646,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/<int:collection_id>",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:279",
+      "source": "routes/custom_collections.py:278",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1667,7 +1667,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/<int:collection_id>",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:222",
+      "source": "routes/custom_collections.py:221",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1688,7 +1688,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/<int:collection_id>/fix_match",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:485",
+      "source": "routes/custom_collections.py:479",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1709,7 +1709,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/<int:collection_id>/status",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:337",
+      "source": "routes/custom_collections.py:331",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1730,7 +1730,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/country_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:916",
+      "source": "routes/custom_collections.py:910",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1751,7 +1751,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/country_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:923",
+      "source": "routes/custom_collections.py:917",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1772,7 +1772,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/country_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:934",
+      "source": "routes/custom_collections.py:928",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1793,7 +1793,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/emby_libraries",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:540",
+      "source": "routes/custom_collections.py:534",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1814,7 +1814,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/emby_users",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:99",
+      "source": "routes/custom_collections.py:98",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1835,7 +1835,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/junk_file_patterns",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:791",
+      "source": "routes/custom_collections.py:785",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1856,7 +1856,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/junk_file_patterns",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:798",
+      "source": "routes/custom_collections.py:792",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1877,7 +1877,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/junk_file_patterns/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:820",
+      "source": "routes/custom_collections.py:814",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1898,7 +1898,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/keyword_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:748",
+      "source": "routes/custom_collections.py:742",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1919,7 +1919,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/keyword_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:754",
+      "source": "routes/custom_collections.py:748",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1940,7 +1940,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/keyword_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:763",
+      "source": "routes/custom_collections.py:757",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1961,7 +1961,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/keywords",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:826",
+      "source": "routes/custom_collections.py:820",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -1982,7 +1982,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/language_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:964",
+      "source": "routes/custom_collections.py:958",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2003,7 +2003,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/language_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:971",
+      "source": "routes/custom_collections.py:965",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2024,7 +2024,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/language_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:980",
+      "source": "routes/custom_collections.py:974",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2045,7 +2045,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/languages",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:986",
+      "source": "routes/custom_collections.py:980",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2066,7 +2066,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/movie_genres",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:718",
+      "source": "routes/custom_collections.py:712",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2087,7 +2087,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1051",
+      "source": "routes/custom_collections.py:1045",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2108,7 +2108,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1060",
+      "source": "routes/custom_collections.py:1054",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2129,7 +2129,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1072",
+      "source": "routes/custom_collections.py:1066",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2150,7 +2150,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_priority",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1085",
+      "source": "routes/custom_collections.py:1079",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2171,7 +2171,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_priority",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1094",
+      "source": "routes/custom_collections.py:1088",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2192,7 +2192,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_priority/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1106",
+      "source": "routes/custom_collections.py:1100",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2213,7 +2213,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/release_group_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:769",
+      "source": "routes/custom_collections.py:763",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2234,7 +2234,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/release_group_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:775",
+      "source": "routes/custom_collections.py:769",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2255,7 +2255,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/release_group_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:785",
+      "source": "routes/custom_collections.py:779",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2276,7 +2276,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/studio_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:846",
+      "source": "routes/custom_collections.py:840",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2297,7 +2297,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/studio_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:853",
+      "source": "routes/custom_collections.py:847",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2318,7 +2318,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/studio_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:862",
+      "source": "routes/custom_collections.py:856",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2339,7 +2339,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/studios",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:868",
+      "source": "routes/custom_collections.py:862",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2360,7 +2360,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tags",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:528",
+      "source": "routes/custom_collections.py:522",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2381,7 +2381,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tmdb_countries",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:940",
+      "source": "routes/custom_collections.py:934",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2402,7 +2402,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tmdb_movie_genres",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:575",
+      "source": "routes/custom_collections.py:569",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2423,7 +2423,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tmdb_search_companies",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:621",
+      "source": "routes/custom_collections.py:615",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2444,7 +2444,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tmdb_search_persons",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:678",
+      "source": "routes/custom_collections.py:672",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2465,7 +2465,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tmdb_tv_genres",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:598",
+      "source": "routes/custom_collections.py:592",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2486,7 +2486,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tv_genres",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:732",
+      "source": "routes/custom_collections.py:726",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2507,7 +2507,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/unified_ratings",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1019",
+      "source": "routes/custom_collections.py:1013",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2528,7 +2528,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/unified_ratings",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1027",
+      "source": "routes/custom_collections.py:1021",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2549,7 +2549,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/unified_ratings/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1036",
+      "source": "routes/custom_collections.py:1030",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2570,7 +2570,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/unified_ratings_options",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1117",
+      "source": "routes/custom_collections.py:1111",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -2591,7 +2591,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/update_order",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:258",
+      "source": "routes/custom_collections.py:257",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -3027,7 +3027,7 @@
       "new_owner": null,
       "path": "/api/emby/collections/activate",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1709",
+      "source": "routes/webhook.py:1969",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3049,7 +3049,7 @@
       "new_owner": null,
       "path": "/api/emby/events",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2262",
+      "source": "routes/webhook.py:2551",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3071,7 +3071,7 @@
       "new_owner": null,
       "path": "/api/emby/intro-detection/backfill",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1922",
+      "source": "routes/webhook.py:2182",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3093,7 +3093,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1663",
+      "source": "routes/webhook.py:1923",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3115,7 +3115,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1733",
+      "source": "routes/webhook.py:1993",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3137,7 +3137,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/backfill/item",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1876",
+      "source": "routes/webhook.py:2136",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3159,7 +3159,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/backfill/items",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1884",
+      "source": "routes/webhook.py:2144",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3181,7 +3181,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/backfill/library",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1895",
+      "source": "routes/webhook.py:2155",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3203,7 +3203,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/images/refresh",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1933",
+      "source": "routes/webhook.py:2222",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3225,7 +3225,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/images/search",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2127",
+      "source": "routes/webhook.py:2416",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3247,7 +3247,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/images/sync",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2192",
+      "source": "routes/webhook.py:2481",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3269,7 +3269,7 @@
       "new_owner": null,
       "path": "/api/emby/plugin-update",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1622",
+      "source": "routes/webhook.py:1882",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3291,7 +3291,7 @@
       "new_owner": null,
       "path": "/api/emby/search",
       "retirement_approval": null,
-      "source": "routes/webhook.py:77",
+      "source": "routes/webhook.py:135",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3313,7 +3313,7 @@
       "new_owner": null,
       "path": "/api/emby/search/index",
       "retirement_approval": null,
-      "source": "routes/webhook.py:98",
+      "source": "routes/webhook.py:156",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3619,7 +3619,7 @@
       "new_owner": null,
       "path": "/api/p115/auto_save_auth",
       "retirement_approval": null,
-      "source": "routes/p115.py:627",
+      "source": "routes/p115.py:686",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3639,7 +3639,7 @@
       "new_owner": null,
       "path": "/api/p115/cookie",
       "retirement_approval": null,
-      "source": "routes/p115.py:474",
+      "source": "routes/p115.py:533",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3659,7 +3659,7 @@
       "new_owner": null,
       "path": "/api/p115/cookie_qrcode",
       "retirement_approval": null,
-      "source": "routes/p115.py:392",
+      "source": "routes/p115.py:451",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3679,7 +3679,7 @@
       "new_owner": null,
       "path": "/api/p115/cookie_qrcode/status",
       "retirement_approval": null,
-      "source": "routes/p115.py:419",
+      "source": "routes/p115.py:478",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3699,7 +3699,7 @@
       "new_owner": null,
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3246",
+      "source": "routes/p115.py:3471",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3719,7 +3719,7 @@
       "new_owner": null,
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3246",
+      "source": "routes/p115.py:3471",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3739,7 +3739,7 @@
       "new_owner": null,
       "path": "/api/p115/dirs",
       "retirement_approval": null,
-      "source": "routes/p115.py:1111",
+      "source": "routes/p115.py:1188",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3759,7 +3759,7 @@
       "new_owner": null,
       "path": "/api/p115/episode_regex_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:2914",
+      "source": "routes/p115.py:3162",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3779,7 +3779,7 @@
       "new_owner": null,
       "path": "/api/p115/episode_regex_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:2914",
+      "source": "routes/p115.py:3162",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3799,7 +3799,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2040",
+      "source": "routes/p115.py:2272",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3819,7 +3819,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2393",
+      "source": "routes/p115.py:2641",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3839,7 +3839,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2380",
+      "source": "routes/p115.py:2628",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3859,7 +3859,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2179",
+      "source": "routes/p115.py:2411",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3879,7 +3879,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2192",
+      "source": "routes/p115.py:2424",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3899,7 +3899,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/metadata",
       "retirement_approval": null,
-      "source": "routes/p115.py:2103",
+      "source": "routes/p115.py:2335",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3919,7 +3919,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/p115.py:2134",
+      "source": "routes/p115.py:2366",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3939,7 +3939,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2048",
+      "source": "routes/p115.py:2280",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3959,7 +3959,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2401",
+      "source": "routes/p115.py:2649",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3979,7 +3979,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2388",
+      "source": "routes/p115.py:2636",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3999,7 +3999,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2187",
+      "source": "routes/p115.py:2419",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4019,7 +4019,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2200",
+      "source": "routes/p115.py:2432",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4039,7 +4039,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/metadata",
       "retirement_approval": null,
-      "source": "routes/p115.py:2111",
+      "source": "routes/p115.py:2343",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4059,7 +4059,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/p115.py:2142",
+      "source": "routes/p115.py:2374",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4079,7 +4079,7 @@
       "new_owner": null,
       "path": "/api/p115/mkdir",
       "retirement_approval": null,
-      "source": "routes/p115.py:1186",
+      "source": "routes/p115.py:1263",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4099,7 +4099,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2409",
+      "source": "routes/p115.py:2657",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4119,7 +4119,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2409",
+      "source": "routes/p115.py:2657",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4139,7 +4139,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>/<path:filename>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2410",
+      "source": "routes/p115.py:2658",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4159,7 +4159,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>/<path:filename>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2410",
+      "source": "routes/p115.py:2658",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4179,7 +4179,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool",
       "retirement_approval": null,
-      "source": "routes/p115.py:1211",
+      "source": "routes/p115.py:1288",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4199,7 +4199,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool",
       "retirement_approval": null,
-      "source": "routes/p115.py:1217",
+      "source": "routes/p115.py:1294",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4219,7 +4219,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/accounts",
       "retirement_approval": null,
-      "source": "routes/p115.py:1225",
+      "source": "routes/p115.py:1302",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4239,7 +4239,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/accounts/<account_id>",
       "retirement_approval": null,
-      "source": "routes/p115.py:1326",
+      "source": "routes/p115.py:1403",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4259,7 +4259,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/accounts/<account_id>",
       "retirement_approval": null,
-      "source": "routes/p115.py:1316",
+      "source": "routes/p115.py:1393",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4279,7 +4279,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/accounts/<account_id>/speedtest",
       "retirement_approval": null,
-      "source": "routes/p115.py:1333",
+      "source": "routes/p115.py:1410",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4299,7 +4299,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/cleanup",
       "retirement_approval": null,
-      "source": "routes/p115.py:1345",
+      "source": "routes/p115.py:1422",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4319,7 +4319,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/cookie_qrcode",
       "retirement_approval": null,
-      "source": "routes/p115.py:490",
+      "source": "routes/p115.py:549",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4339,7 +4339,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/cookie_qrcode/status",
       "retirement_approval": null,
-      "source": "routes/p115.py:540",
+      "source": "routes/p115.py:599",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4359,7 +4359,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
-      "source": "routes/p115.py:1298",
+      "source": "routes/p115.py:1375",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4379,7 +4379,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
-      "source": "routes/p115.py:1289",
+      "source": "routes/p115.py:1366",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4399,7 +4399,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
-      "source": "routes/p115.py:1235",
+      "source": "routes/p115.py:1312",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4419,7 +4419,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/user-account/rewards",
       "retirement_approval": null,
-      "source": "routes/p115.py:1309",
+      "source": "routes/p115.py:1386",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4439,7 +4439,7 @@
       "new_owner": null,
       "path": "/api/p115/qrcode",
       "retirement_approval": null,
-      "source": "routes/p115.py:321",
+      "source": "routes/p115.py:370",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4459,7 +4459,7 @@
       "new_owner": null,
       "path": "/api/p115/qrcode/status",
       "retirement_approval": null,
-      "source": "routes/p115.py:340",
+      "source": "routes/p115.py:389",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4479,7 +4479,7 @@
       "new_owner": null,
       "path": "/api/p115/quick_deploy",
       "retirement_approval": null,
-      "source": "routes/p115.py:1732",
+      "source": "routes/p115.py:1939",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4499,7 +4499,7 @@
       "new_owner": null,
       "path": "/api/p115/records",
       "retirement_approval": null,
-      "source": "routes/p115.py:2945",
+      "source": "routes/p115.py:3193",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4519,7 +4519,7 @@
       "new_owner": null,
       "path": "/api/p115/records/<int:record_id>",
       "retirement_approval": null,
-      "source": "routes/p115.py:3038",
+      "source": "routes/p115.py:3286",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4539,7 +4539,7 @@
       "new_owner": null,
       "path": "/api/p115/recycle_bin/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3070",
+      "source": "routes/p115.py:3318",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4559,7 +4559,7 @@
       "new_owner": null,
       "path": "/api/p115/release_groups",
       "retirement_approval": null,
-      "source": "routes/p115.py:1806",
+      "source": "routes/p115.py:2049",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4579,7 +4579,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2554",
+      "source": "routes/p115.py:2802",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4599,7 +4599,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2554",
+      "source": "routes/p115.py:2802",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4619,7 +4619,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/export",
       "retirement_approval": null,
-      "source": "routes/p115.py:2821",
+      "source": "routes/p115.py:3069",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4639,7 +4639,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/import",
       "retirement_approval": null,
-      "source": "routes/p115.py:2787",
+      "source": "routes/p115.py:3035",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4659,7 +4659,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/preview",
       "retirement_approval": null,
-      "source": "routes/p115.py:2663",
+      "source": "routes/p115.py:2911",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4679,7 +4679,7 @@
       "new_owner": null,
       "path": "/api/p115/replace_strm",
       "retirement_approval": null,
-      "source": "routes/p115.py:2488",
+      "source": "routes/p115.py:2736",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4699,7 +4699,7 @@
       "new_owner": null,
       "path": "/api/p115/sorting_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:1893",
+      "source": "routes/p115.py:2125",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4719,7 +4719,7 @@
       "new_owner": null,
       "path": "/api/p115/sorting_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:1893",
+      "source": "routes/p115.py:2125",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4739,7 +4739,7 @@
       "new_owner": null,
       "path": "/api/p115/speedtest",
       "retirement_approval": null,
-      "source": "routes/p115.py:1033",
+      "source": "routes/p115.py:1110",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4759,7 +4759,7 @@
       "new_owner": null,
       "path": "/api/p115/status",
       "retirement_approval": null,
-      "source": "routes/p115.py:941",
+      "source": "routes/p115.py:1005",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4779,7 +4779,7 @@
       "new_owner": null,
       "path": "/api/p115/system/directories",
       "retirement_approval": null,
-      "source": "routes/p115.py:3143",
+      "source": "routes/p115.py:3368",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4799,7 +4799,7 @@
       "new_owner": null,
       "path": "/api/p115/temp_dir_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:1352",
+      "source": "routes/p115.py:1429",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4819,7 +4819,7 @@
       "new_owner": null,
       "path": "/api/p115/temp_dir_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:1359",
+      "source": "routes/p115.py:1436",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4839,7 +4839,7 @@
       "new_owner": null,
       "path": "/api/p115/unrecognized/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3085",
+      "source": "routes/p115.py:3333",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4859,7 +4859,7 @@
       "new_owner": null,
       "path": "/api/p115/upload_monitor/config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3191",
+      "source": "routes/p115.py:3416",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4879,7 +4879,7 @@
       "new_owner": null,
       "path": "/api/p115/upload_monitor/config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3191",
+      "source": "routes/p115.py:3416",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4899,7 +4899,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:1823",
+      "source": "routes/p115.py:2066",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4919,7 +4919,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:1823",
+      "source": "routes/p115.py:2066",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4939,7 +4939,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_groups",
       "retirement_approval": null,
-      "source": "routes/p115.py:1774",
+      "source": "routes/p115.py:2017",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4959,7 +4959,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_groups",
       "retirement_approval": null,
-      "source": "routes/p115.py:1774",
+      "source": "routes/p115.py:2017",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4979,7 +4979,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_recalculate",
       "retirement_approval": null,
-      "source": "routes/p115.py:1844",
+      "source": "routes/p115.py:2087",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -5545,7 +5545,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/center/device/register",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2179",
+      "source": "routes/shared_resource.py:2192",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5565,7 +5565,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/center/device/status",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2220",
+      "source": "routes/shared_resource.py:2229",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5605,7 +5605,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/center/replenish/prepare",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2837",
+      "source": "routes/shared_resource.py:2846",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5765,7 +5765,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/credit/ledger",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2810",
+      "source": "routes/shared_resource.py:2819",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5785,7 +5785,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/credit/refresh",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2247",
+      "source": "routes/shared_resource.py:2256",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5805,7 +5805,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/maintenance/run",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2829",
+      "source": "routes/shared_resource.py:2838",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5845,7 +5845,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2990",
+      "source": "routes/shared_resource.py:2999",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5865,7 +5865,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2990",
+      "source": "routes/shared_resource.py:2999",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5885,7 +5885,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests/<group_id>/cancel",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:3025",
+      "source": "routes/shared_resource.py:3034",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5905,7 +5905,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests/<group_id>/co-request",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:3015",
+      "source": "routes/shared_resource.py:3024",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5925,7 +5925,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests/param-options",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2944",
+      "source": "routes/shared_resource.py:2953",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5945,7 +5945,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests/quote",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2957",
+      "source": "routes/shared_resource.py:2966",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -5965,7 +5965,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests/tmdb/search",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2968",
+      "source": "routes/shared_resource.py:2977",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -6265,7 +6265,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/virtual-imports",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2124",
+      "source": "routes/shared_resource.py:2133",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -6285,7 +6285,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/virtual-imports/<int:virtual_id>",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2137",
+      "source": "routes/shared_resource.py:2146",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -6305,7 +6305,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/virtual-imports/<int:virtual_id>/promote",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2153",
+      "source": "routes/shared_resource.py:2162",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -6347,7 +6347,7 @@
       "new_owner": null,
       "path": "/api/subscription/cloud/download",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1232",
+      "source": "routes/subscription.py:1236",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6368,7 +6368,7 @@
       "new_owner": null,
       "path": "/api/subscription/cloud/resources",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1067",
+      "source": "routes/subscription.py:1068",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6389,7 +6389,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/authorize_url",
       "retirement_approval": null,
-      "source": "routes/subscription.py:300",
+      "source": "routes/subscription.py:301",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6410,7 +6410,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/checkin",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1368",
+      "source": "routes/subscription.py:1390",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6431,7 +6431,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/clear_authorization",
       "retirement_approval": null,
-      "source": "routes/subscription.py:310",
+      "source": "routes/subscription.py:311",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6452,7 +6452,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:213",
+      "source": "routes/subscription.py:214",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6473,7 +6473,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:213",
+      "source": "routes/subscription.py:214",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6494,7 +6494,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/download",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1349",
+      "source": "routes/subscription.py:1362",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6515,7 +6515,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/resources",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1314",
+      "source": "routes/subscription.py:1327",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6536,7 +6536,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/subscriptions",
       "retirement_approval": null,
-      "source": "routes/subscription.py:335",
+      "source": "routes/subscription.py:336",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6557,7 +6557,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/subscriptions",
       "retirement_approval": null,
-      "source": "routes/subscription.py:335",
+      "source": "routes/subscription.py:336",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6578,7 +6578,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/subscriptions/<int:subscription_id>",
       "retirement_approval": null,
-      "source": "routes/subscription.py:385",
+      "source": "routes/subscription.py:386",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6599,7 +6599,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/subscriptions/check",
       "retirement_approval": null,
-      "source": "routes/subscription.py:369",
+      "source": "routes/subscription.py:370",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6620,7 +6620,7 @@
       "new_owner": null,
       "path": "/api/subscription/mp/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:52",
+      "source": "routes/subscription.py:53",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6641,7 +6641,7 @@
       "new_owner": null,
       "path": "/api/subscription/mp/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:88",
+      "source": "routes/subscription.py:89",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6662,7 +6662,7 @@
       "new_owner": null,
       "path": "/api/subscription/status",
       "retirement_approval": null,
-      "source": "routes/subscription.py:22",
+      "source": "routes/subscription.py:23",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6743,7 +6743,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/clear_session",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1468",
+      "source": "routes/subscription.py:1495",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6764,7 +6764,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1399",
+      "source": "routes/subscription.py:1421",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6785,7 +6785,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1415",
+      "source": "routes/subscription.py:1437",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6806,7 +6806,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/login",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1448",
+      "source": "routes/subscription.py:1468",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6827,7 +6827,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/logout",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1462",
+      "source": "routes/subscription.py:1484",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6848,7 +6848,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/send_code",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1438",
+      "source": "routes/subscription.py:1457",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -6869,7 +6869,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/status",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1432",
+      "source": "routes/subscription.py:1448",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -7036,21 +7036,22 @@
       "contract_id": "route-binding-120bae4f1b30",
       "decorator_contract_id": "route-decorator-0558cfb3b7f0",
       "endpoint": "restart_container",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-runtime-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.system_runtime_router",
+      "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/restart",
       "retirement_approval": null,
       "source": "routes/system.py:793",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/system-runtime"
     },
     {
       "application": "api",
@@ -7079,21 +7080,22 @@
       "contract_id": "route-binding-43a1e02a6ef2",
       "decorator_contract_id": "route-decorator-ecece036be2a",
       "endpoint": "stream_update_progress",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-runtime-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.system_runtime_router",
+      "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/update/stream",
       "retirement_approval": null,
       "source": "routes/system.py:767",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/system-runtime"
     },
     {
       "application": "api",
@@ -7121,20 +7123,21 @@
       "contract_id": "route-binding-146ee52921d2",
       "decorator_contract_id": "route-decorator-f1c0f1d9601c",
       "endpoint": "run_task",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/task-runtime-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.job_router",
+      "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/tasks/run",
       "retirement_approval": null,
       "source": "routes/tasks.py:36",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/jobs"
     },
     {
       "application": "api",
@@ -7227,21 +7230,22 @@
       "contract_id": "route-binding-1585918b0f35",
       "decorator_contract_id": "route-decorator-46b39c3b0311",
       "endpoint": "api_handle_trigger_stop_task",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/task-runtime-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.job_router",
+      "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/trigger_stop_task",
       "retirement_approval": null,
       "source": "routes/system.py:188",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/jobs"
     },
     {
       "application": "api",
@@ -7534,7 +7538,7 @@
       "new_owner": null,
       "path": "/webhook/emby",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2261",
+      "source": "routes/webhook.py:2550",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -7556,7 +7560,7 @@
       "new_owner": null,
       "path": "/",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1703",
+      "source": "reverse_proxy.py:1747",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7577,7 +7581,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1704",
+      "source": "reverse_proxy.py:1748",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7598,7 +7602,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1704",
+      "source": "reverse_proxy.py:1748",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7619,7 +7623,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1704",
+      "source": "reverse_proxy.py:1748",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7640,7 +7644,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1704",
+      "source": "reverse_proxy.py:1748",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7661,7 +7665,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1704",
+      "source": "reverse_proxy.py:1748",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7682,7 +7686,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1704",
+      "source": "reverse_proxy.py:1748",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7713,7 +7717,7 @@
       "new_owner": null,
       "path": "/",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1703",
+      "source": "reverse_proxy.py:1747",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7742,7 +7746,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1704",
+      "source": "reverse_proxy.py:1748",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -9012,7 +9016,7 @@
       "new_owner": null,
       "path": "/api/collections/<emby_collection_id>",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:251",
+      "source": "routes/tmdb_collections.py:269",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -9035,7 +9039,7 @@
       "new_owner": null,
       "path": "/api/collections/provider/metadata/<tmdb_collection_id>",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:165",
+      "source": "routes/tmdb_collections.py:183",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -9058,7 +9062,7 @@
       "new_owner": null,
       "path": "/api/collections/provider/search",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:199",
+      "source": "routes/tmdb_collections.py:217",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -9081,7 +9085,7 @@
       "new_owner": null,
       "path": "/api/collections/settings",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:299",
+      "source": "routes/tmdb_collections.py:314",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -9104,7 +9108,7 @@
       "new_owner": null,
       "path": "/api/collections/settings",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:324",
+      "source": "routes/tmdb_collections.py:339",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -9127,7 +9131,7 @@
       "new_owner": null,
       "path": "/api/collections/status",
       "retirement_approval": null,
-      "source": "routes/tmdb_collections.py:232",
+      "source": "routes/tmdb_collections.py:250",
       "status": "legacy",
       "target_domains": [
         "collection"
@@ -9342,7 +9346,7 @@
       "new_owner": null,
       "path": "/api/custom_collections",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:131",
+      "source": "routes/custom_collections.py:130",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9366,7 +9370,7 @@
       "new_owner": null,
       "path": "/api/custom_collections",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:192",
+      "source": "routes/custom_collections.py:191",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9390,7 +9394,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/<int:collection_id>",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:279",
+      "source": "routes/custom_collections.py:278",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9414,7 +9418,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/<int:collection_id>",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:222",
+      "source": "routes/custom_collections.py:221",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9438,7 +9442,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/<int:collection_id>/fix_match",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:485",
+      "source": "routes/custom_collections.py:479",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9462,7 +9466,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/<int:collection_id>/status",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:337",
+      "source": "routes/custom_collections.py:331",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9486,7 +9490,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/country_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:916",
+      "source": "routes/custom_collections.py:910",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9510,7 +9514,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/country_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:923",
+      "source": "routes/custom_collections.py:917",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9534,7 +9538,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/country_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:934",
+      "source": "routes/custom_collections.py:928",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9558,7 +9562,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/emby_libraries",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:540",
+      "source": "routes/custom_collections.py:534",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9582,7 +9586,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/emby_users",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:99",
+      "source": "routes/custom_collections.py:98",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9606,7 +9610,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/junk_file_patterns",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:791",
+      "source": "routes/custom_collections.py:785",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9630,7 +9634,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/junk_file_patterns",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:798",
+      "source": "routes/custom_collections.py:792",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9654,7 +9658,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/junk_file_patterns/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:820",
+      "source": "routes/custom_collections.py:814",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9678,7 +9682,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/keyword_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:748",
+      "source": "routes/custom_collections.py:742",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9702,7 +9706,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/keyword_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:754",
+      "source": "routes/custom_collections.py:748",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9726,7 +9730,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/keyword_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:763",
+      "source": "routes/custom_collections.py:757",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9750,7 +9754,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/keywords",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:826",
+      "source": "routes/custom_collections.py:820",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9774,7 +9778,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/language_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:964",
+      "source": "routes/custom_collections.py:958",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9798,7 +9802,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/language_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:971",
+      "source": "routes/custom_collections.py:965",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9822,7 +9826,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/language_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:980",
+      "source": "routes/custom_collections.py:974",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9846,7 +9850,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/languages",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:986",
+      "source": "routes/custom_collections.py:980",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9870,7 +9874,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/movie_genres",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:718",
+      "source": "routes/custom_collections.py:712",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9894,7 +9898,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1051",
+      "source": "routes/custom_collections.py:1045",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9918,7 +9922,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1060",
+      "source": "routes/custom_collections.py:1054",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9942,7 +9946,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1072",
+      "source": "routes/custom_collections.py:1066",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9966,7 +9970,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_priority",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1085",
+      "source": "routes/custom_collections.py:1079",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -9990,7 +9994,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_priority",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1094",
+      "source": "routes/custom_collections.py:1088",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10014,7 +10018,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/rating_priority/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1106",
+      "source": "routes/custom_collections.py:1100",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10038,7 +10042,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/release_group_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:769",
+      "source": "routes/custom_collections.py:763",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10062,7 +10066,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/release_group_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:775",
+      "source": "routes/custom_collections.py:769",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10086,7 +10090,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/release_group_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:785",
+      "source": "routes/custom_collections.py:779",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10110,7 +10114,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/studio_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:846",
+      "source": "routes/custom_collections.py:840",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10134,7 +10138,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/studio_mapping",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:853",
+      "source": "routes/custom_collections.py:847",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10158,7 +10162,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/studio_mapping/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:862",
+      "source": "routes/custom_collections.py:856",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10182,7 +10186,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/studios",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:868",
+      "source": "routes/custom_collections.py:862",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10206,7 +10210,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tags",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:528",
+      "source": "routes/custom_collections.py:522",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10230,7 +10234,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tmdb_countries",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:940",
+      "source": "routes/custom_collections.py:934",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10254,7 +10258,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tmdb_movie_genres",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:575",
+      "source": "routes/custom_collections.py:569",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10278,7 +10282,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tmdb_search_companies",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:621",
+      "source": "routes/custom_collections.py:615",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10302,7 +10306,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tmdb_search_persons",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:678",
+      "source": "routes/custom_collections.py:672",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10326,7 +10330,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tmdb_tv_genres",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:598",
+      "source": "routes/custom_collections.py:592",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10350,7 +10354,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/tv_genres",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:732",
+      "source": "routes/custom_collections.py:726",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10374,7 +10378,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/unified_ratings",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1019",
+      "source": "routes/custom_collections.py:1013",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10398,7 +10402,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/unified_ratings",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1027",
+      "source": "routes/custom_collections.py:1021",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10422,7 +10426,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/unified_ratings/defaults",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1036",
+      "source": "routes/custom_collections.py:1030",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10446,7 +10450,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/config/unified_ratings_options",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:1117",
+      "source": "routes/custom_collections.py:1111",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10470,7 +10474,7 @@
       "new_owner": null,
       "path": "/api/custom_collections/update_order",
       "retirement_approval": null,
-      "source": "routes/custom_collections.py:258",
+      "source": "routes/custom_collections.py:257",
       "status": "legacy",
       "target_domains": [
         "collection",
@@ -10969,7 +10973,7 @@
       "new_owner": null,
       "path": "/api/emby/collections/activate",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1709",
+      "source": "routes/webhook.py:1969",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -10994,7 +10998,7 @@
       "new_owner": null,
       "path": "/api/emby/events",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2262",
+      "source": "routes/webhook.py:2551",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11019,7 +11023,7 @@
       "new_owner": null,
       "path": "/api/emby/intro-detection/backfill",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1922",
+      "source": "routes/webhook.py:2182",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11044,7 +11048,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1663",
+      "source": "routes/webhook.py:1923",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11069,7 +11073,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1733",
+      "source": "routes/webhook.py:1993",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11094,7 +11098,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/backfill/item",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1876",
+      "source": "routes/webhook.py:2136",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11119,7 +11123,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/backfill/items",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1884",
+      "source": "routes/webhook.py:2144",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11144,7 +11148,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/backfill/library",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1895",
+      "source": "routes/webhook.py:2155",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11169,7 +11173,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/images/refresh",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1933",
+      "source": "routes/webhook.py:2222",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11194,7 +11198,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/images/search",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2127",
+      "source": "routes/webhook.py:2416",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11219,7 +11223,7 @@
       "new_owner": null,
       "path": "/api/emby/metadata/images/sync",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2192",
+      "source": "routes/webhook.py:2481",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11244,7 +11248,7 @@
       "new_owner": null,
       "path": "/api/emby/plugin-update",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1622",
+      "source": "routes/webhook.py:1882",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11269,7 +11273,7 @@
       "new_owner": null,
       "path": "/api/emby/search",
       "retirement_approval": null,
-      "source": "routes/webhook.py:77",
+      "source": "routes/webhook.py:135",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11294,7 +11298,7 @@
       "new_owner": null,
       "path": "/api/emby/search/index",
       "retirement_approval": null,
-      "source": "routes/webhook.py:98",
+      "source": "routes/webhook.py:156",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11645,7 +11649,7 @@
       "new_owner": null,
       "path": "/api/p115/auto_save_auth",
       "retirement_approval": null,
-      "source": "routes/p115.py:627",
+      "source": "routes/p115.py:686",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11668,7 +11672,7 @@
       "new_owner": null,
       "path": "/api/p115/cookie",
       "retirement_approval": null,
-      "source": "routes/p115.py:474",
+      "source": "routes/p115.py:533",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11691,7 +11695,7 @@
       "new_owner": null,
       "path": "/api/p115/cookie_qrcode",
       "retirement_approval": null,
-      "source": "routes/p115.py:392",
+      "source": "routes/p115.py:451",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11714,7 +11718,7 @@
       "new_owner": null,
       "path": "/api/p115/cookie_qrcode/status",
       "retirement_approval": null,
-      "source": "routes/p115.py:419",
+      "source": "routes/p115.py:478",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11738,7 +11742,7 @@
       "new_owner": null,
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3246",
+      "source": "routes/p115.py:3471",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11761,7 +11765,7 @@
       "new_owner": null,
       "path": "/api/p115/dirs",
       "retirement_approval": null,
-      "source": "routes/p115.py:1111",
+      "source": "routes/p115.py:1188",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11785,7 +11789,7 @@
       "new_owner": null,
       "path": "/api/p115/episode_regex_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:2914",
+      "source": "routes/p115.py:3162",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11808,7 +11812,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2040",
+      "source": "routes/p115.py:2272",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11831,7 +11835,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2393",
+      "source": "routes/p115.py:2641",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11854,7 +11858,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2380",
+      "source": "routes/p115.py:2628",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11877,7 +11881,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2179",
+      "source": "routes/p115.py:2411",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11900,7 +11904,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2192",
+      "source": "routes/p115.py:2424",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11923,7 +11927,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/metadata",
       "retirement_approval": null,
-      "source": "routes/p115.py:2103",
+      "source": "routes/p115.py:2335",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11946,7 +11950,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/p115.py:2134",
+      "source": "routes/p115.py:2366",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11969,7 +11973,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2048",
+      "source": "routes/p115.py:2280",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11992,7 +11996,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2401",
+      "source": "routes/p115.py:2649",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12015,7 +12019,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2388",
+      "source": "routes/p115.py:2636",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12038,7 +12042,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2187",
+      "source": "routes/p115.py:2419",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12061,7 +12065,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2200",
+      "source": "routes/p115.py:2432",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12084,7 +12088,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/metadata",
       "retirement_approval": null,
-      "source": "routes/p115.py:2111",
+      "source": "routes/p115.py:2343",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12107,7 +12111,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/p115.py:2142",
+      "source": "routes/p115.py:2374",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12130,7 +12134,7 @@
       "new_owner": null,
       "path": "/api/p115/mkdir",
       "retirement_approval": null,
-      "source": "routes/p115.py:1186",
+      "source": "routes/p115.py:1263",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12154,7 +12158,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2409",
+      "source": "routes/p115.py:2657",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12178,7 +12182,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>/<path:filename>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2410",
+      "source": "routes/p115.py:2658",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12201,7 +12205,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool",
       "retirement_approval": null,
-      "source": "routes/p115.py:1211",
+      "source": "routes/p115.py:1288",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12224,7 +12228,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool",
       "retirement_approval": null,
-      "source": "routes/p115.py:1217",
+      "source": "routes/p115.py:1294",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12247,7 +12251,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/accounts",
       "retirement_approval": null,
-      "source": "routes/p115.py:1225",
+      "source": "routes/p115.py:1302",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12270,7 +12274,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/accounts/<account_id>",
       "retirement_approval": null,
-      "source": "routes/p115.py:1326",
+      "source": "routes/p115.py:1403",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12293,7 +12297,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/accounts/<account_id>",
       "retirement_approval": null,
-      "source": "routes/p115.py:1316",
+      "source": "routes/p115.py:1393",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12316,7 +12320,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/accounts/<account_id>/speedtest",
       "retirement_approval": null,
-      "source": "routes/p115.py:1333",
+      "source": "routes/p115.py:1410",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12339,7 +12343,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/cleanup",
       "retirement_approval": null,
-      "source": "routes/p115.py:1345",
+      "source": "routes/p115.py:1422",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12362,7 +12366,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/cookie_qrcode",
       "retirement_approval": null,
-      "source": "routes/p115.py:490",
+      "source": "routes/p115.py:549",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12385,7 +12389,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/cookie_qrcode/status",
       "retirement_approval": null,
-      "source": "routes/p115.py:540",
+      "source": "routes/p115.py:599",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12408,7 +12412,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
-      "source": "routes/p115.py:1298",
+      "source": "routes/p115.py:1375",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12431,7 +12435,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
-      "source": "routes/p115.py:1289",
+      "source": "routes/p115.py:1366",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12454,7 +12458,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
-      "source": "routes/p115.py:1235",
+      "source": "routes/p115.py:1312",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12477,7 +12481,7 @@
       "new_owner": null,
       "path": "/api/p115/play_pool/user-account/rewards",
       "retirement_approval": null,
-      "source": "routes/p115.py:1309",
+      "source": "routes/p115.py:1386",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12500,7 +12504,7 @@
       "new_owner": null,
       "path": "/api/p115/qrcode",
       "retirement_approval": null,
-      "source": "routes/p115.py:321",
+      "source": "routes/p115.py:370",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12523,7 +12527,7 @@
       "new_owner": null,
       "path": "/api/p115/qrcode/status",
       "retirement_approval": null,
-      "source": "routes/p115.py:340",
+      "source": "routes/p115.py:389",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12546,7 +12550,7 @@
       "new_owner": null,
       "path": "/api/p115/quick_deploy",
       "retirement_approval": null,
-      "source": "routes/p115.py:1732",
+      "source": "routes/p115.py:1939",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12569,7 +12573,7 @@
       "new_owner": null,
       "path": "/api/p115/records",
       "retirement_approval": null,
-      "source": "routes/p115.py:2945",
+      "source": "routes/p115.py:3193",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12592,7 +12596,7 @@
       "new_owner": null,
       "path": "/api/p115/records/<int:record_id>",
       "retirement_approval": null,
-      "source": "routes/p115.py:3038",
+      "source": "routes/p115.py:3286",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12615,7 +12619,7 @@
       "new_owner": null,
       "path": "/api/p115/recycle_bin/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3070",
+      "source": "routes/p115.py:3318",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12638,7 +12642,7 @@
       "new_owner": null,
       "path": "/api/p115/release_groups",
       "retirement_approval": null,
-      "source": "routes/p115.py:1806",
+      "source": "routes/p115.py:2049",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12662,7 +12666,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2554",
+      "source": "routes/p115.py:2802",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12685,7 +12689,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/export",
       "retirement_approval": null,
-      "source": "routes/p115.py:2821",
+      "source": "routes/p115.py:3069",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12708,7 +12712,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/import",
       "retirement_approval": null,
-      "source": "routes/p115.py:2787",
+      "source": "routes/p115.py:3035",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12731,7 +12735,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/preview",
       "retirement_approval": null,
-      "source": "routes/p115.py:2663",
+      "source": "routes/p115.py:2911",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12754,7 +12758,7 @@
       "new_owner": null,
       "path": "/api/p115/replace_strm",
       "retirement_approval": null,
-      "source": "routes/p115.py:2488",
+      "source": "routes/p115.py:2736",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12778,7 +12782,7 @@
       "new_owner": null,
       "path": "/api/p115/sorting_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:1893",
+      "source": "routes/p115.py:2125",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12801,7 +12805,7 @@
       "new_owner": null,
       "path": "/api/p115/speedtest",
       "retirement_approval": null,
-      "source": "routes/p115.py:1033",
+      "source": "routes/p115.py:1110",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12824,7 +12828,7 @@
       "new_owner": null,
       "path": "/api/p115/status",
       "retirement_approval": null,
-      "source": "routes/p115.py:941",
+      "source": "routes/p115.py:1005",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12847,7 +12851,7 @@
       "new_owner": null,
       "path": "/api/p115/system/directories",
       "retirement_approval": null,
-      "source": "routes/p115.py:3143",
+      "source": "routes/p115.py:3368",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12870,7 +12874,7 @@
       "new_owner": null,
       "path": "/api/p115/temp_dir_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:1352",
+      "source": "routes/p115.py:1429",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12893,7 +12897,7 @@
       "new_owner": null,
       "path": "/api/p115/temp_dir_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:1359",
+      "source": "routes/p115.py:1436",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12916,7 +12920,7 @@
       "new_owner": null,
       "path": "/api/p115/unrecognized/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3085",
+      "source": "routes/p115.py:3333",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12940,7 +12944,7 @@
       "new_owner": null,
       "path": "/api/p115/upload_monitor/config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3191",
+      "source": "routes/p115.py:3416",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12964,7 +12968,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:1823",
+      "source": "routes/p115.py:2066",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12988,7 +12992,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_groups",
       "retirement_approval": null,
-      "source": "routes/p115.py:1774",
+      "source": "routes/p115.py:2017",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -13011,7 +13015,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_recalculate",
       "retirement_approval": null,
-      "source": "routes/p115.py:1844",
+      "source": "routes/p115.py:2087",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -13661,7 +13665,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/center/device/register",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2179",
+      "source": "routes/shared_resource.py:2192",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -13684,7 +13688,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/center/device/status",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2220",
+      "source": "routes/shared_resource.py:2229",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -13730,7 +13734,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/center/replenish/prepare",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2837",
+      "source": "routes/shared_resource.py:2846",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -13892,7 +13896,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/credit/ledger",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2810",
+      "source": "routes/shared_resource.py:2819",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -13915,7 +13919,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/credit/refresh",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2247",
+      "source": "routes/shared_resource.py:2256",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -13938,7 +13942,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/maintenance/run",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2829",
+      "source": "routes/shared_resource.py:2838",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -13985,7 +13989,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2990",
+      "source": "routes/shared_resource.py:2999",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -14008,7 +14012,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests/<group_id>/cancel",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:3025",
+      "source": "routes/shared_resource.py:3034",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -14031,7 +14035,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests/<group_id>/co-request",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:3015",
+      "source": "routes/shared_resource.py:3024",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -14054,7 +14058,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests/param-options",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2944",
+      "source": "routes/shared_resource.py:2953",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -14077,7 +14081,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests/quote",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2957",
+      "source": "routes/shared_resource.py:2966",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -14100,7 +14104,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/share-requests/tmdb/search",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2968",
+      "source": "routes/shared_resource.py:2977",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -14423,7 +14427,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/virtual-imports",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2124",
+      "source": "routes/shared_resource.py:2133",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -14446,7 +14450,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/virtual-imports/<int:virtual_id>",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2137",
+      "source": "routes/shared_resource.py:2146",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -14469,7 +14473,7 @@
       "new_owner": null,
       "path": "/api/shared/resources/virtual-imports/<int:virtual_id>/promote",
       "retirement_approval": null,
-      "source": "routes/shared_resource.py:2153",
+      "source": "routes/shared_resource.py:2162",
       "status": "legacy",
       "target_domains": [
         "sharing"
@@ -14517,7 +14521,7 @@
       "new_owner": null,
       "path": "/api/subscription/cloud/download",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1232",
+      "source": "routes/subscription.py:1236",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14541,7 +14545,7 @@
       "new_owner": null,
       "path": "/api/subscription/cloud/resources",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1067",
+      "source": "routes/subscription.py:1068",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14565,7 +14569,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/authorize_url",
       "retirement_approval": null,
-      "source": "routes/subscription.py:300",
+      "source": "routes/subscription.py:301",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14589,7 +14593,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/checkin",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1368",
+      "source": "routes/subscription.py:1390",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14613,7 +14617,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/clear_authorization",
       "retirement_approval": null,
-      "source": "routes/subscription.py:310",
+      "source": "routes/subscription.py:311",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14638,7 +14642,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:213",
+      "source": "routes/subscription.py:214",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14662,7 +14666,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/download",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1349",
+      "source": "routes/subscription.py:1362",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14686,7 +14690,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/resources",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1314",
+      "source": "routes/subscription.py:1327",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14711,7 +14715,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/subscriptions",
       "retirement_approval": null,
-      "source": "routes/subscription.py:335",
+      "source": "routes/subscription.py:336",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14735,7 +14739,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/subscriptions/<int:subscription_id>",
       "retirement_approval": null,
-      "source": "routes/subscription.py:385",
+      "source": "routes/subscription.py:386",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14759,7 +14763,7 @@
       "new_owner": null,
       "path": "/api/subscription/hdhive/subscriptions/check",
       "retirement_approval": null,
-      "source": "routes/subscription.py:369",
+      "source": "routes/subscription.py:370",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14783,7 +14787,7 @@
       "new_owner": null,
       "path": "/api/subscription/mp/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:52",
+      "source": "routes/subscription.py:53",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14807,7 +14811,7 @@
       "new_owner": null,
       "path": "/api/subscription/mp/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:88",
+      "source": "routes/subscription.py:89",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14831,7 +14835,7 @@
       "new_owner": null,
       "path": "/api/subscription/status",
       "retirement_approval": null,
-      "source": "routes/subscription.py:22",
+      "source": "routes/subscription.py:23",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14924,7 +14928,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/clear_session",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1468",
+      "source": "routes/subscription.py:1495",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14948,7 +14952,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1399",
+      "source": "routes/subscription.py:1421",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14972,7 +14976,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/config",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1415",
+      "source": "routes/subscription.py:1437",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -14996,7 +15000,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/login",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1448",
+      "source": "routes/subscription.py:1468",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -15020,7 +15024,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/logout",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1462",
+      "source": "routes/subscription.py:1484",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -15044,7 +15048,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/send_code",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1438",
+      "source": "routes/subscription.py:1457",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -15068,7 +15072,7 @@
       "new_owner": null,
       "path": "/api/subscription/tg_userbot/status",
       "retirement_approval": null,
-      "source": "routes/subscription.py:1432",
+      "source": "routes/subscription.py:1448",
       "status": "legacy",
       "target_domains": [
         "subscription",
@@ -15257,23 +15261,24 @@
       "contract_id": "route-decorator-0558cfb3b7f0",
       "declared_path": "/system/restart",
       "endpoint": "restart_container",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-runtime-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.system_runtime_router",
+      "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/restart",
       "retirement_approval": null,
       "source": "routes/system.py:793",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/system-runtime"
     },
     {
       "application": "api",
@@ -15306,23 +15311,24 @@
       "contract_id": "route-decorator-ecece036be2a",
       "declared_path": "/system/update/stream",
       "endpoint": "stream_update_progress",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-runtime-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.system_runtime_router",
+      "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/update/stream",
       "retirement_approval": null,
       "source": "routes/system.py:767",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/system-runtime"
     },
     {
       "application": "api",
@@ -15354,22 +15360,23 @@
       "contract_id": "route-decorator-f1c0f1d9601c",
       "declared_path": "/run",
       "endpoint": "run_task",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/task-runtime-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.job_router",
+      "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/tasks/run",
       "retirement_approval": null,
       "source": "routes/tasks.py:36",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/jobs"
     },
     {
       "application": "api",
@@ -15475,23 +15482,24 @@
       "contract_id": "route-decorator-46b39c3b0311",
       "declared_path": "/trigger_stop_task",
       "endpoint": "api_handle_trigger_stop_task",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/task-runtime-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.job_router",
+      "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/trigger_stop_task",
       "retirement_approval": null,
       "source": "routes/system.py:188",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/jobs"
     },
     {
       "application": "api",
@@ -15807,7 +15815,7 @@
       "new_owner": null,
       "path": "/webhook/emby",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2261",
+      "source": "routes/webhook.py:2550",
       "status": "legacy",
       "target_domains": [
         "ingestion",

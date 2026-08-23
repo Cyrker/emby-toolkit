@@ -1,4 +1,5 @@
 # 文件: handler/telegram.py
+import hashlib
 import json
 import threading
 import extensions
@@ -12,11 +13,15 @@ from database import user_db, request_db, media_db, settings_db
 from database.connection import get_db_connection
 import constants
 from handler.tg_media_candidate import build_channel_task_payload
-from etk.compatibility.background import spawn, spawn_later
+from etk.compatibility.background import spawn
+from etk.compatibility import persistent_runtime_state
+from etk.compatibility.tg_control_bridge import submit_telegram_resource_action
 
 logger = logging.getLogger(__name__)
 
 _EPISODE_REF_PATTERN = re.compile(r'(?i)S(\d{1,3})\s*E(\d{1,4})(?:\s*-\s*E?(\d{1,4}))?')
+_TELEGRAM_MEDIA_DELIVERY_NAMESPACE = "telegram-media-notification"
+_TELEGRAM_MEDIA_DELIVERY_LEASE_SECONDS = 120
 
 def _format_episode_ranges(episode_list: list) -> str:
     """
@@ -594,7 +599,105 @@ def send_telegram_photo(chat_id: str, photo_url: str, caption: str, disable_noti
     except requests.RequestException as e:
         logger.error(f"  ➜ 发送 Telegram 图文消息时发生网络请求错误: {e}")
         return False
-    
+
+
+def _persistent_media_notification_event_key(
+    item_details: dict,
+    notification_type: str,
+    new_episode_ids: list | None,
+) -> str | None:
+    import task_manager
+
+    job_id = task_manager.current_persistent_execution_job_id()
+    if not job_id:
+        return None
+    provider_ids = item_details.get("ProviderIds") if isinstance(item_details.get("ProviderIds"), dict) else {}
+    event = {
+        "job_id": job_id,
+        "item_id": str(item_details.get("Id") or ""),
+        "tmdb_id": str(provider_ids.get("Tmdb") or ""),
+        "notification_type": str(notification_type or "new"),
+        "episode_ids": sorted({str(value) for value in new_episode_ids or [] if str(value or "").strip()}),
+    }
+    encoded = json.dumps(event, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _deliver_media_notification_targets(
+    targets: list[dict],
+    *,
+    photo_url: str | None,
+    event_key: str | None,
+) -> dict:
+    results = []
+    for target in targets:
+        chat_id = str(target["chat_id"] or "").strip()
+        role = str(target["role"] or "recipient")
+        caption = str(target["caption"] or "")
+        delivery_key = (
+            hashlib.sha256(f"{event_key}\0{chat_id}".encode("utf-8")).hexdigest()
+            if event_key
+            else None
+        )
+        claim = None
+        if delivery_key:
+            try:
+                claim = persistent_runtime_state.claim_delivery(
+                    _TELEGRAM_MEDIA_DELIVERY_NAMESPACE,
+                    delivery_key,
+                    lease_seconds=_TELEGRAM_MEDIA_DELIVERY_LEASE_SECONDS,
+                )
+            except Exception as exc:
+                results.append({"recipient": chat_id, "role": role, "ok": False, "status": type(exc).__name__})
+                continue
+            if claim is None:
+                results.append({"recipient": chat_id, "role": role, "ok": True, "status": "deduplicated"})
+                continue
+
+        transport = "photo" if photo_url else "message"
+        try:
+            sent = bool(
+                send_telegram_photo(chat_id, photo_url, caption)
+                if photo_url
+                else send_telegram_message(chat_id, caption)
+            )
+        except Exception as exc:
+            if delivery_key and claim is not None:
+                persistent_runtime_state.release_delivery(
+                    _TELEGRAM_MEDIA_DELIVERY_NAMESPACE,
+                    delivery_key,
+                    claim.owner_token,
+                )
+            results.append({"recipient": chat_id, "role": role, "ok": False, "status": type(exc).__name__})
+            continue
+
+        if not sent:
+            if delivery_key and claim is not None:
+                persistent_runtime_state.release_delivery(
+                    _TELEGRAM_MEDIA_DELIVERY_NAMESPACE,
+                    delivery_key,
+                    claim.owner_token,
+                )
+            results.append({"recipient": chat_id, "role": role, "ok": False, "status": "rejected"})
+            continue
+
+        if delivery_key and claim is not None and not persistent_runtime_state.complete_delivery(
+            _TELEGRAM_MEDIA_DELIVERY_NAMESPACE,
+            delivery_key,
+            claim.owner_token,
+            result={"transport": transport},
+        ):
+            results.append({"recipient": chat_id, "role": role, "ok": False, "status": "ledger-conflict"})
+            continue
+        results.append({"recipient": chat_id, "role": role, "ok": True, "status": "sent"})
+
+    failed = [result for result in results if not result["ok"]]
+    outcome = {"ok": not failed, "event_key": event_key, "deliveries": results}
+    if failed and event_key:
+        raise RuntimeError(f"Telegram media notification failed for {len(failed)} recipient(s)")
+    return outcome
+
+
 # --- 全能的通知函数 ---
 def send_media_notification(item_details: dict, notification_type: str = 'new', new_episode_ids: list = None):
     """
@@ -603,7 +706,9 @@ def send_media_notification(item_details: dict, notification_type: str = 'new', 
     """
     notification_name = {'new': '新入库', 'update': '追更入库', 'wash': '洗版入库'}.get(notification_type, notification_type or '媒体')
     logger.info(f"  ➜ 准备发送 Telegram {notification_name}通知：《{item_details.get('Name') or '未知媒体'}》。")
-    
+    event_key = _persistent_media_notification_event_key(item_details, notification_type, new_episode_ids)
+    delivery_targets = []
+
     try:
         # --- 1. 准备基础信息 ---
         tmdb_id = item_details.get("ProviderIds", {}).get("Tmdb")
@@ -754,10 +859,7 @@ def send_media_notification(item_details: dict, notification_type: str = 'new', 
             # A. 发送给频道
             if global_channel_id:
                 logger.info(f"  ➜ 正在向全局频道 {global_channel_id} 发送通知...")
-                if photo_url:
-                    send_telegram_photo(global_channel_id, photo_url, caption)
-                else:
-                    send_telegram_message(global_channel_id, caption)
+                delivery_targets.append({"chat_id": global_channel_id, "role": "channel", "caption": caption})
 
             # B. 发送给管理员
             all_admin_chat_ids = set(user_db.get_admin_telegram_chat_ids())
@@ -769,10 +871,7 @@ def send_media_notification(item_details: dict, notification_type: str = 'new', 
                         continue
                     
                     logger.info(f"  ➜ 正在向管理员发送全局入库通知。")
-                    if photo_url:
-                        send_telegram_photo(admin_chat_id, photo_url, caption)
-                    else:
-                        send_telegram_message(admin_chat_id, caption)
+                    delivery_targets.append({"chat_id": admin_chat_id, "role": "administrator", "caption": caption})
         else:
             logger.debug(f"  ➜ [通知] '入库通知' 设置为关闭，跳过频道和管理员的全局广播。")
 
@@ -788,13 +887,18 @@ def send_media_notification(item_details: dict, notification_type: str = 'new', 
             for chat_id in subscriber_chat_ids:
                 if chat_id == global_channel_id: continue
                 logger.info(f"  ➜ 正在向订阅者 {chat_id} 发送个人通知...")
-                if photo_url:
-                    send_telegram_photo(chat_id, photo_url, personal_caption)
-                else:
-                    send_telegram_message(chat_id, personal_caption)
-            
+                delivery_targets.append({"chat_id": chat_id, "role": "subscriber", "caption": personal_caption})
+
+        return _deliver_media_notification_targets(
+            delivery_targets,
+            photo_url=photo_url,
+            event_key=event_key,
+        )
     except Exception as e:
         logger.error(f"  ➜ 发送媒体通知时发生严重错误: {e}", exc_info=True)
+        if event_key:
+            raise
+        return {"ok": False, "event_key": None, "deliveries": []}
 
 def send_transfer_success_notification(task: dict):
     """发送频道监听转存成功的通知"""
@@ -1147,7 +1251,6 @@ def send_intercept_notification(file_names, reason: str):
 import re
 import time
 import threading
-from handler.p115_service import P115Service
 
 # 全局变量控制轮询线程
 _tg_polling_active = False
@@ -1250,6 +1353,47 @@ def _tg_set_session(chat_id: str, session: dict):
 def _tg_clear_session(chat_id: str):
     with _tg_resource_search_lock:
         _tg_resource_search_sessions.pop(str(chat_id), None)
+
+
+def _tg_action_update_identity(update_id, fallback: str) -> str:
+    value = str(update_id or "").strip()
+    return value or str(fallback or "").strip()
+
+
+def _tg_hashed_source_identity(prefix: str, value: str) -> str:
+    digest = hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()
+    return f"{prefix}:{digest}"
+
+
+def _tg_submit_resource_action(
+    *,
+    chat_id: str,
+    update_id: str,
+    action: str,
+    source_identity: str,
+    payload: dict,
+    accepted_message: str,
+) -> bool:
+    dto = {
+        "version": 1,
+        "action": action,
+        "chat_id": str(chat_id),
+        "update_id": str(update_id),
+        "source_identity": str(source_identity),
+        "payload": dict(payload),
+    }
+    try:
+        accepted = submit_telegram_resource_action(dto)
+    except Exception as exc:
+        logger.error("  ➜ [TG资源动作] 持久任务提交失败: %s", exc, exc_info=True)
+        _tg_send_plain(chat_id, f"❌ 持久任务提交失败：{exc}")
+        return False
+    if not accepted:
+        logger.error("  ➜ [TG资源动作] 持久任务网关拒绝动作: %s", action)
+        _tg_send_plain(chat_id, "❌ 持久任务提交失败：任务网关未接受请求，请稍后重试。")
+        return False
+    _tg_send_plain(chat_id, accepted_message)
+    return True
 
 
 def _tg_build_number_keyboard(prefix: str, count: int) -> dict:
@@ -2200,7 +2344,7 @@ def _tg_show_resource_page(chat_id: str, page: int):
     )
 
 
-def _tg_start_hdhive_transfer(chat_id: str, selection_number: int):
+def _tg_start_hdhive_transfer(chat_id: str, selection_number: int, update_id=None):
     session = _tg_get_session(chat_id)
     if not session or session.get("stage") != "hdhive_resources":
         _tg_send_plain(chat_id, "❌ 当前没有可选择的资源，请重新输入片名搜索。")
@@ -2222,56 +2366,32 @@ def _tg_start_hdhive_transfer(chat_id: str, selection_number: int):
     media_type = media.get("media_type") or resource.get("item_type") or "movie"
     tmdb_id = media.get("tmdb_id") or resource.get("tmdb_id")
 
-    # 开始转存后清理会话，避免用户重复点按钮造成重复转存。
-    _tg_clear_session(chat_id)
-
     if source == "shared_pool":
-        def run_shared_pool_transfer():
-            try:
-                from handler.shared_center_client import SharedCenterClient, shared_center_enabled
-                from handler.shared_subscription_service import consume_center_source_payload
-
-                if not shared_center_enabled():
-                    _tg_send_plain(chat_id, "❌ 共享池未启用或未配置中心地址，无法秒传。")
-                    return
-
-                shared_source = dict(resource or {})
-                source_kind = str(shared_source.get('source_kind') or '').strip()
-                source_id = str(shared_source.get('source_id') or shared_source.get('source_ref_id') or '').strip()
-                if not source_kind or not source_id:
-                    _tg_send_plain(chat_id, "❌ 共享池资源缺少 source_kind/source_id，无法秒传。")
-                    return
-
-                _tg_send_plain(chat_id, f"⏳ 已选择共享池资源：{_tg_resource_title(shared_source)}\n正在执行 115 秒传，请稍后查看通知/日志。", disable_notification=True)
-
-                # 连载公共包列表页只返回壳，真正秒传前按需加载该季 children。
-                if source_kind == 'season_hub' and not (shared_source.get('children') or shared_source.get('pack_items')):
-                    child_resp = SharedCenterClient().list_display_children(
-                        source_kind='season_hub',
-                        source_id=source_id,
-                        hub_id=shared_source.get('hub_id') or source_id,
-                        limit=5000,
-                    )
-                    children = child_resp.get('children') or child_resp.get('items') or []
-                    pack_items = child_resp.get('pack_items') or children
-                    shared_source['children'] = children
-                    shared_source['pack_items'] = pack_items
-
-                result = consume_center_source_payload(shared_source)
-                ok = bool(result.get('ok') or result.get('success'))
-                msg = result.get('message') or (
-                    f"共享池秒传完成：{result.get('success_count', 0)}/{result.get('total', 0)}"
-                    if ok else "共享池秒传失败"
-                )
-                if ok:
-                    _tg_send_plain(chat_id, f"✅ 共享池秒传已提交：{display_title}\n{msg}")
-                else:
-                    _tg_send_plain(chat_id, f"❌ 共享池秒传失败：{display_title}\n{msg}")
-            except Exception as e:
-                logger.error(f"  ➜ [TG资源搜索] 共享池秒传失败: {e}", exc_info=True)
-                _tg_send_plain(chat_id, f"❌ 共享池秒传异常：{e}")
-
-        spawn(run_shared_pool_transfer)
+        shared_source = dict(resource or {})
+        source_kind = str(shared_source.get("source_kind") or "").strip()
+        source_id = str(shared_source.get("source_id") or shared_source.get("source_ref_id") or "").strip()
+        if not source_kind or not source_id:
+            _tg_send_plain(chat_id, "❌ 共享池资源缺少 source_kind/source_id，无法秒传。")
+            return
+        source_identity = f"shared_pool:{source_kind}:{source_id}"
+        action_update_id = _tg_action_update_identity(update_id, f"{source_identity}:{chat_id}")
+        accepted = _tg_submit_resource_action(
+            chat_id=chat_id,
+            update_id=action_update_id,
+            action="shared_pool_transfer",
+            source_identity=source_identity,
+            payload={
+                "source": shared_source,
+                "mode": str(
+                    shared_source.get("preferred_transfer_mode")
+                    or shared_source.get("transfer_mode")
+                    or "rapid"
+                ),
+            },
+            accepted_message=f"✅ 已提交共享池转存：{display_title}\n请在任务中心查看持久化进度。",
+        )
+        if accepted:
+            _tg_clear_session(chat_id)
         return
 
     if source == "channel":
@@ -2293,8 +2413,10 @@ def _tg_start_hdhive_transfer(chat_id: str, selection_number: int):
                 _tg_send_plain(chat_id, "❌ 当前频道资源缺少 115/影巢/磁力链接，无法转存。")
                 return
 
-            tg_task_queue.put(task)
+            if not tg_task_queue.put(task):
+                raise RuntimeError("频道资源持久任务网关未接受请求")
             source_channel = resource.get("source_channel") or "频道"
+            _tg_clear_session(chat_id)
             _tg_send_plain(chat_id, f"✅ 已提交频道资源转存：{display_title}\n来源：{source_channel}\n请稍后查看转存通知/系统日志。")
             return
         except Exception as e:
@@ -2307,32 +2429,26 @@ def _tg_start_hdhive_transfer(chat_id: str, selection_number: int):
         _tg_send_plain(chat_id, "❌ 当前影巢资源缺少 slug，无法解锁转存。")
         return
 
-    def run():
-        try:
-            _tg_send_plain(chat_id, f"⏳ 已选择影巢资源：{_tg_resource_title(resource)}\n正在解锁并转存到 115，请稍后查看通知/日志。", disable_notification=True)
+    source_identity = f"hdhive:{slug}"
+    action_update_id = _tg_action_update_identity(update_id, f"{source_identity}:{chat_id}")
+    accepted = _tg_submit_resource_action(
+        chat_id=chat_id,
+        update_id=action_update_id,
+        action="hdhive_transfer",
+        source_identity=source_identity,
+        payload={
+            "slug": str(slug),
+            "tmdb_id": str(tmdb_id or ""),
+            "media_type": str(media_type or ""),
+            "title": str(display_title),
+        },
+        accepted_message=f"✅ 已提交影巢资源转存：{display_title}\n请在任务中心查看持久化进度。",
+    )
+    if accepted:
+        _tg_clear_session(chat_id)
 
-            from tasks.hdhive import task_download_from_hdhive
 
-            ok = task_download_from_hdhive(
-                api_key=None,
-                slug=slug,
-                tmdb_id=tmdb_id,
-                media_type=media_type,
-                title=display_title,
-            )
-
-            if ok:
-                _tg_send_plain(chat_id, f"✅ 影巢资源已提交转存：{display_title}")
-            else:
-                _tg_send_plain(chat_id, f"❌ 影巢资源转存失败：{display_title}\n请查看系统日志确认原因。")
-
-        except Exception as e:
-            logger.error(f"  ➜ [TG资源搜索] 影巢转存失败: {e}", exc_info=True)
-            _tg_send_plain(chat_id, f"❌ 影巢转存异常：{e}")
-
-    spawn(run)
-
-def _tg_handle_subscribe(chat_id: str):
+def _tg_handle_subscribe(chat_id: str, update_id=None):
     """处理 TG 搜索界面的订阅按钮点击"""
     session = _tg_get_session(chat_id)
     if not session or session.get("stage") != "hdhive_resources":
@@ -2346,95 +2462,29 @@ def _tg_handle_subscribe(chat_id: str):
     year = media.get("year") or ""
     display_title = f"{title} ({year})" if year else title
 
-    if not tmdb_id:
-        _tg_send_plain(chat_id, "❌ 缺少 TMDb ID，无法订阅。")
+    if not tmdb_id or media_type not in {"movie", "tv"}:
+        _tg_send_plain(chat_id, "❌ 缺少有效的 TMDb ID 或媒体类型，无法订阅。")
         return
 
-    # 清理会话防止重复点击
-    _tg_clear_session(chat_id)
-    _tg_send_plain(chat_id, f"⏳ 正在提交订阅：{display_title}...", disable_notification=True)
+    source_identity = f"subscription:{media_type}:{tmdb_id}"
+    action_update_id = _tg_action_update_identity(update_id, f"{source_identity}:{chat_id}")
+    accepted = _tg_submit_resource_action(
+        chat_id=chat_id,
+        update_id=action_update_id,
+        action="subscription",
+        source_identity=source_identity,
+        payload={
+            "tmdb_id": str(tmdb_id),
+            "media_type": str(media_type),
+            "title": str(title),
+            "year": str(year),
+        },
+        accepted_message=f"✅ 已提交订阅：{display_title}\n请在任务中心查看持久化进度。",
+    )
+    if accepted:
+        _tg_clear_session(chat_id)
 
-    def run():
-        try:
-            from tasks.helpers import process_subscription_items_and_update_db
-            from handler.tmdb import get_tv_details
-            
-            api_key = _tg_get_tmdb_api_key()
-            tmdb_items = []
-            
-            if media_type == "movie":
-                tmdb_items.append({
-                    'tmdb_id': tmdb_id,
-                    'media_type': 'Movie',
-                    'season': None
-                })
-            elif media_type == "tv":
-                # 剧集需要按季订阅，拉取详情获取所有季
-                details = get_tv_details(tmdb_id, api_key)
-                if details and 'seasons' in details:
-                    for s in details['seasons']:
-                        s_num = s.get('season_number')
-                        # 过滤掉第 0 季 (特别篇)，通常只订阅正片
-                        if s_num is not None and s_num > 0:
-                            tmdb_items.append({
-                                'tmdb_id': tmdb_id,
-                                'media_type': 'Series',
-                                'season': s_num
-                            })
-                else:
-                    # 兜底订阅第 1 季
-                    tmdb_items.append({
-                        'tmdb_id': tmdb_id,
-                        'media_type': 'Series',
-                        'season': 1
-                    })
-
-            if not tmdb_items:
-                _tg_send_plain(chat_id, f"❌ 无法解析订阅信息：{display_title}")
-                return
-
-            # --- 新增：查询 TG ID 绑定的 Emby 用户名 ---
-            emby_username = 'TG 搜索'  # 默认兜底名称
-            try:
-                with get_db_connection() as conn:
-                    with conn.cursor() as cursor:
-                        cursor.execute("""
-                            SELECT u.name 
-                            FROM emby_users u
-                            JOIN emby_users_extended e ON u.id = e.emby_user_id
-                            WHERE e.telegram_chat_id = %s
-                        """, (str(chat_id),))
-                        row = cursor.fetchone()
-                        if row and row.get('name'):
-                            # 如果查到了绑定的用户，使用该用户名 (可按需加上 TG 后缀以作区分)
-                            emby_username = f"{row['name']}" 
-            except Exception as e:
-                logger.error(f"  ➜ [TG交互] 查询 TG ID {chat_id} 绑定的 Emby 用户名失败: {e}")
-
-            # 标记订阅来源，使用查询到的用户名
-            subscription_source = {'type': 'telegram_search', 'user_id': chat_id, 'name': emby_username}
-            
-            # 调用 helpers 的通用订阅函数
-            # tmdb_to_emby_item_map 传空字典即可，内部会自动查库校验
-            processed_ids = process_subscription_items_and_update_db(
-                tmdb_items=tmdb_items,
-                tmdb_to_emby_item_map={}, 
-                subscription_source=subscription_source,
-                tmdb_api_key=api_key
-            )
-            
-            if processed_ids:
-                _tg_send_plain(chat_id, f"✅ 订阅已提交：{display_title}\n系统将在后台自动监控并处理。")
-            else:
-                _tg_send_plain(chat_id, f"⚠️ 订阅请求已处理：{display_title}\n(可能已在库或已处于订阅状态)")
-
-        except Exception as e:
-            logger.error(f"  ➜ [TG交互] 提交订阅失败: {e}", exc_info=True)
-            _tg_send_plain(chat_id, f"❌ 提交订阅异常：{e}")
-
-    spawn(run)
-
-def _tg_try_handle_resource_session_input(chat_id: str, text: str) -> bool:
+def _tg_try_handle_resource_session_input(chat_id: str, text: str, update_id=None) -> bool:
     """处理资源搜索会话中的数字回复/取消。返回 True 表示已消费消息。"""
     stripped = str(text or "").strip()
     if stripped.lower() in {"取消", "cancel", "/cancel", "退出", "停止"}:
@@ -2467,126 +2517,50 @@ def _tg_try_handle_resource_session_input(chat_id: str, text: str) -> bool:
         return True
 
     if session.get("stage") == "hdhive_resources":
-        _tg_start_hdhive_transfer(chat_id, number)
+        _tg_start_hdhive_transfer(chat_id, number, update_id=update_id)
         return True
 
     return False
 
 
 def _execute_task_from_tg(chat_id: str, task_key: str):
-    """在后台线程中执行选定的任务"""
+    """Submit a Telegram task command through the shared task boundary."""
+    import task_manager
     from tasks.core import get_task_registry
+
     registry = get_task_registry(context='all')
     task_info = registry.get(task_key)
-    
+
     if not task_info:
         send_telegram_message(chat_id, escape_markdown("❌ 任务不存在或已失效。"))
         return
 
     task_function, task_description, processor_type = task_info[:3]
-    
-    # 获取对应的处理器实例
-    target_processor = None
-    if processor_type == 'media':
-        target_processor = extensions.media_processor_instance
-    elif processor_type == 'watchlist':
-        target_processor = extensions.watchlist_processor_instance
-    elif processor_type == 'actor':
-        target_processor = extensions.actor_subscription_processor_instance
-
-    if not target_processor:
-        send_telegram_message(chat_id, escape_markdown(f"❌ 无法获取 {processor_type} 处理器实例。"))
+    kwargs = {}
+    if task_key in {'role-translation', 'enrich-aliases', 'populate-metadata'}:
+        kwargs['force_full_update'] = False
+    try:
+        accepted = task_manager.submit_task(
+            task_function,
+            task_description,
+            processor_type,
+            **kwargs,
+        )
+    except Exception as e:
+        logger.error(f"  ➜ TG 提交任务 '{task_description}' 失败: {e}", exc_info=True)
+        send_telegram_message(chat_id, escape_markdown(f"❌ 任务提交失败：*{task_description}*\n错误信息: {e}"))
+        return
+    if not accepted:
+        send_telegram_message(chat_id, escape_markdown(f"❌ 任务提交失败：*{task_description}*\n请稍后重试。"))
         return
 
-    current_version = ""
-    target_version = ""
-    update_container_name = ""
-    update_image_name = ""
-    update_strategy = ""
-    if task_key == 'system-auto-update':
-        try:
-            from tasks.system_update import get_system_update_version_info, resolve_update_target, resolve_update_strategy
-            version_info = get_system_update_version_info() or {}
-            current_version = str(version_info.get('current_version') or '').strip()
-            target_version = str(version_info.get('target_version') or '').strip()
-            update_target = resolve_update_target(getattr(target_processor, 'config', {}) or {})
-            update_container_name = str(update_target.get('container_name') or '').strip()
-            update_image_name = str(update_target.get('docker_image_name') or '').strip()
-            strategy_info = resolve_update_strategy(getattr(target_processor, 'config', {}) or {})
-            update_strategy = str(strategy_info.get('strategy') or '').strip()
-        except Exception as e:
-            logger.debug(f"  ➜ [TG交互] 获取系统更新版本信息失败: {e}")
+    send_telegram_message(
+        chat_id,
+        escape_markdown(f"🚀 任务已提交：*{task_description}*\n请在任务中心查看持久化进度和结果。"),
+    )
+    logger.info(f"  ➜ [TG交互] 管理员 {chat_id} 提交了持久任务: {task_description}")
 
-    start_lines = [f"🚀 任务已启动：*{task_description}*"]
-    if task_key == 'system-auto-update':
-        if current_version:
-            start_lines.append(f"当前版本: `{current_version}`")
-        if target_version:
-            start_lines.append(f"目标版本: `{target_version}`")
-        if update_container_name:
-            start_lines.append(f"目标容器: `{update_container_name}`")
-        if update_image_name:
-            start_lines.append(f"目标镜像: `{update_image_name}`")
-        if update_strategy:
-            start_lines.append(f"更新策略: `{update_strategy}`")
-    start_lines.append("请在系统日志或任务中心查看进度。")
-    send_telegram_message(chat_id, escape_markdown("\n".join(start_lines)))
-    logger.info(f"  ➜ [TG交互] 管理员 {chat_id} 触发了任务: {task_description}")
-
-    # 包装执行逻辑，处理特殊参数
-    def run_wrapper():
-        try:
-            task_result = None
-            tasks_requiring_force_flag = ['role-translation', 'enrich-aliases', 'populate-metadata']
-            if task_key in tasks_requiring_force_flag:
-                task_result = task_function(target_processor, force_full_update=False)
-            else:
-                task_result = task_function(target_processor)
-
-            if task_key == 'system-auto-update':
-                result = task_result if isinstance(task_result, dict) else {}
-                ok = bool(result.get('ok'))
-                updated = bool(result.get('updated'))
-                message = str(result.get('message') or '').strip()
-                before_version = str(result.get('current_version') or current_version or '').strip()
-                after_version = str(result.get('target_version') or target_version or '').strip()
-
-                if not ok:
-                    fail_lines = [f"❌ 任务执行失败：*{task_description}*"]
-                    if before_version:
-                        fail_lines.append(f"当前版本: `{before_version}`")
-                    if after_version:
-                        fail_lines.append(f"目标版本: `{after_version}`")
-                    if message:
-                        fail_lines.append(f"错误信息: {message}")
-                    send_telegram_message(chat_id, escape_markdown("\n".join(fail_lines)))
-                    return
-
-                success_lines = [f"✅ 任务执行完毕：*{task_description}*"]
-                if updated:
-                    if before_version and after_version:
-                        success_lines.append(f"版本变化: `{before_version}` -> `{after_version}`")
-                    elif after_version:
-                        success_lines.append(f"更新目标版本: `{after_version}`")
-                else:
-                    if before_version:
-                        success_lines.append(f"当前版本: `{before_version}`")
-                    if after_version:
-                        success_lines.append(f"最新版本: `{after_version}`")
-                if message:
-                    success_lines.append(message)
-                send_telegram_message(chat_id, escape_markdown("\n".join(success_lines)))
-                return
-
-            send_telegram_message(chat_id, escape_markdown(f"✅ 任务执行完毕：*{task_description}*"))
-        except Exception as e:
-            logger.error(f"  ➜ TG触发任务 '{task_description}' 失败: {e}", exc_info=True)
-            send_telegram_message(chat_id, escape_markdown(f"❌ 任务执行失败：*{task_description}*\n错误信息: {str(e)}"))
-
-    # 启动独立线程执行任务，避免阻塞 TG 轮询
-    spawn(run_wrapper)
-
-def _handle_callback_query(callback_query: dict):
+def _handle_callback_query(callback_query: dict, update_id=None):
     """处理内联键盘的按钮点击事件"""
     query_id = callback_query.get('id')
     from_user = callback_query.get('from', {})
@@ -2638,7 +2612,7 @@ def _handle_callback_query(callback_query: dict):
 
     if data.startswith('tg_hdhive:'):
         try:
-            _tg_start_hdhive_transfer(chat_id, int(data.split(':', 1)[1]))
+            _tg_start_hdhive_transfer(chat_id, int(data.split(':', 1)[1]), update_id=update_id or query_id)
         except Exception as e:
             logger.error(f"  ➜ [TG资源搜索] 处理资源选择按钮失败: {e}", exc_info=True)
             _tg_send_plain(chat_id, "❌ 选择失败，请重新输入片名搜索。")
@@ -2646,7 +2620,7 @@ def _handle_callback_query(callback_query: dict):
 
     # 处理订阅按钮点击 
     if data == 'tg_subscribe':
-        _tg_handle_subscribe(chat_id)
+        _tg_handle_subscribe(chat_id, update_id=update_id or query_id)
         return
 
     # 4. 处理任务触发逻辑
@@ -2655,13 +2629,17 @@ def _handle_callback_query(callback_query: dict):
         _execute_task_from_tg(chat_id, task_key)
         return
 
-def _handle_incoming_message(message: dict):
+def _handle_incoming_message(message: dict, update_id=None):
     """处理接收到的单条消息 (纯手动遥控器模式)"""
     chat_id = str(message.get('chat', {}).get('id', ''))
     text = message.get('text', '') or message.get('caption', '') # 兼容带图片的 caption
     text = text.strip()
     if not chat_id or not text:
         return
+    action_update_id = _tg_action_update_identity(
+        update_id,
+        f"message:{chat_id}:{message.get('message_id') or _tg_hashed_source_identity('text', text)}",
+    )
 
     # 1. 权限校验：只允许管理员发送指令 (或者来自全局频道)
     admin_ids = [str(aid) for aid in user_db.get_admin_telegram_chat_ids()]
@@ -2675,7 +2653,7 @@ def _handle_incoming_message(message: dict):
 
 
     # 会话中的“回复序号/取消”优先处理
-    if is_admin and _tg_try_handle_resource_session_input(chat_id, text):
+    if is_admin and _tg_try_handle_resource_session_input(chat_id, text, update_id=action_update_id):
         return
 
     # ★★★ 处理 M 菜单发来的命令 ★★★
@@ -2738,73 +2716,38 @@ def _handle_incoming_message(message: dict):
     # =================================================================
     # ★ 纯手动处理逻辑 (不再包含任何自动订阅和查库代码)
     # =================================================================
-    logger.info(f"  ➜ [TG交互] 收到来自 {chat_id} 的手动资源链接，准备处理...")
-    send_telegram_message(chat_id, escape_markdown("⏳ *收到链接，正在提交至 115...*"), disable_notification=True)
+    logger.info(f"  ➜ [TG交互] 收到来自 {chat_id} 的手动资源链接，准备提交持久任务...")
 
-    client = P115Service.get_client()
-    if not client:
-        send_telegram_message(chat_id, "❌ *提交失败*：115 客户端未初始化，请检查配置。")
+    if is_115_share:
+        share_code_match = re.search(r'115(?:cdn)?\.com/s/([a-zA-Z0-9]+)', text, re.IGNORECASE)
+        share_code = share_code_match.group(1) if share_code_match else None
+        receive_code = ""
+        pwd_match = re.search(r'(?:访问码|提取码|密码|password)[:：=\s]*([a-zA-Z0-9]{4})', text, re.IGNORECASE)
+        if pwd_match:
+            receive_code = pwd_match.group(1)
+        if not share_code:
+            send_telegram_message(chat_id, escape_markdown("❌ *解析失败*：未找到有效的 115 分享码。"))
+            return
+        _tg_submit_resource_action(
+            chat_id=chat_id,
+            update_id=action_update_id,
+            action="p115_share_import",
+            source_identity=_tg_hashed_source_identity("p115_share", share_code),
+            payload={"share_code": share_code, "receive_code": receive_code},
+            accepted_message="✅ 115 分享转存任务已持久化提交，请在任务中心查看进度。",
+        )
         return
-        
-    target_cid = APP_CONFIG.get(constants.CONFIG_OPTION_115_SAVE_PATH_CID, '0')
 
-    try:
-        # --- 处理 115 分享链接转存 ---
-        if is_115_share:
-            share_code_match = re.search(r'115(?:cdn)?\.com/s/([a-zA-Z0-9]+)', text, re.IGNORECASE)
-            share_code = share_code_match.group(1) if share_code_match else None
-            
-            receive_code = ""
-            pwd_match = re.search(r'(?:访问码|提取码|密码|password)[:：=\s]*([a-zA-Z0-9]{4})', text, re.IGNORECASE)
-            if pwd_match: receive_code = pwd_match.group(1)
-
-            if not share_code:
-                send_telegram_message(chat_id, escape_markdown("❌ *解析失败*：未找到有效的 115 分享码。"))
-                return
-
-            res = client.share_import(share_code, receive_code, target_cid)
-            
-            if res and res.get('state'):
-                send_telegram_message(chat_id, escape_markdown("✅ *分享链接转存成功！*\n系统已自动触发整理任务。"))
-                try:
-                    import task_manager
-                    spawn_later(
-                        5.0,
-                        task_manager.trigger_115_organize_task,
-                        reason='tg_share_import',
-                    )
-                except Exception as e:
-                    logger.error(f"  ➜ 唤醒整理任务失败: {e}")
-            else:
-                err = res.get('error_msg') or res.get('message') or str(res) or '未知错误'
-                send_telegram_message(chat_id, escape_markdown(f"❌ *转存失败*：{err}"))
-                logger.error(f"  ➜ [TG交互] 转存失败: {err}")
-
-        # --- 处理磁力/ED2K 离线下载 ---
-        if is_magnet or is_ed2k:
-            link_match = re.search(r'(magnet:\?xt=urn:btih:[a-zA-Z0-9]+.*?|ed2k://\|file\|.*?\|/)', text, re.IGNORECASE)
-            target_url = link_match.group(1) if link_match else text
-
-            payload = {"url[0]": target_url, "wp_path_id": target_cid}
-            res = client.offline_add_urls(payload)
-            
-            if res and res.get('state'):
-                send_telegram_message(chat_id, escape_markdown("✅ *离线任务提交成功！*\n系统将在后台自动监控并整理入库。"))
-                try:
-                    import task_manager
-                    spawn_later(
-                        10.0,
-                        task_manager.trigger_115_organize_task,
-                        reason='tg_offline_download',
-                    )
-                except: pass
-            else:
-                err = res.get('error_msg') or res.get('message') or str(res) or '未知错误'
-                send_telegram_message(chat_id, escape_markdown(f"❌ *离线提交失败*：{err}"))
-
-    except Exception as e:
-        logger.error(f"  ➜ [TG交互] 处理链接失败: {e}", exc_info=True)
-        send_telegram_message(chat_id, f"❌ *系统异常*：处理链接时发生错误。")
+    link_match = re.search(r'(magnet:\?xt=urn:btih:[a-zA-Z0-9]+.*?|ed2k://\|file\|.*?\|/)', text, re.IGNORECASE)
+    target_url = link_match.group(1) if link_match else text
+    _tg_submit_resource_action(
+        chat_id=chat_id,
+        update_id=action_update_id,
+        action="p115_offline_add",
+        source_identity=_tg_hashed_source_identity("p115_offline", target_url),
+        payload={"url": target_url},
+        accepted_message="✅ 115 离线下载任务已持久化提交，请在任务中心查看进度。",
+    )
 
 def _setup_bot_commands(bot_token: str):
     """
@@ -2888,9 +2831,9 @@ def _telegram_polling_worker():
                         
                         # ★★★ 修改：分发不同类型的更新 ★★★
                         if 'message' in update:
-                            _handle_incoming_message(update['message'])
+                            _handle_incoming_message(update['message'], update_id=update['update_id'])
                         elif 'callback_query' in update:
-                            _handle_callback_query(update['callback_query'])
+                            _handle_callback_query(update['callback_query'], update_id=update['update_id'])
                             
             elif response.status_code == 401 or response.status_code == 404:
                 logger.error("  ➜ Telegram Bot Token 无效，停止轮询。")

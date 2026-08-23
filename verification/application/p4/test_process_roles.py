@@ -1,0 +1,546 @@
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from dataclasses import replace
+from datetime import UTC, datetime
+from pathlib import Path
+from threading import Event, Thread
+from typing import Any, cast
+from uuid import UUID
+
+import pytest
+from apscheduler.jobstores.base import JobLookupError
+from celery.exceptions import Reject
+
+from etk.bootstrap.runtime_supervisor import RuntimeRole
+from etk.domains.operations.jobs import JobSubmissionService
+from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus
+from etk.processes import coordinator
+from etk.processes import worker as worker_module
+from etk.processes.celery_app import EXECUTE_JOB_TASK, create_celery_app
+from etk.processes.coordinator import (
+    CeleryOutboxPublisher,
+    CoordinatorLeadership,
+    PersistentScheduleManager,
+)
+from etk.processes.runtime_config import TaskRuntimeConfig
+from etk.processes.worker import WorkerRuntime, WorkerShutdownRequested, _raise_for_reported_failure
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+EVENT_ID = UUID("00000000-0000-0000-0000-000000000010")
+JOB_ID = UUID("00000000-0000-0000-0000-000000000011")
+ATTEMPT_ID = UUID("00000000-0000-0000-0000-000000000012")
+CLAIM_TOKEN = UUID("00000000-0000-0000-0000-000000000013")
+NOW = datetime(2026, 8, 23, tzinfo=UTC)
+RUNTIME_ENVIRONMENT = (
+    "ETK_REDIS_URL",
+    "ETK_TASK_QUEUE",
+    "ETK_JOB_HEARTBEAT_SECONDS",
+    "ETK_JOB_LEASE_SECONDS",
+    "ETK_COORDINATOR_INTERVAL_SECONDS",
+    "ETK_OUTBOX_BATCH_SIZE",
+    "ETK_OUTBOX_CLAIM_TIMEOUT_SECONDS",
+    "ETK_WORKER_CONCURRENCY",
+    "ETK_WORKER_SHUTDOWN_TIMEOUT_SECONDS",
+    "ETK_JOB_TERMINATION_GRACE_SECONDS",
+    "ETK_COORDINATOR_SCHEDULES_ENABLED",
+)
+
+
+class FakeSendApp:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def send_task(self, name: str, **options: Any) -> None:
+        self.calls.append((name, options))
+
+
+class LockBackend:
+    def __init__(self) -> None:
+        self.owner: int | None = None
+        self.operations: list[tuple[int, str, tuple[int, int]]] = []
+
+    def execute(self, connection_id: int, statement: str, parameters: tuple[int, int]) -> tuple[bool]:
+        self.operations.append((connection_id, statement, parameters))
+        if "pg_try_advisory_lock" in statement:
+            if self.owner is None:
+                self.owner = connection_id
+                return (True,)
+            return (self.owner == connection_id,)
+        if "pg_advisory_unlock" in statement:
+            released = self.owner == connection_id
+            if released:
+                self.owner = None
+            return (released,)
+        if "FROM pg_locks" in statement:
+            return (self.owner == connection_id,)
+        raise AssertionError(f"unexpected SQL: {statement}")
+
+
+class FakeCursor:
+    def __init__(self, row: tuple[bool]) -> None:
+        self._row = row
+
+    def fetchone(self) -> tuple[bool]:
+        return self._row
+
+
+class FakeLockConnection:
+    def __init__(self, backend: LockBackend, connection_id: int) -> None:
+        self.backend = backend
+        self.connection_id = connection_id
+        self.commits = 0
+
+    def execute(self, statement: str, parameters: tuple[int, int]) -> FakeCursor:
+        return FakeCursor(self.backend.execute(self.connection_id, statement, parameters))
+
+    def commit(self) -> None:
+        self.commits += 1
+
+
+class FakeLease:
+    def __init__(self, pool: FakeRawPool, connection: FakeLockConnection) -> None:
+        self.pool = pool
+        self.connection = connection
+        self.exited = False
+
+    def __enter__(self) -> FakeLockConnection:
+        return self.connection
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        del exc_type, exc, traceback
+        self.exited = True
+        self.pool.exited_connection_ids.append(self.connection.connection_id)
+
+
+class FakeRawPool:
+    def __init__(self) -> None:
+        self.backend = LockBackend()
+        self.next_connection_id = 1
+        self.leases: list[FakeLease] = []
+        self.exited_connection_ids: list[int] = []
+
+    def connection(self) -> FakeLease:
+        connection = FakeLockConnection(self.backend, self.next_connection_id)
+        self.next_connection_id += 1
+        lease = FakeLease(self, connection)
+        self.leases.append(lease)
+        return lease
+
+
+class FakeScheduler:
+    running = False
+
+    def __init__(self) -> None:
+        self.jobs: list[dict[str, Any]] = []
+
+    def remove_job(self, job_id: str) -> None:
+        raise JobLookupError(job_id)
+
+    def add_job(self, function: Any, *, trigger: Any, **options: Any) -> None:
+        self.jobs.append({"function": function, "trigger": trigger, **options})
+
+
+def _clean_runtime_environment(monkeypatch) -> None:
+    for name in RUNTIME_ENVIRONMENT:
+        monkeypatch.delenv(name, raising=False)
+
+
+def _claim(payload: dict[str, Any] | None = None) -> OutboxClaim:
+    event = OutboxEventRecord(
+        id=EVENT_ID,
+        event_key=f"job.dispatch:{ATTEMPT_ID}",
+        topic="job.dispatch.requested",
+        aggregate_type="job_attempt",
+        aggregate_id=str(ATTEMPT_ID),
+        payload_version=1,
+        payload=payload
+        or {
+            "event_id": str(EVENT_ID),
+            "job_id": str(JOB_ID),
+            "attempt_id": str(ATTEMPT_ID),
+        },
+        status=OutboxStatus.PUBLISHING,
+        available_at=NOW,
+        claimed_by="fixture-coordinator",
+        claim_token=CLAIM_TOKEN,
+        claimed_at=NOW,
+        published_at=None,
+        processed_at=None,
+        publish_attempts=1,
+        max_publish_attempts=20,
+        last_error=None,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+    return OutboxClaim(event=event, claim_token=CLAIM_TOKEN)
+
+
+def test_cli_help_exposes_every_process_role_without_materializing_runtime(tmp_path: Path) -> None:
+    environment = os.environ.copy()
+    environment.update(
+        APP_DATA_DIR=str(tmp_path / "data"),
+        HOME=str(tmp_path / "home"),
+        PYTHONDONTWRITEBYTECODE="1",
+    )
+    commands = (
+        "api",
+        "worker",
+        "coordinator",
+        "worker-health",
+        "coordinator-health",
+        "proxy",
+        "generate-nginx-config",
+    )
+
+    top = subprocess.run(
+        [sys.executable, "main.py", "--help"],
+        cwd=REPO_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert top.returncode == 0, top.stderr
+    assert "usage: etk" in top.stdout
+    for command in commands:
+        assert command in top.stdout
+        result = subprocess.run(
+            [sys.executable, "main.py", command, "--help"],
+            cwd=REPO_ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert f"usage: etk {command}" in result.stdout
+
+    assert not (tmp_path / "data").exists()
+    assert not (tmp_path / "home").exists()
+
+
+def test_runtime_config_parses_process_environment(monkeypatch) -> None:
+    _clean_runtime_environment(monkeypatch)
+    values = {
+        "ETK_REDIS_URL": "rediss://fixture.invalid:6380/4",
+        "ETK_TASK_QUEUE": "fixture.serial",
+        "ETK_JOB_HEARTBEAT_SECONDS": "7",
+        "ETK_JOB_LEASE_SECONDS": "35",
+        "ETK_COORDINATOR_INTERVAL_SECONDS": "0.25",
+        "ETK_OUTBOX_BATCH_SIZE": "23",
+        "ETK_OUTBOX_CLAIM_TIMEOUT_SECONDS": "44",
+        "ETK_WORKER_CONCURRENCY": "2",
+        "ETK_WORKER_SHUTDOWN_TIMEOUT_SECONDS": "19",
+        "ETK_JOB_TERMINATION_GRACE_SECONDS": "2.5",
+        "ETK_COORDINATOR_SCHEDULES_ENABLED": "off",
+    }
+    for name, value in values.items():
+        monkeypatch.setenv(name, value)
+
+    assert TaskRuntimeConfig.from_environ() == TaskRuntimeConfig(
+        broker_url="rediss://fixture.invalid:6380/4",
+        queue_name="fixture.serial",
+        heartbeat_seconds=7,
+        lease_seconds=35,
+        coordinator_interval_seconds=0.25,
+        outbox_batch_size=23,
+        outbox_claim_timeout_seconds=44,
+        worker_concurrency=2,
+        worker_shutdown_timeout_seconds=19,
+        job_termination_grace_seconds=2.5,
+        schedules_enabled=False,
+    )
+
+
+@pytest.mark.parametrize(
+    ("environment", "message"),
+    [
+        ({"ETK_REDIS_URL": "https://fixture.invalid"}, "must use redis"),
+        ({"ETK_TASK_QUEUE": "   "}, "must not be empty"),
+        ({"ETK_JOB_HEARTBEAT_SECONDS": "zero"}, "must be an integer"),
+        ({"ETK_OUTBOX_BATCH_SIZE": "0"}, "must be positive"),
+        ({"ETK_COORDINATOR_INTERVAL_SECONDS": "nan"}, "must be positive"),
+        ({"ETK_COORDINATOR_SCHEDULES_ENABLED": "sometimes"}, "must be a boolean"),
+        (
+            {"ETK_JOB_HEARTBEAT_SECONDS": "30", "ETK_JOB_LEASE_SECONDS": "30"},
+            "lease must be longer",
+        ),
+    ],
+)
+def test_runtime_config_rejects_invalid_transport_and_limits(
+    monkeypatch,
+    environment: dict[str, str],
+    message: str,
+) -> None:
+    _clean_runtime_environment(monkeypatch)
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError, match=message):
+        TaskRuntimeConfig.from_environ()
+
+
+def test_celery_transport_is_json_only_resultless_and_single_prefetch() -> None:
+    config = TaskRuntimeConfig(
+        broker_url="redis://fixture.invalid:6379/7",
+        queue_name="fixture.serial",
+        heartbeat_seconds=5,
+        lease_seconds=30,
+    )
+    app = create_celery_app(config)
+    task = app.tasks[EXECUTE_JOB_TASK]
+
+    assert app.conf.accept_content == ["json"]
+    assert app.conf.task_serializer == "json"
+    assert app.conf.result_backend is None
+    assert app.conf.task_ignore_result is True
+    assert app.conf.task_acks_late is True
+    assert app.conf.task_reject_on_worker_lost is True
+    assert app.conf.worker_prefetch_multiplier == 1
+    assert app.conf.task_default_queue == "fixture.serial"
+    assert [queue.name for queue in app.conf.task_queues] == ["fixture.serial"]
+    assert task.serializer == "json"
+    assert task.ignore_result is True
+    assert task.acks_late is True
+    assert task.reject_on_worker_lost is True
+
+
+def test_worker_shutdown_request_is_sticky_without_taking_runtime_lock(monkeypatch) -> None:
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", False)
+    completed = Event()
+
+    def request() -> None:
+        worker_module.request_worker_shutdown()
+        completed.set()
+
+    requester = Thread(target=request, daemon=True)
+    with worker_module._RUNTIME_LOCK:
+        requester.start()
+        assert completed.wait(0.5), "shutdown signal path blocked on the runtime lock"
+    requester.join(1)
+
+    assert not requester.is_alive()
+    assert worker_module.worker_shutdown_requested()
+
+
+def test_worker_startup_shutdown_race_does_not_claim_a_delivery(monkeypatch) -> None:
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", False)
+    runtime = WorkerRuntime(config=TaskRuntimeConfig(), terminate_process=lambda: None)
+    entered_start = Event()
+    release_start = Event()
+    failures: list[BaseException] = []
+
+    def blocked_start() -> None:
+        entered_start.set()
+        assert release_start.wait(2), "test did not release Worker startup"
+
+    monkeypatch.setattr(runtime, "start", blocked_start)
+
+    def execute() -> None:
+        try:
+            runtime.execute(event_id=str(EVENT_ID), job_id=str(JOB_ID), attempt_id=str(ATTEMPT_ID))
+        except BaseException as exc:
+            failures.append(exc)
+
+    delivery = Thread(target=execute, daemon=True)
+    delivery.start()
+    assert entered_start.wait(1)
+    worker_module.request_worker_shutdown()
+    release_start.set()
+    delivery.join(1)
+
+    assert not delivery.is_alive()
+    assert len(failures) == 1
+    assert isinstance(failures[0], WorkerShutdownRequested)
+    assert runtime._store is None
+
+
+def test_celery_rejects_and_requeues_delivery_after_sticky_shutdown(monkeypatch) -> None:
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", True)
+    task = create_celery_app(TaskRuntimeConfig()).tasks[EXECUTE_JOB_TASK]
+
+    with pytest.raises(Reject) as exc_info:
+        task.run(event_id=str(EVENT_ID), job_id=str(JOB_ID), attempt_id=str(ATTEMPT_ID))
+
+    assert exc_info.value.requeue is True
+
+
+def test_system_update_unsuccessful_result_is_not_marked_as_worker_success() -> None:
+    with pytest.raises(RuntimeError, match="fixture daemon unavailable"):
+        _raise_for_reported_failure(
+            "system-auto-update",
+            {"ok": False, "status": "error", "message": "fixture daemon unavailable"},
+        )
+
+    _raise_for_reported_failure("system-auto-update", {"ok": True, "status": "up_to_date"})
+    with pytest.raises(RuntimeError, match="domain-specific result"):
+        _raise_for_reported_failure("populate-metadata", {"ok": False, "message": "domain-specific result"})
+
+
+def test_worker_refreshes_processor_snapshot_at_the_next_root_job_boundary() -> None:
+    class SettingsSnapshot:
+        def __init__(self, values: dict[str, Any]) -> None:
+            self.values = values
+
+        def to_runtime_dict(self) -> dict[str, Any]:
+            return dict(self.values)
+
+    class ConfigAdapter:
+        def load(self) -> SettingsSnapshot:
+            return SettingsSnapshot({"task_chain_sequence": ["populate-metadata"]})
+
+    class Supervisor:
+        def __init__(self) -> None:
+            self.events: list[Any] = []
+
+        def stop(self) -> None:
+            self.events.append("stop")
+
+        def start(self, *, role: Any, background: bool) -> None:
+            self.events.append(("start", role, background))
+
+    runtime = WorkerRuntime(config=TaskRuntimeConfig())
+    supervisor = Supervisor()
+    cast(Any, runtime)._config_adapter = ConfigAdapter()
+    cast(Any, runtime)._supervisor = supervisor
+    cast(Any, runtime)._last_settings = {"task_chain_sequence": []}
+
+    runtime._refresh_settings()
+    runtime._refresh_settings()
+
+    assert supervisor.events == ["stop", ("start", RuntimeRole.WORKER, False)]
+
+
+def test_coordinator_cron_normalizes_legacy_day_of_week_before_scheduling() -> None:
+    assert coordinator._fix_cron_dow("0 6 * * 1-5") == "0 6 * * mon-fri"
+    assert coordinator._fix_cron_dow("30 7 * * 0,7") == "30 7 * * sun,sun"
+    assert coordinator._fix_cron_dow("invalid cron") == "invalid cron"
+
+    manager = PersistentScheduleManager(cast(JobSubmissionService, object()))
+    scheduler = FakeScheduler()
+    cast(Any, manager)._scheduler = scheduler
+    changed = manager.sync(
+        {
+            "task_chain_enabled": True,
+            "task_chain_cron": "0 6 * * 1-5",
+            "task_chain_sequence": ["populate-metadata"],
+            "task_chain_low_freq_enabled": False,
+            "_shared_resource_enabled": False,
+            "_p115_temp_cleanup_cron": "15 */2 * * 0",
+        },
+        schedules_enabled=True,
+    )
+
+    assert changed
+    high = next(job for job in scheduler.jobs if job["id"] == "high_freq_task_chain_job")
+    assert str(high["trigger"].fields[4]) == "mon-fri"
+    assert {job["id"] for job in scheduler.jobs} == {
+        "high_freq_task_chain_job",
+        "daily_theme_job",
+        "play_pool_daily_speedtest_job",
+        "p115_temp_dir_cleanup_job",
+        "pro_status_check_job",
+        "etk_plugin_update_startup_job",
+    }
+    cleanup = next(job for job in scheduler.jobs if job["id"] == "p115_temp_dir_cleanup_job")
+    assert str(cleanup["trigger"].fields[4]) == "sun"
+
+
+def test_schedule_sync_validates_the_full_plan_before_replacing_jobs() -> None:
+    manager = PersistentScheduleManager(cast(JobSubmissionService, object()))
+    scheduler = FakeScheduler()
+    cast(Any, manager)._scheduler = scheduler
+    values = {
+        "task_chain_enabled": True,
+        "task_chain_cron": "0 6 * * 1-5",
+        "task_chain_sequence": ["populate-metadata"],
+        "task_chain_low_freq_enabled": False,
+        "_shared_resource_enabled": False,
+    }
+
+    assert manager.sync(values, schedules_enabled=True)
+    before = list(scheduler.jobs)
+    invalid = dict(values, task_chain_cron="not-a-cron")
+
+    with pytest.raises(ValueError):
+        manager.sync(invalid, schedules_enabled=True)
+
+    assert scheduler.jobs == before
+
+
+def test_two_coordinator_leadership_ports_hold_only_one_session_lock() -> None:
+    pool = FakeRawPool()
+    first = CoordinatorLeadership(pool)
+    second = CoordinatorLeadership(pool)
+
+    assert first.try_acquire()
+    assert first.try_acquire()
+    assert first.validate()
+    assert not second.try_acquire()
+    assert first.acquired
+    assert not second.acquired
+    assert pool.backend.owner == 1
+    assert pool.exited_connection_ids == [2]
+
+    first.release()
+    assert pool.backend.owner is None
+    assert second.try_acquire()
+    assert pool.backend.owner == 3
+    second.release()
+
+    assert pool.backend.owner is None
+    parameters = {operation[2] for operation in pool.backend.operations}
+    assert len(parameters) == 1
+    assert all(
+        "pg_try_advisory_lock" in operation[1]
+        or "pg_advisory_unlock" in operation[1]
+        or "FROM pg_locks" in operation[1]
+        for operation in pool.backend.operations
+    )
+
+
+def test_coordinator_discards_a_session_that_no_longer_owns_the_lock() -> None:
+    pool = FakeRawPool()
+    first = CoordinatorLeadership(pool)
+    second = CoordinatorLeadership(pool)
+
+    assert first.try_acquire()
+    pool.backend.owner = None
+
+    assert not first.validate()
+    assert not first.acquired
+    assert pool.exited_connection_ids == [1]
+    assert second.try_acquire()
+
+
+def test_outbox_publisher_uses_attempt_id_as_deterministic_celery_task_id(monkeypatch) -> None:
+    fake_app = FakeSendApp()
+    monkeypatch.setattr(coordinator, "create_celery_app", lambda _config: fake_app)
+    config = TaskRuntimeConfig(queue_name="fixture.serial")
+    publisher = CeleryOutboxPublisher(config)
+
+    publisher.publish(_claim())
+
+    assert fake_app.calls == [
+        (
+            EXECUTE_JOB_TASK,
+            {
+                "kwargs": {
+                    "event_id": str(EVENT_ID),
+                    "job_id": str(JOB_ID),
+                    "attempt_id": str(ATTEMPT_ID),
+                },
+                "task_id": str(ATTEMPT_ID),
+                "queue": "fixture.serial",
+                "routing_key": "fixture.serial",
+                "serializer": "json",
+            },
+        )
+    ]
+
+    incomplete = _claim()
+    incomplete = replace(incomplete, event=replace(incomplete.event, payload={"event_id": str(EVENT_ID)}))
+    with pytest.raises(ValueError, match="payload is incomplete"):
+        publisher.publish(incomplete)

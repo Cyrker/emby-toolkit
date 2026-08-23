@@ -8,6 +8,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from ..db.engine import normalize_sqlalchemy_url
+from .locking import DYNAMIC_CONFIG_LOCK_KEY, DYNAMIC_CONFIG_LOCK_NAMESPACE
 
 _DYNAMIC_CONFIG_KEY = "dynamic_app_config"
 
@@ -47,6 +48,10 @@ class PostgresLegacyConfigStore:
         """
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT pg_advisory_xact_lock(%s, %s)",
+                    (DYNAMIC_CONFIG_LOCK_NAMESPACE, DYNAMIC_CONFIG_LOCK_KEY),
+                )
                 cursor.execute(statement, (_DYNAMIC_CONFIG_KEY, Jsonb(dict(updates))))
                 row = cursor.fetchone()
         if row is None or not isinstance(row[0], Mapping):
@@ -73,4 +78,9 @@ class PostgresLegacyConfigStore:
         """
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
+                if key == _DYNAMIC_CONFIG_KEY:
+                    cursor.execute(
+                        "SELECT pg_advisory_xact_lock(%s, %s)",
+                        (DYNAMIC_CONFIG_LOCK_NAMESPACE, DYNAMIC_CONFIG_LOCK_KEY),
+                    )
                 cursor.execute(statement, (key, Jsonb(value)))

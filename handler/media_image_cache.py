@@ -14,6 +14,7 @@ import requests
 import config_manager
 import constants
 from database.connection import get_db_connection
+from etk.compatibility.background import spawn_later
 
 
 logger = logging.getLogger(__name__)
@@ -655,15 +656,11 @@ def archive_metadata_images(payload, base_url: str, *, archive_sources: bool = T
         and not str(original_primary).startswith(CACHE_TOKEN_PREFIX)
     )
     if formal_primary_returned:
-        timer = threading.Timer(
+        spawn_later(
             30,
             discard_episode_screenshot,
-            args=(
-                payload.get("series_tmdb_id"),
-                payload.get("season_number"),
-                payload.get("episode_number"),
-            ),
+            payload.get("series_tmdb_id"),
+            payload.get("season_number"),
+            payload.get("episode_number"),
         )
-        timer.daemon = True
-        timer.start()
     return payload

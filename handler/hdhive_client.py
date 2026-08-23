@@ -13,6 +13,10 @@ from database import settings_db
 logger = logging.getLogger(__name__)
 
 
+class HDHiveUnlockIndeterminateError(RuntimeError):
+    """The debit-capable unlock request may have reached the provider."""
+
+
 class HDHiveClient:
     """
     面向普通用户的影巢客户端。
@@ -311,48 +315,42 @@ class HDHiveClient:
                     time.sleep(wait_time)
             self.__class__._unlock_timestamps.append(time.time())
 
-    def unlock_resource(self, slug, max_retries=3, timeout=60):
-        last_exception = None
-        for attempt in range(1, max_retries + 1):
-            try:
-                self._check_unlock_rate_limit()
-                res = self._request("POST", "/api/hdhive/unlock", {"slug": slug}, timeout=timeout)
+    def unlock_resource(self, slug, max_retries=1, timeout=60):
+        """Issue exactly one unlock POST.
 
-                if res.status_code == 429 and attempt < max_retries:
-                    wait_seconds = self._get_retry_after(res, default=self.limit_window or 60)
-                    logger.warning("  ➜ 影巢解锁触发 429，第 %s/%s 次失败，等待 %ss 后重试...", attempt, max_retries, wait_seconds)
-                    time.sleep(wait_seconds)
-                    continue
+        The provider does not expose an idempotency key. Any transport failure,
+        429, or 5xx is therefore indeterminate and must be reconciled by the
+        durable caller instead of replaying the debit-capable request.
+        """
 
-                if 500 <= res.status_code < 600 and attempt < max_retries:
-                    wait_seconds = 2 ** (attempt - 1)
-                    logger.warning("  ➜ 影巢解锁 HTTP %s，第 %s/%s 次失败，%ss 后重试...", res.status_code, attempt, max_retries, wait_seconds)
-                    time.sleep(wait_seconds)
-                    continue
+        del max_retries
+        try:
+            self._check_unlock_rate_limit()
+            res = self._request("POST", "/api/hdhive/unlock", {"slug": slug}, timeout=timeout)
+            if res.status_code in {408, 429} or 500 <= res.status_code < 600:
+                retry_after = self._get_retry_after(res, default=self.limit_window or 60)
+                logger.warning(
+                    "  ➜ 影巢解锁响应不确定：HTTP %s，retry_after=%ss；已禁止自动 POST 重放。",
+                    res.status_code,
+                    retry_after,
+                )
+                raise HDHiveUnlockIndeterminateError(
+                    f"HDHive unlock returned indeterminate HTTP {res.status_code}"
+                )
 
-                data = self._safe_json(res)
-                if res.status_code == 200 and data.get("success"):
-                    return data.get("data")
-
-                self._log_response_error(res, "解锁资源")
-                return None
-
-            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, requests.exceptions.SSLError) as e:
-                last_exception = e
-                if attempt < max_retries:
-                    wait_seconds = 2 ** (attempt - 1)
-                    logger.warning("  ➜ 影巢解锁网络异常，第 %s/%s 次失败: %s，%ss 后重试...", attempt, max_retries, e, wait_seconds)
-                    time.sleep(wait_seconds)
-                    continue
-                self._handle_error(e, "解锁资源")
-                return None
-            except Exception as e:
-                self._handle_error(e, "解锁资源")
-                return None
-
-        if last_exception:
-            self._handle_error(last_exception, "解锁资源")
-        return None
+            data = self._safe_json(res)
+            if res.status_code == 200 and data.get("success"):
+                return data.get("data")
+            self._log_response_error(res, "解锁资源")
+            return None
+        except HDHiveUnlockIndeterminateError:
+            raise
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, requests.exceptions.SSLError) as exc:
+            logger.warning("  ➜ 影巢解锁网络结果不确定；已禁止自动 POST 重放。")
+            raise HDHiveUnlockIndeterminateError("HDHive unlock transport outcome is indeterminate") from exc
+        except Exception as exc:
+            self._handle_error(exc, "解锁资源")
+            return None
 
     def checkin(self, is_gambler=False):
         try:

@@ -42,6 +42,12 @@ SOURCE_MANUAL_MP = "manual_mp"
 MANUAL_CHANGE_GRACE_SECONDS = 3600
 
 
+def _has_persistent_execution() -> bool:
+    import task_manager
+
+    return task_manager.has_persistent_execution()
+
+
 def get_config() -> AssistantConfig:
     watchlist_config = settings_db.get_setting("watchlist_config") or {}
     mp_config = settings_db.get_setting("mp_config") or {}
@@ -59,6 +65,19 @@ def get_config() -> AssistantConfig:
     if not mp_config.get("moviepilot_url") or (isinstance(sources, list) and "mp" not in sources):
         cfg.enabled = False
     return cfg
+
+
+def _cleanup_mp_episode_residue_persistent(tmdb_id: str, seasons: List[int], title: str) -> Any:
+    import config_manager
+
+    return moviepilot.smart_cleanup_mp_episode_residue(
+        str(tmdb_id),
+        [int(value) for value in seasons],
+        str(title),
+        dict(config_manager.APP_CONFIG),
+        True,
+        True,
+    )
 
 
 class SubscribeAssistantManager:
@@ -1151,14 +1170,15 @@ class SubscribeAssistantManager:
             cleanup_type,
             ",".join(f"S{s}" for s in seasons) if seasons else "全部",
         )
+        if _has_persistent_execution():
+            if not _cleanup_mp_episode_residue_persistent(str(tmdb_id), seasons, title):
+                raise RuntimeError(f"MoviePilot episode residue cleanup failed for TMDb {tmdb_id}")
+            return
         spawn(
-            moviepilot.smart_cleanup_mp_episode_residue,
+            _cleanup_mp_episode_residue_persistent,
             str(tmdb_id),
             seasons,
             title,
-            self.app_config,
-            True,
-            True,
         )
 
     def _season_total_locked(self, tmdb_id: str, season: int) -> Optional[Dict[str, Any]]:
@@ -2253,6 +2273,7 @@ class SubscribeAssistantManager:
                 subscribe,
                 reason="full_washing_already_active",
             )
+            self._trigger_subscription_cleanup_on_complete(tmdb_id, season, subscribe)
             logger.debug("  ➜ [订阅助手] 《%s》S%s 已是全集洗版订阅，跳过重复更新。", series_name, season)
             return
 

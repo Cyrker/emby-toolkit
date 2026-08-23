@@ -31,6 +31,33 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "identity"
       },
+      "route-binding-120bae4f1b30": {
+        "fixture": "verification/fixtures/http/system-runtime-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.system_runtime_router",
+        "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/system-runtime"
+      },
+      "route-binding-146ee52921d2": {
+        "fixture": "verification/fixtures/http/task-runtime-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.job_router",
+        "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/jobs"
+      },
+      "route-binding-1585918b0f35": {
+        "fixture": "verification/fixtures/http/task-runtime-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.job_router",
+        "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/jobs"
+      },
       "route-binding-17febf04308a": {
         "fixture": "verification/fixtures/http/system-standalone-routes.json",
         "fixture_exception": null,
@@ -57,6 +84,15 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/integrations"
+      },
+      "route-binding-43a1e02a6ef2": {
+        "fixture": "verification/fixtures/http/system-runtime-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.system_runtime_router",
+        "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/system-runtime"
       },
       "route-binding-528e1577252b": {
         "fixture": "verification/fixtures/http/log-routes.json",
@@ -375,6 +411,15 @@
       }
     },
     "route_decorators": {
+      "route-decorator-0558cfb3b7f0": {
+        "fixture": "verification/fixtures/http/system-runtime-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.system_runtime_router",
+        "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/system-runtime"
+      },
       "route-decorator-0b016a423218": {
         "fixture": "verification/fixtures/http/system-standalone-routes.json",
         "fixture_exception": null,
@@ -437,6 +482,15 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/configuration"
+      },
+      "route-decorator-46b39c3b0311": {
+        "fixture": "verification/fixtures/http/task-runtime-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.job_router",
+        "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/jobs"
       },
       "route-decorator-46c1b1266a15": {
         "fixture": "verification/fixtures/http/database-read-routes.json",
@@ -726,6 +780,24 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/configuration"
       },
+      "route-decorator-ecece036be2a": {
+        "fixture": "verification/fixtures/http/system-runtime-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.system_runtime_router",
+        "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/system-runtime"
+      },
+      "route-decorator-f1c0f1d9601c": {
+        "fixture": "verification/fixtures/http/task-runtime-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.job_router",
+        "notes": "P4 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/jobs"
+      },
       "route-decorator-f37e3fd50796": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
         "fixture_exception": null,
@@ -747,7 +819,458 @@
     },
     "settings": {},
     "tables": {},
-    "tasks": {}
+    "tasks": {
+      "task-0646f4d4ce8c": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-08589be5dc83": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-0b6e7c9ee5b5": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-1460b33e904b": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-1a6ac202aabd": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-20d1333fbaef": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-21fd73305651": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-3a864f101232": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-3fb40ec1002a": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-418ca693681d": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-45bca81dc49d": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.worker.WorkerRuntime",
+        "notes": "P4 native persistent workflow handler; every child receives its own Job and Attempt.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-4d3f5e5344c2": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-4e6faee8f971": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-55fbf2987899": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-5bff877a2d18": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-5d1be2bd7771": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-604f54b54b4e": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-62c236c3a38a": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-669ade78ec0b": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-66f879dc66ff": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-6f6be247d5ef": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-7202df9efca7": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-72ac8db63252": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-843ca4a2c14a": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-8798f056d84f": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-8ab73d6b43de": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-96a9dbcf81e6": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-a6eeb309e50b": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-a7f4d87690aa": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-ab883e0ca8b4": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-b3e94c06b0fe": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-b96e91eb5abd": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-b9dff80c1641": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-bee1b1a1970f": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-c30864f78abd": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-c4fb3ea230e6": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-c70dfb0bd638": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-c9f941e93d3e": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.worker.WorkerRuntime",
+        "notes": "P4 native persistent workflow handler; every child receives its own Job and Attempt.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-ca1a51510a51": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-d6849648ba7f": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-d8992e83dc43": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-d99bbb3999e8": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-dc76bfeb372f": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-dee6a0ad905f": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-e05cdbdca5d6": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-e1f087f98f07": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-e81a1883f064": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-ee530b886a49": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-f5c43ac67585": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      },
+      "task-f890dbc651f2": {
+        "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
+        "fixture_exception": null,
+        "new_owner": "etk.platform.tasks.TaskRegistry",
+        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P7.",
+        "status": "legacy",
+        "validation_method": "ordered-task-registry-and-persistent-job-contract",
+        "validation_owner": "operations/jobs"
+      }
+    }
   },
   "schema_version": 1
 }

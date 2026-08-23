@@ -1,0 +1,238 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source-contract",
+    "source": "src/etk/domains/operations/job_router.py",
+    "captured_live": false
+  },
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/api/tasks/run"
+    },
+    {
+      "method": "POST",
+      "path": "/api/trigger_stop_task"
+    },
+    {
+      "method": "GET",
+      "path": "/api/jobs/{job_id}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/jobs/{job_id}/cancel"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "admin-required",
+      "response": {
+        "status": 403,
+        "content_type": "application/json",
+        "body": {
+          "status": "error",
+          "message": "需要 Emby 管理员权限才能执行此操作"
+        }
+      }
+    },
+    {
+      "case_id": "busy",
+      "response": {
+        "status": 409,
+        "content_type": "application/json",
+        "body": {
+          "error": "后台有任务正在运行，请稍后再试。"
+        }
+      }
+    },
+    {
+      "case_id": "media-not-ready",
+      "response": {
+        "status": 503,
+        "content_type": "application/json",
+        "body": {
+          "error": "核心处理器未就绪。"
+        }
+      }
+    },
+    {
+      "case_id": "unsupported-media-type",
+      "response": {
+        "status": 415,
+        "content_type": "text/html; charset=utf-8",
+        "body": "<!doctype html>\n<html lang=en>\n<title>415 Unsupported Media Type</title>\n<h1>Unsupported Media Type</h1>\n<p>The server does not support the media type transmitted in the request.</p>\n"
+      }
+    },
+    {
+      "case_id": "malformed-json",
+      "response": {
+        "status": 400,
+        "content_type": "text/html; charset=utf-8",
+        "body": "<!doctype html>\n<html lang=en>\n<title>400 Bad Request</title>\n<h1>Bad Request</h1>\n<p>The browser (or proxy) sent a request that this server could not understand.</p>\n"
+      }
+    },
+    {
+      "case_id": "non-object-json",
+      "response": {
+        "status": 500,
+        "content_type": "text/html; charset=utf-8",
+        "body": "<!doctype html>\n<html lang=en>\n<title>500 Internal Server Error</title>\n<h1>Internal Server Error</h1>\n<p>The server encountered an internal error and was unable to complete your request. Either the server is overloaded or there is an error in the application.</p>\n"
+      }
+    },
+    {
+      "case_id": "missing-task-name",
+      "response": {
+        "status": 400,
+        "content_type": "application/json",
+        "body": {
+          "error": "请求体中缺少 'task_name' 参数"
+        }
+      }
+    },
+    {
+      "case_id": "unknown-task",
+      "response": {
+        "status": 404,
+        "content_type": "application/json",
+        "body": {
+          "error": "未知的任务名称: fixture-unknown"
+        }
+      }
+    },
+    {
+      "case_id": "submitted",
+      "response": {
+        "status": 202,
+        "content_type": "application/json",
+        "headers": {
+          "x-etk-job-id": "00000000-0000-0000-0000-000000000001"
+        },
+        "body": {
+          "message": "任务 '同步媒体数据' 已成功提交。"
+        }
+      }
+    },
+    {
+      "case_id": "idempotency-conflict",
+      "response": {
+        "status": 409,
+        "content_type": "application/json",
+        "body": {
+          "error": "幂等键已用于不同的任务请求。"
+        }
+      }
+    },
+    {
+      "case_id": "submit-race",
+      "response": {
+        "status": 500,
+        "content_type": "application/json",
+        "body": {
+          "error": "任务提交失败，未知错误。"
+        }
+      }
+    },
+    {
+      "case_id": "stop-not-ready",
+      "response": {
+        "status": 503,
+        "content_type": "application/json",
+        "body": {
+          "error": "核心处理器未就绪"
+        }
+      }
+    },
+    {
+      "case_id": "stop-success",
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "message": "已发送停止任务请求。"
+        }
+      }
+    },
+    {
+      "case_id": "job-not-found",
+      "response": {
+        "status": 404,
+        "content_type": "application/json",
+        "body": {
+          "error": "任务不存在"
+        }
+      }
+    },
+    {
+      "case_id": "job-running",
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": {
+          "job_id": "00000000-0000-0000-0000-000000000001",
+          "task_key": "populate-metadata",
+          "status": "running",
+          "progress": 42,
+          "message": "fixture running",
+          "logs": [
+            {
+              "level": "info",
+              "message": "fixture log"
+            }
+          ],
+          "attempt": {
+            "attempt_id": "00000000-0000-0000-0000-000000000002",
+            "number": 1,
+            "status": "running",
+            "worker_id": "fixture-worker",
+            "last_heartbeat_at": "2026-08-23T00:00:00+00:00"
+          },
+          "parent_job_id": null,
+          "workflow_step": null,
+          "cancel_requested_at": null,
+          "started_at": "2026-08-23T00:00:00+00:00",
+          "finished_at": null,
+          "result": null,
+          "error": null,
+          "created_at": "2026-08-23T00:00:00+00:00",
+          "updated_at": "2026-08-23T00:00:00+00:00"
+        }
+      }
+    },
+    {
+      "case_id": "job-cancel-requested",
+      "response": {
+        "status": 202,
+        "content_type": "application/json",
+        "body": {
+          "job_id": "00000000-0000-0000-0000-000000000001",
+          "task_key": "populate-metadata",
+          "status": "cancel_requested",
+          "progress": 42,
+          "message": "fixture running",
+          "logs": [
+            {
+              "level": "info",
+              "message": "fixture log"
+            }
+          ],
+          "attempt": {
+            "attempt_id": "00000000-0000-0000-0000-000000000002",
+            "number": 1,
+            "status": "running",
+            "worker_id": "fixture-worker",
+            "last_heartbeat_at": "2026-08-23T00:00:00+00:00"
+          },
+          "parent_job_id": null,
+          "workflow_step": null,
+          "cancel_requested_at": "2026-08-23T00:00:00+00:00",
+          "started_at": "2026-08-23T00:00:00+00:00",
+          "finished_at": null,
+          "result": null,
+          "error": null,
+          "created_at": "2026-08-23T00:00:00+00:00",
+          "updated_at": "2026-08-23T00:00:00+00:00"
+        }
+      }
+    }
+  ]
+}

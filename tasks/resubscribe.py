@@ -17,7 +17,7 @@ import handler.emby as emby
 import handler.moviepilot as moviepilot
 import constants  
 from database import connection, resubscribe_db, settings_db, maintenance_db, request_db, queries_db, media_db
-from handler.p115_service import WebhookDeleteBuffer
+from handler.p115_service import delete_115_files_by_webhook
 from handler.hdhive_client import HDHiveClient
 from tasks.hdhive import task_download_from_hdhive, filter_hdhive_resources
 
@@ -1284,7 +1284,7 @@ def _execute_resubscribe(processor, task_name: str, target):
     # ======================================================================
     if all_pickcodes_to_delete and sync_delete:
         logger.info(f"  ➜ 正在将 {len(all_pickcodes_to_delete)} 个文件加入 115 网盘联动删除队列...")
-        WebhookDeleteBuffer.add(all_pickcodes_to_delete)
+        delete_115_files_by_webhook(all_pickcodes_to_delete)
 
     if all_deleted_paths:
         logger.info(f"  ➜ 正在通知 Emby 刷新 {len(all_deleted_paths)} 个被删除的路径...")

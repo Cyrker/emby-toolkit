@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import heapq
 import logging
+import os
 import queue
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from itertools import count
 from typing import Any
 
@@ -60,6 +62,77 @@ class BackgroundHandle:
             self._state = "cancelled"
             self._done.set()
             return True
+
+
+class PersistentBackgroundHandle:
+    """Legacy handle facade backed by a durable Job projection."""
+
+    def __init__(self, service: Any, job_id: Any):
+        self._service = service
+        self._job_id = job_id
+
+    def kill(self) -> None:
+        self._service.cancel(self._job_id)
+
+    cancel = kill
+
+    def join(self, timeout: float | None = None) -> None:
+        deadline = None if timeout is None else time.monotonic() + max(0.0, timeout)
+        while not self.ready():
+            if deadline is not None and time.monotonic() >= deadline:
+                return
+            time.sleep(0.05)
+
+    def ready(self) -> bool:
+        projection = self.projection()
+        return projection is None or projection.job.status.terminal
+
+    @property
+    def job_id(self) -> Any:
+        return self._job_id
+
+    def projection(self) -> Any:
+        return self._service.get(self._job_id)
+
+
+class PersistentBackgroundGateway:
+    def __init__(self, service_provider: Callable[[], Any]) -> None:
+        self._service_provider = service_provider
+
+    def submit(
+        self,
+        function: Callable[..., Any],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        *,
+        delay: float = 0,
+        max_attempts: int = 1,
+        timeout_seconds: int | None = None,
+        idempotency_key: str | None = None,
+        idempotency_scope: str | None = None,
+    ) -> PersistentBackgroundHandle:
+        service = self._service_provider()
+        scheduled_for = None
+        if delay > 0:
+            scheduled_for = datetime.now(UTC) + timedelta(seconds=float(delay))
+        submitted = service.submit_background_operation(
+            function,
+            args,
+            kwargs,
+            scheduled_for=scheduled_for,
+            max_attempts=max_attempts,
+            timeout_seconds=timeout_seconds,
+            idempotency_key=idempotency_key,
+            idempotency_scope=idempotency_scope,
+        )
+        return PersistentBackgroundHandle(service, submitted.projection.job.id)
+
+    def lookup(self, *, idempotency_scope: str, idempotency_key: str) -> PersistentBackgroundHandle | None:
+        service = self._service_provider()
+        projection = service.get_idempotent(scope=idempotency_scope, key=idempotency_key)
+        if projection is None:
+            return None
+        return PersistentBackgroundHandle(service, projection.job.id)
 
 
 @dataclass(slots=True)
@@ -254,6 +327,7 @@ class _BackgroundDispatcher:
 _DISPATCHER_LOCK = threading.RLock()
 _DISPATCHER: _BackgroundDispatcher | None = None
 _BACKGROUND_ACCEPTING = True
+_PERSISTENT_GATEWAY: PersistentBackgroundGateway | None = None
 
 
 def _get_dispatcher() -> _BackgroundDispatcher:
@@ -266,8 +340,11 @@ def _get_dispatcher() -> _BackgroundDispatcher:
         return _DISPATCHER
 
 
-def spawn(function: Callable[..., Any], *args: Any, **kwargs: Any) -> BackgroundHandle:
+def spawn(function: Callable[..., Any], *args: Any, **kwargs: Any) -> BackgroundHandle | PersistentBackgroundHandle:
     """Submit immediate detached work to the bounded compatibility dispatcher."""
+    gateway = _persistent_gateway_for_role()
+    if gateway is not None:
+        return gateway.submit(function, args, kwargs)
     return _get_dispatcher().submit(function, args, kwargs)
 
 
@@ -276,9 +353,86 @@ def spawn_later(
     function: Callable[..., Any],
     *args: Any,
     **kwargs: Any,
-) -> BackgroundHandle:
+) -> BackgroundHandle | PersistentBackgroundHandle:
     """Schedule delayed work without creating one operating-system thread per timer."""
+    gateway = _persistent_gateway_for_role()
+    if gateway is not None:
+        return gateway.submit(function, args, kwargs, delay=delay)
     return _get_dispatcher().schedule(delay, function, args, kwargs)
+
+
+def submit_persistent_background(
+    function: Callable[..., Any],
+    *,
+    args: tuple[Any, ...] = (),
+    kwargs: dict[str, Any] | None = None,
+    delay: float = 0,
+    max_attempts: int = 1,
+    timeout_seconds: int | None = None,
+    idempotency_key: str | None = None,
+    idempotency_scope: str | None = None,
+) -> PersistentBackgroundHandle:
+    """Submit durable compatibility work with explicit delivery policy."""
+
+    gateway = _persistent_gateway_for_role()
+    if gateway is None:
+        raise RuntimeError("persistent background Job gateway is not installed")
+    return gateway.submit(
+        function,
+        args,
+        kwargs or {},
+        delay=delay,
+        max_attempts=max_attempts,
+        timeout_seconds=timeout_seconds,
+        idempotency_key=idempotency_key,
+        idempotency_scope=idempotency_scope,
+    )
+
+
+def lookup_persistent_background(
+    *,
+    idempotency_scope: str,
+    idempotency_key: str,
+) -> PersistentBackgroundHandle | None:
+    """Return the durable Job previously created for an idempotency key."""
+
+    gateway = _persistent_gateway_for_role()
+    if gateway is None:
+        raise RuntimeError("persistent background Job gateway is not installed")
+    return gateway.lookup(
+        idempotency_scope=idempotency_scope,
+        idempotency_key=idempotency_key,
+    )
+
+
+def install_persistent_background_gateway(gateway: PersistentBackgroundGateway) -> None:
+    global _PERSISTENT_GATEWAY
+    with _DISPATCHER_LOCK:
+        if _PERSISTENT_GATEWAY is not None and _PERSISTENT_GATEWAY is not gateway:
+            raise RuntimeError("a persistent background gateway is already installed")
+        _PERSISTENT_GATEWAY = gateway
+
+
+def clear_persistent_background_gateway(gateway: PersistentBackgroundGateway) -> None:
+    global _PERSISTENT_GATEWAY
+    with _DISPATCHER_LOCK:
+        if _PERSISTENT_GATEWAY is gateway:
+            _PERSISTENT_GATEWAY = None
+
+
+def persistent_background_gateway_installed() -> bool:
+    with _DISPATCHER_LOCK:
+        return _PERSISTENT_GATEWAY is not None
+
+
+def _persistent_gateway_for_role() -> PersistentBackgroundGateway | None:
+    with _DISPATCHER_LOCK:
+        gateway = _PERSISTENT_GATEWAY
+    if gateway is not None:
+        return gateway
+    if os.environ.get("ETK_PROCESS_ROLE", "").strip().casefold() == "api":
+        raise RuntimeError("API background work requires the persistent Job gateway")
+    return None
 
 
 def resume_background_tasks() -> None:

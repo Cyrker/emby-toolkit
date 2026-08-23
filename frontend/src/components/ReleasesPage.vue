@@ -124,7 +124,7 @@ const handleUpdate = () => {
         }
         
         // 检查更新流是否结束
-        if (data.event === 'DONE' || data.event === 'ERROR') {
+        if (data.event === 'DONE' || data.event === 'ERROR' || data.event === 'NO_UPDATE') {
           isUpdateFinished.value = true;
           isUpdating.value = false;
           eventSource.close();
