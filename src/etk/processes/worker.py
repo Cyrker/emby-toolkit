@@ -9,14 +9,31 @@ import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from etk.bootstrap.app_factory import _create_default_container
 from etk.bootstrap.runtime_supervisor import RuntimeRole, RuntimeSupervisor
+from etk.compatibility.background import PersistentBackgroundGateway
+from etk.compatibility.flask_app import LazyCompatibilityApplication, create_flask_app
 from etk.compatibility.legacy_jobs import LegacyTaskAdapter
+from etk.compatibility.media_effects import clear_persistent_media_effect_gateway
 from etk.compatibility.persistent_tasks import PersistentTaskManagerGateway
+from etk.domains.media.bridge_client import HttpxEmbyBridgeClient
+from etk.domains.media.compatibility import LegacyP5MediaEventGateway
+from etk.domains.media.editing_effects import BridgeMediaEffectDelivery
+from etk.domains.media.effect_execution import PersistentMediaEffectExecutor, RoutedMediaEffectDelivery
+from etk.domains.media.effects import MediaEffectProjection, PostgresMediaEffectLedger
+from etk.domains.media.event_effects import P5MediaEventEffectDelivery
+from etk.domains.media.final_refresh_effects import (
+    EmbyMetadataRefreshEffectDelivery,
+    clear_final_refresh_settings_provider,
+    install_final_refresh_settings_provider,
+)
+from etk.domains.media.image_editing_compatibility import LegacyMediaImageEditingGateway
+from etk.domains.media.image_editing_effects import ManualImageEffectDelivery
 from etk.domains.operations.jobs import (
     JobSubmissionService,
     import_legacy_operation,
@@ -35,8 +52,10 @@ from etk.platform.jobs import (
     normalize_json_object,
 )
 from etk.platform.observability.redaction import redact_sensitive
-from etk.platform.tasks import ProcessorIdentity, TaskHandlerKind, TaskOutcome, TaskOutcomeStatus, TaskRegistry
+from etk.platform.tasks import ProcessorIdentity, TaskOutcome, TaskOutcomeStatus, TaskRegistry
+from etk.platform.tasks.catalog import P4_NATIVE_TASK_KEYS, P5_NATIVE_TASK_KEYS
 
+from .p5_media_tasks import LegacyP5MediaCompatibilityGateway, P5MediaTaskRouter
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -384,7 +403,11 @@ class WorkerRuntime:
         self._registry: TaskRegistry | None = None
         self._service: JobSubmissionService | None = None
         self._adapter: LegacyTaskAdapter | None = None
+        self._media_effects: PersistentMediaEffectExecutor | None = None
+        self._p5_media_tasks = P5MediaTaskRouter(LegacyP5MediaCompatibilityGateway())
         self._gateway: PersistentTaskManagerGateway | None = None
+        self._background_gateway: PersistentBackgroundGateway | None = None
+        self._final_refresh_settings_provider: Callable[[], Any] | None = None
         self._worker_id = f"{socket.gethostname()}:{os.getpid()}"
         self._workflow_depth = threading.local()
         self._active_executions: dict[UUID, tuple[Any, _ExecutionControl]] = {}
@@ -399,7 +422,12 @@ class WorkerRuntime:
             os.environ["ETK_PROCESS_ROLE"] = "worker"
             container, config_adapter = _create_default_container(None)
             supervisor = RuntimeSupervisor()
+            background_gateway: PersistentBackgroundGateway | None = None
+            submission_gateway_installed = False
+            media_effect_gateway_installed = False
+            final_refresh_settings_provider_installed = False
             try:
+                settings_provider = config_adapter.load
                 database = container.database
                 store = PostgresJobStore(
                     lambda: database.unit_of_work(),
@@ -407,14 +435,55 @@ class WorkerRuntime:
                 )
                 registry = TaskRegistry.from_fixture(_task_fixture())
                 service = JobSubmissionService(store, registry)
+                event_compatibility = LazyCompatibilityApplication(
+                    partial(
+                        create_flask_app,
+                        supervisor=supervisor,
+                        blueprint_specs=(("routes.webhook", "webhook_bp"),),
+                    )
+                )
+                media_effects = PersistentMediaEffectExecutor(
+                    PostgresMediaEffectLedger(database.unit_of_work),
+                    RoutedMediaEffectDelivery(
+                        [
+                            BridgeMediaEffectDelivery(HttpxEmbyBridgeClient(settings_provider)),
+                            EmbyMetadataRefreshEffectDelivery(settings_provider),
+                            ManualImageEffectDelivery(LegacyMediaImageEditingGateway()),
+                            P5MediaEventEffectDelivery(LegacyP5MediaEventGateway(event_compatibility)),
+                        ]
+                    ),
+                    worker_id=f"{self._worker_id}:media-effect",
+                    lease_seconds=lambda: max(float(config_adapter.load().emby_api_timeout) + 30, 90),
+                )
                 supervisor.start(role=RuntimeRole.WORKER, background=False)
                 adapter = LegacyTaskAdapter(registry, RuntimeLegacyTaskResolver())
                 gateway = PersistentTaskManagerGateway(service)
+                background_gateway = PersistentBackgroundGateway(lambda: service)
+                from etk.compatibility.background import install_persistent_background_gateway
+                from etk.compatibility.media_effects import install_persistent_media_effect_gateway
                 from task_manager import install_persistent_submission_gateway
 
                 install_persistent_submission_gateway(gateway)
+                submission_gateway_installed = True
+                install_persistent_background_gateway(background_gateway)
+                install_final_refresh_settings_provider(settings_provider)
+                final_refresh_settings_provider_installed = True
+                install_persistent_media_effect_gateway(media_effects)
+                media_effect_gateway_installed = True
             except BaseException:
                 try:
+                    if media_effect_gateway_installed:
+                        clear_persistent_media_effect_gateway(media_effects)
+                    if final_refresh_settings_provider_installed:
+                        clear_final_refresh_settings_provider(settings_provider)
+                    if background_gateway is not None:
+                        from etk.compatibility.background import clear_persistent_background_gateway
+
+                        clear_persistent_background_gateway(background_gateway)
+                    if submission_gateway_installed:
+                        from task_manager import clear_persistent_submission_gateway
+
+                        clear_persistent_submission_gateway(gateway)
                     supervisor.stop()
                 finally:
                     container.close()
@@ -427,7 +496,10 @@ class WorkerRuntime:
             self._registry = registry
             self._service = service
             self._adapter = adapter
+            self._media_effects = media_effects
             self._gateway = gateway
+            self._background_gateway = background_gateway
+            self._final_refresh_settings_provider = settings_provider
             self._started = True
 
     def request_shutdown(self) -> None:
@@ -452,6 +524,23 @@ class WorkerRuntime:
             if not self._started:
                 return
             errors: list[Exception] = []
+            if self._media_effects is not None:
+                try:
+                    clear_persistent_media_effect_gateway(self._media_effects)
+                except Exception as exc:
+                    errors.append(exc)
+            if self._final_refresh_settings_provider is not None:
+                try:
+                    clear_final_refresh_settings_provider(self._final_refresh_settings_provider)
+                except Exception as exc:
+                    errors.append(exc)
+            if self._background_gateway is not None:
+                try:
+                    from etk.compatibility.background import clear_persistent_background_gateway
+
+                    clear_persistent_background_gateway(self._background_gateway)
+                except Exception as exc:
+                    errors.append(exc)
             if self._gateway is not None:
                 try:
                     from task_manager import clear_persistent_submission_gateway
@@ -477,12 +566,29 @@ class WorkerRuntime:
             self._registry = None
             self._service = None
             self._adapter = None
+            self._media_effects = None
             self._gateway = None
+            self._background_gateway = None
+            self._final_refresh_settings_provider = None
             self._active_executions.clear()
             self._idle.set()
             self._started = False
             if errors:
                 raise ExceptionGroup("Worker runtime shutdown failed", errors)
+
+    def execute_media_effect(self, *, effect_id: str) -> MediaEffectProjection:
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown is in progress")
+        self.start()
+        try:
+            parsed_effect_id = UUID(str(effect_id))
+        except ValueError as exc:
+            raise ValueError("media effect id must be a UUID") from exc
+        with self._lock:
+            executor = self._media_effects
+        if executor is None:
+            raise RuntimeError("Worker media effect executor is not initialized")
+        return executor.execute(parsed_effect_id)
 
     def execute(self, *, event_id: str, job_id: str, attempt_id: str) -> None:
         del event_id
@@ -539,7 +645,7 @@ class WorkerRuntime:
         processor_identity = ProcessorIdentity(envelope["processor_type"])
         processor = (
             None
-            if (definition is not None and definition.handler_kind is TaskHandlerKind.NATIVE)
+            if (definition is not None and definition.key in P4_NATIVE_TASK_KEYS)
             or envelope.get("call_style") == "direct"
             else _processor(processor_identity)
         )
@@ -573,8 +679,21 @@ class WorkerRuntime:
         result: Any = None
         failure: Exception | None = None
         try:
-            if definition is not None and definition.handler_kind is TaskHandlerKind.NATIVE:
+            if definition is not None and definition.key in P4_NATIVE_TASK_KEYS:
                 result = self._execute_chain(projection)
+            elif definition is not None and definition.key in P5_NATIVE_TASK_KEYS:
+                message = registry.create_message(
+                    definition.key,
+                    envelope["parameters"],
+                    payload_version=int(envelope["payload_version"]),
+                    metadata={"job_id": str(job.id), "attempt_id": str(attempt.id)},
+                )
+                from task_manager import persistent_execution
+
+                with persistent_execution(progress):
+                    result = self._p5_media_tasks.execute(message, processor)
+                if not isinstance(result, TaskOutcome):
+                    raise TypeError(f"P5 native task {definition.key!r} did not return TaskOutcome")
             elif definition is not None:
                 message = registry.create_message(
                     definition.key,

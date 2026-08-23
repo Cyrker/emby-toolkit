@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import date, datetime
 from typing import Any, Dict, Optional
 
@@ -10,6 +11,7 @@ import utils
 from database.connection import get_db_connection
 
 
+logger = logging.getLogger(__name__)
 MEDIA_METADATA_SCHEMA_VERSION = 1
 
 
@@ -604,7 +606,7 @@ def register_metadata_asset_path(
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT asset_details_json
+                SELECT asset_details_json, emby_item_ids_json, file_sha1_json, file_pickcode_json
                 FROM media_metadata
                 WHERE tmdb_id=%s AND item_type=%s
                 FOR UPDATE
@@ -616,6 +618,19 @@ def register_metadata_asset_path(
                 return False
             assets = _json_value(row.get("asset_details_json"), [])
             assets = assets if isinstance(assets, list) else []
+            emby_ids = _json_value(row.get("emby_item_ids_json"), [])
+            emby_ids = emby_ids if isinstance(emby_ids, list) else []
+            sha1s = _json_value(row.get("file_sha1_json"), [])
+            sha1s = sha1s if isinstance(sha1s, list) else []
+            pickcodes = _json_value(row.get("file_pickcode_json"), [])
+            pickcodes = pickcodes if isinstance(pickcodes, list) else []
+            if len({len(assets), len(emby_ids), len(sha1s), len(pickcodes)}) != 1:
+                logger.error(
+                    "DB: 拒绝在错位资产数组上注册路径: TMDb=%s type=%s",
+                    tmdb_id,
+                    item_type,
+                )
+                return False
             target = next(
                 (
                     asset for asset in assets
@@ -627,6 +642,9 @@ def register_metadata_asset_path(
             if target is None:
                 target = {"path": path}
                 assets.append(target)
+                emby_ids.append("")
+                sha1s.append("")
+                pickcodes.append("")
             if season_number is not None:
                 target["season_number"] = int(season_number)
             if episode_number is not None:
@@ -634,10 +652,21 @@ def register_metadata_asset_path(
             cursor.execute(
                 """
                 UPDATE media_metadata
-                SET asset_details_json=%s, last_updated_at=NOW()
+                SET asset_details_json=%s,
+                    emby_item_ids_json=%s,
+                    file_sha1_json=%s,
+                    file_pickcode_json=%s,
+                    last_updated_at=NOW()
                 WHERE tmdb_id=%s AND item_type=%s
                 """,
-                (Json(assets, dumps=lambda obj: json.dumps(obj, ensure_ascii=False)), tmdb_id, item_type),
+                (
+                    Json(assets, dumps=lambda obj: json.dumps(obj, ensure_ascii=False)),
+                    Json(emby_ids, dumps=lambda obj: json.dumps(obj, ensure_ascii=False)),
+                    Json(sha1s, dumps=lambda obj: json.dumps(obj, ensure_ascii=False)),
+                    Json(pickcodes, dumps=lambda obj: json.dumps(obj, ensure_ascii=False)),
+                    tmdb_id,
+                    item_type,
+                ),
             )
         conn.commit()
     return True
@@ -695,7 +724,23 @@ def resolve_metadata_identity_by_path(
             abs(len(asset_path) - len(path)),
         )
 
-    selected = min(candidates, key=_score)
+    scored = [(_score(candidate), candidate) for candidate in candidates]
+    best_score = min(score for score, _candidate in scored)
+    best_candidates = [candidate for score, candidate in scored if score == best_score]
+    best_identities = {
+        (
+            str(candidate.get("tmdb_id") or ""),
+            str(candidate.get("item_type") or ""),
+            str(candidate.get("parent_series_tmdb_id") or ""),
+            candidate.get("season_number"),
+            candidate.get("episode_number"),
+        )
+        for candidate in best_candidates
+    }
+    if len(best_identities) != 1:
+        logger.error("DB: 媒体路径解析存在同分歧义，拒绝猜测身份: %s", path)
+        return None
+    selected = best_candidates[0]
     asset = _json_value(selected.get("asset"), {})
     is_movie = selected.get("item_type") == "Movie"
     root_tmdb_id = selected.get("tmdb_id") if is_movie else (

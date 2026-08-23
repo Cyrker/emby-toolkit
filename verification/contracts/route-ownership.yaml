@@ -302,20 +302,21 @@
       "contract_id": "route-binding-c46a6d95cfa3",
       "decorator_contract_id": "route-decorator-f5c1029d79c5",
       "endpoint": "api_translate_cast_sa",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.cast_editor_router",
+      "notes": "P5 native cast translation route preserves admin and processor guards with manual JSON validation before the compatibility mount.",
       "path": "/api/actions/translate_cast_sa",
       "retirement_approval": null,
       "source": "routes/media.py:287",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/cast-editor"
     },
     {
       "application": "api",
@@ -1052,9 +1053,9 @@
       "target_domains": [
         "media"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "media/auto-tagging"
     },
     {
       "application": "api",
@@ -1072,9 +1073,9 @@
       "target_domains": [
         "media"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "media/auto-tagging"
     },
     {
       "application": "api",
@@ -1092,9 +1093,9 @@
       "target_domains": [
         "media"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "media/auto-tagging"
     },
     {
       "application": "api",
@@ -1112,9 +1113,9 @@
       "target_domains": [
         "media"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "media/auto-tagging"
     },
     {
       "application": "api",
@@ -3043,22 +3044,23 @@
       "contract_id": "route-binding-a4f5274c5ed0",
       "decorator_contract_id": "route-decorator-2a978b1b31a3",
       "endpoint": "emby_webhook",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 owns /api/emby/events ingress, reservation, and dispatch transport; eleven P7/P9 business handlers remain future-domain compatibility until their stages, and the legacy route remains until P11.",
       "path": "/api/emby/events",
       "retirement_approval": null,
       "source": "routes/webhook.py:2551",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
+        "media",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge-transport"
     },
     {
       "application": "api",
@@ -3087,198 +3089,189 @@
       "contract_id": "route-binding-4713be4110b4",
       "decorator_contract_id": "route-decorator-6e0f5c1bb2c8",
       "endpoint": "get_emby_metadata_by_path",
-      "fixture": "verification/fixtures/http/bridge-metadata.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata",
       "retirement_approval": null,
       "source": "routes/webhook.py:1923",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-40164b6552f6",
       "decorator_contract_id": "route-decorator-df9525ecbdd3",
       "endpoint": "trigger_emby_metadata_backfill",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill",
       "retirement_approval": null,
       "source": "routes/webhook.py:1993",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-1e1977236b17",
       "decorator_contract_id": "route-decorator-55398b5ff976",
       "endpoint": "trigger_emby_item_metadata_backfill",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/item",
       "retirement_approval": null,
       "source": "routes/webhook.py:2136",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-cff5dce4a210",
       "decorator_contract_id": "route-decorator-786875de4918",
       "endpoint": "trigger_emby_items_metadata_backfill",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/items",
       "retirement_approval": null,
       "source": "routes/webhook.py:2144",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-38dcdbb1ebb8",
       "decorator_contract_id": "route-decorator-dc34513fe7f4",
       "endpoint": "trigger_emby_library_metadata_backfill",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/library",
       "retirement_approval": null,
       "source": "routes/webhook.py:2155",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-511b4fa1a209",
       "decorator_contract_id": "route-decorator-e32a059893fa",
       "endpoint": "refresh_emby_metadata_images",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/refresh",
       "retirement_approval": null,
       "source": "routes/webhook.py:2222",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-adc7f565a9f0",
       "decorator_contract_id": "route-decorator-c86957289234",
       "endpoint": "search_emby_metadata_images",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/search",
       "retirement_approval": null,
       "source": "routes/webhook.py:2416",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-33822587fb1f",
       "decorator_contract_id": "route-decorator-f9c9ac8cfd30",
       "endpoint": "sync_emby_metadata_images",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/sync",
       "retirement_approval": null,
       "source": "routes/webhook.py:2481",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-39f115f0d2a7",
       "decorator_contract_id": "route-decorator-c1c2b660e6d8",
       "endpoint": "proxy_emby_plugin_update",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/plugin-update",
       "retirement_approval": null,
       "source": "routes/webhook.py:1882",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
@@ -3338,11 +3331,11 @@
       "source": "routes/media.py:397",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "users"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "users/integration-settings"
     },
     {
       "application": "api",
@@ -3360,29 +3353,30 @@
       "target_domains": [
         "media"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "media/library-query"
     },
     {
       "application": "api",
       "contract_id": "route-binding-07239166c2d4",
       "decorator_contract_id": "route-decorator-906b776964f8",
       "endpoint": "proxy_external_image",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-image-proxy.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.image_proxy_router",
+      "notes": "P5 native image cache and external proxy route preserves cache, placeholder, streaming, and conditional response contracts.",
       "path": "/api/image_proxy",
       "retirement_approval": null,
       "source": "routes/media.py:174",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/image-delivery"
     },
     {
       "application": "api",
@@ -3482,131 +3476,137 @@
       "source": "routes/media.py:665",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "subscription"
       ],
-      "target_stage": "P5",
+      "target_stage": "P7",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "subscription/management"
     },
     {
       "application": "api",
       "contract_id": "route-binding-05bc56fc490f",
       "decorator_contract_id": "route-decorator-3ceb50f81a67",
       "endpoint": "api_get_media_for_editing",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.cast_editor_router",
+      "notes": "P5 native cast editor read route preserves admin and processor guards before the compatibility mount.",
       "path": "/api/media_for_editing/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:137",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/cast-editor"
     },
     {
       "application": "api",
       "contract_id": "route-binding-ad3ce191fce7",
       "decorator_contract_id": "route-decorator-c357de674c2f",
       "endpoint": "api_get_intro_credit_chapters",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-editing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.editing_router",
+      "notes": "P5 native read route projects Intro and Credits chapters from the aligned MediaInfo asset slot.",
       "path": "/api/media_info/chapters/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:1158",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-postgres18-and-openapi",
+      "validation_owner": "media/mediainfo-chapters"
     },
     {
       "application": "api",
       "contract_id": "route-binding-e16ec3e99b51",
       "decorator_contract_id": "route-decorator-8e5529aa68fd",
       "endpoint": "api_save_intro_credit_chapters",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-editing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.editing_router",
+      "notes": "P5 native chapter write atomically persists the aligned MediaInfo cache and durable Bridge effect before the compatibility mount.",
       "path": "/api/media_info/chapters/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:1176",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-postgres18-effect-ledger-and-openapi",
+      "validation_owner": "media/mediainfo-chapters"
     },
     {
       "application": "api",
       "contract_id": "route-binding-b550a1781a1e",
       "decorator_contract_id": "route-decorator-340582f8392a",
       "endpoint": "api_get_media_info_for_edit",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-editing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.editing_router",
+      "notes": "P5 native read route resolves ItemID to one aligned SHA1 and formatted MediaInfo cache record.",
       "path": "/api/media_info/edit/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:1138",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-postgres18-and-openapi",
+      "validation_owner": "media/mediainfo-editor"
     },
     {
       "application": "api",
       "contract_id": "route-binding-9a2f94a14502",
       "decorator_contract_id": "route-decorator-d2baf2c5119f",
       "endpoint": "api_save_media_info_for_edit",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-editing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.editing_router",
+      "notes": "P5 native MediaInfo write atomically persists the aligned cache and durable Bridge effect before the compatibility mount.",
       "path": "/api/media_info/edit/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:1263",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-postgres18-effect-ledger-and-openapi",
+      "validation_owner": "media/mediainfo-editor"
     },
     {
       "application": "api",
       "contract_id": "route-binding-a32a1c5ebf28",
       "decorator_contract_id": "route-decorator-7718e9cd7dbd",
       "endpoint": "api_get_series_episodes_for_edit",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-editing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.editing_router",
+      "notes": "P5 native read route resolves Series ItemID and episode hierarchy before the compatibility mount.",
       "path": "/api/media_info/series/<series_id>/episodes",
       "retirement_approval": null,
       "source": "routes/media.py:1320",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-postgres18-and-openapi",
+      "validation_owner": "media/mediainfo-editor"
     },
     {
       "application": "api",
@@ -3699,7 +3699,7 @@
       "new_owner": null,
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3471",
+      "source": "routes/p115.py:3488",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3719,7 +3719,7 @@
       "new_owner": null,
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3471",
+      "source": "routes/p115.py:3488",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3759,7 +3759,7 @@
       "new_owner": null,
       "path": "/api/p115/episode_regex_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:3162",
+      "source": "routes/p115.py:3179",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3779,7 +3779,7 @@
       "new_owner": null,
       "path": "/api/p115/episode_regex_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:3162",
+      "source": "routes/p115.py:3179",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3819,7 +3819,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2641",
+      "source": "routes/p115.py:2658",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3839,7 +3839,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2628",
+      "source": "routes/p115.py:2645",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3859,7 +3859,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2411",
+      "source": "routes/p115.py:2414",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3879,7 +3879,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2424",
+      "source": "routes/p115.py:2427",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3959,7 +3959,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2649",
+      "source": "routes/p115.py:2666",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3979,7 +3979,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2636",
+      "source": "routes/p115.py:2653",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3999,7 +3999,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2419",
+      "source": "routes/p115.py:2422",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4019,7 +4019,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2432",
+      "source": "routes/p115.py:2435",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4099,7 +4099,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2657",
+      "source": "routes/p115.py:2674",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4119,7 +4119,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2657",
+      "source": "routes/p115.py:2674",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4139,7 +4139,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>/<path:filename>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2658",
+      "source": "routes/p115.py:2675",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4159,7 +4159,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>/<path:filename>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2658",
+      "source": "routes/p115.py:2675",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4499,7 +4499,7 @@
       "new_owner": null,
       "path": "/api/p115/records",
       "retirement_approval": null,
-      "source": "routes/p115.py:3193",
+      "source": "routes/p115.py:3210",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4519,7 +4519,7 @@
       "new_owner": null,
       "path": "/api/p115/records/<int:record_id>",
       "retirement_approval": null,
-      "source": "routes/p115.py:3286",
+      "source": "routes/p115.py:3303",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4539,7 +4539,7 @@
       "new_owner": null,
       "path": "/api/p115/recycle_bin/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3318",
+      "source": "routes/p115.py:3335",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4579,7 +4579,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2802",
+      "source": "routes/p115.py:2819",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4599,7 +4599,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2802",
+      "source": "routes/p115.py:2819",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4619,7 +4619,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/export",
       "retirement_approval": null,
-      "source": "routes/p115.py:3069",
+      "source": "routes/p115.py:3086",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4639,7 +4639,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/import",
       "retirement_approval": null,
-      "source": "routes/p115.py:3035",
+      "source": "routes/p115.py:3052",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4659,7 +4659,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/preview",
       "retirement_approval": null,
-      "source": "routes/p115.py:2911",
+      "source": "routes/p115.py:2928",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4679,7 +4679,7 @@
       "new_owner": null,
       "path": "/api/p115/replace_strm",
       "retirement_approval": null,
-      "source": "routes/p115.py:2736",
+      "source": "routes/p115.py:2753",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4779,7 +4779,7 @@
       "new_owner": null,
       "path": "/api/p115/system/directories",
       "retirement_approval": null,
-      "source": "routes/p115.py:3368",
+      "source": "routes/p115.py:3385",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4839,7 +4839,7 @@
       "new_owner": null,
       "path": "/api/p115/unrecognized/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3333",
+      "source": "routes/p115.py:3350",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4859,7 +4859,7 @@
       "new_owner": null,
       "path": "/api/p115/upload_monitor/config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3416",
+      "source": "routes/p115.py:3433",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4879,7 +4879,7 @@
       "new_owner": null,
       "path": "/api/p115/upload_monitor/config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3416",
+      "source": "routes/p115.py:3433",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -5173,20 +5173,21 @@
       "contract_id": "route-binding-a426cee4059c",
       "decorator_contract_id": "route-decorator-f771e237199c",
       "endpoint": "api_preview_processed_cast",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.cast_editor_router",
+      "notes": "P5 native processed-cast preview reads the persisted authoritative cast without mutating person metadata.",
       "path": "/api/preview_processed_cast/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:313",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/cast-editor"
     },
     {
       "application": "api",
@@ -5508,11 +5509,11 @@
       "source": "routes/media.py:69",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "operations"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "operations/review"
     },
     {
       "application": "api",
@@ -5528,11 +5529,11 @@
       "source": "routes/media.py:448",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "collection"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "collection/custom-collection"
     },
     {
       "application": "api",
@@ -6686,11 +6687,11 @@
       "source": "routes/media.py:470",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "subscription"
       ],
-      "target_stage": "P5",
+      "target_stage": "P7",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "subscription/state"
     },
     {
       "application": "api",
@@ -6706,11 +6707,11 @@
       "source": "routes/media.py:688",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "subscription"
       ],
-      "target_stage": "P5",
+      "target_stage": "P7",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "subscription/strategy"
     },
     {
       "application": "api",
@@ -6726,11 +6727,11 @@
       "source": "routes/media.py:714",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "subscription"
       ],
-      "target_stage": "P5",
+      "target_stage": "P7",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "subscription/strategy"
     },
     {
       "application": "api",
@@ -6893,11 +6894,11 @@
       "source": "routes/media.py:638",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "subscription"
       ],
-      "target_stage": "P5",
+      "target_stage": "P7",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "subscription/management"
     },
     {
       "application": "api",
@@ -7210,20 +7211,21 @@
       "contract_id": "route-binding-7b8d3990697e",
       "decorator_contract_id": "route-decorator-cf08f72c1a0d",
       "endpoint": "api_get_tmdb_images",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-image-editing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.image_editing_router",
+      "notes": "P5 native FastAPI TMDb image candidate route precedes the compatibility mount.",
       "path": "/api/tmdb_images/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:858",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/image-editor"
     },
     {
       "application": "api",
@@ -7252,40 +7254,42 @@
       "contract_id": "route-binding-ac3b6c2e1734",
       "decorator_contract_id": "route-decorator-e82cb246e077",
       "endpoint": "api_update_edited_cast_sa",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.cast_editor_router",
+      "notes": "P5 native manual cast submission route preserves legacy 202 scheduling contract and guard order.",
       "path": "/api/update_media_cast_sa/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:149",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/cast-editor"
     },
     {
       "application": "api",
       "contract_id": "route-binding-0100c1c3fd9b",
       "decorator_contract_id": "route-decorator-caccf33046ba",
       "endpoint": "api_update_media_image",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-image-editing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.image_editing_router",
+      "notes": "P5 native FastAPI image replacement route precedes the compatibility mount; reliable effect execution is tracked separately.",
       "path": "/api/update_media_image/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:805",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/image-editor"
     },
     {
       "application": "api",
@@ -7512,20 +7516,21 @@
       "contract_id": "route-binding-3e7778fd04c4",
       "decorator_contract_id": "route-decorator-1ce3118281d8",
       "endpoint": "proxy_emby_image",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-image-proxy.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.image_proxy_router",
+      "notes": "P5 native Emby image proxy preserves raw path/query forwarding and legacy placeholder failure semantics.",
       "path": "/image_proxy/<path:image_path>",
       "retirement_approval": null,
       "source": "routes/media.py:244",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/emby-image-delivery"
     },
     {
       "application": "api",
@@ -7948,22 +7953,23 @@
       "contract_id": "route-decorator-f5c1029d79c5",
       "declared_path": "/actions/translate_cast_sa",
       "endpoint": "api_translate_cast_sa",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.cast_editor_router",
+      "notes": "P5 native cast translation route preserves admin and processor guards with manual JSON validation before the compatibility mount.",
       "path": "/api/actions/translate_cast_sa",
       "retirement_approval": null,
       "source": "routes/media.py:287",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/cast-editor"
     },
     {
       "application": "api",
@@ -8713,9 +8719,9 @@
       "target_domains": [
         "media"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "media/auto-tagging"
     },
     {
       "application": "api",
@@ -8736,9 +8742,9 @@
       "target_domains": [
         "media"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "media/auto-tagging"
     },
     {
       "application": "api",
@@ -8759,9 +8765,9 @@
       "target_domains": [
         "media"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "media/auto-tagging"
     },
     {
       "application": "api",
@@ -8782,9 +8788,9 @@
       "target_domains": [
         "media"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "media/auto-tagging"
     },
     {
       "application": "api",
@@ -10990,24 +10996,25 @@
       "contract_id": "route-decorator-2a978b1b31a3",
       "declared_path": "/api/emby/events",
       "endpoint": "emby_webhook",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 owns /api/emby/events ingress, reservation, and dispatch transport; eleven P7/P9 business handlers remain future-domain compatibility until their stages, and the legacy route remains until P11.",
       "path": "/api/emby/events",
       "retirement_approval": null,
       "source": "routes/webhook.py:2551",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
+        "media",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge-transport"
     },
     {
       "application": "api",
@@ -11040,24 +11047,23 @@
       "contract_id": "route-decorator-6e0f5c1bb2c8",
       "declared_path": "/api/emby/metadata",
       "endpoint": "get_emby_metadata_by_path",
-      "fixture": "verification/fixtures/http/bridge-metadata.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata",
       "retirement_approval": null,
       "source": "routes/webhook.py:1923",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
@@ -11065,24 +11071,23 @@
       "contract_id": "route-decorator-df9525ecbdd3",
       "declared_path": "/api/emby/metadata/backfill",
       "endpoint": "trigger_emby_metadata_backfill",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill",
       "retirement_approval": null,
       "source": "routes/webhook.py:1993",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
@@ -11090,24 +11095,23 @@
       "contract_id": "route-decorator-55398b5ff976",
       "declared_path": "/api/emby/metadata/backfill/item",
       "endpoint": "trigger_emby_item_metadata_backfill",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/item",
       "retirement_approval": null,
       "source": "routes/webhook.py:2136",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
@@ -11115,24 +11119,23 @@
       "contract_id": "route-decorator-786875de4918",
       "declared_path": "/api/emby/metadata/backfill/items",
       "endpoint": "trigger_emby_items_metadata_backfill",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/items",
       "retirement_approval": null,
       "source": "routes/webhook.py:2144",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
@@ -11140,24 +11143,23 @@
       "contract_id": "route-decorator-dc34513fe7f4",
       "declared_path": "/api/emby/metadata/backfill/library",
       "endpoint": "trigger_emby_library_metadata_backfill",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/library",
       "retirement_approval": null,
       "source": "routes/webhook.py:2155",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
@@ -11165,24 +11167,23 @@
       "contract_id": "route-decorator-e32a059893fa",
       "declared_path": "/api/emby/metadata/images/refresh",
       "endpoint": "refresh_emby_metadata_images",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/refresh",
       "retirement_approval": null,
       "source": "routes/webhook.py:2222",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
@@ -11190,24 +11191,23 @@
       "contract_id": "route-decorator-c86957289234",
       "declared_path": "/api/emby/metadata/images/search",
       "endpoint": "search_emby_metadata_images",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/search",
       "retirement_approval": null,
       "source": "routes/webhook.py:2416",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
@@ -11215,24 +11215,23 @@
       "contract_id": "route-decorator-f9c9ac8cfd30",
       "declared_path": "/api/emby/metadata/images/sync",
       "endpoint": "sync_emby_metadata_images",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/sync",
       "retirement_approval": null,
       "source": "routes/webhook.py:2481",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
@@ -11240,24 +11239,23 @@
       "contract_id": "route-decorator-c1c2b660e6d8",
       "declared_path": "/api/emby/plugin-update",
       "endpoint": "proxy_emby_plugin_update",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p5-media-bridge.json",
       "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/plugin-update",
       "retirement_approval": null,
       "source": "routes/webhook.py:1882",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "ingestion",
-        "subscription",
-        "sharing"
+        "media"
       ],
-      "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "target_stage": "P5",
+      "validation_method": "pytest-golden-stub-and-openapi",
+      "validation_owner": "media/bridge"
     },
     {
       "application": "api",
@@ -11326,11 +11324,11 @@
       "source": "routes/media.py:397",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "users"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "users/integration-settings"
     },
     {
       "application": "api",
@@ -11351,9 +11349,9 @@
       "target_domains": [
         "media"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "media/library-query"
     },
     {
       "application": "api",
@@ -11361,22 +11359,23 @@
       "contract_id": "route-decorator-906b776964f8",
       "declared_path": "/image_proxy",
       "endpoint": "proxy_external_image",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-image-proxy.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.image_proxy_router",
+      "notes": "P5 native image cache and external proxy route preserves cache, placeholder, streaming, and conditional response contracts.",
       "path": "/api/image_proxy",
       "retirement_approval": null,
       "source": "routes/media.py:174",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/image-delivery"
     },
     {
       "application": "api",
@@ -11491,11 +11490,11 @@
       "source": "routes/media.py:665",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "subscription"
       ],
-      "target_stage": "P5",
+      "target_stage": "P7",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "subscription/management"
     },
     {
       "application": "api",
@@ -11503,22 +11502,23 @@
       "contract_id": "route-decorator-3ceb50f81a67",
       "declared_path": "/media_for_editing/<item_id>",
       "endpoint": "api_get_media_for_editing",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.cast_editor_router",
+      "notes": "P5 native cast editor read route preserves admin and processor guards before the compatibility mount.",
       "path": "/api/media_for_editing/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:137",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/cast-editor"
     },
     {
       "application": "api",
@@ -11526,22 +11526,23 @@
       "contract_id": "route-decorator-c357de674c2f",
       "declared_path": "/media_info/chapters/<item_id>",
       "endpoint": "api_get_intro_credit_chapters",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-editing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.editing_router",
+      "notes": "P5 native read route projects Intro and Credits chapters from the aligned MediaInfo asset slot.",
       "path": "/api/media_info/chapters/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:1158",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-postgres18-and-openapi",
+      "validation_owner": "media/mediainfo-chapters"
     },
     {
       "application": "api",
@@ -11549,22 +11550,23 @@
       "contract_id": "route-decorator-8e5529aa68fd",
       "declared_path": "/media_info/chapters/<item_id>",
       "endpoint": "api_save_intro_credit_chapters",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-editing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.editing_router",
+      "notes": "P5 native chapter write atomically persists the aligned MediaInfo cache and durable Bridge effect before the compatibility mount.",
       "path": "/api/media_info/chapters/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:1176",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-postgres18-effect-ledger-and-openapi",
+      "validation_owner": "media/mediainfo-chapters"
     },
     {
       "application": "api",
@@ -11572,22 +11574,23 @@
       "contract_id": "route-decorator-340582f8392a",
       "declared_path": "/media_info/edit/<item_id>",
       "endpoint": "api_get_media_info_for_edit",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-editing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.editing_router",
+      "notes": "P5 native read route resolves ItemID to one aligned SHA1 and formatted MediaInfo cache record.",
       "path": "/api/media_info/edit/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:1138",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-postgres18-and-openapi",
+      "validation_owner": "media/mediainfo-editor"
     },
     {
       "application": "api",
@@ -11595,22 +11598,23 @@
       "contract_id": "route-decorator-d2baf2c5119f",
       "declared_path": "/media_info/edit/<item_id>",
       "endpoint": "api_save_media_info_for_edit",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-editing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.editing_router",
+      "notes": "P5 native MediaInfo write atomically persists the aligned cache and durable Bridge effect before the compatibility mount.",
       "path": "/api/media_info/edit/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:1263",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-postgres18-effect-ledger-and-openapi",
+      "validation_owner": "media/mediainfo-editor"
     },
     {
       "application": "api",
@@ -11618,22 +11622,23 @@
       "contract_id": "route-decorator-7718e9cd7dbd",
       "declared_path": "/media_info/series/<series_id>/episodes",
       "endpoint": "api_get_series_episodes_for_edit",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-editing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.editing_router",
+      "notes": "P5 native read route resolves Series ItemID and episode hierarchy before the compatibility mount.",
       "path": "/api/media_info/series/<series_id>/episodes",
       "retirement_approval": null,
       "source": "routes/media.py:1320",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-postgres18-and-openapi",
+      "validation_owner": "media/mediainfo-editor"
     },
     {
       "application": "api",
@@ -11742,7 +11747,7 @@
       "new_owner": null,
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3471",
+      "source": "routes/p115.py:3488",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11789,7 +11794,7 @@
       "new_owner": null,
       "path": "/api/p115/episode_regex_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:3162",
+      "source": "routes/p115.py:3179",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11835,7 +11840,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2641",
+      "source": "routes/p115.py:2658",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11858,7 +11863,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2628",
+      "source": "routes/p115.py:2645",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11881,7 +11886,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2411",
+      "source": "routes/p115.py:2414",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11904,7 +11909,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/<pick_code>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2424",
+      "source": "routes/p115.py:2427",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11996,7 +12001,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2649",
+      "source": "routes/p115.py:2666",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12019,7 +12024,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2636",
+      "source": "routes/p115.py:2653",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12042,7 +12047,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2419",
+      "source": "routes/p115.py:2422",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12065,7 +12070,7 @@
       "new_owner": null,
       "path": "/api/p115/mediainfo/sha1/<sha1>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2432",
+      "source": "routes/p115.py:2435",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12158,7 +12163,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2657",
+      "source": "routes/p115.py:2674",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12182,7 +12187,7 @@
       "new_owner": null,
       "path": "/api/p115/play/<pick_code>/<path:filename>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2658",
+      "source": "routes/p115.py:2675",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12573,7 +12578,7 @@
       "new_owner": null,
       "path": "/api/p115/records",
       "retirement_approval": null,
-      "source": "routes/p115.py:3193",
+      "source": "routes/p115.py:3210",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12596,7 +12601,7 @@
       "new_owner": null,
       "path": "/api/p115/records/<int:record_id>",
       "retirement_approval": null,
-      "source": "routes/p115.py:3286",
+      "source": "routes/p115.py:3303",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12619,7 +12624,7 @@
       "new_owner": null,
       "path": "/api/p115/recycle_bin/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3318",
+      "source": "routes/p115.py:3335",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12666,7 +12671,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2802",
+      "source": "routes/p115.py:2819",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12689,7 +12694,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/export",
       "retirement_approval": null,
-      "source": "routes/p115.py:3069",
+      "source": "routes/p115.py:3086",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12712,7 +12717,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/import",
       "retirement_approval": null,
-      "source": "routes/p115.py:3035",
+      "source": "routes/p115.py:3052",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12735,7 +12740,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/preview",
       "retirement_approval": null,
-      "source": "routes/p115.py:2911",
+      "source": "routes/p115.py:2928",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12758,7 +12763,7 @@
       "new_owner": null,
       "path": "/api/p115/replace_strm",
       "retirement_approval": null,
-      "source": "routes/p115.py:2736",
+      "source": "routes/p115.py:2753",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12851,7 +12856,7 @@
       "new_owner": null,
       "path": "/api/p115/system/directories",
       "retirement_approval": null,
-      "source": "routes/p115.py:3368",
+      "source": "routes/p115.py:3385",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12920,7 +12925,7 @@
       "new_owner": null,
       "path": "/api/p115/unrecognized/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3333",
+      "source": "routes/p115.py:3350",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12944,7 +12949,7 @@
       "new_owner": null,
       "path": "/api/p115/upload_monitor/config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3416",
+      "source": "routes/p115.py:3433",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -13237,22 +13242,23 @@
       "contract_id": "route-decorator-f771e237199c",
       "declared_path": "/preview_processed_cast/<item_id>",
       "endpoint": "api_preview_processed_cast",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.cast_editor_router",
+      "notes": "P5 native processed-cast preview reads the persisted authoritative cast without mutating person metadata.",
       "path": "/api/preview_processed_cast/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:313",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/cast-editor"
     },
     {
       "application": "api",
@@ -13622,11 +13628,11 @@
       "source": "routes/media.py:69",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "operations"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "operations/review"
     },
     {
       "application": "api",
@@ -13645,11 +13651,11 @@
       "source": "routes/media.py:448",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "collection"
       ],
-      "target_stage": "P5",
+      "target_stage": "P8",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "collection/custom-collection"
     },
     {
       "application": "api",
@@ -14862,11 +14868,11 @@
       "source": "routes/media.py:470",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "subscription"
       ],
-      "target_stage": "P5",
+      "target_stage": "P7",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "subscription/state"
     },
     {
       "application": "api",
@@ -14885,11 +14891,11 @@
       "source": "routes/media.py:688",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "subscription"
       ],
-      "target_stage": "P5",
+      "target_stage": "P7",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "subscription/strategy"
     },
     {
       "application": "api",
@@ -14908,11 +14914,11 @@
       "source": "routes/media.py:714",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "subscription"
       ],
-      "target_stage": "P5",
+      "target_stage": "P7",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "subscription/strategy"
     },
     {
       "application": "api",
@@ -15099,11 +15105,11 @@
       "source": "routes/media.py:638",
       "status": "legacy",
       "target_domains": [
-        "media"
+        "subscription"
       ],
-      "target_stage": "P5",
+      "target_stage": "P7",
       "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_owner": "subscription/management"
     },
     {
       "application": "api",
@@ -15459,22 +15465,23 @@
       "contract_id": "route-decorator-cf08f72c1a0d",
       "declared_path": "/tmdb_images/<item_id>",
       "endpoint": "api_get_tmdb_images",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-image-editing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.image_editing_router",
+      "notes": "P5 native FastAPI TMDb image candidate route precedes the compatibility mount.",
       "path": "/api/tmdb_images/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:858",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/image-editor"
     },
     {
       "application": "api",
@@ -15507,22 +15514,23 @@
       "contract_id": "route-decorator-e82cb246e077",
       "declared_path": "/update_media_cast_sa/<item_id>",
       "endpoint": "api_update_edited_cast_sa",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.cast_editor_router",
+      "notes": "P5 native manual cast submission route preserves legacy 202 scheduling contract and guard order.",
       "path": "/api/update_media_cast_sa/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:149",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/cast-editor"
     },
     {
       "application": "api",
@@ -15530,22 +15538,23 @@
       "contract_id": "route-decorator-caccf33046ba",
       "declared_path": "/update_media_image/<item_id>",
       "endpoint": "api_update_media_image",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-image-editing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.image_editing_router",
+      "notes": "P5 native FastAPI image replacement route precedes the compatibility mount; reliable effect execution is tracked separately.",
       "path": "/api/update_media_image/<item_id>",
       "retirement_approval": null,
       "source": "routes/media.py:805",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/image-editor"
     },
     {
       "application": "api",
@@ -15784,22 +15793,23 @@
       "contract_id": "route-decorator-1ce3118281d8",
       "declared_path": "/image_proxy/<path:image_path>",
       "endpoint": "proxy_emby_image",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p5-media-image-proxy.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.image_proxy_router",
+      "notes": "P5 native Emby image proxy preserves raw path/query forwarding and legacy placeholder failure semantics.",
       "path": "/image_proxy/<path:image_path>",
       "retirement_approval": null,
       "source": "routes/media.py:244",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media"
+      "validation_method": "pytest-contract-stub-and-openapi",
+      "validation_owner": "media/emby-image-delivery"
     },
     {
       "application": "api",

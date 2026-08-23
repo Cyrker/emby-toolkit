@@ -425,6 +425,7 @@ class JobStoreProtocol(Protocol):
         publisher_id: str,
         limit: int = 100,
         claim_timeout_seconds: float = 60,
+        topics: Sequence[str] | None = None,
     ) -> tuple[OutboxClaim, ...]: ...
 
     def mark_outbox_published(self, event_id: UUID, claim_token: UUID) -> bool: ...
@@ -443,6 +444,7 @@ class JobStoreProtocol(Protocol):
         *,
         limit: int = 100,
         processed_timeout_seconds: float = 300,
+        topics: Sequence[str] | None = None,
     ) -> RecoveryResult: ...
 
     def publish_outbox_batch(
@@ -453,4 +455,5 @@ class JobStoreProtocol(Protocol):
         limit: int = 100,
         claim_timeout_seconds: float = 60,
         failure_backoff_seconds: float = 5,
+        topics: Sequence[str] | None = None,
     ) -> PublishBatchResult: ...

@@ -625,6 +625,7 @@ class SqlAlchemyJobRepository:
         claim_token: UUID,
         limit: int,
         claim_timeout_seconds: float,
+        topics: Sequence[str] | None = None,
     ) -> tuple[OutboxEventRecord, ...]:
         rows = (
             self.session.execute(
@@ -633,11 +634,17 @@ class SqlAlchemyJobRepository:
                 WITH candidates AS (
                     SELECT id
                     FROM outbox_events
-                    WHERE (status = 'pending' AND available_at <= NOW())
-                       OR (
+                    WHERE (
+                        (status = 'pending' AND available_at <= NOW())
+                        OR (
                             status = 'publishing'
                             AND claimed_at < NOW() - make_interval(secs => :claim_timeout_seconds)
-                       )
+                        )
+                    )
+                      AND (
+                        CAST(:topics AS text[]) IS NULL
+                        OR topic = ANY(CAST(:topics AS text[]))
+                      )
                     ORDER BY available_at, created_at
                     LIMIT :limit
                     FOR UPDATE SKIP LOCKED
@@ -656,6 +663,7 @@ class SqlAlchemyJobRepository:
                     "claim_token": claim_token,
                     "claim_timeout_seconds": claim_timeout_seconds,
                     "limit": limit,
+                    "topics": list(topics) if topics is not None else None,
                 },
             )
             .mappings()
@@ -752,7 +760,13 @@ class SqlAlchemyJobRepository:
         ).scalar_one_or_none()
         return result is not None
 
-    def requeue_stale_published(self, *, limit: int, processed_timeout_seconds: float) -> int:
+    def requeue_stale_published(
+        self,
+        *,
+        limit: int,
+        processed_timeout_seconds: float,
+        topics: Sequence[str] | None = None,
+    ) -> int:
         rows = self.session.execute(
             text(
                 """
@@ -761,6 +775,10 @@ class SqlAlchemyJobRepository:
                     FROM outbox_events
                     WHERE status = 'published' AND processed_at IS NULL
                       AND published_at < NOW() - make_interval(secs => :processed_timeout_seconds)
+                      AND (
+                        CAST(:topics AS text[]) IS NULL
+                        OR topic = ANY(CAST(:topics AS text[]))
+                      )
                     ORDER BY published_at, created_at
                     LIMIT :limit
                     FOR UPDATE SKIP LOCKED
@@ -772,7 +790,11 @@ class SqlAlchemyJobRepository:
                 RETURNING event.id
                 """
             ),
-            {"processed_timeout_seconds": processed_timeout_seconds, "limit": limit},
+            {
+                "processed_timeout_seconds": processed_timeout_seconds,
+                "limit": limit,
+                "topics": list(topics) if topics is not None else None,
+            },
         ).all()
         return len(rows)
 

@@ -2859,7 +2859,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/media.py:2047"
+          "source": "tasks/media.py:2058"
         }
       ],
       "contract_id": "setting-e051fdb1e272",
@@ -3115,7 +3115,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/metadata_provider_db.py:776"
+          "source": "database/metadata_provider_db.py:821"
         },
         {
           "operation": "get_setting",
@@ -3250,7 +3250,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/maintenance_db.py:93"
+          "source": "database/maintenance_db.py:98"
         },
         {
           "operation": "get_setting",
@@ -3308,7 +3308,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/maintenance_db.py:96"
+          "source": "database/maintenance_db.py:101"
         },
         {
           "operation": "get_setting",
@@ -3704,11 +3704,11 @@
         },
         {
           "operation": "get_setting",
-          "source": "routes/p115.py:3561"
+          "source": "routes/p115.py:3578"
         },
         {
           "operation": "save_setting",
-          "source": "routes/p115.py:3574"
+          "source": "routes/p115.py:3591"
         }
       ],
       "contract_id": "setting-c04d846dbf0c",
@@ -3733,11 +3733,11 @@
         },
         {
           "operation": "get_setting",
-          "source": "routes/p115.py:3169"
+          "source": "routes/p115.py:3186"
         },
         {
           "operation": "save_setting",
-          "source": "routes/p115.py:3181"
+          "source": "routes/p115.py:3198"
         }
       ],
       "contract_id": "setting-8d2b1199b60e",
@@ -3853,11 +3853,11 @@
         },
         {
           "operation": "get_setting",
-          "source": "routes/p115.py:2807"
+          "source": "routes/p115.py:2824"
         },
         {
           "operation": "save_setting",
-          "source": "routes/p115.py:2842"
+          "source": "routes/p115.py:2859"
         },
         {
           "operation": "get_setting",
@@ -4162,7 +4162,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/media.py:600"
+          "source": "tasks/media.py:603"
         }
       ],
       "contract_id": "setting-209f458f6088",
@@ -4199,7 +4199,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/media.py:601"
+          "source": "tasks/media.py:604"
         }
       ],
       "contract_id": "setting-84df55648a58",
@@ -4494,7 +4494,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/metadata_provider_db.py:785"
+          "source": "database/metadata_provider_db.py:830"
         },
         {
           "operation": "get_setting",
@@ -4526,7 +4526,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/media.py:3047"
+          "source": "tasks/media.py:3084"
         }
       ],
       "contract_id": "setting-6bc8ebb39e01",

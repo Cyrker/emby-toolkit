@@ -14,17 +14,27 @@ if str(REPO_ROOT) not in sys.path:
 from etk.bootstrap.app_factory import create_app  # noqa: E402
 
 DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi.json"
-EXPECTED_PATHS = 42
-EXPECTED_OPERATIONS = 47
+EXPECTED_PATHS = 63
+EXPECTED_OPERATIONS = 70
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
     ("post", "/api/ai/test"),
+    ("post", "/api/actions/translate_cast_sa"),
     ("post", "/api/auth/login"),
     ("post", "/api/auth/reauthorize"),
     ("post", "/api/auth/setup"),
     ("post", "/api/auth/verify_recovery"),
     ("post", "/api/config"),
+    ("post", "/api/emby/events"),
+    ("post", "/api/emby/metadata/backfill/item"),
+    ("post", "/api/emby/metadata/backfill/items"),
+    ("post", "/api/emby/metadata/backfill/library"),
+    ("post", "/api/emby/metadata/images/sync"),
+    ("post", "/api/media_info/chapters/{item_id}"),
+    ("post", "/api/media_info/edit/{item_id}"),
+    ("post", "/api/update_media_image/{item_id}"),
+    ("post", "/api/update_media_cast_sa/{item_id}"),
     ("post", "/api/config/custom_theme"),
     ("post", "/api/proxy/test"),
     ("post", "/api/system/activate_pro"),
@@ -61,10 +71,18 @@ def _validate_schema(schema: dict[str, Any]) -> None:
             raise RuntimeError(f"P4 compatibility operation exposes FastAPI 422 validation: {method} {path}")
     for path, methods in paths.items():
         for method, operation in methods.items():
-            success = operation.get("responses", {}).get("200", {})
+            responses = operation.get("responses", {})
+            success = next(
+                (
+                    response
+                    for status, response in sorted(responses.items())
+                    if str(status).isdigit() and 200 <= int(status) < 300
+                ),
+                {},
+            )
             content = success.get("content", {})
             if not content:
-                raise RuntimeError(f"P4 OpenAPI operation has no 200 content schema: {method} {path}")
+                raise RuntimeError(f"P4 OpenAPI operation has no 2xx content schema: {method} {path}")
             if "application/json" in content and not content["application/json"].get("schema"):
                 raise RuntimeError(f"P4 OpenAPI operation has an empty JSON schema: {method} {path}")
 

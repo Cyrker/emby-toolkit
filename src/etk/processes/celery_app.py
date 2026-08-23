@@ -8,6 +8,7 @@ from kombu import Queue
 from .runtime_config import TaskRuntimeConfig
 
 EXECUTE_JOB_TASK = "etk.jobs.execute"
+EXECUTE_MEDIA_EFFECT_TASK = "etk.media.effects.execute"
 
 
 def create_celery_app(config: TaskRuntimeConfig | None = None) -> Celery:
@@ -43,7 +44,10 @@ def create_celery_app(config: TaskRuntimeConfig | None = None) -> Celery:
         ),
         task_reject_on_worker_lost=True,
         task_publish_retry=False,
-        task_routes={EXECUTE_JOB_TASK: {"queue": runtime.queue_name}},
+        task_routes={
+            EXECUTE_JOB_TASK: {"queue": runtime.queue_name},
+            EXECUTE_MEDIA_EFFECT_TASK: {"queue": runtime.queue_name},
+        },
         task_serializer="json",
         timezone="Asia/Shanghai",
         worker_cancel_long_running_tasks_on_connection_loss=True,
@@ -72,6 +76,25 @@ def create_celery_app(config: TaskRuntimeConfig | None = None) -> Celery:
                 job_id=job_id,
                 attempt_id=attempt_id,
             )
+        except WorkerShutdownRequested as exc:
+            raise Reject(str(exc), requeue=True) from exc
+
+    @app.task(
+        bind=True,
+        name=EXECUTE_MEDIA_EFFECT_TASK,
+        acks_late=True,
+        ignore_result=True,
+        reject_on_worker_lost=True,
+        serializer="json",
+        typing=True,
+    )
+    def execute_media_effect(_task, *, effect_id: str) -> None:
+        from .worker import WorkerShutdownRequested, get_worker_runtime, worker_shutdown_requested
+
+        if worker_shutdown_requested():
+            raise Reject("Worker shutdown is in progress", requeue=True)
+        try:
+            get_worker_runtime().execute_media_effect(effect_id=effect_id)
         except WorkerShutdownRequested as exc:
             raise Reject(str(exc), requeue=True) from exc
 
@@ -109,4 +132,10 @@ def _close_worker_runtime(**_kwargs: object) -> None:
     close_worker_runtime()
 
 
-__all__ = ["EXECUTE_JOB_TASK", "app", "create_celery_app", "get_celery_app"]
+__all__ = [
+    "EXECUTE_JOB_TASK",
+    "EXECUTE_MEDIA_EFFECT_TASK",
+    "app",
+    "create_celery_app",
+    "get_celery_app",
+]

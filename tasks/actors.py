@@ -137,7 +137,7 @@ def task_persons_translation(processor):
     enabled = processor.config.get(constants.CONFIG_OPTION_AI_TRANSLATE_ACTOR_ROLE)
     if not enabled:
         logger.info("  ➜ AI翻译功能未启用，跳过任务。")
-        return
+        return {"status": "skipped", "message": "AI翻译功能未启用。"}
 
     try:
         task_manager.update_status_from_thread(0, "阶段 1/3: 正在扫描 Emby，收集所有待翻译人物...")
@@ -159,7 +159,14 @@ def task_persons_translation(processor):
             if processor.is_stop_requested():
                 logger.info("任务在扫描阶段被用户中断。")
                 task_manager.update_status_from_thread(100, "任务已中止。")
-                return
+                return {
+                    "status": "partial",
+                    "message": "任务在扫描阶段被用户中止。",
+                    "updated": 0,
+                    "failed_updates": 0,
+                    "failed_batches": 0,
+                    "stopped": True,
+                }
 
             for person in person_batch:
                 name = person.get("Name")
@@ -176,7 +183,7 @@ def task_persons_translation(processor):
         if not name_to_persons_map:
             logger.info("  ➜ 扫描完成，没有发现需要翻译的人物名。")
             task_manager.update_status_from_thread(100, "任务完成，所有人物名都无需翻译。")
-            return
+            return {"status": "skipped", "message": "所有人物名都无需翻译。"}
 
         logger.info(f"  ➜ 扫描完成！共发现 {len(name_to_persons_map)} 个外文人物名需要翻译。")
 
@@ -218,6 +225,8 @@ def task_persons_translation(processor):
         total_names = len(all_names_list)
         total_batches = (total_names + batch_size - 1) // batch_size
         total_updated_count = 0
+        failed_update_count = 0
+        failed_batch_count = 0
 
         for i in range(0, total_names, batch_size):
             if processor.is_stop_requested():
@@ -240,10 +249,12 @@ def task_persons_translation(processor):
                 )
             except Exception as e_trans:
                 logger.error(f"翻译批次 {batch_num} 时发生错误: {e_trans}，将跳过此批次。")
+                failed_batch_count += 1
                 continue
 
             if not translation_map:
                 logger.warning(f"翻译批次 {batch_num} 未能返回任何结果。")
+                failed_batch_count += 1
                 continue
 
             update_tasks = []
@@ -287,8 +298,10 @@ def task_persons_translation(processor):
                         if success:
                             batch_updated_count += 1
                         else:
+                            failed_update_count += 1
                             logger.warning(f"    - ➜ [更新失败] Emby API 拒绝更新人物 ID: {task_info[0]} -> '{task_info[1]}'")
                     except Exception as exc:
+                        failed_update_count += 1
                         logger.error(f"    - ➜ [异常] 更新人物 (ID: {task_info[0]}) 时发生错误: {exc}")
 
             total_updated_count += batch_updated_count
@@ -301,10 +314,24 @@ def task_persons_translation(processor):
 
         logger.info(final_message)
         task_manager.update_status_from_thread(100, final_message)
+        stopped = processor.is_stop_requested()
+        if stopped or failed_update_count or failed_batch_count:
+            status = "failed" if not stopped and total_updated_count == 0 else "partial"
+        else:
+            status = "succeeded"
+        return {
+            "status": status,
+            "message": final_message,
+            "updated": total_updated_count,
+            "failed_updates": failed_update_count,
+            "failed_batches": failed_batch_count,
+            "stopped": stopped,
+        }
 
     except Exception as e:
         logger.error(f"执行人物翻译任务时发生严重错误: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"任务失败: {e}")
+        return {"status": "failed", "message": f"人物翻译任务失败: {e}"}
 
 def task_merge_duplicate_actors(processor):
     """

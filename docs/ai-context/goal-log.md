@@ -490,6 +490,108 @@ Next:
 - Implement P5 Media, Metadata, Image, Bridge, and Emby event ownership from the P4 stage commit.
 - Keep all real external-system Live Acceptance pending.
 
+## P5
+
+Status: DONE
+
+Implemented:
+
+- Added native Media repositories, services, routers, compatibility gateways, task routing, and
+  durable Media Effect processing for metadata, images, cast editing, media-info/chapter editing,
+  ItemID binding, final refresh, Bridge ingress/egress, and Emby events. Compatibility execution is
+  explicitly owned and retained only until P11.
+- Added Alembic revision `0003_p5_media_effects` with a transactional Media Effect ledger, claim
+  fencing, terminal/retry states, request hashes, durable Outbox publication, and PostgreSQL
+  constraints/indexes.
+- Kept P5/P6 ownership honest: P5 owns the 10 `/api/emby/*` inbound operations and six
+  ETKMediaInfo outbound operations; the 14 PickCode/SHA1 `/api/p115/mediainfo/*` operations remain
+  legacy-owned with `target_stage=P6`.
+- Recorded per-event ownership for all 13 Emby events. `metadata.update` and `image.update` use
+  durable P5 envelopes with legacy business delivery; the other 11 events remain explicit P7/P9
+  compatibility execution.
+- Recorded both actual `backfill-media-metadata` callables: the full-scan default and the targeted
+  batch path. All six P5 task keys have native envelopes, explicit legacy execution owners, and P11
+  retirement metadata.
+- Hardened final refresh, MediaInfo, and Chapters effects against Emby authorization drift. The
+  normalized URL/User ID/token-hash revision participates in effect identity, is checked before
+  delivery and again before the concrete HTTP request, and never persists the source credentials.
+
+Contract and static evidence:
+
+- Bridge Golden Master schema v2 executes an isolated P4 Flask/AST legacy baseline and the native
+  FastAPI/httpx implementations against frozen fixtures: 10 inbound and six outbound contracts.
+  All six outbound methods accept the complete `2XX` class and preserve a tested `204` response.
+- Generated manifests remain clean at 126 legacy Python files, 55 Vue files, 22 Blueprints,
+  343 route decorators, 367 method bindings, 50 task keys, and 39 legacy tables. OpenAPI is clean at
+  63 paths / 70 operations, including 10 Bridge paths.
+- Scoped Ruff check/format, Pyright, legacy touched-file F821, Python compileall, legacy embedded
+  unittest (66 tests), fixture secret scan, and `git diff --check` passed. The existing repository-wide
+  import-order/type-check baseline outside touched scope was not reformatted or broadened into P5.
+
+Runtime and integration evidence:
+
+- Default full verification: 621 passed, 106 skipped, one expected Starlette WSGI deprecation
+  warning. The skipped tests require explicit PostgreSQL/Redis/Celery integration flags and were
+  run separately where applicable.
+- PostgreSQL 18 P5 integration: 36 passed. Combined P3/P4/P5/platform PostgreSQL suite: 109 passed,
+  nine Redis/Celery-only skips. Real local PostgreSQL 18 + Redis + Celery regression: 62 passed.
+- The P5 image `etk-p5-mainline:local` was rebuilt as arm64 with digest
+  `sha256:ebb3e2f429f20a08a31abb77d08396d9579ca3c70bd2dc8aa9d792780ab38c58`.
+  Network-disabled image smoke confirmed 50 task definitions, 63 OpenAPI paths / 70 operations,
+  10 Bridge paths, `main.py` present, and `web_app.py`/PyArmor absent.
+- Disposable Compose project `etk-p5-gf-0824b` ran PostgreSQL 18.6, Redis 7, API, Worker,
+  Coordinator, and control-plane on an internal network with schedules disabled. All six resident
+  services were healthy; Worker registered `etk.jobs.execute` and `etk.media.effects.execute`.
+- The apparent missing `alembic_version` was a probe error, not schema loss: Alembic intentionally
+  stores its ledger in `etk_migrations.alembic_version`. The qualified query returned
+  `0003_p5_media_effects`; `public` contained exactly 44 tables (39 compatibility + four P4 +
+  `media_effects`). API health and OpenAPI passed from inside the internal network.
+- Empty-environment HTTP smoke preserved the native 400 envelopes for invalid metadata, image
+  refresh/search, image proxy, and plugin-event requests; an unknown Bridge event returned the
+  compatible 200 ignore envelope. Plugin-update returned the expected fail-closed 502 while the
+  network was intentionally internal; its 200 binary contract is covered only by the local Stub
+  Golden Master and remains Live Acceptance pending.
+- `docker compose down -v --remove-orphans` removed all project containers, the internal network,
+  four named volumes, and the migrate image's anonymous `/config` volume. Follow-up Docker filters
+  returned no residual project objects.
+
+Recorded limitations:
+
+- Starlette WSGI compatibility remains until P11. The Celery image still reports the known root-user
+  warning and the compatibility dependency `iterdir` reports Python 3.12 syntax warnings.
+- Fake/Stub and isolated Compose evidence is not real Emby, Bridge, 115, MoviePilot, shared-center,
+  Telegram, HDHive, or production acceptance. No old `/config`, credential, production database,
+  webhook, scheduler write, push, release, or deployment was used.
+- The local stage commit title is `refactor(p5): migrate media and bridge`; its SHA is recorded by
+  Git history rather than amended back into this same commit.
+
+Primary verification commands:
+
+```text
+python3 scripts/refactor/export_manifests.py
+python3 scripts/refactor/check_manifests.py
+uv run python scripts/refactor/export_openapi.py
+uv run python scripts/refactor/export_openapi.py --check
+uv run pytest -p no:cacheprovider verification -q
+ETK_RUN_POSTGRES_INTEGRATION=1 uv run pytest -p no:cacheprovider verification/integration/p5 -q
+ETK_RUN_POSTGRES_INTEGRATION=1 uv run pytest -p no:cacheprovider verification/integration/p3 verification/integration/p4 verification/integration/p5 verification/integration/platform -q
+ETK_RUN_POSTGRES_INTEGRATION=1 ETK_RUN_CELERY_REDIS_INTEGRATION=1 uv run pytest -p no:cacheprovider verification/integration/p4 verification/integration/p5 -q
+uv run ruff check <P5 scoped files>
+uv run ruff format --check <P5 scoped files>
+uv run pyright <P5 scoped files>
+uv run python scripts/refactor/scan_fixture_secrets.py verification/fixtures
+docker build -f Dockerfile.refactor -t etk-p5-mainline:local .
+docker compose -p etk-p5-gf-0824b -f docker/compose.refactor.yml up -d
+docker compose -p etk-p5-gf-0824b -f docker/compose.refactor.yml down -v --remove-orphans
+git diff --check
+```
+
+Next:
+
+- Implement P6 in its documented sub-slice order, beginning with 115 authentication and read-only
+  directory browsing. Keep every external write behind Fake/Stub adapters and keep Live Acceptance
+  pending.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -509,4 +611,4 @@ Read first:
 
 Next:
 
-- Continue P4 from the P3 stage commit. Keep all Live Acceptance items pending.
+- Continue P6 from the P5 stage commit. Keep all Live Acceptance items pending.

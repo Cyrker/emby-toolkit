@@ -6,11 +6,11 @@
       "direction": "inbound",
       "endpoint": "get_emby_metadata_by_path",
       "fixtures": [
-        "verification/fixtures/http/bridge-metadata.json",
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/api/emby/metadata",
       "redactions": [
         "Authorization",
@@ -36,10 +36,10 @@
         404
       ],
       "source": "routes/webhook.py:1923",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -48,10 +48,11 @@
       "direction": "inbound",
       "endpoint": "search_emby_metadata_images",
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/api/emby/metadata/images/search",
       "redactions": [
         "Authorization",
@@ -66,6 +67,8 @@
         "query.path?",
         "query.tmdb_id?",
         "query.item_type",
+        "query.season_number?",
+        "query.episode_number?",
         "query.include_all_languages?"
       ],
       "response_content_types": [
@@ -79,10 +82,10 @@
         503
       ],
       "source": "routes/webhook.py:2416",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -91,10 +94,11 @@
       "direction": "inbound",
       "endpoint": "proxy_emby_plugin_update",
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/api/emby/plugin-update",
       "redactions": [
         "Authorization",
@@ -115,10 +119,10 @@
         502
       ],
       "source": "routes/webhook.py:1882",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -158,7 +162,7 @@
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -199,7 +203,7 @@
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -239,7 +243,7 @@
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -280,7 +284,7 @@
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -288,11 +292,105 @@
       "contract_id": "bridge-inbound-a895f0e25386",
       "direction": "inbound",
       "endpoint": "emby_webhook",
+      "event_ownership": [
+        {
+          "event": "metadata.update",
+          "execution_kind": "durable-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P5",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "image.update",
+          "execution_kind": "durable-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P5",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "user.policyupdated",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "item.markfavorite",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "item.unmarkfavorite",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "item.markplayed",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "item.markunplayed",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "item.rate",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "playback.start",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "playback.pause",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "playback.stop",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "playback.halfway",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        },
+        {
+          "event": "collection.items.removed",
+          "execution_kind": "future-domain-legacy-compatibility",
+          "execution_owner": "routes.webhook.emby_webhook",
+          "target_stage": "P7/P9",
+          "transport_owner": "etk.domains.media.router"
+        }
+      ],
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 owns the Emby event ingress, reservation, and dispatch transport. Only metadata.update and image.update belong to P5; eleven P7/P9 business handlers remain future-domain compatibility until their stages, and live acceptance remains human pending.",
       "path": "/api/emby/events",
       "redactions": [
         "Authorization",
@@ -318,11 +416,11 @@
         503
       ],
       "source": "routes/webhook.py:2551",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
-      "validation_owner": "media/bridge"
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
+      "validation_owner": "media/bridge-transport"
     },
     {
       "auth": "none",
@@ -330,10 +428,11 @@
       "direction": "inbound",
       "endpoint": "trigger_emby_metadata_backfill",
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/api/emby/metadata/backfill",
       "redactions": [
         "Authorization",
@@ -354,10 +453,10 @@
         409
       ],
       "source": "routes/webhook.py:1993",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -366,10 +465,11 @@
       "direction": "inbound",
       "endpoint": "trigger_emby_item_metadata_backfill",
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/api/emby/metadata/backfill/item",
       "redactions": [
         "Authorization",
@@ -393,10 +493,10 @@
         409
       ],
       "source": "routes/webhook.py:2136",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -405,10 +505,11 @@
       "direction": "inbound",
       "endpoint": "trigger_emby_items_metadata_backfill",
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/api/emby/metadata/backfill/items",
       "redactions": [
         "Authorization",
@@ -432,10 +533,10 @@
         409
       ],
       "source": "routes/webhook.py:2144",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -444,10 +545,11 @@
       "direction": "inbound",
       "endpoint": "trigger_emby_library_metadata_backfill",
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/api/emby/metadata/backfill/library",
       "redactions": [
         "Authorization",
@@ -472,10 +574,10 @@
         409
       ],
       "source": "routes/webhook.py:2155",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -484,10 +586,11 @@
       "direction": "inbound",
       "endpoint": "refresh_emby_metadata_images",
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/api/emby/metadata/images/refresh",
       "redactions": [
         "Authorization",
@@ -517,10 +620,10 @@
         503
       ],
       "source": "routes/webhook.py:2222",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -529,10 +632,11 @@
       "direction": "inbound",
       "endpoint": "sync_emby_metadata_images",
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/api/emby/metadata/images/sync",
       "redactions": [
         "Authorization",
@@ -547,6 +651,8 @@
         "query.path?",
         "query.tmdb_id?",
         "query.item_type",
+        "query.season_number?",
+        "query.episode_number?",
         "body.rules[]",
         "body.force?"
       ],
@@ -561,10 +667,10 @@
         502
       ],
       "source": "routes/webhook.py:2481",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -600,11 +706,11 @@
         404,
         410
       ],
-      "source": "routes/p115.py:2641",
+      "source": "routes/p115.py:2658",
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -642,11 +748,11 @@
         404,
         409
       ],
-      "source": "routes/p115.py:2628",
+      "source": "routes/p115.py:2645",
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -680,11 +786,11 @@
         200,
         404
       ],
-      "source": "routes/p115.py:2411",
+      "source": "routes/p115.py:2414",
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -717,13 +823,14 @@
       "response_statuses": [
         200,
         404,
-        409
+        409,
+        503
       ],
-      "source": "routes/p115.py:2424",
+      "source": "routes/p115.py:2427",
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -762,7 +869,7 @@
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -798,11 +905,11 @@
         404,
         410
       ],
-      "source": "routes/p115.py:2649",
+      "source": "routes/p115.py:2666",
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -840,11 +947,11 @@
         404,
         409
       ],
-      "source": "routes/p115.py:2636",
+      "source": "routes/p115.py:2653",
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -878,11 +985,11 @@
         200,
         404
       ],
-      "source": "routes/p115.py:2419",
+      "source": "routes/p115.py:2422",
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -915,13 +1022,14 @@
       "response_statuses": [
         200,
         404,
-        409
+        409,
+        503
       ],
-      "source": "routes/p115.py:2432",
+      "source": "routes/p115.py:2435",
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -960,7 +1068,7 @@
       "status": "legacy",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "golden-master-and-stub-contract",
+      "validation_method": "source-contract-and-validation-fixture",
       "validation_owner": "p115/bridge"
     },
     {
@@ -968,10 +1076,11 @@
       "contract_id": "bridge-outbound-bd603f7ded88",
       "direction": "outbound",
       "fixtures": [
-        "verification/fixtures/stubs/external-services.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/ETKMediaInfo/Origin",
       "redactions": [
         "query.api_key",
@@ -989,13 +1098,13 @@
         "Configured|configured"
       ],
       "response_statuses": [
-        200
+        "2XX"
       ],
       "source": "handler/emby.py:106",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -1003,10 +1112,11 @@
       "contract_id": "bridge-outbound-cba147d1ffa7",
       "direction": "outbound",
       "fixtures": [
-        "verification/fixtures/stubs/external-services.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/ETKMediaInfo/DiscoveryUrl",
       "redactions": [
         "query.api_key",
@@ -1024,13 +1134,13 @@
         "Configured|configured"
       ],
       "response_statuses": [
-        200
+        "2XX"
       ],
       "source": "handler/emby.py:128",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -1038,10 +1148,11 @@
       "contract_id": "bridge-outbound-25c06ef77764",
       "direction": "outbound",
       "fixtures": [
-        "verification/fixtures/stubs/external-services.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/Items/{item_id}/ETKMediaInfo",
       "redactions": [
         "query.api_key",
@@ -1061,13 +1172,13 @@
         "PreservedExternalStreamCount?"
       ],
       "response_statuses": [
-        200
+        "2XX"
       ],
       "source": "handler/emby.py:180",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -1075,10 +1186,11 @@
       "contract_id": "bridge-outbound-c7a91deffe62",
       "direction": "outbound",
       "fixtures": [
-        "verification/fixtures/stubs/external-services.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/Items/{item_id}/ETKMediaInfo/Intro",
       "redactions": [
         "query.api_key",
@@ -1094,13 +1206,13 @@
       ],
       "response_fields": [],
       "response_statuses": [
-        200
+        "2XX"
       ],
       "source": "handler/emby.py:240",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -1108,10 +1220,11 @@
       "contract_id": "bridge-outbound-98d57e7098ff",
       "direction": "outbound",
       "fixtures": [
-        "verification/fixtures/stubs/external-services.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/Items/{item_id}/ETKMediaInfo/Credits",
       "redactions": [
         "query.api_key",
@@ -1126,13 +1239,13 @@
       ],
       "response_fields": [],
       "response_statuses": [
-        200
+        "2XX"
       ],
       "source": "handler/emby.py:286",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     },
     {
@@ -1140,10 +1253,11 @@
       "contract_id": "bridge-outbound-ba258edf5155",
       "direction": "outbound",
       "fixtures": [
-        "verification/fixtures/stubs/external-services.json"
+        "verification/fixtures/http/p5-media-bridge.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+      "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
       "path": "/Items/{item_id}/ETKMediaInfo/Chapters",
       "redactions": [
         "query.api_key",
@@ -1159,20 +1273,21 @@
       ],
       "response_fields": [],
       "response_statuses": [
-        200
+        "2XX"
       ],
       "source": "handler/emby.py:329",
-      "status": "legacy",
+      "status": "new",
       "target_stage": "P5",
       "transport": "http",
-      "validation_method": "stub-contract",
+      "validation_method": "pytest-golden-and-httpx-stub-contract",
       "validation_owner": "media/bridge"
     }
   ],
   "generator": "scripts/refactor/export_bridge_contracts.py",
   "limitations": [
     "The Bridge DLL source is not part of this repository; outbound response schemas cover only fields consumed by ETK.",
-    "Success payloads that depend on database or external adapters require sanitized fixtures and local stubs."
+    "Success payloads that depend on database or external adapters require sanitized fixtures and local stubs.",
+    "The fourteen PickCode/SHA1 P115 inbound operations remain a P6 gate and are not part of P5 native ownership."
   ],
   "metrics": {
     "outbound_bridge_contract_count": 6,
@@ -1184,5 +1299,19 @@
     "routes/webhook.py",
     "routes/p115.py",
     "handler/emby.py"
-  ]
+  ],
+  "stage_boundary": {
+    "compatibility_rule": "P5 must not mark the fourteen P115 operations new or claim them locally accepted",
+    "decision": "split-central-media-and-p115-transport",
+    "p5_owned": {
+      "inbound_contracts": "the ten /api/emby/* operations",
+      "invariants": "media identity, metadata, image, event transport, durable refresh, and deep-delete receipts",
+      "outbound_contracts": "the six ETKMediaInfo Bridge write operations"
+    },
+    "p6_deferred": {
+      "acceptance": "P6 must provide native HTTP ownership and legacy-vs-native differential evidence",
+      "inbound_contracts": "the fourteen PickCode/SHA1 /api/p115/mediainfo/* operations",
+      "reason": "the approved route ownership table assigns routes/p115.py and P115 business execution to P6"
+    }
+  }
 }

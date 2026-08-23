@@ -605,10 +605,12 @@ class PostgresJobStore:
         publisher_id: str,
         limit: int = 100,
         claim_timeout_seconds: float = 60,
+        topics: Sequence[str] | None = None,
     ) -> tuple[OutboxClaim, ...]:
         publisher_id = _nonempty(publisher_id, "publisher_id")
         _positive_integer(limit, "limit")
         _positive(claim_timeout_seconds, "claim_timeout_seconds")
+        normalized_topics = _normalized_topics(topics)
         claim_token = uuid4()
         with self._uow_factory() as uow:
             events = SqlAlchemyJobRepository(uow.session).claim_outbox(
@@ -616,6 +618,7 @@ class PostgresJobStore:
                 claim_token=claim_token,
                 limit=limit,
                 claim_timeout_seconds=claim_timeout_seconds,
+                topics=normalized_topics,
             )
             claims = tuple(OutboxClaim(event=event, claim_token=claim_token) for event in events)
             uow.commit()
@@ -663,13 +666,16 @@ class PostgresJobStore:
         *,
         limit: int = 100,
         processed_timeout_seconds: float = 300,
+        topics: Sequence[str] | None = None,
     ) -> RecoveryResult:
         _positive_integer(limit, "limit")
         _positive(processed_timeout_seconds, "processed_timeout_seconds")
+        normalized_topics = _normalized_topics(topics)
         with self._uow_factory() as uow:
             count = SqlAlchemyJobRepository(uow.session).requeue_stale_published(
                 limit=limit,
                 processed_timeout_seconds=processed_timeout_seconds,
+                topics=normalized_topics,
             )
             uow.commit()
             return RecoveryResult(requeued_events=count)
@@ -682,11 +688,13 @@ class PostgresJobStore:
         limit: int = 100,
         claim_timeout_seconds: float = 60,
         failure_backoff_seconds: float = 5,
+        topics: Sequence[str] | None = None,
     ) -> PublishBatchResult:
         claims = self.claim_outbox(
             publisher_id=publisher_id,
             limit=limit,
             claim_timeout_seconds=claim_timeout_seconds,
+            topics=topics,
         )
         published = failed = dead = 0
         # claim_outbox committed before this loop. No broker call occurs inside a DB UoW.
@@ -848,6 +856,14 @@ def _positive(value: float, field: str) -> None:
 def _positive_integer(value: int, field: str) -> None:
     if value < 1:
         raise ValueError(f"{field} must be positive")
+
+
+def _normalized_topics(topics: Sequence[str] | None) -> tuple[str, ...] | None:
+    if topics is None:
+        return None
+    if isinstance(topics, (str, bytes)):
+        raise ValueError("topics must be a sequence of topic names")
+    return tuple(dict.fromkeys(_nonempty(topic, "topic") for topic in topics))
 
 
 def _is_idempotency_unique_violation(exc: IntegrityError) -> bool:

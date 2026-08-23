@@ -26,6 +26,31 @@ from etk.domains.identity import (
     SqlAlchemyIdentityRepository,
 )
 from etk.domains.identity.router import router as identity_router
+from etk.domains.media.bridge_client import HttpxEmbyBridgeClient, HttpxPluginUpdateGateway
+from etk.domains.media.cast_editor import MediaCastEditorService
+from etk.domains.media.cast_editor_compatibility import LegacyMediaCastEditorGateway
+from etk.domains.media.cast_editor_router import router as media_cast_editor_router
+from etk.domains.media.compatibility import (
+    LegacyFutureDomainEventGateway,
+    LegacyMediaImageGateway,
+    LegacyMediaMappingDefaults,
+    LegacyMediaRuntimeGateway,
+    LegacyP5MediaEventGateway,
+)
+from etk.domains.media.editing import MediaEditingService
+from etk.domains.media.editing_effects import PersistentMediaInfoCommandGateway
+from etk.domains.media.editing_router import router as media_editing_router
+from etk.domains.media.event_effects import PersistentP5MediaEventGateway
+from etk.domains.media.image_editing import MediaImageEditingService
+from etk.domains.media.image_editing_compatibility import LegacyMediaImageEditingGateway
+from etk.domains.media.image_editing_effects import PersistentMediaImageEditingGateway
+from etk.domains.media.image_editing_router import router as media_image_editing_router
+from etk.domains.media.image_proxy import MediaImageProxyService
+from etk.domains.media.image_proxy_compatibility import LegacyMediaImageProxyGateway
+from etk.domains.media.image_proxy_router import router as media_image_proxy_router
+from etk.domains.media.repository import SqlAlchemyMediaRepository
+from etk.domains.media.router import router as media_router
+from etk.domains.media.service import MediaService
 from etk.domains.operations.database import DatabaseReadService, SqlAlchemyDatabaseReadRepository
 from etk.domains.operations.database_router import router as database_read_router
 from etk.domains.operations.job_router import router as job_router
@@ -152,6 +177,8 @@ def create_app(
             configuration_synchronizer=configuration_synchronizer,
         )
     )
+    if owns_container:
+        _register_media_providers(app_container, compatibility_app)
     app.state.runtime_supervisor = runtime
     app.state.container = app_container
     app.state.config_adapter = config_adapter
@@ -190,6 +217,11 @@ def create_app(
     app.include_router(configuration_router)
     app.include_router(standalone_settings_router)
     app.include_router(system_integration_router)
+    app.include_router(media_router)
+    app.include_router(media_editing_router)
+    app.include_router(media_image_editing_router)
+    app.include_router(media_cast_editor_router)
+    app.include_router(media_image_proxy_router)
 
     @app.get("/api/health", include_in_schema=False)
     def health() -> Any:
@@ -351,6 +383,112 @@ def _register_system_providers(
             settings=lambda: current.settings,
             repository=current.repository("app-settings"),
             gateway=current.client("system-integrations"),
+        ),
+    )
+
+
+def _register_media_providers(
+    container: AppContainer,
+    compatibility_app: LazyCompatibilityApplication,
+) -> None:
+    container.register_repository(
+        "media",
+        lambda current: SqlAlchemyMediaRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_client(
+        "media-images",
+        lambda current: LegacyMediaImageGateway(lambda: current.settings),
+    )
+    container.register_client(
+        "media-p5-events-legacy",
+        lambda _: LegacyP5MediaEventGateway(compatibility_app),
+    )
+    container.register_client(
+        "media-p5-events",
+        lambda current: PersistentP5MediaEventGateway(
+            lambda: current.database.unit_of_work(),
+            current.client("media-p5-events-legacy"),
+            lease_seconds=lambda: max(float(current.settings.emby_api_timeout) + 30, 90),
+        ),
+    )
+    container.register_client(
+        "media-future-events",
+        lambda _: LegacyFutureDomainEventGateway(compatibility_app),
+    )
+    container.register_client(
+        "media-mapping-defaults",
+        lambda _: LegacyMediaMappingDefaults(),
+    )
+    container.register_client(
+        "media-runtime",
+        lambda _: LegacyMediaRuntimeGateway(),
+    )
+    container.register_client(
+        "media-image-editing-legacy",
+        lambda _: LegacyMediaImageEditingGateway(),
+    )
+    container.register_client(
+        "media-image-editing",
+        lambda current: PersistentMediaImageEditingGateway(
+            lambda: current.database.unit_of_work(),
+            current.client("media-image-editing-legacy"),
+            lease_seconds=lambda: max(float(current.settings.emby_api_timeout) + 30, 90),
+        ),
+    )
+    container.register_client(
+        "media-cast-editor",
+        lambda _: LegacyMediaCastEditorGateway(),
+    )
+    container.register_client(
+        "media-image-proxy",
+        lambda _: LegacyMediaImageProxyGateway(),
+    )
+    container.register_client(
+        "media-plugin-updates",
+        lambda current: HttpxPluginUpdateGateway(lambda: current.settings),
+    )
+    container.register_client(
+        "media-emby-bridge",
+        lambda current: HttpxEmbyBridgeClient(lambda: current.settings),
+    )
+    container.register_use_case(
+        "media",
+        lambda current: MediaService(
+            repository=current.repository("media"),
+            settings=lambda: current.settings,
+            jobs=current.use_case("operations.jobs"),
+            images=current.client("media-images"),
+            p5_events=current.client("media-p5-events"),
+            future_events=current.client("media-future-events"),
+            defaults=current.client("media-mapping-defaults"),
+        ),
+    )
+    container.register_use_case(
+        "media.editing",
+        lambda current: MediaEditingService(
+            current.repository("media"),
+            processor_ready=current.client("media-runtime").processor_ready,
+            commands=PersistentMediaInfoCommandGateway(
+                lambda: current.database.unit_of_work(),
+                current.client("media-emby-bridge"),
+                lease_seconds=lambda: max(float(current.settings.emby_api_timeout) + 30, 90),
+            ),
+        ),
+    )
+    container.register_use_case(
+        "media.cast-editor",
+        lambda current: MediaCastEditorService(current.client("media-cast-editor")),
+    )
+    container.register_use_case(
+        "media.image-proxy",
+        lambda current: MediaImageProxyService(current.client("media-image-proxy")),
+    )
+    container.register_use_case(
+        "media.image-editing",
+        lambda current: MediaImageEditingService(
+            current.client("media-image-editing"),
         ),
     )
 

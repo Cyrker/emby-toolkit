@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Event, Thread
+from types import SimpleNamespace
 from typing import Any, cast
 from uuid import UUID
 
@@ -16,13 +17,14 @@ from celery.exceptions import Reject
 
 from etk.bootstrap.runtime_supervisor import RuntimeRole
 from etk.domains.operations.jobs import JobSubmissionService
-from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus
+from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus, PublishBatchResult
 from etk.processes import coordinator
 from etk.processes import worker as worker_module
 from etk.processes.celery_app import EXECUTE_JOB_TASK, create_celery_app
 from etk.processes.coordinator import (
     CeleryOutboxPublisher,
     CoordinatorLeadership,
+    CoordinatorRuntime,
     PersistentScheduleManager,
 )
 from etk.processes.runtime_config import TaskRuntimeConfig
@@ -141,6 +143,29 @@ class FakeScheduler:
 
     def add_job(self, function: Any, *, trigger: Any, **options: Any) -> None:
         self.jobs.append({"function": function, "trigger": trigger, **options})
+
+
+class RecordingCoordinatorStore:
+    def __init__(self) -> None:
+        self.enqueue_options: dict[str, Any] | None = None
+        self.recover_options: dict[str, Any] | None = None
+        self.requeue_options: dict[str, Any] | None = None
+        self.publish_options: dict[str, Any] | None = None
+        self.publisher: Any = None
+
+    def enqueue_due_retries(self, **options: Any) -> None:
+        self.enqueue_options = options
+
+    def recover_stale_attempts(self, **options: Any) -> None:
+        self.recover_options = options
+
+    def requeue_stale_published(self, **options: Any) -> None:
+        self.requeue_options = options
+
+    def publish_outbox_batch(self, publisher: Any, **options: Any) -> PublishBatchResult:
+        self.publisher = publisher
+        self.publish_options = options
+        return PublishBatchResult(claimed=0, published=0, failed=0, dead=0)
 
 
 def _clean_runtime_environment(monkeypatch) -> None:
@@ -357,6 +382,49 @@ def test_worker_startup_shutdown_race_does_not_claim_a_delivery(monkeypatch) -> 
     assert runtime._store is None
 
 
+def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
+    import task_manager
+    from etk.compatibility import background
+
+    events: list[str] = []
+    database = SimpleNamespace(unit_of_work=lambda: None, raw_pool=object())
+    container = SimpleNamespace(
+        database=database,
+        settings=SimpleNamespace(to_runtime_dict=lambda: {}),
+        close=lambda: events.append("container.close"),
+    )
+    config_adapter = SimpleNamespace(load=lambda: SimpleNamespace(emby_api_timeout=30))
+
+    class Supervisor:
+        def start(self, *, role: RuntimeRole, background: bool) -> None:
+            assert role is RuntimeRole.WORKER
+            assert background is False
+            events.append("supervisor.start")
+
+        def stop(self) -> None:
+            events.append("supervisor.stop")
+
+    task_manager.clear_persistent_submission_gateway()
+    monkeypatch.setattr(worker_module, "_create_default_container", lambda _settings: (container, config_adapter))
+    monkeypatch.setattr(worker_module, "RuntimeSupervisor", Supervisor)
+
+    def fail_background_install(_gateway: object) -> None:
+        raise RuntimeError("fixture background install failed")
+
+    monkeypatch.setattr(
+        background,
+        "install_persistent_background_gateway",
+        fail_background_install,
+    )
+    runtime = WorkerRuntime(config=TaskRuntimeConfig())
+
+    with pytest.raises(RuntimeError, match="fixture background install failed"):
+        runtime.start()
+
+    assert task_manager._persistent_gateway is None
+    assert events == ["supervisor.start", "supervisor.stop", "container.close"]
+
+
 def test_celery_rejects_and_requeues_delivery_after_sticky_shutdown(monkeypatch) -> None:
     monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", True)
     task = create_celery_app(TaskRuntimeConfig()).tasks[EXECUTE_JOB_TASK]
@@ -540,7 +608,54 @@ def test_outbox_publisher_uses_attempt_id_as_deterministic_celery_task_id(monkey
         )
     ]
 
+    media_claim = _claim()
+    media_claim = replace(
+        media_claim,
+        event=replace(
+            media_claim.event,
+            topic="media.effect.requested",
+            aggregate_type="media_effect",
+        ),
+    )
+    with pytest.raises(ValueError, match="only supports job.dispatch.requested"):
+        publisher.publish(media_claim)
+
     incomplete = _claim()
     incomplete = replace(incomplete, event=replace(incomplete.event, payload={"event_id": str(EVENT_ID)}))
     with pytest.raises(ValueError, match="payload is incomplete"):
         publisher.publish(incomplete)
+
+    assert len(fake_app.calls) == 1
+
+
+def test_coordinator_tick_filters_recovery_and_publish_to_job_dispatch_topic(monkeypatch) -> None:
+    store = RecordingCoordinatorStore()
+    runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
+    runtime.config = TaskRuntimeConfig(
+        lease_seconds=30,
+        outbox_batch_size=7,
+        outbox_claim_timeout_seconds=11,
+    )
+    runtime._store = cast(Any, store)
+    runtime._publisher = cast(Any, object())
+    runtime._publisher_id = "fixture-coordinator"
+    monkeypatch.setattr(runtime, "_refresh_settings", lambda: None)
+    monkeypatch.setattr(runtime, "_process_telegram_commands", lambda: None)
+
+    runtime._tick()
+
+    assert store.enqueue_options == {"limit": 7}
+    assert store.recover_options == {"limit": 7, "retry_delay_seconds": 1}
+    assert store.requeue_options == {
+        "limit": 7,
+        "processed_timeout_seconds": 60,
+        "topics": ("job.dispatch.requested",),
+    }
+    assert store.publish_options == {
+        "publisher_id": "fixture-coordinator",
+        "limit": 7,
+        "claim_timeout_seconds": 11,
+        "failure_backoff_seconds": 2,
+        "topics": ("job.dispatch.requested",),
+    }
+    assert store.publisher is runtime._publisher

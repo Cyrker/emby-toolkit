@@ -1,6 +1,167 @@
 {
   "contracts": {
-    "bridge_contracts": {},
+    "bridge_contracts": {
+      "bridge-inbound-03911a60ddcd": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-inbound-1a2af69cb62d": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-inbound-2183b9cf5188": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-inbound-2cd416352e06": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-inbound-4415d220d7fb": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-inbound-a055537ee82c": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-inbound-a895f0e25386": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 owns the Emby event ingress, reservation, and dispatch transport. Only metadata.update and image.update belong to P5; eleven P7/P9 business handlers remain future-domain compatibility until their stages, and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge-transport"
+      },
+      "bridge-inbound-aba6a1c7b78d": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-inbound-b11b6364834b": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-inbound-ef191d723860": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-outbound-25c06ef77764": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-outbound-98d57e7098ff": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-outbound-ba258edf5155": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-outbound-bd603f7ded88": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-outbound-c7a91deffe62": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      },
+      "bridge-outbound-cba147d1ffa7": {
+        "fixtures": [
+          "verification/fixtures/http/p5-media-bridge.json"
+        ],
+        "new_owner": "etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+        "notes": "P5 native contract owner; explicit compatibility adapters remain until P11 and live acceptance remains human pending.",
+        "status": "new",
+        "validation_method": "pytest-golden-and-httpx-stub-contract",
+        "validation_owner": "media/bridge"
+      }
+    },
     "configs": {},
     "frontend_routes": {},
     "route_bindings": {
@@ -12,6 +173,33 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "operations/runtime"
+      },
+      "route-binding-0100c1c3fd9b": {
+        "fixture": "verification/fixtures/http/p5-media-image-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.image_editing_router",
+        "notes": "P5 native FastAPI image replacement route precedes the compatibility mount; reliable effect execution is tracked separately.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/image-editor"
+      },
+      "route-binding-05bc56fc490f": {
+        "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.cast_editor_router",
+        "notes": "P5 native cast editor read route preserves admin and processor guards before the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/cast-editor"
+      },
+      "route-binding-07239166c2d4": {
+        "fixture": "verification/fixtures/http/p5-media-image-proxy.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.image_proxy_router",
+        "notes": "P5 native image cache and external proxy route preserves cache, placeholder, streaming, and conditional response contracts.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/image-delivery"
       },
       "route-binding-09faea0abcf6": {
         "fixture": "verification/fixtures/http/system-standalone-routes.json",
@@ -67,6 +255,15 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/configuration"
       },
+      "route-binding-1e1977236b17": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
       "route-binding-2628700cdebd": {
         "fixture": "verification/fixtures/http/system-standalone-routes.json",
         "fixture_exception": null,
@@ -75,6 +272,24 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/configuration"
+      },
+      "route-binding-33822587fb1f": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
+      "route-binding-38dcdbb1ebb8": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
       },
       "route-binding-39158df111e3": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
@@ -85,6 +300,33 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/integrations"
       },
+      "route-binding-39f115f0d2a7": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
+      "route-binding-3e7778fd04c4": {
+        "fixture": "verification/fixtures/http/p5-media-image-proxy.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.image_proxy_router",
+        "notes": "P5 native Emby image proxy preserves raw path/query forwarding and legacy placeholder failure semantics.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/emby-image-delivery"
+      },
+      "route-binding-40164b6552f6": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
       "route-binding-43a1e02a6ef2": {
         "fixture": "verification/fixtures/http/system-runtime-routes.json",
         "fixture_exception": null,
@@ -93,6 +335,24 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "operations/system-runtime"
+      },
+      "route-binding-4713be4110b4": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
+      "route-binding-511b4fa1a209": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
       },
       "route-binding-528e1577252b": {
         "fixture": "verification/fixtures/http/log-routes.json",
@@ -166,6 +426,15 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "operations/database"
       },
+      "route-binding-7b8d3990697e": {
+        "fixture": "verification/fixtures/http/p5-media-image-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.image_editing_router",
+        "notes": "P5 native FastAPI TMDb image candidate route precedes the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/image-editor"
+      },
       "route-binding-879d64d69d3b": {
         "fixture": "verification/fixtures/http/identity-routes.json",
         "fixture_exception": null,
@@ -202,6 +471,15 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/configuration"
       },
+      "route-binding-9a2f94a14502": {
+        "fixture": "verification/fixtures/http/p5-media-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.editing_router",
+        "notes": "P5 native MediaInfo write atomically persists the aligned cache and durable Bridge effect before the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-postgres18-effect-ledger-and-openapi",
+        "validation_owner": "media/mediainfo-editor"
+      },
       "route-binding-a18c62eea6ee": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
         "fixture_exception": null,
@@ -210,6 +488,33 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/integrations"
+      },
+      "route-binding-a32a1c5ebf28": {
+        "fixture": "verification/fixtures/http/p5-media-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.editing_router",
+        "notes": "P5 native read route resolves Series ItemID and episode hierarchy before the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-postgres18-and-openapi",
+        "validation_owner": "media/mediainfo-editor"
+      },
+      "route-binding-a426cee4059c": {
+        "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.cast_editor_router",
+        "notes": "P5 native processed-cast preview reads the persisted authoritative cast without mutating person metadata.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/cast-editor"
+      },
+      "route-binding-a4f5274c5ed0": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 owns /api/emby/events ingress, reservation, and dispatch transport; eleven P7/P9 business handlers remain future-domain compatibility until their stages, and the legacy route remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge-transport"
       },
       "route-binding-aae766708897": {
         "fixture": "verification/fixtures/http/database-read-routes.json",
@@ -220,6 +525,33 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "operations/database"
       },
+      "route-binding-ac3b6c2e1734": {
+        "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.cast_editor_router",
+        "notes": "P5 native manual cast submission route preserves legacy 202 scheduling contract and guard order.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/cast-editor"
+      },
+      "route-binding-ad3ce191fce7": {
+        "fixture": "verification/fixtures/http/p5-media-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.editing_router",
+        "notes": "P5 native read route projects Intro and Credits chapters from the aligned MediaInfo asset slot.",
+        "status": "new",
+        "validation_method": "pytest-contract-postgres18-and-openapi",
+        "validation_owner": "media/mediainfo-chapters"
+      },
+      "route-binding-adc7f565a9f0": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
       "route-binding-aed2ff901c65": {
         "fixture": "verification/fixtures/http/database-read-routes.json",
         "fixture_exception": null,
@@ -228,6 +560,15 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "operations/database"
+      },
+      "route-binding-b550a1781a1e": {
+        "fixture": "verification/fixtures/http/p5-media-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.editing_router",
+        "notes": "P5 native read route resolves ItemID to one aligned SHA1 and formatted MediaInfo cache record.",
+        "status": "new",
+        "validation_method": "pytest-contract-postgres18-and-openapi",
+        "validation_owner": "media/mediainfo-editor"
       },
       "route-binding-bc7f38a7bcae": {
         "fixture": "verification/fixtures/http/identity-routes.json",
@@ -283,6 +624,15 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "identity"
       },
+      "route-binding-c46a6d95cfa3": {
+        "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.cast_editor_router",
+        "notes": "P5 native cast translation route preserves admin and processor guards with manual JSON validation before the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/cast-editor"
+      },
       "route-binding-c4ae72c6480c": {
         "fixture": "verification/fixtures/http/runtime-query-routes.json",
         "fixture_exception": null,
@@ -310,6 +660,15 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/integrations"
       },
+      "route-binding-cff5dce4a210": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
       "route-binding-db66a6497d1b": {
         "fixture": "verification/fixtures/http/log-routes.json",
         "fixture_exception": null,
@@ -336,6 +695,15 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/integrations"
+      },
+      "route-binding-e16ec3e99b51": {
+        "fixture": "verification/fixtures/http/p5-media-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.editing_router",
+        "notes": "P5 native chapter write atomically persists the aligned MediaInfo cache and durable Bridge effect before the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-postgres18-effect-ledger-and-openapi",
+        "validation_owner": "media/mediainfo-chapters"
       },
       "route-binding-ea962f13e320": {
         "fixture": "verification/fixtures/http/system-standalone-routes.json",
@@ -456,6 +824,42 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "operations/database"
       },
+      "route-decorator-1ce3118281d8": {
+        "fixture": "verification/fixtures/http/p5-media-image-proxy.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.image_proxy_router",
+        "notes": "P5 native Emby image proxy preserves raw path/query forwarding and legacy placeholder failure semantics.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/emby-image-delivery"
+      },
+      "route-decorator-2a978b1b31a3": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 owns /api/emby/events ingress, reservation, and dispatch transport; eleven P7/P9 business handlers remain future-domain compatibility until their stages, and the legacy route remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge-transport"
+      },
+      "route-decorator-340582f8392a": {
+        "fixture": "verification/fixtures/http/p5-media-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.editing_router",
+        "notes": "P5 native read route resolves ItemID to one aligned SHA1 and formatted MediaInfo cache record.",
+        "status": "new",
+        "validation_method": "pytest-contract-postgres18-and-openapi",
+        "validation_owner": "media/mediainfo-editor"
+      },
+      "route-decorator-3ceb50f81a67": {
+        "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.cast_editor_router",
+        "notes": "P5 native cast editor read route preserves admin and processor guards before the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/cast-editor"
+      },
       "route-decorator-437c888ff91f": {
         "fixture": "verification/fixtures/http/database-read-routes.json",
         "fixture_exception": null,
@@ -519,6 +923,15 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/integrations"
       },
+      "route-decorator-55398b5ff976": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
       "route-decorator-558a4b0aa967": {
         "fixture": "verification/fixtures/http/database-read-routes.json",
         "fixture_exception": null,
@@ -555,6 +968,15 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "operations/logs"
       },
+      "route-decorator-6e0f5c1bb2c8": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
       "route-decorator-6edff6cffbe0": {
         "fixture": "verification/fixtures/http/system-standalone-routes.json",
         "fixture_exception": null,
@@ -581,6 +1003,24 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "identity"
+      },
+      "route-decorator-7718e9cd7dbd": {
+        "fixture": "verification/fixtures/http/p5-media-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.editing_router",
+        "notes": "P5 native read route resolves Series ItemID and episode hierarchy before the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-postgres18-and-openapi",
+        "validation_owner": "media/mediainfo-editor"
+      },
+      "route-decorator-786875de4918": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
       },
       "route-decorator-8122e33d4a91": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
@@ -626,6 +1066,24 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/integrations"
+      },
+      "route-decorator-8e5529aa68fd": {
+        "fixture": "verification/fixtures/http/p5-media-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.editing_router",
+        "notes": "P5 native chapter write atomically persists the aligned MediaInfo cache and durable Bridge effect before the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-postgres18-effect-ledger-and-openapi",
+        "validation_owner": "media/mediainfo-chapters"
+      },
+      "route-decorator-906b776964f8": {
+        "fixture": "verification/fixtures/http/p5-media-image-proxy.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.image_proxy_router",
+        "notes": "P5 native image cache and external proxy route preserves cache, placeholder, streaming, and conditional response contracts.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/image-delivery"
       },
       "route-decorator-90f18ba1a734": {
         "fixture": "verification/fixtures/http/log-routes.json",
@@ -717,6 +1175,24 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/configuration"
       },
+      "route-decorator-c1c2b660e6d8": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
+      "route-decorator-c357de674c2f": {
+        "fixture": "verification/fixtures/http/p5-media-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.editing_router",
+        "notes": "P5 native read route projects Intro and Credits chapters from the aligned MediaInfo asset slot.",
+        "status": "new",
+        "validation_method": "pytest-contract-postgres18-and-openapi",
+        "validation_owner": "media/mediainfo-chapters"
+      },
       "route-decorator-c3a6c26fced4": {
         "fixture": "verification/fixtures/http/database-read-routes.json",
         "fixture_exception": null,
@@ -735,6 +1211,15 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/configuration"
       },
+      "route-decorator-c86957289234": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
       "route-decorator-c8e38f1784bf": {
         "fixture": "verification/fixtures/http/log-routes.json",
         "fixture_exception": null,
@@ -744,6 +1229,15 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "operations/logs"
       },
+      "route-decorator-caccf33046ba": {
+        "fixture": "verification/fixtures/http/p5-media-image-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.image_editing_router",
+        "notes": "P5 native FastAPI image replacement route precedes the compatibility mount; reliable effect execution is tracked separately.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/image-editor"
+      },
       "route-decorator-cdfa000a8116": {
         "fixture": "verification/fixtures/http/identity-routes.json",
         "fixture_exception": null,
@@ -752,6 +1246,24 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "identity"
+      },
+      "route-decorator-cf08f72c1a0d": {
+        "fixture": "verification/fixtures/http/p5-media-image-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.image_editing_router",
+        "notes": "P5 native FastAPI TMDb image candidate route precedes the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/image-editor"
+      },
+      "route-decorator-d2baf2c5119f": {
+        "fixture": "verification/fixtures/http/p5-media-editing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.editing_router",
+        "notes": "P5 native MediaInfo write atomically persists the aligned cache and durable Bridge effect before the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-postgres18-effect-ledger-and-openapi",
+        "validation_owner": "media/mediainfo-editor"
       },
       "route-decorator-d2f0ae4f666a": {
         "fixture": "verification/fixtures/http/system-standalone-routes.json",
@@ -771,6 +1283,24 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/integrations"
       },
+      "route-decorator-dc34513fe7f4": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
+      "route-decorator-df9525ecbdd3": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
       "route-decorator-e18757daad1a": {
         "fixture": "verification/fixtures/http/system-standalone-routes.json",
         "fixture_exception": null,
@@ -779,6 +1309,24 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/configuration"
+      },
+      "route-decorator-e32a059893fa": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
+      },
+      "route-decorator-e82cb246e077": {
+        "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.cast_editor_router",
+        "notes": "P5 native manual cast submission route preserves legacy 202 scheduling contract and guard order.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/cast-editor"
       },
       "route-decorator-ecece036be2a": {
         "fixture": "verification/fixtures/http/system-runtime-routes.json",
@@ -807,6 +1355,24 @@
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/integrations"
       },
+      "route-decorator-f5c1029d79c5": {
+        "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.cast_editor_router",
+        "notes": "P5 native cast translation route preserves admin and processor guards with manual JSON validation before the compatibility mount.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/cast-editor"
+      },
+      "route-decorator-f771e237199c": {
+        "fixture": "verification/fixtures/http/p5-media-cast-editor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.cast_editor_router",
+        "notes": "P5 native processed-cast preview reads the persisted authoritative cast without mutating person metadata.",
+        "status": "new",
+        "validation_method": "pytest-contract-stub-and-openapi",
+        "validation_owner": "media/cast-editor"
+      },
       "route-decorator-f7fbd5bb6880": {
         "fixture": "verification/fixtures/http/system-standalone-routes.json",
         "fixture_exception": null,
@@ -815,6 +1381,15 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/configuration"
+      },
+      "route-decorator-f9c9ac8cfd30": {
+        "fixture": "verification/fixtures/http/p5-media-bridge.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-golden-stub-and-openapi",
+        "validation_owner": "media/bridge"
       }
     },
     "settings": {},
@@ -904,11 +1479,11 @@
       "task-418ca693681d": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
+        "validation_owner": "media/task-envelope"
       },
       "task-45bca81dc49d": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -931,11 +1506,11 @@
       "task-4e6faee8f971": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
+        "validation_owner": "media/task-envelope"
       },
       "task-55fbf2987899": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -949,11 +1524,11 @@
       "task-5bff877a2d18": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
+        "validation_owner": "media/task-envelope"
       },
       "task-5d1be2bd7771": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -967,11 +1542,11 @@
       "task-604f54b54b4e": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
+        "validation_owner": "media/task-envelope"
       },
       "task-62c236c3a38a": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -1120,11 +1695,11 @@
       "task-bee1b1a1970f": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
+        "validation_owner": "media/task-envelope"
       },
       "task-c30864f78abd": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -1147,11 +1722,11 @@
       "task-c70dfb0bd638": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P5.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
+        "validation_owner": "media/task-envelope"
       },
       "task-c9f941e93d3e": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

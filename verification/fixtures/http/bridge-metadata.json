@@ -1,11 +1,15 @@
 {
   "schema_version": 1,
   "provenance": {
-    "kind": "static-source",
+    "kind": "sanitized-source-contract",
     "captured_live": false,
     "sources": [
-      "routes/webhook.py:1667",
-      "database/metadata_provider_db.py:958"
+      "routes/webhook.py:1923",
+      "src/etk/domains/media/router.py",
+      "src/etk/domains/media/policies.py"
+    ],
+    "notes": [
+      "Internal screenshot and Emby ItemID fields are consumed by image archiving and are not returned to the Bridge."
     ]
   },
   "cases": [
@@ -50,10 +54,6 @@
           "actors_ready": true,
           "people": [],
           "collections": [],
-          "_screenshot_hash": "",
-          "_emby_item_ids": [
-            "90001"
-          ],
           "images": {
             "primary": "https://example.invalid/images/movie-primary.jpg",
             "backdrop": null,
@@ -101,16 +101,15 @@
           "actors_ready": false,
           "people": [],
           "collections": [],
-          "_screenshot_hash": "",
-          "_emby_item_ids": [
-            "91000"
-          ],
           "images": {
             "primary": null,
             "backdrop": null,
             "logo": null,
             "thumb": null
           }
+        },
+        "headers": {
+          "Cache-Control": "no-store"
         }
       }
     },
@@ -153,16 +152,15 @@
           "actors_ready": false,
           "people": [],
           "collections": [],
-          "_screenshot_hash": "",
-          "_emby_item_ids": [
-            "91001"
-          ],
           "images": {
             "primary": null,
             "backdrop": null,
             "logo": null,
             "thumb": null
           }
+        },
+        "headers": {
+          "Cache-Control": "no-store"
         }
       }
     },
@@ -206,16 +204,15 @@
           "actors_ready": false,
           "people": [],
           "collections": [],
-          "_screenshot_hash": "",
-          "_emby_item_ids": [
-            "91011"
-          ],
           "images": {
             "primary": null,
             "backdrop": null,
             "logo": null,
             "thumb": null
           }
+        },
+        "headers": {
+          "Cache-Control": "no-store"
         }
       }
     }

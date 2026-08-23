@@ -222,6 +222,7 @@ def task_sync_all_metadata(processor, item_id: str, item_name: str):
     """
     log_prefix = f"全能元数据同步 for '{item_name}'"
     logger.trace(f"  ➜ 任务开始：{log_prefix}")
+    UPDATING_METADATA.add(item_id)
     try:
         # 步骤 1: 获取包含了用户修改的、最新的完整媒体详情
         item_details = emby.get_emby_item_details(
@@ -242,6 +243,8 @@ def task_sync_all_metadata(processor, item_id: str, item_name: str):
     except Exception as e:
         logger.error(f"  ➜ 任务失败：{log_prefix} 时发生错误: {e}", exc_info=True)
         raise
+    finally:
+        UPDATING_METADATA.discard(item_id)
 
 # --- 核心辅助函数：轮询等待媒体信息修复完成 ---
 def _wait_for_items_recovery(processor, item_ids: list, max_retries=6, interval=10) -> bool:
@@ -1079,6 +1082,14 @@ def task_populate_metadata_cache(
                     assets = _safe_parse(row['asset_details_json'])
                     sha1s = _safe_parse(row['file_sha1_json'])
                     pcs = _safe_parse(row['file_pickcode_json'])
+                    if len({len(emby_ids), len(assets), len(sha1s), len(pcs)}) != 1:
+                        raise RuntimeError(
+                            f"媒体资产数组错位，拒绝清理 TMDb:{r_tmdb}/{r_type}"
+                        )
+                    if any(not isinstance(asset, dict) for asset in assets):
+                        raise RuntimeError(
+                            f"媒体资产槽位格式无效，拒绝清理 TMDb:{r_tmdb}/{r_type}"
+                        )
                     
                     # 倒序遍历，方便安全地 pop 元素
                     for i in range(len(emby_ids) - 1, -1, -1):
@@ -2722,12 +2733,13 @@ def task_restore_mediainfo(processor, force_full_update: bool = False):
         logger.info(f"  ➜ {empty_message}。")
         task_manager.update_status_from_thread(100, empty_message)
         time.sleep(1)  
-        return
+        return {"status": "skipped", "message": empty_message, "restored": 0, "failed": 0}
         
     logger.info(f"  ➜ 发现 {total} 个{'Emby 中缺失媒体信息的' if not force_full_update else ''}媒体项，准备处理...")
     
     restored_count = 0
     failed_count = 0
+    stopped = False
 
     def _probe_and_cache_mediainfo_online(pc, sha1, filename):
         if not client or not pc or not sha1:
@@ -2756,7 +2768,9 @@ def task_restore_mediainfo(processor, force_full_update: bool = False):
         return None
     
     for i, item in enumerate(items_to_restore):
-        if processor.is_stop_requested(): break
+        if processor.is_stop_requested():
+            stopped = True
+            break
         
         media_path = item.get('path')
         emby_item_id = item.get('emby_item_id')
@@ -2852,6 +2866,17 @@ def task_restore_mediainfo(processor, force_full_update: bool = False):
     msg = f"任务完成！成功注入: {restored_count} 个，失败: {failed_count} 个。"
     logger.info(f"  ➜ {msg}")
     task_manager.update_status_from_thread(100, msg)
+    if stopped or failed_count:
+        status = "failed" if not stopped and restored_count == 0 else "partial"
+    else:
+        status = "succeeded"
+    return {
+        "status": status,
+        "message": msg,
+        "restored": restored_count,
+        "failed": failed_count,
+        "stopped": stopped,
+    }
 
 # --- 扫描 Emby 缺图视频并补齐截图 ---
 def task_fill_missing_video_screenshots(processor):
@@ -2873,7 +2898,7 @@ def task_fill_missing_video_screenshots(processor):
         library_ids = [str(item.get('Id')) for item in libraries if item.get('Id')]
         if not library_ids:
             task_manager.update_status_from_thread(100, "Emby 中没有可扫描的媒体库。")
-            return
+            return {"status": "skipped", "message": "Emby 中没有可扫描的媒体库。"}
 
         items = emby.get_emby_library_items(
             base_url=processor.emby_url,
@@ -2901,7 +2926,7 @@ def task_fill_missing_video_screenshots(processor):
             )
             logger.info(f"  ➜ {final_msg}")
             task_manager.update_status_from_thread(100, final_msg)
-            return
+            return {"status": "skipped", "message": final_msg, "uploaded": 0, "failed": 0}
 
         logger.info(f"  ➜ 发现 {len(candidates)} 个缺少主图的 STRM 视频，开始截图并上传 Emby 缓存。")
         uploaded_count = 0
@@ -3024,10 +3049,22 @@ def task_fill_missing_video_screenshots(processor):
         )
         logger.info(f"  ➜ {final_msg}")
         task_manager.update_status_from_thread(100, final_msg)
+        if stopped or failed_count:
+            status = "failed" if not stopped and uploaded_count == 0 else "partial"
+        else:
+            status = "succeeded"
+        return {
+            "status": status,
+            "message": final_msg,
+            "uploaded": uploaded_count,
+            "failed": failed_count,
+            "stopped": stopped,
+        }
 
     except Exception as e:
         logger.error(f"执行 '{task_name}' 时发生严重错误: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"任务失败: {e}")
+        return {"status": "failed", "message": f"{task_name}失败: {e}"}
 
 # --- 工作室 / 播出平台图标补全 ---
 def _normalize_studio_name_for_icon_task(name: Optional[str]) -> str:

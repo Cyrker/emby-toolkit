@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from manifest_common import (
-    ManifestError,
     REPO_ROOT,
+    ManifestError,
     apply_contract_override,
     dump_yaml_compatible_json,
     evaluate_static,
@@ -15,6 +15,18 @@ from manifest_common import (
     source_ref,
     stable_id,
 )
+
+P5_TASK_EXECUTION_OWNERS = {
+    "actor-translation": "tasks.actors.task_persons_translation",
+    "backfill-media-metadata": {
+        "default": "tasks.media.task_backfill_media_metadata",
+        "when_targets_present": "tasks.media.task_backfill_media_metadata_batch",
+    },
+    "populate-metadata": "tasks.media.task_populate_metadata_cache",
+    "restore-nfo-and-images": "tasks.media.task_fill_missing_video_screenshots",
+    "restore_mediainfo": "tasks.media.task_restore_mediainfo",
+    "role-translation": "tasks.media.task_role_translation",
+}
 
 
 P5_TASKS = {
@@ -116,7 +128,8 @@ def export_tasks() -> dict[str, Any]:
         raise ManifestError("full_registry is not a dictionary literal")
     help_texts = _help_texts(tree)
     entries: list[dict[str, Any]] = []
-    for key_node, value_node in zip(registry.value.keys, registry.value.values):
+    # This exporter also runs under the macOS system Python, where zip(strict=...) is unavailable.
+    for key_node, value_node in zip(registry.value.keys, registry.value.values):  # noqa: B905
         if key_node is None:
             continue
         task_key = str(evaluate_static(key_node))
@@ -129,43 +142,54 @@ def export_tasks() -> dict[str, Any]:
         stage, domains = _task_owner(task_key)
         display_name = str(evaluate_static(name_node))
         explicit_help = help_texts.get(task_key)
+        entry = {
+            "contract_id": stable_id("task", task_key),
+            "task_key": task_key,
+            "function": function_name,
+            "display_name": display_name,
+            "help": explicit_help or display_name,
+            "help_source": "TASK_HELP_TEXTS" if explicit_help else "display_name_fallback",
+            "processor_type": str(evaluate_static(processor_node)),
+            "chain_eligible": bool(evaluate_static(chain_node)),
+            "visible_in": [
+                "all",
+                *(["chain"] if bool(evaluate_static(chain_node)) else []),
+                *(
+                    ["manual"]
+                    if bool(evaluate_static(chain_node))
+                    and task_key not in {"task-chain-high-freq", "task-chain-low-freq"}
+                    else []
+                ),
+            ],
+            "source": source_ref(path, key_node.lineno),
+            "target_domains": domains,
+            "target_stage": stage,
+            "status": "legacy",
+            "new_owner": None,
+            "retirement_approval": None,
+            "validation_owner": "/".join(domains),
+            "validation_method": "task-registry-contract",
+        }
+        if task_key in P5_TASK_EXECUTION_OWNERS:
+            execution_owner = P5_TASK_EXECUTION_OWNERS[task_key]
+            ownership_layers: dict[str, Any] = {
+                "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+                "execution_kind": "legacy-compatibility-callable",
+                "retirement_stage": "P11",
+            }
+            if isinstance(execution_owner, str):
+                ownership_layers["execution_owner"] = execution_owner
+            else:
+                ownership_layers["execution_owners"] = dict(execution_owner)
+            entry["ownership_layers"] = ownership_layers
         entries.append(
             apply_contract_override(
-            {
-                "contract_id": stable_id("task", task_key),
-                "task_key": task_key,
-                "function": function_name,
-                "display_name": display_name,
-                "help": explicit_help or display_name,
-                "help_source": "TASK_HELP_TEXTS" if explicit_help else "display_name_fallback",
-                "processor_type": str(evaluate_static(processor_node)),
-                "chain_eligible": bool(evaluate_static(chain_node)),
-                "visible_in": [
-                    "all",
-                    *(["chain"] if bool(evaluate_static(chain_node)) else []),
-                    *(
-                        ["manual"]
-                        if bool(evaluate_static(chain_node))
-                        and task_key not in {"task-chain-high-freq", "task-chain-low-freq"}
-                        else []
-                    ),
-                ],
-                "source": source_ref(path, key_node.lineno),
-                "target_domains": domains,
-                "target_stage": stage,
-                "status": "legacy",
-                "new_owner": None,
-                "retirement_approval": None,
-                "validation_owner": "/".join(domains),
-                "validation_method": "task-registry-contract",
-            },
-            "tasks",
+                entry,
+                "tasks",
             )
         )
     entries.sort(key=lambda item: item["task_key"])
-    fallback_help = [
-        item["task_key"] for item in entries if item["help_source"] == "display_name_fallback"
-    ]
+    fallback_help = [item["task_key"] for item in entries if item["help_source"] == "display_name_fallback"]
     registry_keys = {item["task_key"] for item in entries}
     orphan_help = sorted(set(help_texts) - registry_keys)
     return {

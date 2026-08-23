@@ -1,0 +1,410 @@
+{
+  "schema_version": 1,
+  "evidence": {
+    "legacy_source": "routes/media.py:173-282",
+    "mode": "sanitized-local-stub-only",
+    "live_external_requests": false
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/image_proxy"
+    },
+    {
+      "method": "GET",
+      "path": "/image_proxy/{image_path:path}"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "external-cache-hit",
+      "request": {
+        "method": "GET",
+        "path": "/api/image_proxy?cache=fixture-cache"
+      },
+      "gateway": {
+        "cache_result": "hit",
+        "cache_body": "fixture-cache-image",
+        "cache_content_type": "image/webp"
+      },
+      "expected_gateway": {
+        "cache_calls": [
+          "fixture-cache"
+        ],
+        "external_calls": [],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 200,
+        "body_kind": "text-bytes",
+        "body": "fixture-cache-image",
+        "headers": {
+          "content-type": "image/webp",
+          "cache-control": "public, max-age=31536000, immutable",
+          "content-disposition": "inline; filename=\"cached-image.bin\""
+        }
+      }
+    },
+    {
+      "case_id": "external-cache-range",
+      "request": {
+        "method": "GET",
+        "path": "/api/image_proxy?cache=fixture-cache",
+        "headers": {
+          "Range": "bytes=0-6"
+        }
+      },
+      "gateway": {
+        "cache_result": "hit",
+        "cache_body": "fixture-cache-image",
+        "cache_content_type": "image/webp"
+      },
+      "expected_gateway": {
+        "cache_calls": [
+          "fixture-cache"
+        ],
+        "external_calls": [],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 206,
+        "body_kind": "text-bytes",
+        "body": "fixture",
+        "headers": {
+          "content-type": "image/webp",
+          "cache-control": "public, max-age=31536000, immutable",
+          "content-range": "bytes 0-6/19"
+        }
+      }
+    },
+    {
+      "case_id": "external-cache-missing",
+      "request": {
+        "method": "GET",
+        "path": "/api/image_proxy?cache=missing-cache"
+      },
+      "gateway": {
+        "cache_result": "missing"
+      },
+      "expected_gateway": {
+        "cache_calls": [
+          "missing-cache"
+        ],
+        "external_calls": [],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 404,
+        "body_kind": "json",
+        "body": {
+          "error": "图片缓存不存在"
+        },
+        "headers": {
+          "content-type": "application/json"
+        },
+        "absent_headers": [
+          "cache-control"
+        ]
+      }
+    },
+    {
+      "case_id": "external-missing-url",
+      "request": {
+        "method": "GET",
+        "path": "/api/image_proxy"
+      },
+      "gateway": {},
+      "expected_gateway": {
+        "cache_calls": [],
+        "external_calls": [],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 400,
+        "body_kind": "json",
+        "body": {
+          "error": "缺少 'url' 参数"
+        },
+        "headers": {
+          "content-type": "application/json"
+        }
+      }
+    },
+    {
+      "case_id": "external-invalid-scheme",
+      "request": {
+        "method": "GET",
+        "path": "/api/image_proxy?url=file%3A%2F%2F%2Ffixture%2Fposter.jpg"
+      },
+      "gateway": {},
+      "expected_gateway": {
+        "cache_calls": [],
+        "external_calls": [],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 404,
+        "body_kind": "transparent-pixel",
+        "headers": {
+          "content-type": "image/png"
+        }
+      }
+    },
+    {
+      "case_id": "external-invalid-host",
+      "request": {
+        "method": "GET",
+        "path": "/api/image_proxy?url=https%3A%2F%2F%2Fposter.jpg"
+      },
+      "gateway": {},
+      "expected_gateway": {
+        "cache_calls": [],
+        "external_calls": [],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 404,
+        "body_kind": "transparent-pixel",
+        "headers": {
+          "content-type": "image/png"
+        }
+      }
+    },
+    {
+      "case_id": "external-upstream-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/image_proxy?url=https%3A%2F%2Fimages.example.invalid%2Fposter.jpg%3Fsize%3Dw500%26lang%3Dzh"
+      },
+      "gateway": {
+        "external_status": 206,
+        "external_content_type": "image/jpeg",
+        "external_chunks": [
+          "fixture-",
+          "external-image"
+        ]
+      },
+      "expected_gateway": {
+        "cache_calls": [],
+        "external_calls": [
+          "https://images.example.invalid/poster.jpg?size=w500&lang=zh"
+        ],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 206,
+        "body_kind": "text-bytes",
+        "body": "fixture-external-image",
+        "headers": {
+          "content-type": "image/jpeg"
+        },
+        "absent_headers": [
+          "cache-control"
+        ]
+      }
+    },
+    {
+      "case_id": "external-upstream-no-content-type",
+      "request": {
+        "method": "GET",
+        "path": "/api/image_proxy?url=https%3A%2F%2Fimages.example.invalid%2Fraw"
+      },
+      "gateway": {
+        "external_status": 200,
+        "external_chunks": [
+          "fixture-raw"
+        ]
+      },
+      "expected_gateway": {
+        "cache_calls": [],
+        "external_calls": [
+          "https://images.example.invalid/raw"
+        ],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 200,
+        "body_kind": "text-bytes",
+        "body": "fixture-raw",
+        "headers": {
+          "content-type": "text/html; charset=utf-8"
+        }
+      }
+    },
+    {
+      "case_id": "external-upstream-failure",
+      "request": {
+        "method": "GET",
+        "path": "/api/image_proxy?url=https%3A%2F%2Fimages.example.invalid%2Fmissing.jpg"
+      },
+      "gateway": {
+        "external_error": "upstream"
+      },
+      "expected_gateway": {
+        "cache_calls": [],
+        "external_calls": [
+          "https://images.example.invalid/missing.jpg"
+        ],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 404,
+        "body_kind": "transparent-pixel",
+        "headers": {
+          "content-type": "image/png"
+        }
+      }
+    },
+    {
+      "case_id": "external-cache-takes-precedence",
+      "request": {
+        "method": "GET",
+        "path": "/api/image_proxy?cache=fixture-cache&url=https%3A%2F%2Fimages.example.invalid%2Fignored.jpg"
+      },
+      "gateway": {
+        "cache_result": "hit",
+        "cache_body": "fixture-cache-image",
+        "cache_content_type": "image/webp",
+        "external_error": "upstream"
+      },
+      "expected_gateway": {
+        "cache_calls": [
+          "fixture-cache"
+        ],
+        "external_calls": [],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 200,
+        "body_kind": "text-bytes",
+        "body": "fixture-cache-image",
+        "headers": {
+          "content-type": "image/webp",
+          "cache-control": "public, max-age=31536000, immutable"
+        }
+      }
+    },
+    {
+      "case_id": "emby-upstream-success-with-raw-query",
+      "request": {
+        "method": "GET",
+        "path": "/image_proxy/Items/movie-1/Images/Primary?tag=cover%2Fone&quality=90&tag=again"
+      },
+      "gateway": {
+        "ready": true,
+        "emby_status": 200,
+        "emby_content_type": "image/png",
+        "emby_chunks": [
+          "fixture-",
+          "emby-image"
+        ]
+      },
+      "expected_gateway": {
+        "cache_calls": [],
+        "external_calls": [],
+        "emby_calls": [
+          {
+            "image_path": "Items/movie-1/Images/Primary",
+            "raw_query": "tag=cover%2Fone&quality=90&tag=again"
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body_kind": "text-bytes",
+        "body": "fixture-emby-image",
+        "headers": {
+          "content-type": "image/png"
+        },
+        "absent_headers": [
+          "cache-control"
+        ]
+      }
+    },
+    {
+      "case_id": "emby-upstream-success-no-content-type",
+      "request": {
+        "method": "GET",
+        "path": "/image_proxy/Users/fixture-user/Images/Primary"
+      },
+      "gateway": {
+        "ready": true,
+        "emby_status": 200,
+        "emby_chunks": [
+          "fixture-user-image"
+        ]
+      },
+      "expected_gateway": {
+        "cache_calls": [],
+        "external_calls": [],
+        "emby_calls": [
+          {
+            "image_path": "Users/fixture-user/Images/Primary",
+            "raw_query": ""
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body_kind": "text-bytes",
+        "body": "fixture-user-image",
+        "headers": {
+          "content-type": "text/html; charset=utf-8"
+        }
+      }
+    },
+    {
+      "case_id": "emby-processor-not-ready",
+      "request": {
+        "method": "GET",
+        "path": "/image_proxy/Items/movie-1/Images/Primary"
+      },
+      "gateway": {
+        "ready": false
+      },
+      "expected_gateway": {
+        "cache_calls": [],
+        "external_calls": [],
+        "emby_calls": []
+      },
+      "response": {
+        "status": 503,
+        "body_kind": "json",
+        "body": {
+          "error": "核心处理器未就绪。"
+        },
+        "headers": {
+          "content-type": "application/json"
+        }
+      }
+    },
+    {
+      "case_id": "emby-upstream-failure-is-status-200-placeholder",
+      "request": {
+        "method": "GET",
+        "path": "/image_proxy/Items/missing/Images/Primary?quality=90"
+      },
+      "gateway": {
+        "ready": true,
+        "emby_error": "upstream"
+      },
+      "expected_gateway": {
+        "cache_calls": [],
+        "external_calls": [],
+        "emby_calls": [
+          {
+            "image_path": "Items/missing/Images/Primary",
+            "raw_query": "quality=90"
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "body_kind": "transparent-pixel",
+        "headers": {
+          "content-type": "image/png"
+        }
+      }
+    }
+  ]
+}

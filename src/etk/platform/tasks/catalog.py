@@ -54,3 +54,16 @@ LEGACY_TASK_KEY_ORDER = (
 )
 
 P4_NATIVE_TASK_KEYS = frozenset({"task-chain-high-freq", "task-chain-low-freq"})
+
+P5_NATIVE_TASK_KEYS = frozenset(
+    {
+        "populate-metadata",
+        "backfill-media-metadata",
+        "role-translation",
+        "actor-translation",
+        "restore_mediainfo",
+        "restore-nfo-and-images",
+    }
+)
+
+NATIVE_TASK_KEYS = P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS

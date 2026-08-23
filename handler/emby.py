@@ -20,6 +20,10 @@ import config_manager
 import constants
 from typing import Optional, List, Dict, Any, Generator, Set, Callable, Tuple
 import logging
+from pydantic import SecretStr
+
+from etk.domains.media.bridge_client import BridgeWriteError, HttpxEmbyBridgeClient
+from etk.platform import Settings
 logger = logging.getLogger(__name__)
 
 # --- 媒体库路径内存缓存 (TTL: 5分钟) ---
@@ -103,24 +107,29 @@ class EmbyAPIClient:
 emby_client = EmbyAPIClient()
 
 
+def _p5_bridge_client(base_url: str, api_key: str) -> HttpxEmbyBridgeClient:
+    settings = Settings(
+        emby_server_url=str(base_url or "").strip(),
+        emby_api_key=SecretStr(str(api_key or "").strip()),
+        emby_api_timeout=int(
+            config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_EMBY_API_TIMEOUT, 60) or 60
+        ),
+        network_proxy_enabled=bool(
+            config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_NETWORK_PROXY_ENABLED)
+        ),
+        network_http_proxy_url=str(
+            config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_NETWORK_HTTP_PROXY) or ""
+        ).strip(),
+    )
+    return HttpxEmbyBridgeClient(lambda: settings)
+
+
 def configure_etk_plugin_origin(base_url: str, api_key: str, etk_url: str) -> bool:
     if not all([base_url, api_key, etk_url]):
         return False
     try:
-        response = emby_client.post(
-            f"{base_url.rstrip('/')}/ETKMediaInfo/Origin",
-            params={"api_key": api_key},
-            json={"Url": etk_url},
-        )
-        if not response.ok:
-            logger.warning(
-                "  ➜ [ETK元数据] 配置插件服务地址失败: HTTP %s",
-                response.status_code,
-            )
-            return False
-        result = response.json() or {}
-        return bool(result.get("Configured", result.get("configured")))
-    except Exception as e:
+        return _p5_bridge_client(base_url, api_key).configure_origin(etk_url).confirmed
+    except (BridgeWriteError, ValueError) as e:
         logger.warning("  ➜ [ETK元数据] 配置插件服务地址异常: %s", e)
         return False
 
@@ -129,20 +138,8 @@ def configure_etk_plugin_discovery_url(base_url: str, api_key: str, discovery_ur
     if not all([base_url, api_key]):
         return False
     try:
-        response = emby_client.post(
-            f"{base_url.rstrip('/')}/ETKMediaInfo/DiscoveryUrl",
-            params={"api_key": api_key},
-            json={"Url": str(discovery_url or "")},
-        )
-        if not response.ok:
-            logger.warning(
-                "  ➜ [ETK元数据] 配置 Emby 本地发现地址失败: HTTP %s",
-                response.status_code,
-            )
-            return False
-        result = response.json() or {}
-        return bool(result.get("Configured", result.get("configured")))
-    except Exception as e:
+        return _p5_bridge_client(base_url, api_key).configure_discovery_url(discovery_url).confirmed
+    except (BridgeWriteError, ValueError) as e:
         logger.warning("  ➜ [ETK元数据] 配置 Emby 本地发现地址异常: %s", e)
         return False
 
@@ -189,24 +186,17 @@ def apply_etk_mediainfo(
     if not all([item_id, base_url, api_key]):
         return None
     try:
-        payload = normalize_etk_mediainfo_payload(raw)
-        payload["DropConflictingExternalStreams"] = bool(drop_conflicting_external_streams)
-        url = f"{base_url.rstrip('/')}/Items/{item_id}/ETKMediaInfo"
-        response = emby_client.post(
-            url,
-            headers={"X-Emby-Token": api_key, "Accept": "application/json"},
-            json=payload,
-        )
-        response.raise_for_status()
-        result = response.json() if response.content else {}
-        logger.debug(
-            "  ➜ [媒体信息注入] Emby Item %s 已写入 %s 条媒体流，保留 %s 条外挂流。",
+        result = _p5_bridge_client(base_url, api_key).apply_mediainfo(
             item_id,
-            result.get("StreamCount", len(payload["MediaSourceInfo"]["MediaStreams"])),
-            result.get("PreservedExternalStreamCount", 0),
+            raw,
+            drop_conflicting_external_streams=drop_conflicting_external_streams,
         )
-        return result
-    except Exception as e:
+        logger.debug(
+            "  ➜ [媒体信息注入] Emby Item %s 已由 P5 Bridge client 确认写入。",
+            item_id,
+        )
+        return dict(result.payload)
+    except (BridgeWriteError, ValueError, TypeError, json.JSONDecodeError) as e:
         logger.error("  ➜ [媒体信息注入] Emby Item %s 写入失败: %s", item_id, e)
         return None
 
@@ -257,28 +247,15 @@ def apply_etk_intro_chapters(
         logger.error("  ➜ [片头声纹提取] Emby Item %s 的片头区间无效", item_id)
         return None
     try:
-        response = emby_client.post(
-            f"{base_url.rstrip('/')}/Items/{item_id}/ETKMediaInfo/Intro",
-            headers={"X-Emby-Token": api_key, "Accept": "application/json"},
-            json={"IntroStartTicks": start, "IntroEndTicks": end},
-        )
-        if not response.ok:
-            logger.error(
-                "  ➜ [片头声纹提取] 写入 Emby Item %s 的片头章节失败: HTTP %s, %s",
-                item_id,
-                response.status_code,
-                (response.text or "-")[:500],
-            )
-            return None
-        result = response.json() if response.content else {}
+        result = _p5_bridge_client(base_url, api_key).apply_intro(item_id, start, end)
         logger.debug(
             "  ➜ [片头声纹提取] 已写入 Emby Item %s：%s - %s ticks",
             item_id,
             start,
             end,
         )
-        return result
-    except Exception as e:
+        return dict(result.payload)
+    except (BridgeWriteError, ValueError) as e:
         logger.error("  ➜ [片头声纹提取] 写入 Emby Item %s 的片头章节失败: %s", item_id, e)
         return None
 
@@ -301,27 +278,14 @@ def apply_etk_credits_chapter(
         logger.error("  ➜ [片头声纹提取] Emby Item %s 的片尾时间无效", item_id)
         return None
     try:
-        response = emby_client.post(
-            f"{base_url.rstrip('/')}/Items/{item_id}/ETKMediaInfo/Credits",
-            headers={"X-Emby-Token": api_key, "Accept": "application/json"},
-            json={"CreditsStartTicks": start},
-        )
-        if not response.ok:
-            logger.error(
-                "  ➜ [片头声纹提取] 写入 Emby Item %s 的片尾章节失败: HTTP %s, %s",
-                item_id,
-                response.status_code,
-                (response.text or "-")[:500],
-            )
-            return None
-        result = response.json() if response.content else {}
+        result = _p5_bridge_client(base_url, api_key).apply_credits(item_id, start)
         logger.debug(
             "  ➜ [片头声纹提取] 已写入 Emby Item %s 片尾起点：%s ticks",
             item_id,
             start,
         )
-        return result
-    except Exception as e:
+        return dict(result.payload)
+    except (BridgeWriteError, ValueError) as e:
         logger.error("  ➜ [片头声纹提取] 写入 Emby Item %s 的片尾章节失败: %s", item_id, e)
         return None
 
@@ -352,21 +316,16 @@ def update_etk_chapters(
         payload["CreditsStartTicks"] = int(credits_start_ticks)
 
     try:
-        response = emby_client.post(
-            f"{base_url.rstrip('/')}/Items/{item_id}/ETKMediaInfo/Chapters",
-            headers={"X-Emby-Token": api_key, "Accept": "application/json"},
-            json=payload,
+        result = _p5_bridge_client(base_url, api_key).update_chapters(
+            item_id,
+            intro_start_ticks=payload.get("IntroStartTicks"),
+            intro_end_ticks=payload.get("IntroEndTicks"),
+            credits_start_ticks=payload.get("CreditsStartTicks"),
+            clear_intro=bool(payload["ClearIntro"]),
+            clear_credits=bool(payload["ClearCredits"]),
         )
-        if not response.ok:
-            logger.error(
-                "  ➜ [片头片尾编辑] 更新 Emby Item %s 章节失败: HTTP %s, %s",
-                item_id,
-                response.status_code,
-                (response.text or "-")[:500],
-            )
-            return None
-        return response.json() if response.content else {}
-    except Exception as e:
+        return dict(result.payload)
+    except (BridgeWriteError, ValueError) as e:
         logger.error("  ➜ [片头片尾编辑] 更新 Emby Item %s 章节失败: %s", item_id, e)
         return None
 

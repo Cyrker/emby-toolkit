@@ -428,7 +428,16 @@ def accept_plugin_emby_binding(item: Dict[str, Any], sha1: str = '', expected_pi
                 item_id,
             )
             return {'ok': True, 'rebound': True, **rebound}
-        return {'ok': True, 'skipped': True, **rebound}
+        reason = str(rebound.get('reason') or '').strip()
+        if not reason:
+            return {'ok': True, 'skipped': True, 'reason': 'already_bound', **rebound}
+        retryable = reason in {'asset_not_found', 'database_error'}
+        return {
+            'ok': False,
+            'skipped': False,
+            'retryable': retryable,
+            **rebound,
+        }
 
     normalized = emby._normalize_emby_media_path(matched_path)
     with EMBY_BIND_CONDITION:

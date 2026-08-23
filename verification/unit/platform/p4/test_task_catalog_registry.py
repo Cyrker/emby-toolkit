@@ -20,6 +20,7 @@ from etk.platform.tasks import (
     TaskVisibility,
     task_definition_metadata,
 )
+from etk.platform.tasks.catalog import P5_NATIVE_TASK_KEYS
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ORDERED_TASK_FIXTURE = REPO_ROOT / "verification" / "fixtures" / "tasks" / "ordered-task-catalog.json"
@@ -39,9 +40,9 @@ def test_frozen_registry_preserves_all_50_legacy_definitions_and_context_orders(
     assert len(definitions) == 50
     assert {definition.processor for definition in definitions} == set(ProcessorIdentity)
     assert {definition.key for definition in definitions if definition.handler_kind is TaskHandlerKind.NATIVE} == (
-        P4_NATIVE_TASK_KEYS
+        P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS
     )
-    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 48
+    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 42
     assert [definition.key for definition in registry.available(TaskVisibility.ALL)] == fixture["contexts"]["all"]
     assert [definition.key for definition in registry.available(TaskVisibility.CHAIN)] == fixture["contexts"]["chain"]
     assert [definition.key for definition in registry.available(TaskVisibility.MANUAL)] == fixture["contexts"]["manual"]
@@ -229,8 +230,8 @@ def test_legacy_adapter_rejects_native_keys_and_registry_mismatches_before_resol
         adapter.execute(wrong_processor)
 
     wrong_version = TaskMessage.create(
-        task_key="populate-metadata",
-        processor=ProcessorIdentity.MEDIA,
+        task_key="process-watchlist",
+        processor=ProcessorIdentity.WATCHLIST,
         payload_version=2,
     )
     with pytest.raises(ValueError, match="payload version"):
@@ -239,7 +240,7 @@ def test_legacy_adapter_rejects_native_keys_and_registry_mismatches_before_resol
 
 def test_transport_and_adapter_revalidate_mutated_payloads_before_resolution() -> None:
     registry = _registry()
-    message = registry.create_message("populate-metadata", {"force_full_update": False})
+    message = registry.create_message("process-watchlist", {"force_full_update": False})
     cast(dict[str, object], message.payload.data)["callable"] = lambda: None
 
     class Resolver:

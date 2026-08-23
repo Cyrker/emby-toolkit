@@ -1,0 +1,430 @@
+{
+  "schema_version": 1,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/tmdb_images/{item_id}"
+    },
+    {
+      "method": "POST",
+      "path": "/api/update_media_image/{item_id}"
+    }
+  ],
+  "catalogs": {
+    "movie": {
+      "posters": [
+        {
+          "preview": "https://image.tmdb.fixture.invalid/t/p/w500/movie-poster.jpg",
+          "original": "https://image.tmdb.fixture.invalid/t/p/original/movie-poster.jpg",
+          "aspect_ratio": 0.667,
+          "width": 1000,
+          "height": 1500
+        }
+      ],
+      "backdrops": [
+        {
+          "preview": "https://image.tmdb.fixture.invalid/t/p/w500/movie-backdrop.jpg",
+          "original": "https://image.tmdb.fixture.invalid/t/p/original/movie-backdrop.jpg",
+          "aspect_ratio": 1.778,
+          "width": 1920,
+          "height": 1080
+        }
+      ],
+      "logos": [
+        {
+          "preview": "https://image.tmdb.fixture.invalid/t/p/w500/movie-logo.png",
+          "original": "https://image.tmdb.fixture.invalid/t/p/original/movie-logo.png",
+          "aspect_ratio": 3.2,
+          "width": 1600,
+          "height": 500
+        }
+      ]
+    },
+    "series": {
+      "posters": [],
+      "backdrops": [
+        {
+          "preview": "https://image.tmdb.fixture.invalid/t/p/w500/series-backdrop.jpg",
+          "original": "https://image.tmdb.fixture.invalid/t/p/original/series-backdrop.jpg",
+          "aspect_ratio": 1.778,
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "logos": []
+    }
+  },
+  "cases": [
+    {
+      "case_id": "get-movie-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/tmdb_images/movie-1"
+      },
+      "gateway": {
+        "ready": true,
+        "catalog": "movie"
+      },
+      "response": {
+        "status": 200,
+        "body_from_catalog": "movie"
+      }
+    },
+    {
+      "case_id": "get-series-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/tmdb_images/series-1"
+      },
+      "gateway": {
+        "ready": true,
+        "catalog": "series"
+      },
+      "response": {
+        "status": 200,
+        "body_from_catalog": "series"
+      }
+    },
+    {
+      "case_id": "get-emby-not-found",
+      "request": {
+        "method": "GET",
+        "path": "/api/tmdb_images/missing-emby"
+      },
+      "gateway": {
+        "ready": true,
+        "error": "emby-not-found"
+      },
+      "response": {
+        "status": 404,
+        "body": {
+          "error": "无法获取 Emby 媒体详情"
+        }
+      }
+    },
+    {
+      "case_id": "get-missing-tmdb-id",
+      "request": {
+        "method": "GET",
+        "path": "/api/tmdb_images/missing-tmdb"
+      },
+      "gateway": {
+        "ready": true,
+        "error": "tmdb-id-missing"
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "error": "该媒体缺少 TMDb ID，无法获取图片"
+        }
+      }
+    },
+    {
+      "case_id": "get-unsupported-type",
+      "request": {
+        "method": "GET",
+        "path": "/api/tmdb_images/episode-1"
+      },
+      "gateway": {
+        "ready": true,
+        "error": "unsupported-type"
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "error": "不支持的媒体类型"
+        }
+      }
+    },
+    {
+      "case_id": "get-images-not-found",
+      "request": {
+        "method": "GET",
+        "path": "/api/tmdb_images/no-images"
+      },
+      "gateway": {
+        "ready": true,
+        "error": "images-not-found"
+      },
+      "response": {
+        "status": 404,
+        "body": {
+          "error": "未在 TMDb 找到图片数据"
+        }
+      }
+    },
+    {
+      "case_id": "get-gateway-failure",
+      "request": {
+        "method": "GET",
+        "path": "/api/tmdb_images/provider-failure"
+      },
+      "gateway": {
+        "ready": true,
+        "error": "unexpected"
+      },
+      "response": {
+        "status": 500,
+        "body": {
+          "error": "获取 TMDb 图片失败"
+        }
+      }
+    },
+    {
+      "case_id": "get-processor-not-ready",
+      "request": {
+        "method": "GET",
+        "path": "/api/tmdb_images/movie-1"
+      },
+      "gateway": {
+        "ready": false,
+        "catalog": "movie"
+      },
+      "response": {
+        "status": 503,
+        "body": {
+          "error": "核心处理器未就绪。"
+        }
+      }
+    },
+    {
+      "case_id": "post-json-url-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "user": "fixture-admin",
+        "json": {
+          "image_type": "poster",
+          "image_url": "https://fixture.invalid/poster.jpg"
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "update_success": true,
+        "message": "poster 替换成功"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "message": "poster 替换成功"
+        }
+      }
+    },
+    {
+      "case_id": "post-multipart-file-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "user": "fixture-admin",
+        "multipart": {
+          "image_type": "clearlogo",
+          "file": {
+            "filename": "logo.png",
+            "content": "fixture-logo-bytes",
+            "content_type": "image/png"
+          }
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "update_success": true,
+        "message": "clearlogo 替换成功"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "message": "clearlogo 替换成功"
+        }
+      }
+    },
+    {
+      "case_id": "post-multipart-url-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "user": "fixture-admin",
+        "multipart": {
+          "image_type": "fanart",
+          "image_url": "https://fixture.invalid/fanart.jpg"
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "update_success": true,
+        "message": "fanart 替换成功"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "message": "fanart 替换成功"
+        }
+      }
+    },
+    {
+      "case_id": "post-missing-image-type",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "user": "fixture-admin",
+        "json": {
+          "image_url": "https://fixture.invalid/poster.jpg"
+        }
+      },
+      "gateway": {
+        "ready": true
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "error": "缺少 image_type 参数 (可选值: poster, clearlogo, fanart, landscape)"
+        }
+      }
+    },
+    {
+      "case_id": "post-missing-image-source",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "user": "fixture-admin",
+        "json": {
+          "image_type": "poster"
+        }
+      },
+      "gateway": {
+        "ready": true
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "error": "必须提供 image_url 或上传 file"
+        }
+      }
+    },
+    {
+      "case_id": "post-malformed-json",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "user": "fixture-admin",
+        "raw_json": "{"
+      },
+      "gateway": {
+        "ready": true
+      },
+      "response": {
+        "status": 500,
+        "body": {
+          "error": "服务器内部错误"
+        }
+      }
+    },
+    {
+      "case_id": "post-processor-not-ready",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "user": "fixture-admin",
+        "raw_json": "[]"
+      },
+      "gateway": {
+        "ready": false
+      },
+      "response": {
+        "status": 503,
+        "body": {
+          "error": "核心处理器未就绪。"
+        }
+      }
+    },
+    {
+      "case_id": "post-permission-denied",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "user": "fixture-user",
+        "json": {
+          "image_type": "poster",
+          "image_url": "https://fixture.invalid/poster.jpg"
+        }
+      },
+      "gateway": {
+        "ready": true
+      },
+      "response": {
+        "status": 403,
+        "body": {
+          "status": "error",
+          "message": "需要 Emby 管理员权限才能执行此操作"
+        }
+      }
+    },
+    {
+      "case_id": "post-auth-disabled-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "auth_enabled": false,
+        "json": {
+          "image_type": "landscape",
+          "image_url": "https://fixture.invalid/landscape.jpg"
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "update_success": true,
+        "message": "landscape 替换成功"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "message": "landscape 替换成功"
+        }
+      }
+    },
+    {
+      "case_id": "post-gateway-rejected",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "user": "fixture-admin",
+        "json": {
+          "image_type": "poster",
+          "image_url": "https://fixture.invalid/poster.jpg"
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "update_success": false,
+        "message": "上传图片到 Emby 失败。"
+      },
+      "response": {
+        "status": 500,
+        "body": {
+          "error": "上传图片到 Emby 失败。"
+        }
+      }
+    },
+    {
+      "case_id": "post-gateway-exception",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_image/movie-1",
+        "user": "fixture-admin",
+        "json": {
+          "image_type": "poster",
+          "image_url": "https://fixture.invalid/poster.jpg"
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "error": "unexpected"
+      },
+      "response": {
+        "status": 500,
+        "body": {
+          "error": "服务器内部错误"
+        }
+      }
+    }
+  ]
+}

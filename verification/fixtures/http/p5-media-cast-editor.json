@@ -1,0 +1,500 @@
+{
+  "schema_version": 1,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/media_for_editing/{item_id}",
+      "admin_required": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/update_media_cast_sa/{item_id}",
+      "admin_required": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/actions/translate_cast_sa",
+      "admin_required": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/preview_processed_cast/{item_id}",
+      "admin_required": false
+    }
+  ],
+  "editing_payload": {
+    "item_id": "fixture-item-1",
+    "item_name": "Fixture Movie",
+    "item_type": "Movie",
+    "image_tag": "fixture-image-tag",
+    "original_score": 8.5,
+    "review_reason": "fixture review reason",
+    "current_emby_cast": [
+      {
+        "tmdbId": 1001,
+        "name": "Fixture Actor",
+        "role": "Fixture Role",
+        "imageUrl": "https://fixture.invalid/profile.jpg",
+        "emby_person_id": "fixture-person-1"
+      }
+    ],
+    "search_links": {
+      "baidu": "https://fixture.invalid/search/baidu",
+      "wikipedia": "https://fixture.invalid/search/wikipedia",
+      "google": "https://fixture.invalid/search/google"
+    }
+  },
+  "translated_cast": [
+    {
+      "tmdbId": 1001,
+      "name": "示例演员",
+      "role": "示例角色",
+      "matchStatus": "AI翻译"
+    }
+  ],
+  "preview_cast": [
+    {
+      "embyPersonId": "fixture-person-1",
+      "name": "示例演员",
+      "role": "示例角色",
+      "imdbId": "fixture-imdb-person",
+      "doubanId": "fixture-douban-person",
+      "tmdbId": 1001,
+      "matchStatus": "已刷新"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "get-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/media_for_editing/fixture-item-1",
+        "user": "fixture-admin"
+      },
+      "gateway": {
+        "ready": true,
+        "editing": "fixture"
+      },
+      "response": {
+        "status": 200,
+        "body_from": "editing_payload"
+      }
+    },
+    {
+      "case_id": "get-auth-disabled-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/media_for_editing/fixture-item-1",
+        "auth_enabled": false
+      },
+      "gateway": {
+        "ready": true,
+        "editing": "fixture"
+      },
+      "response": {
+        "status": 200,
+        "body_from": "editing_payload"
+      }
+    },
+    {
+      "case_id": "get-permission-denied-before-readiness",
+      "request": {
+        "method": "GET",
+        "path": "/api/media_for_editing/fixture-item-1",
+        "user": "fixture-user"
+      },
+      "gateway": {
+        "ready": false,
+        "editing": "fixture"
+      },
+      "response": {
+        "status": 403,
+        "body": {
+          "status": "error",
+          "message": "需要 Emby 管理员权限才能执行此操作"
+        }
+      }
+    },
+    {
+      "case_id": "get-processor-not-ready",
+      "request": {
+        "method": "GET",
+        "path": "/api/media_for_editing/fixture-item-1",
+        "user": "fixture-admin"
+      },
+      "gateway": {
+        "ready": false,
+        "editing": "fixture"
+      },
+      "response": {
+        "status": 503,
+        "body": {
+          "error": "核心处理器未就绪。"
+        }
+      }
+    },
+    {
+      "case_id": "get-missing-editing-data",
+      "request": {
+        "method": "GET",
+        "path": "/api/media_for_editing/missing-item",
+        "user": "fixture-admin"
+      },
+      "gateway": {
+        "ready": true,
+        "editing": "missing"
+      },
+      "response": {
+        "status": 404,
+        "body": {
+          "error": "无法获取项目 missing-item 的编辑数据，请检查日志。"
+        }
+      }
+    },
+    {
+      "case_id": "get-provider-failure",
+      "request": {
+        "method": "GET",
+        "path": "/api/media_for_editing/fixture-item-1",
+        "user": "fixture-admin"
+      },
+      "gateway": {
+        "ready": true,
+        "editing_error": true
+      },
+      "response": {
+        "status": 500,
+        "html_status": 500
+      }
+    },
+    {
+      "case_id": "update-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_cast_sa/fixture-item-1",
+        "user": "fixture-admin",
+        "json": {
+          "cast": [
+            {
+              "tmdbId": 1001,
+              "name": "Fixture Actor",
+              "role": "Fixture Role"
+            }
+          ],
+          "item_name": "Fixture Movie"
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "task_accepted": true
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "message": "手动更新任务已在后台启动。"
+        }
+      }
+    },
+    {
+      "case_id": "update-task-rejected-still-accepted",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_cast_sa/fixture-item-1",
+        "user": "fixture-admin",
+        "json": {
+          "cast": [],
+          "item_name": "Fixture Movie"
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "task_accepted": false
+      },
+      "response": {
+        "status": 202,
+        "body": {
+          "message": "手动更新任务已在后台启动。"
+        }
+      }
+    },
+    {
+      "case_id": "update-task-provider-failure",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_cast_sa/fixture-item-1",
+        "user": "fixture-admin",
+        "json": {
+          "cast": []
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "task_error": true
+      },
+      "response": {
+        "status": 500,
+        "html_status": 500
+      }
+    },
+    {
+      "case_id": "update-invalid-cast",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_cast_sa/fixture-item-1",
+        "user": "fixture-admin",
+        "json": {
+          "cast": "not-a-list"
+        }
+      },
+      "gateway": {
+        "ready": true
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "error": "请求体中缺少有效的 'cast' 列表"
+        }
+      }
+    },
+    {
+      "case_id": "update-malformed-json",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_cast_sa/fixture-item-1",
+        "user": "fixture-admin",
+        "raw_json": "{"
+      },
+      "gateway": {
+        "ready": true
+      },
+      "response": {
+        "status": 400,
+        "html_status": 400
+      }
+    },
+    {
+      "case_id": "update-unsupported-content-type",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_cast_sa/fixture-item-1",
+        "user": "fixture-admin"
+      },
+      "gateway": {
+        "ready": true
+      },
+      "response": {
+        "status": 415,
+        "html_status": 415
+      }
+    },
+    {
+      "case_id": "update-denial-precedes-readiness-and-body",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_cast_sa/fixture-item-1",
+        "user": "fixture-user",
+        "raw_json": "{"
+      },
+      "gateway": {
+        "ready": false
+      },
+      "response": {
+        "status": 403,
+        "body": {
+          "status": "error",
+          "message": "需要 Emby 管理员权限才能执行此操作"
+        }
+      }
+    },
+    {
+      "case_id": "update-readiness-precedes-body",
+      "request": {
+        "method": "POST",
+        "path": "/api/update_media_cast_sa/fixture-item-1",
+        "user": "fixture-admin",
+        "raw_json": "{"
+      },
+      "gateway": {
+        "ready": false
+      },
+      "response": {
+        "status": 503,
+        "body": {
+          "error": "核心处理器未就绪。"
+        }
+      }
+    },
+    {
+      "case_id": "translate-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/actions/translate_cast_sa",
+        "user": "fixture-admin",
+        "json": {
+          "cast": [
+            {
+              "tmdbId": 1001,
+              "name": "Fixture Actor",
+              "role": "Fixture Role"
+            }
+          ],
+          "title": "Fixture Movie",
+          "year": 2026
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "translation": "fixture"
+      },
+      "response": {
+        "status": 200,
+        "body_from": "translated_cast"
+      }
+    },
+    {
+      "case_id": "translate-invalid-cast",
+      "request": {
+        "method": "POST",
+        "path": "/api/actions/translate_cast_sa",
+        "user": "fixture-admin",
+        "json": {
+          "cast": "not-a-list"
+        }
+      },
+      "gateway": {
+        "ready": true
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "error": "请求体必须包含 'cast' 列表。"
+        }
+      }
+    },
+    {
+      "case_id": "translate-malformed-json",
+      "request": {
+        "method": "POST",
+        "path": "/api/actions/translate_cast_sa",
+        "user": "fixture-admin",
+        "raw_json": "{"
+      },
+      "gateway": {
+        "ready": true
+      },
+      "response": {
+        "status": 400,
+        "html_status": 400
+      }
+    },
+    {
+      "case_id": "translate-provider-failure",
+      "request": {
+        "method": "POST",
+        "path": "/api/actions/translate_cast_sa",
+        "user": "fixture-admin",
+        "json": {
+          "cast": []
+        }
+      },
+      "gateway": {
+        "ready": true,
+        "translation_error": true
+      },
+      "response": {
+        "status": 500,
+        "body": {
+          "error": "服务器在翻译时发生内部错误。"
+        }
+      }
+    },
+    {
+      "case_id": "preview-success-malformed-body-is-ignored",
+      "request": {
+        "method": "POST",
+        "path": "/api/preview_processed_cast/fixture-item-1",
+        "raw_json": "{"
+      },
+      "gateway": {
+        "ready": true,
+        "item_details": true,
+        "preview": "fixture"
+      },
+      "response": {
+        "status": 200,
+        "body_from": "preview_cast"
+      }
+    },
+    {
+      "case_id": "preview-processor-not-ready-precedes-body",
+      "request": {
+        "method": "POST",
+        "path": "/api/preview_processed_cast/fixture-item-1",
+        "raw_json": "{"
+      },
+      "gateway": {
+        "ready": false,
+        "item_details": true,
+        "preview": "fixture"
+      },
+      "response": {
+        "status": 503,
+        "body": {
+          "error": "核心处理器未就绪。"
+        }
+      }
+    },
+    {
+      "case_id": "preview-emby-not-found",
+      "request": {
+        "method": "POST",
+        "path": "/api/preview_processed_cast/missing-item"
+      },
+      "gateway": {
+        "ready": true,
+        "item_details": false
+      },
+      "response": {
+        "status": 404,
+        "body": {
+          "error": "无法获取当前媒体的Emby详情"
+        }
+      }
+    },
+    {
+      "case_id": "preview-emby-provider-failure",
+      "request": {
+        "method": "POST",
+        "path": "/api/preview_processed_cast/fixture-item-1"
+      },
+      "gateway": {
+        "ready": true,
+        "details_error": true
+      },
+      "response": {
+        "status": 500,
+        "body": {
+          "error": "获取Emby详情时发生错误: fixture Emby failure"
+        }
+      }
+    },
+    {
+      "case_id": "preview-processing-failure",
+      "request": {
+        "method": "POST",
+        "path": "/api/preview_processed_cast/fixture-item-1"
+      },
+      "gateway": {
+        "ready": true,
+        "item_details": true,
+        "preview_error": true
+      },
+      "response": {
+        "status": 500,
+        "body": {
+          "error": "在服务器端处理演员列表时发生内部错误"
+        }
+      }
+    }
+  ]
+}

@@ -121,5 +121,11 @@ DELETING_COLLECTIONS = PersistentExpiringSet(
     "deleting-emby-collections",
     default_ttl_seconds=20,
 )
-UPDATING_IMAGES = set()
-UPDATING_METADATA = set()
+UPDATING_IMAGES = PersistentExpiringSet(
+    "updating-emby-images",
+    default_ttl_seconds=60,
+)
+UPDATING_METADATA = PersistentExpiringSet(
+    "updating-emby-metadata",
+    default_ttl_seconds=60,
+)

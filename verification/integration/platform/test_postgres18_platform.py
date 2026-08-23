@@ -17,12 +17,15 @@ from scripts.refactor.compare_schema import collect_catalog, compare_catalogs, l
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = REPO_ROOT / "verification" / "contracts" / "db" / "legacy-pg-catalog.json"
 POSTGRES_18_IMAGE = "postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2"
-P4_PLATFORM_TABLES = {
+LEGACY_TABLE_COUNT = 39
+GREENFIELD_TABLES = {
     "idempotency_records",
     "job_attempts",
     "job_runs",
+    "media_effects",
     "outbox_events",
 }
+EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(GREENFIELD_TABLES)
 
 
 @pytest.fixture(scope="session")
@@ -68,11 +71,12 @@ def test_pg18_alembic_schema_matches_legacy_catalog(migrated_postgres18_url: str
     result = compare_catalogs(expected, actual)
 
     assert complete_catalog["server_version_num"].startswith("18")
+    assert len(complete_catalog["tables"]) == EXPECTED_TABLE_COUNT
     assert {table["name"] for table in complete_catalog["tables"]} - {
         table["name"] for table in actual["tables"]
-    } == P4_PLATFORM_TABLES
+    } == GREENFIELD_TABLES
     assert result["counts"] == {
-        "tables": {"expected": 39, "actual": 39},
+        "tables": {"expected": LEGACY_TABLE_COUNT, "actual": LEGACY_TABLE_COUNT},
         "columns": {"expected": 478, "actual": 478},
         "constraints": {"expected": 60, "actual": 60},
         "indexes": {"expected": 120, "actual": 120},
@@ -85,9 +89,9 @@ def test_pg18_alembic_schema_matches_legacy_catalog(migrated_postgres18_url: str
 
 def _legacy_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
     filtered = dict(catalog)
-    filtered["tables"] = [item for item in catalog["tables"] if item["name"] not in P4_PLATFORM_TABLES]
+    filtered["tables"] = [item for item in catalog["tables"] if item["name"] not in GREENFIELD_TABLES]
     for family in ("columns", "constraints", "indexes"):
-        filtered[family] = [item for item in catalog[family] if item["table"] not in P4_PLATFORM_TABLES]
+        filtered[family] = [item for item in catalog[family] if item["table"] not in GREENFIELD_TABLES]
     return filtered
 
 

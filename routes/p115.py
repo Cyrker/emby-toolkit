@@ -2401,11 +2401,14 @@ def _accept_emby_item_response(sha1, expected_pick_code=''):
     )
     if not item:
         return jsonify({'ok': False, 'error': 'item identity mismatch'}), 409
-    return jsonify(accept_plugin_emby_binding(
+    result = accept_plugin_emby_binding(
         item,
         sha1=sha1,
         expected_pick_code=expected_pick_code,
-    ))
+    )
+    if result.get('ok') is False:
+        return jsonify(result), 503 if result.get('retryable') else 409
+    return jsonify(result)
 
 
 @p115_bp.route('/mediainfo/<pick_code>/intro-sync', methods=['POST'])
@@ -2475,6 +2478,7 @@ def _prepare_deep_delete_response(sha1, expected_pick_code=''):
         token = secrets.token_urlsafe(24)
         snapshot = {
             'created_at': now,
+            'delete_token': token,
             'item_id': root_item_id,
             'item_name': str(root.get('Name') or payload.get('item_name') or root_item_id),
             'item_type': actual_type,
@@ -2524,6 +2528,7 @@ def _prepare_deep_delete_response(sha1, expected_pick_code=''):
     token = secrets.token_urlsafe(24)
     snapshot = {
         'created_at': now,
+        'delete_token': token,
         'item_id': root_item_id,
         'item_name': str(root.get('Name') or payload.get('item_name') or root_item_id),
         'item_type': actual_type,
@@ -2558,13 +2563,24 @@ def _process_deep_delete_snapshot(snapshot):
                 snapshot['item_id'],
                 snapshot.get('virtual_id') or '-',
             )
-        maintenance_db.cleanup_deleted_media_item(
+        operation_id = str(snapshot.get('delete_token') or '').strip()
+        if not operation_id:
+            import task_manager
+
+            operation_id = str(task_manager.current_persistent_execution_job_id() or '').strip()
+        cleanup_result = maintenance_db.cleanup_deleted_media_item(
             item_id=snapshot['item_id'],
             item_name=snapshot['item_name'],
             item_type=snapshot['item_type'],
             series_id_from_webhook=snapshot.get('series_id') or None,
             local_only=local_only,
+            operation_id=operation_id,
         )
+        if not isinstance(cleanup_result, dict) or cleanup_result.get('ok') is not True:
+            raise RuntimeError(
+                f"local media cleanup was not confirmed: "
+                f"{(cleanup_result or {}).get('error') if isinstance(cleanup_result, dict) else 'missing outcome'}"
+            )
         return {'ok': True, 'local_only': local_only, 'item_id': snapshot['item_id']}
     except Exception:
         logger.exception(
@@ -2594,6 +2610,7 @@ def _commit_deep_delete_response():
         return jsonify({'ok': False, 'error': 'delete snapshot not found'}), 404
     if time.time() - float(snapshot.get('created_at') or 0) > _DEEP_DELETE_TTL_SECONDS:
         return jsonify({'ok': False, 'error': 'delete snapshot expired'}), 410
+    snapshot['delete_token'] = token
 
     try:
         handle = submit_persistent_background(

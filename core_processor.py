@@ -34,6 +34,7 @@ from ai_translator import AITranslator
 from watchlist_processor import WatchlistProcessor
 from handler.douban import DoubanApi
 from etk.compatibility.background import spawn
+from etk.domains.media.asset_versions import AssetVersionSlot, align_asset_version_slots
 logger = logging.getLogger(__name__)
 try:
     from handler.douban import DoubanApi
@@ -1016,10 +1017,7 @@ class MediaProcessor:
                     movie_record['file_pickcode_json'] = '[]'
                     movie_record['in_library'] = False
                 else:
-                    all_assets = []
-                    all_ids = []  # ★ 修复 1：初始化为空列表
-                    all_sha1s = []
-                    all_pcs = []
+                    asset_slots = []
                     
                     media_sources = item_details_from_emby.get('MediaSources', [])
                     
@@ -1100,10 +1098,13 @@ class MediaProcessor:
                             )
                             asset_details['source_library_id'] = source_lib_id
 
-                            all_assets.append(asset_details)
-                            all_ids.append(source_id)
-                            if file_pc: all_pcs.append(file_pc)
-                            if file_sha1: all_sha1s.append(file_sha1)
+                            asset_slots.append(AssetVersionSlot(
+                                asset_details=asset_details,
+                                emby_item_id=source_id,
+                                path=emby_path,
+                                file_sha1=file_sha1 or '',
+                                file_pickcode=file_pc or '',
+                            ))
                     else:
                         # 兜底逻辑：如果没有 MediaSources，使用主 Path
                         emby_path = item_details_from_emby.get('Path', '')
@@ -1119,16 +1120,21 @@ class MediaProcessor:
                         )
                         asset_details['source_library_id'] = source_lib_id
 
-                        all_assets.append(asset_details)
-                        all_ids.append(item_id) # ★ 修复 4：兜底时收集主 ID
-                        if file_pc: all_pcs.append(file_pc)
-                        if file_sha1: all_sha1s.append(file_sha1)
-                    
-                    # 使用 dict.fromkeys 去重并保持顺序
-                    movie_record['asset_details_json'] = json.dumps(all_assets, ensure_ascii=False)
-                    movie_record['emby_item_ids_json'] = json.dumps(list(dict.fromkeys(all_ids)))
-                    movie_record['file_sha1_json'] = json.dumps(list(dict.fromkeys(all_sha1s)))
-                    movie_record['file_pickcode_json'] = json.dumps(list(dict.fromkeys(all_pcs)))
+                        asset_slots.append(AssetVersionSlot(
+                            asset_details=asset_details,
+                            emby_item_id=item_id,
+                            path=emby_path,
+                            file_sha1=file_sha1 or '',
+                            file_pickcode=file_pc or '',
+                        ))
+
+                    aligned_assets = align_asset_version_slots(asset_slots)
+                    all_sha1s = list(aligned_assets.file_sha1s)
+                    all_pcs = list(aligned_assets.file_pickcodes)
+                    movie_record['asset_details_json'] = json.dumps(aligned_assets.asset_details, ensure_ascii=False)
+                    movie_record['emby_item_ids_json'] = json.dumps(aligned_assets.emby_item_ids)
+                    movie_record['file_sha1_json'] = json.dumps(aligned_assets.file_sha1s)
+                    movie_record['file_pickcode_json'] = json.dumps(aligned_assets.file_pickcodes)
                     movie_record['in_library'] = True
                     movie_record['active_washing'] = False
                     _apply_washing_snapshot(movie_record, all_sha1s, all_pcs)
@@ -1502,10 +1508,7 @@ class MediaProcessor:
                     
                     # ★ 资产信息处理 (支持多版本)
                     if not is_pending and versions_of_episode:
-                        all_assets = []
-                        all_ids = []
-                        all_sha1s = []
-                        all_pcs = []
+                        asset_slots = []
                         
                         # 遍历该集的所有版本
                         for version in versions_of_episode:
@@ -1561,17 +1564,21 @@ class MediaProcessor:
                             details = parse_full_asset_details(temp_version)
                             details['source_library_id'] = item_details_from_emby.get('_SourceLibraryId')
 
-                            all_assets.append(details)
-                            all_ids.append(clean_v_id)
-                            
-                            if file_sha1: all_sha1s.append(file_sha1)
-                            if file_pc: all_pcs.append(file_pc)
-                            
-                        episode_record['asset_details_json'] = json.dumps(all_assets, ensure_ascii=False)
-                        # 使用 dict.fromkeys 去重并保持顺序
-                        episode_record['emby_item_ids_json'] = json.dumps(list(dict.fromkeys(all_ids)))
-                        episode_record['file_sha1_json'] = json.dumps(list(dict.fromkeys(all_sha1s)))
-                        episode_record['file_pickcode_json'] = json.dumps(list(dict.fromkeys(all_pcs)))
+                            asset_slots.append(AssetVersionSlot(
+                                asset_details=details,
+                                emby_item_id=clean_v_id,
+                                path=emby_path,
+                                file_sha1=file_sha1 or '',
+                                file_pickcode=file_pc or '',
+                            ))
+
+                        aligned_assets = align_asset_version_slots(asset_slots)
+                        all_sha1s = list(aligned_assets.file_sha1s)
+                        all_pcs = list(aligned_assets.file_pickcodes)
+                        episode_record['asset_details_json'] = json.dumps(aligned_assets.asset_details, ensure_ascii=False)
+                        episode_record['emby_item_ids_json'] = json.dumps(aligned_assets.emby_item_ids)
+                        episode_record['file_sha1_json'] = json.dumps(aligned_assets.file_sha1s)
+                        episode_record['file_pickcode_json'] = json.dumps(aligned_assets.file_pickcodes)
                         episode_record['in_library'] = True
                         _apply_washing_snapshot(episode_record, all_sha1s, all_pcs)
                         # 不允许用物理/Emby 时长覆盖 media_metadata.runtime_minutes；
@@ -1641,10 +1648,7 @@ class MediaProcessor:
                         "actors_ready": True,
                     }
 
-                    all_assets = []
-                    all_ids = []
-                    all_sha1s = []
-                    all_pcs = []
+                    asset_slots = []
                     
                     for version in versions:
                         raw_path = version.get('Path', '')
@@ -1697,16 +1701,21 @@ class MediaProcessor:
                         details = parse_full_asset_details(temp_version)
                         details['source_library_id'] = item_details_from_emby.get('_SourceLibraryId')
 
-                        all_assets.append(details)
-                        all_ids.append(clean_v_id)
-                        
-                        if file_sha1: all_sha1s.append(file_sha1)
-                        if file_pc: all_pcs.append(file_pc)
-                        
-                    episode_record['asset_details_json'] = json.dumps(all_assets, ensure_ascii=False)
-                    episode_record['emby_item_ids_json'] = json.dumps(list(dict.fromkeys(all_ids)))
-                    episode_record['file_sha1_json'] = json.dumps(list(dict.fromkeys(all_sha1s)))
-                    episode_record['file_pickcode_json'] = json.dumps(list(dict.fromkeys(all_pcs)))
+                        asset_slots.append(AssetVersionSlot(
+                            asset_details=details,
+                            emby_item_id=clean_v_id,
+                            path=emby_path,
+                            file_sha1=file_sha1 or '',
+                            file_pickcode=file_pc or '',
+                        ))
+
+                    aligned_assets = align_asset_version_slots(asset_slots)
+                    all_sha1s = list(aligned_assets.file_sha1s)
+                    all_pcs = list(aligned_assets.file_pickcodes)
+                    episode_record['asset_details_json'] = json.dumps(aligned_assets.asset_details, ensure_ascii=False)
+                    episode_record['emby_item_ids_json'] = json.dumps(aligned_assets.emby_item_ids)
+                    episode_record['file_sha1_json'] = json.dumps(aligned_assets.file_sha1s)
+                    episode_record['file_pickcode_json'] = json.dumps(aligned_assets.file_pickcodes)
                     episode_record['in_library'] = True
                     _apply_washing_snapshot(episode_record, all_sha1s, all_pcs)
 
@@ -2461,6 +2470,71 @@ class MediaProcessor:
             metadata_backfill_only=metadata_backfill_only,
         )
 
+    def _stage_final_metadata_refresh(
+        self,
+        cursor,
+        *,
+        item_id,
+        item_type,
+        replace_all_metadata,
+        replace_all_images,
+        metadata_only,
+    ):
+        from etk.compatibility.media_effects import persistent_media_effect_gateway_installed
+
+        if not persistent_media_effect_gateway_installed():
+            return None
+        from task_manager import current_persistent_execution_job_id
+        from etk.domains.media.final_refresh_effects import stage_final_metadata_refresh
+
+        operation_id = current_persistent_execution_job_id()
+        if not operation_id:
+            raise RuntimeError("持久媒体刷新必须在持久 Job 执行上下文中预留。")
+        return stage_final_metadata_refresh(
+            cursor,
+            operation_id=operation_id,
+            item_id=item_id,
+            item_type=item_type,
+            replace_all_metadata=replace_all_metadata,
+            replace_all_images=replace_all_images,
+            metadata_only=metadata_only,
+        ).effect_id
+
+    def _execute_final_metadata_refresh(
+        self,
+        effect_id,
+        *,
+        item_id,
+        item_type,
+        replace_all_metadata,
+        replace_all_images,
+        metadata_only,
+        item_name,
+    ):
+        if effect_id is None:
+            return emby.refresh_emby_item_metadata(
+                item_emby_id=item_id,
+                emby_server_url=self.emby_url,
+                emby_api_key=self.emby_api_key,
+                user_id_for_ops=self.emby_user_id,
+                replace_all_metadata_param=replace_all_metadata,
+                replace_all_images_param=replace_all_images,
+                metadata_only=metadata_only,
+                item_name_for_log=item_name,
+            )
+        from etk.compatibility.media_effects import execute_persistent_media_effect
+
+        projection = execute_persistent_media_effect(effect_id)
+        if projection.status.value == "confirmed":
+            return True
+        logger.error(
+            "  ➜ Emby 元数据刷新副作用未确认成功: item=%s effect=%s status=%s",
+            item_id,
+            effect_id,
+            projection.status.value,
+        )
+        return False
+
     # ---核心处理流程 ---
     def _process_item_core_logic(self, item_details_from_emby: Dict[str, Any], force_full_update: bool = False, specific_episode_ids: Optional[List[str]] = None, media_info_only: bool = False, metadata_backfill_only: bool = False):
         """
@@ -2475,6 +2549,7 @@ class MediaProcessor:
         item_type = item_details_from_emby.get("Type")
         uses_etk_metadata_provider = self._is_etk_metadata_item(item_details_from_emby)
         metadata_persisted_before_refresh = False
+        refresh_effect_id = None
 
         logger.trace(f"--- 开始处理 '{item_name_for_log}' (TMDb ID: {tmdb_id}) ---")
 
@@ -2810,22 +2885,31 @@ class MediaProcessor:
                         source_data_package=formatted_metadata,
                         specific_episode_ids=specific_episode_ids,
                     )
+                    refresh_effect_id = self._stage_final_metadata_refresh(
+                        conn.cursor(),
+                        item_id=item_id,
+                        item_type=item_type,
+                        replace_all_metadata=uses_etk_metadata_provider,
+                        replace_all_images=False,
+                        metadata_only=metadata_backfill_only,
+                    )
                     conn.commit()
                 metadata_persisted_before_refresh = True
 
             # 7. 正常处理/回流需要刷新 Emby 元数据以确保外挂字幕可以加载；
             #    媒体信息修复模式只写数据库，不再触发 Emby 元数据/图片/人物链路。
             if not media_info_only:
-                emby.refresh_emby_item_metadata(
-                    item_emby_id=item_id,
-                    emby_server_url=self.emby_url,
-                    emby_api_key=self.emby_api_key,
-                    user_id_for_ops=self.emby_user_id,
-                    replace_all_metadata_param=uses_etk_metadata_provider,
-                    replace_all_images_param=False,
+                refresh_confirmed = self._execute_final_metadata_refresh(
+                    refresh_effect_id,
+                    item_id=item_id,
+                    item_type=item_type,
+                    replace_all_metadata=uses_etk_metadata_provider,
+                    replace_all_images=False,
                     metadata_only=metadata_backfill_only,
-                    item_name_for_log=item_name_for_log
+                    item_name=item_name_for_log,
                 )
+                if not refresh_confirmed:
+                    raise RuntimeError(f"Emby 元数据刷新未确认成功: {item_id}")
                 restore_target_ids = [item_id]
                 if item_type == 'Series':
                     restore_target_ids = [str(x) for x in (specific_episode_ids or []) if x]
@@ -3801,21 +3885,34 @@ class MediaProcessor:
                     final_processed_cast=final_formatted_cast, 
                     source_data_package=payload, # <--- 直接用 payload
                 )
-                
+                refresh_effect_id = self._stage_final_metadata_refresh(
+                    cursor,
+                    item_id=item_id,
+                    item_type=item_type,
+                    replace_all_metadata=True,
+                    replace_all_images=False,
+                    metadata_only=False,
+                )
+                conn.commit()
+
+            refresh_confirmed = self._execute_final_metadata_refresh(
+                refresh_effect_id,
+                item_id=item_id,
+                item_type=item_type,
+                replace_all_metadata=True,
+                replace_all_images=False,
+                metadata_only=False,
+                item_name=item_name,
+            )
+            if not refresh_confirmed:
+                raise RuntimeError(f"Emby 元数据刷新未确认成功: {item_id}")
+
+            with get_central_db_connection() as conn:
+                cursor = conn.cursor()
                 logger.info(f"  ➜ 正在将手动处理完成的《{item_name}》写入已处理日志...")
                 self.log_db_manager.save_to_processed_log(cursor, item_id, item_name, score=10.0)
                 self.log_db_manager.remove_from_failed_log(cursor, item_id)
                 conn.commit()
-
-            emby.refresh_emby_item_metadata(
-                item_emby_id=item_id,
-                emby_server_url=self.emby_url,
-                emby_api_key=self.emby_api_key,
-                user_id_for_ops=self.emby_user_id,
-                replace_all_metadata_param=True,
-                replace_all_images_param=False,
-                item_name_for_log=item_name,
-            )
 
             logger.info(f"  ➜ 手动处理 '{item_name}' 流程完成。")
             return True

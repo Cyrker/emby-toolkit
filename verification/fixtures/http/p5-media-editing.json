@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "kind": "sanitized-media-editing-contract",
+  "routes": [
+    "GET /api/media_info/edit/{item_id}",
+    "POST /api/media_info/edit/{item_id}",
+    "GET /api/media_info/chapters/{item_id}",
+    "POST /api/media_info/chapters/{item_id}",
+    "GET /api/media_info/series/{series_id}/episodes"
+  ],
+  "fixture": {
+    "item_id": "fixture-item-1",
+    "series_id": "fixture-series-1",
+    "sha1": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "mediainfo": [
+      {
+        "MediaSourceInfo": {
+          "RunTimeTicks": 600000000,
+          "MediaStreams": [
+            {
+              "Type": "Video",
+              "Codec": "h264"
+            }
+          ]
+        },
+        "Chapters": [
+          {
+            "MarkerType": "IntroStart",
+            "StartPositionTicks": 10000000
+          },
+          {
+            "MarkerType": "IntroEnd",
+            "StartPositionTicks": 50000000
+          },
+          {
+            "MarkerType": "CreditsStart",
+            "StartPositionTicks": 550000000
+          }
+        ]
+      }
+    ]
+  },
+  "responses": {
+    "media_info": {
+      "status": 200,
+      "body": {
+        "sha1": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "mediainfo": [
+          {
+            "MediaSourceInfo": {
+              "RunTimeTicks": 600000000,
+              "MediaStreams": [
+                {
+                  "Type": "Video",
+                  "Codec": "h264"
+                }
+              ]
+            },
+            "Chapters": [
+              {
+                "MarkerType": "IntroStart",
+                "StartPositionTicks": 10000000
+              },
+              {
+                "MarkerType": "IntroEnd",
+                "StartPositionTicks": 50000000
+              },
+              {
+                "MarkerType": "CreditsStart",
+                "StartPositionTicks": 550000000
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "chapters": {
+      "status": 200,
+      "body": {
+        "sha1": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "intro_start_seconds": 1.0,
+        "intro_end_seconds": 5.0,
+        "credits_start_seconds": 55.0,
+        "runtime_seconds": 60.0,
+        "intro_enabled": true,
+        "credits_enabled": true
+      }
+    },
+    "episodes": {
+      "status": 200,
+      "body": [
+        {
+          "emby_id": "fixture-episode-1",
+          "season_number": 1,
+          "episode_number": 1,
+          "title": "Fixture Episode"
+        }
+      ]
+    },
+    "chapter_update": {
+      "status": 200,
+      "body": {
+        "message": "片头片尾已更新并写入 Emby",
+        "sha1": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "result": {
+          "Updated": true
+        },
+        "failure_reset_count": 0,
+        "intro_start_seconds": 2.0,
+        "intro_end_seconds": 6.0,
+        "credits_start_seconds": null,
+        "runtime_seconds": 60.0,
+        "intro_enabled": true,
+        "credits_enabled": false
+      }
+    },
+    "media_info_update": {
+      "status": 200,
+      "body": {
+        "message": "媒体信息已更新并写入 Emby",
+        "result": {
+          "Updated": true
+        },
+        "washing_priority": null,
+        "washing_priority_error": null
+      }
+    },
+    "processor_unavailable": {
+      "status": 503,
+      "body": {
+        "error": "核心处理器未就绪。"
+      }
+    },
+    "unaligned_asset": {
+      "status": 409,
+      "body": {
+        "error": "媒体资产版本绑定冲突"
+      }
+    }
+  }
+}

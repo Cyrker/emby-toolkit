@@ -1,0 +1,331 @@
+{
+  "schema_version": 2,
+  "provenance": {
+    "kind": "legacy-native-differential-contract",
+    "captured_live": false,
+    "legacy_baseline_commit": "c1d7617a4068646c6806320b8138a8236e68223e",
+    "legacy_inbound_harness": "isolated Flask blueprint with local stubs",
+    "legacy_outbound_harness": "AST-extracted P4 handler/emby.py functions with a request recorder",
+    "native_owner": "etk.domains.media.router and etk.domains.media.bridge_client.HttpxEmbyBridgeClient",
+    "compatibility_until": "P11"
+  },
+  "inbound": [
+    {"method": "GET", "path": "/api/emby/plugin-update"},
+    {"method": "GET", "path": "/api/emby/metadata"},
+    {"method": "POST", "path": "/api/emby/metadata/backfill"},
+    {"method": "POST", "path": "/api/emby/metadata/backfill/item"},
+    {"method": "POST", "path": "/api/emby/metadata/backfill/items"},
+    {"method": "POST", "path": "/api/emby/metadata/backfill/library"},
+    {"method": "GET", "path": "/api/emby/metadata/images/search"},
+    {"method": "POST", "path": "/api/emby/metadata/images/refresh"},
+    {"method": "POST", "path": "/api/emby/metadata/images/sync"},
+    {"method": "POST", "path": "/api/emby/events"}
+  ],
+  "emby_events": [
+    "user.policyupdated",
+    "item.markfavorite",
+    "item.unmarkfavorite",
+    "item.markplayed",
+    "item.markunplayed",
+    "item.rate",
+    "playback.start",
+    "playback.pause",
+    "playback.stop",
+    "playback.halfway",
+    "metadata.update",
+    "image.update",
+    "collection.items.removed"
+  ],
+  "event_ownership": [
+    {
+      "event": "metadata.update",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "durable-legacy-compatibility",
+      "target_stage": "P5"
+    },
+    {
+      "event": "image.update",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "durable-legacy-compatibility",
+      "target_stage": "P5"
+    },
+    {
+      "event": "user.policyupdated",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    },
+    {
+      "event": "item.markfavorite",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    },
+    {
+      "event": "item.unmarkfavorite",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    },
+    {
+      "event": "item.markplayed",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    },
+    {
+      "event": "item.markunplayed",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    },
+    {
+      "event": "item.rate",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    },
+    {
+      "event": "playback.start",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    },
+    {
+      "event": "playback.pause",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    },
+    {
+      "event": "playback.stop",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    },
+    {
+      "event": "playback.halfway",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    },
+    {
+      "event": "collection.items.removed",
+      "transport_owner": "etk.domains.media.router",
+      "execution_owner": "routes.webhook.emby_webhook",
+      "execution_kind": "future-domain-legacy-compatibility",
+      "target_stage": "P7/P9"
+    }
+  ],
+  "outbound": [
+    {"method": "POST", "path": "/ETKMediaInfo/Origin"},
+    {"method": "POST", "path": "/ETKMediaInfo/DiscoveryUrl"},
+    {"method": "POST", "path": "/Items/{item_id}/ETKMediaInfo"},
+    {"method": "POST", "path": "/Items/{item_id}/ETKMediaInfo/Intro"},
+    {"method": "POST", "path": "/Items/{item_id}/ETKMediaInfo/Credits"},
+    {"method": "POST", "path": "/Items/{item_id}/ETKMediaInfo/Chapters"}
+  ],
+  "golden_master": {
+    "inbound_cases": [
+      {
+        "case_id": "plugin-update-success",
+        "request": {"method": "GET", "path": "/api/emby/plugin-update"},
+        "response": {
+          "status": 200,
+          "headers": {
+            "cache-control": "no-store",
+            "content-disposition": "attachment; filename=\"ETKMediaInfoBridge.dll\"",
+            "content-type": "application/octet-stream"
+          },
+          "body_sha256": "d868bbb63a32fd78c45aa49e272b9f5e79de2e908afd0153f8ec97449ca7fe64"
+        }
+      },
+      {
+        "case_id": "metadata-invalid-request",
+        "request": {"method": "GET", "path": "/api/emby/metadata"},
+        "response": {"status": 400, "body": {"error": "invalid metadata path request"}}
+      },
+      {
+        "case_id": "backfill-all-submitted",
+        "request": {"method": "POST", "path": "/api/emby/metadata/backfill"},
+        "response": {"status": 202, "body": {"ok": true, "submitted": true}}
+      },
+      {
+        "case_id": "backfill-item-submitted",
+        "request": {
+          "method": "POST",
+          "path": "/api/emby/metadata/backfill/item",
+          "body": {"emby_item_id": "item-1"}
+        },
+        "response": {"status": 202, "body": {"ok": true, "submitted": true, "count": 1}}
+      },
+      {
+        "case_id": "backfill-items-submitted",
+        "request": {
+          "method": "POST",
+          "path": "/api/emby/metadata/backfill/items",
+          "body": {"emby_item_ids": ["item-1", "item-1", "item-2"]}
+        },
+        "response": {"status": 202, "body": {"ok": true, "submitted": true, "count": 1}}
+      },
+      {
+        "case_id": "backfill-library-submitted",
+        "request": {
+          "method": "POST",
+          "path": "/api/emby/metadata/backfill/library",
+          "body": {"emby_library_id": "7", "refresh_mode": "missing_metadata"}
+        },
+        "response": {"status": 202, "body": {"ok": true, "submitted": true, "count": 1}}
+      },
+      {
+        "case_id": "image-search-success",
+        "request": {
+          "method": "GET",
+          "path": "/api/emby/metadata/images/search",
+          "query": {"path": "/fixture/movie.mkv", "item_type": "Movie", "include_all_languages": "true"}
+        },
+        "response": {
+          "status": 200,
+          "headers": {"cache-control": "no-store"},
+          "body": {
+            "images": [
+              {"type": "Primary", "source_url": "http://fixture.invalid/primary.jpg", "width": 1000}
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "image-refresh-invalid-request",
+        "request": {"method": "POST", "path": "/api/emby/metadata/images/refresh"},
+        "response": {"status": 400, "body": {"ok": false, "error": "invalid image refresh request"}}
+      },
+      {
+        "case_id": "image-sync-success",
+        "request": {
+          "method": "POST",
+          "path": "/api/emby/metadata/images/sync",
+          "query": {"path": "/fixture/movie.mkv", "item_type": "Movie"},
+          "body": {"rules": [{"Type": "Primary", "Limit": 1}]}
+        },
+        "response": {
+          "status": 200,
+          "headers": {"cache-control": "no-store"},
+          "body": {
+            "ok": true,
+            "images": [
+              {
+                "type": "Primary",
+                "source_url": "http://fixture.invalid/primary.jpg",
+                "width": 1000,
+                "index": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "case_id": "unknown-event-compatible-ignore",
+        "request": {
+          "method": "POST",
+          "path": "/api/emby/events",
+          "body": {
+            "_etk_source": "ETKMediaInfoBridge",
+            "Event": "plugin.future-event",
+            "EventId": "golden-unknown-event"
+          }
+        },
+        "response": {"status": 200, "body": {"status": "event_ignored_not_in_trigger_list"}}
+      }
+    ],
+    "outbound_cases": [
+      {
+        "case_id": "configure-origin",
+        "request": {
+          "method": "POST",
+          "path": "/ETKMediaInfo/Origin",
+          "query": {"api_key": "<redacted>"},
+          "body": {"Url": "http://etk.fixture.invalid"}
+        },
+        "response_statuses": ["2XX"]
+      },
+      {
+        "case_id": "configure-discovery-url",
+        "request": {
+          "method": "POST",
+          "path": "/ETKMediaInfo/DiscoveryUrl",
+          "query": {"api_key": "<redacted>"},
+          "body": {"Url": "http://discovery.fixture.invalid"}
+        },
+        "response_statuses": ["2XX"]
+      },
+      {
+        "case_id": "apply-mediainfo",
+        "request": {
+          "method": "POST",
+          "path": "/Items/item-1/ETKMediaInfo",
+          "headers": {"Accept": "application/json", "X-Emby-Token": "<redacted>"},
+          "body": {
+            "MediaSourceInfo": {"MediaStreams": [{"Type": "Video"}]},
+            "Chapters": [{"Name": "Chapter"}],
+            "DropConflictingExternalStreams": true
+          }
+        },
+        "response_statuses": ["2XX"]
+      },
+      {
+        "case_id": "apply-intro",
+        "request": {
+          "method": "POST",
+          "path": "/Items/item-2/ETKMediaInfo/Intro",
+          "headers": {"Accept": "application/json", "X-Emby-Token": "<redacted>"},
+          "body": {"IntroStartTicks": 10, "IntroEndTicks": 20}
+        },
+        "response_statuses": ["2XX"]
+      },
+      {
+        "case_id": "apply-credits",
+        "request": {
+          "method": "POST",
+          "path": "/Items/item-3/ETKMediaInfo/Credits",
+          "headers": {"Accept": "application/json", "X-Emby-Token": "<redacted>"},
+          "body": {"CreditsStartTicks": 30}
+        },
+        "response_statuses": ["2XX"]
+      },
+      {
+        "case_id": "update-chapters",
+        "request": {
+          "method": "POST",
+          "path": "/Items/item-4/ETKMediaInfo/Chapters",
+          "headers": {"Accept": "application/json", "X-Emby-Token": "<redacted>"},
+          "body": {
+            "ClearIntro": false,
+            "ClearCredits": true,
+            "IntroStartTicks": 40,
+            "IntroEndTicks": 50,
+            "CreditsStartTicks": 60
+          }
+        },
+        "response_statuses": ["2XX"]
+      }
+    ]
+  },
+  "limitations": [
+    "The Bridge DLL source is not part of this repository.",
+    "The fixture uses isolated local stubs and is not live external acceptance.",
+    "Inbound authentication remains source-marker-compatible until the plugin contract can change.",
+    "Live acceptance against a real Emby server remains HUMAN_PENDING."
+  ]
+}

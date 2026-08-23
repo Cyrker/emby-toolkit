@@ -10,7 +10,7 @@ import pytest
 
 from etk.domains.operations.jobs import JobSubmissionService
 from etk.platform.jobs import AttemptStatus, JobStatus, PostgresJobStore
-from etk.platform.tasks import TaskRegistry
+from etk.platform.tasks import TaskOutcome, TaskRegistry
 from etk.processes import worker as worker_module
 from etk.processes.runtime_config import TaskRuntimeConfig
 from etk.processes.worker import WorkerRuntime
@@ -90,6 +90,11 @@ def _runtime(
     termination_grace_seconds: float = 1,
     terminate_process: Any = None,
 ) -> tuple[WorkerRuntime, JobSubmissionService]:
+    class NativeMediaRouter:
+        @staticmethod
+        def execute(message: object, _processor: object) -> TaskOutcome:
+            return TaskOutcome.succeeded("fixture native media task completed", adapter.execute(message))
+
     registry = TaskRegistry.from_fixture(TASK_FIXTURE)
     service = JobSubmissionService(store, registry)
     runtime = WorkerRuntime(
@@ -107,6 +112,7 @@ def _runtime(
     state._registry = registry
     state._service = service
     state._adapter = adapter
+    state._p5_media_tasks = NativeMediaRouter()
     state._supervisor = SimpleNamespace(config=supervisor_config or {})
     state._refresh_settings = lambda: None
     return runtime, service

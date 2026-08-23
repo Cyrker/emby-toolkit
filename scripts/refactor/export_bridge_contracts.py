@@ -5,8 +5,51 @@ from pathlib import Path
 from typing import Any
 
 from export_routes import export_routes
-from manifest_common import REPO_ROOT, apply_contract_override, dump_yaml_compatible_json, stable_id
+from manifest_common import (
+    REPO_ROOT,
+    apply_contract_override,
+    dump_yaml_compatible_json,
+    stable_id,
+)
 
+EMBY_EVENT_OWNERSHIP: tuple[dict[str, str], ...] = (
+    {
+        "event": "metadata.update",
+        "transport_owner": "etk.domains.media.router",
+        "execution_owner": "routes.webhook.emby_webhook",
+        "execution_kind": "durable-legacy-compatibility",
+        "target_stage": "P5",
+    },
+    {
+        "event": "image.update",
+        "transport_owner": "etk.domains.media.router",
+        "execution_owner": "routes.webhook.emby_webhook",
+        "execution_kind": "durable-legacy-compatibility",
+        "target_stage": "P5",
+    },
+    *(
+        {
+            "event": event,
+            "transport_owner": "etk.domains.media.router",
+            "execution_owner": "routes.webhook.emby_webhook",
+            "execution_kind": "future-domain-legacy-compatibility",
+            "target_stage": "P7/P9",
+        }
+        for event in (
+            "user.policyupdated",
+            "item.markfavorite",
+            "item.unmarkfavorite",
+            "item.markplayed",
+            "item.markunplayed",
+            "item.rate",
+            "playback.start",
+            "playback.pause",
+            "playback.stop",
+            "playback.halfway",
+            "collection.items.removed",
+        )
+    ),
+)
 
 EMBY_INBOUND: dict[tuple[str, str], dict[str, Any]] = {
     ("GET", "/api/emby/metadata"): {
@@ -30,21 +73,43 @@ EMBY_INBOUND: dict[tuple[str, str], dict[str, Any]] = {
         "response_statuses": [202, 200, 400, 409],
     },
     ("POST", "/api/emby/metadata/images/refresh"): {
-        "request_fields": ["query.path?", "query.tmdb_id?", "query.item_type", "query.season_number?", "query.episode_number?"],
+        "request_fields": [
+            "query.path?",
+            "query.tmdb_id?",
+            "query.item_type",
+            "query.season_number?",
+            "query.episode_number?",
+        ],
         "response_statuses": [200, 400, 404, 500, 502, 503],
     },
     ("GET", "/api/emby/metadata/images/search"): {
-        "request_fields": ["query.path?", "query.tmdb_id?", "query.item_type", "query.include_all_languages?"],
+        "request_fields": [
+            "query.path?",
+            "query.tmdb_id?",
+            "query.item_type",
+            "query.season_number?",
+            "query.episode_number?",
+            "query.include_all_languages?",
+        ],
         "response_statuses": [200, 400, 404, 502, 503],
     },
     ("POST", "/api/emby/metadata/images/sync"): {
-        "request_fields": ["query.path?", "query.tmdb_id?", "query.item_type", "body.rules[]", "body.force?"],
+        "request_fields": [
+            "query.path?",
+            "query.tmdb_id?",
+            "query.item_type",
+            "query.season_number?",
+            "query.episode_number?",
+            "body.rules[]",
+            "body.force?",
+        ],
         "response_statuses": [200, 400, 404, 410, 502],
     },
     ("POST", "/api/emby/events"): {
         "request_fields": ["body._etk_source", "body.Event"],
         "response_statuses": [200, 202, 400, 500, 503],
         "auth": "source-marker-only",
+        "event_ownership": EMBY_EVENT_OWNERSHIP,
     },
     ("GET", "/api/emby/plugin-update"): {
         "request_fields": [],
@@ -63,7 +128,7 @@ P115_OPERATIONS = {
     ),
     "/metadata/backfill": ("POST", [202, 200, 404, 409], ["path.identity"]),
     "/intro-sync": ("POST", [200, 404], ["path.identity", "query.emby_item_id"]),
-    "/item-ready": ("POST", [200, 404, 409], ["path.identity", "query.emby_item_id"]),
+    "/item-ready": ("POST", [200, 404, 409, 503], ["path.identity", "query.emby_item_id"]),
     "/deep-delete/prepare": (
         "POST",
         [200, 400, 404, 409],
@@ -163,55 +228,67 @@ def export_bridge_contracts() -> dict[str, Any]:
         source = route_lookup[(method, path)]
         inbound.append(
             apply_contract_override(
-            {
-                "contract_id": stable_id("bridge-inbound", method, path),
-                "direction": "inbound",
-                "transport": "http",
-                "method": method,
-                "path": path,
-                "source": source["source"],
-                "endpoint": source["endpoint"],
-                "auth": details.get("auth", "none"),
-                "request_fields": details["request_fields"],
-                "response_statuses": details["response_statuses"],
-                "response_content_types": details.get("response_content_types", ["application/json"]),
-                "redactions": [
-                    "Authorization",
-                    "Cookie",
-                    "X-Emby-Token",
-                    "path.identity",
-                    "filesystem paths",
-                    "external URLs",
-                    "user identifiers",
-                ],
-                "target_stage": "P5" if path.startswith("/api/emby/") else "P6",
-                "status": "legacy",
-                "new_owner": None,
-                "fixtures": _inbound_fixtures(path),
-                "validation_owner": "media/bridge" if path.startswith("/api/emby/") else "p115/bridge",
-                "validation_method": "golden-master-and-stub-contract",
-            },
-            "bridge_contracts",
+                {
+                    "contract_id": stable_id("bridge-inbound", method, path),
+                    "direction": "inbound",
+                    "transport": "http",
+                    "method": method,
+                    "path": path,
+                    "source": source["source"],
+                    "endpoint": source["endpoint"],
+                    "auth": details.get("auth", "none"),
+                    "request_fields": details["request_fields"],
+                    "response_statuses": details["response_statuses"],
+                    "response_content_types": details.get("response_content_types", ["application/json"]),
+                    "redactions": [
+                        "Authorization",
+                        "Cookie",
+                        "X-Emby-Token",
+                        "path.identity",
+                        "filesystem paths",
+                        "external URLs",
+                        "user identifiers",
+                    ],
+                    "target_stage": "P5" if path.startswith("/api/emby/") else "P6",
+                    "status": "legacy",
+                    "new_owner": None,
+                    "fixtures": _inbound_fixtures(path),
+                    "validation_owner": "media/bridge" if path.startswith("/api/emby/") else "p115/bridge",
+                    "validation_method": (
+                        "legacy-differential-and-stub-contract"
+                        if path.startswith("/api/emby/")
+                        else "source-contract-and-validation-fixture"
+                    ),
+                    **(
+                        {"event_ownership": [dict(value) for value in details["event_ownership"]]}
+                        if details.get("event_ownership")
+                        else {}
+                    ),
+                },
+                "bridge_contracts",
             )
         )
 
     outbound = [
-        apply_contract_override({
-            "contract_id": stable_id("bridge-outbound", item["method"], item["path"]),
-            "direction": "outbound",
-            "transport": "http",
-            "auth": "emby-token",
-            "response_statuses": [200],
-            "response_content_types": ["application/json"],
-            "redactions": ["query.api_key", "header.X-Emby-Token", "body.Url"],
-            "target_stage": "P5",
-            "status": "legacy",
-            "new_owner": None,
-            "fixtures": ["verification/fixtures/stubs/external-services.json"],
-            "validation_owner": "media/bridge",
-            "validation_method": "stub-contract",
-            **item,
-        }, "bridge_contracts")
+        apply_contract_override(
+            {
+                "contract_id": stable_id("bridge-outbound", item["method"], item["path"]),
+                "direction": "outbound",
+                "transport": "http",
+                "auth": "emby-token",
+                "response_statuses": ["2XX"],
+                "response_content_types": ["application/json"],
+                "redactions": ["query.api_key", "header.X-Emby-Token", "body.Url"],
+                "target_stage": "P5",
+                "status": "legacy",
+                "new_owner": None,
+                "fixtures": ["verification/fixtures/stubs/external-services.json"],
+                "validation_owner": "media/bridge",
+                "validation_method": "stub-contract",
+                **item,
+            },
+            "bridge_contracts",
+        )
         for item in OUTBOUND
     ]
     return {
@@ -223,9 +300,28 @@ def export_bridge_contracts() -> dict[str, Any]:
             "outbound_bridge_contract_count": len(outbound),
             "total_contract_count": len(inbound) + len(outbound),
         },
+        "stage_boundary": {
+            "decision": "split-central-media-and-p115-transport",
+            "p5_owned": {
+                "inbound_contracts": "the ten /api/emby/* operations",
+                "outbound_contracts": "the six ETKMediaInfo Bridge write operations",
+                "invariants": (
+                    "media identity, metadata, image, event transport, durable refresh, and deep-delete receipts"
+                ),
+            },
+            "p6_deferred": {
+                "inbound_contracts": "the fourteen PickCode/SHA1 /api/p115/mediainfo/* operations",
+                "reason": "the approved route ownership table assigns routes/p115.py and P115 business execution to P6",
+                "acceptance": "P6 must provide native HTTP ownership and legacy-vs-native differential evidence",
+            },
+            "compatibility_rule": "P5 must not mark the fourteen P115 operations new or claim them locally accepted",
+        },
         "limitations": [
-            "The Bridge DLL source is not part of this repository; outbound response schemas cover only fields consumed by ETK.",
+            "The Bridge DLL source is not part of this repository; outbound response schemas cover only fields "
+            "consumed by ETK.",
             "Success payloads that depend on database or external adapters require sanitized fixtures and local stubs.",
+            "The fourteen PickCode/SHA1 P115 inbound operations remain a P6 gate and are not part of P5 native "
+            "ownership.",
         ],
         "contracts": inbound + outbound,
     }

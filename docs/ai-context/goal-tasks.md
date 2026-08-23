@@ -22,8 +22,8 @@ Allowed status:
 | P2 | Plan §10 P2 | Add settings, DI, SQLAlchemy, Alembic, PostgreSQL 18, and observability platform | DONE | yes | `goal-log.md#p2` | PG18, catalog, image, Compose, shutdown, and cross-review gates passed |
 | P3 | Plan §10 P3 | Migrate System, Identity, and Operations contracts | DONE | yes | `goal-log.md#p3` | 41 native bindings; PG18, image, OpenAPI, permission, and rollback gates passed |
 | P4 | Plan §10 P4 | Add Celery, Redis, persistent jobs, Coordinator, and all 50 task keys | DONE | yes | `goal-log.md#p4` | local PG18/Redis/Celery and isolated image evidence; external effects remain Live pending |
-| P5 | Plan §10 P5 | Migrate Media, Metadata, Image, Bridge, and Emby events | TODO | yes | pending | |
-| P6 | Plan §10 P6 | Migrate 115, ingestion, monitoring, STRM, media info, and playback | TODO | yes | pending | external writes use Fake/Stub adapters |
+| P5 | Plan §10 P5 | Migrate Media, Metadata, Image, Bridge, and Emby events | DONE | yes | `goal-log.md#p5` | native transport and durable effects verified; Live Emby/Bridge remains pending |
+| P6 | Plan §10 P6 | Migrate 115, ingestion, monitoring, STRM, media info, and playback | DOING | yes | pending | start from local P5 stage commit; external writes use Fake/Stub adapters |
 | P7 | Plan §10 P7 | Migrate subscriptions, watchlist, actors, washing, and MoviePilot adapter | TODO | yes | pending | |
 | P8 | Plan §10 P8 | Migrate collections, covers, users, discovery, and secondary administration | TODO | yes | pending | |
 | P9 | Plan §10 P9 | Migrate sharing, credit ledger, proxy, Telegram, and HDHive | TODO | yes | pending | |

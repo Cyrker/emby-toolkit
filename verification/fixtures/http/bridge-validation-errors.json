@@ -7,7 +7,7 @@
   "cases": [
     {
       "case_id": "metadata-invalid-request",
-      "source": "routes/webhook.py:1674",
+      "source": "src/etk/domains/media/router.py",
       "request": {
         "method": "GET",
         "path": "/api/emby/metadata",
@@ -22,7 +22,7 @@
     },
     {
       "case_id": "backfill-item-missing-id",
-      "source": "routes/webhook.py:1880",
+      "source": "src/etk/domains/media/router.py",
       "request": {
         "method": "POST",
         "path": "/api/emby/metadata/backfill/item",
@@ -38,7 +38,7 @@
     },
     {
       "case_id": "plugin-event-invalid-source",
-      "source": "routes/webhook.py:2272",
+      "source": "src/etk/domains/media/router.py",
       "request": {
         "method": "POST",
         "path": "/api/emby/events",
@@ -56,7 +56,7 @@
     },
     {
       "case_id": "mediainfo-invalid-sha1",
-      "source": "routes/p115.py:2022",
+      "source": "routes/p115.py",
       "request": {
         "method": "GET",
         "path": "/api/p115/mediainfo/sha1/not-a-sha1"
@@ -70,7 +70,7 @@
     },
     {
       "case_id": "deep-delete-missing-token",
-      "source": "routes/p115.py:2324",
+      "source": "routes/p115.py",
       "request": {
         "method": "POST",
         "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/commit",

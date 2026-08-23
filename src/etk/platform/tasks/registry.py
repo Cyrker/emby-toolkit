@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Protocol
 
-from .catalog import LEGACY_TASK_KEY_ORDER, P4_NATIVE_TASK_KEYS
+from .catalog import LEGACY_TASK_KEY_ORDER, NATIVE_TASK_KEYS
 from .models import (
     JsonValue,
     TaskDefinition,
@@ -29,8 +29,8 @@ class TaskRegistry:
         native_keys = {
             definition.key for definition in definitions if definition.handler_kind is TaskHandlerKind.NATIVE
         }
-        if native_keys != P4_NATIVE_TASK_KEYS:
-            raise ValueError("only the two task-chain keys may use P4 native handlers")
+        if native_keys != NATIVE_TASK_KEYS:
+            raise ValueError("native task definitions must match the staged P4/P5 native task catalog")
         self._definitions = definitions
         self._by_key = {definition.key: definition for definition in definitions}
 

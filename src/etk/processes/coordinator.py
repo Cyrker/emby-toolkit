@@ -28,11 +28,13 @@ from etk.compatibility.scheduled_operations import (
     cleanup_p115_temp_videos,
     verify_pro_status,
 )
+from etk.domains.media.effects import PostgresMediaEffectLedger
 from etk.domains.operations.jobs import JobSubmissionService, TaskBusyError
 from etk.platform.jobs import OutboxClaim, PostgresJobStore
 from etk.platform.tasks import TaskRegistry
 
 from .celery_app import EXECUTE_JOB_TASK, create_celery_app
+from .p5_media_effects import CeleryMediaEffectPublisher, MediaEffectOutboxDispatcher
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,8 @@ _PLAY_POOL_JOB = "play_pool_daily_speedtest_job"
 _P115_TEMP_CLEANUP_JOB = "p115_temp_dir_cleanup_job"
 _PRO_STATUS_JOB = "pro_status_check_job"
 _PLUGIN_UPDATE_JOB = "etk_plugin_update_startup_job"
+_JOB_DISPATCH_TOPIC = "job.dispatch.requested"
+_JOB_DISPATCH_TOPICS = (_JOB_DISPATCH_TOPIC,)
 _MANAGED_SCHEDULE_IDS = frozenset(
     {
         _HIGH_JOB,
@@ -72,6 +76,8 @@ class CeleryOutboxPublisher:
         self._app = create_celery_app(config)
 
     def publish(self, claim: OutboxClaim) -> None:
+        if claim.event.topic != _JOB_DISPATCH_TOPIC or claim.event.aggregate_type != "job_attempt":
+            raise ValueError("Celery outbox publisher only supports job.dispatch.requested job_attempt events")
         payload = claim.event.payload
         event_id = str(payload.get("event_id") or "")
         job_id = str(payload.get("job_id") or "")
@@ -409,6 +415,8 @@ class CoordinatorRuntime:
         self._gateway: PersistentTaskManagerGateway | None = None
         self._schedules: PersistentScheduleManager | None = None
         self._publisher = CeleryOutboxPublisher(self.config)
+        self._media_effect_publisher = CeleryMediaEffectPublisher(self.config)
+        self._media_effect_dispatcher: MediaEffectOutboxDispatcher | None = None
         self._publisher_id = f"{socket.gethostname()}:{os.getpid()}"
         self._last_settings_refresh = 0.0
         self._last_settings: Any = None
@@ -428,6 +436,13 @@ class CoordinatorRuntime:
         self._container = container
         self._config_adapter = config_adapter
         self._store = store
+        self._media_effect_dispatcher = MediaEffectOutboxDispatcher(
+            store,
+            PostgresMediaEffectLedger(database.unit_of_work),
+            self._media_effect_publisher,
+            self.config,
+            publisher_id=f"{self._publisher_id}:media-effect",
+        )
         self._service = service
         self._leadership = leadership
         self._write_health("standby")
@@ -524,6 +539,7 @@ class CoordinatorRuntime:
         store.requeue_stale_published(
             limit=self.config.outbox_batch_size,
             processed_timeout_seconds=max(self.config.lease_seconds * 2, 60),
+            topics=_JOB_DISPATCH_TOPICS,
         )
         result = store.publish_outbox_batch(
             self._publisher,
@@ -531,6 +547,7 @@ class CoordinatorRuntime:
             limit=self.config.outbox_batch_size,
             claim_timeout_seconds=self.config.outbox_claim_timeout_seconds,
             failure_backoff_seconds=2,
+            topics=_JOB_DISPATCH_TOPICS,
         )
         if result.failed or result.dead:
             logger.warning(
@@ -538,6 +555,29 @@ class CoordinatorRuntime:
                 extra={"failed": result.failed, "dead": result.dead},
             )
             raise RuntimeError("Outbox dispatch is degraded")
+        media_dispatcher = getattr(self, "_media_effect_dispatcher", None)
+        if media_dispatcher is None:
+            return
+        media_result = media_dispatcher.tick()
+        if media_result.expired_claims:
+            logger.warning(
+                "Expired Media Effect claims were marked indeterminate",
+                extra={"expired_claims": media_result.expired_claims},
+            )
+        if media_result.rejected_dead_effects:
+            logger.error(
+                "Media Effect dispatch exhausted without provider execution",
+                extra={"rejected_effects": media_result.rejected_dead_effects},
+            )
+        if media_result.publish.failed or media_result.publish.dead:
+            logger.warning(
+                "Media Effect Outbox batch completed with publish failures",
+                extra={
+                    "failed": media_result.publish.failed,
+                    "dead": media_result.publish.dead,
+                },
+            )
+            raise RuntimeError("Media Effect Outbox dispatch is degraded")
 
     def _process_telegram_commands(self) -> None:
         from etk.compatibility.tg_control_bridge import TelegramCommandExecutor, TelegramControlBridge

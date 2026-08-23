@@ -9,6 +9,10 @@ from .connection import get_db_connection
 logger = logging.getLogger(__name__)
 
 
+class UnalignedAssetVersionsError(RuntimeError):
+    pass
+
+
 def _as_json_list(value: Any) -> List[Any]:
     if isinstance(value, list):
         return list(value)
@@ -23,6 +27,18 @@ def _as_json_list(value: Any) -> List[Any]:
 
 def _normalized_asset_path(value: Any) -> str:
     return str(value or '').strip().replace('\\', '/').rstrip('/').casefold()
+
+
+def _aligned_asset_arrays(row: Dict[str, Any]):
+    assets = _as_json_list(row.get('asset_details_json'))
+    emby_ids = _as_json_list(row.get('emby_item_ids_json'))
+    sha1s = _as_json_list(row.get('file_sha1_json'))
+    pickcodes = _as_json_list(row.get('file_pickcode_json'))
+    if len({len(assets), len(emby_ids), len(sha1s), len(pickcodes)}) != 1:
+        raise UnalignedAssetVersionsError('legacy asset version arrays are not position-aligned')
+    if any(not isinstance(asset, dict) for asset in assets):
+        raise UnalignedAssetVersionsError('legacy asset details contain a non-object slot')
+    return assets, emby_ids, sha1s, pickcodes
 
 
 def rebind_emby_item_by_fingerprint(
@@ -82,12 +98,17 @@ def rebind_emby_item_by_fingerprint(
                     ),
                 )
                 matches = []
+                unaligned_rows = False
                 for row in cursor.fetchall() or []:
                     row = dict(row)
-                    assets = _as_json_list(row.get('asset_details_json'))
-                    sha1s = [str(value or '').strip().upper() for value in _as_json_list(row.get('file_sha1_json'))]
-                    pick_codes = [str(value or '').strip().casefold() for value in _as_json_list(row.get('file_pickcode_json'))]
-                    for index in range(max(len(assets), len(sha1s), len(pick_codes))):
+                    try:
+                        assets, _emby_ids, raw_sha1s, raw_pick_codes = _aligned_asset_arrays(row)
+                    except UnalignedAssetVersionsError:
+                        unaligned_rows = True
+                        continue
+                    sha1s = [str(value or '').strip().upper() for value in raw_sha1s]
+                    pick_codes = [str(value or '').strip().casefold() for value in raw_pick_codes]
+                    for index in range(len(assets)):
                         asset = assets[index] if index < len(assets) and isinstance(assets[index], dict) else {}
                         path_matches = bool(item_path and _normalized_asset_path(asset.get('path')) == item_path)
                         sha1_matches = bool(sha1 and index < len(sha1s) and sha1s[index] == sha1)
@@ -113,7 +134,10 @@ def rebind_emby_item_by_fingerprint(
                     fallback_row = cursor.fetchone()
                     if fallback_row:
                         row = dict(fallback_row)
-                        assets = _as_json_list(row.get('asset_details_json'))
+                        try:
+                            assets, _emby_ids, _sha1s, _pick_codes = _aligned_asset_arrays(row)
+                        except UnalignedAssetVersionsError:
+                            return {'updated': False, 'reason': 'unaligned_asset_versions'}
                         matched_index = next((
                             index for index, asset in enumerate(assets)
                             if isinstance(asset, dict)
@@ -130,6 +154,8 @@ def rebind_emby_item_by_fingerprint(
                         matches.append((0, row, matched_index, assets))
                         restored_identity = True
                 if not matches:
+                    if unaligned_rows:
+                        return {'updated': False, 'reason': 'unaligned_asset_versions'}
                     return {'updated': False, 'reason': 'asset_not_found'}
                 matches.sort(key=lambda value: value[0])
                 best_score = matches[0][0]
@@ -1657,7 +1683,7 @@ def get_pickcode_by_emby_id(emby_id: str) -> Optional[str]:
     """
     if not emby_id: return None
     sql = """
-        SELECT emby_item_ids_json, file_pickcode_json, file_sha1_json
+        SELECT emby_item_ids_json, asset_details_json, file_pickcode_json, file_sha1_json
         FROM media_metadata 
         WHERE emby_item_ids_json @> %s::jsonb 
         LIMIT 1
@@ -1669,9 +1695,11 @@ def get_pickcode_by_emby_id(emby_id: str) -> Optional[str]:
                 row = cursor.fetchone()
                 if not row: return None
 
-                emby_ids = row['emby_item_ids_json']
-                pcs = row['file_pickcode_json']
-                sha1s = row['file_sha1_json']
+                try:
+                    _assets, emby_ids, sha1s, pcs = _aligned_asset_arrays(dict(row))
+                except UnalignedAssetVersionsError as exc:
+                    logger.error("DB: 拒绝从错位资产数组解析 Emby ID %s: %s", emby_id, exc)
+                    return None
 
                 # 确保是列表且包含该 ID
                 if isinstance(emby_ids, list) and emby_id in emby_ids:
@@ -1707,7 +1735,7 @@ def get_pickcodes_for_deleted_emby_item(emby_id: str, item_type: Optional[str] =
             WHERE emby_item_ids_json @> %s::jsonb
             LIMIT 1
         )
-        SELECT m.emby_item_ids_json, m.file_pickcode_json, m.file_sha1_json
+        SELECT m.emby_item_ids_json, m.asset_details_json, m.file_pickcode_json, m.file_sha1_json
         FROM media_metadata m
         JOIN target_item t ON
              (m.tmdb_id = t.tmdb_id AND m.item_type = t.item_type)
@@ -1726,8 +1754,7 @@ def get_pickcodes_for_deleted_emby_item(emby_id: str, item_type: Optional[str] =
             with conn.cursor() as cursor:
                 cursor.execute(sql, (json.dumps([emby_id]),))
                 for row in cursor.fetchall():
-                    pcs = row['file_pickcode_json'] if isinstance(row['file_pickcode_json'], list) else []
-                    sha1s = row['file_sha1_json'] if isinstance(row['file_sha1_json'], list) else []
+                    _assets, _emby_ids, sha1s, pcs = _aligned_asset_arrays(dict(row))
 
                     for idx in range(max(len(pcs), len(sha1s))):
                         pc = str(pcs[idx] or '').strip() if idx < len(pcs) else ''
@@ -1752,6 +1779,9 @@ def get_pickcodes_for_deleted_emby_item(emby_id: str, item_type: Optional[str] =
         if pickcodes:
             logger.debug(f"  ➜ [深度删除] 已按 {item_type or '未知类型'} 层级收集到 {len(pickcodes)} 个 PC 码。")
         return pickcodes
+    except UnalignedAssetVersionsError as e:
+        logger.error("DB: 深度删除因资产版本数组错位而中止: %s", e)
+        raise
     except Exception as e:
         logger.error(f"DB: 根据 Emby ID 收集深度删除 PC 码失败: {e}", exc_info=True)
         return []
@@ -1762,10 +1792,31 @@ def update_media_sha1_and_pc_json(tmdb_id: str, item_type: str, sha1_list: list,
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT asset_details_json, emby_item_ids_json
+                FROM media_metadata
+                WHERE tmdb_id = %s AND item_type = %s
+                FOR UPDATE
+                """,
+                (tmdb_id, item_type),
+            )
+            row = cursor.fetchone()
+            assets = _as_json_list((row or {}).get('asset_details_json'))
+            emby_ids = _as_json_list((row or {}).get('emby_item_ids_json'))
+            if not row or len({len(assets), len(emby_ids), len(sha1_list), len(pc_list)}) != 1:
+                logger.error(
+                    "DB: 拒绝写入错位 SHA1/PC 数组: TMDb=%s type=%s",
+                    tmdb_id,
+                    item_type,
+                )
+                return False
             cursor.execute(sql, (json.dumps(sha1_list, ensure_ascii=False), json.dumps(pc_list, ensure_ascii=False), tmdb_id, item_type))
             conn.commit()
+            return True
     except Exception as e:
         logger.error(f"DB: 更新 SHA1 和 PC 码失败: {e}")
+        return False
 
 # 检查指纹库中是否已有该 SHA1
 def is_mediainfo_cached(sha1: str) -> bool:
@@ -1822,6 +1873,13 @@ def get_local_mediainfo_assets_with_sha1() -> List[Dict[str, Any]]:
         ) WITH ORDINALITY AS s(sha1_val, idx2) ON a.idx = s.idx2
         WHERE m.in_library = TRUE 
           AND m.item_type IN ('Movie', 'Episode')
+          AND jsonb_typeof(m.asset_details_json) = 'array'
+          AND jsonb_typeof(m.emby_item_ids_json) = 'array'
+          AND jsonb_typeof(m.file_sha1_json) = 'array'
+          AND jsonb_typeof(m.file_pickcode_json) = 'array'
+          AND jsonb_array_length(m.asset_details_json) = jsonb_array_length(m.emby_item_ids_json)
+          AND jsonb_array_length(m.asset_details_json) = jsonb_array_length(m.file_sha1_json)
+          AND jsonb_array_length(m.asset_details_json) = jsonb_array_length(m.file_pickcode_json)
           AND s.sha1_val IS NOT NULL 
           AND s.sha1_val != ''
     """
@@ -1967,10 +2025,11 @@ def get_physical_paths_and_sha1s_by_emby_id(emby_id: str, exact_match: bool = Fa
                 rows = cursor.fetchall()
                 
                 for row in rows:
-                    emby_ids = row['emby_item_ids_json'] or []
-                    sha1s = row['file_sha1_json'] or []
-                    pcs = row['file_pickcode_json'] or []
-                    assets = row['asset_details_json'] or []
+                    try:
+                        assets, emby_ids, sha1s, pcs = _aligned_asset_arrays(dict(row))
+                    except UnalignedAssetVersionsError as exc:
+                        logger.error("DB: 跳过错位的物理资产行: %s", exc)
+                        continue
                     target_idx = None
                     if isinstance(emby_ids, list):
                         for id_idx, row_emby_id in enumerate(emby_ids):

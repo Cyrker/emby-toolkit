@@ -1,5 +1,6 @@
 # database/maintenance_db.py
 import psycopg2
+import hashlib
 import re
 import os
 import json
@@ -12,7 +13,11 @@ from collections import defaultdict
 
 from .connection import get_db_connection
 from .log_db import LogDBManager
-from .media_db import get_tmdb_id_from_emby_id
+from .media_db import (
+    UnalignedAssetVersionsError,
+    _aligned_asset_arrays,
+    get_tmdb_id_from_emby_id,
+)
 import constants
 
 logger = logging.getLogger(__name__)
@@ -1561,13 +1566,138 @@ def _cleanup_shared_sources_after_media_delete(contexts: List[Dict[str, Any]]) -
         result['file_cleanup'] = file_cleanup
     return result
 
-def cleanup_deleted_media_item(item_id: str, item_name: str, item_type: str, series_id_from_webhook: Optional[str] = None, local_only: bool = False) -> Optional[Dict[str, Any]]:
+_DEEP_DELETE_RECEIPT_PREFIX = "p5:deep-delete-receipt:"
+
+
+def _deep_delete_receipt_key(operation_id: str) -> Optional[str]:
+    normalized = str(operation_id or '').strip()
+    if not normalized:
+        return None
+    return _DEEP_DELETE_RECEIPT_PREFIX + hashlib.sha256(normalized.encode('utf-8')).hexdigest()
+
+
+def _load_deep_delete_receipt(receipt_key: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not receipt_key:
+        return None
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT value_json FROM app_settings WHERE setting_key = %s",
+                (receipt_key,),
+            )
+            row = cursor.fetchone()
+    value = row.get('value_json') if isinstance(row, dict) else None
+    return dict(value) if isinstance(value, dict) else None
+
+
+def _store_deep_delete_receipt(cursor, receipt_key: Optional[str], receipt: Dict[str, Any]) -> None:
+    if not receipt_key:
+        return
+    cursor.execute(
+        """
+        INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+        VALUES (%s, %s, NOW())
+        ON CONFLICT (setting_key) DO UPDATE SET
+            value_json = EXCLUDED.value_json,
+            last_updated_at = NOW()
+        """,
+        (receipt_key, Json(receipt, dumps=lambda value: json.dumps(value, ensure_ascii=False))),
+    )
+
+
+def _update_deep_delete_receipt(
+    receipt_key: Optional[str],
+    receipt: Dict[str, Any],
+    *,
+    state: str,
+    result: Optional[Dict[str, Any]] = None,
+) -> None:
+    if not receipt_key:
+        return
+    updated = {**receipt, 'state': state}
+    if result is not None:
+        updated['result'] = result
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            _store_deep_delete_receipt(cursor, receipt_key, updated)
+        conn.commit()
+
+
+def _finish_deep_delete_cleanup(
+    receipt_key: Optional[str],
+    receipt: Dict[str, Any],
+) -> Dict[str, Any]:
+    local_only = bool(receipt.get('local_only'))
+    cleanup_contexts = receipt.get('shared_cleanup_contexts')
+    cleanup_contexts = cleanup_contexts if isinstance(cleanup_contexts, list) else []
+    base_result = receipt.get('local_result')
+    result = dict(base_result) if isinstance(base_result, dict) else {
+        'item_id': receipt.get('item_id'),
+        'item_type': receipt.get('item_type'),
+        'partial_version_cleanup': True,
+    }
+    if local_only:
+        shared_cleanup_result = {'ok': True, 'skipped': True, 'local_only': True}
+        logger.info("  ➜ [虚拟入库] 本地善后模式，跳过共享源/中心实时下架。")
+    else:
+        if receipt_key:
+            _update_deep_delete_receipt(receipt_key, receipt, state='shared_started')
+        try:
+            shared_cleanup_result = _cleanup_shared_sources_after_media_delete(cleanup_contexts)
+        except Exception:
+            # shared_started means provider outcome may be unknown; a retry must not blindly replay it.
+            raise
+    result['shared_cleanup'] = shared_cleanup_result
+    result['ok'] = bool(
+        isinstance(shared_cleanup_result, dict)
+        and shared_cleanup_result.get('ok', True)
+    )
+    if result['ok']:
+        _update_deep_delete_receipt(receipt_key, receipt, state='confirmed', result=result)
+    else:
+        _update_deep_delete_receipt(receipt_key, receipt, state='local_committed', result=result)
+    return result
+
+
+def cleanup_deleted_media_item(item_id: str, item_name: str, item_type: str, series_id_from_webhook: Optional[str] = None, local_only: bool = False, operation_id: str = '') -> Optional[Dict[str, Any]]:
     """
     处理一个从 Emby 中被删除的媒体项，同步清除所有相关的数据。
     """
     logger.info(f"  ➜ 检测到 Emby 媒体项被删除: '{item_name}' (Type: {item_type}, EmbyID: {item_id})，开始清理流程...")
 
     try:
+        receipt_key = _deep_delete_receipt_key(operation_id)
+        existing_receipt = _load_deep_delete_receipt(receipt_key)
+        if existing_receipt is not None:
+            if (
+                str(existing_receipt.get('item_id') or '') != str(item_id)
+                or str(existing_receipt.get('item_type') or '') != str(item_type)
+            ):
+                return {
+                    'ok': False,
+                    'item_id': item_id,
+                    'item_type': item_type,
+                    'error': 'deep-delete operation identity conflict',
+                }
+            state = str(existing_receipt.get('state') or '')
+            if state == 'confirmed':
+                stored_result = existing_receipt.get('result')
+                return dict(stored_result) if isinstance(stored_result, dict) else {
+                    'ok': True,
+                    'item_id': item_id,
+                    'item_type': item_type,
+                }
+            if state == 'shared_started':
+                return {
+                    'ok': False,
+                    'item_id': item_id,
+                    'item_type': item_type,
+                    'indeterminate': True,
+                    'error': 'shared cleanup outcome is unknown; automatic replay is forbidden',
+                }
+            if state == 'local_committed':
+                return _finish_deep_delete_cleanup(receipt_key, existing_receipt)
+
         # ======================================================================
         # ★★★ 核心解绑：第一步，无脑清理该特定版本的专属日志和内存缓存 ★★★
         # 无论是不是多版本，只要这个 Emby ID 被删了，它的专属记录必须死！
@@ -1606,15 +1736,14 @@ def cleanup_deleted_media_item(item_id: str, item_name: str, item_type: str, ser
             if not row:
                 return None, None, None, None, None, None, [], [], []
 
-            # 2. 解析 JSON 为 Python 列表
-            emby_ids = row['emby_item_ids_json'] if isinstance(row['emby_item_ids_json'], list) else json.loads(row['emby_item_ids_json'] or '[]')
-            
-            if not isinstance(emby_ids, list) or target_emby_id not in emby_ids:
-                return None, None, None, None, None, None, [], [], []
+            # 2. 删除是破坏性操作，旧错位行必须 fail closed，不能猜测索引。
+            try:
+                assets, emby_ids, sha1s, pcs = _aligned_asset_arrays(dict(row))
+            except UnalignedAssetVersionsError as exc:
+                raise RuntimeError(f"asset version alignment check failed: {exc}") from exc
 
-            assets = row['asset_details_json'] if isinstance(row['asset_details_json'], list) else json.loads(row['asset_details_json'] or '[]')
-            sha1s = row['file_sha1_json'] if isinstance(row['file_sha1_json'], list) else json.loads(row['file_sha1_json'] or '[]')
-            pcs = row['file_pickcode_json'] if isinstance(row['file_pickcode_json'], list) else json.loads(row['file_pickcode_json'] or '[]')
+            if target_emby_id not in emby_ids:
+                return None, None, None, None, None, None, [], [], []
 
             # 3. 找到目标 ID 的索引并移除，同时记录被删版本的指纹，给共享资源实时下架用。
             idx = emby_ids.index(target_emby_id)
@@ -1735,12 +1864,22 @@ def cleanup_deleted_media_item(item_id: str, item_name: str, item_type: str, ser
                 # --- 情况 A: 还有其他版本存在 ---
                 if remaining_count > 0:
                     logger.info(f"  ➜ 媒体项 '{item_name}' (TMDB: {tmdb_id}) 移除了一个版本，但仍有 {remaining_count} 个版本在库中。")
+                    receipt = {
+                        'version': 1,
+                        'state': 'local_committed',
+                        'item_id': item_id,
+                        'item_type': item_type,
+                        'local_only': bool(local_only),
+                        'shared_cleanup_contexts': shared_cleanup_contexts,
+                        'local_result': {
+                            'item_id': item_id,
+                            'item_type': item_type,
+                            'partial_version_cleanup': True,
+                        },
+                    }
+                    _store_deep_delete_receipt(cursor, receipt_key, receipt)
                     conn.commit()
-                    if not local_only:
-                        _cleanup_shared_sources_after_media_delete(shared_cleanup_contexts)
-                    else:
-                        logger.info("  ➜ [虚拟入库] 本地善后模式，跳过共享源/中心实时下架。")
-                    return None
+                    return _finish_deep_delete_cleanup(receipt_key, receipt)
 
                 # --- 情况 B: 所有版本都已删除 (remaining_count == 0) ---
                 logger.info(f"  ➜ 媒体项 '{item_name}' (TMDB: {tmdb_id}) 的所有版本均已删除，标记为“不在库中”。")
@@ -2105,21 +2244,29 @@ def cleanup_deleted_media_item(item_id: str, item_name: str, item_type: str, ser
 
                     logger.info(f"--- 对 TMDB ID: {target_tmdb_id_for_full_cleanup} 的完全清理已完成 ---")
 
-                # 提交事务
+                receipt = {
+                    'version': 1,
+                    'state': 'local_committed',
+                    'item_id': item_id,
+                    'item_type': item_type,
+                    'local_only': bool(local_only),
+                    'shared_cleanup_contexts': shared_cleanup_contexts,
+                    'local_result': cascaded_cleanup_info or {
+                        'item_id': item_id,
+                        'item_type': item_type,
+                        'partial_version_cleanup': True,
+                    },
+                }
+                _store_deep_delete_receipt(cursor, receipt_key, receipt)
+
+                # 提交本地事务和恢复收据后，才执行共享中心善后。
                 conn.commit()
 
-        if local_only:
-            shared_cleanup_result = {'ok': True, 'skipped': True, 'local_only': True}
-            logger.info("  ➜ [虚拟入库] 本地善后模式，跳过共享源/中心实时下架。")
-        else:
-            shared_cleanup_result = _cleanup_shared_sources_after_media_delete(shared_cleanup_contexts)
-        if cascaded_cleanup_info is not None:
-            cascaded_cleanup_info['shared_cleanup'] = shared_cleanup_result
-        return cascaded_cleanup_info
+        return _finish_deep_delete_cleanup(receipt_key, receipt)
 
     except Exception as e:
         logger.error(f"清理被删除的媒体项 {item_id} 时发生严重数据库错误: {e}", exc_info=True)
-        return None
+        return {'ok': False, 'item_id': item_id, 'item_type': item_type, 'error': str(e)}
 
 def cleanup_offline_media() -> Dict[str, int]:
     """

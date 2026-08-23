@@ -296,4 +296,4 @@ def test_every_legacy_catalog_key_routes_negative_failure_evidence_to_worker_ter
             progress.raise_if_reported_failure()
         checked.append(definition.key)
 
-    assert len(checked) == 48
+    assert len(checked) == 42

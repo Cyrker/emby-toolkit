@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from manifest_common import (
-    ManifestError,
     REPO_ROOT,
+    ManifestError,
     apply_contract_override,
     dump_yaml_compatible_json,
     evaluate_static,
@@ -17,14 +17,12 @@ from manifest_common import (
     stable_id,
 )
 
-
 ROUTE_OWNERS: dict[str, tuple[list[str], str]] = {
     "routes/unified_auth.py": (["identity"], "P3"),
     "routes/system.py": (["system", "operations"], "P3/P4"),
     "routes/logs.py": (["operations"], "P3"),
     "routes/database_admin.py": (["operations"], "P3/P11"),
     "routes/tasks.py": (["operations"], "P3/P4"),
-    "routes/media.py": (["media"], "P5"),
     "routes/actions.py": (["media", "operations"], "P5/P8"),
     "routes/webhook.py": (["ingestion", "subscription", "sharing"], "P5/P7/P9"),
     "routes/p115.py": (["p115"], "P6"),
@@ -42,6 +40,53 @@ ROUTE_OWNERS: dict[str, tuple[list[str], str]] = {
     "routes/shared_resource.py": (["sharing"], "P9"),
     "reverse_proxy.py": (["sharing", "users"], "P9"),
 }
+
+
+MEDIA_ROUTE_OWNERS: dict[tuple[str, str], tuple[list[str], str, str]] = {
+    ("GET", "/api/search_emby_library"): (["operations"], "P8", "operations/review"),
+    ("GET", "/api/media_for_editing/<item_id>"): (["media"], "P5", "media/cast-editor"),
+    ("POST", "/api/update_media_cast_sa/<item_id>"): (["media"], "P5", "media/cast-editor"),
+    # P5 owns the public binding because `cache=` is the media image-store contract.
+    # The legacy `url=` mode remains a separate egress-policy migration concern.
+    ("GET", "/api/image_proxy"): (["media"], "P5", "media/image-delivery"),
+    ("GET", "/image_proxy/<path:image_path>"): (["media"], "P5", "media/emby-image-delivery"),
+    ("POST", "/api/actions/translate_cast_sa"): (["media"], "P5", "media/cast-editor"),
+    ("POST", "/api/preview_processed_cast/<item_id>"): (["media"], "P5", "media/cast-editor"),
+    ("GET", "/api/emby_libraries"): (["media"], "P8", "media/library-query"),
+    ("GET", "/api/emby/user/<user_id>/views"): (["users"], "P8", "users/integration-settings"),
+    ("GET", "/api/search_studios"): (["collection"], "P8", "collection/custom-collection"),
+    ("POST", "/api/subscription/status"): (["subscription"], "P7", "subscription/state"),
+    ("GET", "/api/subscriptions/all"): (["subscription"], "P7", "subscription/management"),
+    ("POST", "/api/media/batch_delete"): (["subscription"], "P7", "subscription/management"),
+    ("GET", "/api/subscription/strategy"): (["subscription"], "P7", "subscription/strategy"),
+    ("POST", "/api/subscription/strategy"): (["subscription"], "P7", "subscription/strategy"),
+    ("GET", "/api/auto_tagging/rules"): (["media"], "P8", "media/auto-tagging"),
+    ("POST", "/api/auto_tagging/rules"): (["media"], "P8", "media/auto-tagging"),
+    ("POST", "/api/auto_tagging/run_now"): (["media"], "P8", "media/auto-tagging"),
+    ("POST", "/api/auto_tagging/clear_now"): (["media"], "P8", "media/auto-tagging"),
+    ("POST", "/api/update_media_image/<item_id>"): (["media"], "P5", "media/image-editor"),
+    ("GET", "/api/tmdb_images/<item_id>"): (["media"], "P5", "media/image-editor"),
+    ("GET", "/api/media_info/edit/<item_id>"): (["media"], "P5", "media/mediainfo-editor"),
+    ("GET", "/api/media_info/chapters/<item_id>"): (["media"], "P5", "media/mediainfo-chapters"),
+    ("POST", "/api/media_info/chapters/<item_id>"): (["media"], "P5", "media/mediainfo-chapters"),
+    ("POST", "/api/media_info/edit/<item_id>"): (["media"], "P5", "media/mediainfo-editor"),
+    ("GET", "/api/media_info/series/<series_id>/episodes"): (["media"], "P5", "media/mediainfo-editor"),
+}
+
+P5_EMBY_ROUTE_PATHS = frozenset(
+    {
+        "/api/emby/plugin-update",
+        "/api/emby/metadata",
+        "/api/emby/metadata/backfill",
+        "/api/emby/metadata/backfill/item",
+        "/api/emby/metadata/backfill/items",
+        "/api/emby/metadata/backfill/library",
+        "/api/emby/metadata/images/search",
+        "/api/emby/metadata/images/refresh",
+        "/api/emby/metadata/images/sync",
+        "/api/emby/events",
+    }
+)
 
 
 HTTP_DECORATORS = {"route", "get", "post", "put", "delete", "patch", "websocket"}
@@ -76,6 +121,33 @@ def _fixture_for_route(source_path: str, route_path: str) -> tuple[str | None, s
         None,
         "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
     )
+
+
+def _route_ownership(
+    source_path: str,
+    route_path: str,
+    methods: list[str],
+) -> tuple[list[str], str, str]:
+    if source_path == "routes/webhook.py" and route_path in P5_EMBY_ROUTE_PATHS:
+        if route_path == "/api/emby/events":
+            return ["media", "subscription", "sharing"], "P5/P7/P9", "media/bridge-transport"
+        return ["media"], "P5", "media/bridge"
+    if source_path != "routes/media.py":
+        domains, stage = ROUTE_OWNERS.get(source_path, (["unassigned"], "UNASSIGNED"))
+        return domains, stage, "/".join(domains)
+
+    ownerships: list[tuple[list[str], str, str]] = []
+    for method in methods:
+        ownership = MEDIA_ROUTE_OWNERS.get((method, route_path))
+        if ownership is None:
+            raise ManifestError(f"media route owner mapping missing for: {method} {route_path}")
+        ownerships.append(ownership)
+
+    first = ownerships[0]
+    if any(ownership != first for ownership in ownerships[1:]):
+        identities = ", ".join(f"{method} {route_path}" for method in methods)
+        raise ManifestError(f"route decorator spans multiple method-level owners: {identities}")
+    return first
 
 
 def _blueprints(path: Path, tree: ast.Module) -> list[dict[str, Any]]:
@@ -131,7 +203,6 @@ def export_routes() -> dict[str, Any]:
         prefix_by_variable = {item["variable"]: item["url_prefix"] for item in file_blueprints}
         rel = relative_path(path)
         application = "proxy" if rel == "reverse_proxy.py" else "api"
-        domains, stage = ROUTE_OWNERS.get(rel, (["unassigned"], "UNASSIGNED"))
         for function in _decorated_functions(tree):
             for decorator in function.decorator_list:
                 if not isinstance(decorator, ast.Call) or not isinstance(decorator.func, ast.Attribute):
@@ -153,35 +224,36 @@ def export_routes() -> dict[str, Any]:
                 else:
                     methods = ["WEBSOCKET" if kind == "websocket" else kind.upper()]
                 full_path = _join_url(prefix_by_variable.get(receiver, ""), route_path)
+                domains, stage, validation_owner = _route_ownership(rel, full_path, methods)
                 fixture, fixture_exception = _fixture_for_route(rel, full_path)
                 routes.append(
                     apply_contract_override(
-                    {
-                        "contract_id": stable_id(
-                            "route-decorator",
-                            rel,
-                            receiver,
-                            route_path,
-                            ",".join(sorted(methods)),
-                        ),
-                        "source": source_ref(path, decorator.lineno),
-                        "application": application,
-                        "blueprint": receiver,
-                        "endpoint": function.name,
-                        "declared_path": route_path,
-                        "path": full_path,
-                        "methods": methods,
-                        "target_domains": domains,
-                        "target_stage": stage,
-                        "status": "legacy",
-                        "new_owner": None,
-                        "retirement_approval": None,
-                        "fixture": fixture,
-                        "fixture_exception": fixture_exception,
-                        "validation_owner": "/".join(domains),
-                        "validation_method": "static-route-contract",
-                    },
-                    "route_decorators",
+                        {
+                            "contract_id": stable_id(
+                                "route-decorator",
+                                rel,
+                                receiver,
+                                route_path,
+                                ",".join(sorted(methods)),
+                            ),
+                            "source": source_ref(path, decorator.lineno),
+                            "application": application,
+                            "blueprint": receiver,
+                            "endpoint": function.name,
+                            "declared_path": route_path,
+                            "path": full_path,
+                            "methods": methods,
+                            "target_domains": domains,
+                            "target_stage": stage,
+                            "status": "legacy",
+                            "new_owner": None,
+                            "retirement_approval": None,
+                            "fixture": fixture,
+                            "fixture_exception": fixture_exception,
+                            "validation_owner": validation_owner,
+                            "validation_method": "static-route-contract",
+                        },
+                        "route_decorators",
                     )
                 )
     routes.sort(key=lambda item: (item["path"], item["methods"], item["source"]))
