@@ -7,6 +7,7 @@ import pytest
 from flask import Flask
 
 from etk.bootstrap.runtime_supervisor import (
+    RuntimeReloadError,
     RuntimeRole,
     RuntimeState,
     RuntimeSupervisor,
@@ -99,6 +100,25 @@ def test_reload_failure_marks_runtime_failed_until_stopped() -> None:
     assert supervisor.state is RuntimeState.FAILED
     supervisor.stop()
     assert supervisor.state is RuntimeState.STOPPED
+
+
+def test_compensated_reload_failure_keeps_previous_runtime_available() -> None:
+    events: list[Any] = []
+
+    class CompensatingAdapter(FakeAdapter):
+        def save_config_and_reload(self, new_config: Mapping[str, Any]) -> None:
+            self.events.append(("reload", dict(new_config)))
+            raise RuntimeReloadError("reload was rolled back", compensated=True)
+
+    supervisor = RuntimeSupervisor(lambda: CompensatingAdapter(events))
+    supervisor.start()
+
+    with pytest.raises(RuntimeReloadError, match="rolled back"):
+        supervisor.save_config_and_reload({"revision": 2})
+
+    assert supervisor.state is RuntimeState.RUNNING
+    assert supervisor.config == {"revision": 1}
+    supervisor.stop()
 
 
 def test_stop_failure_retains_adapter_for_cleanup_retry() -> None:

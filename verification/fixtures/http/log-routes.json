@@ -1,0 +1,190 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source-and-local-fake",
+    "captured_live": false,
+    "sources": [
+      "routes/logs.py:15",
+      "routes/logs.py:40",
+      "routes/logs.py:88",
+      "routes/logs.py:317"
+    ],
+    "external_validation": "pending"
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/logs/list",
+      "permission": "legacy-admin-required"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/view",
+      "permission": "legacy-admin-required"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/search",
+      "permission": "legacy-admin-required"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/search_context",
+      "permission": "legacy-admin-required"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "list-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/logs/list"
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": [
+          "app.log",
+          "app.log.1.gz",
+          "app.log.2.gz"
+        ]
+      }
+    },
+    {
+      "case_id": "permission-denied",
+      "request": {
+        "method": "GET",
+        "path": "/api/logs/list"
+      },
+      "response": {
+        "status": 403,
+        "content_type": "application/json",
+        "body": {
+          "status": "error",
+          "message": "需要 Emby 管理员权限才能执行此操作"
+        }
+      }
+    },
+    {
+      "case_id": "view-plain-text",
+      "request": {
+        "method": "GET",
+        "path": "/api/logs/view",
+        "query": {
+          "filename": "app.log"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "text/plain; charset=utf-8",
+        "body": "2026-08-23 12:00:02,000 - fixture.logs - ERROR - latest\n2026-08-23 12:00:01,000 - fixture.logs - INFO - oldest\n"
+      }
+    },
+    {
+      "case_id": "view-sanitized-filename",
+      "request": {
+        "method": "GET",
+        "path": "/api/logs/view",
+        "query": {
+          "filename": "../app.log"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "text/plain; charset=utf-8",
+        "body": "fixture\n"
+      }
+    },
+    {
+      "case_id": "view-missing",
+      "request": {
+        "method": "GET",
+        "path": "/api/logs/view",
+        "query": {
+          "filename": "app.log.404"
+        }
+      },
+      "response": {
+        "status": 404,
+        "content_type": "text/html; charset=utf-8",
+        "body_contains": "文件未找到。"
+      }
+    },
+    {
+      "case_id": "search-query-required",
+      "request": {
+        "method": "GET",
+        "path": "/api/logs/search"
+      },
+      "response": {
+        "status": 400,
+        "content_type": "application/json",
+        "body": {
+          "error": "搜索关键词不能为空"
+        }
+      }
+    },
+    {
+      "case_id": "search-success",
+      "request": {
+        "method": "GET",
+        "path": "/api/logs/search",
+        "query": {
+          "q": "needle"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "application/json",
+        "body": [
+          {
+            "file": "app.log",
+            "line_num": 3,
+            "content": "2026-08-23 12:00:03,000 - fixture.logs - INFO - needle newest",
+            "date": "2026-08-23 12:00:03"
+          },
+          {
+            "file": "app.log.1",
+            "line_num": 1,
+            "content": "2026-08-22 12:00:00,000 - fixture.logs - INFO - needle older",
+            "date": "2026-08-22 12:00:00"
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "context-query-required",
+      "request": {
+        "method": "GET",
+        "path": "/api/logs/search_context"
+      },
+      "response": {
+        "status": 400,
+        "content_type": "application/json",
+        "body": {
+          "error": "搜索关键词不能为空"
+        }
+      }
+    },
+    {
+      "case_id": "context-html-escaped",
+      "request": {
+        "method": "GET",
+        "path": "/api/logs/search_context",
+        "query": {
+          "q": "Fixture Item",
+          "format": "html"
+        }
+      },
+      "response": {
+        "status": 200,
+        "content_type": "text/html; charset=utf-8",
+        "body_contains": [
+          "&lt;script&gt;alert(1)&lt;/script&gt;",
+          "<span class=\"keyword\">Fixture Item</span>"
+        ],
+        "body_excludes": "<script>alert(1)</script>"
+      }
+    }
+  ]
+}

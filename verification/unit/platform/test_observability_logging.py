@@ -108,8 +108,13 @@ def test_exception_and_stdlib_messages_redact_embedded_credentials() -> None:
 
 
 def test_text_redaction_handles_quoted_spaces_and_authorization_bearer_values() -> None:
-    rendered = redact_sensitive("password='two word secret'; Authorization: Bearer bearer-secret; safe=visible")
+    rendered = redact_sensitive(
+        "password='two word secret'; Authorization: Bearer bearer-secret; "
+        "url=https://api.telegram.org/bottelegram-secret/sendMessage; safe=visible"
+    )
 
     assert "two word secret" not in rendered
     assert "bearer-secret" not in rendered
+    assert "telegram-secret" not in rendered
+    assert "https://api.telegram.org/bot<redacted>/sendMessage" in rendered
     assert "safe=visible" in rendered

@@ -40,15 +40,20 @@ _URL_USERINFO = re.compile(
     flags=re.IGNORECASE,
 )
 _QUERY_SECRET = re.compile(
-    r"(?P<prefix>[?&](?:access_token|api_key|api_secret|password|refresh_token|secret|token)=)[^&#\s]+",
+    r"(?P<prefix>[?&](?:access_token|api_key|api_secret|license_key|password|refresh_token|secret|token)=)[^&#\s]+",
     flags=re.IGNORECASE,
 )
 _ASSIGNED_SECRET = re.compile(
-    r"(?P<prefix>\b(?:access_token|api_key|api_secret|authorization|password|refresh_token|secret|token)\s*[=:]\s*)"
+    r"(?P<prefix>(?:\b(?:access_token|api_key|api_secret|authorization|credential|license_key|password|"
+    r"refresh_token|secret|token)|激活码|凭证)\s*[=:：]\s*)"
     r"(?:(?P<quote>['\"])[^'\"\r\n]*(?P=quote)|[^\s,;&#'\"]+)",
     flags=re.IGNORECASE,
 )
 _BEARER_TOKEN = re.compile(r"(?P<prefix>\bBearer\s+)[A-Za-z0-9._~+/=-]+", flags=re.IGNORECASE)
+_TELEGRAM_BOT_URL = re.compile(
+    r"(?P<prefix>https?://api\.telegram\.org/bot)[^/\s]+",
+    flags=re.IGNORECASE,
+)
 
 
 def is_sensitive_key(key: object) -> bool:
@@ -109,6 +114,7 @@ def _redact(value: Any, *, active: set[int]) -> Any:
 
 def _redact_text(value: str) -> str:
     redacted = _URL_USERINFO.sub(rf"\g<prefix>{REDACTED}", value)
+    redacted = _TELEGRAM_BOT_URL.sub(rf"\g<prefix>{REDACTED}", redacted)
     redacted = _QUERY_SECRET.sub(rf"\g<prefix>{REDACTED}", redacted)
     redacted = _BEARER_TOKEN.sub(rf"\g<prefix>{REDACTED}", redacted)
     redacted = _ASSIGNED_SECRET.sub(rf"\g<prefix>{REDACTED}", redacted)

@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source-and-local-fake",
+    "captured_live": false,
+    "sources": [
+      "routes/database_admin.py:34",
+      "routes/database_admin.py:44",
+      "routes/database_admin.py:62",
+      "routes/database_admin.py:120",
+      "routes/database_admin.py:134",
+      "routes/database_admin.py:321",
+      "routes/database_admin.py:339"
+    ],
+    "external_validation": "pending"
+  },
+  "scope_reconciliation": {
+    "requested_endpoint_count": 9,
+    "actual_source_endpoint_count": 7,
+    "resolution": "implemented-only-source-backed-routes",
+    "excluded_routes": [
+      {
+        "method": "GET",
+        "path": "/api/database/stats/subscription",
+        "reason": "excluded-by-task: legacy GET may write subscription_quota_state during daily reset or cap adjustment, and its SQL/result aliases do not match the route formatter"
+      }
+    ]
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/database/stats/core",
+      "permission": "emby-session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/database/stats/library",
+      "permission": "emby-session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/database/stats/system",
+      "permission": "emby-session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/database/stats/rankings",
+      "permission": "emby-session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/database/tables",
+      "permission": "legacy-admin-required"
+    },
+    {
+      "method": "GET",
+      "path": "/api/review_items",
+      "permission": "legacy-admin-required"
+    },
+    {
+      "method": "GET",
+      "path": "/api/review_reasons",
+      "permission": "legacy-admin-required"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "login-required",
+      "response": {
+        "status": 401,
+        "body": {
+          "status": "error",
+          "message": "需要登录才能访问此资源"
+        }
+      }
+    },
+    {
+      "case_id": "admin-required",
+      "response": {
+        "status": 403,
+        "body": {
+          "status": "error",
+          "message": "需要 Emby 管理员权限才能执行此操作"
+        }
+      }
+    },
+    {
+      "case_id": "core-success",
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "success",
+          "data": {
+            "media_cached_total": 12,
+            "mediainfo_backed_up_total": 9,
+            "mediainfo_hits_total": 34
+          }
+        }
+      }
+    },
+    {
+      "case_id": "library-success",
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "success",
+          "data": {
+            "movies_in_library": 3,
+            "series_in_library": 2,
+            "episodes_in_library": 8,
+            "resolution_stats": [
+              {
+                "resolution": "4K",
+                "count": 5
+              }
+            ],
+            "weekly_added_stats": []
+          }
+        }
+      }
+    },
+    {
+      "case_id": "system-empty-defaults",
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "success",
+          "data": {
+            "translation_cache_count": 0,
+            "processed_log_count": 0,
+            "failed_log_count": 0
+          }
+        }
+      }
+    },
+    {
+      "case_id": "rankings-success",
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "success",
+          "data": {
+            "release_group_ranking": [
+              {
+                "release_group": "FixtureGroup",
+                "count": 4
+              }
+            ],
+            "historical_release_group_ranking": []
+          }
+        }
+      }
+    },
+    {
+      "case_id": "tables-success",
+      "response": {
+        "status": 200,
+        "body": [
+          "failed_log",
+          "media_metadata"
+        ]
+      }
+    },
+    {
+      "case_id": "review-items-success",
+      "response": {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "item_id": "fixture-item-001",
+              "item_name": "100%_Fixture'; SELECT",
+              "failed_at": "Sun, 23 Aug 2026 12:00:00 GMT",
+              "reason": "缺失媒体信息: S01E01",
+              "item_type": "Episode",
+              "score": "8.50"
+            }
+          ],
+          "total_items": 21,
+          "total_pages": 3,
+          "current_page": 2,
+          "per_page": 10,
+          "query": "100%_Fixture'; SELECT",
+          "reason": "缺失媒体信息"
+        }
+      }
+    },
+    {
+      "case_id": "review-items-empty",
+      "response": {
+        "status": 200,
+        "body": {
+          "items": [],
+          "total_items": 0,
+          "total_pages": 0,
+          "current_page": 1,
+          "per_page": 20,
+          "query": "",
+          "reason": ""
+        }
+      }
+    },
+    {
+      "case_id": "review-reasons-success",
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "success",
+          "data": [
+            "处理评分",
+            "缺失媒体信息",
+            "自定义原因"
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "stats-error",
+      "response": {
+        "status": 500,
+        "body": {
+          "status": "error",
+          "data": {}
+        }
+      }
+    },
+    {
+      "case_id": "tables-error",
+      "response": {
+        "status": 500,
+        "body": {
+          "error": "无法获取数据库表列表"
+        }
+      }
+    },
+    {
+      "case_id": "review-items-error",
+      "response": {
+        "status": 500,
+        "body": {
+          "error": "获取待复核列表时发生服务器内部错误"
+        }
+      }
+    },
+    {
+      "case_id": "review-reasons-error",
+      "response": {
+        "status": 500,
+        "body": {
+          "error": "获取原因列表失败"
+        }
+      }
+    }
+  ]
+}

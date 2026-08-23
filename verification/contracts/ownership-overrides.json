@@ -3,8 +3,748 @@
     "bridge_contracts": {},
     "configs": {},
     "frontend_routes": {},
-    "route_bindings": {},
-    "route_decorators": {},
+    "route_bindings": {
+      "route-binding-00618505c3de": {
+        "fixture": "verification/fixtures/http/runtime-query-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.runtime_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/runtime"
+      },
+      "route-binding-09faea0abcf6": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-0b9859fd8186": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-binding-17febf04308a": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-2628700cdebd": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-39158df111e3": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-binding-528e1577252b": {
+        "fixture": "verification/fixtures/http/log-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.log_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/logs"
+      },
+      "route-binding-57b5b6457565": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-binding-592e53218ecd": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-binding-5aa0fb8b9b07": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-658c9bec2e1e": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-6ade04bdc12d": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-binding-6e4aa9209332": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-754bacf6c5c5": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-binding-879d64d69d3b": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-binding-8c574feff62f": {
+        "fixture": "verification/fixtures/http/system-config-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.configuration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-8d175274ce52": {
+        "fixture": "verification/fixtures/http/log-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.log_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/logs"
+      },
+      "route-binding-95569acdee54": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-a18c62eea6ee": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-binding-aae766708897": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-binding-aed2ff901c65": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-binding-bc7f38a7bcae": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-binding-bc898f9d95e3": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-binding-be9049872d38": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-bef30379de53": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-binding-bfaf052fd1db": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-binding-c158af28ae58": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-binding-c4ae72c6480c": {
+        "fixture": "verification/fixtures/http/runtime-query-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.runtime_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/runtime"
+      },
+      "route-binding-c93cd2c73dea": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-binding-cadc848c90c6": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-binding-db66a6497d1b": {
+        "fixture": "verification/fixtures/http/log-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.log_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/logs"
+      },
+      "route-binding-defc7177e579": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-binding-df8a8dfe827b": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-binding-ea962f13e320": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-ee866bb79e91": {
+        "fixture": "verification/fixtures/http/log-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.log_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/logs"
+      },
+      "route-binding-f280ffdd0867": {
+        "fixture": "verification/fixtures/http/system-config-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.configuration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-f3d4ebd0e19b": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-binding-f49b64f755a7": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-binding-fafe747bc62d": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-binding-fbd751028b5a": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-binding-fe0669c3070d": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      }
+    },
+    "route_decorators": {
+      "route-decorator-0b016a423218": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-121de60e0d10": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-decorator-14851d67a6d5": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-17d4eea6986f": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-decorator-437c888ff91f": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-decorator-4500f6604a09": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-decorator-4584114e468e": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-46c1b1266a15": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-decorator-47819a4f19a4": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-decorator-53d24b036fe1": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-decorator-558a4b0aa967": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-decorator-5be64f4037b4": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-decorator-6862eb5b149b": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-decorator-6dedfd6e44d7": {
+        "fixture": "verification/fixtures/http/log-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.log_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/logs"
+      },
+      "route-decorator-6edff6cffbe0": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-727caf660d11": {
+        "fixture": "verification/fixtures/http/runtime-query-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.runtime_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/runtime"
+      },
+      "route-decorator-733c4a739d4a": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-decorator-8122e33d4a91": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-decorator-8381564bc3c5": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-84a79932c096": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-decorator-8a3de562105c": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-8d6d24de620d": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-decorator-90f18ba1a734": {
+        "fixture": "verification/fixtures/http/log-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.log_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/logs"
+      },
+      "route-decorator-93c6058e6b4a": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-decorator-95afb08851d0": {
+        "fixture": "verification/fixtures/http/runtime-query-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.runtime_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/runtime"
+      },
+      "route-decorator-95c0e270d3a0": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-decorator-97cbb29742ca": {
+        "fixture": "verification/fixtures/http/log-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.log_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/logs"
+      },
+      "route-decorator-a55996199623": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-decorator-aff1aa2ed346": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-decorator-b0c664841ae2": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-decorator-b582449aa360": {
+        "fixture": "verification/fixtures/http/system-config-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.configuration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-b930e2f76f3f": {
+        "fixture": "verification/fixtures/http/system-config-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.configuration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-c3a6c26fced4": {
+        "fixture": "verification/fixtures/http/database-read-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/database"
+      },
+      "route-decorator-c4fb4b4bbb40": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-c8e38f1784bf": {
+        "fixture": "verification/fixtures/http/log-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.log_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "operations/logs"
+      },
+      "route-decorator-cdfa000a8116": {
+        "fixture": "verification/fixtures/http/identity-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "identity"
+      },
+      "route-decorator-d2f0ae4f666a": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-d8830447a610": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-decorator-e18757daad1a": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      },
+      "route-decorator-f37e3fd50796": {
+        "fixture": "verification/fixtures/http/system-integration-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.integration_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/integrations"
+      },
+      "route-decorator-f7fbd5bb6880": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.standalone_router",
+        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+        "status": "new",
+        "validation_method": "pytest-contract-and-openapi",
+        "validation_owner": "system/configuration"
+      }
+    },
     "settings": {},
     "tables": {},
     "tasks": {}

@@ -6,13 +6,13 @@
           "declared_type": "string",
           "default": "根目录",
           "section": "115",
-          "source": "config_manager.py:189"
+          "source": "config_manager.py:190"
         },
         {
           "declared_type": "string",
           "default": "媒体库",
           "section": "115",
-          "source": "config_manager.py:200"
+          "source": "config_manager.py:201"
         }
       ],
       "proxy_native_view_order": [
@@ -20,13 +20,13 @@
           "declared_type": "str",
           "default": "before",
           "section": "ReverseProxy",
-          "source": "config_manager.py:156"
+          "source": "config_manager.py:157"
         },
         {
           "declared_type": "str",
           "default": "before",
           "section": "ReverseProxy",
-          "source": "config_manager.py:157"
+          "source": "config_manager.py:158"
         }
       ]
     },
@@ -49,7 +49,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "Authentication",
-          "source": "config_manager.py:133"
+          "source": "config_manager.py:134"
         }
       ],
       "environment_aliases": [],
@@ -58,7 +58,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Authentication",
-      "source": "config_manager.py:133",
+      "source": "config_manager.py:134",
       "status": "legacy",
       "storage": "config.ini",
       "target_stage": "P2",
@@ -74,7 +74,7 @@
           "declared_type": "string",
           "default": "localhost",
           "section": "Database",
-          "source": "config_manager.py:127"
+          "source": "config_manager.py:128"
         }
       ],
       "environment_aliases": [
@@ -85,7 +85,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Database",
-      "source": "config_manager.py:127",
+      "source": "config_manager.py:128",
       "status": "legacy",
       "storage": "config.ini",
       "target_stage": "P2",
@@ -101,7 +101,7 @@
           "declared_type": "string",
           "default": "emby_toolkit",
           "section": "Database",
-          "source": "config_manager.py:131"
+          "source": "config_manager.py:132"
         }
       ],
       "environment_aliases": [
@@ -112,7 +112,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Database",
-      "source": "config_manager.py:131",
+      "source": "config_manager.py:132",
       "status": "legacy",
       "storage": "config.ini",
       "target_stage": "P2",
@@ -128,7 +128,7 @@
           "declared_type": "string",
           "default": "your_password",
           "section": "Database",
-          "source": "config_manager.py:130"
+          "source": "config_manager.py:131"
         }
       ],
       "environment_aliases": [
@@ -139,7 +139,7 @@
       "new_owner": null,
       "secret": true,
       "section": "Database",
-      "source": "config_manager.py:130",
+      "source": "config_manager.py:131",
       "status": "legacy",
       "storage": "config.ini",
       "target_stage": "P2",
@@ -155,7 +155,7 @@
           "declared_type": "int",
           "default": 5432,
           "section": "Database",
-          "source": "config_manager.py:128"
+          "source": "config_manager.py:129"
         }
       ],
       "environment_aliases": [
@@ -166,7 +166,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Database",
-      "source": "config_manager.py:128",
+      "source": "config_manager.py:129",
       "status": "legacy",
       "storage": "config.ini",
       "target_stage": "P2",
@@ -182,7 +182,7 @@
           "declared_type": "string",
           "default": "postgres",
           "section": "Database",
-          "source": "config_manager.py:129"
+          "source": "config_manager.py:130"
         }
       ],
       "environment_aliases": [
@@ -193,7 +193,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Database",
-      "source": "config_manager.py:129",
+      "source": "config_manager.py:130",
       "status": "legacy",
       "storage": "config.ini",
       "target_stage": "P2",
@@ -209,7 +209,7 @@
           "declared_type": "string",
           "default": "admin",
           "section": "Authentication",
-          "source": "config_manager.py:134"
+          "source": "config_manager.py:135"
         }
       ],
       "environment_aliases": [],
@@ -218,7 +218,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Authentication",
-      "source": "config_manager.py:134",
+      "source": "config_manager.py:135",
       "status": "legacy",
       "storage": "config.ini",
       "target_stage": "P2",
@@ -244,7 +244,7 @@
           "declared_type": "string",
           "default": "zh-CN,zh;q=0.9,en;q=0.8",
           "section": "Network",
-          "source": "config_manager.py:225"
+          "source": "config_manager.py:226"
         }
       ],
       "environment_aliases": [],
@@ -253,7 +253,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Network",
-      "source": "config_manager.py:225",
+      "source": "config_manager.py:226",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -269,7 +269,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "Actor",
-          "source": "config_manager.py:255"
+          "source": "config_manager.py:256"
         }
       ],
       "environment_aliases": [],
@@ -278,7 +278,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Actor",
-      "source": "config_manager.py:255",
+      "source": "config_manager.py:256",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -294,7 +294,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "Actor",
-          "source": "config_manager.py:254"
+          "source": "config_manager.py:255"
         }
       ],
       "environment_aliases": [],
@@ -303,7 +303,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Actor",
-      "source": "config_manager.py:254",
+      "source": "config_manager.py:255",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -319,7 +319,7 @@
           "declared_type": "string",
           "default": "",
           "section": "AITranslation",
-          "source": "config_manager.py:229"
+          "source": "config_manager.py:230"
         }
       ],
       "environment_aliases": [],
@@ -328,7 +328,7 @@
       "new_owner": null,
       "secret": true,
       "section": "AITranslation",
-      "source": "config_manager.py:229",
+      "source": "config_manager.py:230",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -344,7 +344,7 @@
           "declared_type": "string",
           "default": "https://api.siliconflow.cn/v1",
           "section": "AITranslation",
-          "source": "config_manager.py:231"
+          "source": "config_manager.py:232"
         }
       ],
       "environment_aliases": [],
@@ -353,7 +353,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:231",
+      "source": "config_manager.py:232",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -369,7 +369,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "AITranslation",
-          "source": "config_manager.py:239"
+          "source": "config_manager.py:240"
         }
       ],
       "environment_aliases": [],
@@ -378,7 +378,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:239",
+      "source": "config_manager.py:240",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -394,7 +394,7 @@
           "declared_type": "string",
           "default": "Qwen/Qwen2.5-72B-Instruct",
           "section": "AITranslation",
-          "source": "config_manager.py:230"
+          "source": "config_manager.py:231"
         }
       ],
       "environment_aliases": [],
@@ -403,7 +403,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:230",
+      "source": "config_manager.py:231",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -419,7 +419,7 @@
           "declared_type": "string",
           "default": "openai",
           "section": "AITranslation",
-          "source": "config_manager.py:228"
+          "source": "config_manager.py:229"
         }
       ],
       "environment_aliases": [],
@@ -428,7 +428,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:228",
+      "source": "config_manager.py:229",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -444,7 +444,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "AITranslation",
-          "source": "config_manager.py:238"
+          "source": "config_manager.py:239"
         }
       ],
       "environment_aliases": [],
@@ -453,7 +453,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:238",
+      "source": "config_manager.py:239",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -469,7 +469,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "AITranslation",
-          "source": "config_manager.py:234"
+          "source": "config_manager.py:235"
         }
       ],
       "environment_aliases": [],
@@ -478,7 +478,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:234",
+      "source": "config_manager.py:235",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -494,7 +494,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "AITranslation",
-          "source": "config_manager.py:237"
+          "source": "config_manager.py:238"
         }
       ],
       "environment_aliases": [],
@@ -503,7 +503,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:237",
+      "source": "config_manager.py:238",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -519,7 +519,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "AITranslation",
-          "source": "config_manager.py:236"
+          "source": "config_manager.py:237"
         }
       ],
       "environment_aliases": [],
@@ -528,7 +528,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:236",
+      "source": "config_manager.py:237",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -544,7 +544,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "AITranslation",
-          "source": "config_manager.py:235"
+          "source": "config_manager.py:236"
         }
       ],
       "environment_aliases": [],
@@ -553,7 +553,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:235",
+      "source": "config_manager.py:236",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -569,7 +569,7 @@
           "declared_type": "string",
           "default": "fast",
           "section": "AITranslation",
-          "source": "config_manager.py:233"
+          "source": "config_manager.py:234"
         }
       ],
       "environment_aliases": [],
@@ -578,7 +578,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:233",
+      "source": "config_manager.py:234",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -594,7 +594,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "AITranslation",
-          "source": "config_manager.py:232"
+          "source": "config_manager.py:233"
         }
       ],
       "environment_aliases": [],
@@ -603,7 +603,7 @@
       "new_owner": null,
       "secret": false,
       "section": "AITranslation",
-      "source": "config_manager.py:232",
+      "source": "config_manager.py:233",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -619,7 +619,7 @@
           "declared_type": "float",
           "default": 1.0,
           "section": "DoubanAPI",
-          "source": "config_manager.py:170"
+          "source": "config_manager.py:171"
         }
       ],
       "environment_aliases": [],
@@ -628,7 +628,7 @@
       "new_owner": null,
       "secret": false,
       "section": "DoubanAPI",
-      "source": "config_manager.py:170",
+      "source": "config_manager.py:171",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -644,7 +644,7 @@
           "declared_type": "float",
           "default": 0.5,
           "section": "General",
-          "source": "config_manager.py:212"
+          "source": "config_manager.py:213"
         }
       ],
       "environment_aliases": [],
@@ -653,7 +653,7 @@
       "new_owner": null,
       "secret": false,
       "section": "General",
-      "source": "config_manager.py:212",
+      "source": "config_manager.py:213",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -669,7 +669,7 @@
           "declared_type": "string",
           "default": "",
           "section": "DoubanAPI",
-          "source": "config_manager.py:171"
+          "source": "config_manager.py:172"
         }
       ],
       "environment_aliases": [],
@@ -678,7 +678,7 @@
       "new_owner": null,
       "secret": true,
       "section": "DoubanAPI",
-      "source": "config_manager.py:171",
+      "source": "config_manager.py:172",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -694,7 +694,7 @@
           "declared_type": "boolean",
           "default": true,
           "section": "DoubanAPI",
-          "source": "config_manager.py:172"
+          "source": "config_manager.py:173"
         }
       ],
       "environment_aliases": [],
@@ -703,7 +703,7 @@
       "new_owner": null,
       "secret": false,
       "section": "DoubanAPI",
-      "source": "config_manager.py:172",
+      "source": "config_manager.py:173",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -719,7 +719,7 @@
           "declared_type": "string",
           "default": "",
           "section": "Emby",
-          "source": "config_manager.py:142"
+          "source": "config_manager.py:143"
         }
       ],
       "environment_aliases": [],
@@ -728,7 +728,7 @@
       "new_owner": null,
       "secret": true,
       "section": "Emby",
-      "source": "config_manager.py:142",
+      "source": "config_manager.py:143",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -744,7 +744,7 @@
           "declared_type": "int",
           "default": 60,
           "section": "Emby",
-          "source": "config_manager.py:145"
+          "source": "config_manager.py:146"
         }
       ],
       "environment_aliases": [],
@@ -753,7 +753,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Emby",
-      "source": "config_manager.py:145",
+      "source": "config_manager.py:146",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -769,7 +769,7 @@
           "declared_type": "string",
           "default": "",
           "section": "Emby",
-          "source": "config_manager.py:144"
+          "source": "config_manager.py:145"
         }
       ],
       "environment_aliases": [],
@@ -778,7 +778,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Emby",
-      "source": "config_manager.py:144",
+      "source": "config_manager.py:145",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -794,7 +794,7 @@
           "declared_type": "string",
           "default": "",
           "section": "Emby",
-          "source": "config_manager.py:141"
+          "source": "config_manager.py:142"
         }
       ],
       "environment_aliases": [],
@@ -803,7 +803,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Emby",
-      "source": "config_manager.py:141",
+      "source": "config_manager.py:142",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -819,7 +819,7 @@
           "declared_type": "string",
           "default": "",
           "section": "Emby",
-          "source": "config_manager.py:140"
+          "source": "config_manager.py:141"
         }
       ],
       "environment_aliases": [],
@@ -828,7 +828,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Emby",
-      "source": "config_manager.py:140",
+      "source": "config_manager.py:141",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -844,7 +844,7 @@
           "declared_type": "string",
           "default": "",
           "section": "Emby",
-          "source": "config_manager.py:143"
+          "source": "config_manager.py:144"
         }
       ],
       "environment_aliases": [],
@@ -853,7 +853,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Emby",
-      "source": "config_manager.py:143",
+      "source": "config_manager.py:144",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -869,7 +869,7 @@
           "declared_type": "string",
           "default": "http://192.168.1.X:5257",
           "section": "115",
-          "source": "config_manager.py:203"
+          "source": "config_manager.py:204"
         }
       ],
       "environment_aliases": [],
@@ -878,7 +878,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:203",
+      "source": "config_manager.py:204",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -894,7 +894,7 @@
           "declared_type": "string",
           "default": "",
           "section": "115",
-          "source": "config_manager.py:204"
+          "source": "config_manager.py:205"
         }
       ],
       "environment_aliases": [],
@@ -903,7 +903,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:204",
+      "source": "config_manager.py:205",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -919,7 +919,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "General",
-          "source": "config_manager.py:215"
+          "source": "config_manager.py:216"
         }
       ],
       "environment_aliases": [],
@@ -928,7 +928,7 @@
       "new_owner": null,
       "secret": false,
       "section": "General",
-      "source": "config_manager.py:215",
+      "source": "config_manager.py:216",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -944,7 +944,7 @@
           "declared_type": "string",
           "default": "",
           "section": "GitHub",
-          "source": "config_manager.py:165"
+          "source": "config_manager.py:166"
         }
       ],
       "environment_aliases": [],
@@ -953,7 +953,7 @@
       "new_owner": null,
       "secret": true,
       "section": "GitHub",
-      "source": "config_manager.py:165",
+      "source": "config_manager.py:166",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -969,7 +969,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "General",
-          "source": "config_manager.py:217"
+          "source": "config_manager.py:218"
         }
       ],
       "environment_aliases": [],
@@ -978,7 +978,7 @@
       "new_owner": null,
       "secret": false,
       "section": "General",
-      "source": "config_manager.py:217",
+      "source": "config_manager.py:218",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -994,7 +994,7 @@
           "declared_type": "list",
           "default": [],
           "section": "Emby",
-          "source": "config_manager.py:146"
+          "source": "config_manager.py:147"
         }
       ],
       "environment_aliases": [],
@@ -1003,7 +1003,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Emby",
-      "source": "config_manager.py:146",
+      "source": "config_manager.py:147",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1019,7 +1019,7 @@
           "declared_type": "string",
           "default": "/mnt/media",
           "section": "115",
-          "source": "config_manager.py:202"
+          "source": "config_manager.py:203"
         }
       ],
       "environment_aliases": [],
@@ -1028,7 +1028,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:202",
+      "source": "config_manager.py:203",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1044,7 +1044,7 @@
           "declared_type": "int",
           "default": 10,
           "section": "Logging",
-          "source": "config_manager.py:259"
+          "source": "config_manager.py:260"
         }
       ],
       "environment_aliases": [],
@@ -1053,7 +1053,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Logging",
-      "source": "config_manager.py:259",
+      "source": "config_manager.py:260",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1069,7 +1069,7 @@
           "declared_type": "int",
           "default": 5,
           "section": "Logging",
-          "source": "config_manager.py:258"
+          "source": "config_manager.py:259"
         }
       ],
       "environment_aliases": [],
@@ -1078,7 +1078,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Logging",
-      "source": "config_manager.py:258",
+      "source": "config_manager.py:259",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1094,7 +1094,7 @@
           "declared_type": "int",
           "default": 50,
           "section": "General",
-          "source": "config_manager.py:213"
+          "source": "config_manager.py:214"
         }
       ],
       "environment_aliases": [],
@@ -1103,7 +1103,7 @@
       "new_owner": null,
       "secret": false,
       "section": "General",
-      "source": "config_manager.py:213",
+      "source": "config_manager.py:214",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1119,7 +1119,7 @@
           "declared_type": "int",
           "default": 0,
           "section": "General",
-          "source": "config_manager.py:214"
+          "source": "config_manager.py:215"
         }
       ],
       "environment_aliases": [],
@@ -1128,7 +1128,7 @@
       "new_owner": null,
       "secret": false,
       "section": "General",
-      "source": "config_manager.py:214",
+      "source": "config_manager.py:215",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1144,7 +1144,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "General",
-          "source": "config_manager.py:219"
+          "source": "config_manager.py:220"
         }
       ],
       "environment_aliases": [],
@@ -1153,7 +1153,7 @@
       "new_owner": null,
       "secret": false,
       "section": "General",
-      "source": "config_manager.py:219",
+      "source": "config_manager.py:220",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1169,7 +1169,7 @@
           "declared_type": "string",
           "default": "",
           "section": "General",
-          "source": "config_manager.py:220"
+          "source": "config_manager.py:221"
         }
       ],
       "environment_aliases": [],
@@ -1178,7 +1178,7 @@
       "new_owner": null,
       "secret": false,
       "section": "General",
-      "source": "config_manager.py:220",
+      "source": "config_manager.py:221",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1194,7 +1194,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "Monitor",
-          "source": "config_manager.py:175"
+          "source": "config_manager.py:176"
         }
       ],
       "environment_aliases": [],
@@ -1203,7 +1203,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Monitor",
-      "source": "config_manager.py:175",
+      "source": "config_manager.py:176",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1219,7 +1219,7 @@
           "declared_type": "list",
           "default": [],
           "section": "Monitor",
-          "source": "config_manager.py:180"
+          "source": "config_manager.py:181"
         }
       ],
       "environment_aliases": [],
@@ -1228,7 +1228,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Monitor",
-      "source": "config_manager.py:180",
+      "source": "config_manager.py:181",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1244,7 +1244,7 @@
           "declared_type": "int",
           "default": 0,
           "section": "Monitor",
-          "source": "config_manager.py:181"
+          "source": "config_manager.py:182"
         }
       ],
       "environment_aliases": [],
@@ -1253,7 +1253,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Monitor",
-      "source": "config_manager.py:181",
+      "source": "config_manager.py:182",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1285,7 +1285,7 @@
             ".strm"
           ],
           "section": "Monitor",
-          "source": "config_manager.py:177"
+          "source": "config_manager.py:178"
         }
       ],
       "environment_aliases": [],
@@ -1294,7 +1294,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Monitor",
-      "source": "config_manager.py:177",
+      "source": "config_manager.py:178",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1310,7 +1310,7 @@
           "declared_type": "list",
           "default": [],
           "section": "Monitor",
-          "source": "config_manager.py:176"
+          "source": "config_manager.py:177"
         }
       ],
       "environment_aliases": [],
@@ -1319,7 +1319,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Monitor",
-      "source": "config_manager.py:176",
+      "source": "config_manager.py:177",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1335,7 +1335,7 @@
           "declared_type": "int",
           "default": 2,
           "section": "Monitor",
-          "source": "config_manager.py:179"
+          "source": "config_manager.py:180"
         }
       ],
       "environment_aliases": [],
@@ -1344,7 +1344,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Monitor",
-      "source": "config_manager.py:179",
+      "source": "config_manager.py:180",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1360,7 +1360,7 @@
           "declared_type": "int",
           "default": 10,
           "section": "Monitor",
-          "source": "config_manager.py:178"
+          "source": "config_manager.py:179"
         }
       ],
       "environment_aliases": [],
@@ -1369,7 +1369,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Monitor",
-      "source": "config_manager.py:178",
+      "source": "config_manager.py:179",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1385,7 +1385,7 @@
           "declared_type": "boolean",
           "default": true,
           "section": "Monitor",
-          "source": "config_manager.py:182"
+          "source": "config_manager.py:183"
         }
       ],
       "environment_aliases": [],
@@ -1394,7 +1394,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Monitor",
-      "source": "config_manager.py:182",
+      "source": "config_manager.py:183",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1410,7 +1410,7 @@
           "declared_type": "string",
           "default": "",
           "section": "Network",
-          "source": "config_manager.py:223"
+          "source": "config_manager.py:224"
         }
       ],
       "environment_aliases": [],
@@ -1419,7 +1419,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Network",
-      "source": "config_manager.py:223",
+      "source": "config_manager.py:224",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1435,7 +1435,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "Network",
-          "source": "config_manager.py:222"
+          "source": "config_manager.py:223"
         }
       ],
       "environment_aliases": [],
@@ -1444,7 +1444,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Network",
-      "source": "config_manager.py:222",
+      "source": "config_manager.py:223",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1460,7 +1460,7 @@
           "declared_type": "string",
           "default": "openapi",
           "section": "115",
-          "source": "config_manager.py:192"
+          "source": "config_manager.py:193"
         }
       ],
       "environment_aliases": [],
@@ -1469,7 +1469,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:192",
+      "source": "config_manager.py:193",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1485,7 +1485,7 @@
           "declared_type": "string",
           "default": "",
           "section": "115",
-          "source": "config_manager.py:209"
+          "source": "config_manager.py:210"
         }
       ],
       "environment_aliases": [],
@@ -1494,7 +1494,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:209",
+      "source": "config_manager.py:210",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1510,7 +1510,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "115",
-          "source": "config_manager.py:201"
+          "source": "config_manager.py:202"
         }
       ],
       "environment_aliases": [],
@@ -1519,7 +1519,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:201",
+      "source": "config_manager.py:202",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1535,7 +1535,7 @@
           "declared_type": "boolean",
           "default": true,
           "section": "115",
-          "source": "config_manager.py:207"
+          "source": "config_manager.py:208"
         }
       ],
       "environment_aliases": [],
@@ -1544,7 +1544,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:207",
+      "source": "config_manager.py:208",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1560,7 +1560,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "115",
-          "source": "config_manager.py:205"
+          "source": "config_manager.py:206"
         }
       ],
       "environment_aliases": [],
@@ -1569,7 +1569,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:205",
+      "source": "config_manager.py:206",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1607,7 +1607,7 @@
             "ssa"
           ],
           "section": "115",
-          "source": "config_manager.py:195"
+          "source": "config_manager.py:196"
         }
       ],
       "environment_aliases": [],
@@ -1616,7 +1616,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:195",
+      "source": "config_manager.py:196",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1632,7 +1632,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "115",
-          "source": "config_manager.py:208"
+          "source": "config_manager.py:209"
         }
       ],
       "environment_aliases": [],
@@ -1641,7 +1641,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:208",
+      "source": "config_manager.py:209",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1657,7 +1657,7 @@
           "declared_type": "int",
           "default": 3,
           "section": "115",
-          "source": "config_manager.py:191"
+          "source": "config_manager.py:192"
         }
       ],
       "environment_aliases": [],
@@ -1666,7 +1666,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:191",
+      "source": "config_manager.py:192",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1682,7 +1682,7 @@
           "declared_type": "string",
           "default": "0",
           "section": "115",
-          "source": "config_manager.py:199"
+          "source": "config_manager.py:200"
         }
       ],
       "environment_aliases": [],
@@ -1691,7 +1691,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:199",
+      "source": "config_manager.py:200",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1707,13 +1707,13 @@
           "declared_type": "string",
           "default": "根目录",
           "section": "115",
-          "source": "config_manager.py:189"
+          "source": "config_manager.py:190"
         },
         {
           "declared_type": "string",
           "default": "媒体库",
           "section": "115",
-          "source": "config_manager.py:200"
+          "source": "config_manager.py:201"
         }
       ],
       "environment_aliases": [],
@@ -1722,7 +1722,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:200",
+      "source": "config_manager.py:201",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1738,7 +1738,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "115",
-          "source": "config_manager.py:206"
+          "source": "config_manager.py:207"
         }
       ],
       "environment_aliases": [],
@@ -1747,7 +1747,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:206",
+      "source": "config_manager.py:207",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1763,7 +1763,7 @@
           "declared_type": "int",
           "default": 10,
           "section": "115",
-          "source": "config_manager.py:194"
+          "source": "config_manager.py:195"
         }
       ],
       "environment_aliases": [],
@@ -1772,7 +1772,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:194",
+      "source": "config_manager.py:195",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1788,7 +1788,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "115",
-          "source": "config_manager.py:193"
+          "source": "config_manager.py:194"
         }
       ],
       "environment_aliases": [],
@@ -1797,7 +1797,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:193",
+      "source": "config_manager.py:194",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1813,7 +1813,7 @@
           "declared_type": "float",
           "default": 1.0,
           "section": "115",
-          "source": "config_manager.py:190"
+          "source": "config_manager.py:191"
         }
       ],
       "environment_aliases": [],
@@ -1822,7 +1822,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:190",
+      "source": "config_manager.py:191",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1838,7 +1838,7 @@
           "declared_type": "string",
           "default": "0",
           "section": "115",
-          "source": "config_manager.py:185"
+          "source": "config_manager.py:186"
         }
       ],
       "environment_aliases": [],
@@ -1847,7 +1847,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:185",
+      "source": "config_manager.py:186",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1863,7 +1863,7 @@
           "declared_type": "string",
           "default": "根目录",
           "section": "115",
-          "source": "config_manager.py:186"
+          "source": "config_manager.py:187"
         }
       ],
       "environment_aliases": [],
@@ -1872,7 +1872,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:186",
+      "source": "config_manager.py:187",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1888,7 +1888,7 @@
           "declared_type": "string",
           "default": "0",
           "section": "115",
-          "source": "config_manager.py:187"
+          "source": "config_manager.py:188"
         }
       ],
       "environment_aliases": [],
@@ -1897,7 +1897,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:187",
+      "source": "config_manager.py:188",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1913,7 +1913,7 @@
           "declared_type": "string",
           "default": "未识别",
           "section": "115",
-          "source": "config_manager.py:188"
+          "source": "config_manager.py:189"
         }
       ],
       "environment_aliases": [],
@@ -1922,7 +1922,7 @@
       "new_owner": null,
       "secret": false,
       "section": "115",
-      "source": "config_manager.py:188",
+      "source": "config_manager.py:189",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1938,7 +1938,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "ReverseProxy",
-          "source": "config_manager.py:153"
+          "source": "config_manager.py:154"
         }
       ],
       "environment_aliases": [],
@@ -1947,7 +1947,7 @@
       "new_owner": null,
       "secret": false,
       "section": "ReverseProxy",
-      "source": "config_manager.py:153",
+      "source": "config_manager.py:154",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1963,7 +1963,7 @@
           "declared_type": "string",
           "default": "",
           "section": "ReverseProxy",
-          "source": "config_manager.py:152"
+          "source": "config_manager.py:153"
         }
       ],
       "environment_aliases": [],
@@ -1972,7 +1972,7 @@
       "new_owner": null,
       "secret": false,
       "section": "ReverseProxy",
-      "source": "config_manager.py:152",
+      "source": "config_manager.py:153",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -1988,7 +1988,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "ReverseProxy",
-          "source": "config_manager.py:149"
+          "source": "config_manager.py:150"
         }
       ],
       "environment_aliases": [],
@@ -1997,7 +1997,7 @@
       "new_owner": null,
       "secret": false,
       "section": "ReverseProxy",
-      "source": "config_manager.py:149",
+      "source": "config_manager.py:150",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2013,7 +2013,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "ReverseProxy",
-          "source": "config_manager.py:151"
+          "source": "config_manager.py:152"
         }
       ],
       "environment_aliases": [],
@@ -2022,7 +2022,7 @@
       "new_owner": null,
       "secret": false,
       "section": "ReverseProxy",
-      "source": "config_manager.py:151",
+      "source": "config_manager.py:152",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2038,7 +2038,7 @@
           "declared_type": "boolean",
           "default": true,
           "section": "ReverseProxy",
-          "source": "config_manager.py:154"
+          "source": "config_manager.py:155"
         }
       ],
       "environment_aliases": [],
@@ -2047,7 +2047,7 @@
       "new_owner": null,
       "secret": false,
       "section": "ReverseProxy",
-      "source": "config_manager.py:154",
+      "source": "config_manager.py:155",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2063,13 +2063,13 @@
           "declared_type": "str",
           "default": "before",
           "section": "ReverseProxy",
-          "source": "config_manager.py:156"
+          "source": "config_manager.py:157"
         },
         {
           "declared_type": "str",
           "default": "before",
           "section": "ReverseProxy",
-          "source": "config_manager.py:157"
+          "source": "config_manager.py:158"
         }
       ],
       "environment_aliases": [],
@@ -2078,7 +2078,7 @@
       "new_owner": null,
       "secret": false,
       "section": "ReverseProxy",
-      "source": "config_manager.py:157",
+      "source": "config_manager.py:158",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2094,7 +2094,7 @@
           "declared_type": "list",
           "default": [],
           "section": "ReverseProxy",
-          "source": "config_manager.py:155"
+          "source": "config_manager.py:156"
         }
       ],
       "environment_aliases": [],
@@ -2103,7 +2103,7 @@
       "new_owner": null,
       "secret": false,
       "section": "ReverseProxy",
-      "source": "config_manager.py:155",
+      "source": "config_manager.py:156",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2119,7 +2119,7 @@
           "declared_type": "int",
           "default": 8097,
           "section": "ReverseProxy",
-          "source": "config_manager.py:150"
+          "source": "config_manager.py:151"
         }
       ],
       "environment_aliases": [],
@@ -2128,7 +2128,7 @@
       "new_owner": null,
       "secret": false,
       "section": "ReverseProxy",
-      "source": "config_manager.py:150",
+      "source": "config_manager.py:151",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2144,7 +2144,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "ReverseProxy",
-          "source": "config_manager.py:158"
+          "source": "config_manager.py:159"
         }
       ],
       "environment_aliases": [],
@@ -2153,7 +2153,7 @@
       "new_owner": null,
       "secret": false,
       "section": "ReverseProxy",
-      "source": "config_manager.py:158",
+      "source": "config_manager.py:159",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2169,7 +2169,7 @@
           "declared_type": "boolean",
           "default": true,
           "section": "General",
-          "source": "config_manager.py:216"
+          "source": "config_manager.py:217"
         }
       ],
       "environment_aliases": [],
@@ -2178,7 +2178,7 @@
       "new_owner": null,
       "secret": false,
       "section": "General",
-      "source": "config_manager.py:216",
+      "source": "config_manager.py:217",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2194,7 +2194,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "General",
-          "source": "config_manager.py:218"
+          "source": "config_manager.py:219"
         }
       ],
       "environment_aliases": [],
@@ -2203,7 +2203,7 @@
       "new_owner": null,
       "secret": false,
       "section": "General",
-      "source": "config_manager.py:218",
+      "source": "config_manager.py:219",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2219,7 +2219,7 @@
           "declared_type": "string",
           "default": "hbq0405/emby-toolkit:latest",
           "section": "GitHub",
-          "source": "config_manager.py:167"
+          "source": "config_manager.py:168"
         }
       ],
       "environment_aliases": [],
@@ -2228,7 +2228,7 @@
       "new_owner": null,
       "secret": false,
       "section": "GitHub",
-      "source": "config_manager.py:167",
+      "source": "config_manager.py:168",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2244,7 +2244,7 @@
           "declared_type": "string",
           "default": "docker_helper",
           "section": "GitHub",
-          "source": "config_manager.py:166"
+          "source": "config_manager.py:167"
         }
       ],
       "environment_aliases": [],
@@ -2253,7 +2253,7 @@
       "new_owner": null,
       "secret": false,
       "section": "GitHub",
-      "source": "config_manager.py:166",
+      "source": "config_manager.py:167",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2269,7 +2269,7 @@
           "declared_type": "string",
           "default": "0 2 * * *",
           "section": "Scheduler",
-          "source": "config_manager.py:244"
+          "source": "config_manager.py:245"
         }
       ],
       "environment_aliases": [],
@@ -2278,7 +2278,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Scheduler",
-      "source": "config_manager.py:244",
+      "source": "config_manager.py:245",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2294,7 +2294,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "Scheduler",
-          "source": "config_manager.py:243"
+          "source": "config_manager.py:244"
         }
       ],
       "environment_aliases": [],
@@ -2303,7 +2303,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Scheduler",
-      "source": "config_manager.py:243",
+      "source": "config_manager.py:244",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2319,7 +2319,7 @@
           "declared_type": "string",
           "default": "0 5 * * 0",
           "section": "Scheduler",
-          "source": "config_manager.py:249"
+          "source": "config_manager.py:250"
         }
       ],
       "environment_aliases": [],
@@ -2328,7 +2328,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Scheduler",
-      "source": "config_manager.py:249",
+      "source": "config_manager.py:250",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2344,7 +2344,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "Scheduler",
-          "source": "config_manager.py:248"
+          "source": "config_manager.py:249"
         }
       ],
       "environment_aliases": [],
@@ -2353,7 +2353,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Scheduler",
-      "source": "config_manager.py:248",
+      "source": "config_manager.py:249",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2369,7 +2369,7 @@
           "declared_type": "int",
           "default": 0,
           "section": "Scheduler",
-          "source": "config_manager.py:251"
+          "source": "config_manager.py:252"
         }
       ],
       "environment_aliases": [],
@@ -2378,7 +2378,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Scheduler",
-      "source": "config_manager.py:251",
+      "source": "config_manager.py:252",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2394,7 +2394,7 @@
           "declared_type": "list",
           "default": [],
           "section": "Scheduler",
-          "source": "config_manager.py:250"
+          "source": "config_manager.py:251"
         }
       ],
       "environment_aliases": [],
@@ -2403,7 +2403,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Scheduler",
-      "source": "config_manager.py:250",
+      "source": "config_manager.py:251",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2419,7 +2419,7 @@
           "declared_type": "int",
           "default": 0,
           "section": "Scheduler",
-          "source": "config_manager.py:246"
+          "source": "config_manager.py:247"
         }
       ],
       "environment_aliases": [],
@@ -2428,7 +2428,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Scheduler",
-      "source": "config_manager.py:246",
+      "source": "config_manager.py:247",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2444,7 +2444,7 @@
           "declared_type": "list",
           "default": [],
           "section": "Scheduler",
-          "source": "config_manager.py:245"
+          "source": "config_manager.py:246"
         }
       ],
       "environment_aliases": [],
@@ -2453,7 +2453,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Scheduler",
-      "source": "config_manager.py:245",
+      "source": "config_manager.py:246",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2469,7 +2469,7 @@
           "declared_type": "password",
           "default": "",
           "section": "Telegram",
-          "source": "config_manager.py:262"
+          "source": "config_manager.py:263"
         }
       ],
       "environment_aliases": [],
@@ -2478,7 +2478,7 @@
       "new_owner": null,
       "secret": true,
       "section": "Telegram",
-      "source": "config_manager.py:262",
+      "source": "config_manager.py:263",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2494,7 +2494,7 @@
           "declared_type": "string",
           "default": "",
           "section": "Telegram",
-          "source": "config_manager.py:263"
+          "source": "config_manager.py:264"
         }
       ],
       "environment_aliases": [],
@@ -2503,7 +2503,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Telegram",
-      "source": "config_manager.py:263",
+      "source": "config_manager.py:264",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2529,7 +2529,7 @@
             "intercept_notify"
           ],
           "section": "Telegram",
-          "source": "config_manager.py:265"
+          "source": "config_manager.py:266"
         }
       ],
       "environment_aliases": [],
@@ -2538,7 +2538,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Telegram",
-      "source": "config_manager.py:265",
+      "source": "config_manager.py:266",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2570,7 +2570,7 @@
             "system-auto-update"
           ],
           "section": "Telegram",
-          "source": "config_manager.py:264"
+          "source": "config_manager.py:265"
         }
       ],
       "environment_aliases": [],
@@ -2579,7 +2579,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Telegram",
-      "source": "config_manager.py:264",
+      "source": "config_manager.py:265",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2595,7 +2595,7 @@
           "declared_type": "string",
           "default": "https://api.themoviedb.org/3",
           "section": "TMDB",
-          "source": "config_manager.py:162"
+          "source": "config_manager.py:163"
         }
       ],
       "environment_aliases": [
@@ -2606,7 +2606,7 @@
       "new_owner": null,
       "secret": false,
       "section": "TMDB",
-      "source": "config_manager.py:162",
+      "source": "config_manager.py:163",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2622,7 +2622,7 @@
           "declared_type": "string",
           "default": "",
           "section": "TMDB",
-          "source": "config_manager.py:161"
+          "source": "config_manager.py:162"
         }
       ],
       "environment_aliases": [],
@@ -2631,7 +2631,7 @@
       "new_owner": null,
       "secret": true,
       "section": "TMDB",
-      "source": "config_manager.py:161",
+      "source": "config_manager.py:162",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2647,7 +2647,7 @@
           "declared_type": "string",
           "default": "zh",
           "section": "TMDB",
-          "source": "config_manager.py:164"
+          "source": "config_manager.py:165"
         }
       ],
       "environment_aliases": [],
@@ -2656,7 +2656,7 @@
       "new_owner": null,
       "secret": false,
       "section": "TMDB",
-      "source": "config_manager.py:164",
+      "source": "config_manager.py:165",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2672,7 +2672,7 @@
           "declared_type": "boolean",
           "default": false,
           "section": "TMDB",
-          "source": "config_manager.py:163"
+          "source": "config_manager.py:164"
         }
       ],
       "environment_aliases": [],
@@ -2681,7 +2681,7 @@
       "new_owner": null,
       "secret": false,
       "section": "TMDB",
-      "source": "config_manager.py:163",
+      "source": "config_manager.py:164",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2697,7 +2697,7 @@
           "declared_type": "string",
           "default": "Mozilla/5.0 ...",
           "section": "Network",
-          "source": "config_manager.py:224"
+          "source": "config_manager.py:225"
         }
       ],
       "environment_aliases": [],
@@ -2706,7 +2706,7 @@
       "new_owner": null,
       "secret": false,
       "section": "Network",
-      "source": "config_manager.py:224",
+      "source": "config_manager.py:225",
       "status": "legacy",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
@@ -2987,15 +2987,15 @@
       "accesses": [
         {
           "operation": "save_setting",
-          "source": "config_manager.py:412"
+          "source": "config_manager.py:433"
         },
         {
           "operation": "get_setting",
-          "source": "config_manager.py:424"
+          "source": "config_manager.py:445"
         },
         {
           "operation": "delete_setting",
-          "source": "config_manager.py:437"
+          "source": "config_manager.py:458"
         }
       ],
       "contract_id": "setting-edf9539d7423",
@@ -3016,15 +3016,23 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "config_manager.py:348"
+          "source": "config_manager.py:349"
         },
         {
           "operation": "get_setting",
-          "source": "config_manager.py:383"
+          "source": "config_manager.py:384"
         },
         {
           "operation": "save_setting",
-          "source": "config_manager.py:396"
+          "source": "config_manager.py:397"
+        },
+        {
+          "operation": "get_setting",
+          "source": "config_manager.py:410"
+        },
+        {
+          "operation": "save_setting",
+          "source": "config_manager.py:422"
         }
       ],
       "contract_id": "setting-b98815c0d5db",

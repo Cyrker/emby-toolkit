@@ -51,6 +51,7 @@ COPY main.py \
      monitor_service.py \
      ./
 COPY src/ ./src/
+COPY verification/contracts/task-ownership.yaml ./verification/contracts/task-ownership.yaml
 COPY alembic.ini ./alembic.ini
 COPY migrations/ ./migrations/
 COPY handler/ ./handler/

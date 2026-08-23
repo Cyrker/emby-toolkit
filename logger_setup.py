@@ -1,10 +1,14 @@
 # logger_setup.py
 import logging
+import os
 import sys
 from collections import deque
-import constants
-import os
+
 from concurrent_log_handler import ConcurrentRotatingFileHandler
+
+import constants
+from etk.platform.observability.logging import SensitiveDataFilter
+from etk.platform.observability.tracing import get_trace_id
 
 # --- 定义常量 ---
 LOG_FILE_NAME = "app.log"
@@ -19,11 +23,43 @@ logging.addLevelName(TRACE_LEVEL, "TRACE")
 def trace(self, message, *args, **kws):
     if self.isEnabledFor(TRACE_LEVEL):
         self._log(TRACE_LEVEL, message, args, **kws)
-logging.Logger.trace = trace
+
+
+logging.Logger.trace = trace  # pyright: ignore[reportAttributeAccessIssue]
 # ★★★ 新增部分结束 ★★★
 
 # --- 前端队列和 Handler ---
-frontend_log_queue = deque(maxlen=100)
+# importlib.reload() must not detach routes.system's imported queue reference.
+if 'frontend_log_queue' not in globals():
+    frontend_log_queue = deque(maxlen=100)
+
+_LEGACY_HANDLER_ATTRIBUTE = '_etk_legacy_handler'
+_LEGACY_CONSOLE_HANDLER_ATTRIBUTE = '_etk_legacy_console_handler'
+_LEGACY_FRONTEND_HANDLER_ATTRIBUTE = '_etk_legacy_frontend_handler'
+_LEGACY_FILE_HANDLER_ATTRIBUTE = '_etk_legacy_file_handler'
+_LEGACY_CONTEXT_FILTER_ATTRIBUTE = '_etk_legacy_context_filter'
+_HTTPX_FILTER_ATTRIBUTE = '_etk_legacy_httpx_filter'
+_P2_MANAGED_HANDLER_ATTRIBUTE = '_etk_observability_handler'
+
+
+class LegacyContextFilter(SensitiveDataFilter):
+    """Apply P2 redaction and expose its trace context to legacy formatters."""
+
+    def filter(self, record):
+        record.trace_id = getattr(record, 'trace_id', None) or get_trace_id() or '-'
+        return super().filter(record)
+
+
+def _ensure_legacy_context_filter(handler):
+    if any(getattr(current, _LEGACY_CONTEXT_FILTER_ATTRIBUTE, False) for current in handler.filters):
+        return
+    context_filter = LegacyContextFilter()
+    setattr(context_filter, _LEGACY_CONTEXT_FILTER_ATTRIBUTE, True)
+    handler.addFilter(context_filter)
+
+
+def _find_handler(attribute):
+    return next((handler for handler in logger.handlers if getattr(handler, attribute, False)), None)
 
 class FrontendQueueHandler(logging.Handler):
     def __init__(self, *args, **kwargs):
@@ -63,29 +99,36 @@ logger = logging.getLogger()
 # ★★★ 修改部分 1: 根级别必须是最低的 TRACE，才能捕获到所有日志 ★★★
 logger.setLevel(TRACE_LEVEL) 
 
-# --- 检查并清空处理器 ---
-if logger.hasHandlers():
-    logger.handlers.clear()
-
 # --- 初始化基础 Handler ---
 
-# 1. 控制台 Handler
-stream_handler = logging.StreamHandler(sys.stdout)
-# ★★★ 修改部分 2: 在 DEBUG_MODE 下，让控制台显示 TRACE 级别的日志 ★★★
-stream_handler.setLevel(TRACE_LEVEL if constants.DEBUG_MODE else logging.INFO)
-console_formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-stream_handler.setFormatter(console_formatter)
-logger.addHandler(stream_handler)
+# 1. P2 already owns console output in the new mainline. Standalone legacy
+# processes still receive their historical console handler.
+has_p2_handler = any(getattr(handler, _P2_MANAGED_HANDLER_ATTRIBUTE, False) for handler in logger.handlers)
+stream_handler = _find_handler(_LEGACY_CONSOLE_HANDLER_ATTRIBUTE)
+if not has_p2_handler and stream_handler is None:
+    stream_handler = logging.StreamHandler(sys.stdout)
+    setattr(stream_handler, _LEGACY_HANDLER_ATTRIBUTE, True)
+    setattr(stream_handler, _LEGACY_CONSOLE_HANDLER_ATTRIBUTE, True)
+    stream_handler.setLevel(TRACE_LEVEL if constants.DEBUG_MODE else logging.INFO)
+    stream_handler.setFormatter(
+        logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - trace_id=%(trace_id)s - %(message)s')
+    )
+    _ensure_legacy_context_filter(stream_handler)
+    logger.addHandler(stream_handler)
 
 # 2. 前端队列 Handler
 try:
-    frontend_handler = FrontendQueueHandler()
-    frontend_handler.setLevel(logging.INFO)
-    frontend_formatter = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%H:%M:%S')
-    frontend_handler.setFormatter(frontend_formatter)
-    logger.addHandler(frontend_handler)
+    frontend_handler = _find_handler(_LEGACY_FRONTEND_HANDLER_ATTRIBUTE)
+    if frontend_handler is None:
+        frontend_handler = FrontendQueueHandler()
+        setattr(frontend_handler, _LEGACY_HANDLER_ATTRIBUTE, True)
+        setattr(frontend_handler, _LEGACY_FRONTEND_HANDLER_ATTRIBUTE, True)
+        frontend_handler.setLevel(logging.INFO)
+        frontend_handler.setFormatter(
+            logging.Formatter('[%(asctime)s] [trace_id=%(trace_id)s] %(message)s', datefmt='%H:%M:%S')
+        )
+        _ensure_legacy_context_filter(frontend_handler)
+        logger.addHandler(frontend_handler)
 except Exception as e:
     logging.error(f"Failed to add FrontendQueueHandler: {e}", exc_info=True)
 
@@ -93,7 +136,10 @@ except Exception as e:
 # 获取名为 'httpx' 的 logger
 httpx_logger = logging.getLogger('httpx')
 # 为它单独添加我们自定义的过滤器
-httpx_logger.addFilter(DowngradeHttpx200Filter())
+if not any(getattr(current, _HTTPX_FILTER_ATTRIBUTE, False) for current in httpx_logger.filters):
+    httpx_filter = DowngradeHttpx200Filter()
+    setattr(httpx_filter, _HTTPX_FILTER_ATTRIBUTE, True)
+    httpx_logger.addFilter(httpx_filter)
 # 注意：不需要设置 httpx_logger 的 level 或 handler，
 # 它会把日志传递给根 logger (propagate=True 默认行为)，由根 logger 的 handler 处理。
 
@@ -113,10 +159,13 @@ def add_file_handler(log_directory: str,
         log_file_path = os.path.join(log_directory, LOG_FILE_NAME)
         
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            '%(asctime)s - %(name)s - %(levelname)s - trace_id=%(trace_id)s - %(message)s'
         )
 
-        # ▼▼▼ [ 核心修改 ] 直接使用传入的参数来初始化 Handler ▼▼▼
+        if _find_handler(_LEGACY_FILE_HANDLER_ATTRIBUTE) is not None:
+            logging.warning("文件日志处理器已存在，本次不再重复添加。")
+            return
+
         file_handler = ConcurrentRotatingFileHandler(
             log_file_path,
             "a",
@@ -125,15 +174,16 @@ def add_file_handler(log_directory: str,
             encoding='utf-8',
             use_gzip=False
         )
+        setattr(file_handler, _LEGACY_HANDLER_ATTRIBUTE, True)
+        setattr(file_handler, _LEGACY_FILE_HANDLER_ATTRIBUTE, True)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
-        
-        if not any(isinstance(h, ConcurrentRotatingFileHandler) for h in logger.handlers):
-            logger.addHandler(file_handler)
-            # 在日志中明确打印出当前生效的配置
-            logging.info(f"  ➜ 文件日志已启用：单个日志最大 {log_size_mb}MB，最多保留 {log_backups} 份，路径：{log_file_path}")
-        else:
-            logging.warning("文件日志处理器已存在，本次不再重复添加。")
+        _ensure_legacy_context_filter(file_handler)
+        logger.addHandler(file_handler)
+        # 在日志中明确打印出当前生效的配置
+        logging.info(
+            f"  ➜ 文件日志已启用：单个日志最大 {log_size_mb}MB，最多保留 {log_backups} 份，路径：{log_file_path}"
+        )
 
     except Exception as e:
         logging.error(f"配置日志文件处理器时发生错误: {e}", exc_info=True)

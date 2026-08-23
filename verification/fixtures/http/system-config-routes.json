@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source-and-local-fake",
+    "captured_live": false,
+    "sources": [
+      "routes/system.py:208",
+      "routes/system.py:561"
+    ],
+    "external_validation": "pending"
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/config",
+      "permission": "unconfigured-or-setup-mode-or-db-admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/config",
+      "permission": "unconfigured-or-setup-mode-or-db-admin"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "read-denied",
+      "response": {
+        "status": 403,
+        "body": {
+          "status": "error",
+          "message": "需要管理员权限才能读取配置"
+        }
+      }
+    },
+    {
+      "case_id": "save-denied",
+      "response": {
+        "status": 403,
+        "body": {
+          "status": "error",
+          "message": "需要管理员权限才能保存配置"
+        }
+      }
+    },
+    {
+      "case_id": "save-empty",
+      "response": {
+        "status": 400,
+        "body": {
+          "error": "请求体中未包含配置数据"
+        }
+      }
+    },
+    {
+      "case_id": "save-success",
+      "request": {
+        "json": {
+          "emby_api_key": "********",
+          "etk_server_url_manual": "http://example.invalid",
+          "libraries_to_process": [
+            "fixture-library-valid",
+            "fixture-library-stale"
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "message": "配置已成功保存并自动净化！"
+        }
+      }
+    }
+  ]
+}

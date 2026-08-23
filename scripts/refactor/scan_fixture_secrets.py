@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-
 SECRET_KEYS = {
     "authorization",
     "cookie",
@@ -18,7 +17,7 @@ SECRET_KEYS = {
     "secret",
     "token",
 }
-ALLOWED_SECRET_VALUES = {"", "<redacted>", "fixture-token", "your_password"}
+ALLOWED_SECRET_VALUES = {"", "********", "<redacted>", "fixture-token", "your_password"}
 ALLOWED_URL_HOSTS = {"example.invalid", "localhost", "127.0.0.1"}
 TOKEN_PATTERNS = [
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
@@ -31,11 +30,7 @@ URL_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
 
 
 def _allowed_secret(value: str) -> bool:
-    return (
-        value in ALLOWED_SECRET_VALUES
-        or value.startswith("fixture-")
-        or bool(re.fullmatch(r"[AB]{40,64}", value))
-    )
+    return value in ALLOWED_SECRET_VALUES or value.startswith("fixture-") or bool(re.fullmatch(r"[AB]{40,64}", value))
 
 
 def scan_payload(payload: Any, source: str) -> list[str]:

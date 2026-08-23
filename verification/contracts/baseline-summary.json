@@ -8,13 +8,13 @@
             "declared_type": "string",
             "default": "根目录",
             "section": "115",
-            "source": "config_manager.py:189"
+            "source": "config_manager.py:190"
           },
           {
             "declared_type": "string",
             "default": "媒体库",
             "section": "115",
-            "source": "config_manager.py:200"
+            "source": "config_manager.py:201"
           }
         ],
         "proxy_native_view_order": [
@@ -22,13 +22,13 @@
             "declared_type": "str",
             "default": "before",
             "section": "ReverseProxy",
-            "source": "config_manager.py:156"
+            "source": "config_manager.py:157"
           },
           {
             "declared_type": "str",
             "default": "before",
             "section": "ReverseProxy",
-            "source": "config_manager.py:157"
+            "source": "config_manager.py:158"
           }
         ]
       },
@@ -80,6 +80,6 @@
     "vue_files": 55
   },
   "generated_by": "scripts/refactor/export_manifests.py",
-  "legacy_source_sha256": "2baa720441071da249d6fd813a06efcf13d27a41b801a21f05f8e9d1ca30ed4b",
+  "legacy_source_sha256": "d2182d1da0a52e0ebd7ae2838fdd7925aacd9c8e03c40dd7f3f42eb3835e2e0e",
   "schema_version": 1
 }

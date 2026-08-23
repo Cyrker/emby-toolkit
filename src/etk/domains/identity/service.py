@@ -1,0 +1,370 @@
+from __future__ import annotations
+
+import logging
+import secrets
+import threading
+import time
+from collections.abc import Callable, Mapping
+from copy import deepcopy
+from typing import Any
+
+from etk.platform.config import Settings
+from etk.platform.web import SessionState
+
+from .models import (
+    AuthCheckResponse,
+    AuthorizationDetails,
+    AuthUser,
+    IdentityResult,
+    LoginRequest,
+    LoginResponse,
+    ReauthorizeRequest,
+    ReauthorizeResponse,
+    RecoveryVerifyRequest,
+    ServiceStatusResponse,
+    SetupRequest,
+    SetupResponse,
+    StatusResponse,
+    error_result,
+)
+from .ports import ConfigurationWriter, EmbyIdentityGateway, IdentityRepository
+
+logger = logging.getLogger(__name__)
+
+
+class RecoveryTokenStore:
+    def __init__(
+        self,
+        *,
+        token_factory: Callable[[], str] | None = None,
+        clock: Callable[[], float] = time.time,
+        lifetime_seconds: float = 300.0,
+    ) -> None:
+        if lifetime_seconds <= 0:
+            raise ValueError("recovery token lifetime must be positive")
+        self._token_factory = token_factory or (lambda: secrets.token_hex(3).upper())
+        self._clock = clock
+        self._lifetime_seconds = lifetime_seconds
+        self._lock = threading.Lock()
+        self._tokens: dict[str, float] = {}
+
+    def issue(self) -> str:
+        with self._lock:
+            self._clean_locked()
+            token = self._token_factory().strip().upper()
+            if not token:
+                raise RuntimeError("recovery token factory returned an empty token")
+            self._tokens[token] = self._clock() + self._lifetime_seconds
+            return token
+
+    def consume(self, token: str) -> bool:
+        normalized = str(token or "").strip().upper()
+        with self._lock:
+            self._clean_locked()
+            return self._tokens.pop(normalized, None) is not None
+
+    def _clean_locked(self) -> None:
+        now = self._clock()
+        for token, expires_at in tuple(self._tokens.items()):
+            if now > expires_at:
+                del self._tokens[token]
+
+
+class IdentityService:
+    def __init__(
+        self,
+        *,
+        settings: Callable[[], Settings],
+        repository: IdentityRepository,
+        gateway: EmbyIdentityGateway,
+        configuration: ConfigurationWriter,
+        recovery_tokens: RecoveryTokenStore | None = None,
+    ) -> None:
+        self._settings = settings
+        self.repository = repository
+        self._gateway = gateway
+        self._configuration = configuration
+        self._recovery_tokens = recovery_tokens or RecoveryTokenStore()
+
+    def check_status(self, session: SessionState) -> IdentityResult:
+        if not self.is_configured():
+            return IdentityResult(AuthCheckResponse(status="setup_required", message="系统未配置"))
+        if session.get("emby_user_id"):
+            return IdentityResult(
+                AuthCheckResponse(
+                    status="logged_in",
+                    user=AuthUser(
+                        id=str(session["emby_user_id"]),
+                        name=session.get("emby_username"),
+                        is_admin=bool(session.get("emby_is_admin", False)),
+                    ),
+                )
+            )
+        return IdentityResult(AuthCheckResponse(status="login_required"))
+
+    def login(self, request: LoginRequest, session: SessionState) -> IdentityResult:
+        if not self.is_configured():
+            return error_result(
+                "系统尚未配置 Emby 连接",
+                status_code=428,
+                code="SETUP_REQUIRED",
+            )
+        settings = self._settings()
+        try:
+            authorization = self._gateway.authenticate(
+                settings.emby_server_url,
+                request.username,
+                request.password,
+                device_id="my-emby-toolkit-auth-v4",
+            )
+        except Exception:
+            logger.exception("Emby login gateway failed")
+            authorization = None
+        if not authorization:
+            return error_result(
+                "登录失败：用户名/密码错误，或无法连接 Emby 服务器",
+                status_code=401,
+            )
+        user = _authorization_user(authorization)
+        if not user.get("Id"):
+            return error_result(
+                "登录失败：用户名/密码错误，或无法连接 Emby 服务器",
+                status_code=401,
+            )
+        self._start_session(user, session)
+        user_id = str(user["Id"])
+        try:
+            can_subscribe = self.repository.subscription_permission(user_id)
+        except Exception:
+            logger.exception("Unable to read subscription permission after login")
+            can_subscribe = False
+        logger.info("Emby user logged in", extra={"emby_user_id": user_id})
+        return IdentityResult(
+            LoginResponse(
+                user=AuthUser(
+                    id=user_id,
+                    name=str(user.get("Name") or ""),
+                    is_admin=bool(_user_policy(user).get("IsAdministrator", False)),
+                    allow_unrestricted_subscriptions=can_subscribe,
+                    user_type="emby_user",
+                )
+            )
+        )
+
+    def request_recovery(self) -> IdentityResult:
+        token = self._recovery_tokens.issue()
+        logger.critical("=" * 60)
+        logger.critical("【安全警告】收到重置连接配置的请求。")
+        logger.critical("若这是您本人的操作，请在页面输入以下安全令牌以进入设置模式:")
+        logger.critical("安全令牌:  %s", token)
+        logger.critical("令牌有效期: 5 分钟")
+        logger.critical("=" * 60)
+        return IdentityResult(
+            StatusResponse(
+                status="ok",
+                message="安全令牌已发送至服务器控制台日志(Docker Logs)，请查阅并输入。",
+            )
+        )
+
+    def verify_recovery(self, request: RecoveryVerifyRequest, session: SessionState) -> IdentityResult:
+        if self._recovery_tokens.consume(request.token):
+            session["is_setup_mode"] = True
+            return IdentityResult(StatusResponse(status="ok", message="验证成功"))
+        return error_result("令牌无效或已过期", status_code=403)
+
+    def setup(self, request: SetupRequest, session: SessionState) -> IdentityResult:
+        if self.is_configured() and not session.get("is_setup_mode"):
+            return error_result("系统已配置，且无重置权限", status_code=403)
+        authorization, error = self._authorize_service(
+            request.url,
+            request.username,
+            request.password,
+        )
+        if error or authorization is None:
+            return error_result(error or "管理员认证失败", status_code=400)
+        try:
+            settings = self._save_authorization(authorization)
+        except Exception:
+            logger.exception("Saving Emby service authorization failed")
+            return error_result("保存配置失败，请检查日志", status_code=500)
+        plugin_install, library_config = self._post_authorization(authorization, settings)
+        user = _authorization_user(authorization)
+        self._start_session(user, session)
+        logger.info("Emby administrator service authorization saved without account password")
+        return IdentityResult(
+            SetupResponse(
+                message=_authorization_message("Emby 服务授权成功", plugin_install, library_config),
+                plugin_install=dict(plugin_install),
+                library_config=dict(library_config),
+                user=AuthUser(
+                    id=str(session["emby_user_id"]),
+                    name=str(session.get("emby_username") or ""),
+                    is_admin=True,
+                ),
+            )
+        )
+
+    def service_status(self) -> IdentityResult:
+        settings = self._settings()
+        authorized = self.is_service_authorized()
+        if authorized:
+            try:
+                result = self._gateway.test_connection(
+                    settings.emby_server_url, settings.emby_api_key.get_secret_value()
+                )
+            except Exception:
+                logger.exception("Emby service status check failed")
+                authorized = False
+            else:
+                authorized = bool(result.get("success"))
+        return IdentityResult(ServiceStatusResponse(authorized=authorized, url=settings.emby_server_url or ""))
+
+    def reauthorize(self, request: ReauthorizeRequest) -> IdentityResult:
+        url = request.url or self._settings().emby_server_url
+        authorization, error = self._authorize_service(url, request.username, request.password)
+        if error or authorization is None:
+            return error_result(error or "管理员认证失败", status_code=400)
+        try:
+            settings = self._save_authorization(authorization)
+        except Exception:
+            logger.exception("Reauthorizing Emby service failed")
+            return error_result("保存服务授权失败，请检查日志", status_code=500)
+        plugin_install, library_config = self._post_authorization(authorization, settings)
+        user = _authorization_user(authorization)
+        return IdentityResult(
+            ReauthorizeResponse(
+                message=_authorization_message("Emby 服务授权已更新", plugin_install, library_config),
+                plugin_install=dict(plugin_install),
+                library_config=dict(library_config),
+                authorization=AuthorizationDetails(
+                    url=str(authorization["_normalized_url"]),
+                    user_id=str(user["Id"]),
+                    user_name=str(user.get("Name") or ""),
+                ),
+            )
+        )
+
+    @staticmethod
+    def logout(session: SessionState) -> IdentityResult:
+        session.clear()
+        return IdentityResult(StatusResponse(status="ok"))
+
+    def is_configured(self) -> bool:
+        settings = self._settings()
+        return bool(settings.emby_server_url.strip() and settings.emby_api_key.get_secret_value().strip())
+
+    def is_service_authorized(self) -> bool:
+        settings = self._settings()
+        return bool(
+            settings.emby_auth_mode == "user_token"
+            and settings.emby_server_url.strip()
+            and settings.emby_api_key.get_secret_value().strip()
+            and settings.emby_user_id.strip()
+        )
+
+    def _authorize_service(
+        self,
+        url: str,
+        username: str,
+        password: str,
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        normalized_url = str(url or "").strip().rstrip("/")
+        normalized_username = str(username or "").strip()
+        if not normalized_url or not normalized_username:
+            return None, "Emby URL 和管理员用户名不能为空"
+        try:
+            raw = self._gateway.authenticate(
+                normalized_url,
+                normalized_username,
+                password or "",
+                device_id="emby-toolkit-service",
+            )
+        except Exception:
+            logger.exception("Emby service authorization gateway failed")
+            raw = None
+        if not raw:
+            return None, "管理员认证失败，请检查账号、密码和服务器地址"
+        authorization = deepcopy(dict(raw))
+        access_token = str(authorization.get("AccessToken") or "").strip()
+        user = _authorization_user(authorization)
+        user_id = str(user.get("Id") or "").strip()
+        if not access_token or not user_id:
+            return None, "Emby 认证响应缺少 AccessToken 或用户 ID"
+        if not _user_policy(user).get("IsAdministrator", False):
+            refreshed = self._gateway.get_user(normalized_url, access_token, user_id)
+            if refreshed:
+                user = dict(refreshed)
+                authorization["User"] = user
+        if not _user_policy(user).get("IsAdministrator", False):
+            return None, "必须使用 Emby 管理员账号完成服务授权"
+        test_result = self._gateway.test_connection(normalized_url, access_token)
+        if not test_result.get("success"):
+            return None, f"服务 Token 验证失败: {test_result.get('error')}"
+        authorization["_normalized_url"] = normalized_url
+        return authorization, None
+
+    def _save_authorization(self, authorization: Mapping[str, Any]) -> Settings:
+        user = _authorization_user(authorization)
+        return self._configuration.save(
+            {
+                "emby_server_url": str(authorization["_normalized_url"]),
+                "emby_api_key": str(authorization["AccessToken"]),
+                "emby_user_id": str(user["Id"]),
+                "emby_auth_mode": "user_token",
+            }
+        )
+
+    def _post_authorization(
+        self,
+        authorization: Mapping[str, Any],
+        settings: Settings,
+    ) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+        try:
+            plugin_install = self._gateway.install_plugin(authorization, settings)
+        except Exception as exc:
+            logger.exception("ETK plugin installation after authorization failed")
+            plugin_install = {"ok": False, "message": str(exc)}
+        try:
+            library_config = self._gateway.configure_libraries(authorization, plugin_install)
+        except Exception as exc:
+            logger.exception("Emby library configuration after authorization failed")
+            library_config = {"ok": False, "message": str(exc)}
+        return plugin_install, library_config
+
+    def _start_session(self, user: Mapping[str, Any], session: SessionState) -> None:
+        try:
+            self.repository.upsert_user(user)
+        except Exception:
+            logger.exception("Login-time Emby user synchronization failed")
+        session.clear()
+        session.update(
+            {
+                "_permanent": True,
+                "emby_user_id": str(user.get("Id") or ""),
+                "emby_username": user.get("Name"),
+                "emby_is_admin": bool(_user_policy(user).get("IsAdministrator", False)),
+            }
+        )
+
+
+def _authorization_user(authorization: Mapping[str, Any]) -> dict[str, Any]:
+    user = authorization.get("User")
+    return dict(user) if isinstance(user, Mapping) else {}
+
+
+def _user_policy(user: Mapping[str, Any]) -> Mapping[str, Any]:
+    policy = user.get("Policy")
+    return policy if isinstance(policy, Mapping) else {}
+
+
+def _authorization_message(
+    prefix: str,
+    plugin_install: Mapping[str, Any],
+    library_config: Mapping[str, Any],
+) -> str:
+    if not plugin_install.get("ok"):
+        return f"{prefix}；ETK 插件自动安装失败：{plugin_install.get('message', '未知错误')}"
+    message = f"{prefix}，{plugin_install.get('message', 'ETK 插件已就绪')}"
+    if library_config.get("ok"):
+        return f"{message}，{library_config.get('message', '媒体库加速配置已应用')}"
+    return f"{message}；媒体库加速配置失败：{library_config.get('message', '未知错误')}"

@@ -2,6 +2,7 @@
 import os
 import configparser
 import logging
+from copy import deepcopy
 from typing import Dict, Any, Tuple, Optional
 import json
 import time
@@ -402,6 +403,26 @@ def save_config(new_config: Dict[str, Any]):
     except Exception as e:
         logger.error(f"  ➜ 保存动态配置到数据库时失败: {e}", exc_info=True)
         raise
+
+
+def capture_dynamic_config_state() -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Capture the persisted dynamic payload and in-process compatibility view."""
+    persisted = settings_db.get_setting('dynamic_app_config') or {}
+    if not isinstance(persisted, dict):
+        raise TypeError("dynamic_app_config must be a mapping")
+    return deepcopy(persisted), deepcopy(APP_CONFIG)
+
+
+def restore_dynamic_config_state(
+    persisted: Dict[str, Any],
+    in_memory: Dict[str, Any],
+):
+    """Restore an exact pre-reload snapshot, including keys removed by a failed update."""
+    try:
+        settings_db.save_setting('dynamic_app_config', deepcopy(persisted))
+    finally:
+        APP_CONFIG.clear()
+        APP_CONFIG.update(deepcopy(in_memory))
 
 # ★★★ 保存自定义主题 ★★★
 def save_custom_theme(theme_data: dict):

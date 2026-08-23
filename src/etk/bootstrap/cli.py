@@ -4,6 +4,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any, cast
 
 
 def _port(value: str) -> int:
@@ -82,7 +83,8 @@ def _run_proxy(args: argparse.Namespace) -> int:
 
     import signal
 
-    from gevent import signal_handler
+    from gevent import signal_handler, wait
+    from gevent.event import Event
     from gevent.pywsgi import WSGIServer
     from geventwebsocket.handler import WebSocketHandler
 
@@ -109,19 +111,23 @@ def _run_proxy(args: argparse.Namespace) -> int:
             handler_class=WebSocketHandler,
         )
         received_signal: int | None = None
+        shutdown_requested = Event()
 
         def stop_for_signal(signum: int) -> None:
             nonlocal received_signal
             if received_signal is None:
                 received_signal = signum
-            server.stop(timeout=5)
+            shutdown_requested.set()
 
         signal_watchers = (
             signal_handler(signal.SIGTERM, stop_for_signal, signal.SIGTERM),
             signal_handler(signal.SIGINT, stop_for_signal, signal.SIGINT),
         )
         try:
-            server.serve_forever()
+            server.start()
+            # Stopping inside the signal callback can race with serve_forever's socket setup.
+            stop_event = cast(Any, server)._stop_event
+            wait((shutdown_requested, stop_event), count=1)
         finally:
             for watcher in signal_watchers:
                 watcher.cancel()

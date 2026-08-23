@@ -1,0 +1,341 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source-and-local-fake",
+    "captured_live": false,
+    "sources": [
+      "routes/unified_auth.py:121",
+      "routes/unified_auth.py:148",
+      "routes/unified_auth.py:198",
+      "routes/unified_auth.py:223",
+      "routes/unified_auth.py:241",
+      "routes/unified_auth.py:295",
+      "routes/unified_auth.py:312",
+      "routes/unified_auth.py:354"
+    ],
+    "external_validation": "pending"
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/auth/check_status",
+      "permission": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "permission": "public-configured-system"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/request_recovery",
+      "permission": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/verify_recovery",
+      "permission": "public-valid-one-time-token"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/setup",
+      "permission": "unconfigured-or-setup-mode"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/service_status",
+      "permission": "emby-session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/reauthorize",
+      "permission": "emby-session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "permission": "public"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "check-setup-required",
+      "request": {
+        "method": "GET",
+        "path": "/api/auth/check_status"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "setup_required",
+          "message": "系统未配置"
+        }
+      }
+    },
+    {
+      "case_id": "check-login-required",
+      "request": {
+        "method": "GET",
+        "path": "/api/auth/check_status"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "login_required"
+        }
+      }
+    },
+    {
+      "case_id": "check-logged-in",
+      "request": {
+        "method": "GET",
+        "path": "/api/auth/check_status"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "logged_in",
+          "user": {
+            "id": "fixture-user",
+            "name": "Fixture User",
+            "is_admin": false
+          }
+        }
+      }
+    },
+    {
+      "case_id": "login-setup-required",
+      "request": {
+        "method": "POST",
+        "path": "/api/auth/login",
+        "json": {
+          "username": "fixture-user",
+          "password": "fixture-password"
+        }
+      },
+      "response": {
+        "status": 428,
+        "body": {
+          "status": "error",
+          "code": "SETUP_REQUIRED",
+          "message": "系统尚未配置 Emby 连接"
+        }
+      }
+    },
+    {
+      "case_id": "login-invalid",
+      "request": {
+        "method": "POST",
+        "path": "/api/auth/login",
+        "json": {
+          "username": "invalid",
+          "password": "fixture-password"
+        }
+      },
+      "response": {
+        "status": 401,
+        "body": {
+          "status": "error",
+          "message": "登录失败：用户名/密码错误，或无法连接 Emby 服务器"
+        }
+      }
+    },
+    {
+      "case_id": "login-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/auth/login",
+        "json": {
+          "username": "fixture-user",
+          "password": "fixture-password"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "user": {
+            "id": "fixture-user",
+            "name": "Fixture User",
+            "is_admin": false,
+            "allow_unrestricted_subscriptions": true,
+            "user_type": "emby_user"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "recovery-request",
+      "request": {
+        "method": "POST",
+        "path": "/api/auth/request_recovery"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "message": "安全令牌已发送至服务器控制台日志(Docker Logs)，请查阅并输入。"
+        }
+      }
+    },
+    {
+      "case_id": "recovery-verified",
+      "request": {
+        "method": "POST",
+        "path": "/api/auth/verify_recovery",
+        "json": {
+          "token": "fixture-token"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "message": "验证成功"
+        }
+      }
+    },
+    {
+      "case_id": "recovery-rejected",
+      "request": {
+        "method": "POST",
+        "path": "/api/auth/verify_recovery",
+        "json": {
+          "token": "fixture-token"
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": {
+          "status": "error",
+          "message": "令牌无效或已过期"
+        }
+      }
+    },
+    {
+      "case_id": "setup-forbidden",
+      "request": {
+        "method": "POST",
+        "path": "/api/auth/setup",
+        "json": {
+          "url": "http://example.invalid",
+          "username": "fixture-admin",
+          "password": "fixture-password"
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": {
+          "status": "error",
+          "message": "系统已配置，且无重置权限"
+        }
+      }
+    },
+    {
+      "case_id": "setup-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/auth/setup",
+        "json": {
+          "url": "http://example.invalid",
+          "username": "fixture-admin",
+          "password": "fixture-password"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "message": "Emby 服务授权成功，ETK 插件已就绪，媒体库加速配置已应用",
+          "plugin_install": {
+            "ok": true,
+            "message": "ETK 插件已就绪"
+          },
+          "library_config": {
+            "ok": true,
+            "message": "媒体库加速配置已应用"
+          },
+          "user": {
+            "id": "fixture-admin",
+            "name": "Fixture Admin",
+            "is_admin": true
+          }
+        }
+      }
+    },
+    {
+      "case_id": "service-status-login-required",
+      "request": {
+        "method": "GET",
+        "path": "/api/auth/service_status"
+      },
+      "response": {
+        "status": 401,
+        "body": {
+          "status": "error",
+          "message": "需要先登录"
+        }
+      }
+    },
+    {
+      "case_id": "service-status-authorized",
+      "request": {
+        "method": "GET",
+        "path": "/api/auth/service_status"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "authorized": true,
+          "url": "http://example.invalid"
+        }
+      }
+    },
+    {
+      "case_id": "reauthorize-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/auth/reauthorize",
+        "json": {
+          "url": "http://example.invalid",
+          "username": "fixture-admin",
+          "password": "fixture-password"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "message": "Emby 服务授权已更新，ETK 插件已就绪，媒体库加速配置已应用",
+          "plugin_install": {
+            "ok": true,
+            "message": "ETK 插件已就绪"
+          },
+          "library_config": {
+            "ok": true,
+            "message": "媒体库加速配置已应用"
+          },
+          "authorization": {
+            "url": "http://example.invalid",
+            "user_id": "fixture-admin",
+            "user_name": "Fixture Admin",
+            "auth_mode": "user_token"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "logout-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/auth/logout"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "ok"
+        }
+      }
+    }
+  ]
+}

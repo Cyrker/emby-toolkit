@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source-and-local-fake",
+    "captured_live": false,
+    "external_validation": "pending",
+    "sources": [
+      "routes/system.py:528-558",
+      "routes/system.py:687-729",
+      "routes/system.py:822-872",
+      "routes/system.py:990-1036",
+      "extensions.py:14-44"
+    ]
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/telegram/templates",
+      "permission": "admin",
+      "success_status": 200,
+      "failure_status": 500,
+      "behavior": "merge-stored-values-into-injected-defaults"
+    },
+    {
+      "method": "POST",
+      "path": "/api/telegram/templates",
+      "permission": "admin",
+      "success_status": 200,
+      "failure_status": 500,
+      "behavior": "normalize-and-save-injected-default-keys"
+    },
+    {
+      "method": "POST",
+      "path": "/api/config/custom_theme",
+      "permission": "admin",
+      "success_status": 200,
+      "invalid_status": 400,
+      "failure_status": 500,
+      "accepted_json": [
+        "object"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/config/custom_theme",
+      "permission": "admin",
+      "success_status": 200,
+      "failure_status": 500,
+      "behavior": "delete"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai/prompts",
+      "permission": "admin",
+      "success_status": 200,
+      "failure_status": 500,
+      "behavior": "merge-stored-values-into-injected-defaults"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/prompts",
+      "permission": "admin",
+      "success_status": 200,
+      "invalid_status": 400,
+      "failure_status": 500,
+      "accepted_json": [
+        "object"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai/prompts/reset",
+      "permission": "admin",
+      "success_status": 200,
+      "failure_status": 500,
+      "behavior": "delete-and-return-injected-defaults"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/menu_config",
+      "permission": "public",
+      "success_status": 200,
+      "failure_status": 500
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/menu_config",
+      "permission": "admin",
+      "success_status": 200,
+      "invalid_status": 400,
+      "failure_status": 500,
+      "accepted_json": [
+        "object",
+        "array"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/menu_config/reset",
+      "permission": "admin",
+      "success_status": 200,
+      "failure_status": 500,
+      "behavior": "delete"
+    }
+  ]
+}

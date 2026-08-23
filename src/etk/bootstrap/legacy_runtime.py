@@ -14,7 +14,7 @@ from etk.compatibility.legacy_registry import (
     install_legacy_registry,
 )
 
-from .runtime_supervisor import RuntimeRole
+from .runtime_supervisor import RuntimeReloadError, RuntimeRole
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +61,61 @@ class LegacyRuntimeAdapter:
         import task_manager
 
         if self._background and task_manager.is_task_running():
-            raise RuntimeError("configuration reload is unavailable while a task is running")
+            raise RuntimeReloadError(
+                "configuration reload is unavailable while a task is running",
+                compensated=True,
+            )
+        try:
+            previous_persisted, previous_memory = config_manager.capture_dynamic_config_state()
+        except Exception as exc:
+            raise RuntimeReloadError(
+                "configuration reload could not capture the previous state",
+                compensated=True,
+            ) from exc
 
-        config_manager.save_config(dict(new_config))
-        self._config = config_manager.APP_CONFIG
+        persistence_started = False
+        runtime_reload_started = False
+        try:
+            persistence_started = True
+            config_manager.save_config(dict(new_config))
+            self._config = config_manager.APP_CONFIG
+            runtime_reload_started = True
+            self._reload_runtime_components()
+        except Exception as reload_error:
+            rollback_errors: list[Exception] = []
+            if persistence_started:
+                try:
+                    config_manager.restore_dynamic_config_state(
+                        previous_persisted,
+                        previous_memory,
+                    )
+                except Exception as exc:
+                    rollback_errors.append(exc)
+                    logger.exception("Failed to restore the previous persisted configuration")
+                finally:
+                    self._config = config_manager.APP_CONFIG
+            if runtime_reload_started:
+                try:
+                    self._reload_runtime_components()
+                except Exception as exc:
+                    rollback_errors.append(exc)
+                    logger.exception("Failed to restore the previous compatibility runtime")
+            if rollback_errors:
+                failures = ExceptionGroup(
+                    "configuration reload and rollback failed",
+                    [reload_error, *rollback_errors],
+                )
+                raise RuntimeReloadError(
+                    "configuration reload failed and rollback was incomplete",
+                    compensated=False,
+                ) from failures
+            raise RuntimeReloadError(
+                "configuration reload failed; the previous state was restored",
+                compensated=True,
+            ) from reload_error
+
+    def _reload_runtime_components(self) -> None:
         self._replace_processors()
-
         if not self._background:
             return
 
@@ -203,13 +252,17 @@ class LegacyRuntimeAdapter:
     def _replace_processors(self) -> None:
         new_processors, server_id, task_registry = self._build_processors()
         old_processors = self._processors
-        install_legacy_registry(
-            new_processors,
-            emby_server_id=server_id,
-            task_registry=task_registry,
-        )
+        try:
+            self._close_processors(old_processors)
+            install_legacy_registry(
+                new_processors,
+                emby_server_id=server_id,
+                task_registry=task_registry,
+            )
+        except Exception:
+            self._close_processors(new_processors)
+            raise
         self._processors = new_processors
-        self._close_processors(old_processors)
 
     def _build_processors(self) -> tuple[LegacyProcessors, str | None, dict[str, Any]]:
         import constants

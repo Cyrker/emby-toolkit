@@ -24,6 +24,14 @@ class RuntimeState(StrEnum):
     FAILED = "failed"
 
 
+class RuntimeReloadError(RuntimeError):
+    """A reload failure that records whether the previous runtime was restored."""
+
+    def __init__(self, message: str, *, compensated: bool) -> None:
+        super().__init__(message)
+        self.compensated = compensated
+
+
 class RuntimeAdapter(Protocol):
     @property
     def config(self) -> Mapping[str, Any]: ...
@@ -141,8 +149,12 @@ class RuntimeSupervisor:
             self._state = RuntimeState.RELOADING
             try:
                 adapter.save_config_and_reload(dict(new_config))
-            except BaseException:
-                self._state = RuntimeState.FAILED
+            except BaseException as exc:
+                self._state = (
+                    RuntimeState.RUNNING
+                    if isinstance(exc, RuntimeReloadError) and exc.compensated
+                    else RuntimeState.FAILED
+                )
                 raise
             else:
                 self._state = RuntimeState.RUNNING

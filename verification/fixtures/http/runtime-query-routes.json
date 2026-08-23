@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source-and-local-fake",
+    "captured_live": false,
+    "sources": [
+      "routes/system.py:182",
+      "routes/tasks.py:18"
+    ]
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "permission": "public",
+      "response": {
+        "status": 200,
+        "body_fields": [
+          "is_running",
+          "current_action",
+          "progress",
+          "message",
+          "last_action",
+          "logs"
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/tasks/available",
+      "permission": "admin",
+      "contexts": [
+        "all",
+        "chain",
+        "manual"
+      ],
+      "invalid_context_fallback": "chain"
+    }
+  ]
+}

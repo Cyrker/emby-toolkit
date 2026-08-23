@@ -21,6 +21,7 @@ dependencies = [
   "gevent-websocket==0.10.1",
   "gevent==26.8.0",
   "google-genai==2.19.0",
+  "itsdangerous>=2.2,<3",
   "jinja2==3.1.6",
   "lxml==6.1.2",
   "numpy==2.5.2",

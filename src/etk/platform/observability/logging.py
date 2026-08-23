@@ -68,6 +68,7 @@ def configure_logging(
     )
     handler = logging.StreamHandler(stream or sys.stderr)
     setattr(handler, _MANAGED_HANDLER_ATTRIBUTE, True)
+    handler.setLevel(resolved_level)
     handler.addFilter(SensitiveDataFilter())
     handler.setFormatter(formatter)
 

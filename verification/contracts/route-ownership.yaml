@@ -763,124 +763,130 @@
       "contract_id": "route-binding-39158df111e3",
       "decorator_contract_id": "route-decorator-47819a4f19a4",
       "endpoint": "api_get_ai_models",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/ai/models",
       "retirement_approval": null,
       "source": "routes/system.py:343",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
       "contract_id": "route-binding-ea962f13e320",
       "decorator_contract_id": "route-decorator-4584114e468e",
       "endpoint": "api_get_ai_prompts",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/ai/prompts",
       "retirement_approval": null,
       "source": "routes/system.py:822",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-95569acdee54",
       "decorator_contract_id": "route-decorator-8a3de562105c",
       "endpoint": "api_save_ai_prompts",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/ai/prompts",
       "retirement_approval": null,
       "source": "routes/system.py:842",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-09faea0abcf6",
       "decorator_contract_id": "route-decorator-8381564bc3c5",
       "endpoint": "api_reset_ai_prompts",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/ai/prompts/reset",
       "retirement_approval": null,
       "source": "routes/system.py:860",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-a18c62eea6ee",
       "decorator_contract_id": "route-decorator-5be64f4037b4",
       "endpoint": "api_test_ai_connection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/ai/test",
       "retirement_approval": null,
       "source": "routes/system.py:235",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
       "contract_id": "route-binding-0b9859fd8186",
       "decorator_contract_id": "route-decorator-aff1aa2ed346",
       "endpoint": "check_system_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/check_status",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:121",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -888,19 +894,20 @@
       "contract_id": "route-binding-c93cd2c73dea",
       "decorator_contract_id": "route-decorator-93c6058e6b4a",
       "endpoint": "emby_only_login",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/login",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:148",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -908,19 +915,20 @@
       "contract_id": "route-binding-bc898f9d95e3",
       "decorator_contract_id": "route-decorator-cdfa000a8116",
       "endpoint": "logout",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/logout",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:354",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -928,19 +936,20 @@
       "contract_id": "route-binding-592e53218ecd",
       "decorator_contract_id": "route-decorator-6862eb5b149b",
       "endpoint": "reauthorize_emby_service",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/reauthorize",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:312",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -948,19 +957,20 @@
       "contract_id": "route-binding-bc7f38a7bcae",
       "decorator_contract_id": "route-decorator-4500f6604a09",
       "endpoint": "request_recovery_token",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/request_recovery",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:198",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -968,19 +978,20 @@
       "contract_id": "route-binding-879d64d69d3b",
       "decorator_contract_id": "route-decorator-a55996199623",
       "endpoint": "service_authorization_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/service_status",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:295",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -988,19 +999,20 @@
       "contract_id": "route-binding-c158af28ae58",
       "decorator_contract_id": "route-decorator-733c4a739d4a",
       "endpoint": "save_emby_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/setup",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:241",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -1008,19 +1020,20 @@
       "contract_id": "route-binding-bef30379de53",
       "decorator_contract_id": "route-decorator-95c0e270d3a0",
       "endpoint": "verify_recovery_token",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/verify_recovery",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:223",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -1417,42 +1430,44 @@
       "contract_id": "route-binding-f280ffdd0867",
       "decorator_contract_id": "route-decorator-b582449aa360",
       "endpoint": "api_get_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-config-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.configuration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/config",
       "retirement_approval": null,
       "source": "routes/system.py:208",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-8c574feff62f",
       "decorator_contract_id": "route-decorator-b930e2f76f3f",
       "endpoint": "api_save_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-config-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.configuration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/config",
       "retirement_approval": null,
       "source": "routes/system.py:561",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -1539,42 +1554,44 @@
       "contract_id": "route-binding-6e4aa9209332",
       "decorator_contract_id": "route-decorator-6edff6cffbe0",
       "endpoint": "api_delete_custom_theme",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/config/custom_theme",
       "retirement_approval": null,
       "source": "routes/system.py:710",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-2628700cdebd",
       "decorator_contract_id": "route-decorator-0b016a423218",
       "endpoint": "api_save_custom_theme",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/config/custom_theme",
       "retirement_approval": null,
       "source": "routes/system.py:688",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -2669,60 +2686,63 @@
       "contract_id": "route-binding-aed2ff901c65",
       "decorator_contract_id": "route-decorator-46c1b1266a15",
       "endpoint": "api_get_stats_core",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/database/stats/core",
       "retirement_approval": null,
       "source": "routes/database_admin.py:34",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
       "contract_id": "route-binding-fe0669c3070d",
       "decorator_contract_id": "route-decorator-84a79932c096",
       "endpoint": "api_get_stats_library",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/database/stats/library",
       "retirement_approval": null,
       "source": "routes/database_admin.py:44",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
       "contract_id": "route-binding-57b5b6457565",
       "decorator_contract_id": "route-decorator-17d4eea6986f",
       "endpoint": "api_get_stats_rankings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/database/stats/rankings",
       "retirement_approval": null,
       "source": "routes/database_admin.py:120",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
@@ -2749,40 +2769,42 @@
       "contract_id": "route-binding-aae766708897",
       "decorator_contract_id": "route-decorator-558a4b0aa967",
       "endpoint": "api_get_stats_system",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/database/stats/system",
       "retirement_approval": null,
       "source": "routes/database_admin.py:62",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
       "contract_id": "route-binding-fbd751028b5a",
       "decorator_contract_id": "route-decorator-b0c664841ae2",
       "endpoint": "api_get_db_tables",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/database/tables",
       "retirement_approval": null,
       "source": "routes/database_admin.py:134",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
@@ -3367,80 +3389,84 @@
       "contract_id": "route-binding-db66a6497d1b",
       "decorator_contract_id": "route-decorator-90f18ba1a734",
       "endpoint": "list_log_files",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/log-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.log_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/logs/list",
       "retirement_approval": null,
       "source": "routes/logs.py:15",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/logs"
     },
     {
       "application": "api",
       "contract_id": "route-binding-ee866bb79e91",
       "decorator_contract_id": "route-decorator-97cbb29742ca",
       "endpoint": "search_all_logs",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/log-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.log_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/logs/search",
       "retirement_approval": null,
       "source": "routes/logs.py:88",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/logs"
     },
     {
       "application": "api",
       "contract_id": "route-binding-8d175274ce52",
       "decorator_contract_id": "route-decorator-c8e38f1784bf",
       "endpoint": "search_logs_with_context",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/log-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.log_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/logs/search_context",
       "retirement_approval": null,
       "source": "routes/logs.py:317",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/logs"
     },
     {
       "application": "api",
       "contract_id": "route-binding-528e1577252b",
       "decorator_contract_id": "route-decorator-6dedfd6e44d7",
       "endpoint": "view_log_file",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/log-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.log_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/logs/view",
       "retirement_approval": null,
       "source": "routes/logs.py:40",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/logs"
     },
     {
       "application": "api",
@@ -5167,21 +5193,22 @@
       "contract_id": "route-binding-df8a8dfe827b",
       "decorator_contract_id": "route-decorator-8d6d24de620d",
       "endpoint": "test_proxy_connection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/proxy/test",
       "retirement_approval": null,
       "source": "routes/system.py:416",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -5430,40 +5457,42 @@
       "contract_id": "route-binding-f49b64f755a7",
       "decorator_contract_id": "route-decorator-437c888ff91f",
       "endpoint": "api_get_review_items",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/review_items",
       "retirement_approval": null,
       "source": "routes/database_admin.py:321",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
       "contract_id": "route-binding-754bacf6c5c5",
       "decorator_contract_id": "route-decorator-c3a6c26fced4",
       "endpoint": "api_get_review_reasons",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/review_reasons",
       "retirement_approval": null,
       "source": "routes/database_admin.py:339",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
@@ -6290,21 +6319,22 @@
       "contract_id": "route-binding-00618505c3de",
       "decorator_contract_id": "route-decorator-727caf660d11",
       "endpoint": "api_get_task_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/runtime-query-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.runtime_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/status",
       "retirement_approval": null,
       "source": "routes/system.py:182",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/runtime"
     },
     {
       "application": "api",
@@ -6874,126 +6904,132 @@
       "contract_id": "route-binding-defc7177e579",
       "decorator_contract_id": "route-decorator-53d24b036fe1",
       "endpoint": "get_about_info",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/about_info",
       "retirement_approval": null,
       "source": "routes/system.py:732",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
       "contract_id": "route-binding-bfaf052fd1db",
       "decorator_contract_id": "route-decorator-121de60e0d10",
       "endpoint": "activate_pro",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/activate_pro",
       "retirement_approval": null,
       "source": "routes/system.py:898",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
       "contract_id": "route-binding-17febf04308a",
       "decorator_contract_id": "route-decorator-d2f0ae4f666a",
       "endpoint": "api_get_menu_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/menu_config",
       "retirement_approval": null,
       "source": "routes/system.py:991",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-658c9bec2e1e",
       "decorator_contract_id": "route-decorator-14851d67a6d5",
       "endpoint": "api_save_menu_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/menu_config",
       "retirement_approval": null,
       "source": "routes/system.py:1004",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-fafe747bc62d",
       "decorator_contract_id": "route-decorator-f7fbd5bb6880",
       "endpoint": "api_reset_menu_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/menu_config/reset",
       "retirement_approval": null,
       "source": "routes/system.py:1024",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-cadc848c90c6",
       "decorator_contract_id": "route-decorator-d8830447a610",
       "endpoint": "api_get_pro_pricing",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/pro_pricing",
       "retirement_approval": null,
       "source": "routes/system.py:874",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -7021,21 +7057,22 @@
       "contract_id": "route-binding-f3d4ebd0e19b",
       "decorator_contract_id": "route-decorator-8122e33d4a91",
       "endpoint": "transfer_pro",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/transfer_pro",
       "retirement_approval": null,
       "source": "routes/system.py:946",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -7063,20 +7100,21 @@
       "contract_id": "route-binding-c4ae72c6480c",
       "decorator_contract_id": "route-decorator-95afb08851d0",
       "endpoint": "get_available_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/runtime-query-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.runtime_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/tasks/available",
       "retirement_approval": null,
       "source": "routes/tasks.py:18",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/runtime"
     },
     {
       "application": "api",
@@ -7103,63 +7141,66 @@
       "contract_id": "route-binding-be9049872d38",
       "decorator_contract_id": "route-decorator-e18757daad1a",
       "endpoint": "api_get_telegram_notification_templates",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/telegram/templates",
       "retirement_approval": null,
       "source": "routes/system.py:537",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-5aa0fb8b9b07",
       "decorator_contract_id": "route-decorator-c4fb4b4bbb40",
       "endpoint": "api_save_telegram_notification_templates",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/telegram/templates",
       "retirement_approval": null,
       "source": "routes/system.py:548",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-6ade04bdc12d",
       "decorator_contract_id": "route-decorator-f37e3fd50796",
       "endpoint": "api_test_telegram_connection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/telegram/test",
       "retirement_approval": null,
       "source": "routes/system.py:467",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -8338,23 +8379,24 @@
       "contract_id": "route-decorator-47819a4f19a4",
       "declared_path": "/ai/models",
       "endpoint": "api_get_ai_models",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/ai/models",
       "retirement_approval": null,
       "source": "routes/system.py:343",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -8362,23 +8404,24 @@
       "contract_id": "route-decorator-4584114e468e",
       "declared_path": "/ai/prompts",
       "endpoint": "api_get_ai_prompts",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/ai/prompts",
       "retirement_approval": null,
       "source": "routes/system.py:822",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -8386,23 +8429,24 @@
       "contract_id": "route-decorator-8a3de562105c",
       "declared_path": "/ai/prompts",
       "endpoint": "api_save_ai_prompts",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/ai/prompts",
       "retirement_approval": null,
       "source": "routes/system.py:842",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -8410,23 +8454,24 @@
       "contract_id": "route-decorator-8381564bc3c5",
       "declared_path": "/ai/prompts/reset",
       "endpoint": "api_reset_ai_prompts",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/ai/prompts/reset",
       "retirement_approval": null,
       "source": "routes/system.py:860",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -8434,23 +8479,24 @@
       "contract_id": "route-decorator-5be64f4037b4",
       "declared_path": "/ai/test",
       "endpoint": "api_test_ai_connection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/ai/test",
       "retirement_approval": null,
       "source": "routes/system.py:235",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -8458,21 +8504,22 @@
       "contract_id": "route-decorator-aff1aa2ed346",
       "declared_path": "/check_status",
       "endpoint": "check_system_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/check_status",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:121",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -8481,21 +8528,22 @@
       "contract_id": "route-decorator-93c6058e6b4a",
       "declared_path": "/login",
       "endpoint": "emby_only_login",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/login",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:148",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -8504,21 +8552,22 @@
       "contract_id": "route-decorator-cdfa000a8116",
       "declared_path": "/logout",
       "endpoint": "logout",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/logout",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:354",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -8527,21 +8576,22 @@
       "contract_id": "route-decorator-6862eb5b149b",
       "declared_path": "/reauthorize",
       "endpoint": "reauthorize_emby_service",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/reauthorize",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:312",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -8550,21 +8600,22 @@
       "contract_id": "route-decorator-4500f6604a09",
       "declared_path": "/request_recovery",
       "endpoint": "request_recovery_token",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/request_recovery",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:198",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -8573,21 +8624,22 @@
       "contract_id": "route-decorator-a55996199623",
       "declared_path": "/service_status",
       "endpoint": "service_authorization_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/service_status",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:295",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -8596,21 +8648,22 @@
       "contract_id": "route-decorator-733c4a739d4a",
       "declared_path": "/setup",
       "endpoint": "save_emby_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/setup",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:241",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -8619,21 +8672,22 @@
       "contract_id": "route-decorator-95c0e270d3a0",
       "declared_path": "/verify_recovery",
       "endpoint": "verify_recovery_token",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/identity-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/auth/verify_recovery",
       "retirement_approval": null,
       "source": "routes/unified_auth.py:223",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-contract-and-openapi",
       "validation_owner": "identity"
     },
     {
@@ -9088,23 +9142,24 @@
       "contract_id": "route-decorator-b582449aa360",
       "declared_path": "/config",
       "endpoint": "api_get_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-config-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.configuration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/config",
       "retirement_approval": null,
       "source": "routes/system.py:208",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -9112,23 +9167,24 @@
       "contract_id": "route-decorator-b930e2f76f3f",
       "declared_path": "/config",
       "endpoint": "api_save_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-config-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.configuration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/config",
       "retirement_approval": null,
       "source": "routes/system.py:561",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -9228,23 +9284,24 @@
       "contract_id": "route-decorator-6edff6cffbe0",
       "declared_path": "/config/custom_theme",
       "endpoint": "api_delete_custom_theme",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/config/custom_theme",
       "retirement_approval": null,
       "source": "routes/system.py:710",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -9252,23 +9309,24 @@
       "contract_id": "route-decorator-0b016a423218",
       "declared_path": "/config/custom_theme",
       "endpoint": "api_save_custom_theme",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/config/custom_theme",
       "retirement_approval": null,
       "source": "routes/system.py:688",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -10520,22 +10578,23 @@
       "contract_id": "route-decorator-46c1b1266a15",
       "declared_path": "/database/stats/core",
       "endpoint": "api_get_stats_core",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/database/stats/core",
       "retirement_approval": null,
       "source": "routes/database_admin.py:34",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
@@ -10543,22 +10602,23 @@
       "contract_id": "route-decorator-84a79932c096",
       "declared_path": "/database/stats/library",
       "endpoint": "api_get_stats_library",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/database/stats/library",
       "retirement_approval": null,
       "source": "routes/database_admin.py:44",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
@@ -10566,22 +10626,23 @@
       "contract_id": "route-decorator-17d4eea6986f",
       "declared_path": "/database/stats/rankings",
       "endpoint": "api_get_stats_rankings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/database/stats/rankings",
       "retirement_approval": null,
       "source": "routes/database_admin.py:120",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
@@ -10612,22 +10673,23 @@
       "contract_id": "route-decorator-558a4b0aa967",
       "declared_path": "/database/stats/system",
       "endpoint": "api_get_stats_system",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/database/stats/system",
       "retirement_approval": null,
       "source": "routes/database_admin.py:62",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
@@ -10635,22 +10697,23 @@
       "contract_id": "route-decorator-b0c664841ae2",
       "declared_path": "/database/tables",
       "endpoint": "api_get_db_tables",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/database/tables",
       "retirement_approval": null,
       "source": "routes/database_admin.py:134",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
@@ -11317,22 +11380,23 @@
       "contract_id": "route-decorator-90f18ba1a734",
       "declared_path": "/list",
       "endpoint": "list_log_files",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/log-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.log_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/logs/list",
       "retirement_approval": null,
       "source": "routes/logs.py:15",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/logs"
     },
     {
       "application": "api",
@@ -11340,22 +11404,23 @@
       "contract_id": "route-decorator-97cbb29742ca",
       "declared_path": "/search",
       "endpoint": "search_all_logs",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/log-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.log_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/logs/search",
       "retirement_approval": null,
       "source": "routes/logs.py:88",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/logs"
     },
     {
       "application": "api",
@@ -11363,22 +11428,23 @@
       "contract_id": "route-decorator-c8e38f1784bf",
       "declared_path": "/search_context",
       "endpoint": "search_logs_with_context",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/log-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.log_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/logs/search_context",
       "retirement_approval": null,
       "source": "routes/logs.py:317",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/logs"
     },
     {
       "application": "api",
@@ -11386,22 +11452,23 @@
       "contract_id": "route-decorator-6dedfd6e44d7",
       "declared_path": "/view",
       "endpoint": "view_log_file",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/log-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.log_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/logs/view",
       "retirement_approval": null,
       "source": "routes/logs.py:40",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/logs"
     },
     {
       "application": "api",
@@ -13189,23 +13256,24 @@
       "contract_id": "route-decorator-8d6d24de620d",
       "declared_path": "/proxy/test",
       "endpoint": "test_proxy_connection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/proxy/test",
       "retirement_approval": null,
       "source": "routes/system.py:416",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -13491,22 +13559,23 @@
       "contract_id": "route-decorator-437c888ff91f",
       "declared_path": "/review_items",
       "endpoint": "api_get_review_items",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/review_items",
       "retirement_approval": null,
       "source": "routes/database_admin.py:321",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
@@ -13514,22 +13583,23 @@
       "contract_id": "route-decorator-c3a6c26fced4",
       "declared_path": "/review_reasons",
       "endpoint": "api_get_review_reasons",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/database-read-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/review_reasons",
       "retirement_approval": null,
       "source": "routes/database_admin.py:339",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/database"
     },
     {
       "application": "api",
@@ -14414,23 +14484,24 @@
       "contract_id": "route-decorator-727caf660d11",
       "declared_path": "/status",
       "endpoint": "api_get_task_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/runtime-query-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.runtime_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/status",
       "retirement_approval": null,
       "source": "routes/system.py:182",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/runtime"
     },
     {
       "application": "api",
@@ -15036,23 +15107,24 @@
       "contract_id": "route-decorator-53d24b036fe1",
       "declared_path": "/system/about_info",
       "endpoint": "get_about_info",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/about_info",
       "retirement_approval": null,
       "source": "routes/system.py:732",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -15060,23 +15132,24 @@
       "contract_id": "route-decorator-121de60e0d10",
       "declared_path": "/system/activate_pro",
       "endpoint": "activate_pro",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/activate_pro",
       "retirement_approval": null,
       "source": "routes/system.py:898",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -15084,23 +15157,24 @@
       "contract_id": "route-decorator-d2f0ae4f666a",
       "declared_path": "/system/menu_config",
       "endpoint": "api_get_menu_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/menu_config",
       "retirement_approval": null,
       "source": "routes/system.py:991",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -15108,23 +15182,24 @@
       "contract_id": "route-decorator-14851d67a6d5",
       "declared_path": "/system/menu_config",
       "endpoint": "api_save_menu_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/menu_config",
       "retirement_approval": null,
       "source": "routes/system.py:1004",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -15132,23 +15207,24 @@
       "contract_id": "route-decorator-f7fbd5bb6880",
       "declared_path": "/system/menu_config/reset",
       "endpoint": "api_reset_menu_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/menu_config/reset",
       "retirement_approval": null,
       "source": "routes/system.py:1024",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -15156,23 +15232,24 @@
       "contract_id": "route-decorator-d8830447a610",
       "declared_path": "/system/pro_pricing",
       "endpoint": "api_get_pro_pricing",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/pro_pricing",
       "retirement_approval": null,
       "source": "routes/system.py:874",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -15204,23 +15281,24 @@
       "contract_id": "route-decorator-8122e33d4a91",
       "declared_path": "/system/transfer_pro",
       "endpoint": "transfer_pro",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/system/transfer_pro",
       "retirement_approval": null,
       "source": "routes/system.py:946",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",
@@ -15252,22 +15330,23 @@
       "contract_id": "route-decorator-95afb08851d0",
       "declared_path": "/available",
       "endpoint": "get_available_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/runtime-query-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.runtime_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/tasks/available",
       "retirement_approval": null,
       "source": "routes/tasks.py:18",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "operations/runtime"
     },
     {
       "application": "api",
@@ -15298,23 +15377,24 @@
       "contract_id": "route-decorator-e18757daad1a",
       "declared_path": "/telegram/templates",
       "endpoint": "api_get_telegram_notification_templates",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/telegram/templates",
       "retirement_approval": null,
       "source": "routes/system.py:537",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -15322,23 +15402,24 @@
       "contract_id": "route-decorator-c4fb4b4bbb40",
       "declared_path": "/telegram/templates",
       "endpoint": "api_save_telegram_notification_templates",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.standalone_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/telegram/templates",
       "retirement_approval": null,
       "source": "routes/system.py:548",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/configuration"
     },
     {
       "application": "api",
@@ -15346,23 +15427,24 @@
       "contract_id": "route-decorator-f37e3fd50796",
       "declared_path": "/telegram/test",
       "endpoint": "api_test_telegram_connection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/system-integration-routes.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integration_router",
+      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/telegram/test",
       "retirement_approval": null,
       "source": "routes/system.py:467",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "static-route-contract",
-      "validation_owner": "system/operations"
+      "validation_method": "pytest-contract-and-openapi",
+      "validation_owner": "system/integrations"
     },
     {
       "application": "api",

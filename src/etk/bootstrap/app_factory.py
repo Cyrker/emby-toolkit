@@ -13,8 +13,33 @@ from etk.compatibility.flask_app import (
     create_flask_app,
 )
 from etk.compatibility.response_contract import fastapi_json_response
+from etk.compatibility.session_codec import LazyLegacySessionCodec
+from etk.compatibility.system_defaults import LegacyStandaloneSettingsDefaults
+from etk.domains.identity import (
+    IdentityService,
+    LegacyEmbyIdentityGateway,
+    RuntimeConfigurationWriter,
+    SqlAlchemyIdentityRepository,
+)
+from etk.domains.identity.router import router as identity_router
+from etk.domains.operations.database import DatabaseReadService, SqlAlchemyDatabaseReadRepository
+from etk.domains.operations.database_router import router as database_read_router
+from etk.domains.operations.log_router import router as log_router
+from etk.domains.operations.logs import LocalLogStorage, LogService
+from etk.domains.operations.runtime import LegacyRuntimeStatusReader, ManifestTaskCatalog
+from etk.domains.operations.runtime_router import router as runtime_query_router
+from etk.domains.system.compatibility import LegacyConfigurationGateway
+from etk.domains.system.configuration import ConfigurationService
+from etk.domains.system.configuration_router import router as configuration_router
+from etk.domains.system.integration_compatibility import HttpxSystemIntegrationGateway
+from etk.domains.system.integration_router import router as system_integration_router
+from etk.domains.system.integrations import SystemIntegrationService
+from etk.domains.system.repository import SqlAlchemyAppSettingsRepository
+from etk.domains.system.standalone import StandaloneSettingsService
+from etk.domains.system.standalone_router import router as standalone_settings_router
 from etk.platform import AppContainer, LegacyConfigAdapter, PostgresLegacyConfigStore, Settings
 from etk.platform.observability import MetricsMiddleware, TraceIdMiddleware, get_metrics, metrics_response
+from etk.platform.web import CookieSessionMiddleware
 
 from .runtime_supervisor import RuntimeRole, RuntimeState, RuntimeSupervisor, get_runtime_supervisor
 
@@ -32,10 +57,18 @@ def create_app(
 ) -> FastAPI:
     """Build the ASGI application without importing or starting legacy runtime modules."""
     runtime = supervisor or get_runtime_supervisor()
-    if container is None:
+    owns_container = container is None
+    if owns_container:
         app_container, config_adapter = _create_default_container(data_dir)
     else:
+        assert container is not None
         app_container, config_adapter = container, None
+    if owns_container:
+        _register_identity_providers(app_container, runtime)
+        _register_operation_query_providers(app_container)
+        _register_log_providers(app_container, data_dir)
+        _register_database_read_providers(app_container)
+        _register_system_providers(app_container, runtime)
     compatibility_app = LazyCompatibilityApplication(
         partial(
             create_flask_app,
@@ -70,6 +103,16 @@ def create_app(
     platform_metrics = get_metrics()
     app.add_middleware(MetricsMiddleware, metrics=platform_metrics)
     app.add_middleware(TraceIdMiddleware)
+    session_codec = LazyLegacySessionCodec(_resolve_data_dir(data_dir), secret_key=secret_key)
+    app.add_middleware(CookieSessionMiddleware, codec_provider=lambda: session_codec)
+
+    app.include_router(identity_router)
+    app.include_router(runtime_query_router)
+    app.include_router(log_router)
+    app.include_router(database_read_router)
+    app.include_router(configuration_router)
+    app.include_router(standalone_settings_router)
+    app.include_router(system_integration_router)
 
     @app.get("/api/health", include_in_schema=False)
     def health() -> Any:
@@ -112,6 +155,109 @@ def _create_default_container(data_dir: Path | None) -> tuple[AppContainer, Lega
     settings = adapter.load()
     container = AppContainer(settings, database_provider=_create_database_runtime)
     return container, adapter
+
+
+def _register_identity_providers(
+    container: AppContainer,
+    supervisor: RuntimeSupervisor,
+) -> None:
+    container.register_repository(
+        "identity",
+        lambda current: SqlAlchemyIdentityRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_client("identity", lambda _: LegacyEmbyIdentityGateway())
+    container.register_use_case(
+        "identity",
+        lambda current: IdentityService(
+            settings=lambda: current.settings,
+            repository=current.repository("identity"),
+            gateway=current.client("identity"),
+            configuration=RuntimeConfigurationWriter(current, supervisor),
+        ),
+    )
+
+
+def _register_operation_query_providers(container: AppContainer) -> None:
+    task_manifest = Path(__file__).resolve().parents[3] / "verification" / "contracts" / "task-ownership.yaml"
+    container.register_use_case("runtime-status", lambda _: LegacyRuntimeStatusReader())
+    container.register_use_case("task-catalog", lambda _: ManifestTaskCatalog(task_manifest))
+
+
+def _register_log_providers(container: AppContainer, data_dir: Path | None) -> None:
+    log_directory = _resolve_data_dir(data_dir) / "logs"
+    container.register_use_case(
+        "operations.logs",
+        lambda _: LogService(LocalLogStorage(log_directory)),
+    )
+
+
+def _register_database_read_providers(container: AppContainer) -> None:
+    container.register_repository(
+        "operations.database.read",
+        lambda current: SqlAlchemyDatabaseReadRepository(
+            lambda: current.database.unit_of_work(),
+            timezone="Asia/Shanghai",
+        ),
+    )
+    container.register_use_case(
+        "operations.database.read",
+        lambda current: DatabaseReadService(
+            current.repository("operations.database.read"),
+        ),
+    )
+
+
+def _register_system_providers(
+    container: AppContainer,
+    supervisor: RuntimeSupervisor,
+) -> None:
+    container.register_repository(
+        "app-settings",
+        lambda current: SqlAlchemyAppSettingsRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_client("system-configuration", lambda _: LegacyConfigurationGateway())
+    container.register_use_case(
+        "system-configuration",
+        lambda current: ConfigurationService(
+            settings=lambda: current.settings,
+            repository=current.repository("app-settings"),
+            writer=RuntimeConfigurationWriter(current, supervisor),
+            gateway=current.client("system-configuration"),
+        ),
+    )
+    defaults = LegacyStandaloneSettingsDefaults()
+    container.register_use_case(
+        "system-standalone-settings",
+        lambda current: StandaloneSettingsService(
+            current.repository("app-settings"),
+            defaults,
+        ),
+    )
+    container.register_client(
+        "system-integrations",
+        lambda current: HttpxSystemIntegrationGateway(lambda: current.settings),
+    )
+    container.register_use_case(
+        "system-integrations",
+        lambda current: SystemIntegrationService(
+            settings=lambda: current.settings,
+            repository=current.repository("app-settings"),
+            gateway=current.client("system-integrations"),
+        ),
+    )
+
+
+def _resolve_data_dir(data_dir: Path | None) -> Path:
+    if data_dir is not None:
+        return data_dir.resolve()
+    configured = os.environ.get("APP_DATA_DIR") or os.environ.get("CONFIG_DIR")
+    if configured:
+        return Path(configured).resolve()
+    return Path(__file__).resolve().parents[3] / "local_data"
 
 
 def _has_legacy_database_configuration(settings: Settings) -> bool:

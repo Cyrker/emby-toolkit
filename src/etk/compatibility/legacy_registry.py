@@ -40,3 +40,11 @@ def clear_legacy_registry() -> None:
         extensions.actor_subscription_processor_instance = None
         extensions.EMBY_SERVER_ID = None
         extensions.TASK_REGISTRY = {}
+
+
+def get_legacy_emby_server_id() -> str | None:
+    import extensions
+
+    with _REGISTRY_LOCK:
+        value = str(extensions.EMBY_SERVER_ID or "").strip()
+        return value or None

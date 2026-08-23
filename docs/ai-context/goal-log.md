@@ -294,6 +294,92 @@ Next:
   configuration contracts. Keep the compatibility fallback until each route has a verified new owner.
 - Keep all real external-system Live Acceptance pending.
 
+## P3
+
+Status: DONE
+
+Evidence:
+
+- Added 41 native FastAPI method bindings across 36 OpenAPI paths before the final Flask
+  compatibility mount: eight Identity, two System Configuration, ten standalone settings, eight
+  System Integrations, two runtime queries, four log routes, and seven database read routes.
+- Added Flask `SecureCookieSessionInterface` compatible session middleware, lazy secret-key
+  creation, one-time recovery tokens, and permission policies that re-check administrator state in
+  PostgreSQL instead of trusting `emby_is_admin` from the Cookie. Identity validation preserves
+  legacy `415/400/500` HTML body failures and permission-before-body ordering; none of the 15 P3
+  body operations exposes FastAPI's automatic 422 response.
+- Configuration reads retain masking and derived discovery fields. Writes restore masked values,
+  preserve unknown/concurrent keys, reject Emby authorization replacement outside setup or
+  reauthorization, and use compensated persistence/runtime reload. The native settings snapshot is
+  synchronized from the successfully reloaded supervisor state without a second fallible database
+  read. Failed reloads restore persisted, in-memory, and runtime state; incomplete compensation
+  leaves the supervisor in `FAILED`.
+- Added typed gateways and Fake-backed contracts for AI, proxy, Telegram, GitHub release data, and
+  Pro actions. License values and Telegram bot URLs are redacted from logs. Real external checks
+  remain pending; the AI translation probe remains a lazy compatibility adapter until P11.
+- Added native runtime status/task-catalog and log query routes. Runtime logs are recursively
+  redacted; log HTML escapes filenames, lines, and queries; text/plain, text/html, JSON, sorting,
+  context extraction, and legacy `secure_filename` behavior are frozen by fixtures.
+- Added SQLAlchemy 2 read models for core/library/system/ranking statistics, table listing, review
+  pagination, and reason normalization. Real disposable PostgreSQL 18 tests exposed and fixed a
+  psycopg 3 ambiguous nullable-bind error with explicit text casts. Empty schema, minimal JSONB,
+  Asia/Shanghai timezone, ranking, pagination, hostile search text, and all seven default App
+  Factory HTTP routes passed against migrated PG18.
+- Frozen `verification/contracts/http/p3-openapi.json`: 36 paths, 41 operations, typed request and
+  response schemas. Ownership overlay marks exactly 41 route bindings and 41 decorators as `new`,
+  each with owner, fixture, validator, and validation owner; manifest regeneration remains clean.
+- The target image now includes the frozen 50-key task catalog. Final arm64 image
+  `sha256:fced7ecb01a4491f6d71ca69ef28dc47cceb8b99723dd128a8359a5cef04bb8a`
+  is 329,851,386 bytes. Network-disabled image smoke returned health 200, loaded all 50 tasks,
+  exposed 36/41 OpenAPI paths/operations, preserved invalid-login 415, kept the data directory
+  absent, mounted compatibility last, and excluded `web_app.py` and PyArmor.
+- A repeated P1 Proxy SIGTERM failure was traced to stopping `WSGIServer` inside the signal callback
+  while `serve_forever()` was still initializing its socket. Shutdown now signals an Event and
+  stops outside the callback; 20 consecutive subprocess iterations and the final full suite pass
+  with exit 143 and runtime cleanup.
+- Final default verification passed `142 passed, 8 skipped, 1 warning`; the eight skips are the
+  explicitly gated PG18 suites. The P3 PG18 run passed three tests, including default HTTP wiring.
+  The two embedded legacy unittest modules passed 66 tests. Ruff check, Ruff format check, Pyright,
+  239-file Python 3.12 AST parsing, manifest/OpenAPI checks, fixture/contract secret scans, Compose
+  validation, `git diff --check`, and two read-only P3 audits passed. The only warning is the planned
+  Starlette `WSGIMiddleware` deprecation.
+
+Recorded residuals and limitations:
+
+- `GET /api/database/stats/subscription` remains on compatibility because the legacy GET mutates
+  `subscription_quota_state` and its SQL/result aliases conflict. Database export/import and
+  maintenance actions also remain compatibility-owned until their semantics are migrated and
+  approved before P11.
+- Runtime status still reads process-local legacy task state; P4 replaces it with the persistent Job
+  Store. The packaged manifest is a P3/P4 bridge, not the final executable task registry.
+- AI, TMDb proxy, Telegram, GitHub, Pro Worker, Emby/plugin, 115, MoviePilot, shared center, and
+  HDHive were tested only through local Fake/Stub contracts. No production database, old `/config`,
+  real credential, external write, push, release, deployment, or production environment was used.
+
+Primary verification commands:
+
+```text
+uv run pytest -p no:cacheprovider verification -q
+ETK_RUN_POSTGRES_INTEGRATION=1 uv run --frozen pytest -p no:cacheprovider verification/integration/p3 -q
+uv run python -m unittest handler.p115_media_recognition handler.tg_media_candidate_flow
+uv run ruff check main.py src/etk verification/application verification/unit/platform verification/integration/platform verification/integration/p3 verification/contracts/test_p3_openapi.py scripts/refactor/export_openapi.py scripts/refactor/scan_fixture_secrets.py scripts/refactor/compare_schema.py
+uv run ruff format --check main.py src/etk verification/application verification/unit/platform verification/integration/platform verification/integration/p3 verification/contracts/test_p3_openapi.py scripts/refactor/export_openapi.py scripts/refactor/scan_fixture_secrets.py scripts/refactor/compare_schema.py
+uv run pyright main.py src/etk verification/application verification/unit/platform verification/integration/platform verification/integration/p3 verification/contracts/test_p3_openapi.py scripts/refactor/export_openapi.py scripts/refactor/compare_schema.py
+python3 scripts/refactor/check_manifests.py
+uv run python scripts/refactor/export_openapi.py --check
+uv run python scripts/refactor/scan_fixture_secrets.py verification/fixtures
+uv run python scripts/refactor/scan_fixture_secrets.py verification/contracts/http
+docker compose -f docker/compose.refactor.yml config -q
+docker build -f Dockerfile.refactor -t etk-p3-mainline:local .
+git diff --check
+```
+
+Next:
+
+- Implement P4 persistent jobs, Celery/Redis transport, Coordinator, cancellation/retry/recovery,
+  and the 50-key executable task mapping. Keep the compatibility fallback until P11.
+- Keep all real external-system Live Acceptance pending.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -313,4 +399,4 @@ Read first:
 
 Next:
 
-- Continue P3 from the P2 stage commit. Keep all Live Acceptance items pending.
+- Continue P4 from the P3 stage commit. Keep all Live Acceptance items pending.
