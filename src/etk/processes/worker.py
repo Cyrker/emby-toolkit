@@ -120,6 +120,10 @@ from etk.domains.p115.upload_adapters import (
 )
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService, UploadOperation
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotGateway
+from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
+from etk.domains.subscription.operations import SubscriptionOperation
+from etk.domains.subscription.provider_execution import SubscriptionOperationExecutor
 from etk.domains.system import SqlAlchemyAppSettingsRepository
 from etk.platform.jobs import (
     AttemptClaimResult,
@@ -160,6 +164,7 @@ from .p6_intro_detection import P115IntroDetectionOperationExecutor
 from .p6_p115_tasks import P6P115TaskRouter
 from .p6_playback import P115PlaybackOperationExecutor
 from .p6_upload_monitor import P115UploadOperationExecutor
+from .p7_subscription import SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -535,6 +540,7 @@ class WorkerRuntime:
         self._p115_upload_executor: P115UploadOperationExecutor | None = None
         self._p115_playback_executor: P115PlaybackOperationExecutor | None = None
         self._p115_intro_executor: P115IntroDetectionOperationExecutor | None = None
+        self._subscription_executor: SubscriptionOperationExecutor | None = None
         self._playback_gateway: NativePlaybackCompatibilityGateway | None = None
         self._intro_detection_gateway: NativeP115IntroDetectionGateway | None = None
         self._p115_upload_source_cleanup: NativeP115UploadSourceCleanupGateway | None = None
@@ -548,6 +554,7 @@ class WorkerRuntime:
         self._active_p115_upload_executions = 0
         self._active_p115_playback_executions = 0
         self._active_p115_intro_executions = 0
+        self._active_subscription_executions = 0
         self._idle = threading.Event()
         self._idle.set()
         self._shutdown_requested = threading.Event()
@@ -580,6 +587,11 @@ class WorkerRuntime:
                 )
                 registry = TaskRegistry.from_fixture(_task_fixture())
                 service = JobSubmissionService(store, registry)
+                app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
+                subscription_executor = SubscriptionOperationExecutor(
+                    PostgresSubscriptionOperationRepository(database.unit_of_work),
+                    ConfiguredMoviePilotGateway(app_settings),
+                )
                 ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
                 upload_repository = PostgresP115UploadMonitorRepository(database.unit_of_work)
                 upload_config = P115UploadMonitorConfigService(
@@ -673,7 +685,7 @@ class WorkerRuntime:
                 )
                 p6_p115_tasks = P6P115TaskRouter(
                     P115DirectorySyncService(
-                        settings=SqlAlchemyAppSettingsRepository(database.unit_of_work),
+                        settings=app_settings,
                         credentials=p115_credentials,
                         directories=LegacyP115DirectoryTreeGateway(),
                         repository=SqlAlchemyP115DirectoryCacheRepository(database.unit_of_work),
@@ -853,6 +865,7 @@ class WorkerRuntime:
             self._p115_upload_executor = p115_upload_executor
             self._p115_playback_executor = playback_executor
             self._p115_intro_executor = intro_executor
+            self._subscription_executor = subscription_executor
             self._playback_gateway = playback_gateway
             self._intro_detection_gateway = intro_detection_gateway
             self._p115_upload_source_cleanup = upload_source_cleanup
@@ -959,6 +972,7 @@ class WorkerRuntime:
             self._p115_upload_executor = None
             self._p115_playback_executor = None
             self._p115_intro_executor = None
+            self._subscription_executor = None
             self._playback_gateway = None
             self._intro_detection_gateway = None
             self._p115_upload_source_cleanup = None
@@ -970,6 +984,7 @@ class WorkerRuntime:
             self._active_p115_upload_executions = 0
             self._active_p115_playback_executions = 0
             self._active_p115_intro_executions = 0
+            self._active_subscription_executions = 0
             self._idle.set()
             self._started = False
             if errors:
@@ -1016,6 +1031,7 @@ class WorkerRuntime:
                     and self._active_p115_upload_executions == 0
                     and self._active_p115_playback_executions == 0
                     and self._active_p115_intro_executions == 0
+                    and self._active_subscription_executions == 0
                 ):
                     self._idle.set()
 
@@ -1046,6 +1062,7 @@ class WorkerRuntime:
                     and self._active_p115_upload_executions == 0
                     and self._active_p115_playback_executions == 0
                     and self._active_p115_intro_executions == 0
+                    and self._active_subscription_executions == 0
                 ):
                     self._idle.set()
 
@@ -1076,6 +1093,7 @@ class WorkerRuntime:
                     and self._active_p115_upload_executions == 0
                     and self._active_p115_playback_executions == 0
                     and self._active_p115_intro_executions == 0
+                    and self._active_subscription_executions == 0
                 ):
                     self._idle.set()
 
@@ -1110,6 +1128,43 @@ class WorkerRuntime:
                     and self._active_p115_upload_executions == 0
                     and self._active_p115_playback_executions == 0
                     and self._active_p115_intro_executions == 0
+                    and self._active_subscription_executions == 0
+                ):
+                    self._idle.set()
+
+    def execute_subscription_operation(self, *, operation_id: str) -> SubscriptionOperation | None:
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown is in progress")
+        try:
+            parsed_operation_id = UUID(str(operation_id))
+        except ValueError as exc:
+            raise ValueError("subscription operation id must be a UUID") from exc
+        self.start()
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
+        with self._lock:
+            executor = self._subscription_executor
+            if executor is None:
+                raise RuntimeError("Worker subscription operation executor is not initialized")
+            self._active_subscription_executions += 1
+            self._idle.clear()
+        try:
+            execution = executor.execute(
+                parsed_operation_id,
+                worker_id=f"{self._worker_id}:subscription",
+                lease_seconds=SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS,
+            )
+            return execution.operation if execution is not None else None
+        finally:
+            with self._lock:
+                self._active_subscription_executions -= 1
+                if (
+                    not self._active_executions
+                    and self._active_ingestion_executions == 0
+                    and self._active_p115_upload_executions == 0
+                    and self._active_p115_playback_executions == 0
+                    and self._active_p115_intro_executions == 0
+                    and self._active_subscription_executions == 0
                 ):
                     self._idle.set()
 
@@ -1553,6 +1608,7 @@ class WorkerRuntime:
                 and self._active_p115_upload_executions == 0
                 and self._active_p115_playback_executions == 0
                 and self._active_p115_intro_executions == 0
+                and self._active_subscription_executions == 0
             ):
                 self._idle.set()
 

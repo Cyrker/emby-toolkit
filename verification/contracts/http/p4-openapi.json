@@ -1594,6 +1594,304 @@
         ]
       }
     },
+    "/api/actor-subscriptions": {
+      "get": {
+        "operationId": "list_actor_subscriptions_api_actor_subscriptions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Actor Subscriptions Api Actor Subscriptions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Actor Subscriptions",
+        "tags": [
+          "subscription",
+          "actors"
+        ]
+      },
+      "post": {
+        "operationId": "create_actor_subscription_api_actor_subscriptions_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Actor Subscription Api Actor Subscriptions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Create Actor Subscription",
+        "tags": [
+          "subscription",
+          "actors"
+        ]
+      }
+    },
+    "/api/actor-subscriptions/default-config": {
+      "get": {
+        "operationId": "get_default_actor_config_api_actor_subscriptions_default_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Default Actor Config Api Actor Subscriptions Default Config Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Default Actor Config",
+        "tags": [
+          "subscription",
+          "actors"
+        ]
+      },
+      "post": {
+        "operationId": "save_default_actor_config_api_actor_subscriptions_default_config_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Default Actor Config Api Actor Subscriptions Default Config Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Save Default Actor Config",
+        "tags": [
+          "subscription",
+          "actors"
+        ]
+      }
+    },
+    "/api/actor-subscriptions/search": {
+      "get": {
+        "operationId": "search_actors_api_actor_subscriptions_search_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Search Actors Api Actor Subscriptions Search Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Search Actors",
+        "tags": [
+          "subscription",
+          "actors"
+        ]
+      }
+    },
+    "/api/actor-subscriptions/{sub_id}": {
+      "delete": {
+        "operationId": "delete_actor_subscription_api_actor_subscriptions__sub_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sub_id",
+            "required": true,
+            "schema": {
+              "title": "Sub Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Actor Subscription Api Actor Subscriptions  Sub Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Actor Subscription",
+        "tags": [
+          "subscription",
+          "actors"
+        ]
+      },
+      "get": {
+        "operationId": "get_actor_subscription_api_actor_subscriptions__sub_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sub_id",
+            "required": true,
+            "schema": {
+              "title": "Sub Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Actor Subscription Api Actor Subscriptions  Sub Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Actor Subscription",
+        "tags": [
+          "subscription",
+          "actors"
+        ]
+      },
+      "put": {
+        "operationId": "update_actor_subscription_api_actor_subscriptions__sub_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sub_id",
+            "required": true,
+            "schema": {
+              "title": "Sub Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Actor Subscription Api Actor Subscriptions  Sub Id  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Actor Subscription",
+        "tags": [
+          "subscription",
+          "actors"
+        ]
+      }
+    },
+    "/api/actor-subscriptions/{sub_id}/refresh": {
+      "post": {
+        "operationId": "refresh_actor_subscription_api_actor_subscriptions__sub_id__refresh_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sub_id",
+            "required": true,
+            "schema": {
+              "title": "Sub Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Refresh Actor Subscription Api Actor Subscriptions  Sub Id  Refresh Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Actor Subscription",
+        "tags": [
+          "subscription",
+          "actors"
+        ]
+      }
+    },
     "/api/ai/models": {
       "post": {
         "operationId": "list_ai_models_api_ai_models_post",
@@ -9421,6 +9719,590 @@
         "tags": [
           "media",
           "image-editing"
+        ]
+      }
+    },
+    "/api/watchlist": {
+      "get": {
+        "operationId": "get_watchlist_api_watchlist_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Get Watchlist Api Watchlist Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Get Watchlist",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/watchlist/add": {
+      "post": {
+        "operationId": "add_to_watchlist_api_watchlist_add_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "item_id": {
+                    "type": [
+                      "string",
+                      "integer"
+                    ]
+                  },
+                  "item_name": {
+                    "type": "string"
+                  },
+                  "item_type": {
+                    "type": "string"
+                  },
+                  "tmdb_id": {
+                    "type": [
+                      "string",
+                      "integer"
+                    ]
+                  }
+                },
+                "required": [
+                  "item_id",
+                  "tmdb_id",
+                  "item_name",
+                  "item_type"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add To Watchlist Api Watchlist Add Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "415": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Add To Watchlist",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/watchlist/batch_force_end": {
+      "post": {
+        "operationId": "batch_force_end_api_watchlist_batch_force_end_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "item_ids": {
+                    "items": {},
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "item_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Batch Force End Api Watchlist Batch Force End Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "415": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Batch Force End",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/watchlist/batch_remove": {
+      "post": {
+        "operationId": "batch_remove_api_watchlist_batch_remove_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "item_ids": {
+                    "items": {},
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "item_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Batch Remove Api Watchlist Batch Remove Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "207": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "400": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "415": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Batch Remove",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/watchlist/batch_update_status": {
+      "post": {
+        "operationId": "batch_update_status_api_watchlist_batch_update_status_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "item_ids": {
+                    "items": {},
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "new_status": {
+                    "enum": [
+                      "Completed",
+                      "Paused",
+                      "Watching"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "item_ids",
+                  "new_status"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Batch Update Status Api Watchlist Batch Update Status Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "415": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Batch Update Status",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/watchlist/refresh/{item_id}": {
+      "post": {
+        "operationId": "refresh_watchlist_item_api_watchlist_refresh__item_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Refresh Watchlist Item Api Watchlist Refresh  Item Id  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "503": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Refresh Watchlist Item",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/watchlist/remove/{item_id}": {
+      "post": {
+        "operationId": "remove_from_watchlist_api_watchlist_remove__item_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Remove From Watchlist Api Watchlist Remove  Item Id  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "404": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Remove From Watchlist",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/watchlist/settings": {
+      "get": {
+        "operationId": "get_watchlist_settings_api_watchlist_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Watchlist Settings Api Watchlist Settings Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Get Watchlist Settings",
+        "tags": [
+          "subscription"
+        ]
+      },
+      "post": {
+        "operationId": "save_watchlist_settings_api_watchlist_settings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "douban_count_correction": {},
+                  "intro_detection_credits_enabled": {},
+                  "intro_detection_library_ids": {
+                    "items": {},
+                    "type": "array"
+                  },
+                  "intro_detection_trigger_mode": {
+                    "enum": [
+                      "off",
+                      "import",
+                      "favorite",
+                      "playback"
+                    ],
+                    "type": "string"
+                  },
+                  "revival_check_days": {},
+                  "tg_channel_tracking": {}
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Watchlist Settings Api Watchlist Settings Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Save Watchlist Settings",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/watchlist/update_status": {
+      "post": {
+        "operationId": "update_watchlist_status_api_watchlist_update_status_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "item_id": {
+                    "type": [
+                      "string",
+                      "integer"
+                    ]
+                  },
+                  "new_status": {
+                    "enum": [
+                      "Completed",
+                      "Ended",
+                      "Paused",
+                      "Pending",
+                      "Watching"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "item_id",
+                  "new_status"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Watchlist Status Api Watchlist Update Status Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "404": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "415": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Update Watchlist Status",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/watchlist/update_total_episodes": {
+      "post": {
+        "operationId": "update_total_episodes_api_watchlist_update_total_episodes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "item_type": {
+                    "default": "Season",
+                    "type": "string"
+                  },
+                  "tmdb_id": {
+                    "type": [
+                      "string",
+                      "integer"
+                    ]
+                  },
+                  "total_episodes": {}
+                },
+                "required": [
+                  "tmdb_id",
+                  "total_episodes"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Total Episodes Api Watchlist Update Total Episodes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "403": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "415": {
+            "description": "Legacy-compatible JSON response"
+          },
+          "500": {
+            "description": "Legacy-compatible JSON response"
+          }
+        },
+        "summary": "Update Total Episodes",
+        "tags": [
+          "subscription"
         ]
       }
     },

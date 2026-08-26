@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "kind": "p7-watchlist-local-http-contract",
+  "provenance": {
+    "captured_live": false,
+    "sanitized": true,
+    "external_validation": "pending",
+    "sources": [
+      "routes/watchlist.py:25-86",
+      "routes/watchlist.py:115-463",
+      "database/watchlist_db.py:15-452",
+      "src/etk/compatibility/intro_detection.py:8-30"
+    ]
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/watchlist",
+      "auth": "admin",
+      "request_body": false,
+      "response_statuses": [200, 403, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlist/add",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 415, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlist/update_status",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 404, 415, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlist/remove/{item_id}",
+      "auth": "admin",
+      "request_body": false,
+      "response_statuses": [200, 403, 404, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlist/refresh/{item_id}",
+      "auth": "admin",
+      "request_body": false,
+      "response_statuses": [202, 403, 500, 503]
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlist/batch_force_end",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 415, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlist/batch_update_status",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 415, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlist/batch_remove",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 207, 400, 403, 415, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlist/update_total_episodes",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 415, 500]
+    },
+    {
+      "method": "GET",
+      "path": "/api/watchlist/settings",
+      "auth": "admin",
+      "request_body": false,
+      "response_statuses": [200, 403, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/watchlist/settings",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 500]
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "list-empty",
+      "request": {"method": "GET", "path": "/api/watchlist"},
+      "expected": {"status": 200, "body": []}
+    },
+    {
+      "case_id": "add-series",
+      "request": {
+        "method": "POST",
+        "path": "/api/watchlist/add",
+        "body": {
+          "item_id": "emby-series-fixture",
+          "tmdb_id": "100",
+          "item_name": "示例剧集",
+          "item_type": "Series"
+        }
+      },
+      "expected": {"status": 200, "body": {"message": "《示例剧集》已成功添加到追剧列表！"}}
+    },
+    {
+      "case_id": "status-not-found",
+      "request": {
+        "method": "POST",
+        "path": "/api/watchlist/update_status",
+        "body": {"item_id": "missing", "new_status": "Paused"}
+      },
+      "expected": {"status": 404, "body": {"error": "未在追剧列表中找到该项目"}}
+    },
+    {
+      "case_id": "refresh-accepted",
+      "request": {"method": "POST", "path": "/api/watchlist/refresh/100"},
+      "expected": {"status": 202, "body": {"message": "《示例剧集》的刷新任务已在后台启动！"}}
+    },
+    {
+      "case_id": "malformed-batch",
+      "request": {
+        "method": "POST",
+        "path": "/api/watchlist/batch_force_end",
+        "raw_body": "{",
+        "content_type": "application/json"
+      },
+      "expected": {
+        "status": 400,
+        "content_type_prefix": "text/html",
+        "body_contains": "400 Bad Request"
+      }
+    },
+    {
+      "case_id": "update-total",
+      "request": {
+        "method": "POST",
+        "path": "/api/watchlist/update_total_episodes",
+        "body": {"tmdb_id": "season-100-1", "total_episodes": 12, "item_type": "Season"}
+      },
+      "expected": {"status": 200, "body": {"message": "已修正总集数为 12 并锁定。"}}
+    },
+    {
+      "case_id": "settings-default",
+      "request": {"method": "GET", "path": "/api/watchlist/settings"},
+      "expected": {
+        "status": 200,
+        "body": {
+          "douban_count_correction": false,
+          "revival_check_days": 365,
+          "tg_channel_tracking": false,
+          "intro_detection_trigger_mode": "off",
+          "intro_detection_credits_enabled": false,
+          "intro_detection_library_ids": []
+        }
+      }
+    }
+  ],
+  "boundaries": [
+    "media_metadata remains P5-owned and is accessed only through an injected projection repository port",
+    "external MoviePilot and Emby deletion completes before the repository removal transaction begins",
+    "P6 intro policy fields are persistence-only in this slice; saving settings starts no P6 execution or backfill",
+    "all legacy watchlist_config keys and already-stored unknown keys retain merge semantics",
+    "refresh uses an injected persistent task submission port",
+    "all external effects are Fake-only in application verification"
+  ],
+  "limitations": [
+    "No real Emby, MoviePilot, database, production configuration, credential, or external service was accessed.",
+    "Live external deletion and task execution remain pending."
+  ]
+}

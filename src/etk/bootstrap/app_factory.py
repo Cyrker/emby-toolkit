@@ -38,6 +38,7 @@ from etk.domains.identity import (
 )
 from etk.domains.identity.router import router as identity_router
 from etk.domains.ingestion import PostgresIngestionMonitorLedger
+from etk.domains.media.actor_subscription_projection import SqlAlchemyActorSubscriptionProjection
 from etk.domains.media.bridge_client import HttpxEmbyBridgeClient, HttpxPluginUpdateGateway
 from etk.domains.media.cast_editor import MediaCastEditorService
 from etk.domains.media.cast_editor_compatibility import LegacyMediaCastEditorGateway
@@ -63,6 +64,7 @@ from etk.domains.media.image_proxy_router import router as media_image_proxy_rou
 from etk.domains.media.repository import SqlAlchemyMediaRepository
 from etk.domains.media.router import router as media_router
 from etk.domains.media.service import MediaService
+from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
 from etk.domains.operations.database import DatabaseReadService, SqlAlchemyDatabaseReadRepository
 from etk.domains.operations.database_router import router as database_read_router
 from etk.domains.operations.job_router import router as job_router
@@ -132,6 +134,21 @@ from etk.domains.p115.playback_router import router as p115_playback_router
 from etk.domains.p115.router import router as p115_router
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.subscription.actor import ActorSubscriptionService, SqlAlchemyActorSubscriptionRepository
+from etk.domains.subscription.actor_operations import ActorCancellationOperationStager
+from etk.domains.subscription.actor_router import router as actor_subscription_router
+from etk.domains.subscription.adapters import (
+    HttpxEmbyItemDeletionGateway,
+    NativeActorRuntimeGateway,
+    NativeActorSearchGateway,
+    NativeWatchlistExternalDeleteGateway,
+    PersistentActorRefreshGateway,
+    PersistentWatchlistRefreshGateway,
+)
+from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotGateway
+from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
+from etk.domains.subscription.watchlist import WatchlistService
+from etk.domains.subscription.watchlist_router import router as watchlist_router
 from etk.domains.system.compatibility import LegacyConfigurationGateway
 from etk.domains.system.configuration import ConfigurationService
 from etk.domains.system.configuration_router import router as configuration_router
@@ -262,6 +279,7 @@ def create_app(
     )
     if owns_container:
         _register_media_providers(app_container, compatibility_app)
+        _register_subscription_providers(app_container)
     app.state.runtime_supervisor = runtime
     app.state.container = app_container
     app.state.config_adapter = config_adapter
@@ -307,6 +325,8 @@ def create_app(
     app.include_router(media_image_proxy_router)
     app.include_router(p115_router)
     app.include_router(p115_playback_router)
+    app.include_router(actor_subscription_router)
+    app.include_router(watchlist_router)
 
     @app.get("/api/health", include_in_schema=False)
     def health() -> Any:
@@ -903,6 +923,80 @@ def _register_p115_providers(container: AppContainer) -> None:
             emby=current.client("p115.bridge-emby"),
             pending_bindings=current.client("ingestion.pending-bindings"),
             media=current.use_case("media"),
+        ),
+    )
+
+
+def _register_subscription_providers(container: AppContainer) -> None:
+    container.register_repository(
+        "subscription.operations",
+        lambda current: PostgresSubscriptionOperationRepository(current.database.unit_of_work),
+    )
+    container.register_repository(
+        "media.actor-subscription-projection",
+        lambda _: SqlAlchemyActorSubscriptionProjection(),
+    )
+    container.register_repository(
+        "subscription.actors",
+        lambda current: SqlAlchemyActorSubscriptionRepository(
+            current.database.unit_of_work,
+            current.repository("media.actor-subscription-projection"),
+            ActorCancellationOperationStager(current.repository("subscription.operations")),
+        ),
+    )
+    container.register_repository(
+        "media.watchlist-projection",
+        lambda current: SqlAlchemyWatchlistMediaProjectionRepository(current.database.unit_of_work),
+    )
+    container.register_client(
+        "subscription.actor-search",
+        lambda current: NativeActorSearchGateway(lambda: current.settings),
+    )
+    container.register_client(
+        "subscription.actor-runtime",
+        lambda current: NativeActorRuntimeGateway(lambda: current.settings),
+    )
+    container.register_client(
+        "subscription.actor-refresh",
+        lambda current: PersistentActorRefreshGateway(lambda: current.use_case("operations.jobs")),
+    )
+    container.register_client(
+        "subscription.moviepilot",
+        lambda current: ConfiguredMoviePilotGateway(current.repository("app-settings")),
+    )
+    container.register_client(
+        "subscription.emby-delete",
+        lambda current: HttpxEmbyItemDeletionGateway(lambda: current.settings),
+    )
+    container.register_client(
+        "subscription.watchlist-external-delete",
+        lambda current: NativeWatchlistExternalDeleteGateway(
+            current.repository("app-settings"),
+            current.client("subscription.moviepilot"),
+            current.client("subscription.emby-delete"),
+        ),
+    )
+    container.register_client(
+        "subscription.watchlist-refresh",
+        lambda current: PersistentWatchlistRefreshGateway(lambda: current.use_case("operations.jobs")),
+    )
+    container.register_use_case(
+        "subscription.actors",
+        lambda current: ActorSubscriptionService(
+            repository=current.repository("subscription.actors"),
+            default_settings=current.repository("app-settings"),
+            search=current.client("subscription.actor-search"),
+            refresh_intents=current.client("subscription.actor-refresh"),
+            runtime=current.client("subscription.actor-runtime"),
+        ),
+    )
+    container.register_use_case(
+        "subscription.watchlist",
+        lambda current: WatchlistService(
+            repository=current.repository("media.watchlist-projection"),
+            settings=current.repository("app-settings"),
+            external_delete=current.client("subscription.watchlist-external-delete"),
+            refresh=current.client("subscription.watchlist-refresh"),
         ),
     )
 

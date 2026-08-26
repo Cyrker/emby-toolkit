@@ -90,7 +90,7 @@ def test_pg18_media_effect_migration_head_schema_and_constraints(p5_runtime: Dat
         )
 
     assert server_version.startswith("18")
-    assert migration_head == "0012_p6_intro_detection"
+    assert migration_head == "0013_p7_subscription_runtime"
     assert columns == {
         "id",
         "effect_key",

@@ -27,7 +27,7 @@ def _contract(relative_path: str) -> dict[str, object]:
     return json.loads(_source(relative_path))
 
 
-def test_intro_detection_migration_is_the_single_head_and_declares_durable_operation_state() -> None:
+def test_intro_detection_migration_declares_durable_state_and_revision_chain_has_one_head() -> None:
     migration = _source("migrations/versions/0012_p6_intro_detection.py")
     tree = ast.parse(migration)
     operation_table = next(
@@ -77,7 +77,7 @@ def test_intro_detection_migration_is_the_single_head_and_declares_durable_opera
     assert "uq_p115_intro_active_season" in migration
     assert "p115.intro-detection.requested" in migration
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0012_p6_intro_detection"]
+    assert scripts.get_heads() == ["0013_p7_subscription_runtime"]
 
 
 def test_intro_detection_runtime_is_wired_through_worker_coordinator_celery_and_gateway() -> None:

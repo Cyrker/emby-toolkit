@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "routes": [
+    {"method": "GET", "path": "/api/actor-subscriptions/search"},
+    {"method": "GET", "path": "/api/actor-subscriptions/default-config"},
+    {"method": "POST", "path": "/api/actor-subscriptions/default-config"},
+    {"method": "GET", "path": "/api/actor-subscriptions"},
+    {"method": "POST", "path": "/api/actor-subscriptions"},
+    {"method": "GET", "path": "/api/actor-subscriptions/7"},
+    {"method": "PUT", "path": "/api/actor-subscriptions/7"},
+    {"method": "DELETE", "path": "/api/actor-subscriptions/7"},
+    {"method": "POST", "path": "/api/actor-subscriptions/7/refresh"}
+  ],
+  "auth_denied": {
+    "status": 403,
+    "body": {"status": "error", "message": "需要 Emby 管理员权限才能执行此操作"}
+  },
+  "empty_default_config": {
+    "start_year": null,
+    "media_types": [],
+    "genres_include_json": [],
+    "genres_exclude_json": [],
+    "min_rating": 0.0,
+    "main_role_only": false,
+    "min_vote_count": 10
+  },
+  "saved_default_config": {
+    "start_year": 2005,
+    "media_types": ["Movie", "TV"],
+    "genres_include_json": [18],
+    "genres_exclude_json": [99],
+    "min_rating": 7.5,
+    "main_role_only": true,
+    "min_vote_count": 50
+  },
+  "create_request": {
+    "tmdb_person_id": 101,
+    "actor_name": "Fixture Actor",
+    "profile_path": "/fixture/profile.jpg"
+  },
+  "create_response": {
+    "status": 201,
+    "body": {"message": "演员 Fixture Actor 已成功订阅！", "id": 7}
+  },
+  "summary": {
+    "id": 7,
+    "tmdb_person_id": 101,
+    "actor_name": "Fixture Actor",
+    "profile_path": "/fixture/profile.jpg",
+    "status": "active",
+    "last_checked_at": null
+  },
+  "detail": {
+    "id": 7,
+    "tmdb_person_id": 101,
+    "actor_name": "Fixture Actor",
+    "profile_path": "/fixture/profile.jpg",
+    "status": "active",
+    "last_checked_at": null,
+    "added_at": "Wed, 01 Jan 2025 00:00:00 GMT",
+    "config": {
+      "start_year": 2005,
+      "media_types": ["Movie", "TV"],
+      "genres_include_json": [18],
+      "genres_exclude_json": [99],
+      "min_rating": 7.5,
+      "main_role_only": true,
+      "min_vote_count": 50
+    },
+    "tracked_media": [
+      {
+        "tmdb_media_id": "501",
+        "media_type": "Movie",
+        "title": "Fixture Movie",
+        "release_date": "Thu, 02 Jan 2025 00:00:00 GMT",
+        "poster_path": "/fixture/poster.jpg",
+        "status": "WANTED",
+        "emby_item_ids_json": [],
+        "in_library": false,
+        "ignore_reason": null,
+        "season_number": null,
+        "parent_title": null,
+        "emby_item_id": null
+      }
+    ],
+    "emby_server_url": "https://emby.example.invalid",
+    "emby_api_key_for_url": "fixture-redacted-token",
+    "emby_server_id": "fixture-server"
+  },
+  "search": {
+    "query": "Fixture",
+    "provider_results": [
+      {
+        "id": 101,
+        "name": "Fixture Actor",
+        "profile_path": "/fixture/profile.jpg",
+        "known_for_department": "Acting",
+        "known_for": [
+          {"title": "Fixture Movie"},
+          {"name": "Fixture Series"}
+        ]
+      },
+      {
+        "id": 102,
+        "name": "No Profile",
+        "profile_path": null,
+        "known_for": [{"title": "Hidden"}]
+      },
+      {
+        "id": 103,
+        "name": "No Credits",
+        "profile_path": "/fixture/unused.jpg",
+        "known_for": []
+      }
+    ],
+    "response": [
+      {
+        "id": 101,
+        "name": "Fixture Actor",
+        "profile_path": "/fixture/profile.jpg",
+        "known_for_department": "Acting",
+        "known_for": "Fixture Movie, Fixture Series"
+      }
+    ]
+  },
+  "messages": {
+    "default_saved": {"message": "默认配置已成功保存！"},
+    "updated": {"message": "订阅已成功更新！"},
+    "deleted": {"message": "订阅已成功删除。"},
+    "refresh_accepted": {"message": "刷新演员 Fixture Actor 作品的任务已提交！"},
+    "missing": {"error": "未找到指定的订阅"},
+    "refresh_missing": {"error": "未找到 ID 为 404 的订阅"},
+    "invalid_create": {"error": "请求无效: 缺少 tmdb_person_id 或 actor_name"},
+    "duplicate": {"error": "该演员已经被订阅过了"},
+    "missing_query": {"error": "必须提供搜索关键词 'name'"},
+    "processor_unavailable": {"error": "核心处理器未就绪。"},
+    "tmdb_unconfigured": {"error": "服务器未配置TMDb API Key"},
+    "tmdb_failed": {"error": "从TMDb搜索演员时发生错误"},
+    "update_failed": {"error": "更新订阅时发生服务器内部错误"},
+    "default_save_failed": {"error": "保存默认配置时发生服务器内部错误"}
+  }
+}

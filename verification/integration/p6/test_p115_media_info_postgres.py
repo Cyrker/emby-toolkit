@@ -129,7 +129,7 @@ def test_p6_6_migration_is_head_and_declares_revisioned_cache(
             ).mappings()
         }
         probe_table = connection.scalar(text("SELECT to_regclass('public.p115_media_probe_items')"))
-    assert head == "0012_p6_intro_detection"
+    assert head == "0013_p7_subscription_runtime"
     assert columns >= {
         "updated_at",
         "cache_revision",

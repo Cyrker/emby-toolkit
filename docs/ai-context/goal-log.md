@@ -1027,6 +1027,23 @@ P6.10 verification evidence:
   external write, push, release, deployment, `web_app.py`, or retired worktree was used. Live
   Acceptance remains `HUMAN_PENDING`.
 
+P6 stage audit:
+
+- Created local commit `514f508e refactor(p6): migrate p115 and ingestion` on
+  `codex/refactor-mainline`; the post-commit worktree was clean before P7 tracking began.
+
+## P7
+
+Status: DOING
+
+Current scope:
+
+- Inventory the frozen route/task/table/config contracts and the current watchlist, actor,
+  subscription, resubscribe, washing, subscribe-assistant, and MoviePilot state/runtime behavior.
+- Derive dependency-ordered P7 slices from source and manifest evidence before implementation.
+- Keep all MoviePilot, Emby, 115, shared-center, production-database, and other Live Acceptance on
+  Fake/Stub or `HUMAN_PENDING`; do not connect to real external systems.
+
 Primary verification commands:
 
 ```text

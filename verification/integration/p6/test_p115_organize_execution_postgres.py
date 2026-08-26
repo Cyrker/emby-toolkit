@@ -720,5 +720,5 @@ def test_execution_revision_downgrades_cleanly_and_reapplies_as_the_single_head(
         command.upgrade(config, "head")
     with p6_runtime.engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0012_p6_intro_detection"
+            "0013_p7_subscription_runtime"
         )

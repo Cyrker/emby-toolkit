@@ -48,6 +48,8 @@ from etk.domains.p115.upload_monitor import (
     upload_monitor_config_revision,
 )
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
+from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
 from etk.platform.jobs import OutboxClaim, PostgresJobStore
 from etk.platform.tasks import TaskRegistry
 
@@ -61,6 +63,7 @@ from .p6_ingestion import (
 from .p6_intro_detection import CeleryP115IntroDetectionPublisher, P115IntroDetectionCoordinator
 from .p6_playback import CeleryP115PlaybackPublisher, P115PlaybackCoordinator
 from .p6_upload_monitor import CeleryP115UploadPublisher, P115UploadMonitorCoordinator
+from .p7_subscription import CelerySubscriptionOperationPublisher, SubscriptionOperationCoordinator
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -453,6 +456,8 @@ class CoordinatorRuntime:
         self._p115_playback_coordinator: P115PlaybackCoordinator | None = None
         self._p115_intro_publisher = CeleryP115IntroDetectionPublisher(self.config)
         self._p115_intro_coordinator: P115IntroDetectionCoordinator | None = None
+        self._subscription_publisher = CelerySubscriptionOperationPublisher(self.config)
+        self._subscription_coordinator: SubscriptionOperationCoordinator | None = None
         self._publisher_id = f"{socket.gethostname()}:{os.getpid()}"
         self._last_settings_refresh = 0.0
         self._last_settings: Any = None
@@ -523,6 +528,14 @@ class CoordinatorRuntime:
             publisher=self._p115_intro_publisher,
             config=self.config,
             publisher_id=f"{self._publisher_id}:p115-intro",
+        )
+        self._subscription_coordinator = SubscriptionOperationCoordinator(
+            store=store,
+            repository=PostgresSubscriptionOperationRepository(database.unit_of_work),
+            runtime_repository=PostgresSubscriptionRuntimeRepository(database.unit_of_work),
+            publisher=self._subscription_publisher,
+            config=self.config,
+            publisher_id=f"{self._publisher_id}:subscription",
         )
         self._service = service
         self._leadership = leadership
@@ -737,6 +750,22 @@ class CoordinatorRuntime:
                 )
             if intro_result.publish.failed or intro_result.publish.dead:
                 raise RuntimeError("P115 intro detection Outbox dispatch is degraded")
+
+        subscription = getattr(self, "_subscription_coordinator", None)
+        if subscription is not None:
+            subscription_result = subscription.tick()
+            if subscription_result.expired_claims:
+                logger.warning(
+                    "Expired subscription operation claims were recovered",
+                    extra={"expired_operations": subscription_result.expired_claims},
+                )
+            if subscription_result.rejected_dead:
+                logger.error(
+                    "Subscription operation dispatch exhausted without Worker execution",
+                    extra={"rejected_operations": subscription_result.rejected_dead},
+                )
+            if subscription_result.publish.failed or subscription_result.publish.dead:
+                raise RuntimeError("Subscription operation Outbox dispatch is degraded")
 
     def _process_telegram_commands(self) -> None:
         from etk.compatibility.tg_control_bridge import TelegramCommandExecutor, TelegramControlBridge

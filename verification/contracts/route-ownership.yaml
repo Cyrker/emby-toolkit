@@ -323,20 +323,21 @@
       "contract_id": "route-binding-8a1bcc564a28",
       "decorator_contract_id": "route-decorator-055750d3e2e1",
       "endpoint": "handle_actor_subscriptions",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:89",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -344,20 +345,21 @@
       "contract_id": "route-binding-559781a04a50",
       "decorator_contract_id": "route-decorator-055750d3e2e1",
       "endpoint": "handle_actor_subscriptions",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:89",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -365,20 +367,21 @@
       "contract_id": "route-binding-f43fe8823c6a",
       "decorator_contract_id": "route-decorator-db3d8104c3ff",
       "endpoint": "handle_single_actor_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/<int:sub_id>",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:134",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -386,20 +389,21 @@
       "contract_id": "route-binding-03030cf23d90",
       "decorator_contract_id": "route-decorator-db3d8104c3ff",
       "endpoint": "handle_single_actor_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/<int:sub_id>",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:134",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -407,20 +411,21 @@
       "contract_id": "route-binding-45ae3a794c6b",
       "decorator_contract_id": "route-decorator-db3d8104c3ff",
       "endpoint": "handle_single_actor_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "method": "PUT",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/<int:sub_id>",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:134",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -428,20 +433,21 @@
       "contract_id": "route-binding-94cbd2f43c21",
       "decorator_contract_id": "route-decorator-abc7aa013462",
       "endpoint": "refresh_single_actor_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/<int:sub_id>/refresh",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:164",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -449,20 +455,21 @@
       "contract_id": "route-binding-139708673115",
       "decorator_contract_id": "route-decorator-6b1aa7ca77f5",
       "endpoint": "handle_default_actor_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/default-config",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:52",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -470,20 +477,21 @@
       "contract_id": "route-binding-c99366766037",
       "decorator_contract_id": "route-decorator-6b1aa7ca77f5",
       "endpoint": "handle_default_actor_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/default-config",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:52",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -491,20 +499,21 @@
       "contract_id": "route-binding-a300140fa592",
       "decorator_contract_id": "route-decorator-b68ce657a8ab",
       "endpoint": "api_search_actors",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/search",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:20",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -7349,220 +7358,231 @@
       "contract_id": "route-binding-1bc6bfc93287",
       "decorator_contract_id": "route-decorator-4656c1387e1e",
       "endpoint": "api_get_watchlist",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist",
       "retirement_approval": null,
       "source": "routes/watchlist.py:115",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
       "contract_id": "route-binding-539e0f89346e",
       "decorator_contract_id": "route-decorator-9bb06ee1d47e",
       "endpoint": "api_add_to_watchlist",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/add",
       "retirement_approval": null,
       "source": "routes/watchlist.py:145",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
       "contract_id": "route-binding-fc3d6633f8ee",
       "decorator_contract_id": "route-decorator-eabab4bf9c13",
       "endpoint": "api_batch_force_end_watchlist_items",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/batch_force_end",
       "retirement_approval": null,
       "source": "routes/watchlist.py:247",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d836e03eb8e7",
       "decorator_contract_id": "route-decorator-cc80c854798f",
       "endpoint": "api_batch_remove_from_watchlist",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/batch_remove",
       "retirement_approval": null,
       "source": "routes/watchlist.py:312",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
       "contract_id": "route-binding-da8af792e880",
       "decorator_contract_id": "route-decorator-549c56c949ca",
       "endpoint": "api_batch_update_watchlist_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/batch_update_status",
       "retirement_approval": null,
       "source": "routes/watchlist.py:277",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
       "contract_id": "route-binding-51647b10ed48",
       "decorator_contract_id": "route-decorator-e233c7fd1cdc",
       "endpoint": "api_trigger_single_watchlist_refresh",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/refresh/<item_id>",
       "retirement_approval": null,
       "source": "routes/watchlist.py:222",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d88960623f7e",
       "decorator_contract_id": "route-decorator-f633f6ea0fde",
       "endpoint": "api_remove_from_watchlist",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/remove/<item_id>",
       "retirement_approval": null,
       "source": "routes/watchlist.py:196",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
       "contract_id": "route-binding-bd998cb141a3",
       "decorator_contract_id": "route-decorator-5d963e3a3555",
       "endpoint": "api_watchlist_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/settings",
       "retirement_approval": null,
       "source": "routes/watchlist.py:384",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
       "contract_id": "route-binding-8486a64ab550",
       "decorator_contract_id": "route-decorator-5d963e3a3555",
       "endpoint": "api_watchlist_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/settings",
       "retirement_approval": null,
       "source": "routes/watchlist.py:384",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
       "contract_id": "route-binding-aba1cc1e1b6a",
       "decorator_contract_id": "route-decorator-626a5fe8aa84",
       "endpoint": "api_update_watchlist_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/update_status",
       "retirement_approval": null,
       "source": "routes/watchlist.py:172",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
       "contract_id": "route-binding-2f5c572f5c07",
       "decorator_contract_id": "route-decorator-f13968b1835b",
       "endpoint": "api_update_total_episodes",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/update_total_episodes",
       "retirement_approval": null,
       "source": "routes/watchlist.py:355",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
@@ -8030,23 +8050,24 @@
       "contract_id": "route-decorator-055750d3e2e1",
       "declared_path": "",
       "endpoint": "handle_actor_subscriptions",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:89",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -8055,24 +8076,25 @@
       "contract_id": "route-decorator-db3d8104c3ff",
       "declared_path": "/<int:sub_id>",
       "endpoint": "handle_single_actor_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "PUT",
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/<int:sub_id>",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:134",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -8081,22 +8103,23 @@
       "contract_id": "route-decorator-abc7aa013462",
       "declared_path": "/<int:sub_id>/refresh",
       "endpoint": "refresh_single_actor_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/<int:sub_id>/refresh",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:164",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -8105,23 +8128,24 @@
       "contract_id": "route-decorator-6b1aa7ca77f5",
       "declared_path": "/default-config",
       "endpoint": "handle_default_actor_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/default-config",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:52",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -8130,22 +8154,23 @@
       "contract_id": "route-decorator-b68ce657a8ab",
       "declared_path": "/search",
       "endpoint": "api_search_actors",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor_router",
+      "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
       "path": "/api/actor-subscriptions/search",
       "retirement_approval": null,
       "source": "routes/actor_subscriptions.py:20",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "people",
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
       "validation_owner": "people/subscription"
     },
     {
@@ -15662,22 +15687,23 @@
       "contract_id": "route-decorator-4656c1387e1e",
       "declared_path": "",
       "endpoint": "api_get_watchlist",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist",
       "retirement_approval": null,
       "source": "routes/watchlist.py:115",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
@@ -15685,22 +15711,23 @@
       "contract_id": "route-decorator-9bb06ee1d47e",
       "declared_path": "/add",
       "endpoint": "api_add_to_watchlist",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/add",
       "retirement_approval": null,
       "source": "routes/watchlist.py:145",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
@@ -15708,22 +15735,23 @@
       "contract_id": "route-decorator-eabab4bf9c13",
       "declared_path": "/batch_force_end",
       "endpoint": "api_batch_force_end_watchlist_items",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/batch_force_end",
       "retirement_approval": null,
       "source": "routes/watchlist.py:247",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
@@ -15731,22 +15759,23 @@
       "contract_id": "route-decorator-cc80c854798f",
       "declared_path": "/batch_remove",
       "endpoint": "api_batch_remove_from_watchlist",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/batch_remove",
       "retirement_approval": null,
       "source": "routes/watchlist.py:312",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
@@ -15754,22 +15783,23 @@
       "contract_id": "route-decorator-549c56c949ca",
       "declared_path": "/batch_update_status",
       "endpoint": "api_batch_update_watchlist_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/batch_update_status",
       "retirement_approval": null,
       "source": "routes/watchlist.py:277",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
@@ -15777,22 +15807,23 @@
       "contract_id": "route-decorator-e233c7fd1cdc",
       "declared_path": "/refresh/<item_id>",
       "endpoint": "api_trigger_single_watchlist_refresh",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/refresh/<item_id>",
       "retirement_approval": null,
       "source": "routes/watchlist.py:222",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
@@ -15800,22 +15831,23 @@
       "contract_id": "route-decorator-f633f6ea0fde",
       "declared_path": "/remove/<item_id>",
       "endpoint": "api_remove_from_watchlist",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/remove/<item_id>",
       "retirement_approval": null,
       "source": "routes/watchlist.py:196",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
@@ -15823,23 +15855,24 @@
       "contract_id": "route-decorator-5d963e3a3555",
       "declared_path": "/settings",
       "endpoint": "api_watchlist_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/settings",
       "retirement_approval": null,
       "source": "routes/watchlist.py:384",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
@@ -15847,22 +15880,23 @@
       "contract_id": "route-decorator-626a5fe8aa84",
       "declared_path": "/update_status",
       "endpoint": "api_update_watchlist_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/update_status",
       "retirement_approval": null,
       "source": "routes/watchlist.py:172",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",
@@ -15870,22 +15904,23 @@
       "contract_id": "route-decorator-f13968b1835b",
       "declared_path": "/update_total_episodes",
       "endpoint": "api_update_total_episodes",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.watchlist_router",
+      "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
       "path": "/api/watchlist/update_total_episodes",
       "retirement_approval": null,
       "source": "routes/watchlist.py:355",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+      "validation_owner": "subscription/watchlist"
     },
     {
       "application": "api",

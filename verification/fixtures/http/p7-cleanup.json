@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "kind": "p7-cleanup-local-http-contract",
+  "provenance": {
+    "captured_live": false,
+    "local_legacy_blueprint_verified": true,
+    "sanitized": true,
+    "external_validation": "pending",
+    "sources": [
+      "routes/media_cleanup.py:16-424",
+      "database/cleanup_db.py:12-120",
+      "tasks/cleanup.py:298-630",
+      "verification/contracts/route-ownership.yaml"
+    ]
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/cleanup/tasks",
+      "auth": "admin",
+      "request_body": false,
+      "response_statuses": [200, 403, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/cleanup/execute",
+      "auth": "busy-then-ready-then-admin",
+      "request_body": true,
+      "response_statuses": [202, 400, 403, 409, 415, 500, 503]
+    },
+    {
+      "method": "POST",
+      "path": "/api/cleanup/ignore",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 415, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/cleanup/delete",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 415, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/cleanup/clear_all",
+      "auth": "admin-then-busy-then-ready",
+      "request_body": false,
+      "response_statuses": [200, 202, 403, 409, 500, 503]
+    },
+    {
+      "method": "GET",
+      "path": "/api/cleanup/settings",
+      "auth": "admin",
+      "request_body": false,
+      "response_statuses": [200, 403, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/cleanup/settings",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 415, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/cleanup/scan",
+      "auth": "admin-then-busy-then-ready",
+      "request_body": false,
+      "response_statuses": [202, 403, 409, 500, 503]
+    },
+    {
+      "method": "POST",
+      "path": "/api/cleanup/delete_version",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 404, 415, 500]
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "tasks-empty",
+      "request": {"method": "GET", "path": "/api/cleanup/tasks"},
+      "expected": {"status": 200, "body": []}
+    },
+    {
+      "case_id": "execute-accepted",
+      "request": {
+        "method": "POST",
+        "path": "/api/cleanup/execute",
+        "body": {"task_ids": [1, 2]}
+      },
+      "expected": {"status": 202, "body": {"message": "清理任务已提交到后台执行。"}}
+    },
+    {
+      "case_id": "malformed-ignore",
+      "request": {
+        "method": "POST",
+        "path": "/api/cleanup/ignore",
+        "raw_body": "{",
+        "content_type": "application/json"
+      },
+      "expected": {
+        "status": 400,
+        "content_type_prefix": "text/html",
+        "body_contains": "400 Bad Request"
+      }
+    },
+    {
+      "case_id": "settings-array",
+      "request": {"method": "POST", "path": "/api/cleanup/settings", "body": []},
+      "expected": {"status": 400, "body": {"error": "无效的数据格式，必须是一个对象。"}}
+    },
+    {
+      "case_id": "scan-busy",
+      "request": {"method": "POST", "path": "/api/cleanup/scan"},
+      "expected": {"status": 409, "body": {"error": "后台有任务正在运行，请稍后再试。"}}
+    },
+    {
+      "case_id": "delete-version-missing",
+      "request": {"method": "POST", "path": "/api/cleanup/delete_version", "body": {}},
+      "expected": {"status": 400, "body": {"error": "缺少 emby_id"}}
+    }
+  ],
+  "boundaries": [
+    "cleanup_index state is P7-owned and media_metadata reads are delegated to a P5 projection",
+    "scan only submits the P8-owned scan-cleanup-issues catalog seam and performs no scan work in the HTTP process",
+    "execute and clear_all submit a durable execution intent through an injected port because no native execute-cleanup catalog key exists",
+    "single-version physical/media deletion completes through an injected P5 port before the cleanup_index convergence transaction begins",
+    "no database transaction is held across physical deletion, Job submission, Emby, 115, or filesystem work",
+    "route /api/media/batch_delete is outside this slice",
+    "all external effects are Fake-only in application verification"
+  ],
+  "limitations": [
+    "No real Emby, 115, filesystem deletion, production database, credential, or external service was accessed.",
+    "Runtime wiring for the cleanup execution and P5 version-deletion ports is owned by the root integration slice."
+  ]
+}

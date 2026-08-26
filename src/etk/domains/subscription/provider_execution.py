@@ -1,0 +1,473 @@
+from __future__ import annotations
+
+import math
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any, Protocol
+from uuid import UUID
+
+from .moviepilot import (
+    MoviePilotProviderError,
+    MoviePilotProviderErrorKind,
+    MoviePilotQueryDisposition,
+    MoviePilotQueryResult,
+    MoviePilotWriteOutcome,
+    MoviePilotWriteResult,
+)
+from .operations import SubscriptionOperation
+
+
+class SubscriptionProviderAction(StrEnum):
+    CREATE = "create"
+    UPDATE = "update"
+    UPDATE_STATUS = "update_status"
+    DELETE = "delete"
+
+
+@dataclass(frozen=True, slots=True)
+class SubscriptionOperationExecution:
+    operation: SubscriptionOperation
+    claimed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _WritePlan:
+    action: SubscriptionProviderAction
+    tmdb_id: str
+    season: int | None
+    payload: Mapping[str, Any]
+    expected: Mapping[str, Any]
+
+
+class MoviePilotOperationGateway(Protocol):
+    def query_subscription(
+        self,
+        tmdb_id: int | str,
+        *,
+        season: int | None = None,
+    ) -> MoviePilotQueryResult: ...
+
+    def create_subscription(self, payload: Mapping[str, Any]) -> MoviePilotWriteResult: ...
+
+    def update_subscription(self, payload: Mapping[str, Any]) -> MoviePilotWriteResult: ...
+
+    def update_subscription_status(
+        self,
+        tmdb_id: int | str,
+        status: str,
+        *,
+        season: int | None = None,
+        total_episodes: int | None = None,
+    ) -> MoviePilotWriteResult: ...
+
+    def delete_subscription(
+        self,
+        tmdb_id: int | str,
+        *,
+        season: int | None = None,
+    ) -> MoviePilotWriteResult: ...
+
+
+class SubscriptionOperationRepositoryPort(Protocol):
+    def read(self, operation_id: UUID) -> SubscriptionOperation | None: ...
+
+    def claim_by_id(
+        self,
+        operation_id: UUID,
+        *,
+        worker_id: str,
+        lease_seconds: float,
+        now: datetime | None = None,
+    ) -> SubscriptionOperation | None: ...
+
+    def mark_requesting(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        now: datetime | None = None,
+    ) -> SubscriptionOperation: ...
+
+    def mark_awaiting_readback(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        error: Mapping[str, Any] | None = None,
+        retry_after_seconds: float = 0,
+        now: datetime | None = None,
+    ) -> SubscriptionOperation: ...
+
+    def mark_remote_confirmed(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        receipt: Mapping[str, Any],
+        now: datetime | None = None,
+    ) -> SubscriptionOperation: ...
+
+    def mark_confirmed(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        result: Mapping[str, Any],
+        readback: Mapping[str, Any] | None = None,
+        now: datetime | None = None,
+    ) -> SubscriptionOperation: ...
+
+    def mark_rejected(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        error: Mapping[str, Any],
+        now: datetime | None = None,
+    ) -> SubscriptionOperation: ...
+
+    def mark_indeterminate(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        error: Mapping[str, Any],
+        readback: Mapping[str, Any] | None = None,
+        now: datetime | None = None,
+    ) -> SubscriptionOperation: ...
+
+    def mark_cancelled_before_write(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        evidence: Mapping[str, Any],
+        now: datetime | None = None,
+    ) -> SubscriptionOperation: ...
+
+    def is_cancel_requested(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        now: datetime | None = None,
+    ) -> bool: ...
+
+
+class SubscriptionOperationExecutor:
+    """Executes one durable MoviePilot write and recovers through readback only."""
+
+    def __init__(
+        self,
+        repository: SubscriptionOperationRepositoryPort,
+        gateway: MoviePilotOperationGateway,
+        *,
+        max_attempts: int = 4,
+        readback_delay_seconds: float = 5,
+    ) -> None:
+        if isinstance(max_attempts, bool) or int(max_attempts) < 2:
+            raise ValueError("subscription operation max_attempts must be at least two")
+        delay = float(readback_delay_seconds)
+        if not math.isfinite(delay) or delay < 0:
+            raise ValueError("subscription operation readback delay must be non-negative and finite")
+        self._repository = repository
+        self._gateway = gateway
+        self._max_attempts = int(max_attempts)
+        self._readback_delay_seconds = delay
+
+    def execute(
+        self,
+        operation_id: UUID,
+        *,
+        worker_id: str,
+        lease_seconds: float,
+        now: datetime | None = None,
+    ) -> SubscriptionOperationExecution | None:
+        operation = self._repository.claim_by_id(
+            operation_id,
+            worker_id=worker_id,
+            lease_seconds=lease_seconds,
+            now=now,
+        )
+        if operation is None:
+            current = self._repository.read(operation_id)
+            return SubscriptionOperationExecution(current, claimed=False) if current is not None else None
+        if operation.claim_token is None:
+            raise AssertionError("claimed subscription operation is missing its claim token")
+        claim_token = operation.claim_token
+
+        try:
+            plan = _write_plan(operation)
+        except (TypeError, ValueError) as exc:
+            rejected = self._repository.mark_rejected(
+                operation.id,
+                claim_token,
+                error={"type": "invalid_operation_request", "error_class": type(exc).__name__},
+                now=now,
+            )
+            return SubscriptionOperationExecution(rejected, claimed=True)
+
+        if operation.provider_request_started_at is not None:
+            recovered = self._readback(operation, claim_token, plan, now=now)
+            return SubscriptionOperationExecution(recovered, claimed=True)
+
+        if self._repository.is_cancel_requested(operation.id, claim_token, now=now):
+            current = self._repository.read(operation.id)
+            return SubscriptionOperationExecution(current, claimed=True) if current is not None else None
+
+        requesting = self._repository.mark_requesting(operation.id, claim_token, now=now)
+        if self._repository.is_cancel_requested(operation.id, claim_token, now=now):
+            current = self._repository.read(operation.id)
+            if current is None or not _claim_is_active(current, claim_token, now=now):
+                return SubscriptionOperationExecution(current or requesting, claimed=True)
+            if current.cancel_requested_at is not None:
+                cancelled = self._repository.mark_cancelled_before_write(
+                    operation.id,
+                    claim_token,
+                    evidence={"provider_write_invoked": False},
+                    now=now,
+                )
+                return SubscriptionOperationExecution(cancelled, claimed=True)
+
+        try:
+            write_result = self._write(plan)
+        except MoviePilotProviderError as exc:
+            error = _provider_error(exc)
+            if exc.outcome is MoviePilotWriteOutcome.REJECTED and exc.kind is not MoviePilotProviderErrorKind.CONFLICT:
+                rejected = self._repository.mark_rejected(operation.id, claim_token, error=error, now=now)
+                return SubscriptionOperationExecution(rejected, claimed=True)
+            recovered = self._readback(requesting, claim_token, plan, prior_error=error, now=now)
+            return SubscriptionOperationExecution(recovered, claimed=True)
+        except (TypeError, ValueError) as exc:
+            rejected = self._repository.mark_rejected(
+                operation.id,
+                claim_token,
+                error={
+                    "type": "provider_request_rejected_before_transport",
+                    "error_class": type(exc).__name__,
+                },
+                now=now,
+            )
+            return SubscriptionOperationExecution(rejected, claimed=True)
+        except Exception as exc:
+            recovered = self._readback(
+                requesting,
+                claim_token,
+                plan,
+                prior_error={"type": "provider_unexpected_error", "error_class": type(exc).__name__},
+                now=now,
+            )
+            return SubscriptionOperationExecution(recovered, claimed=True)
+
+        remote_confirmed = self._repository.mark_remote_confirmed(
+            operation.id,
+            claim_token,
+            receipt={
+                "operation": write_result.operation,
+                "status_code": write_result.status_code,
+                "idempotent": write_result.idempotent,
+            },
+            now=now,
+        )
+        reconciled = self._readback(remote_confirmed, claim_token, plan, now=now)
+        return SubscriptionOperationExecution(reconciled, claimed=True)
+
+    def _write(self, plan: _WritePlan) -> MoviePilotWriteResult:
+        if plan.action is SubscriptionProviderAction.CREATE:
+            return self._gateway.create_subscription(plan.payload)
+        if plan.action is SubscriptionProviderAction.UPDATE:
+            return self._gateway.update_subscription(plan.payload)
+        if plan.action is SubscriptionProviderAction.UPDATE_STATUS:
+            status = str(plan.payload["status"])
+            total_episodes = _optional_nonnegative_int(plan.payload.get("total_episodes"), "total_episodes")
+            return self._gateway.update_subscription_status(
+                plan.tmdb_id,
+                status,
+                season=plan.season,
+                total_episodes=total_episodes,
+            )
+        return self._gateway.delete_subscription(plan.tmdb_id, season=plan.season)
+
+    def _readback(
+        self,
+        operation: SubscriptionOperation,
+        claim_token: UUID,
+        plan: _WritePlan,
+        *,
+        prior_error: Mapping[str, Any] | None = None,
+        now: datetime | None,
+    ) -> SubscriptionOperation:
+        try:
+            readback = self._gateway.query_subscription(plan.tmdb_id, season=plan.season)
+        except MoviePilotProviderError as exc:
+            return self._defer_or_terminalize(
+                operation,
+                claim_token,
+                plan,
+                error={"type": "readback_failed", **_provider_error(exc)},
+                readback=None,
+                now=now,
+            )
+        except Exception as exc:
+            return self._defer_or_terminalize(
+                operation,
+                claim_token,
+                plan,
+                error={"type": "readback_failed", "error_class": type(exc).__name__},
+                readback=None,
+                now=now,
+            )
+
+        projection = _readback_projection(readback)
+        interrupted = self._repository.is_cancel_requested(operation.id, claim_token, now=now)
+        current = self._repository.read(operation.id) if interrupted else operation
+        if current is None or (interrupted and not _claim_is_active(current, claim_token, now=now)):
+            return current or operation
+        if _desired_state_observed(plan, readback):
+            return self._repository.mark_confirmed(
+                operation.id,
+                claim_token,
+                result={"action": plan.action.value, "readback_confirmed": True},
+                readback=projection,
+                now=now,
+            )
+        if current.cancel_requested_at is not None:
+            return self._repository.mark_cancelled_before_write(
+                operation.id,
+                claim_token,
+                evidence={**projection, "provider_write_effect_observed": False},
+                now=now,
+            )
+        return self._defer_or_terminalize(
+            operation,
+            claim_token,
+            plan,
+            error=dict(prior_error or {"type": "desired_state_not_observed"}),
+            readback=projection,
+            now=now,
+        )
+
+    def _defer_or_terminalize(
+        self,
+        operation: SubscriptionOperation,
+        claim_token: UUID,
+        plan: _WritePlan,
+        *,
+        error: Mapping[str, Any],
+        readback: Mapping[str, Any] | None,
+        now: datetime | None,
+    ) -> SubscriptionOperation:
+        if operation.attempts >= self._max_attempts:
+            return self._repository.mark_indeterminate(
+                operation.id,
+                claim_token,
+                error={**dict(error), "action": plan.action.value, "attempts": operation.attempts},
+                readback=readback,
+                now=now,
+            )
+        return self._repository.mark_awaiting_readback(
+            operation.id,
+            claim_token,
+            error={**dict(error), "action": plan.action.value, "attempts": operation.attempts},
+            retry_after_seconds=self._readback_delay_seconds,
+            now=now,
+        )
+
+
+def _write_plan(operation: SubscriptionOperation) -> _WritePlan:
+    request = operation.request
+    try:
+        action = SubscriptionProviderAction(str(request.get("action") or operation.kind.value))
+    except ValueError as exc:
+        raise ValueError("unsupported subscription provider action") from exc
+    tmdb_id = str(request.get("tmdb_id") or request.get("tmdbid") or "").strip()
+    if not tmdb_id:
+        raise ValueError("subscription provider operation requires tmdb_id")
+    season = _optional_nonnegative_int(request.get("season"), "season")
+    payload = request.get("payload", {})
+    expected = request.get("expected", {})
+    if not isinstance(payload, Mapping) or not isinstance(expected, Mapping):
+        raise TypeError("subscription provider payload and expected state must be objects")
+    normalized_payload = dict(payload)
+    if action in {SubscriptionProviderAction.CREATE, SubscriptionProviderAction.UPDATE} and not normalized_payload:
+        raise ValueError("subscription provider create/update operation requires a payload")
+    if action is SubscriptionProviderAction.UPDATE_STATUS:
+        status = str(normalized_payload.get("status") or "").strip().upper()
+        if status not in {"P", "R", "S"}:
+            raise ValueError("subscription provider status operation requires P, R, or S")
+        normalized_payload["status"] = status
+    return _WritePlan(action, tmdb_id, season, normalized_payload, dict(expected))
+
+
+def _desired_state_observed(plan: _WritePlan, readback: MoviePilotQueryResult) -> bool:
+    if plan.action is SubscriptionProviderAction.DELETE:
+        return readback.disposition is MoviePilotQueryDisposition.EMPTY
+    if not readback.found or readback.subscription is None:
+        return False
+    for key, expected in plan.expected.items():
+        if readback.subscription.get(key) != expected:
+            return False
+    return True
+
+
+def _readback_projection(readback: MoviePilotQueryResult) -> dict[str, Any]:
+    projection: dict[str, Any] = {"disposition": readback.disposition.value}
+    if readback.subscription is None:
+        return projection
+    allowed = {
+        "id",
+        "tmdbid",
+        "tmdb_id",
+        "season",
+        "state",
+        "status",
+        "total_episode",
+        "type",
+        "name",
+        "title",
+    }
+    projection["subscription"] = {key: value for key, value in readback.subscription.items() if str(key) in allowed}
+    return projection
+
+
+def _provider_error(error: MoviePilotProviderError) -> dict[str, Any]:
+    return {
+        "type": "moviepilot_provider_error",
+        "kind": error.kind.value,
+        "operation": error.operation,
+        "status_code": error.status_code,
+        "outcome": error.outcome.value if error.outcome is not None else None,
+    }
+
+
+def _optional_nonnegative_int(value: Any, name: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
+    return value
+
+
+def _claim_is_active(
+    operation: SubscriptionOperation,
+    claim_token: UUID,
+    *,
+    now: datetime | None,
+) -> bool:
+    timestamp = now or datetime.now(UTC)
+    return (
+        operation.claim_token == claim_token
+        and operation.lease_expires_at is not None
+        and operation.lease_expires_at > timestamp
+    )
+
+
+__all__ = [
+    "MoviePilotOperationGateway",
+    "SubscriptionOperationExecution",
+    "SubscriptionOperationExecutor",
+    "SubscriptionOperationRepositoryPort",
+    "SubscriptionProviderAction",
+]

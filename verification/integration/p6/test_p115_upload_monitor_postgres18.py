@@ -227,7 +227,7 @@ def test_empty_database_upgrade_has_upload_schema_and_singleton_control(
     inspector = inspect(p6_runtime.engine)
     with p6_runtime.engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0012_p6_intro_detection"
+            "0013_p7_subscription_runtime"
         )
         assert connection.scalar(text("SELECT COUNT(*) FROM p115_upload_monitor_controls")) == 1
 
@@ -865,7 +865,7 @@ def test_upload_monitor_migration_downgrade_and_upgrade_remain_current(
         assert {"p115_upload_operations", "p115_upload_monitor_controls"} <= set(inspector.get_table_names())
         with p6_runtime.engine.connect() as connection:
             assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-                "0012_p6_intro_detection"
+                "0013_p7_subscription_runtime"
             )
     finally:
         if previous is None:

@@ -1492,6 +1492,186 @@
         "status": "new",
         "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
         "validation_owner": "p115/playback"
+      },
+      "route-binding-03030cf23d90": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-binding-139708673115": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-binding-1bc6bfc93287": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-2f5c572f5c07": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-45ae3a794c6b": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-binding-51647b10ed48": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-539e0f89346e": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-559781a04a50": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-binding-8486a64ab550": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-8a1bcc564a28": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-binding-94cbd2f43c21": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-binding-a300140fa592": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-binding-aba1cc1e1b6a": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-bd998cb141a3": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-c99366766037": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-binding-d836e03eb8e7": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-d88960623f7e": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-da8af792e880": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-f43fe8823c6a": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-binding-fc3d6633f8ee": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
       }
     },
     "route_decorators": {
@@ -2529,6 +2709,141 @@
         "status": "new",
         "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
         "validation_owner": "p115/playback"
+      },
+      "route-decorator-055750d3e2e1": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-decorator-4656c1387e1e": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-decorator-549c56c949ca": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-decorator-5d963e3a3555": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-decorator-626a5fe8aa84": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-decorator-6b1aa7ca77f5": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-decorator-9bb06ee1d47e": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-decorator-abc7aa013462": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-decorator-b68ce657a8ab": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-decorator-cc80c854798f": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-decorator-db3d8104c3ff": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.actor_router",
+        "notes": "P7 native Actor subscription HTTP owner preserves the frozen admin, payload, status, and response contracts over explicit P5 projection and durable cancellation ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "people/subscription"
+      },
+      "route-decorator-e233c7fd1cdc": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-decorator-eabab4bf9c13": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-decorator-f13968b1835b": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
+      },
+      "route-decorator-f633f6ea0fde": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.watchlist_router",
+        "notes": "P7 native Watchlist HTTP owner preserves the frozen admin, state, batch, settings, and response contracts over the P5-owned media projection and explicit external-effect ports.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
+        "validation_owner": "subscription/watchlist"
       }
     },
     "settings": {

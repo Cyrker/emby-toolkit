@@ -181,7 +181,7 @@ def test_strm_sync_migration_schema_is_the_single_postgres18_head(
     with p6_runtime.engine.connect() as connection:
         assert str(connection.scalar(text("SHOW server_version_num"))).startswith("18")
         assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0012_p6_intro_detection"
+            "0013_p7_subscription_runtime"
         )
     assert "p115_strm_sync_plans" in inspector.get_table_names()
     assert {column["name"] for column in inspector.get_columns("p115_filesystem_cache")} >= {
@@ -1320,5 +1320,5 @@ def test_strm_sync_revision_downgrades_to_0006_and_reapplies(
         command.upgrade(config, "head")
     with p6_runtime.engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0012_p6_intro_detection"
+            "0013_p7_subscription_runtime"
         )

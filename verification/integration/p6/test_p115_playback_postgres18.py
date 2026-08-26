@@ -383,7 +383,7 @@ def test_playback_migration_schema_and_head_are_present(p6_runtime: DatabaseRunt
     } <= set(inspector.get_table_names())
     with p6_runtime.engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0012_p6_intro_detection"
+            "0013_p7_subscription_runtime"
         )
     assert {
         "ck_p115_playback_operation_hash",
