@@ -1839,20 +1839,27 @@ def _p115_normalize_item(item):
 def _p115_normalize_list_response(resp):
     """统一目录列表/搜索列表响应，保证 resp['data'] 是 list。"""
     if not isinstance(resp, dict):
-        return {'state': False, 'error_msg': str(resp)}
+        return {
+            'state': False,
+            'error_msg': str(resp),
+            '_etk_authoritative_list_payload': False,
+        }
     resp = dict(resp)
 
     data = resp.get('data')
+    authoritative_list_payload = isinstance(data, list)
     if isinstance(data, dict):
         # OpenAPI / webapi 不同接口可能把列表包在这些字段里
         for key in ('list', 'items', 'files', 'data'):
             if isinstance(data.get(key), list):
                 data = data[key]
+                authoritative_list_payload = True
                 break
     elif data is None:
         for key in ('list', 'items', 'files'):
             if isinstance(resp.get(key), list):
                 data = resp[key]
+                authoritative_list_payload = True
                 break
 
     if data is None:
@@ -1867,6 +1874,11 @@ def _p115_normalize_list_response(resp):
 
     resp['state'] = _p115_success(resp)
     resp['data'] = data
+    # CookieClient 与组合客户端可能连续归一化同一响应；一旦原始载荷被判定
+    # 为非权威，后续看到兼容层补出的空 list 也不能把它升级成权威空页。
+    if resp.get('_etk_authoritative_list_payload') is False:
+        authoritative_list_payload = False
+    resp['_etk_authoritative_list_payload'] = authoritative_list_payload
     return resp
 
 
@@ -2835,7 +2847,38 @@ class P115Service:
                     if api and hasattr(api, method_name):
                         yield label.lower(), api
 
-            def _call_api(self, method_name, *args, normalizer=None, force_openapi=False, force_cookie=False, **kwargs):
+            def p115_organize_backends(self):
+                required = ('fs_files', 'fs_mkdir', 'fs_move', 'fs_rename')
+                return tuple(
+                    label.lower()
+                    for label, api in self._api_order()
+                    if api and all(hasattr(api, method_name) for method_name in required)
+                )
+
+            def p115_strm_backends(self):
+                return tuple(
+                    label.lower()
+                    for label, api in self._api_order()
+                    if api and hasattr(api, 'fs_files')
+                )
+
+            @staticmethod
+            def _fixed_backend_flags(backend):
+                normalized = str(backend or '').strip().lower()
+                if normalized not in {'openapi', 'cookie'}:
+                    raise ValueError('115 固定后端必须是 openapi 或 cookie')
+                return normalized == 'openapi', normalized == 'cookie'
+
+            def _call_api(
+                self,
+                method_name,
+                *args,
+                normalizer=None,
+                force_openapi=False,
+                force_cookie=False,
+                raise_fixed_errors=False,
+                **kwargs,
+            ):
                 """按 115 API 优先级调用；失败自动切换另一个接口，并统一返回 dict。"""
                 last_resp = None
                 last_err = None
@@ -2884,6 +2927,8 @@ class P115Service:
                 if last_resp is not None:
                     return last_resp
                 if last_err is not None:
+                    if raise_fixed_errors and (force_openapi or force_cookie):
+                        raise last_err
                     return {'state': False, 'error_msg': str(last_err)}
                 return {'state': False, 'error_msg': f"{method_name} 无可用 115 接口，请检查 Token/Cookie 配置"}
 
@@ -2896,6 +2941,17 @@ class P115Service:
 
             def fs_files(self, payload):
                 return self._call_api('fs_files', payload, normalizer=_p115_normalize_list_response)
+
+            def fs_files_backend(self, payload, backend=''):
+                force_openapi, force_cookie = self._fixed_backend_flags(backend)
+                return self._call_api(
+                    'fs_files',
+                    payload,
+                    normalizer=_p115_normalize_list_response,
+                    force_openapi=force_openapi,
+                    force_cookie=force_cookie,
+                    raise_fixed_errors=True,
+                )
 
             def fs_files_app(self, payload):
                 return self._call_api('fs_files_app', payload, normalizer=_p115_normalize_list_response)
@@ -3025,6 +3081,17 @@ class P115Service:
                                     return resp
                     return resp
                 return resp
+
+            def fs_get_info_backend(self, file_id, backend=''):
+                force_openapi, force_cookie = self._fixed_backend_flags(backend)
+                return self._call_api(
+                    'fs_get_info',
+                    file_id,
+                    normalizer=_p115_normalize_info_response,
+                    force_openapi=force_openapi,
+                    force_cookie=force_cookie,
+                    raise_fixed_errors=True,
+                )
 
             def _is_exists_error(self, resp):
                 text = json.dumps(resp, ensure_ascii=False).lower() if resp is not None else ""
@@ -3326,6 +3393,18 @@ class P115Service:
 
                 return last_resp or {"state": False, "message": "创建目录失败"}
 
+            def fs_mkdir_backend(self, name, pid, backend=''):
+                force_openapi, force_cookie = self._fixed_backend_flags(backend)
+                return self._call_api(
+                    'fs_mkdir',
+                    str(name),
+                    str(pid),
+                    normalizer=_p115_normalize_mkdir_response,
+                    force_openapi=force_openapi,
+                    force_cookie=force_cookie,
+                    raise_fixed_errors=True,
+                )
+
             def fs_move(self, fids, to_cid):
                 to_cid = _normalize_p115_move_target_cid(to_cid)
                 if not to_cid:
@@ -3336,6 +3415,26 @@ class P115Service:
                     }
                 with P115Service._move_lock:
                     return self._call_api('fs_move', fids, to_cid, normalizer=_p115_normalize_common_response)
+
+            def fs_move_backend(self, fids, to_cid, backend=''):
+                to_cid = _normalize_p115_move_target_cid(to_cid)
+                if not to_cid:
+                    return {
+                        'state': False,
+                        'code': 'invalid_target_cid',
+                        'message': '拒绝将文件移动到 115 根目录',
+                    }
+                force_openapi, force_cookie = self._fixed_backend_flags(backend)
+                with P115Service._move_lock:
+                    return self._call_api(
+                        'fs_move',
+                        fids,
+                        to_cid,
+                        normalizer=_p115_normalize_common_response,
+                        force_openapi=force_openapi,
+                        force_cookie=force_cookie,
+                        raise_fixed_errors=True,
+                    )
 
             def fs_copy(self, fids, to_cid):
                 return self._call_api('fs_copy', fids, to_cid, normalizer=_p115_normalize_common_response)
@@ -3353,6 +3452,17 @@ class P115Service:
 
             def fs_rename(self, fid_name_tuple):
                 return self._call_api('fs_rename', fid_name_tuple, normalizer=_p115_normalize_common_response)
+
+            def fs_rename_backend(self, fid_name_tuple, backend=''):
+                force_openapi, force_cookie = self._fixed_backend_flags(backend)
+                return self._call_api(
+                    'fs_rename',
+                    fid_name_tuple,
+                    normalizer=_p115_normalize_common_response,
+                    force_openapi=force_openapi,
+                    force_cookie=force_cookie,
+                    raise_fixed_errors=True,
+                )
 
             def fs_rename_batch(self, fid_name_tuples):
                 """按用户配置选择批量/逐条重命名。
@@ -3430,6 +3540,18 @@ class P115Service:
             def fs_delete(self, fids):
                 with P115Service._move_lock:
                     return self._call_api('fs_delete', fids, normalizer=_p115_normalize_common_response)
+
+            def fs_delete_backend(self, fids, backend=''):
+                force_openapi, force_cookie = self._fixed_backend_flags(backend)
+                with P115Service._move_lock:
+                    return self._call_api(
+                        'fs_delete',
+                        fids,
+                        normalizer=_p115_normalize_common_response,
+                        force_openapi=force_openapi,
+                        force_cookie=force_cookie,
+                        raise_fixed_errors=True,
+                    )
             
             def rb_del(self, tids=None):
                 # 清空回收站是 OpenAPI 独有，强制 OpenAPI，不参与 Cookie 优先级。
@@ -3640,6 +3762,18 @@ class P115Service:
                 if last_error:
                     logger.debug(f"  ➜ [115直链] 所有接口获取下载直链失败: {last_error}")
                 return ('', '') if return_backend else ''
+
+            def resolve_download_url_backend(self, pick_code, backend='', user_agent=None):
+                normalized = str(backend or '').strip().lower()
+                if normalized == 'openapi':
+                    if not self._openapi:
+                        raise RuntimeError('未配置 115 OpenAPI，无法固定后端获取字幕直链')
+                    return self.openapi_downurl(pick_code, user_agent=user_agent)
+                if normalized == 'cookie':
+                    if not self._cookie:
+                        raise RuntimeError('未配置 115 Cookie，无法固定后端获取字幕直链')
+                    return self.download_url(pick_code, user_agent=user_agent)
+                raise ValueError('115 固定后端必须是 openapi 或 cookie')
 
             def download_url(self, pick_code, user_agent=None):
                 if not self._cookie:

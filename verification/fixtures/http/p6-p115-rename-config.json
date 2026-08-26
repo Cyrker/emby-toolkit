@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "kind": "p6-p115-rename-config-local-golden-contract",
+  "captured_live": false,
+  "routes": [
+    {"method": "GET", "path": "/api/p115/rename_config"},
+    {"method": "POST", "path": "/api/p115/rename_config"},
+    {"method": "POST", "path": "/api/p115/rename_config/preview"}
+  ],
+  "golden_cases": [
+    {
+      "case_id": "get-merges-defaults-and-legacy-file-template",
+      "request": {"method": "GET", "path": "/api/p115/rename_config"},
+      "stored": {
+        "file_template": "{{title}}{{fileExt}}",
+        "conflict_mode": "replace",
+        "unknown": "kept"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "success": true,
+          "data": {
+            "keep_original_name": false,
+            "main_title_lang": "zh",
+            "main_year_en": true,
+            "main_tmdb_fmt": "{tmdb=ID}",
+            "season_fmt": "Season {02}",
+            "main_dir_template": "{{title}}{% if year %} ({{year}}){% endif %} {tmdb={{tmdbid}}}",
+            "season_dir_template": "Season {{season_no}}",
+            "file_template": "{{title}}{{fileExt}}",
+            "movie_file_template": "{{title}}{{fileExt}}",
+            "tv_file_template": "{{title}}{{fileExt}}",
+            "file_format": [
+              "title_zh",
+              "sep_dash_space",
+              "year",
+              "sep_middot_space",
+              "s_e",
+              "sep_middot_space",
+              "resolution",
+              "sep_middot_space",
+              "codec",
+              "sep_middot_space",
+              "audio",
+              "sep_middot_space",
+              "group"
+            ],
+            "file_tmdb_fmt": "none",
+            "video_codec_style": "hevc",
+            "hide_audio_channels": false,
+            "strm_url_fmt": "standard",
+            "customization": "(?<!\\w)(Baha|CR|B-Global|ABEMA|MyVideo|AMZN|KKTV|friDay|DSNP|LINETV|Crunchyroll|IQ|Hulu|HQ|60fps|Paramount\\+|LineTV|Linetv|Disney\\+|FriDay|HMAX|MAX|NF|IQY|IQ|TX|WeTV|YT|YK|Migu|Mgtv|Bilibili|Sohu|Xigua|iTunes)(?!\\w)",
+            "unknown": "kept"
+          }
+        }
+      }
+    },
+    {
+      "case_id": "post-non-object-saves-empty-config",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/rename_config",
+        "body": ["ignored"]
+      },
+      "stored": {"old": true},
+      "expected_saved": {},
+      "response": {
+        "status": 200,
+        "body": {"success": true, "message": "重命名规则已保存"}
+      }
+    },
+    {
+      "case_id": "post-splits-legacy-conflict-mode",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/rename_config",
+        "body": {
+          "conflict_mode": "replace",
+          "keep_original_name": true,
+          "unknown": "kept"
+        }
+      },
+      "stored": {},
+      "expected_saved": {"keep_original_name": true, "unknown": "kept"},
+      "expected_conflict_mode": "replace",
+      "response": {
+        "status": 200,
+        "body": {"success": true, "message": "重命名规则已保存"}
+      }
+    },
+    {
+      "case_id": "preview-renders-fixed-movie-and-tv-samples",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/rename_config/preview",
+        "body": {
+          "config": {"keep_original_name": false},
+          "templates": {
+            "main_dir_template": "{{title}} ({{year}}) {tmdb={{tmdbid}}}",
+            "season_dir_template": "Season {{season_no}}",
+            "movie_file_template": "{{title}} {{resolution}}{{fileExt}}",
+            "tv_file_template": "{{title}} {{season_episode}} {{videoCodec}}{{fileExt}}"
+          }
+        }
+      },
+      "stored": {},
+      "response": {
+        "status": 200,
+        "body": {
+          "success": true,
+          "data": {
+            "movie_dir": "寄生虫 (2019) {tmdb=496243}",
+            "tv_dir": "绝命毒师 (2008) {tmdb=1396}",
+            "tv_season": "Season 01",
+            "movie_file": "寄生虫 1080p.mkv",
+            "tv_file": "绝命毒师 S01E01 HEVC.mp4"
+          }
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Preview uses fixed sanitized samples and the explicit P11 compatibility renderer; it performs no provider request or persistence write.",
+    "MoviePilot import and export are excluded because import is a separate P7 adapter read and export is an external write.",
+    "Live naming behavior against real 115 content remains HUMAN_PENDING."
+  ]
+}

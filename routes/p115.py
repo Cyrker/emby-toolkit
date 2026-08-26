@@ -1510,7 +1510,7 @@ def _p115_ensure_folder(client, parent_cid, name):
     raise RuntimeError(f'目录已创建但未能确认 CID：{name}')
 
 
-def _p115_deploy_sorting_rules(category_dirs):
+def _p115_deploy_sorting_rules(category_dirs, *, account_id):
     base_rules = [
         ('国漫', 'tv', {'genres': [16], 'languages': ['国语', '粤语']}),
         ('日番', 'tv', {'genres': [16], 'languages': ['日语']}),
@@ -1549,7 +1549,7 @@ def _p115_deploy_sorting_rules(category_dirs):
             'runtime_max': None,
             'min_rating': 0,
         })
-    settings_db.save_setting('p115_sorting_rules', rules)
+    settings_db.save_p115_sorting_rules(rules, account_id=account_id)
     return rules
 
 
@@ -1795,7 +1795,10 @@ def _quick_deploy_payload(progress=None, *, expected_account_id=None):
     settings_db.save_washing_priority_config({'conflict_mode': 'replace'})
 
     emit(65, '正在写入二级分类规则')
-    sorting_rules = _p115_deploy_sorting_rules(category_dirs)
+    sorting_rules = _p115_deploy_sorting_rules(
+        category_dirs,
+        account_id=expected_account_id or get_115_account_id(),
+    )
     emit(72, '正在写入二级分类洗版规则')
     washing_groups = _p115_deploy_washing_groups(category_dirs)
 

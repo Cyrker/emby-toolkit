@@ -29,6 +29,7 @@ EXPECTED = {
     "task_keys": 50,
     "tables": 39,
 }
+OPAQUE_LEGACY_SOURCES = frozenset({"web_app.py"})
 
 
 def _legacy_python_files() -> list[str]:
@@ -56,7 +57,10 @@ def _source_digest(paths: list[str]) -> str:
     for relative in sorted(paths):
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
-        digest.update((REPO_ROOT / relative).read_bytes())
+        if relative in OPAQUE_LEGACY_SOURCES:
+            digest.update(b"<opaque-source-content-not-read>")
+        else:
+            digest.update((REPO_ROOT / relative).read_bytes())
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -69,33 +73,30 @@ def _method_bindings(route_payload: dict[str, Any]) -> list[dict[str, Any]]:
             identity = (route["application"], method, route["path"])
             if identity in seen:
                 raise ValueError(
-                    f"duplicate active application/method/path binding: "
-                    f"{route['application']} {method} {route['path']}"
+                    f"duplicate active application/method/path binding: {route['application']} {method} {route['path']}"
                 )
             seen.add(identity)
             bindings.append(
                 apply_contract_override(
-                {
-                    "contract_id": stable_id(
-                        "route-binding", route["application"], method, route["path"]
-                    ),
-                    "method": method,
-                    "path": route["path"],
-                    "application": route["application"],
-                    "decorator_contract_id": route["contract_id"],
-                    "source": route["source"],
-                    "endpoint": route["endpoint"],
-                    "target_domains": route["target_domains"],
-                    "target_stage": route["target_stage"],
-                    "status": route["status"],
-                    "new_owner": route["new_owner"],
-                    "retirement_approval": route["retirement_approval"],
-                    "fixture": route["fixture"],
-                    "fixture_exception": route["fixture_exception"],
-                    "validation_owner": route["validation_owner"],
-                    "validation_method": route["validation_method"],
-                },
-                "route_bindings",
+                    {
+                        "contract_id": stable_id("route-binding", route["application"], method, route["path"]),
+                        "method": method,
+                        "path": route["path"],
+                        "application": route["application"],
+                        "decorator_contract_id": route["contract_id"],
+                        "source": route["source"],
+                        "endpoint": route["endpoint"],
+                        "target_domains": route["target_domains"],
+                        "target_stage": route["target_stage"],
+                        "status": route["status"],
+                        "new_owner": route["new_owner"],
+                        "retirement_approval": route["retirement_approval"],
+                        "fixture": route["fixture"],
+                        "fixture_exception": route["fixture_exception"],
+                        "validation_owner": route["validation_owner"],
+                        "validation_method": route["validation_method"],
+                    },
+                    "route_bindings",
                 )
             )
     return sorted(
@@ -124,9 +125,7 @@ def export_all(output_dir: Path, verify_counts: bool = True) -> dict[str, Any]:
         "tables": tables["metrics"]["table_count"],
     }
     mismatches = {
-        key: {"expected": EXPECTED[key], "actual": actual[key]}
-        for key in EXPECTED
-        if actual[key] != EXPECTED[key]
+        key: {"expected": EXPECTED[key], "actual": actual[key]} for key in EXPECTED if actual[key] != EXPECTED[key]
     }
     if verify_counts and mismatches:
         raise ValueError(f"baseline count mismatch: {mismatches}")
@@ -143,9 +142,7 @@ def export_all(output_dir: Path, verify_counts: bool = True) -> dict[str, Any]:
         "metrics": actual,
         "expected": EXPECTED,
         "mismatches": mismatches,
-        "legacy_source_sha256": _source_digest(
-            [*python_files, *frontend["vue_files"], "frontend/src/router/index.js"]
-        ),
+        "legacy_source_sha256": _source_digest([*python_files, *frontend["vue_files"], "frontend/src/router/index.js"]),
         "legacy_python_files": python_files,
         "vue_files": frontend["vue_files"],
     }

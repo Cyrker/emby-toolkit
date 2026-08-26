@@ -1174,60 +1174,6 @@ def _submit_shared_auto_share_after_library_ready(
         if task_manager.has_persistent_execution():
             raise
 
-def _get_processor_local_strm_root(processor) -> str:
-    """从 MediaProcessor / 配置中提取本地 STRM 根目录，用于补齐 p115_filesystem_cache.local_path。"""
-    candidates = []
-
-    if processor:
-        for attr in (
-            'local_strm_root',
-            'p115_local_strm_root',
-            'strm_root',
-            'p115_strm_root',
-        ):
-            try:
-                value = getattr(processor, attr, None)
-                if value:
-                    candidates.append(value)
-            except Exception:
-                pass
-
-    try:
-        nb_config = get_config() or {}
-        for key in (
-            'local_strm_root',
-            'p115_local_strm_root',
-            'strm_root',
-            'p115_strm_root',
-        ):
-            value = nb_config.get(key)
-            if value:
-                candidates.append(value)
-    except Exception:
-        pass
-
-    try:
-        app_config = config_manager.APP_CONFIG or {}
-        for key in (
-            'local_strm_root',
-            'p115_local_strm_root',
-            'strm_root',
-            'p115_strm_root',
-        ):
-            value = app_config.get(key)
-            if value:
-                candidates.append(value)
-    except Exception:
-        pass
-
-    for value in candidates:
-        text = str(value).strip().replace('\\', '/').rstrip('/')
-        if text:
-            return text
-
-    return ''
-
-
 def _repair_webhook_p115_fingerprints_for_emby_ids(
     processor,
     item_name_for_log: str,
@@ -1236,7 +1182,7 @@ def _repair_webhook_p115_fingerprints_for_emby_ids(
     expected_item_type: Optional[str] = None,
     log_prefix: str = "Emby事件指纹补齐",
 ) -> int:
-    """Emby 事件入库后按 Item ID 找 media_metadata 行，并执行 115 指纹体检补齐。"""
+    """Emby 事件入库后按 Item ID 确认可修复记录，并提交 P6 原生修复任务。"""
     ids = [str(x).strip() for x in (emby_item_ids or []) if str(x or '').strip()]
     if not ids:
         return 0
@@ -1292,27 +1238,20 @@ def _repair_webhook_p115_fingerprints_for_emby_ids(
             return 0
 
         logger.info(
-            f"  ➜ [指纹补齐] 正在为《{item_name_for_log}》执行 115 指纹体检，"
+            f"  ➜ [指纹补齐] 正在为《{item_name_for_log}》提交 P6 原生指纹修复，"
             f"共 {len(rows_to_repair)} 条记录。"
         )
+        from tasks.media import task_repair_p115_fingerprints
 
-        from tasks.p115_fingerprint_helpers import repair_p115_fingerprints_for_rows
-
-        local_root = _get_processor_local_strm_root(processor)
-        if not local_root:
-            logger.warning(
-                "  ➜ [指纹补齐] 未获取到 local_strm_root，本次只能补齐 PC/SHA1/115 缓存基础字段，无法可靠写入 local_path。"
-            )
-
-        repair_p115_fingerprints_for_rows(
-            processor=processor,
-            rows=rows_to_repair,
-            local_root=local_root,
-            update_db=True,
-            allow_api_fetch=True,
-            log_prefix=log_prefix,
+        submitted = task_manager.submit_persistent_task(
+            task_repair_p115_fingerprints,
+            "补齐缓存指纹",
+            processor_type="media",
+            silent=True,
         )
-
+        if not submitted:
+            logger.warning(f"  ➜ [{log_prefix}] P6 原生补齐缓存指纹任务未被接受。")
+            return 0
         return len(rows_to_repair)
 
     except Exception as e:

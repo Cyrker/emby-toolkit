@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/p115/upload_monitor/config",
+      "auth": "admin",
+      "response_statuses": [200, 403, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/upload_monitor/config",
+      "auth": "admin",
+      "response_statuses": [200, 400, 403, 500]
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "get-default",
+      "request": {"method": "GET", "path": "/api/p115/upload_monitor/config"},
+      "expected": {
+        "status": 200,
+        "body": {
+          "success": true,
+          "data": {"enabled": false, "mappings": []},
+          "status": {"pending": 0, "uploading": 0, "failed": 0, "completed": 0, "recent": []}
+        }
+      }
+    },
+    {
+      "case_id": "save-valid",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/upload_monitor/config",
+        "body": {
+          "enabled": true,
+          "mappings": [
+            {
+              "enabled": true,
+              "local_dir": "$LOCAL_DIR",
+              "target_cid": "9001",
+              "target_name": "Fixture",
+              "mode": "keep",
+              "extensions": ["mkv", ".strm"]
+            }
+          ]
+        }
+      },
+      "expected": {
+        "status": 200,
+        "message": "上传监控配置已保存并生效",
+        "monitor_restarted": false
+      }
+    },
+    {
+      "case_id": "save-enabled-empty",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/upload_monitor/config",
+        "body": {"enabled": true, "mappings": []}
+      },
+      "expected": {
+        "status": 400,
+        "body": {"success": false, "message": "启用上传监控前至少配置一组目录映射"}
+      }
+    }
+  ]
+}

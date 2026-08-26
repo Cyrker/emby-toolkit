@@ -158,7 +158,31 @@ def test_bridge_stage_boundary_keeps_p115_transport_as_an_explicit_p6_gate() -> 
     assert len(p6_inbound) == 14
     assert len(outbound) == 6
     assert all(value["status"] == "new" and value["target_stage"] == "P5" for value in p5_inbound)
-    assert all(value["status"] == "legacy" and value["target_stage"] == "P6" for value in p6_inbound)
+    assert {
+        (value["method"], value["path"])
+        for value in p6_inbound
+        if value["status"] == "new" and value["target_stage"] == "P6"
+    } == {
+        ("GET", "/api/p115/mediainfo/<pick_code>"),
+        ("GET", "/api/p115/mediainfo/<pick_code>/metadata"),
+        ("GET", "/api/p115/mediainfo/sha1/<sha1>"),
+        ("GET", "/api/p115/mediainfo/sha1/<sha1>/metadata"),
+        ("POST", "/api/p115/mediainfo/<pick_code>/deep-delete/commit"),
+        ("POST", "/api/p115/mediainfo/<pick_code>/deep-delete/prepare"),
+        ("POST", "/api/p115/mediainfo/<pick_code>/item-ready"),
+        ("POST", "/api/p115/mediainfo/<pick_code>/intro-sync"),
+        ("POST", "/api/p115/mediainfo/<pick_code>/metadata/backfill"),
+        ("POST", "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit"),
+        ("POST", "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare"),
+        ("POST", "/api/p115/mediainfo/sha1/<sha1>/item-ready"),
+        ("POST", "/api/p115/mediainfo/sha1/<sha1>/intro-sync"),
+        ("POST", "/api/p115/mediainfo/sha1/<sha1>/metadata/backfill"),
+    }
+    assert {
+        (value["method"], value["path"])
+        for value in p6_inbound
+        if value["status"] == "legacy" and value["target_stage"] == "P6"
+    } == set()
     assert all(value["response_statuses"] == ["2XX"] for value in outbound)
     assert payload["stage_boundary"] == {
         "decision": "split-central-media-and-p115-transport",
@@ -167,23 +191,42 @@ def test_bridge_stage_boundary_keeps_p115_transport_as_an_explicit_p6_gate() -> 
             "outbound_contracts": "the six ETKMediaInfo Bridge write operations",
             "invariants": "media identity, metadata, image, event transport, durable refresh, and deep-delete receipts",
         },
-        "p6_deferred": {
-            "inbound_contracts": "the fourteen PickCode/SHA1 /api/p115/mediainfo/* operations",
-            "reason": "the approved route ownership table assigns routes/p115.py and P115 business execution to P6",
-            "acceptance": "P6 must provide native HTTP ownership and legacy-vs-native differential evidence",
+        "p6_6_owned": {
+            "inbound_contracts": (
+                "the six PickCode/SHA1 formatted-cache, metadata-query, and metadata-backfill operations"
+            ),
+            "invariants": (
+                "account-bound identity, canonical formatted and RAW cache, native metadata delegation, and "
+                "durable task submission"
+            ),
         },
-        "compatibility_rule": "P5 must not mark the fourteen P115 operations new or claim them locally accepted",
+        "p6_7_owned": {
+            "inbound_contracts": ("the six PickCode/SHA1 item-ready and deep-delete prepare/commit operations"),
+            "invariants": (
+                "durable pending binding, verified item identity, two-phase token capability, single claim, "
+                "idempotent background execution, and compatibility cleanup receipts"
+            ),
+        },
+        "p6_10_owned": {
+            "inbound_contracts": "the two PickCode/SHA1 intro-sync operations",
+            "invariants": (
+                "feature-first validation, verified Emby identity, bounded MediaInfo revision CAS, "
+                "legacy-compatible chapter merge, and best-effort P9 export isolation"
+            ),
+        },
+        "compatibility_rule": ("P6.10 owns all fourteen PickCode/SHA1 MediaInfo Bridge operations natively"),
     }
 
 
 def test_p5_task_manifest_separates_native_envelope_from_legacy_execution() -> None:
-    tasks = {
-        value["task_key"]: value for value in export_tasks()["tasks"] if value["task_key"] in P5_TASK_EXECUTION_OWNERS
-    }
+    exported_tasks = {value["task_key"]: value for value in export_tasks()["tasks"]}
+    tasks = {task_key: exported_tasks[task_key] for task_key in P5_TASK_EXECUTION_OWNERS}
 
     assert set(tasks) == set(P5_TASK_EXECUTION_OWNERS)
     expected_runtime_owners: dict[str, str | dict[str, str]] = {
-        task_key: ".".join(owner) for task_key, owner in p5_media_tasks._LEGACY_HANDLERS.items()
+        task_key: ".".join(owner)
+        for task_key, owner in p5_media_tasks._LEGACY_HANDLERS.items()
+        if task_key != "restore_mediainfo"
     }
     default_backfill_owner = expected_runtime_owners["backfill-media-metadata"]
     assert isinstance(default_backfill_owner, str)
@@ -207,3 +250,12 @@ def test_p5_task_manifest_separates_native_envelope_from_legacy_execution() -> N
         else:
             expected_layers["execution_owners"] = execution_owner
         assert task["ownership_layers"] == expected_layers
+
+    restore_mediainfo = exported_tasks["restore_mediainfo"]
+    assert restore_mediainfo["status"] == "new"
+    assert restore_mediainfo["new_owner"] == "etk.processes.p5_media_tasks.P5MediaTaskRouter"
+    assert restore_mediainfo["ownership_layers"] == {
+        "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.media_info_restore.P115MediaInfoRestoreService",
+    }

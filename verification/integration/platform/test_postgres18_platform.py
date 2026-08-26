@@ -24,8 +24,49 @@ GREENFIELD_TABLES = {
     "job_runs",
     "media_effects",
     "outbox_events",
+    "p115_organize_effect_events",
+    "p115_organize_effects",
+    "p115_organize_execution_actions",
+    "p115_organize_plan_actions",
+    "p115_organize_plan_executions",
+    "p115_organize_plans",
+    "p115_organize_reconciliation_intents",
+    "p115_media_probe_items",
+    "p115_strm_sync_plans",
+    "ingestion_monitor_items",
+    "ingestion_pending_bindings",
+    "p115_upload_monitor_controls",
+    "p115_upload_operations",
+    "p115_playback_operations",
+    "p115_playback_artifacts",
+    "p115_playback_leases",
+    "p115_playback_qr_sessions",
+    "p115_intro_detection_operations",
 }
 EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(GREENFIELD_TABLES)
+P6_P115_EXTENSION_NAMES = {
+    "columns": {"account_id", "entry_kind", "strm_content_sha256", "sync_root_id"},
+    "constraints": {
+        "ck_p115_filesystem_cache_account_id",
+        "ck_p115_filesystem_cache_account_id_present",
+        "ck_p115_filesystem_cache_entry_kind",
+        "ck_p115_filesystem_cache_entry_kind_present",
+        "ck_p115_filesystem_cache_strm_content_sha256",
+        "ck_p115_filesystem_cache_strm_hash_file_only",
+    },
+    "indexes": {"idx_p115_account_parent_kind", "idx_p115_account_sync_root_kind"},
+}
+P6_P115_MEDIAINFO_EXTENSION_NAMES = {
+    "columns": {"updated_at", "cache_revision", "raw_schema_version", "formatter_revision", "probe_revision"},
+    "constraints": {
+        "ck_p115_mediainfo_cache_sha1_canonical",
+        "ck_p115_mediainfo_cache_revision",
+        "ck_p115_mediainfo_cache_raw_schema_version",
+        "ck_p115_mediainfo_cache_formatter_revision",
+        "ck_p115_mediainfo_cache_probe_revision",
+    },
+    "indexes": {"uq_p115_mediainfo_cache_upper_sha1"},
+}
 
 
 @pytest.fixture(scope="session")
@@ -85,13 +126,33 @@ def test_pg18_alembic_schema_matches_legacy_catalog(migrated_postgres18_url: str
         key: {"missing": [], "unexpected": [], "changed": []} for key in ("tables", "columns", "constraints", "indexes")
     }
     assert result["match"] is True
+    for family, names in P6_P115_EXTENSION_NAMES.items():
+        assert {
+            item["name"]
+            for item in complete_catalog[family]
+            if item["table"] == "p115_filesystem_cache" and item["name"] in names
+        } == names
+    for family, names in P6_P115_MEDIAINFO_EXTENSION_NAMES.items():
+        assert {
+            item["name"]
+            for item in complete_catalog[family]
+            if item["table"] == "p115_mediainfo_cache" and item["name"] in names
+        } == names
 
 
 def _legacy_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
     filtered = dict(catalog)
     filtered["tables"] = [item for item in catalog["tables"] if item["name"] not in GREENFIELD_TABLES]
     for family in ("columns", "constraints", "indexes"):
-        filtered[family] = [item for item in catalog[family] if item["table"] not in GREENFIELD_TABLES]
+        filtered[family] = [
+            item
+            for item in catalog[family]
+            if item["table"] not in GREENFIELD_TABLES
+            and not (item["table"] == "p115_filesystem_cache" and item["name"] in P6_P115_EXTENSION_NAMES[family])
+            and not (
+                item["table"] == "p115_mediainfo_cache" and item["name"] in P6_P115_MEDIAINFO_EXTENSION_NAMES[family]
+            )
+        ]
     return filtered
 
 

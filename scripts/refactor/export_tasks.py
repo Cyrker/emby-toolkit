@@ -24,8 +24,19 @@ P5_TASK_EXECUTION_OWNERS = {
     },
     "populate-metadata": "tasks.media.task_populate_metadata_cache",
     "restore-nfo-and-images": "tasks.media.task_fill_missing_video_screenshots",
-    "restore_mediainfo": "tasks.media.task_restore_mediainfo",
     "role-translation": "tasks.media.task_role_translation",
+}
+
+P6_TASK_EXECUTION_OWNERS = {
+    "full-sync-strm": "etk.domains.p115.strm_sync.P115StrmSyncService",
+    "intro-fingerprint-backfill": ("etk.domains.p115.intro_detection_compatibility.P115IntroBackfillTaskService"),
+    "manual-correct-organize-records": ("etk.domains.p115.organize_execution.P115OrganizeExecutionService.reconcile"),
+    "monitor-115-life-events": "etk.domains.p115.strm_sync.P115StrmSyncService",
+    "play-pool-daily-speedtest": "etk.domains.p115.playback_service.P115PlaybackService.daily_speedtest",
+    "repair-p115-fingerprints": "etk.domains.p115.fingerprints.P115FingerprintRepairService",
+    "scan-monitor-folders": "etk.processes.p6_ingestion_tasks.P6IngestionScanService",
+    "scan-organize-115": "etk.domains.p115.organize_execution.P115OrganizeExecutionService.execute",
+    "sync-115-directory-tree": "etk.domains.p115.directory_sync.P115DirectorySyncService",
 }
 
 
@@ -44,6 +55,7 @@ P6_TASKS = {
     "backfill-organize-record-tmdb-ids",
     "monitor-115-life-events",
     "sync-115-directory-tree",
+    "manual-correct-organize-records",
     "play-pool-daily-speedtest",
     "intro-fingerprint-backfill",
     "repair-p115-fingerprints",
@@ -79,7 +91,6 @@ P8_TASKS = {
     "execute-auto-tagging-rules",
     "fill-studio-images",
     "check-expired-users",
-    "manual-correct-organize-records",
 }
 P9_TASKS = {
     "hdhive-auto-checkin",
@@ -170,7 +181,13 @@ def export_tasks() -> dict[str, Any]:
             "validation_owner": "/".join(domains),
             "validation_method": "task-registry-contract",
         }
-        if task_key in P5_TASK_EXECUTION_OWNERS:
+        if task_key == "restore_mediainfo":
+            entry["ownership_layers"] = {
+                "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+                "execution_kind": "native-use-case",
+                "execution_owner": "etk.domains.p115.media_info_restore.P115MediaInfoRestoreService",
+            }
+        elif task_key in P5_TASK_EXECUTION_OWNERS:
             execution_owner = P5_TASK_EXECUTION_OWNERS[task_key]
             ownership_layers: dict[str, Any] = {
                 "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
@@ -182,6 +199,17 @@ def export_tasks() -> dict[str, Any]:
             else:
                 ownership_layers["execution_owners"] = dict(execution_owner)
             entry["ownership_layers"] = ownership_layers
+        elif task_key in P6_TASK_EXECUTION_OWNERS:
+            envelope_owner = (
+                "etk.processes.p6_ingestion_tasks.P6IngestionTaskRouter"
+                if task_key == "scan-monitor-folders"
+                else "etk.processes.p6_p115_tasks.P6P115TaskRouter"
+            )
+            entry["ownership_layers"] = {
+                "envelope_owner": envelope_owner,
+                "execution_kind": "native-use-case",
+                "execution_owner": P6_TASK_EXECUTION_OWNERS[task_key],
+            }
         entries.append(
             apply_contract_override(
                 entry,

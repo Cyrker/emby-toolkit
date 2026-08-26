@@ -83,6 +83,24 @@
           "error": "missing token"
         }
       }
+    },
+    {
+      "case_id": "deep-delete-persistent-submission-failure",
+      "source": "routes/p115.py",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/commit",
+        "body": {
+          "token": "fixture-token"
+        }
+      },
+      "response": {
+        "status": 500,
+        "body": {
+          "ok": false,
+          "error": "failed to submit delete job: fixture submission unavailable"
+        }
+      }
     }
   ]
 }

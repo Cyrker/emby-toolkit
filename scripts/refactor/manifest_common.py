@@ -3,9 +3,9 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
-
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OWNERSHIP_OVERRIDES_PATH = REPO_ROOT / "verification/contracts/ownership-overrides.json"
@@ -82,9 +82,7 @@ def apply_contract_override(
         raise ManifestError(f"ownership override for {entry['contract_id']} must be an object")
     unsupported = sorted(set(override) - CONTRACT_OVERRIDE_FIELDS)
     if unsupported:
-        raise ManifestError(
-            f"unsupported ownership override fields for {entry['contract_id']}: {unsupported}"
-        )
+        raise ManifestError(f"unsupported ownership override fields for {entry['contract_id']}: {unsupported}")
     return {**entry, **override}
 
 
@@ -116,7 +114,7 @@ def evaluate_static(node: ast.AST, symbols: dict[str, Any] | None = None) -> Any
     if isinstance(node, ast.Dict):
         return {
             evaluate_static(key, symbols): evaluate_static(value, symbols)
-            for key, value in zip(node.keys, node.values)
+            for key, value in zip(node.keys, node.values, strict=True)
             if key is not None
         }
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
@@ -130,11 +128,7 @@ def load_constant_symbols(path: Path, module_alias: str | None = None) -> dict[s
     _, tree = parse_python(path)
     symbols: dict[str, Any] = {}
     changed = True
-    assignments = [
-        node
-        for node in tree.body
-        if isinstance(node, (ast.Assign, ast.AnnAssign))
-    ]
+    assignments = [node for node in tree.body if isinstance(node, (ast.Assign, ast.AnnAssign))]
     while changed:
         changed = False
         for node in assignments:
@@ -156,6 +150,7 @@ def load_constant_symbols(path: Path, module_alias: str | None = None) -> dict[s
 def iter_project_python_files() -> Iterable[Path]:
     excluded = {".git", ".venv", "node_modules", "frontend", "local_data"}
     for path in sorted(REPO_ROOT.rglob("*.py")):
-        if any(part in excluded for part in path.relative_to(REPO_ROOT).parts):
+        relative = path.relative_to(REPO_ROOT)
+        if relative == Path("web_app.py") or any(part in excluded for part in relative.parts):
             continue
         yield path

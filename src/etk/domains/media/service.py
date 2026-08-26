@@ -156,6 +156,24 @@ class MediaService:
         )
         if identity is None:
             return ServiceResult({"error": "metadata path identity not found"}, 404)
+        return self.provide_bridge_metadata_identity(
+            identity,
+            requested_type,
+            base_url=base_url,
+        )
+
+    def provide_bridge_metadata_identity(
+        self,
+        identity: MediaIdentity,
+        requested_type: MediaItemType,
+        *,
+        base_url: str,
+    ) -> ServiceResult:
+        """Render cached Bridge metadata for a previously verified stable identity."""
+        if not isinstance(identity, MediaIdentity):
+            raise TypeError("Bridge metadata requires a MediaIdentity")
+        if not isinstance(requested_type, MediaItemType):
+            raise TypeError("Bridge metadata requires a MediaItemType")
         aggregate = self._repository.load_metadata(identity, requested_type)
         if aggregate is None:
             return ServiceResult({"error": "metadata cache not found"}, 404)

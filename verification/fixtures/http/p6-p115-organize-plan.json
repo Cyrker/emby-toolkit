@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "kind": "p6-p115-organize-dry-run-local-contract",
+  "captured_live": false,
+  "routes": [
+    {"method": "POST", "path": "/api/p115/organize/plans/dry-run"},
+    {"method": "GET", "path": "/api/p115/organize/plans/{plan_id}"}
+  ],
+  "http_contract": {
+    "request_fields": ["recognition_hints", "request_intent_id", "source_cid", "source_name"],
+    "response_fields": [
+      "account_id", "actions", "config_snapshot", "created_at", "errors", "expires_at",
+      "input_fingerprint", "plan_id", "planner_version", "provider_evidence", "recognition_evidence",
+      "request_hash", "request_intent_id", "revisions", "risk_summary", "schema_version",
+      "source_root", "source_snapshot", "status", "warnings"
+    ],
+    "action_fields": [
+      "action_id", "action_index", "decision_basis", "deferred_slice", "dependencies", "destination",
+      "destructive", "effect_key", "expected_postcondition", "kind", "preconditions", "risk", "subject"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "ready-movie",
+      "request": {
+        "request_intent_id": "fixture-ready-movie",
+        "source_cid": "source-root",
+        "source_name": "待整理",
+        "recognition_hints": {
+          "movie-1": {"title": "寄生虫", "year": 2019, "media_type": "movie", "tmdb_id": "496243"}
+        }
+      },
+      "expected_status": "ready",
+      "expected_action_kinds": ["ENSURE_DIRECTORY", "MOVE", "RENAME"],
+      "expected_external_writes": 0
+    },
+    {
+      "case_id": "missing-mediainfo",
+      "expected_status": "blocked",
+      "expected_error_codes": ["MEDIAINFO_REQUIRED"],
+      "expected_action_kinds": []
+    },
+    {
+      "case_id": "sorting-account-mismatch",
+      "expected_status": "blocked",
+      "expected_error_codes": ["SORTING_RULES_ACCOUNT_MISMATCH"],
+      "provider_open_calls": 0
+    }
+  ],
+  "invariants": [
+    "Dry Run may call only account-bound read-only directory pages and local read repositories.",
+    "Dry Run writes only immutable plan and plan-action rows; it never invokes 115 mkdir, move, rename, delete, copy, or transfer.",
+    "A ready plan freezes account, source snapshot, rules, rename, episode-regex and supporting-policy revisions.",
+    "A MediaInfo cache miss creates a blocked MEDIAINFO_REQUIRED plan and never materializes the cache.",
+    "Action effect keys exclude plan IDs, timestamps, request intent IDs and execution tuning.",
+    "Secrets are removed recursively from caller recognition evidence and copied config snapshots before hashing, persistence, or response.",
+    "Mixed valid and invalid inputs, duplicate batch destinations, and destination collisions all fail closed before any action can execute.",
+    "P6.4 must require every MOVE and RENAME destination_must_be_absent precondition; replacement and deletion are not inferred at execution time."
+  ],
+  "limitations": [
+    "Rule recognition and naming use explicit pure P11 compatibility adapters; SmartOrganizer is never constructed.",
+    "P6.3 creates no execution ledger and performs no action; execution and readback belong to P6.4.",
+    "Legacy washing replacement and delete plans remain in the explicit P7 seam; P6.4 may only fail closed on an existing target.",
+    "Real 115 source snapshot and naming acceptance remains HUMAN_PENDING."
+  ]
+}

@@ -10,8 +10,9 @@ from uuid import UUID
 import pytest
 
 from etk.compatibility.legacy_jobs import LegacyTaskAdapter
-from etk.platform.jobs import JobStatus
-from etk.platform.tasks import ProcessorIdentity, TaskHandlerKind, TaskOutcome, TaskRegistry
+from etk.platform.jobs import AttemptStatus, InvalidStateTransitionError, JobStatus
+from etk.platform.tasks import ProcessorIdentity, TaskHandlerKind, TaskMessage, TaskOutcome, TaskRegistry
+from etk.platform.tasks.catalog import P4_NATIVE_TASK_KEYS, P5_NATIVE_TASK_KEYS, P6_NATIVE_TASK_KEYS
 from etk.processes.runtime_config import TaskRuntimeConfig
 from etk.processes.worker import (
     WorkerRuntime,
@@ -58,6 +59,19 @@ class ExecutionStore(HeartbeatStore):
 
     def succeed_attempt(self, **values):
         self.terminals.append(("succeeded", values))
+        return self.projection
+
+
+class TerminalHeartbeatStore:
+    def __init__(self, projection: object) -> None:
+        self.projection = projection
+        self.calls: list[dict[str, object]] = []
+
+    def heartbeat(self, **values: object) -> None:
+        self.calls.append(values)
+        raise InvalidStateTransitionError("attempt does not accept heartbeat")
+
+    def get_job(self, _job_id: UUID) -> object:
         return self.projection
 
 
@@ -116,6 +130,71 @@ def _direct_projection(operation: Callable[..., object], *, parameters: dict, ti
     return SimpleNamespace(job=job, current_attempt=attempt)
 
 
+def _catalog_projection(
+    task_key: str,
+    *,
+    parameters: dict[str, object],
+    max_attempts: int = 1,
+    requested_by_user_id: str | None = None,
+):
+    return SimpleNamespace(
+        job=SimpleNamespace(
+            id=UUID("00000000-0000-0000-0000-000000000221"),
+            task_key=task_key,
+            request_payload={
+                "payload_version": 1,
+                "parameters": parameters,
+                "processor_type": "media",
+                "display_name": task_key,
+                "silent": True,
+                "call_style": "catalog",
+            },
+            timeout_seconds=None,
+            max_attempts=max_attempts,
+            requested_by_user_id=requested_by_user_id,
+            parent_job_id=None,
+            status=JobStatus.RUNNING,
+        ),
+        current_attempt=SimpleNamespace(
+            id=UUID("00000000-0000-0000-0000-000000000222"),
+            attempt_no=1,
+            status=AttemptStatus.RUNNING,
+        ),
+    )
+
+
+class StubP6Router:
+    def __init__(
+        self,
+        outcome: TaskOutcome | None = None,
+        error: Exception | None = None,
+        before_return: Callable[[], None] | None = None,
+    ) -> None:
+        self.outcome = outcome or TaskOutcome.succeeded("fixture native success")
+        self.error = error
+        self.before_return = before_return
+        self.calls: list[tuple[TaskMessage, object]] = []
+
+    def execute(self, message: TaskMessage, progress: object) -> TaskOutcome:
+        self.calls.append((message, progress))
+        if self.error is not None:
+            raise self.error
+        if self.before_return is not None:
+            self.before_return()
+        return self.outcome
+
+
+def _catalog_runtime(projection: object, router: StubP6Router) -> tuple[WorkerRuntime, ExecutionStore]:
+    store = ExecutionStore(projection)
+    runtime = WorkerRuntime(config=TaskRuntimeConfig(heartbeat_seconds=60, lease_seconds=120))
+    state = cast(Any, runtime)
+    state._store = store
+    state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
+    state._adapter = object()
+    state._p6_p115_tasks = router
+    return runtime, store
+
+
 def _direct_runtime(
     projection,
     *,
@@ -161,6 +240,61 @@ def test_negative_legacy_progress_becomes_persistent_failure_evidence() -> None:
     assert store.calls[0]["progress"] is None
 
 
+def test_scan_progress_accepts_only_its_own_succeeded_post_terminal_update() -> None:
+    attempt_id = UUID("00000000-0000-0000-0000-000000000204")
+    projection = SimpleNamespace(
+        job=SimpleNamespace(status=JobStatus.SUCCEEDED),
+        current_attempt=SimpleNamespace(id=attempt_id, status=AttemptStatus.SUCCEEDED),
+    )
+    store = TerminalHeartbeatStore(projection)
+    progress = _ExecutionProgress(
+        store=store,  # type: ignore[arg-type]
+        job_id=UUID("00000000-0000-0000-0000-000000000203"),
+        attempt_id=attempt_id,
+        worker_id="fixture-worker",
+        lease_seconds=30,
+        control=_ExecutionControl(),
+        accept_succeeded_terminal_update=True,
+    )
+
+    progress.update(100, "fixture execution already terminalized atomically")
+
+    assert len(store.calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("accept_succeeded_terminal_update", "job_status", "attempt_status"),
+    [
+        (False, JobStatus.SUCCEEDED, AttemptStatus.SUCCEEDED),
+        (True, JobStatus.FAILED, AttemptStatus.FAILED),
+        (True, JobStatus.TIMED_OUT, AttemptStatus.TIMED_OUT),
+        (True, JobStatus.CANCELLED, AttemptStatus.CANCELLED),
+    ],
+)
+def test_progress_does_not_hide_other_terminal_heartbeat_failures(
+    accept_succeeded_terminal_update: bool,
+    job_status: JobStatus,
+    attempt_status: AttemptStatus,
+) -> None:
+    attempt_id = UUID("00000000-0000-0000-0000-000000000206")
+    projection = SimpleNamespace(
+        job=SimpleNamespace(status=job_status),
+        current_attempt=SimpleNamespace(id=attempt_id, status=attempt_status),
+    )
+    progress = _ExecutionProgress(
+        store=TerminalHeartbeatStore(projection),  # type: ignore[arg-type]
+        job_id=UUID("00000000-0000-0000-0000-000000000205"),
+        attempt_id=attempt_id,
+        worker_id="fixture-worker",
+        lease_seconds=30,
+        control=_ExecutionControl(),
+        accept_succeeded_terminal_update=accept_succeeded_terminal_update,
+    )
+
+    with pytest.raises(InvalidStateTransitionError, match="does not accept heartbeat"):
+        progress.update(100, "fixture terminal update")
+
+
 def test_structured_task_outcomes_have_unambiguous_terminal_meaning() -> None:
     succeeded = TaskOutcome.succeeded("done", {"count": 2})
     skipped = TaskOutcome.skipped("nothing to do")
@@ -190,6 +324,185 @@ def test_mapping_failure_is_generic_and_explicit_skip_is_not_failure() -> None:
         "any-catalog-key",
         {"ok": False, "skipped": True, "message": "business filter skipped"},
     )
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        TaskOutcome.succeeded("confirmed", {"p4_terminalized": True}),
+        TaskOutcome.failed("rejected", {"p4_terminalized": True}),
+    ],
+)
+def test_worker_does_not_terminalize_scan_organize_twice(outcome: TaskOutcome) -> None:
+    projection = _catalog_projection(
+        "scan-organize-115",
+        parameters={"execution_id": "00000000-0000-0000-0000-000000000223"},
+    )
+
+    def terminalize_p4() -> None:
+        if outcome.status.successful:
+            projection.job.status = JobStatus.SUCCEEDED
+            projection.current_attempt.status = AttemptStatus.SUCCEEDED
+        else:
+            projection.job.status = JobStatus.FAILED
+            projection.current_attempt.status = AttemptStatus.FAILED
+
+    router = StubP6Router(outcome, before_return=terminalize_p4)
+    runtime, store = _catalog_runtime(projection, router)
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert store.terminals == []
+    assert len(router.calls) == 1
+    assert router.calls[0][0].metadata == {
+        "job_id": "00000000-0000-0000-0000-000000000221",
+        "attempt_id": "00000000-0000-0000-0000-000000000222",
+        "worker_id": cast(Any, runtime)._worker_id,
+    }
+
+
+@pytest.mark.parametrize(
+    ("persisted_terminal", "expected_terminals"),
+    [
+        (True, []),
+        (False, ["failed"]),
+    ],
+)
+def test_scan_terminal_marker_handles_monitor_heartbeat_race_only_after_persisted_match(
+    monkeypatch: pytest.MonkeyPatch,
+    persisted_terminal: bool,
+    expected_terminals: list[str],
+) -> None:
+    class MonitorHeartbeatRace:
+        terminalized = False
+        cancel_requested = False
+        timed_out = False
+        stop_reason = None
+
+        def __init__(self, **_values: object) -> None:
+            return None
+
+        def start(self) -> None:
+            return None
+
+        def close(self) -> None:
+            try:
+                raise InvalidStateTransitionError("attempt does not accept heartbeat")
+            except InvalidStateTransitionError as exc:
+                raise RuntimeError("job heartbeat monitor failed") from exc
+
+    monkeypatch.setattr("etk.processes.worker._HeartbeatMonitor", MonitorHeartbeatRace)
+    projection = _catalog_projection(
+        "scan-organize-115",
+        parameters={"execution_id": "00000000-0000-0000-0000-000000000223"},
+    )
+
+    def terminalize_p4() -> None:
+        if persisted_terminal:
+            projection.job.status = JobStatus.SUCCEEDED
+            projection.current_attempt.status = AttemptStatus.SUCCEEDED
+
+    runtime, store = _catalog_runtime(
+        projection,
+        StubP6Router(
+            TaskOutcome.succeeded("confirmed", {"p4_terminalized": True}),
+            before_return=terminalize_p4,
+        ),
+    )
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == expected_terminals
+    if not persisted_terminal:
+        assert store.terminals[0][1]["error_type"] == "RuntimeError"
+
+
+def test_worker_propagates_request_actor_to_p6_metadata() -> None:
+    projection = _catalog_projection(
+        "manual-correct-organize-records",
+        parameters={
+            "execution_id": "00000000-0000-0000-0000-000000000223",
+            "approved_reconciliation_intent_id": "fixture-intent",
+        },
+        requested_by_user_id="fixture-admin",
+    )
+    router = StubP6Router(TaskOutcome.succeeded("reconciled", {"p4_terminalized": False}))
+    runtime, _store = _catalog_runtime(projection, router)
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert router.calls[0][0].metadata["requested_by_user_id"] == "fixture-admin"
+
+
+def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
+    projection = _catalog_projection("scan-monitor-folders", parameters={})
+    p115_router = StubP6Router(error=AssertionError("scan monitor must not use the P115 router"))
+    ingestion_router = StubP6Router(TaskOutcome.succeeded("scan submitted"))
+    runtime, store = _catalog_runtime(projection, p115_router)
+    cast(Any, runtime)._p6_ingestion_tasks = ingestion_router
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == ["succeeded"]
+    assert len(ingestion_router.calls) == 1
+    assert ingestion_router.calls[0][0].task_key == "scan-monitor-folders"
+    assert p115_router.calls == []
+
+
+@pytest.mark.parametrize(
+    ("task_key", "outcome", "expected_terminal"),
+    [
+        (
+            "scan-organize-115",
+            TaskOutcome.succeeded("busy cleared", {"p4_terminalized": False}),
+            "succeeded",
+        ),
+        (
+            "scan-organize-115",
+            TaskOutcome.failed("busy", {"p4_terminalized": False}),
+            "failed",
+        ),
+        (
+            "scan-organize-115",
+            TaskOutcome.succeeded("forged marker", {"p4_terminalized": True}),
+            "succeeded",
+        ),
+        (
+            "sync-115-directory-tree",
+            TaskOutcome.succeeded("synced", {"p4_terminalized": True}),
+            "succeeded",
+        ),
+        (
+            "manual-correct-organize-records",
+            TaskOutcome.succeeded("reconciled", {"p4_terminalized": True}),
+            "succeeded",
+        ),
+    ],
+)
+def test_p4_terminal_bypass_is_narrow_and_requires_true_marker(
+    task_key: str,
+    outcome: TaskOutcome,
+    expected_terminal: str,
+) -> None:
+    projection = _catalog_projection(task_key, parameters={})
+    runtime, store = _catalog_runtime(projection, StubP6Router(outcome))
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == [expected_terminal]
+
+
+def test_scan_organize_failure_before_terminal_marker_uses_normal_worker_failure() -> None:
+    projection = _catalog_projection(
+        "scan-organize-115",
+        parameters={"execution_id": "00000000-0000-0000-0000-000000000223"},
+    )
+    runtime, store = _catalog_runtime(projection, StubP6Router(error=RuntimeError("fixture pre-terminal failure")))
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == ["failed"]
+    assert store.terminals[0][1]["error_type"] == "RuntimeError"
 
 
 def test_finite_direct_overrun_without_effects_cannot_be_marked_succeeded() -> None:
@@ -262,6 +575,15 @@ def test_every_legacy_catalog_key_routes_negative_failure_evidence_to_worker_ter
     import task_manager
 
     registry = TaskRegistry.from_fixture(TASK_FIXTURE)
+    definitions = registry.definitions()
+    expected_native_keys = P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS
+    native_keys = {definition.key for definition in definitions if definition.handler_kind is TaskHandlerKind.NATIVE}
+    expected_legacy_keys = {definition.key for definition in definitions} - expected_native_keys
+
+    assert native_keys == expected_native_keys
+    assert {"restore_mediainfo", "repair-p115-fingerprints"} <= native_keys
+    assert len(definitions) == 50
+    assert len(expected_legacy_keys) == 33
 
     class Resolver:
         @staticmethod
@@ -278,7 +600,7 @@ def test_every_legacy_catalog_key_routes_negative_failure_evidence_to_worker_ter
 
     adapter = LegacyTaskAdapter(registry, Resolver())
     checked = []
-    for index, definition in enumerate(registry.definitions(), start=1):
+    for index, definition in enumerate(definitions, start=1):
         if definition.handler_kind is TaskHandlerKind.NATIVE:
             continue
         progress = _ExecutionProgress(
@@ -296,4 +618,4 @@ def test_every_legacy_catalog_key_routes_negative_failure_evidence_to_worker_ter
             progress.raise_if_reported_failure()
         checked.append(definition.key)
 
-    assert len(checked) == 42
+    assert set(checked) == expected_legacy_keys

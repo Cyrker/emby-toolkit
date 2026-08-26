@@ -210,6 +210,19 @@ runtime_module.RuntimeRole = RuntimeRole
 runtime_module.get_runtime_supervisor = lambda: runtime
 sys.modules['etk.bootstrap.runtime_supervisor'] = runtime_module
 
+class FakePlaybackContainer:
+    def use_case(self, _name):
+        return object()
+
+    def close(self):
+        pass
+
+playback_container = FakePlaybackContainer()
+app_factory_module = types.ModuleType('etk.bootstrap.app_factory')
+app_factory_module._create_default_container = lambda _settings: (playback_container, object())
+app_factory_module._register_p115_providers = lambda _container: None
+sys.modules['etk.bootstrap.app_factory'] = app_factory_module
+
 def proxy_app(environ, start_response):
     start_response('200 OK', [('Content-Type', 'text/plain')])
     return [b'ok']

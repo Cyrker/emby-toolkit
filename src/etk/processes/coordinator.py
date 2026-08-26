@@ -22,19 +22,45 @@ from apscheduler.triggers.date import DateTrigger
 
 from etk.bootstrap.app_factory import _create_default_container
 from etk.bootstrap.runtime_supervisor import RuntimeRole, RuntimeSupervisor
+from etk.compatibility.ingestion_monitor import (
+    clear_persistent_ingestion_ingress,
+    install_persistent_ingestion_ingress,
+)
 from etk.compatibility.persistent_tasks import PersistentTaskManagerGateway
 from etk.compatibility.scheduled_operations import (
     check_etk_plugin_update,
     cleanup_p115_temp_videos,
     verify_pro_status,
 )
+from etk.compatibility.upload_monitor import (
+    clear_persistent_upload_monitor_ingress,
+    install_persistent_upload_monitor_ingress,
+)
+from etk.domains.ingestion import PostgresIngestionMonitorLedger
 from etk.domains.media.effects import PostgresMediaEffectLedger
 from etk.domains.operations.jobs import JobSubmissionService, TaskBusyError
+from etk.domains.p115.intro_detection_repository import PostgresP115IntroDetectionRepository
+from etk.domains.p115.playback_repository import PostgresP115PlaybackRepository
+from etk.domains.p115.upload_monitor import (
+    P115UploadMonitorConfigService,
+    P115UploadMonitorIngressService,
+    normalize_upload_monitor_config,
+    upload_monitor_config_revision,
+)
+from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
 from etk.platform.jobs import OutboxClaim, PostgresJobStore
 from etk.platform.tasks import TaskRegistry
 
 from .celery_app import EXECUTE_JOB_TASK, create_celery_app
 from .p5_media_effects import CeleryMediaEffectPublisher, MediaEffectOutboxDispatcher
+from .p6_ingestion import (
+    CeleryIngestionMonitorPublisher,
+    IngestionMonitorCoordinator,
+    PersistentIngestionIngressGateway,
+)
+from .p6_intro_detection import CeleryP115IntroDetectionPublisher, P115IntroDetectionCoordinator
+from .p6_playback import CeleryP115PlaybackPublisher, P115PlaybackCoordinator
+from .p6_upload_monitor import CeleryP115UploadPublisher, P115UploadMonitorCoordinator
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -417,6 +443,16 @@ class CoordinatorRuntime:
         self._publisher = CeleryOutboxPublisher(self.config)
         self._media_effect_publisher = CeleryMediaEffectPublisher(self.config)
         self._media_effect_dispatcher: MediaEffectOutboxDispatcher | None = None
+        self._ingestion_publisher = CeleryIngestionMonitorPublisher(self.config)
+        self._ingestion_coordinator: IngestionMonitorCoordinator | None = None
+        self._ingestion_ingress: PersistentIngestionIngressGateway | None = None
+        self._p115_upload_publisher = CeleryP115UploadPublisher(self.config)
+        self._p115_upload_coordinator: P115UploadMonitorCoordinator | None = None
+        self._p115_upload_ingress: P115UploadMonitorIngressService | None = None
+        self._p115_playback_publisher = CeleryP115PlaybackPublisher(self.config)
+        self._p115_playback_coordinator: P115PlaybackCoordinator | None = None
+        self._p115_intro_publisher = CeleryP115IntroDetectionPublisher(self.config)
+        self._p115_intro_coordinator: P115IntroDetectionCoordinator | None = None
         self._publisher_id = f"{socket.gethostname()}:{os.getpid()}"
         self._last_settings_refresh = 0.0
         self._last_settings: Any = None
@@ -442,6 +478,51 @@ class CoordinatorRuntime:
             self._media_effect_publisher,
             self.config,
             publisher_id=f"{self._publisher_id}:media-effect",
+        )
+        ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
+        self._ingestion_ingress = PersistentIngestionIngressGateway(
+            settings=config_adapter.load,
+            ledger=ingestion_ledger,
+        )
+        self._ingestion_coordinator = IngestionMonitorCoordinator(
+            store=store,
+            ledger=ingestion_ledger,
+            publisher=self._ingestion_publisher,
+            config=self.config,
+            publisher_id=f"{self._publisher_id}:ingestion",
+        )
+        upload_repository = PostgresP115UploadMonitorRepository(database.unit_of_work)
+        upload_config = P115UploadMonitorConfigService(
+            upload_repository,
+            lambda: config_adapter.load().monitor_extensions,
+        )
+        self._p115_upload_ingress = P115UploadMonitorIngressService(
+            config=upload_config,
+            repository=upload_repository,
+        )
+        self._p115_upload_coordinator = P115UploadMonitorCoordinator(
+            store=store,
+            repository=upload_repository,
+            config_service=upload_config,
+            publisher=self._p115_upload_publisher,
+            config=self.config,
+            publisher_id=f"{self._publisher_id}:p115-upload",
+        )
+        playback_repository = PostgresP115PlaybackRepository(database.unit_of_work)
+        self._p115_playback_coordinator = P115PlaybackCoordinator(
+            store=store,
+            repository=playback_repository,
+            publisher=self._p115_playback_publisher,
+            config=self.config,
+            publisher_id=f"{self._publisher_id}:p115-playback",
+        )
+        intro_repository = PostgresP115IntroDetectionRepository(database.unit_of_work)
+        self._p115_intro_coordinator = P115IntroDetectionCoordinator(
+            store=store,
+            repository=intro_repository,
+            publisher=self._p115_intro_publisher,
+            config=self.config,
+            publisher_id=f"{self._publisher_id}:p115-intro",
         )
         self._service = service
         self._leadership = leadership
@@ -483,18 +564,33 @@ class CoordinatorRuntime:
                 raise ExceptionGroup("Coordinator shutdown failed", errors)
 
     def _become_leader(self) -> None:
-        if self._service is None:
-            raise RuntimeError("Coordinator service is not initialized")
+        if (
+            self._service is None
+            or self._ingestion_ingress is None
+            or self._ingestion_coordinator is None
+            or self._p115_upload_ingress is None
+            or self._p115_upload_coordinator is None
+        ):
+            raise RuntimeError("Coordinator services are not initialized")
         supervisor = RuntimeSupervisor()
         self._supervisor = supervisor
         try:
+            self._p115_upload_ingress.ensure_config()
+            install_persistent_ingestion_ingress(self._ingestion_ingress)
+            install_persistent_upload_monitor_ingress(self._p115_upload_ingress)
             gateway = PersistentTaskManagerGateway(self._service)
             self._gateway = gateway
             from task_manager import install_persistent_submission_gateway
 
             install_persistent_submission_gateway(gateway)
+            settings = self._config_adapter.load() if self._config_adapter is not None else None
+            if settings is None:
+                raise RuntimeError("Coordinator settings are not initialized")
+            self._ingestion_coordinator.synchronize_enabled(settings.monitor_enabled)
             # The UserBot can submit an incoming transfer as soon as its listener starts.
             supervisor.start(role=RuntimeRole.COORDINATOR, background=True)
+            if not self._p115_upload_ingress.enabled():
+                self._p115_upload_ingress.apply_config()
             schedules = PersistentScheduleManager(self._service)
             self._schedules = schedules
             schedules.start()
@@ -510,6 +606,21 @@ class CoordinatorRuntime:
                 self._schedules.stop()
             except Exception as exc:
                 errors.append(exc)
+        if self._supervisor is not None:
+            try:
+                self._supervisor.stop()
+            except Exception as exc:
+                errors.append(exc)
+        if self._ingestion_ingress is not None:
+            try:
+                clear_persistent_ingestion_ingress(self._ingestion_ingress)
+            except Exception as exc:
+                errors.append(exc)
+        if self._p115_upload_ingress is not None:
+            try:
+                clear_persistent_upload_monitor_ingress(self._p115_upload_ingress)
+            except Exception as exc:
+                errors.append(exc)
         if self._gateway is not None:
             try:
                 from task_manager import clear_persistent_submission_gateway
@@ -517,11 +628,10 @@ class CoordinatorRuntime:
                 clear_persistent_submission_gateway(self._gateway)
             except Exception as exc:
                 errors.append(exc)
-        if self._supervisor is not None:
-            try:
-                self._supervisor.stop()
-            except Exception as exc:
-                errors.append(exc)
+        ingestion = getattr(self, "_ingestion_coordinator", None)
+        reset_enabled = getattr(ingestion, "reset_enabled_state", None)
+        if callable(reset_enabled):
+            reset_enabled()
         self._schedules = None
         self._gateway = None
         self._supervisor = None
@@ -556,28 +666,77 @@ class CoordinatorRuntime:
             )
             raise RuntimeError("Outbox dispatch is degraded")
         media_dispatcher = getattr(self, "_media_effect_dispatcher", None)
-        if media_dispatcher is None:
-            return
-        media_result = media_dispatcher.tick()
-        if media_result.expired_claims:
-            logger.warning(
-                "Expired Media Effect claims were marked indeterminate",
-                extra={"expired_claims": media_result.expired_claims},
-            )
-        if media_result.rejected_dead_effects:
-            logger.error(
-                "Media Effect dispatch exhausted without provider execution",
-                extra={"rejected_effects": media_result.rejected_dead_effects},
-            )
-        if media_result.publish.failed or media_result.publish.dead:
-            logger.warning(
-                "Media Effect Outbox batch completed with publish failures",
-                extra={
-                    "failed": media_result.publish.failed,
-                    "dead": media_result.publish.dead,
-                },
-            )
-            raise RuntimeError("Media Effect Outbox dispatch is degraded")
+        if media_dispatcher is not None:
+            media_result = media_dispatcher.tick()
+            if media_result.expired_claims:
+                logger.warning(
+                    "Expired Media Effect claims were marked indeterminate",
+                    extra={"expired_claims": media_result.expired_claims},
+                )
+            if media_result.rejected_dead_effects:
+                logger.error(
+                    "Media Effect dispatch exhausted without provider execution",
+                    extra={"rejected_effects": media_result.rejected_dead_effects},
+                )
+            if media_result.publish.failed or media_result.publish.dead:
+                logger.warning(
+                    "Media Effect Outbox batch completed with publish failures",
+                    extra={
+                        "failed": media_result.publish.failed,
+                        "dead": media_result.publish.dead,
+                    },
+                )
+                raise RuntimeError("Media Effect Outbox dispatch is degraded")
+
+        ingestion = getattr(self, "_ingestion_coordinator", None)
+        settings = getattr(self, "_last_settings", None)
+        if ingestion is not None and settings is not None:
+            ingestion_result = ingestion.tick(settings)
+            if ingestion_result.rejected_dead:
+                logger.error(
+                    "Ingestion monitor dispatch exhausted without Worker execution",
+                    extra={"rejected_items": ingestion_result.rejected_dead},
+                )
+            if ingestion_result.publish.failed or ingestion_result.publish.dead:
+                raise RuntimeError("Ingestion monitor Outbox dispatch is degraded")
+
+        upload = getattr(self, "_p115_upload_coordinator", None)
+        if upload is not None:
+            upload_result = upload.tick()
+            if upload_result.rejected_dead:
+                logger.error(
+                    "P115 upload dispatch exhausted without Worker execution",
+                    extra={"rejected_operations": upload_result.rejected_dead},
+                )
+            if upload_result.publish.failed or upload_result.publish.dead:
+                raise RuntimeError("P115 upload Outbox dispatch is degraded")
+
+        playback = getattr(self, "_p115_playback_coordinator", None)
+        if playback is not None:
+            playback_result = playback.tick()
+            if playback_result.rejected_dead:
+                logger.error(
+                    "P115 playback dispatch exhausted without Worker execution",
+                    extra={"rejected_operations": playback_result.rejected_dead},
+                )
+            if playback_result.publish.failed or playback_result.publish.dead:
+                raise RuntimeError("P115 playback Outbox dispatch is degraded")
+
+        intro = getattr(self, "_p115_intro_coordinator", None)
+        if intro is not None:
+            intro_result = intro.tick()
+            if intro_result.expired_claims:
+                logger.warning(
+                    "Expired P115 intro detection claims were requeued",
+                    extra={"expired_operations": intro_result.expired_claims},
+                )
+            if intro_result.rejected_dead:
+                logger.error(
+                    "P115 intro detection dispatch exhausted without Worker execution",
+                    extra={"rejected_operations": intro_result.rejected_dead},
+                )
+            if intro_result.publish.failed or intro_result.publish.dead:
+                raise RuntimeError("P115 intro detection Outbox dispatch is degraded")
 
     def _process_telegram_commands(self) -> None:
         from etk.compatibility.tg_control_bridge import TelegramCommandExecutor, TelegramControlBridge
@@ -612,6 +771,8 @@ class CoordinatorRuntime:
             if self._supervisor is not None:
                 self._supervisor.stop()
                 self._supervisor.start(role=RuntimeRole.COORDINATOR, background=True)
+                if self._p115_upload_ingress is not None and not self._p115_upload_ingress.enabled():
+                    self._p115_upload_ingress.apply_config()
         self._last_settings = settings
         self._last_runtime_context = runtime_context
         if self._schedules is not None:
@@ -624,6 +785,8 @@ class CoordinatorRuntime:
 
     @staticmethod
     def _load_runtime_context() -> dict[str, Any]:
+        import config_manager
+        import constants
         import extensions
         from database import settings_db
         from handler.p115_temp_dir import get_temp_dir_config
@@ -631,11 +794,19 @@ class CoordinatorRuntime:
         shared = settings_db.get_shared_resource_config() or {}
         temp = get_temp_dir_config() or {}
         tg_userbot = settings_db.get_setting("tg_userbot_config") or {}
+        upload_config = normalize_upload_monitor_config(
+            settings_db.get_setting("p115_upload_monitor_config") or {},
+            default_extensions=config_manager.APP_CONFIG.get(
+                constants.CONFIG_OPTION_MONITOR_EXTENSIONS,
+                constants.DEFAULT_MONITOR_EXTENSIONS,
+            ),
+        )
         return {
             "_shared_resource_enabled": shared.get("p115_shared_resource_enabled", False),
             "_emby_server_id": str(getattr(extensions, "EMBY_SERVER_ID", "") or "").strip(),
             "_p115_temp_cleanup_cron": str(temp.get("cleanup_cron") or "").strip(),
             "_tg_userbot_config": tg_userbot if isinstance(tg_userbot, dict) else {},
+            "_p115_upload_monitor_revision": upload_monitor_config_revision(upload_config),
         }
 
     def _write_health(self, state: str) -> None:

@@ -1294,6 +1294,12 @@
       ],
       "contract_id": "table-1650ca2632a8",
       "create_sql": "CREATE TABLE IF NOT EXISTS p115_filesystem_cache ( id TEXT PRIMARY KEY, -- 115 的 cid (文件夹) 或 fid (文件) parent_id TEXT NOT NULL, -- 父目录 ID (根目录为 '0') name TEXT NOT NULL, -- 文件/文件夹名称 local_path TEXT, -- 本地映射路径 (如果已同步到本地) sha1 TEXT, pick_code TEXT, size BIGINT DEFAULT 0, washing_level INTEGER, washing_snapshot_json JSONB DEFAULT '{}'::jsonb, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- 最后同步时间 -- 复合唯一约束：同一个父目录下不能有同名文件 (用于快速查找) -- 注意：115 实际上允许同名，但在我们的管理逻辑中通常假设唯一，或者只缓存最新的 CONSTRAINT uniq_p115_parent_name UNIQUE (parent_id, name) )",
+      "fixture": "verification/integration/p6/test_p115_directory_cache_postgres.py",
+      "fixture_exception": null,
+      "fixtures": [
+        "verification/integration/p6/test_p115_directory_cache_postgres.py",
+        "verification/integration/p6/test_p115_strm_sync_postgres.py"
+      ],
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_p115_parent_id ON p115_filesystem_cache (parent_id)",
@@ -1339,17 +1345,18 @@
         }
       ],
       "name": "p115_filesystem_cache",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.repository.SqlAlchemyP115DirectoryCacheRepository",
+      "notes": "P6 native PostgreSQL 18 ownership is split by projection: SqlAlchemyP115DirectoryCacheRepository reconciles direct-child directory listings, while SqlAlchemyP115StrmSyncRepository owns account/root-bound file and STRM-content projection under a durable sync plan. Both fail closed before pruning on incomplete provider state.",
       "post_create_alters": [],
       "source": "database/connection.py:611",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "p115/ingestion"
+      "validation_method": "postgres18-directory-and-strm-plan-cache-cas-contract",
+      "validation_owner": "p115/directory-cache-and-strm-sync"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -1408,6 +1415,8 @@
       ],
       "contract_id": "table-25ce1289b8a8",
       "create_sql": "CREATE TABLE IF NOT EXISTS p115_intro_detection_failures ( failure_key TEXT NOT NULL, kind TEXT NOT NULL, algorithm_version INTEGER NOT NULL, scope TEXT NOT NULL DEFAULT 'season', series_tmdb_id TEXT NOT NULL DEFAULT '', season_number INTEGER NOT NULL DEFAULT 0, sha1 TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL DEFAULT '', sample_count INTEGER NOT NULL DEFAULT 0, episode_count INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), PRIMARY KEY (failure_key, kind, algorithm_version) )",
+      "fixture": "verification/integration/p6/test_p115_intro_detection_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_p115_intro_detection_failures_kind ON p115_intro_detection_failures (kind, algorithm_version)",
@@ -1418,17 +1427,18 @@
         }
       ],
       "name": "p115_intro_detection_failures",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.intro_detection_repository.PostgresP115IntroDetectionRepository",
+      "notes": "P6.10 preserves the legacy season and episode terminal-failure semantics behind the native lease-fenced season operation repository.",
       "post_create_alters": [],
       "source": "database/connection.py:653",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "p115/ingestion"
+      "validation_method": "postgres18-intro-operation-failure-and-algorithm-version-contract",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -1457,19 +1467,22 @@
       "constraints_static": [],
       "contract_id": "table-db36af9ee574",
       "create_sql": "CREATE TABLE IF NOT EXISTS p115_intro_fingerprint_cache ( sha1 TEXT PRIMARY KEY, fingerprint_zlib BYTEA NOT NULL, fingerprint_count INTEGER NOT NULL DEFAULT 0, sample_seconds INTEGER NOT NULL DEFAULT 600, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p6/test_p115_intro_detection_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [],
       "name": "p115_intro_fingerprint_cache",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.intro_detection_repository.PostgresP115IntroDetectionRepository",
+      "notes": "P6.10 owns monotonic progressive intro and credits fingerprint coverage while signed provider URLs remain operation-local memory only.",
       "post_create_alters": [],
       "source": "database/connection.py:642",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "p115/ingestion"
+      "validation_method": "postgres18-monotonic-fingerprint-coverage-and-signed-url-redaction-contract",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -1524,6 +1537,8 @@
       ],
       "contract_id": "table-530c2595db1a",
       "create_sql": "CREATE TABLE IF NOT EXISTS p115_intro_fingerprint_failures ( failure_key TEXT NOT NULL, kind TEXT NOT NULL, algorithm_version INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, last_sample_seconds INTEGER NOT NULL DEFAULT 0, last_reason TEXT NOT NULL DEFAULT '', series_tmdb_id TEXT NOT NULL DEFAULT '', season_number INTEGER NOT NULL DEFAULT 0, sha1 TEXT NOT NULL DEFAULT '', created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), PRIMARY KEY (failure_key, kind, algorithm_version) )",
+      "fixture": "verification/integration/p6/test_p115_intro_detection_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_p115_intro_fingerprint_failures_kind ON p115_intro_fingerprint_failures (kind, algorithm_version)",
@@ -1534,17 +1549,18 @@
         }
       ],
       "name": "p115_intro_fingerprint_failures",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.intro_detection_repository.PostgresP115IntroDetectionRepository",
+      "notes": "P6.10 retains fingerprint extraction attempt counters as diagnostics without treating them as an implicit permanent-failure threshold.",
       "post_create_alters": [],
       "source": "database/connection.py:673",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "p115/ingestion"
+      "validation_method": "postgres18-fingerprint-failure-diagnostic-contract",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -1573,19 +1589,22 @@
       "constraints_static": [],
       "contract_id": "table-4e7ee3efef71",
       "create_sql": "CREATE TABLE IF NOT EXISTS p115_mediainfo_cache ( sha1 TEXT PRIMARY KEY, mediainfo_json JSONB, raw_ffprobe_json JSONB, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), hit_count INTEGER DEFAULT 0 )",
+      "fixture": "verification/integration/p6/test_p115_media_info_postgres.py",
+      "fixture_exception": null,
       "indexes_static": [],
       "name": "p115_mediainfo_cache",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.media_info_repository.SqlAlchemyP115MediaInfoRepository",
+      "notes": "P6.6 owns the canonical revisioned formatted/RAW MediaInfo cache, account-bound PickCode/SHA1 resolution, persistent probe worklist, and compare-and-swap writes. The internal p115_media_probe_items table is declared by Alembic 0008 and verified by the same PostgreSQL 18 contract.",
       "post_create_alters": [],
       "source": "database/connection.py:631",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "p115/ingestion"
+      "validation_method": "postgres18-cache-revision-probe-worklist-fingerprint-and-durable-effect-contract",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -1626,19 +1645,22 @@
       ],
       "contract_id": "table-9178e3939383",
       "create_sql": "CREATE TABLE IF NOT EXISTS p115_organize_records ( id SERIAL PRIMARY KEY, file_id TEXT UNIQUE NOT NULL, -- 115 原始文件/文件夹ID (使用UNIQUE防止重复记录) pick_code TEXT UNIQUE, original_name TEXT NOT NULL, -- 原始名称 renamed_name TEXT, -- 整理后的名称 status TEXT NOT NULL, -- 'success' 或 'unrecognized' fail_reason TEXT, -- 识别失败原因 tmdb_id TEXT, media_type TEXT, target_cid TEXT, -- 目标分类CID category_name TEXT, -- 目标分类名称 processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), season_number INTEGER )",
+      "fixture": "verification/integration/p6/test_p115_organize_execution_postgres.py",
+      "fixture_exception": null,
       "indexes_static": [],
       "name": "p115_organize_records",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.organize_records_repository.SqlAlchemyP115OrganizeRecordsRepository",
+      "notes": "P6 Native execution appends immutable organization records transactionally; the records repository owns filtered reads and local record/cache cleanup, with no remote 115 delete operation.",
       "post_create_alters": [],
       "source": "database/connection.py:775",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "p115/ingestion"
+      "validation_method": "postgres18-execution-ledger-http-application-and-no-provider-effect",
+      "validation_owner": "p115/organize-records"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -1693,6 +1715,8 @@
       ],
       "contract_id": "table-0661d1e5c85d",
       "create_sql": "CREATE TABLE IF NOT EXISTS p115_upload_records ( record_key TEXT PRIMARY KEY, record_type TEXT NOT NULL, mapping_id TEXT, local_path TEXT, relative_path TEXT, target_cid TEXT, pick_code TEXT, status TEXT, payload_json JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), CONSTRAINT chk_p115_upload_record_type CHECK (record_type IN ('job', 'completed')) )",
+      "fixture": "verification/integration/p6/test_p115_upload_monitor_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_p115_upload_records_type_status ON p115_upload_records (record_type, status)",
@@ -1724,17 +1748,18 @@
         }
       ],
       "name": "p115_upload_records",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.upload_repository.PostgresP115UploadMonitorRepository",
+      "notes": "P6.8 reuses the legacy table only as the native completed-source ledger; upload operation, resumable request, and retry state live in the new p115_upload_operations table.",
       "post_create_alters": [],
       "source": "database/connection.py:715",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "p115/ingestion"
+      "validation_method": "postgres18-completed-source-sequence-and-snapshot-cas-contract",
+      "validation_owner": "p115/upload-monitor"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",

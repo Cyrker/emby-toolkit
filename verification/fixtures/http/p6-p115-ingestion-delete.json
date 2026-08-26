@@ -1,0 +1,282 @@
+{
+  "schema_version": 1,
+  "captured_live": false,
+  "redactions": [
+    "Authorization",
+    "Cookie",
+    "X-Emby-Token",
+    "path.identity",
+    "filesystem paths",
+    "external URLs",
+    "user identifiers"
+  ],
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/api/p115/mediainfo/<pick_code>/item-ready",
+      "auth": "none",
+      "request_fields": ["path.identity", "query.emby_item_id"],
+      "response_statuses": [200, 404, 409, 503]
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/mediainfo/sha1/<sha1>/item-ready",
+      "auth": "none",
+      "request_fields": ["path.identity", "query.emby_item_id"],
+      "response_statuses": [200, 404, 409, 503]
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/mediainfo/<pick_code>/deep-delete/prepare",
+      "auth": "none",
+      "request_fields": ["path.identity", "body.root_item_id", "body.anchor_item_id", "body.item_type"],
+      "response_statuses": [200, 400, 404, 409]
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare",
+      "auth": "none",
+      "request_fields": ["path.identity", "body.root_item_id", "body.anchor_item_id", "body.item_type"],
+      "response_statuses": [200, 400, 404, 409]
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/mediainfo/<pick_code>/deep-delete/commit",
+      "auth": "none",
+      "request_fields": ["path.identity", "body.token"],
+      "response_statuses": [202, 400, 404, 410, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit",
+      "auth": "none",
+      "request_fields": ["path.identity", "body.token"],
+      "response_statuses": [202, 400, 404, 410, 500]
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "item-ready-pickcode-accepted",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/pc-fixture/item-ready?emby_item_id=101"
+      },
+      "expected": {
+        "status": 200,
+        "body": {"ok": true, "accepted": true, "item_id": "101"}
+      }
+    },
+    {
+      "case_id": "item-ready-sha1-accepted",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/item-ready?emby_item_id=101"
+      },
+      "expected": {
+        "status": 200,
+        "body": {"ok": true, "accepted": true, "item_id": "101"}
+      }
+    },
+    {
+      "case_id": "item-ready-pickcode-cache-missing",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/missing/item-ready?emby_item_id=101"
+      },
+      "expected": {
+        "status": 404,
+        "body": {"error": "media info cache not found"}
+      }
+    },
+    {
+      "case_id": "item-ready-sha1-identity-mismatch",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/item-ready?emby_item_id=101"
+      },
+      "expected": {
+        "status": 409,
+        "body": {"ok": false, "error": "item identity mismatch"}
+      }
+    },
+    {
+      "case_id": "item-ready-rebind-retryable",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/item-ready?emby_item_id=101"
+      },
+      "expected": {
+        "status": 503,
+        "body": {
+          "ok": false,
+          "skipped": false,
+          "retryable": true,
+          "updated": false,
+          "reason": "asset_not_found"
+        }
+      }
+    },
+    {
+      "case_id": "deep-delete-prepare-pickcode",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/pc-fixture/deep-delete/prepare",
+        "body": {"root_item_id": "100", "anchor_item_id": "101", "item_type": "Movie"}
+      },
+      "expected": {
+        "status": 200,
+        "body": {"ok": true, "token": "fixture-token", "pickcode_count": 1}
+      }
+    },
+    {
+      "case_id": "deep-delete-prepare-sha1",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/prepare",
+        "body": {"root_item_id": "100", "anchor_item_id": "101", "item_type": "Movie"}
+      },
+      "expected": {
+        "status": 200,
+        "body": {"ok": true, "token": "fixture-token", "pickcode_count": 1}
+      }
+    },
+    {
+      "case_id": "deep-delete-prepare-invalid-id",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/prepare",
+        "body": {"root_item_id": "invalid", "anchor_item_id": "101", "item_type": "Movie"}
+      },
+      "expected": {
+        "status": 400,
+        "body": {"ok": false, "error": "invalid item id"}
+      }
+    },
+    {
+      "case_id": "deep-delete-prepare-pickcode-identity-missing",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/missing/deep-delete/prepare",
+        "body": {"root_item_id": "100", "anchor_item_id": "101", "item_type": "Movie"}
+      },
+      "expected": {
+        "status": 404,
+        "body": {"error": "media identity not found"}
+      }
+    },
+    {
+      "case_id": "deep-delete-prepare-anchor-mismatch",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/prepare",
+        "body": {"root_item_id": "100", "anchor_item_id": "101", "item_type": "Movie"}
+      },
+      "expected": {
+        "status": 409,
+        "body": {"ok": false, "error": "anchor identity mismatch"}
+      }
+    },
+    {
+      "case_id": "deep-delete-commit-pickcode-accepted",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/pc-fixture/deep-delete/commit",
+        "body": {"token": "fixture-token"}
+      },
+      "expected": {
+        "status": 202,
+        "body": {
+          "ok": true,
+          "accepted": true,
+          "job_id": "00000000-0000-0000-0000-000000000167",
+          "pickcode_count": 1,
+          "local_only": false
+        }
+      }
+    },
+    {
+      "case_id": "deep-delete-commit-sha1-accepted",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/commit",
+        "body": {"token": "fixture-token"}
+      },
+      "expected": {
+        "status": 202,
+        "body": {
+          "ok": true,
+          "accepted": true,
+          "job_id": "00000000-0000-0000-0000-000000000167",
+          "pickcode_count": 1,
+          "local_only": false
+        }
+      }
+    },
+    {
+      "case_id": "deep-delete-commit-missing-token",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/commit",
+        "body": {}
+      },
+      "expected": {
+        "status": 400,
+        "body": {"ok": false, "error": "missing token"}
+      }
+    },
+    {
+      "case_id": "deep-delete-commit-expired",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/commit",
+        "body": {"token": "fixture-expired-token"}
+      },
+      "expected": {
+        "status": 410,
+        "body": {"ok": false, "error": "delete snapshot expired"}
+      }
+    },
+    {
+      "case_id": "deep-delete-commit-snapshot-missing",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/commit",
+        "body": {"token": "fixture-missing-token"}
+      },
+      "expected": {
+        "status": 404,
+        "body": {"ok": false, "error": "delete snapshot not found"}
+      }
+    },
+    {
+      "case_id": "deep-delete-commit-replay",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/commit",
+        "body": {"token": "fixture-replay-token"}
+      },
+      "expected": {
+        "status": 202,
+        "body": {
+          "ok": true,
+          "accepted": true,
+          "job_id": "00000000-0000-0000-0000-000000000167",
+          "pickcode_count": 1,
+          "local_only": false
+        }
+      }
+    },
+    {
+      "case_id": "deep-delete-commit-submission-failure",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/deep-delete/commit",
+        "body": {"token": "fixture-token"}
+      },
+      "expected": {
+        "status": 500,
+        "body": {"ok": false, "error": "failed to submit delete job: fixture submission unavailable"}
+      }
+    }
+  ]
+}

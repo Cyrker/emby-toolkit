@@ -156,6 +156,9 @@ def enqueue_item(
     callbacks without risking the main media-info flow.
     """
     try:
+        gateway = _persistent_intro_gateway()
+        if gateway is not None:
+            return dict(gateway.enqueue_item(item, sha1, trigger=trigger))
         mode = get_trigger_mode()
         trigger = _normalize_job_trigger(trigger)
         if mode == INTRO_TRIGGER_MODE_OFF:
@@ -222,6 +225,14 @@ def enqueue_imported_episode_ids(
 ) -> Dict[str, Any]:
     """Queue newly imported episodes only after ETK has persisted bindings."""
     try:
+        gateway = _persistent_intro_gateway()
+        if gateway is not None:
+            return dict(
+                gateway.enqueue_imported_episode_ids(
+                    episode_ids,
+                    allow_playback_followup=allow_playback_followup,
+                )
+            )
         mode = get_trigger_mode()
         if mode == INTRO_TRIGGER_MODE_OFF:
             return {"ok": True, "queued": 0, "skipped": True, "reason": "disabled"}
@@ -288,6 +299,9 @@ def enqueue_imported_episode_ids(
 
 def enqueue_favorite_item(item: Dict[str, Any]) -> Dict[str, Any]:
     """Start only the season(s) represented by a newly favorited item."""
+    gateway = _persistent_intro_gateway()
+    if gateway is not None:
+        return dict(gateway.enqueue_favorite_item(item))
     if get_trigger_mode() != INTRO_TRIGGER_MODE_FAVORITE:
         return {"ok": True, "queued": False, "skipped": True, "reason": "trigger_not_selected"}
 
@@ -327,11 +341,17 @@ def enqueue_favorite_item(item: Dict[str, Any]) -> Dict[str, Any]:
 
 def enqueue_playback_halfway(item: Dict[str, Any]) -> Dict[str, Any]:
     """Queue just the currently played Episode's season after its halfway event."""
+    gateway = _persistent_intro_gateway()
+    if gateway is not None:
+        return dict(gateway.enqueue_playback_halfway(item))
     return enqueue_item(item, trigger=INTRO_JOB_TRIGGER_PLAYBACK)
 
 
 def enqueue_active_backfill(limit: int = 50, *, force: bool = False) -> Dict[str, Any]:
     """Queue one missing Episode per season for the configured trigger scope."""
+    gateway = _persistent_intro_gateway()
+    if gateway is not None:
+        return dict(gateway.enqueue_active_backfill(limit=limit, force=force))
     persistent = False
     try:
         import task_manager
@@ -401,6 +421,12 @@ def run_active_backfill_persistent(limit: int = 50, *, force: bool = False) -> D
     if not result.get("ok"):
         raise RuntimeError(result.get("error") or result.get("reason") or "intro backfill failed")
     return result
+
+
+def _persistent_intro_gateway() -> Any:
+    from etk.compatibility.intro_detection import persistent_intro_detection_gateway
+
+    return persistent_intro_detection_gateway()
 
 
 def get_trigger_mode() -> str:

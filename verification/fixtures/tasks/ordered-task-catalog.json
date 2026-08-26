@@ -7,8 +7,8 @@
   },
   "metrics": {
     "task_key_count": 50,
-    "native_handler_count": 8,
-    "legacy_adapter_count": 42,
+    "native_handler_count": 17,
+    "legacy_adapter_count": 33,
     "chain_visible_count": 28,
     "manual_visible_count": 28
   },
@@ -331,7 +331,7 @@
       "legacy_definition": "tasks/watchlist.py:278",
       "registry_source": "tasks/core.py:301",
       "target_stage": "P6",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 11,
@@ -478,7 +478,7 @@
       "legacy_definition": "tasks/media.py:2227",
       "registry_source": "tasks/core.py:308",
       "target_stage": "P6",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 18,
@@ -499,7 +499,7 @@
       "legacy_definition": "tasks/p115.py:1174",
       "registry_source": "tasks/core.py:309",
       "target_stage": "P6",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 19,
@@ -520,7 +520,7 @@
       "legacy_definition": "tasks/p115.py:1832",
       "registry_source": "tasks/core.py:310",
       "target_stage": "P6",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 20,
@@ -547,7 +547,7 @@
       "order": 21,
       "key": "monitor-115-life-events",
       "name": "同步家庭视频",
-      "help": "扫描家庭视频分类，同步 STRM 和字幕；入库后按截图开关补齐 Emby 缓存图片。",
+      "help": "全量对账家庭视频分类的 STRM、字幕和 MediaInfo；不消费已停用的 115 生活事件，截图请单独运行“补齐视频截图”。",
       "help_source": "TASK_HELP_TEXTS",
       "processor": "media",
       "visible_in": [
@@ -562,7 +562,7 @@
       "legacy_definition": "tasks/p115.py:2743",
       "registry_source": "tasks/core.py:313",
       "target_stage": "P6",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 22,
@@ -583,7 +583,7 @@
       "legacy_definition": "tasks/media.py:2424",
       "registry_source": "tasks/core.py:314",
       "target_stage": "P6",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 23,
@@ -730,7 +730,7 @@
       "legacy_definition": "tasks/p115.py:1648",
       "registry_source": "tasks/core.py:322",
       "target_stage": "P6",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 30,
@@ -1092,8 +1092,8 @@
       "legacy_signature": "task_manual_correct_organize_records(processor=None, record_ids=None, ids=None, items=None, tmdb_id=None, media_type=None, target_cid=None, season_num=None, **kwargs)",
       "legacy_definition": "tasks/p115.py:1019",
       "registry_source": "tasks/core.py:343",
-      "target_stage": "P8",
-      "handler_kind": "legacy"
+      "target_stage": "P6",
+      "handler_kind": "native"
     },
     {
       "order": 49,
@@ -1131,7 +1131,7 @@
       "legacy_definition": "tasks/p115.py:561",
       "registry_source": "tasks/core.py:346",
       "target_stage": "P6",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     }
   ]
 }

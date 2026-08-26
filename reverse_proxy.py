@@ -235,6 +235,18 @@ def _resolve_virtual_play_url(virtual_info, *, item_id='', play_session_id='', u
     sha1 = _norm_sha1((virtual_info or {}).get('sha1'))
     if not virtual_id or not sha1:
         raise RuntimeError("Invalid virtual STRM")
+    from etk.compatibility.playback import persistent_playback_gateway
+    playback_gateway = persistent_playback_gateway()
+    if playback_gateway is not None:
+        return playback_gateway.resolve_virtual(
+            virtual_info,
+            item_id=item_id,
+            play_session_id=play_session_id,
+            user_id=user_id,
+            client_key=client_key,
+            user_agent=user_agent,
+            display_name=display_name,
+        )
     lock_key = _virtual_play_lock_key(virtual_id, sha1, item_id, play_session_id, user_id, client_key)
     lock = _get_virtual_play_lock(lock_key)
     with lock:
@@ -2053,7 +2065,7 @@ def proxy_all(path):
                             discard_copy_play_clone(play_pick_code)
                             if rebuilt_copy_play:
                                 return Response("Copy play clone expired.", status=503)
-                            play_pick_code = prepare_copy_play_pick_code(pick_code, force_new=True, **copy_play_kwargs)
+                            play_pick_code = prepare_copy_play_pick_code(pick_code, force_new=True, failed_pick_code=play_pick_code, **copy_play_kwargs)
                             rebuilt_copy_play = True
                             if not play_pick_code:
                                 return Response("Copy play failed.", status=503)

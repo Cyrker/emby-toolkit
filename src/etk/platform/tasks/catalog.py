@@ -66,4 +66,19 @@ P5_NATIVE_TASK_KEYS = frozenset(
     }
 )
 
-NATIVE_TASK_KEYS = P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS
+P6_P115_NATIVE_TASK_KEYS = frozenset(
+    {
+        "full-sync-strm",
+        "intro-fingerprint-backfill",
+        "manual-correct-organize-records",
+        "monitor-115-life-events",
+        "play-pool-daily-speedtest",
+        "repair-p115-fingerprints",
+        "scan-organize-115",
+        "sync-115-directory-tree",
+    }
+)
+P6_INGESTION_NATIVE_TASK_KEYS = frozenset({"scan-monitor-folders"})
+P6_NATIVE_TASK_KEYS = P6_P115_NATIVE_TASK_KEYS | P6_INGESTION_NATIVE_TASK_KEYS
+
+NATIVE_TASK_KEYS = P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS

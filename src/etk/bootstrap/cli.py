@@ -128,6 +128,8 @@ def _run_proxy(args: argparse.Namespace) -> int:
 
     runtime = get_runtime_supervisor()
     runtime.start(role=RuntimeRole.PROXY, background=False)
+    playback_container = None
+    playback_gateway = None
     try:
         config = runtime.config
         if not bool(config.get(constants.CONFIG_OPTION_PROXY_ENABLED, False)):
@@ -136,6 +138,18 @@ def _run_proxy(args: argparse.Namespace) -> int:
         if not bool(config.get("is_pro_active", False)):
             print("Proxy requires an active Pro license; no listener was started.")
             return 0
+
+        from etk.compatibility.playback import (
+            NativePlaybackCompatibilityGateway,
+            install_persistent_playback_gateway,
+        )
+
+        from .app_factory import _create_default_container, _register_p115_providers
+
+        playback_container, _config_adapter = _create_default_container(None)
+        _register_p115_providers(playback_container)
+        playback_gateway = NativePlaybackCompatibilityGateway(lambda: playback_container.use_case("p115.playback"))
+        install_persistent_playback_gateway(playback_gateway)
 
         from reverse_proxy import proxy_app
 
@@ -168,7 +182,17 @@ def _run_proxy(args: argparse.Namespace) -> int:
             server.stop(timeout=5)
         return 128 + received_signal if received_signal is not None else 0
     finally:
-        runtime.stop()
+        try:
+            if playback_gateway is not None:
+                from etk.compatibility.playback import clear_persistent_playback_gateway
+
+                clear_persistent_playback_gateway(playback_gateway)
+        finally:
+            try:
+                if playback_container is not None:
+                    playback_container.close()
+            finally:
+                runtime.stop()
 
 
 def _run_worker(args: argparse.Namespace) -> int:

@@ -166,10 +166,7 @@ class LegacyRuntimeAdapter:
         if not self._background:
             return
 
-        from tasks.p115 import LifeEventMonitorDaemon
-
         self._restart_monitor()
-        LifeEventMonitorDaemon.start_or_update()
         self._refresh_shared_device_event_listener(reason="config_reload")
         self._refresh_telegram_services()
         self._refresh_vector_cache_service()
@@ -483,10 +480,7 @@ class LegacyRuntimeAdapter:
         return self._normalize_pro_tier((config_manager.APP_CONFIG or {}).get("pro_license_key"))
 
     def _start_background_services(self) -> None:
-        from tasks.p115 import LifeEventMonitorDaemon
-
         self._refresh_shared_device_event_listener(reason="startup")
-        LifeEventMonitorDaemon.start_or_update()
         self._restart_monitor()
         self._refresh_telegram_services()
         self._refresh_vector_cache_service()

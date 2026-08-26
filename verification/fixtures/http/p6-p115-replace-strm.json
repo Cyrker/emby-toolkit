@@ -1,0 +1,373 @@
+{
+  "schema_version": 1,
+  "kind": "p6-p115-replace-strm-local-http-contract",
+  "captured_live": false,
+  "route": {"method": "POST", "path": "/api/p115/replace_strm"},
+  "cases": [
+    {
+      "case_id": "admin-denial-precedes-malformed-json",
+      "auth_enabled": true,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "raw_body": "{",
+        "content_type": "application/json"
+      },
+      "library": {
+        "available": true,
+        "files": {
+          "Movies/one.strm": "https://old.example.invalid/api/p115/play/one"
+        }
+      },
+      "expected": {
+        "status": 403,
+        "json": {
+          "status": "error",
+          "message": "需要 Emby 管理员权限才能执行此操作"
+        },
+        "files": {
+          "Movies/one.strm": "https://old.example.invalid/api/p115/play/one"
+        },
+        "library_open_calls": 0,
+        "lock_scopes": []
+      }
+    },
+    {
+      "case_id": "plain-replacement",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": {
+          "mode": "plain",
+          "search": "https://old.example.invalid",
+          "replace": "https://new.example.invalid"
+        }
+      },
+      "library": {
+        "available": true,
+        "files": {
+          "Movies/one.strm": "https://old.example.invalid/api/p115/play/one",
+          "Movies/two.strm": "https://other.example.invalid/api/p115/play/two"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "json": {
+          "success": true,
+          "message": "替换完毕！成功修改了 1 个文件 (已跳过 1 个未匹配的文件)"
+        },
+        "files": {
+          "Movies/one.strm": "https://new.example.invalid/api/p115/play/one",
+          "Movies/two.strm": "https://other.example.invalid/api/p115/play/two"
+        },
+        "library_open_calls": 1,
+        "lock_scopes": ["p115-strm-sync:local"]
+      }
+    },
+    {
+      "case_id": "regex-replacement",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": {
+          "mode": "regex",
+          "search": "play/(one|two)$",
+          "replace": "play/replaced-\\1"
+        }
+      },
+      "library": {
+        "available": true,
+        "files": {
+          "Series/one.strm": "https://etk.example.invalid/api/p115/play/one",
+          "Series/two.strm": "https://etk.example.invalid/api/p115/play/two"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "json": {
+          "success": true,
+          "message": "替换完毕！成功修改了 2 个文件"
+        },
+        "files": {
+          "Series/one.strm": "https://etk.example.invalid/api/p115/play/replaced-one",
+          "Series/two.strm": "https://etk.example.invalid/api/p115/play/replaced-two"
+        },
+        "library_open_calls": 1,
+        "lock_scopes": ["p115-strm-sync:local"]
+      }
+    },
+    {
+      "case_id": "malformed-json",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "raw_body": "{",
+        "content_type": "application/json"
+      },
+      "library": {"available": true, "files": {}},
+      "expected": {
+        "status": 400,
+        "content_type_prefix": "text/html",
+        "body_contains": "400 Bad Request",
+        "files": {},
+        "library_open_calls": 0,
+        "lock_scopes": []
+      }
+    },
+    {
+      "case_id": "missing-json-body",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "raw_body": "",
+        "content_type": "application/json"
+      },
+      "library": {"available": true, "files": {}},
+      "expected": {
+        "status": 400,
+        "content_type_prefix": "text/html",
+        "body_contains": "400 Bad Request",
+        "files": {},
+        "library_open_calls": 0,
+        "lock_scopes": []
+      }
+    },
+    {
+      "case_id": "non-object-json",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": ["not", "an", "object"]
+      },
+      "library": {"available": true, "files": {}},
+      "expected": {
+        "status": 500,
+        "content_type_prefix": "text/html",
+        "body_contains": "500 Internal Server Error",
+        "files": {},
+        "library_open_calls": 0,
+        "lock_scopes": []
+      }
+    },
+    {
+      "case_id": "bad-regex",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": {"mode": "regex", "search": "[", "replace": "ignored"}
+      },
+      "library": {
+        "available": true,
+        "files": {
+          "Movies/one.strm": "https://old.example.invalid/api/p115/play/one"
+        }
+      },
+      "expected": {
+        "status": 400,
+        "json_subset": {"success": false},
+        "message_prefix": "正则表达式语法错误:",
+        "files": {
+          "Movies/one.strm": "https://old.example.invalid/api/p115/play/one"
+        },
+        "library_open_calls": 0,
+        "lock_scopes": []
+      }
+    },
+    {
+      "case_id": "unknown-mode-legacy-compatible-no-op",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": {
+          "mode": "unsupported",
+          "search": "old.example.invalid",
+          "replace": "new.example.invalid"
+        }
+      },
+      "library": {
+        "available": true,
+        "files": {
+          "Movies/one.strm": "https://old.example.invalid/api/p115/play/one",
+          "Movies/two.strm": "https://old.example.invalid/api/p115/play/two"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "json": {
+          "success": true,
+          "message": "替换完毕！成功修改了 0 个文件 (已跳过 2 个未匹配的文件)"
+        },
+        "files": {
+          "Movies/one.strm": "https://old.example.invalid/api/p115/play/one",
+          "Movies/two.strm": "https://old.example.invalid/api/p115/play/two"
+        },
+        "library_open_calls": 1,
+        "lock_scopes": ["p115-strm-sync:local"]
+      }
+    },
+    {
+      "case_id": "empty-mode-legacy-compatible-no-op",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": {"mode": "", "search": "old", "replace": "new"}
+      },
+      "library": {
+        "available": true,
+        "files": {"Movies/one.strm": "https://old.example.invalid/play"}
+      },
+      "expected": {
+        "status": 200,
+        "json": {
+          "success": true,
+          "message": "替换完毕！成功修改了 0 个文件 (已跳过 1 个未匹配的文件)"
+        },
+        "files": {"Movies/one.strm": "https://old.example.invalid/play"},
+        "library_open_calls": 1,
+        "lock_scopes": ["p115-strm-sync:local"]
+      }
+    },
+    {
+      "case_id": "null-mode-legacy-compatible-no-op",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": {"mode": null, "search": "old", "replace": "new"}
+      },
+      "library": {
+        "available": true,
+        "files": {"Movies/one.strm": "https://old.example.invalid/play"}
+      },
+      "expected": {
+        "status": 200,
+        "json": {
+          "success": true,
+          "message": "替换完毕！成功修改了 0 个文件 (已跳过 1 个未匹配的文件)"
+        },
+        "files": {"Movies/one.strm": "https://old.example.invalid/play"},
+        "library_open_calls": 1,
+        "lock_scopes": ["p115-strm-sync:local"]
+      }
+    },
+    {
+      "case_id": "uppercase-mode-legacy-compatible-no-op",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": {"mode": "PLAIN", "search": "old", "replace": "new"}
+      },
+      "library": {
+        "available": true,
+        "files": {"Movies/one.strm": "https://old.example.invalid/play"}
+      },
+      "expected": {
+        "status": 200,
+        "json": {
+          "success": true,
+          "message": "替换完毕！成功修改了 0 个文件 (已跳过 1 个未匹配的文件)"
+        },
+        "files": {"Movies/one.strm": "https://old.example.invalid/play"},
+        "library_open_calls": 1,
+        "lock_scopes": ["p115-strm-sync:local"]
+      }
+    },
+    {
+      "case_id": "null-replacement-legacy-compatible-no-op",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": {"mode": "plain", "search": "old", "replace": null}
+      },
+      "library": {
+        "available": true,
+        "files": {"Movies/one.strm": "https://old.example.invalid/play"}
+      },
+      "expected": {
+        "status": 200,
+        "json": {
+          "success": true,
+          "message": "替换完毕！成功修改了 0 个文件"
+        },
+        "files": {"Movies/one.strm": "https://old.example.invalid/play"},
+        "library_open_calls": 1,
+        "lock_scopes": ["p115-strm-sync:local"]
+      }
+    },
+    {
+      "case_id": "local-root-unavailable",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": {"mode": "plain", "search": "old", "replace": "new"}
+      },
+      "library": {"available": false, "files": {}},
+      "expected": {
+        "status": 400,
+        "json": {
+          "success": false,
+          "message": "未配置本地 STRM 根目录，或该目录在容器中不存在！"
+        },
+        "files": {},
+        "library_open_calls": 1,
+        "lock_scopes": []
+      }
+    },
+    {
+      "case_id": "partial-file-failure-is-native-fail-closed",
+      "auth_enabled": false,
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/replace_strm",
+        "json": {
+          "mode": "plain",
+          "search": "https://old.example.invalid",
+          "replace": "https://new.example.invalid"
+        }
+      },
+      "library": {
+        "available": true,
+        "files": {
+          "Movies/one.strm": "https://old.example.invalid/api/p115/play/one",
+          "Movies/two.strm": "https://old.example.invalid/api/p115/play/two"
+        },
+        "failure": {
+          "after_path": "Movies/one.strm",
+          "message": "fixture file write failure"
+        }
+      },
+      "expected": {
+        "status": 500,
+        "json": {"success": false, "message": "fixture file write failure"},
+        "files": {
+          "Movies/one.strm": "https://new.example.invalid/api/p115/play/one",
+          "Movies/two.strm": "https://old.example.invalid/api/p115/play/two"
+        },
+        "library_open_calls": 1,
+        "lock_scopes": ["p115-strm-sync:local"],
+        "partial_writes": ["Movies/one.strm"]
+      }
+    }
+  ],
+  "compatibility_notes": [
+    "An unknown mode intentionally preserves the legacy HTTP 200 success/no-op contract and still reports every lowercase .strm file as skipped.",
+    "An explicit null replacement preserves the legacy HTTP 200 no-op contract and is never coerced into destructive empty-string replacement.",
+    "A per-file failure intentionally differs from legacy: Native fails closed with HTTP 500 even when an earlier file was already changed; no rollback is claimed.",
+    "Malformed, missing, and non-object JSON preserve the legacy HTML error transport and must never be normalized into FastAPI 422."
+  ],
+  "limitations": [
+    "All filesystem effects use pytest temporary directories and sanitized fixture URLs.",
+    "No real 115, Emby, database, configured media root, or external provider is accessed."
+  ]
+}

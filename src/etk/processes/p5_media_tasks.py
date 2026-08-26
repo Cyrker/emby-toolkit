@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from importlib import import_module
 from typing import Any, Protocol
+from uuid import UUID
 
 from etk.platform.jobs import normalize_json_object
 from etk.platform.tasks import ProcessorIdentity, TaskMessage, TaskOutcome, TaskOutcomeStatus, TaskPayload
@@ -24,7 +25,6 @@ _LEGACY_HANDLERS = {
     "backfill-media-metadata": ("tasks.media", "task_backfill_media_metadata"),
     "role-translation": ("tasks.media", "task_role_translation"),
     "actor-translation": ("tasks.actors", "task_persons_translation"),
-    "restore_mediainfo": ("tasks.media", "task_restore_mediainfo"),
     "restore-nfo-and-images": ("tasks.media", "task_fill_missing_video_screenshots"),
 }
 
@@ -49,6 +49,22 @@ class P5MediaCompatibilityGateway(Protocol):
     ) -> object: ...
 
 
+class P5MediaTaskProgress(Protocol):
+    def update(self, progress: int, message: str) -> None: ...
+
+    def checkpoint(self) -> None: ...
+
+
+class P5MediaInfoRestoreUseCase(Protocol):
+    def execute(
+        self,
+        progress: P5MediaTaskProgress,
+        *,
+        operation_key: str,
+        force_full_update: bool = False,
+    ) -> TaskOutcome: ...
+
+
 class LegacyP5MediaCompatibilityGateway:
     """Worker-only P11 fallback for P5 tasks whose use cases are still legacy callables."""
 
@@ -58,6 +74,8 @@ class LegacyP5MediaCompatibilityGateway:
         processor: object,
         parameters: Mapping[str, Any],
     ) -> object:
+        if task_key == "restore_mediainfo":
+            raise LookupError("task 'restore_mediainfo' is native-only and cannot use the compatibility gateway")
         values = dict(parameters)
         handler_target = _LEGACY_HANDLERS[task_key]
         if task_key == "backfill-media-metadata" and "targets" in values:
@@ -72,10 +90,20 @@ class LegacyP5MediaCompatibilityGateway:
 class P5MediaTaskRouter:
     """Validate P5 task messages and return an explicit outcome around the P11 fallback."""
 
-    def __init__(self, compatibility: P5MediaCompatibilityGateway) -> None:
+    def __init__(
+        self,
+        compatibility: P5MediaCompatibilityGateway,
+        restore_mediainfo: P5MediaInfoRestoreUseCase | None = None,
+    ) -> None:
         self._compatibility = compatibility
+        self._restore_mediainfo = restore_mediainfo
 
-    def execute(self, message: TaskMessage, processor: object) -> TaskOutcome:
+    def execute(
+        self,
+        message: TaskMessage,
+        processor: object | None,
+        progress: P5MediaTaskProgress | None = None,
+    ) -> TaskOutcome:
         if not isinstance(message, TaskMessage):
             raise TypeError("P5 media task router requires a TaskMessage")
         if message.task_key not in P5_NATIVE_TASK_KEYS:
@@ -84,11 +112,32 @@ class P5MediaTaskRouter:
             raise ValueError(f"task {message.task_key!r} requires the media processor")
         if message.payload.version != 1:
             raise ValueError(f"task {message.task_key!r} payload version is not supported")
-        if processor is None:
-            raise RuntimeError("P5 media processor is unavailable")
-
         payload = TaskPayload.create(message.payload.data, version=message.payload.version).data
         parameters = _normalize_parameters(message.task_key, payload)
+        if message.task_key == "restore_mediainfo":
+            if self._restore_mediainfo is None:
+                raise RuntimeError("native MediaInfo restore use case is unavailable")
+            if progress is None:
+                raise RuntimeError("native MediaInfo restore progress is unavailable")
+            job_id = _metadata_uuid(message.metadata, "job_id")
+            result = self._restore_mediainfo.execute(
+                progress,
+                operation_key=f"restore_mediainfo:{job_id}",
+                force_full_update=bool(parameters.get("force_full_update", False)),
+            )
+            return TaskOutcome(
+                result.status,
+                result.message,
+                {
+                    **result.details,
+                    "task_key": message.task_key,
+                    "native_handler": type(self._restore_mediainfo).__name__,
+                    "envelope_owner": type(self).__name__,
+                    "compatibility_fallback": False,
+                },
+            )
+        if processor is None:
+            raise RuntimeError("P5 media processor is unavailable")
         if message.task_key == "backfill-media-metadata" and parameters.get("targets") == []:
             return TaskOutcome.skipped(
                 "没有缺失元数据需要补齐。",
@@ -140,6 +189,16 @@ def _normalize_backfill_targets(value: object) -> list[dict[str, str]]:
     return targets
 
 
+def _metadata_uuid(values: Mapping[str, Any], field: str) -> UUID:
+    raw = values.get(field)
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError(f"task metadata field {field!r} must be a UUID string")
+    try:
+        return UUID(raw.strip())
+    except ValueError as exc:
+        raise ValueError(f"task metadata field {field!r} must be a UUID string") from exc
+
+
 def _explicit_outcome(task_key: str, result: object) -> TaskOutcome:
     details = _outcome_details(task_key)
     if isinstance(result, TaskOutcome):
@@ -189,5 +248,7 @@ __all__ = [
     "LegacyP5MediaCompatibilityGateway",
     "P5_COMPATIBILITY_FALLBACK_UNTIL",
     "P5MediaCompatibilityGateway",
+    "P5MediaInfoRestoreUseCase",
+    "P5MediaTaskProgress",
     "P5MediaTaskRouter",
 ]

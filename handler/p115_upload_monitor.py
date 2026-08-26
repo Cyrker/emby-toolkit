@@ -7,7 +7,7 @@ import tempfile
 import threading
 import time
 import uuid
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from watchdog.events import FileSystemEventHandler
 
@@ -119,6 +119,11 @@ def save_upload_monitor_config(value: Any) -> Dict[str, Any]:
 
 
 def upload_monitor_enabled() -> bool:
+    from etk.compatibility.upload_monitor import persistent_upload_monitor_ingress
+
+    ingress = persistent_upload_monitor_ingress()
+    if ingress is not None:
+        return ingress.enabled()
     config = get_upload_monitor_config()
     UploadMonitorRuntime.instance().prune_jobs(config)
     return bool(config["enabled"] and any(item["enabled"] for item in config["mappings"]))
@@ -191,12 +196,29 @@ class UploadMonitorEventHandler(FileSystemEventHandler):
         )
 
     def _schedule(self, path: str) -> None:
-        if self._accept(path):
-            UploadMonitorRuntime.instance().schedule_path(path, self.mappings)
+        if not self._accept(path):
+            return
+        from etk.compatibility.upload_monitor import persistent_upload_monitor_ingress
+
+        ingress = persistent_upload_monitor_ingress()
+        if ingress is not None:
+            ingress.record_event("created", path, source="watchdog")
+            return
+        if _durable_upload_gateway_required():
+            raise RuntimeError("Coordinator persistent upload monitor ingress is unavailable")
+        UploadMonitorRuntime.instance().schedule_path(path, self.mappings)
 
     def _schedule_delete(self, path: str) -> None:
         mapping = _find_mapping(path, self.mappings)
         if self._accept(path) and mapping and mapping.get("mode") == "keep":
+            from etk.compatibility.upload_monitor import persistent_upload_monitor_ingress
+
+            ingress = persistent_upload_monitor_ingress()
+            if ingress is not None:
+                ingress.record_event("deleted", path, source="watchdog")
+                return
+            if _durable_upload_gateway_required():
+                raise RuntimeError("Coordinator persistent upload monitor ingress is unavailable")
             UploadMonitorRuntime.instance().schedule_deleted_path(path)
 
     def on_created(self, event):
@@ -213,8 +235,25 @@ class UploadMonitorEventHandler(FileSystemEventHandler):
 
     def on_moved(self, event):
         if not event.is_directory:
+            from etk.compatibility.upload_monitor import persistent_upload_monitor_ingress
+
+            ingress = persistent_upload_monitor_ingress()
+            if ingress is not None:
+                ingress.record_event(
+                    "moved",
+                    event.dest_path,
+                    related_path=event.src_path,
+                    source="watchdog",
+                )
+                return
+            if _durable_upload_gateway_required():
+                raise RuntimeError("Coordinator persistent upload monitor ingress is unavailable")
             self._schedule_delete(event.src_path)
             self._schedule(event.dest_path)
+
+
+def _durable_upload_gateway_required() -> bool:
+    return str(os.environ.get("ETK_PROCESS_ROLE") or "").strip().casefold() in {"coordinator", "worker"}
 
 
 class UploadMonitorRuntime:
@@ -898,6 +937,9 @@ class UploadMonitorRuntime:
         result: Dict[str, Any],
         target_cid: str,
         uploaded_file: Optional[Dict[str, Any]] = None,
+        *,
+        enqueue_ingestion: bool = True,
+        schedule_screenshot: bool = True,
     ) -> bool:
         path = job["path"]
         if os.path.splitext(path)[1].lower() not in MEDIA_OUTPUT_EXTENSIONS:
@@ -951,8 +993,12 @@ class UploadMonitorRuntime:
             return False
 
         job["derived_paths"] = [strm_path]
-        enqueue_file_actively(strm_path)
+        if enqueue_ingestion:
+            enqueue_file_actively(strm_path)
         if (
+            schedule_screenshot
+            and enqueue_ingestion
+            and
             os.path.splitext(path)[1].lower() in VIDEO_OUTPUT_EXTENSIONS
             and _as_bool(config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_EXTRACT_THUMB), False)
         ):
@@ -1122,27 +1168,49 @@ class UploadMonitorRuntime:
             if value.get(key) not in (None, "")
         }
 
-    def _upload_file_resumable(self, path: str, target_cid: str, resume: Any, job_id: str = ""):
-        from handler.p115_service import P115Service, get_115_api_priority, get_115_tokens
+    def _upload_file_resumable(
+        self,
+        path: str,
+        target_cid: str,
+        resume: Any,
+        job_id: str = "",
+        *,
+        fixed_backend: str = "",
+        expected_account_id: str = "",
+        checkpoint_hook: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+        external_progress_hook: Optional[Callable[[int], None]] = None,
+    ):
+        from database import settings_db
+        from handler.p115_service import P115Service, get_115_account_id, get_115_api_priority, get_115_tokens
         try:
             from p115oss import MultipartUploadAbort, oss_multipart_upload_init, oss_upload, upload_file, upload_file_init
         except ImportError as exc:
             raise RuntimeError("当前 p115client 版本不支持持久化分片续传，请按 requirements.txt 更新依赖") from exc
 
-        access_token, _, cookie, _ = get_115_tokens()
         endpoint = "https://oss-cn-shenzhen.aliyuncs.com"
         size = os.path.getsize(path)
         filename = os.path.basename(path)
         resume = dict(resume) if isinstance(resume, dict) else {}
-        progress_hook = self._make_progress_hook(job_id, size) if job_id else None
+        progress_hook = external_progress_hook or (self._make_progress_hook(job_id, size) if job_id else None)
 
-        raw_client = None
-        if cookie:
-            unified_client = P115Service.get_client()
-            raw_client = getattr(unified_client, "raw_client", None) if unified_client else None
+        expected_account_id = str(expected_account_id or "").strip()
+        with settings_db.p115_auth_write_lock():
+            current_account_id = str(get_115_account_id() or "").strip()
+            if expected_account_id and current_account_id != expected_account_id:
+                raise RuntimeError(
+                    "115 upload account changed before provider request: "
+                    f"expected={expected_account_id}, current={current_account_id or '-'}"
+                )
+            access_token, _, cookie, _ = get_115_tokens()
+            raw_client = None
+            if cookie:
+                unified_client = P115Service.get_client(expected_account_id=expected_account_id or None)
+                raw_client = getattr(unified_client, "raw_client", None) if unified_client else None
 
         priority = get_115_api_priority()
-        if resume.get("backend") in {"cookie", "openapi"}:
+        if fixed_backend in {"cookie", "openapi"}:
+            backends = [fixed_backend]
+        elif resume.get("backend") in {"cookie", "openapi"}:
             backends = [resume["backend"]]
         elif priority == "cookie":
             backends = ["cookie", "openapi"]
@@ -1172,13 +1240,18 @@ class UploadMonitorRuntime:
                     oss_multipart_upload_init=oss_multipart_upload_init,
                     oss_upload=oss_upload,
                     upload_file=upload_file,
+                    checkpoint_hook=checkpoint_hook,
                 )
             except MultipartUploadAbort as exc:
+                if fixed_backend:
+                    raise
                 if self._resume_from_exception(exc):
                     raise
                 last_error = exc
                 logger.warning("  ➜ [115上传监控] %s 直传失败，尝试备用接口: %s", backend, exc)
             except Exception as exc:
+                if fixed_backend:
+                    raise
                 last_error = exc
                 if resume.get("upload_id"):
                     raise
@@ -1203,6 +1276,7 @@ class UploadMonitorRuntime:
         oss_multipart_upload_init,
         oss_upload,
         upload_file,
+        checkpoint_hook: Optional[Callable[[str, Dict[str, Any]], None]] = None,
     ):
         if job_id:
             self._update_job(job_id, upload_backend=backend)
@@ -1212,6 +1286,19 @@ class UploadMonitorRuntime:
         else:
             api_kwargs["user_id"] = str(raw_client.user_id)
             api_kwargs["user_key"] = str(raw_client.user_key)
+
+        if checkpoint_hook is not None:
+            checkpoint_hook(
+                backend,
+                {
+                    **resume,
+                    "backend": backend,
+                    "phase": "upload_init" if not resume.get("upload_id") else "multipart_upload",
+                    "target_cid": str(target_cid),
+                    "filename": filename,
+                    "filesize": size,
+                },
+            )
 
         if not resume.get("callback") or not resume.get("upload_id"):
             init_result = upload_file_init(
@@ -1232,6 +1319,20 @@ class UploadMonitorRuntime:
             if not callback or not object_key or not bucket:
                 raise RuntimeError(f"115 上传初始化缺少 OSS 参数: {init_result}")
             if size <= DIRECT_UPLOAD_MAX_SIZE:
+                if checkpoint_hook is not None:
+                    checkpoint_hook(
+                        backend,
+                        {
+                            "backend": backend,
+                            "phase": "direct_upload",
+                            "target_cid": str(target_cid),
+                            "filename": filename,
+                            "filesize": size,
+                            "callback": callback,
+                            "object": object_key,
+                            "bucket": bucket,
+                        },
+                    )
                 with open(path, "rb") as file_obj:
                     result = oss_upload(
                         object_key,
@@ -1262,6 +1363,8 @@ class UploadMonitorRuntime:
             }
             if job_id:
                 self._merge_resume(job_id, resume)
+            if checkpoint_hook is not None:
+                checkpoint_hook(backend, dict(resume))
 
         try:
             result = upload_file(
@@ -1367,6 +1470,7 @@ def delete_local_sources_by_pickcodes(pickcodes: Iterable[str]) -> Dict[str, int
 
 
 def schedule_upload_monitor(observer, extensions: Iterable[str]) -> List[str]:
+    del extensions
     config = get_upload_monitor_config()
     mappings = [item for item in config["mappings"] if item.get("enabled")]
     if not config["enabled"] or not mappings:
@@ -1380,7 +1484,16 @@ def schedule_upload_monitor(observer, extensions: Iterable[str]) -> List[str]:
         observer.schedule(handler, root, recursive=True)
         started.append(root)
     if started:
-        runtime = UploadMonitorRuntime.instance()
-        runtime.start()
-        runtime.scan_existing(mappings)
+        from etk.compatibility.upload_monitor import persistent_upload_monitor_ingress
+
+        ingress = persistent_upload_monitor_ingress()
+        if ingress is not None:
+            ingress.scan_existing()
+            ingress.apply_config()
+        else:
+            if _durable_upload_gateway_required():
+                raise RuntimeError("Coordinator persistent upload monitor ingress is unavailable")
+            runtime = UploadMonitorRuntime.instance()
+            runtime.start()
+            runtime.scan_existing(mappings)
     return started

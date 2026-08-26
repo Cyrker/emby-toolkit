@@ -393,6 +393,31 @@ def start_task_worker_if_not_running():
         else:
             logger.trace("通用任务线程已在运行。")
 
+def submit_persistent_task(
+    task_function: Callable,
+    task_name: str,
+    processor_type: ProcessorType = "media",
+    *args,
+    silent: bool = False,
+    **kwargs,
+) -> bool:
+    """Submit only through the installed persistent gateway, with no local queue fallback."""
+    with _persistent_gateway_lock:
+        gateway = _persistent_gateway
+        if gateway is None:
+            return False
+        return bool(
+            gateway.submit(
+                task_function,
+                task_name,
+                processor_type,
+                tuple(args),
+                dict(kwargs),
+                silent=silent,
+            )
+        )
+
+
 def submit_task(task_function: Callable, task_name: str, processor_type: ProcessorType = 'media', *args, silent: bool = False, **kwargs) -> bool:
     """
     【V2 - 公共接口】将一个任务提交到通用队列中。

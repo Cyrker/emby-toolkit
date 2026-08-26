@@ -546,6 +546,11 @@ def save_pool_enabled(enabled):
 
 
 def is_pool_enabled():
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        return gateway.pool_enabled()
     return bool(_load_config().get("enabled"))
 
 
@@ -931,11 +936,21 @@ def _select_account(config, user_id="", own_account_only=False):
 
 
 def has_usable_pool():
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        return gateway.pool_available()
     config = _load_config()
     return bool(config.get("enabled") and _select_account(config))
 
 
 def has_usable_pool_for_user(user_id="", own_account_only=False):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        return gateway.pool_available(user_id, own_account_only=own_account_only)
     config = _load_config()
     return bool(config.get("enabled") and _select_account(config, user_id=user_id, own_account_only=own_account_only))
 
@@ -1397,6 +1412,21 @@ def _get_source_row_from_mediainfo_cache(item_id, source_pick_code, file_name):
 
 
 def prepare_play_pool_pick_code(source_pick_code, *, file_name="", item_id="", play_session_id="", user_id="", source="", client_key="", user_agent="", own_account_only=False):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        return gateway.prepare_pool(
+            source_pick_code,
+            file_name=file_name,
+            item_id=item_id,
+            play_session_id=play_session_id,
+            user_id=user_id,
+            source=source,
+            client_key=client_key,
+            user_agent=user_agent,
+            own_account_only=own_account_only,
+        )
     lock_key = _prepare_lock_key(source_pick_code, item_id, play_session_id, user_id, client_key)
     lock = _get_prepare_lock(lock_key)
     with lock:
@@ -1637,6 +1667,11 @@ def _prepare_play_pool_pick_code_locked(source_pick_code, *, file_name="", item_
 
 
 def get_direct_url(play_result, user_agent=""):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None and bool((play_result or {}).get("_native_playback")):
+        return gateway.pool_direct_url(play_result, user_agent=user_agent)
     user_agent = str(user_agent or "").strip()
     session = (play_result or {}).get("session") or {}
     cached_url = str((play_result or {}).get("direct_url") or session.get("direct_url") or "").strip()
@@ -1673,6 +1708,8 @@ def get_direct_url(play_result, user_agent=""):
 
 
 def recycle_session_after_direct_url(play_result, reason="起播后清理"):
+    if bool((play_result or {}).get("_native_playback")):
+        return False
     session = (play_result or {}).get("session") or {}
     if session.get("recycled_after_direct_url"):
         return False
@@ -1712,6 +1749,11 @@ def recycle_session_after_direct_url(play_result, reason="起播后清理"):
 
 
 def cleanup_expired_sessions():
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        return gateway.cleanup()
     sessions = _load_sessions()
     if not sessions:
         return 0
@@ -1736,6 +1778,12 @@ def cleanup_expired_sessions():
 
 
 def cleanup_temp_dir_old_videos(older_than_hours=3):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        removed = gateway.cleanup()
+        return [{"deleted": removed, "label": "native-playback", "lease_guarded": True}]
     results = []
     config = _load_config()
     changed = False
@@ -1789,6 +1837,11 @@ def _client_key_from_webhook(data):
 
 
 def cleanup_for_playback_stop(data):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        return gateway.release_for_stop(data)
     playback_info = data.get("PlaybackInfo") or {}
     item = data.get("Item") or {}
     user = data.get("User") or {}

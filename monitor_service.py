@@ -79,20 +79,59 @@ class MediaFileHandler(FileSystemEventHandler):
 
         return True
 
+    @staticmethod
+    def _persistent_ingress():
+        from etk.compatibility.ingestion_monitor import persistent_ingestion_ingress
+
+        return persistent_ingestion_ingress()
+
     def on_created(self, event):
         if not event.is_directory and self._is_valid_media_file(event.src_path):
-            self._enqueue_file(event.src_path)
+            self._enqueue_file(event.src_path, event_type="created")
 
     def on_modified(self, event):
         return
 
     def on_moved(self, event):
-        if not event.is_directory and self._is_valid_media_file(event.dest_path):
-            self._enqueue_file(event.dest_path)
+        if event.is_directory:
+            return
+        source_valid = self._is_valid_media_file(event.src_path)
+        destination_valid = self._is_valid_media_file(event.dest_path)
+        ingress = self._persistent_ingress()
+        if ingress is not None and (source_valid or destination_valid):
+            ingress.record_event(
+                "moved",
+                event.dest_path,
+                related_path=event.src_path,
+                source="watchdog",
+            )
+        elif (source_valid or destination_valid) and _durable_ingestion_gateway_required():
+            raise RuntimeError("Coordinator persistent ingestion ingress is unavailable")
+        elif destination_valid:
+            self._enqueue_file(event.dest_path, event_type="created")
 
-    def _enqueue_file(self, file_path: str):
+    def on_deleted(self, event):
+        if event.is_directory or not self._is_valid_media_file(event.src_path):
+            return
+        ingress = self._persistent_ingress()
+        if ingress is not None:
+            ingress.record_event("deleted", event.src_path, source="watchdog")
+        elif _durable_ingestion_gateway_required():
+            raise RuntimeError("Coordinator persistent ingestion ingress is unavailable")
+
+    def _enqueue_file(self, file_path: str, *, event_type: str):
         """新增/移动文件入队"""
+        ingress = self._persistent_ingress()
+        if ingress is not None:
+            ingress.record_event(event_type, file_path, source="watchdog")
+            return
+        if _durable_ingestion_gateway_required():
+            raise RuntimeError("Coordinator persistent ingestion ingress is unavailable")
         enqueue_file_actively(file_path)
+
+
+def _durable_ingestion_gateway_required() -> bool:
+    return str(os.environ.get("ETK_PROCESS_ROLE") or "").strip().casefold() in {"coordinator", "worker"}
 
 def _is_path_excluded(file_path: str, exclude_paths: List[str]) -> bool:
     if not exclude_paths:
@@ -363,6 +402,15 @@ def enqueue_emby_binding(file_path: str, mediainfo: Optional[Dict[str, Any]] = N
     if not file_path or not os.path.isfile(file_path):
         return
 
+    from etk.compatibility.ingestion_monitor import persistent_ingestion_binding
+
+    persistent_binding = persistent_ingestion_binding()
+    if persistent_binding is not None:
+        persistent_binding.enqueue_binding(file_path, mediainfo=mediainfo)
+        return
+    if _durable_ingestion_gateway_required():
+        raise RuntimeError("Worker persistent ingestion binding gateway is unavailable")
+
     with EMBY_BIND_CONDITION:
         normalized_path = os.path.normpath(file_path)
         EMBY_BIND_QUEUE.add(normalized_path)
@@ -623,6 +671,16 @@ def _process_emby_binding_queue():
 def enqueue_file_actively(file_path: str):
     """主动将文件推入监控队列"""
     global DEBOUNCE_TIMER
+
+    from etk.compatibility.ingestion_monitor import persistent_ingestion_ingress
+
+    ingress = persistent_ingestion_ingress()
+    if ingress is not None:
+        ingress.record_event("created", file_path, source="compatibility-active")
+        return
+    if _durable_ingestion_gateway_required():
+        raise RuntimeError("Persistent ingestion ingress is unavailable")
+
     if not _is_etk_standard_strm(file_path):
         logger.warning(f"  ➜ [实时监控] 非 ETK 标准 STRM，已跳过：{os.path.basename(file_path)}")
         return

@@ -30,11 +30,37 @@ class FakeCompatibility:
         return self.result
 
 
+class FakeProgress:
+    def update(self, progress: int, message: str) -> None:
+        del progress, message
+        return None
+
+    def checkpoint(self) -> None:
+        return None
+
+
+class FakeRestore:
+    def __init__(self, outcome: TaskOutcome | None = None) -> None:
+        self.outcome = outcome or TaskOutcome.succeeded("restore complete", {"restored": 1})
+        self.calls: list[tuple[object, str, bool]] = []
+
+    def execute(
+        self,
+        progress: object,
+        *,
+        operation_key: str,
+        force_full_update: bool = False,
+    ) -> TaskOutcome:
+        self.calls.append((progress, operation_key, force_full_update))
+        return self.outcome
+
+
 def _message(task_key: str, payload: Mapping[str, object] | None = None) -> TaskMessage:
     return TaskMessage.create(
         task_key=task_key,
         processor=ProcessorIdentity.MEDIA,
         payload=payload,
+        metadata={"job_id": "00000000-0000-0000-0000-000000000501"},
     )
 
 
@@ -45,7 +71,6 @@ def _message(task_key: str, payload: Mapping[str, object] | None = None) -> Task
         ("backfill-media-metadata", {}),
         ("role-translation", {"force_full_update": True}),
         ("actor-translation", {}),
-        ("restore_mediainfo", {"force_full_update": False}),
         ("restore-nfo-and-images", {}),
     ],
 )
@@ -68,6 +93,36 @@ def test_all_p5_catalog_keys_execute_through_the_native_router(
         "fallback_retirement_stage": "P11",
     }
     assert compatibility.calls == [(task_key, processor, payload)]
+
+
+def test_restore_mediainfo_keeps_p5_envelope_but_executes_native_business_use_case() -> None:
+    compatibility = FakeCompatibility()
+    restore = FakeRestore()
+    progress = FakeProgress()
+    router = P5MediaTaskRouter(compatibility, restore)
+
+    outcome = router.execute(
+        _message("restore_mediainfo", {"force_full_update": True}),
+        None,
+        progress,
+    )
+
+    assert outcome.status is TaskOutcomeStatus.SUCCEEDED
+    assert outcome.details == {
+        "restored": 1,
+        "task_key": "restore_mediainfo",
+        "native_handler": "FakeRestore",
+        "envelope_owner": "P5MediaTaskRouter",
+        "compatibility_fallback": False,
+    }
+    assert restore.calls == [
+        (
+            progress,
+            "restore_mediainfo:00000000-0000-0000-0000-000000000501",
+            True,
+        )
+    ]
+    assert compatibility.calls == []
 
 
 def test_targeted_backfill_normalizes_and_deduplicates_json_targets() -> None:
@@ -122,9 +177,11 @@ def test_router_preserves_typed_outcomes_and_never_returns_legacy_none() -> None
         _message("populate-metadata"),
         object(),
     )
-    false_outcome = P5MediaTaskRouter(FakeCompatibility(False)).execute(
+    failed_restore = FakeRestore(TaskOutcome.failed("restore failed"))
+    false_outcome = P5MediaTaskRouter(FakeCompatibility(False), failed_restore).execute(
         _message("restore_mediainfo"),
-        object(),
+        None,
+        FakeProgress(),
     )
     mapping_outcome = P5MediaTaskRouter(FakeCompatibility({"ok": False, "message": "provider unavailable"})).execute(
         _message("actor-translation"),
@@ -214,3 +271,14 @@ def test_legacy_gateway_uses_batch_callable_when_targets_key_is_present(monkeypa
         ("full", processor, {}),
         ("batch", processor, {"targets": []}),
     ]
+
+
+def test_legacy_gateway_rejects_native_restore_without_importing_legacy_callable(monkeypatch) -> None:
+    monkeypatch.setattr(
+        p5_media_tasks,
+        "import_module",
+        lambda _name: (_ for _ in ()).throw(AssertionError("native restore must not import tasks.media")),
+    )
+
+    with pytest.raises(LookupError, match="native-only"):
+        LegacyP5MediaCompatibilityGateway().execute("restore_mediainfo", object(), {})

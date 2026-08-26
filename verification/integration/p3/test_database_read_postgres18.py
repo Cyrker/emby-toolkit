@@ -26,9 +26,27 @@ GREENFIELD_TABLES = {
     "job_runs",
     "media_effects",
     "outbox_events",
+    "p115_organize_effect_events",
+    "p115_organize_effects",
+    "p115_organize_execution_actions",
+    "p115_organize_plan_actions",
+    "p115_organize_plan_executions",
+    "p115_organize_plans",
+    "p115_organize_reconciliation_intents",
+    "p115_media_probe_items",
+    "p115_strm_sync_plans",
+    "ingestion_monitor_items",
+    "ingestion_pending_bindings",
+    "p115_upload_monitor_controls",
+    "p115_upload_operations",
+    "p115_playback_operations",
+    "p115_playback_artifacts",
+    "p115_playback_leases",
+    "p115_playback_qr_sessions",
+    "p115_intro_detection_operations",
 }
 EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(GREENFIELD_TABLES)
-EXPECTED_MIGRATION_HEAD = "0003_p5_media_effects"
+EXPECTED_MIGRATION_HEAD = "0012_p6_intro_detection"
 _FIXTURE_TABLES = (
     "failed_log",
     "processed_log",

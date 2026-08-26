@@ -511,6 +511,10 @@ def is_copy_play_missing_error(error):
 
 
 def discard_copy_play_clone(clone_pick_code):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    if persistent_playback_gateway() is not None:
+        return False
     pc = str(clone_pick_code or "").strip()
     if not pc:
         return False
@@ -556,6 +560,10 @@ def _matches_playback_stop(record, *, play_session_id="", item_id="", user_id=""
 
 
 def should_use_copy_play_for_source(source_pick_code, *, file_name="", item_id="", play_session_id="", user_id="", source="", client_key="", client_name=""):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    if persistent_playback_gateway() is not None:
+        return False
     pc = str(source_pick_code or "").strip()
     if not pc or not is_copy_play_enabled():
         return False
@@ -584,6 +592,10 @@ def should_use_copy_play_for_source(source_pick_code, *, file_name="", item_id="
 
 
 def record_source_play(source_pick_code, *, file_name="", item_id="", play_session_id="", user_id="", source="", client_key="", client_name=""):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    if persistent_playback_gateway() is not None:
+        return False
     pc = str(source_pick_code or "").strip()
     if not pc or not is_copy_play_enabled():
         return False
@@ -712,6 +724,10 @@ def _delete_clone(client, clone, reason):
 
 
 def recycle_clone_after_direct_url(clone_pick_code, reason="起播后清理"):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    if persistent_playback_gateway() is not None:
+        return False
     pc = str(clone_pick_code or "").strip()
     if not pc or not is_copy_play_enabled():
         return False
@@ -739,6 +755,11 @@ def recycle_clone_after_direct_url(clone_pick_code, reason="起播后清理"):
 
 
 def cleanup_expired_clones(client=None):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        return gateway.cleanup()
     clones = _load_clones()
     if not clones:
         return 0
@@ -765,7 +786,25 @@ def cleanup_expired_clones(client=None):
     return removed
 
 
-def prepare_copy_play_pick_code(source_pick_code, *, file_name="", item_id="", play_session_id="", user_id="", source="", client_key="", client_name="", force_new=False):
+def prepare_copy_play_pick_code(source_pick_code, *, file_name="", item_id="", play_session_id="", user_id="", source="", client_key="", client_name="", force_new=False, failed_pick_code=""):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        if not is_copy_play_enabled():
+            return source_pick_code
+        return gateway.prepare_copy(
+            source_pick_code,
+            file_name=file_name,
+            item_id=item_id,
+            play_session_id=play_session_id,
+            user_id=user_id,
+            source=source,
+            client_key=client_key,
+            client_name=client_name,
+            force_new=force_new,
+            failed_pick_code=failed_pick_code,
+        )
     lock_key = _prepare_lock_key(source_pick_code, item_id, play_session_id, user_id, client_key)
     lock = _get_prepare_lock(lock_key)
     with lock:
@@ -925,6 +964,11 @@ def _prepare_copy_play_pick_code_locked(source_pick_code, *, file_name="", item_
 
 
 def cleanup_for_playback_stop(data):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        return gateway.release_for_stop(data)
     playback_info = data.get("PlaybackInfo") or {}
     item = data.get("Item") or {}
     user = data.get("User") or {}

@@ -11,6 +11,8 @@ import pytest
 from etk.platform.tasks import (
     LEGACY_TASK_KEY_ORDER,
     P4_NATIVE_TASK_KEYS,
+    P5_NATIVE_TASK_KEYS,
+    P6_NATIVE_TASK_KEYS,
     LegacyTaskAdapter,
     ProcessorIdentity,
     TaskHandlerKind,
@@ -20,7 +22,6 @@ from etk.platform.tasks import (
     TaskVisibility,
     task_definition_metadata,
 )
-from etk.platform.tasks.catalog import P5_NATIVE_TASK_KEYS
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ORDERED_TASK_FIXTURE = REPO_ROOT / "verification" / "fixtures" / "tasks" / "ordered-task-catalog.json"
@@ -40,9 +41,11 @@ def test_frozen_registry_preserves_all_50_legacy_definitions_and_context_orders(
     assert len(definitions) == 50
     assert {definition.processor for definition in definitions} == set(ProcessorIdentity)
     assert {definition.key for definition in definitions if definition.handler_kind is TaskHandlerKind.NATIVE} == (
-        P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS
+        P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS
     )
-    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 42
+    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 33
+    assert fixture["metrics"]["native_handler_count"] == 17
+    assert fixture["metrics"]["legacy_adapter_count"] == 33
     assert [definition.key for definition in registry.available(TaskVisibility.ALL)] == fixture["contexts"]["all"]
     assert [definition.key for definition in registry.available(TaskVisibility.CHAIN)] == fixture["contexts"]["chain"]
     assert [definition.key for definition in registry.available(TaskVisibility.MANUAL)] == fixture["contexts"]["manual"]
@@ -73,6 +76,15 @@ def test_ordered_fixture_matches_the_manifest_and_legacy_source_signatures() -> 
         and any(isinstance(target, ast.Name) and target.id == "full_registry" for target in node.targets)
         and isinstance(node.value, ast.Dict)
     )
+    help_texts = ast.literal_eval(
+        next(
+            node.value
+            for node in ast.walk(core_tree)
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "TASK_HELP_TEXTS" for target in node.targets)
+            and isinstance(node.value, ast.Dict)
+        )
+    )
     source_order = tuple(key.value for key in full_registry.keys if isinstance(key, ast.Constant))
 
     assert source_order == LEGACY_TASK_KEY_ORDER
@@ -83,6 +95,8 @@ def test_ordered_fixture_matches_the_manifest_and_legacy_source_signatures() -> 
         assert item["name"] == manifest_entry["display_name"]
         assert item["help"] == manifest_entry["help"]
         assert item["help_source"] == manifest_entry["help_source"]
+        if item["help_source"] == "TASK_HELP_TEXTS":
+            assert item["help"] == help_texts[item["key"]]
         assert item["processor"] == manifest_entry["processor_type"]
         assert item["visible_in"] == manifest_entry["visible_in"]
         assert item["chain_eligible"] is manifest_entry["chain_eligible"]

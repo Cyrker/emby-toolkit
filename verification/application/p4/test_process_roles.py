@@ -20,7 +20,13 @@ from etk.domains.operations.jobs import JobSubmissionService
 from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus, PublishBatchResult
 from etk.processes import coordinator
 from etk.processes import worker as worker_module
-from etk.processes.celery_app import EXECUTE_JOB_TASK, create_celery_app
+from etk.processes.celery_app import (
+    EXECUTE_INGESTION_MONITOR_TASK,
+    EXECUTE_JOB_TASK,
+    EXECUTE_P115_PLAYBACK_OPERATION_TASK,
+    EXECUTE_P115_UPLOAD_OPERATION_TASK,
+    create_celery_app,
+)
 from etk.processes.coordinator import (
     CeleryOutboxPublisher,
     CoordinatorLeadership,
@@ -387,7 +393,11 @@ def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
     from etk.compatibility import background
 
     events: list[str] = []
-    database = SimpleNamespace(unit_of_work=lambda: None, raw_pool=object())
+    database = SimpleNamespace(
+        unit_of_work=lambda: None,
+        raw_pool=SimpleNamespace(connection=lambda: None),
+        engine=object(),
+    )
     container = SimpleNamespace(
         database=database,
         settings=SimpleNamespace(to_runtime_dict=lambda: {}),
@@ -433,6 +443,280 @@ def test_celery_rejects_and_requeues_delivery_after_sticky_shutdown(monkeypatch)
         task.run(event_id=str(EVENT_ID), job_id=str(JOB_ID), attempt_id=str(ATTEMPT_ID))
 
     assert exc_info.value.requeue is True
+
+
+def test_celery_forwards_ingestion_item_to_the_worker_runtime(monkeypatch) -> None:
+    calls: list[str] = []
+    runtime = SimpleNamespace(execute_ingestion_monitor=lambda *, item_id: calls.append(item_id))
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", False)
+    monkeypatch.setattr(worker_module, "get_worker_runtime", lambda: runtime)
+    task = create_celery_app(TaskRuntimeConfig()).tasks[EXECUTE_INGESTION_MONITOR_TASK]
+
+    task.run(item_id=str(EVENT_ID))
+
+    assert calls == [str(EVENT_ID)]
+
+
+def test_celery_forwards_p115_upload_operation_to_the_worker_runtime(monkeypatch) -> None:
+    calls: list[str] = []
+    runtime = SimpleNamespace(execute_p115_upload_operation=lambda *, operation_id: calls.append(operation_id))
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", False)
+    monkeypatch.setattr(worker_module, "get_worker_runtime", lambda: runtime)
+    task = create_celery_app(TaskRuntimeConfig()).tasks[EXECUTE_P115_UPLOAD_OPERATION_TASK]
+
+    task.run(operation_id=str(EVENT_ID))
+
+    assert calls == [str(EVENT_ID)]
+
+
+def test_celery_registers_and_forwards_p115_playback_operation(monkeypatch) -> None:
+    calls: list[str] = []
+    runtime = SimpleNamespace(execute_p115_playback_operation=lambda *, operation_id: calls.append(operation_id))
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", False)
+    monkeypatch.setattr(worker_module, "get_worker_runtime", lambda: runtime)
+    config = TaskRuntimeConfig(queue_name="fixture.serial")
+    app = create_celery_app(config)
+    task = app.tasks[EXECUTE_P115_PLAYBACK_OPERATION_TASK]
+
+    task.run(operation_id=str(EVENT_ID))
+
+    assert EXECUTE_P115_PLAYBACK_OPERATION_TASK == "etk.p115.playback.execute"
+    assert app.conf.task_routes[EXECUTE_P115_PLAYBACK_OPERATION_TASK] == {"queue": "fixture.serial"}
+    assert calls == [str(EVENT_ID)]
+
+
+def test_celery_requeues_p115_upload_delivery_after_sticky_shutdown(monkeypatch) -> None:
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", True)
+    task = create_celery_app(TaskRuntimeConfig()).tasks[EXECUTE_P115_UPLOAD_OPERATION_TASK]
+
+    with pytest.raises(Reject) as exc_info:
+        task.run(operation_id=str(EVENT_ID))
+
+    assert exc_info.value.requeue is True
+
+
+def test_celery_requeues_p115_playback_delivery_after_sticky_shutdown(monkeypatch) -> None:
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", True)
+    task = create_celery_app(TaskRuntimeConfig()).tasks[EXECUTE_P115_PLAYBACK_OPERATION_TASK]
+
+    with pytest.raises(Reject) as exc_info:
+        task.run(operation_id=str(EVENT_ID))
+
+    assert exc_info.value.requeue is True
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_worker_playback_execution_restores_active_counter_and_idle(monkeypatch, fail: bool) -> None:
+    entered = Event()
+    release = Event()
+    completed: list[UUID] = []
+    failures: list[BaseException] = []
+
+    class PlaybackExecutor:
+        def execute(self, operation_id: UUID) -> None:
+            entered.set()
+            assert release.wait(2), "test did not release playback execution"
+            if fail:
+                raise RuntimeError("fixture playback failure")
+            completed.append(operation_id)
+
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", False)
+    runtime = WorkerRuntime(config=TaskRuntimeConfig())
+    cast(Any, runtime)._started = True
+    cast(Any, runtime)._p115_playback_executor = PlaybackExecutor()
+
+    def execute() -> None:
+        try:
+            runtime.execute_p115_playback_operation(operation_id=str(EVENT_ID))
+        except BaseException as exc:
+            failures.append(exc)
+
+    delivery = Thread(target=execute, daemon=True)
+    delivery.start()
+    assert entered.wait(1)
+    assert cast(Any, runtime)._active_p115_playback_executions == 1
+    assert not cast(Any, runtime)._idle.is_set()
+
+    release.set()
+    delivery.join(1)
+
+    assert not delivery.is_alive()
+    assert cast(Any, runtime)._active_p115_playback_executions == 0
+    assert cast(Any, runtime)._idle.is_set()
+    if fail:
+        assert len(failures) == 1
+        assert isinstance(failures[0], RuntimeError)
+        assert completed == []
+    else:
+        assert failures == []
+        assert completed == [EVENT_ID]
+
+
+def test_worker_playback_completion_does_not_mark_idle_while_another_execution_is_active(monkeypatch) -> None:
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", False)
+    runtime = WorkerRuntime(config=TaskRuntimeConfig())
+    cast(Any, runtime)._started = True
+    cast(Any, runtime)._p115_playback_executor = SimpleNamespace(execute=lambda _operation_id: None)
+    cast(Any, runtime)._active_p115_upload_executions = 1
+    cast(Any, runtime)._idle.clear()
+
+    runtime.execute_p115_playback_operation(operation_id=str(EVENT_ID))
+
+    assert cast(Any, runtime)._active_p115_playback_executions == 0
+    assert not cast(Any, runtime)._idle.is_set()
+
+
+def test_worker_rejects_playback_before_start_after_shutdown_request(monkeypatch) -> None:
+    monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", False)
+    runtime = WorkerRuntime(config=TaskRuntimeConfig())
+    runtime.request_shutdown()
+
+    with pytest.raises(WorkerShutdownRequested, match="shutdown is in progress"):
+        runtime.execute_p115_playback_operation(operation_id=str(EVENT_ID))
+
+    assert cast(Any, runtime)._active_p115_playback_executions == 0
+    assert cast(Any, runtime)._p115_playback_executor is None
+
+
+def test_worker_shutdown_clears_p115_upload_source_cleanup(monkeypatch) -> None:
+    events: list[object] = []
+    cleanup_gateway = object()
+    runtime = WorkerRuntime(config=TaskRuntimeConfig())
+    cast(Any, runtime)._started = True
+    cast(Any, runtime)._p115_upload_source_cleanup = cleanup_gateway
+    monkeypatch.setattr(
+        worker_module,
+        "clear_persistent_upload_source_cleanup",
+        lambda gateway: events.append(gateway),
+    )
+
+    runtime.close()
+
+    assert events == [cleanup_gateway]
+    assert cast(Any, runtime)._p115_upload_source_cleanup is None
+    assert cast(Any, runtime)._started is False
+
+
+def test_worker_shutdown_clears_the_installed_playback_gateway() -> None:
+    from etk.compatibility.playback import (
+        clear_persistent_playback_gateway,
+        install_persistent_playback_gateway,
+        persistent_playback_gateway,
+    )
+
+    gateway = cast(Any, object())
+    runtime = WorkerRuntime(config=TaskRuntimeConfig())
+    cast(Any, runtime)._started = True
+    cast(Any, runtime)._playback_gateway = gateway
+    clear_persistent_playback_gateway()
+    install_persistent_playback_gateway(gateway)
+    try:
+        runtime.close()
+        assert persistent_playback_gateway() is None
+        assert cast(Any, runtime)._playback_gateway is None
+        assert cast(Any, runtime)._started is False
+    finally:
+        clear_persistent_playback_gateway(gateway)
+
+
+def test_coordinator_applies_upload_config_before_observer_and_clears_ingress_on_shutdown(
+    monkeypatch,
+) -> None:
+    import task_manager
+
+    events: list[str] = []
+
+    class UploadIngress:
+        def ensure_config(self) -> None:
+            events.append("upload.ensure_config")
+
+        def enabled(self) -> bool:
+            return True
+
+    class IngestionCoordinator:
+        def synchronize_enabled(self, enabled: bool) -> None:
+            assert enabled is True
+            events.append("ingestion.synchronize")
+
+        def reset_enabled_state(self) -> None:
+            events.append("ingestion.reset")
+
+    class Supervisor:
+        def start(self, *, role: RuntimeRole, background: bool) -> None:
+            assert role is RuntimeRole.COORDINATOR
+            assert background is True
+            events.append("supervisor.start")
+
+        def stop(self) -> None:
+            events.append("supervisor.stop")
+
+    class Schedules:
+        def __init__(self, _service: object) -> None:
+            pass
+
+        def start(self) -> None:
+            events.append("schedules.start")
+
+        def stop(self) -> None:
+            events.append("schedules.stop")
+
+    runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
+    runtime._service = cast(Any, object())
+    runtime._ingestion_ingress = cast(Any, object())
+    runtime._ingestion_coordinator = cast(Any, IngestionCoordinator())
+    runtime._p115_upload_ingress = cast(Any, UploadIngress())
+    runtime._p115_upload_coordinator = cast(Any, object())
+    runtime._config_adapter = cast(
+        Any,
+        SimpleNamespace(load=lambda: SimpleNamespace(monitor_enabled=True)),
+    )
+    runtime._supervisor = None
+    runtime._gateway = None
+    runtime._schedules = None
+    runtime._refresh_settings = lambda *, force=False: events.append(f"refresh:{force}")  # type: ignore[method-assign]
+
+    monkeypatch.setattr(coordinator, "RuntimeSupervisor", Supervisor)
+    monkeypatch.setattr(coordinator, "PersistentScheduleManager", Schedules)
+    monkeypatch.setattr(coordinator, "PersistentTaskManagerGateway", lambda _service: object())
+    monkeypatch.setattr(
+        coordinator,
+        "install_persistent_ingestion_ingress",
+        lambda _ingress: events.append("ingestion.install"),
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "install_persistent_upload_monitor_ingress",
+        lambda _ingress: events.append("upload.install"),
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "clear_persistent_ingestion_ingress",
+        lambda _ingress: events.append("ingestion.clear"),
+    )
+    monkeypatch.setattr(
+        coordinator,
+        "clear_persistent_upload_monitor_ingress",
+        lambda _ingress: events.append("upload.clear"),
+    )
+    monkeypatch.setattr(
+        task_manager,
+        "install_persistent_submission_gateway",
+        lambda _gateway: events.append("task.install"),
+    )
+    monkeypatch.setattr(
+        task_manager,
+        "clear_persistent_submission_gateway",
+        lambda _gateway: events.append("task.clear"),
+    )
+
+    runtime._become_leader()
+    runtime._shutdown_leader()
+
+    assert events.index("upload.ensure_config") < events.index("upload.install")
+    assert events.index("upload.install") < events.index("supervisor.start")
+    assert events.index("supervisor.stop") < events.index("upload.clear")
+    assert events.count("upload.install") == 1
+    assert events.count("upload.clear") == 1
 
 
 def test_system_update_unsuccessful_result_is_not_marked_as_worker_success() -> None:

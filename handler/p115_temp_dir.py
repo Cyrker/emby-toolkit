@@ -326,6 +326,17 @@ def _is_virtual_play_enabled():
 
 
 def cleanup_all_temp_videos(older_than_hours=3):
+    from etk.compatibility.playback import persistent_playback_gateway
+
+    gateway = persistent_playback_gateway()
+    if gateway is not None:
+        removed = gateway.cleanup()
+        return {
+            "deleted": removed,
+            "details": [{"deleted": removed, "label": "native-playback", "lease_guarded": True}],
+            "main_cleanup_enabled": True,
+            "play_pool_cleanup_enabled": gateway.pool_enabled(),
+        }
     total = 0
     details = []
     from handler import p115_play_pool

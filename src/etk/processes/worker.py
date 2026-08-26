@@ -18,12 +18,33 @@ from etk.bootstrap.app_factory import _create_default_container
 from etk.bootstrap.runtime_supervisor import RuntimeRole, RuntimeSupervisor
 from etk.compatibility.background import PersistentBackgroundGateway
 from etk.compatibility.flask_app import LazyCompatibilityApplication, create_flask_app
+from etk.compatibility.ingestion_monitor import (
+    clear_persistent_ingestion_binding,
+    clear_persistent_ingestion_ingress,
+    install_persistent_ingestion_binding,
+    install_persistent_ingestion_ingress,
+)
+from etk.compatibility.intro_detection import (
+    clear_persistent_intro_detection_gateway,
+    install_persistent_intro_detection_gateway,
+)
 from etk.compatibility.legacy_jobs import LegacyTaskAdapter
 from etk.compatibility.media_effects import clear_persistent_media_effect_gateway
+from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
 from etk.compatibility.persistent_tasks import PersistentTaskManagerGateway
+from etk.compatibility.playback import (
+    NativePlaybackCompatibilityGateway,
+    clear_persistent_playback_gateway,
+    install_persistent_playback_gateway,
+)
+from etk.compatibility.upload_monitor import (
+    clear_persistent_upload_source_cleanup,
+    install_persistent_upload_source_cleanup,
+)
+from etk.domains.ingestion import MonitorItemProjection, PostgresIngestionMonitorLedger
 from etk.domains.media.bridge_client import HttpxEmbyBridgeClient
 from etk.domains.media.compatibility import LegacyP5MediaEventGateway
-from etk.domains.media.editing_effects import BridgeMediaEffectDelivery
+from etk.domains.media.editing_effects import BridgeMediaEffectDelivery, PersistentMediaInfoCommandGateway
 from etk.domains.media.effect_execution import PersistentMediaEffectExecutor, RoutedMediaEffectDelivery
 from etk.domains.media.effects import MediaEffectProjection, PostgresMediaEffectLedger
 from etk.domains.media.event_effects import P5MediaEventEffectDelivery
@@ -38,9 +59,73 @@ from etk.domains.operations.jobs import (
     JobSubmissionService,
     import_legacy_operation,
 )
+from etk.domains.p115 import (
+    AtomicP115LocalStrmLibraryGateway,
+    ChromaprintProcessAdapter,
+    EmbyAuthorizationRevisionAdapter,
+    EmbyPathChangeEffectDelivery,
+    HttpxEmbyPathChangeGateway,
+    IntroDetectionExecutionService,
+    IntroDetectionOperation,
+    IntroDetectionSubmissionService,
+    LegacyP7IntroPolicyAdapter,
+    LegacyP7IntroRuntimeSource,
+    LegacyP9IntroChaptersChangedHook,
+    LegacyP115CredentialStore,
+    LegacyP115DirectLinkGateway,
+    LegacyP115DirectoryTreeGateway,
+    LegacyP115OrganizeMutationGateway,
+    LegacyP115PlaybackProvider,
+    LegacyP115PlaybackSourceGateway,
+    LegacyP115PlaybackUserGateway,
+    LegacyP115StrmSyncGateway,
+    NativeIntroDetectionBatchEngine,
+    NativeP115IntroDetectionGateway,
+    P115DirectorySyncService,
+    P115FingerprintRepairService,
+    P115IntroBackfillTaskService,
+    P115IntroFingerprintAdapter,
+    P115OrganizeExecutionService,
+    P115PlaybackConfigService,
+    P115PlaybackService,
+    P115StrmMediaInfoEnrichmentService,
+    P115StrmSyncService,
+    PostgresP115IntroDetectionRepository,
+    PostgresP115PlaybackRepository,
+    PostgresP115StrmSyncCoordinator,
+    SqlAlchemyP115DirectoryCacheRepository,
+    SqlAlchemyP115MediaInfoRepository,
+    SqlAlchemyP115OrganizeExecutionRepository,
+    SqlAlchemyP115OrganizePlanRepository,
+    SqlAlchemyP115RenameConfigRepository,
+    SqlAlchemyP115SortingRulesRepository,
+    SqlAlchemyP115StrmSyncRepository,
+    legacy_account_bound_direct_urls,
+)
+from etk.domains.p115.iso_probe import NativeP115IsoProbeGateway
+from etk.domains.p115.media_info_adapters import (
+    ControlledProcessRunner,
+    LegacyP115DirectUrlGateway,
+    LegacyP115FingerprintRemoteGateway,
+    LegacyP115MediaInfoPolicyProvider,
+    LocalP115FingerprintHintGateway,
+)
+from etk.domains.p115.media_info_restore import HttpxEmbyMediaInfoQueryGateway, P115MediaInfoRestoreService
+from etk.domains.p115.media_probe import P115MediaProbeService
+from etk.domains.p115.playback import PlaybackOperation
+from etk.domains.p115.upload_adapters import (
+    LegacyP115UploadProjection,
+    LegacyP115UploadProvider,
+    NativeP115UploadSourceCleanupGateway,
+)
+from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService, UploadOperation
+from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.system import SqlAlchemyAppSettingsRepository
 from etk.platform.jobs import (
     AttemptClaimResult,
+    AttemptStatus,
     InvalidJsonPayloadError,
+    InvalidStateTransitionError,
     JobProjection,
     JobStatus,
     PersistentEffectIndeterminate,
@@ -53,9 +138,28 @@ from etk.platform.jobs import (
 )
 from etk.platform.observability.redaction import redact_sensitive
 from etk.platform.tasks import ProcessorIdentity, TaskOutcome, TaskOutcomeStatus, TaskRegistry
-from etk.platform.tasks.catalog import P4_NATIVE_TASK_KEYS, P5_NATIVE_TASK_KEYS
+from etk.platform.tasks.catalog import (
+    P4_NATIVE_TASK_KEYS,
+    P5_NATIVE_TASK_KEYS,
+    P6_INGESTION_NATIVE_TASK_KEYS,
+    P6_NATIVE_TASK_KEYS,
+    P6_P115_NATIVE_TASK_KEYS,
+)
 
 from .p5_media_tasks import LegacyP5MediaCompatibilityGateway, P5MediaTaskRouter
+from .p6_ingestion import (
+    INGESTION_CLAIM_LEASE_SECONDS,
+    IngestionMonitorExecutor,
+    LegacyIngestionBindingDelivery,
+    LegacyIngestionPreparationGateway,
+    PersistentIngestionIngressGateway,
+    PersistentPendingBindingGateway,
+)
+from .p6_ingestion_tasks import P6IngestionScanService, P6IngestionTaskRouter
+from .p6_intro_detection import P115IntroDetectionOperationExecutor
+from .p6_p115_tasks import P6P115TaskRouter
+from .p6_playback import P115PlaybackOperationExecutor
+from .p6_upload_monitor import P115UploadOperationExecutor
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -168,6 +272,7 @@ class _ExecutionProgress:
     worker_id: str
     lease_seconds: int
     control: _ExecutionControl
+    accept_succeeded_terminal_update: bool = False
     _reported_failures: list[str] = field(default_factory=list, init=False, repr=False)
     _failure_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
@@ -176,18 +281,35 @@ class _ExecutionProgress:
         if progress < 0:
             with self._failure_lock:
                 self._reported_failures.append(str(message))
-        self.store.heartbeat(
-            job_id=self.job_id,
-            attempt_id=self.attempt_id,
-            worker_id=self.worker_id,
-            progress=normalized_progress,
-            message=str(message),
-            log_entry={
-                "timestamp": datetime.now(UTC).isoformat(),
-                "level": "error" if progress < 0 else "info",
-                "message": str(message),
-            },
-            lease_seconds=self.lease_seconds,
+        try:
+            self.store.heartbeat(
+                job_id=self.job_id,
+                attempt_id=self.attempt_id,
+                worker_id=self.worker_id,
+                progress=normalized_progress,
+                message=str(message),
+                log_entry={
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "level": "error" if progress < 0 else "info",
+                    "message": str(message),
+                },
+                lease_seconds=self.lease_seconds,
+            )
+        except InvalidStateTransitionError:
+            if not self._is_succeeded_terminal_update():
+                raise
+
+    def _is_succeeded_terminal_update(self) -> bool:
+        if not self.accept_succeeded_terminal_update:
+            return False
+        projection = self.store.get_job(self.job_id)
+        attempt = None if projection is None else projection.current_attempt
+        return bool(
+            projection is not None
+            and projection.job.status is JobStatus.SUCCEEDED
+            and attempt is not None
+            and attempt.id == self.attempt_id
+            and attempt.status is AttemptStatus.SUCCEEDED
         )
 
     def raise_if_reported_failure(self) -> None:
@@ -405,12 +527,27 @@ class WorkerRuntime:
         self._adapter: LegacyTaskAdapter | None = None
         self._media_effects: PersistentMediaEffectExecutor | None = None
         self._p5_media_tasks = P5MediaTaskRouter(LegacyP5MediaCompatibilityGateway())
+        self._p6_p115_tasks: P6P115TaskRouter | None = None
+        self._p6_ingestion_tasks: P6IngestionTaskRouter | None = None
+        self._ingestion_executor: IngestionMonitorExecutor | None = None
+        self._ingestion_binding: PersistentPendingBindingGateway | None = None
+        self._ingestion_ingress: PersistentIngestionIngressGateway | None = None
+        self._p115_upload_executor: P115UploadOperationExecutor | None = None
+        self._p115_playback_executor: P115PlaybackOperationExecutor | None = None
+        self._p115_intro_executor: P115IntroDetectionOperationExecutor | None = None
+        self._playback_gateway: NativePlaybackCompatibilityGateway | None = None
+        self._intro_detection_gateway: NativeP115IntroDetectionGateway | None = None
+        self._p115_upload_source_cleanup: NativeP115UploadSourceCleanupGateway | None = None
         self._gateway: PersistentTaskManagerGateway | None = None
         self._background_gateway: PersistentBackgroundGateway | None = None
         self._final_refresh_settings_provider: Callable[[], Any] | None = None
         self._worker_id = f"{socket.gethostname()}:{os.getpid()}"
         self._workflow_depth = threading.local()
         self._active_executions: dict[UUID, tuple[Any, _ExecutionControl]] = {}
+        self._active_ingestion_executions = 0
+        self._active_p115_upload_executions = 0
+        self._active_p115_playback_executions = 0
+        self._active_p115_intro_executions = 0
         self._idle = threading.Event()
         self._idle.set()
         self._shutdown_requested = threading.Event()
@@ -425,7 +562,15 @@ class WorkerRuntime:
             background_gateway: PersistentBackgroundGateway | None = None
             submission_gateway_installed = False
             media_effect_gateway_installed = False
+            ingestion_binding_gateway_installed = False
+            ingestion_ingress_gateway_installed = False
             final_refresh_settings_provider_installed = False
+            upload_source_cleanup_installed = False
+            playback_gateway_installed = False
+            intro_detection_gateway_installed = False
+            ingestion_binding: PersistentPendingBindingGateway | None = None
+            upload_source_cleanup: NativeP115UploadSourceCleanupGateway | None = None
+            intro_detection_gateway: NativeP115IntroDetectionGateway | None = None
             try:
                 settings_provider = config_adapter.load
                 database = container.database
@@ -435,6 +580,124 @@ class WorkerRuntime:
                 )
                 registry = TaskRegistry.from_fixture(_task_fixture())
                 service = JobSubmissionService(store, registry)
+                ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
+                upload_repository = PostgresP115UploadMonitorRepository(database.unit_of_work)
+                upload_config = P115UploadMonitorConfigService(
+                    upload_repository,
+                    lambda: config_adapter.load().monitor_extensions,
+                )
+                upload_source_cleanup = NativeP115UploadSourceCleanupGateway(
+                    upload_repository,
+                    upload_config.get,
+                )
+                ingestion_ingress = PersistentIngestionIngressGateway(
+                    settings=settings_provider,
+                    ledger=ingestion_ledger,
+                )
+                p6_ingestion_tasks = P6IngestionTaskRouter(
+                    P6IngestionScanService(
+                        settings=settings_provider,
+                        ingress=ingestion_ingress,
+                        known_paths=ingestion_ledger,
+                    )
+                )
+                p115_credentials = LegacyP115CredentialStore()
+                playback_repository = PostgresP115PlaybackRepository(database.unit_of_work)
+                playback_config = P115PlaybackConfigService(
+                    PostgresRuntimeStateBackend(database.raw_pool.connection),
+                    LegacyP115PlaybackUserGateway(),
+                )
+                playback_executor = P115PlaybackOperationExecutor(
+                    repository=playback_repository,
+                    provider=LegacyP115PlaybackProvider(playback_config),
+                    config=playback_config,
+                    worker_id=f"{self._worker_id}:p115-playback",
+                )
+                playback_service = P115PlaybackService(
+                    config=playback_config,
+                    repository=playback_repository,
+                    sources=LegacyP115PlaybackSourceGateway(),
+                    direct_links=LegacyP115DirectLinkGateway(playback_config),
+                    executor=playback_executor,
+                )
+                playback_gateway = NativePlaybackCompatibilityGateway(lambda: playback_service)
+                p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
+                bridge_client = HttpxEmbyBridgeClient(settings_provider)
+                p115_fingerprint_repair = P115FingerprintRepairService(
+                    credentials=p115_credentials,
+                    repository=p115_mediainfo_repository,
+                    hints=LocalP115FingerprintHintGateway(),
+                    remote=LegacyP115FingerprintRemoteGateway(),
+                    local_root=lambda: str(config_adapter.load().local_strm_root or ""),
+                )
+                processes = ControlledProcessRunner()
+                intro_repository = PostgresP115IntroDetectionRepository(database.unit_of_work)
+                intro_source = LegacyP7IntroRuntimeSource(intro_repository)
+                intro_detection_gateway = NativeP115IntroDetectionGateway(
+                    submission=IntroDetectionSubmissionService(intro_repository),
+                    source=intro_source,
+                    account_id=lambda: p115_credentials.load().account_id,
+                )
+                intro_fingerprints = P115IntroFingerprintAdapter(
+                    legacy_account_bound_direct_urls(
+                        p115_credentials,
+                        LegacyP115DirectUrlGateway(),
+                    ),
+                    ChromaprintProcessAdapter(processes),
+                )
+                intro_executor = P115IntroDetectionOperationExecutor(
+                    repository=intro_repository,
+                    service=IntroDetectionExecutionService(
+                        NativeIntroDetectionBatchEngine(
+                            intro_repository,
+                            intro_fingerprints,
+                            EmbyAuthorizationRevisionAdapter(bridge_client),
+                            chapters_changed=LegacyP9IntroChaptersChangedHook(),
+                        ),
+                        LegacyP7IntroPolicyAdapter(intro_source),
+                    ),
+                    worker_id=f"{self._worker_id}:p115-intro",
+                )
+                mediainfo_policies = LegacyP115MediaInfoPolicyProvider()
+                media_probe = P115MediaProbeService(
+                    direct_urls=LegacyP115DirectUrlGateway(),
+                    processes=processes,
+                    iso=NativeP115IsoProbeGateway(processes),
+                    policies=mediainfo_policies,
+                )
+                strm_mediainfo = P115StrmMediaInfoEnrichmentService(
+                    credentials=p115_credentials,
+                    repository=p115_mediainfo_repository,
+                    probe=media_probe,
+                    policies=mediainfo_policies,
+                )
+                p6_p115_tasks = P6P115TaskRouter(
+                    P115DirectorySyncService(
+                        settings=SqlAlchemyAppSettingsRepository(database.unit_of_work),
+                        credentials=p115_credentials,
+                        directories=LegacyP115DirectoryTreeGateway(),
+                        repository=SqlAlchemyP115DirectoryCacheRepository(database.unit_of_work),
+                    ),
+                    P115OrganizeExecutionService(
+                        plans=SqlAlchemyP115OrganizePlanRepository(database.unit_of_work),
+                        repository=SqlAlchemyP115OrganizeExecutionRepository(database.unit_of_work),
+                        mutations=LegacyP115OrganizeMutationGateway(),
+                    ),
+                    P115StrmSyncService(
+                        settings=config_adapter.load,
+                        credentials=p115_credentials,
+                        sorting_rules=SqlAlchemyP115SortingRulesRepository(database.unit_of_work),
+                        rename_config=SqlAlchemyP115RenameConfigRepository(database.unit_of_work),
+                        remote=LegacyP115StrmSyncGateway(config_adapter.load),
+                        libraries=AtomicP115LocalStrmLibraryGateway(),
+                        repository=SqlAlchemyP115StrmSyncRepository(database.unit_of_work),
+                        coordinator=PostgresP115StrmSyncCoordinator(database.engine),
+                        mediainfo=strm_mediainfo,
+                    ),
+                    p115_fingerprint_repair,
+                    playback_service,
+                    P115IntroBackfillTaskService(intro_detection_gateway),
+                )
                 event_compatibility = LazyCompatibilityApplication(
                     partial(
                         create_flask_app,
@@ -446,14 +709,78 @@ class WorkerRuntime:
                     PostgresMediaEffectLedger(database.unit_of_work),
                     RoutedMediaEffectDelivery(
                         [
-                            BridgeMediaEffectDelivery(HttpxEmbyBridgeClient(settings_provider)),
+                            BridgeMediaEffectDelivery(bridge_client),
                             EmbyMetadataRefreshEffectDelivery(settings_provider),
                             ManualImageEffectDelivery(LegacyMediaImageEditingGateway()),
                             P5MediaEventEffectDelivery(LegacyP5MediaEventGateway(event_compatibility)),
+                            EmbyPathChangeEffectDelivery(
+                                settings_provider,
+                                HttpxEmbyPathChangeGateway(),
+                            ),
                         ]
                     ),
                     worker_id=f"{self._worker_id}:media-effect",
                     lease_seconds=lambda: max(float(config_adapter.load().emby_api_timeout) + 30, 90),
+                )
+                ingestion_binding = PersistentPendingBindingGateway(
+                    ledger=ingestion_ledger,
+                    delivery=LegacyIngestionBindingDelivery(
+                        jobs=lambda: service,
+                        uow_factory=database.unit_of_work,
+                        bridge=bridge_client,
+                        media_effects=media_effects,
+                    ),
+                    claimant_id=f"{self._worker_id}:binding",
+                    lease_seconds=INGESTION_CLAIM_LEASE_SECONDS,
+                )
+                ingestion_executor = IngestionMonitorExecutor(
+                    uow_factory=database.unit_of_work,
+                    ledger=ingestion_ledger,
+                    settings=settings_provider,
+                    preparation=LegacyIngestionPreparationGateway(settings_provider),
+                    pending_bindings=ingestion_binding,
+                    media_effects=media_effects,
+                    processor=lambda: _processor(ProcessorIdentity.MEDIA),
+                    worker_id=f"{self._worker_id}:ingestion",
+                    lease_seconds=INGESTION_CLAIM_LEASE_SECONDS,
+                )
+
+                def submit_upload_screenshot(operation: UploadOperation, _path: str) -> str:
+                    submitted = service.submit_task(
+                        "restore-nfo-and-images",
+                        {},
+                        trigger_type="upload-monitor",
+                        idempotency_scope="p115-upload-screenshot",
+                        idempotency_key=str(operation.id),
+                        max_attempts=3,
+                        silent=True,
+                    )
+                    return str(submitted.projection.job.id)
+
+                p115_upload_executor = P115UploadOperationExecutor(
+                    repository=upload_repository,
+                    provider=LegacyP115UploadProvider(),
+                    projection=LegacyP115UploadProjection(
+                        ingestion=ingestion_ingress,
+                        submit_screenshot=submit_upload_screenshot,
+                    ),
+                    worker_id=f"{self._worker_id}:p115-upload",
+                )
+                p5_media_tasks = P5MediaTaskRouter(
+                    LegacyP5MediaCompatibilityGateway(),
+                    P115MediaInfoRestoreService(
+                        credentials=p115_credentials,
+                        repository=p115_mediainfo_repository,
+                        fingerprints=p115_fingerprint_repair,
+                        emby=HttpxEmbyMediaInfoQueryGateway(settings_provider),
+                        probe=media_probe,
+                        policies=mediainfo_policies,
+                        commands=PersistentMediaInfoCommandGateway(
+                            database.unit_of_work,
+                            bridge_client,
+                            executor=media_effects,
+                        ),
+                    ),
                 )
                 supervisor.start(role=RuntimeRole.WORKER, background=False)
                 adapter = LegacyTaskAdapter(registry, RuntimeLegacyTaskResolver())
@@ -470,8 +797,28 @@ class WorkerRuntime:
                 final_refresh_settings_provider_installed = True
                 install_persistent_media_effect_gateway(media_effects)
                 media_effect_gateway_installed = True
+                install_persistent_ingestion_binding(ingestion_binding)
+                ingestion_binding_gateway_installed = True
+                install_persistent_ingestion_ingress(ingestion_ingress)
+                ingestion_ingress_gateway_installed = True
+                install_persistent_upload_source_cleanup(upload_source_cleanup)
+                upload_source_cleanup_installed = True
+                install_persistent_playback_gateway(playback_gateway)
+                playback_gateway_installed = True
+                install_persistent_intro_detection_gateway(intro_detection_gateway)
+                intro_detection_gateway_installed = True
             except BaseException:
                 try:
+                    if intro_detection_gateway_installed and intro_detection_gateway is not None:
+                        clear_persistent_intro_detection_gateway(intro_detection_gateway)
+                    if playback_gateway_installed:
+                        clear_persistent_playback_gateway(playback_gateway)
+                    if upload_source_cleanup_installed and upload_source_cleanup is not None:
+                        clear_persistent_upload_source_cleanup(upload_source_cleanup)
+                    if ingestion_ingress_gateway_installed:
+                        clear_persistent_ingestion_ingress(ingestion_ingress)
+                    if ingestion_binding_gateway_installed and ingestion_binding is not None:
+                        clear_persistent_ingestion_binding(ingestion_binding)
                     if media_effect_gateway_installed:
                         clear_persistent_media_effect_gateway(media_effects)
                     if final_refresh_settings_provider_installed:
@@ -497,6 +844,18 @@ class WorkerRuntime:
             self._service = service
             self._adapter = adapter
             self._media_effects = media_effects
+            self._p5_media_tasks = p5_media_tasks
+            self._p6_p115_tasks = p6_p115_tasks
+            self._p6_ingestion_tasks = p6_ingestion_tasks
+            self._ingestion_executor = ingestion_executor
+            self._ingestion_binding = ingestion_binding
+            self._ingestion_ingress = ingestion_ingress
+            self._p115_upload_executor = p115_upload_executor
+            self._p115_playback_executor = playback_executor
+            self._p115_intro_executor = intro_executor
+            self._playback_gateway = playback_gateway
+            self._intro_detection_gateway = intro_detection_gateway
+            self._p115_upload_source_cleanup = upload_source_cleanup
             self._gateway = gateway
             self._background_gateway = background_gateway
             self._final_refresh_settings_provider = settings_provider
@@ -524,6 +883,31 @@ class WorkerRuntime:
             if not self._started:
                 return
             errors: list[Exception] = []
+            if self._intro_detection_gateway is not None:
+                try:
+                    clear_persistent_intro_detection_gateway(self._intro_detection_gateway)
+                except Exception as exc:
+                    errors.append(exc)
+            if self._playback_gateway is not None:
+                try:
+                    clear_persistent_playback_gateway(self._playback_gateway)
+                except Exception as exc:
+                    errors.append(exc)
+            if self._p115_upload_source_cleanup is not None:
+                try:
+                    clear_persistent_upload_source_cleanup(self._p115_upload_source_cleanup)
+                except Exception as exc:
+                    errors.append(exc)
+            if self._ingestion_ingress is not None:
+                try:
+                    clear_persistent_ingestion_ingress(self._ingestion_ingress)
+                except Exception as exc:
+                    errors.append(exc)
+            if self._ingestion_binding is not None:
+                try:
+                    clear_persistent_ingestion_binding(self._ingestion_binding)
+                except Exception as exc:
+                    errors.append(exc)
             if self._media_effects is not None:
                 try:
                     clear_persistent_media_effect_gateway(self._media_effects)
@@ -567,10 +951,25 @@ class WorkerRuntime:
             self._service = None
             self._adapter = None
             self._media_effects = None
+            self._p6_p115_tasks = None
+            self._p6_ingestion_tasks = None
+            self._ingestion_executor = None
+            self._ingestion_binding = None
+            self._ingestion_ingress = None
+            self._p115_upload_executor = None
+            self._p115_playback_executor = None
+            self._p115_intro_executor = None
+            self._playback_gateway = None
+            self._intro_detection_gateway = None
+            self._p115_upload_source_cleanup = None
             self._gateway = None
             self._background_gateway = None
             self._final_refresh_settings_provider = None
             self._active_executions.clear()
+            self._active_ingestion_executions = 0
+            self._active_p115_upload_executions = 0
+            self._active_p115_playback_executions = 0
+            self._active_p115_intro_executions = 0
             self._idle.set()
             self._started = False
             if errors:
@@ -589,6 +988,130 @@ class WorkerRuntime:
         if executor is None:
             raise RuntimeError("Worker media effect executor is not initialized")
         return executor.execute(parsed_effect_id)
+
+    def execute_ingestion_monitor(self, *, item_id: str) -> MonitorItemProjection | None:
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown is in progress")
+        try:
+            parsed_item_id = UUID(str(item_id))
+        except ValueError as exc:
+            raise ValueError("ingestion monitor item id must be a UUID") from exc
+        self.start()
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
+        with self._lock:
+            executor = self._ingestion_executor
+            if executor is None:
+                raise RuntimeError("Worker ingestion monitor executor is not initialized")
+            self._active_ingestion_executions += 1
+            self._idle.clear()
+        try:
+            return executor.execute(parsed_item_id)
+        finally:
+            with self._lock:
+                self._active_ingestion_executions -= 1
+                if (
+                    not self._active_executions
+                    and self._active_ingestion_executions == 0
+                    and self._active_p115_upload_executions == 0
+                    and self._active_p115_playback_executions == 0
+                    and self._active_p115_intro_executions == 0
+                ):
+                    self._idle.set()
+
+    def execute_p115_upload_operation(self, *, operation_id: str) -> UploadOperation | None:
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown is in progress")
+        try:
+            parsed_operation_id = UUID(str(operation_id))
+        except ValueError as exc:
+            raise ValueError("P115 upload operation id must be a UUID") from exc
+        self.start()
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
+        with self._lock:
+            executor = self._p115_upload_executor
+            if executor is None:
+                raise RuntimeError("Worker P115 upload executor is not initialized")
+            self._active_p115_upload_executions += 1
+            self._idle.clear()
+        try:
+            return executor.execute(parsed_operation_id)
+        finally:
+            with self._lock:
+                self._active_p115_upload_executions -= 1
+                if (
+                    not self._active_executions
+                    and self._active_ingestion_executions == 0
+                    and self._active_p115_upload_executions == 0
+                    and self._active_p115_playback_executions == 0
+                    and self._active_p115_intro_executions == 0
+                ):
+                    self._idle.set()
+
+    def execute_p115_playback_operation(self, *, operation_id: str) -> PlaybackOperation | None:
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown is in progress")
+        try:
+            parsed_operation_id = UUID(str(operation_id))
+        except ValueError as exc:
+            raise ValueError("P115 playback operation id must be a UUID") from exc
+        self.start()
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
+        with self._lock:
+            executor = self._p115_playback_executor
+            if executor is None:
+                raise RuntimeError("Worker P115 playback executor is not initialized")
+            self._active_p115_playback_executions += 1
+            self._idle.clear()
+        try:
+            return executor.execute(parsed_operation_id)
+        finally:
+            with self._lock:
+                self._active_p115_playback_executions -= 1
+                if (
+                    not self._active_executions
+                    and self._active_ingestion_executions == 0
+                    and self._active_p115_upload_executions == 0
+                    and self._active_p115_playback_executions == 0
+                    and self._active_p115_intro_executions == 0
+                ):
+                    self._idle.set()
+
+    def execute_p115_intro_detection_operation(
+        self,
+        *,
+        operation_id: str,
+    ) -> IntroDetectionOperation | None:
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown is in progress")
+        try:
+            parsed_operation_id = UUID(str(operation_id))
+        except ValueError as exc:
+            raise ValueError("P115 intro detection operation id must be a UUID") from exc
+        self.start()
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
+        with self._lock:
+            executor = self._p115_intro_executor
+            if executor is None:
+                raise RuntimeError("Worker P115 intro detection executor is not initialized")
+            self._active_p115_intro_executions += 1
+            self._idle.clear()
+        try:
+            return executor.execute(parsed_operation_id)
+        finally:
+            with self._lock:
+                self._active_p115_intro_executions -= 1
+                if (
+                    not self._active_executions
+                    and self._active_ingestion_executions == 0
+                    and self._active_p115_upload_executions == 0
+                    and self._active_p115_playback_executions == 0
+                    and self._active_p115_intro_executions == 0
+                ):
+                    self._idle.set()
 
     def execute(self, *, event_id: str, job_id: str, attempt_id: str) -> None:
         del event_id
@@ -645,7 +1168,13 @@ class WorkerRuntime:
         processor_identity = ProcessorIdentity(envelope["processor_type"])
         processor = (
             None
-            if (definition is not None and definition.key in P4_NATIVE_TASK_KEYS)
+            if (
+                definition is not None
+                and (
+                    definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
+                    or definition.key == "restore_mediainfo"
+                )
+            )
             or envelope.get("call_style") == "direct"
             else _processor(processor_identity)
         )
@@ -669,6 +1198,7 @@ class WorkerRuntime:
             worker_id=self._worker_id,
             lease_seconds=self.config.lease_seconds,
             control=control,
+            accept_succeeded_terminal_update=job.task_key == "scan-organize-115",
         )
         try:
             monitor.start()
@@ -678,6 +1208,7 @@ class WorkerRuntime:
             raise
         result: Any = None
         failure: Exception | None = None
+        p4_terminalization_reported = False
         try:
             if definition is not None and definition.key in P4_NATIVE_TASK_KEYS:
                 result = self._execute_chain(projection)
@@ -691,9 +1222,36 @@ class WorkerRuntime:
                 from task_manager import persistent_execution
 
                 with persistent_execution(progress):
-                    result = self._p5_media_tasks.execute(message, processor)
+                    result = self._p5_media_tasks.execute(message, processor, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P5 native task {definition.key!r} did not return TaskOutcome")
+            elif definition is not None and definition.key in P6_NATIVE_TASK_KEYS:
+                metadata = {
+                    "job_id": str(job.id),
+                    "attempt_id": str(attempt.id),
+                    "worker_id": self._worker_id,
+                }
+                requested_by_user_id = str(getattr(job, "requested_by_user_id", None) or "").strip()
+                if requested_by_user_id:
+                    metadata["requested_by_user_id"] = requested_by_user_id
+                message = registry.create_message(
+                    definition.key,
+                    envelope["parameters"],
+                    payload_version=int(envelope["payload_version"]),
+                    metadata=metadata,
+                )
+                if definition.key in P6_INGESTION_NATIVE_TASK_KEYS:
+                    if self._p6_ingestion_tasks is None:
+                        raise RuntimeError("P6 ingestion task router is unavailable")
+                    result = self._p6_ingestion_tasks.execute(message, progress)
+                elif definition.key in P6_P115_NATIVE_TASK_KEYS:
+                    if self._p6_p115_tasks is None:
+                        raise RuntimeError("P6 115 task router is unavailable")
+                    result = self._p6_p115_tasks.execute(message, progress)
+                else:
+                    raise LookupError(f"P6 native task {definition.key!r} has no task router")
+                if not isinstance(result, TaskOutcome):
+                    raise TypeError(f"P6 native task {definition.key!r} did not return TaskOutcome")
             elif definition is not None:
                 message = registry.create_message(
                     definition.key,
@@ -707,6 +1265,7 @@ class WorkerRuntime:
                     result = adapter.execute(message)
             else:
                 result = self._execute_importable_operation(envelope, processor, progress)
+            p4_terminalization_reported = _p4_terminalized_native_outcome(job.task_key, result)
             progress.raise_if_reported_failure()
             _raise_for_reported_failure(job.task_key, result)
         except Exception as exc:
@@ -720,8 +1279,14 @@ class WorkerRuntime:
         try:
             if monitor.terminalized:
                 return
-            control_state = control.state()
             latest = store.get_job(job.id)
+            if p4_terminalization_reported and _p4_terminalization_matches_outcome(
+                latest,
+                attempt_id=attempt.id,
+                result=result,
+            ):
+                return
+            control_state = control.state()
             cancellation_requested = bool(
                 monitor.cancel_requested
                 or worker_shutdown_requested()
@@ -793,6 +1358,8 @@ class WorkerRuntime:
                 (PersistentExecutionInterruptedAfterEffect, PersistentEffectIndeterminate),
             ):
                 safe_error = _error_summary(failure)
+                if isinstance(result, TaskOutcome):
+                    safe_error["task_outcome"] = result.to_result()
                 store.fail_attempt(
                     job_id=job.id,
                     attempt_id=attempt.id,
@@ -809,6 +1376,8 @@ class WorkerRuntime:
                     is_direct and (monitor.timed_out or cancellation_requested)
                 )
                 safe_error = _error_summary(failure)
+                if isinstance(result, TaskOutcome):
+                    safe_error["task_outcome"] = result.to_result()
                 store.fail_attempt(
                     job_id=job.id,
                     attempt_id=attempt.id,
@@ -978,7 +1547,13 @@ class WorkerRuntime:
     def _unregister_execution(self, job_id: UUID) -> None:
         with self._lock:
             self._active_executions.pop(job_id, None)
-            if not self._active_executions:
+            if (
+                not self._active_executions
+                and self._active_ingestion_executions == 0
+                and self._active_p115_upload_executions == 0
+                and self._active_p115_playback_executions == 0
+                and self._active_p115_intro_executions == 0
+            ):
                 self._idle.set()
 
     def _require_store(self) -> PostgresJobStore:
@@ -1110,6 +1685,31 @@ def _error_summary(error: Exception) -> dict[str, Any]:
         "type": type(error).__name__,
         "message": str(message)[:2000],
     }
+
+
+def _p4_terminalized_native_outcome(task_key: str, result: Any) -> bool:
+    return (
+        task_key == "scan-organize-115"
+        and isinstance(result, TaskOutcome)
+        and result.details.get("p4_terminalized") is True
+    )
+
+
+def _p4_terminalization_matches_outcome(
+    projection: JobProjection | None,
+    *,
+    attempt_id: UUID,
+    result: Any,
+) -> bool:
+    if projection is None or not isinstance(result, TaskOutcome):
+        return False
+    expected_job_status = JobStatus.SUCCEEDED if result.status.successful else JobStatus.FAILED
+    expected_attempt_status = AttemptStatus.SUCCEEDED if result.status.successful else AttemptStatus.FAILED
+    return (
+        projection.job.status is expected_job_status
+        and projection.current_attempt.id == attempt_id
+        and projection.current_attempt.status is expected_attempt_status
+    )
 
 
 def _raise_for_reported_failure(task_key: str, result: Any) -> None:

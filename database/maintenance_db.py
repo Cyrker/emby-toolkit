@@ -1646,7 +1646,13 @@ def _finish_deep_delete_cleanup(
             shared_cleanup_result = _cleanup_shared_sources_after_media_delete(cleanup_contexts)
         except Exception:
             # shared_started means provider outcome may be unknown; a retry must not blindly replay it.
-            raise
+            return {
+                'ok': False,
+                'item_id': receipt.get('item_id'),
+                'item_type': receipt.get('item_type'),
+                'indeterminate': True,
+                'error': 'shared cleanup outcome is unknown; automatic replay is forbidden',
+            }
     result['shared_cleanup'] = shared_cleanup_result
     result['ok'] = bool(
         isinstance(shared_cleanup_result, dict)

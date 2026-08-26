@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "kind": "p6-p115-episode-regex-local-golden-contract",
+  "captured_live": false,
+  "routes": [
+    {"method": "GET", "path": "/api/p115/episode_regex_rules"},
+    {"method": "POST", "path": "/api/p115/episode_regex_rules"}
+  ],
+  "golden_cases": [
+    {
+      "case_id": "get-non-array-falls-back-to-empty",
+      "request": {"method": "GET", "path": "/api/p115/episode_regex_rules"},
+      "stored": {"not": "an array"},
+      "response": {"status": 200, "body": {"success": true, "data": []}}
+    },
+    {
+      "case_id": "get-preserves-ordered-array",
+      "request": {"method": "GET", "path": "/api/p115/episode_regex_rules"},
+      "stored": [
+        {
+          "id": "legacy",
+          "enabled": true,
+          "name": "Legacy",
+          "pattern": "EP(\\d+)",
+          "mode": "episode_only",
+          "season_group": 1,
+          "episode_group": 1,
+          "default_season": 2
+        }
+      ],
+      "response": {
+        "status": 200,
+        "body": {
+          "success": true,
+          "data": [
+            {
+              "id": "legacy",
+              "enabled": true,
+              "name": "Legacy",
+              "pattern": "EP(\\d+)",
+              "mode": "episode_only",
+              "season_group": 1,
+              "episode_group": 1,
+              "default_season": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "post-wrapper-normalizes-and-skips-empty-items",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/episode_regex_rules",
+        "body": {
+          "rules": [
+            "ignored",
+            {"name": "empty", "pattern": ""},
+            {
+              "pattern": "S(\\d+)E(\\d+)",
+              "mode": "season_episode",
+              "season_group": 1,
+              "episode_group": 2
+            }
+          ]
+        }
+      },
+      "stored": [],
+      "expected_saved": [
+        {
+          "id": "episode_regex_3",
+          "enabled": true,
+          "name": "规则3",
+          "pattern": "S(\\d+)E(\\d+)",
+          "mode": "season_episode",
+          "season_group": 1,
+          "episode_group": 2,
+          "default_season": 1
+        }
+      ],
+      "response": {
+        "status": 200,
+        "body": {
+          "success": true,
+          "message": "自定义季集号识别规则已保存",
+          "data": [
+            {
+              "id": "episode_regex_3",
+              "enabled": true,
+              "name": "规则3",
+              "pattern": "S(\\d+)E(\\d+)",
+              "mode": "season_episode",
+              "season_group": 1,
+              "episode_group": 2,
+              "default_season": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "post-top-level-array-preserves-zero-default-season",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/episode_regex_rules",
+        "body": [
+          {
+            "id": "special",
+            "enabled": false,
+            "name": "Special",
+            "pattern": "SP(\\d+)",
+            "mode": "episode_only",
+            "episode_group": 1,
+            "default_season": 0,
+            "unknown": "discarded"
+          }
+        ]
+      },
+      "stored": [],
+      "expected_saved": [
+        {
+          "id": "special",
+          "enabled": false,
+          "name": "Special",
+          "pattern": "SP(\\d+)",
+          "mode": "episode_only",
+          "season_group": 1,
+          "episode_group": 1,
+          "default_season": 0
+        }
+      ],
+      "response": {
+        "status": 200,
+        "body": {
+          "success": true,
+          "message": "自定义季集号识别规则已保存",
+          "data": [
+            {
+              "id": "special",
+              "enabled": false,
+              "name": "Special",
+              "pattern": "SP(\\d+)",
+              "mode": "episode_only",
+              "season_group": 1,
+              "episode_group": 1,
+              "default_season": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case_id": "post-invalid-mode-fails-without-saving",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/episode_regex_rules",
+        "body": {"rules": [{"pattern": "(\\d+)", "mode": "invalid"}]}
+      },
+      "stored": [],
+      "response": {
+        "status": 400,
+        "body": {"success": false, "message": "第 1 条规则模式非法: invalid"}
+      }
+    }
+  ],
+  "limitations": [
+    "Rules are pure local recognition policy and use no provider or credential.",
+    "Runtime matching is validated separately for first-match order and relative-path fallback.",
+    "Live media recognition acceptance remains HUMAN_PENDING."
+  ]
+}

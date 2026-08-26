@@ -74,7 +74,7 @@ class FakeNativeRouter:
         self.report_failure = report_failure
         self.calls: list[tuple[TaskMessage, object]] = []
 
-    def execute(self, message: TaskMessage, processor: object) -> TaskOutcome:
+    def execute(self, message: TaskMessage, processor: object, _progress: object) -> TaskOutcome:
         self.calls.append((message, processor))
         if self.report_failure:
             task_manager.update_status_from_thread(-1, "native compatibility reported failure")

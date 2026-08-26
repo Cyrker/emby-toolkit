@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "kind": "p6-p115-organize-execution-records-local-contract",
+  "captured_live": false,
+  "routes": [
+    {"method": "POST", "path": "/api/p115/organize/plans/{plan_id}/execute"},
+    {"method": "GET", "path": "/api/p115/organize/executions/{execution_id}"},
+    {"method": "POST", "path": "/api/p115/organize/executions/{execution_id}/reconcile"},
+    {"method": "GET", "path": "/api/p115/records"},
+    {"method": "DELETE", "path": "/api/p115/records/{record_id}"}
+  ],
+  "http_contract": {
+    "execute_request_fields": ["approved_execution_intent_id"],
+    "reconcile_request_fields": ["approved_reconciliation_intent_id"],
+    "record_query_fields": ["cid", "fail_reason", "page", "per_page", "search", "status"],
+    "record_response_fields": ["fail_reasons", "items", "stats", "success", "total"],
+    "execute_success_statuses": [200, 202],
+    "reconcile_success_statuses": [200]
+  },
+  "cases": [
+    {
+      "case_id": "execute-accepted",
+      "status": 202,
+      "response_success": true,
+      "job_header": "x-etk-job-id"
+    },
+    {
+      "case_id": "execute-replay",
+      "status": 200,
+      "response_success": true
+    },
+    {
+      "case_id": "execution-missing",
+      "status": 404,
+      "response": {"success": false, "message": "整理执行不存在"}
+    },
+    {
+      "case_id": "reconcile-confirmed",
+      "status": 200,
+      "response_success": true,
+      "external_mutations_executed": 0
+    },
+    {
+      "case_id": "records-page",
+      "status": 200,
+      "response_fields": ["fail_reasons", "items", "stats", "success", "total"]
+    },
+    {
+      "case_id": "record-delete-idempotent",
+      "status": 200,
+      "response": {"success": true, "message": "记录及相关目录缓存已清理"}
+    }
+  ],
+  "invariants": [
+    "Admin denial precedes JSON parsing, provider access, and persistence for every operation.",
+    "Execute and reconcile parse request bodies manually and never expose FastAPI 422 validation.",
+    "A newly reserved execution returns 202 and x-etk-job-id; an idempotent replay returns 200.",
+    "Reconciliation performs authoritative readback only and reports external_mutations_executed as zero.",
+    "Record deletion removes only the local record and filesystem-cache rows; it never calls a 115 delete provider.",
+    "Deleting a missing record is idempotent and preserves the legacy 200 success envelope."
+  ],
+  "limitations": [
+    "Provider and persistence behavior is exercised with local fakes or isolated repository contracts only.",
+    "Real 115 mutation and PostgreSQL acceptance remain HUMAN_PENDING."
+  ]
+}

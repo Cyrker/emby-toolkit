@@ -3028,7 +3028,7 @@
       "new_owner": null,
       "path": "/api/emby/collections/activate",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1969",
+      "source": "routes/webhook.py:1908",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3051,7 +3051,7 @@
       "notes": "P5 owns /api/emby/events ingress, reservation, and dispatch transport; eleven P7/P9 business handlers remain future-domain compatibility until their stages, and the legacy route remains until P11.",
       "path": "/api/emby/events",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2551",
+      "source": "routes/webhook.py:2490",
       "status": "new",
       "target_domains": [
         "media",
@@ -3073,7 +3073,7 @@
       "new_owner": null,
       "path": "/api/emby/intro-detection/backfill",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2182",
+      "source": "routes/webhook.py:2121",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -3096,7 +3096,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1923",
+      "source": "routes/webhook.py:1862",
       "status": "new",
       "target_domains": [
         "media"
@@ -3117,7 +3117,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1993",
+      "source": "routes/webhook.py:1932",
       "status": "new",
       "target_domains": [
         "media"
@@ -3138,7 +3138,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/item",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2136",
+      "source": "routes/webhook.py:2075",
       "status": "new",
       "target_domains": [
         "media"
@@ -3159,7 +3159,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/items",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2144",
+      "source": "routes/webhook.py:2083",
       "status": "new",
       "target_domains": [
         "media"
@@ -3180,7 +3180,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/library",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2155",
+      "source": "routes/webhook.py:2094",
       "status": "new",
       "target_domains": [
         "media"
@@ -3201,7 +3201,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/refresh",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2222",
+      "source": "routes/webhook.py:2161",
       "status": "new",
       "target_domains": [
         "media"
@@ -3222,7 +3222,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/search",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2416",
+      "source": "routes/webhook.py:2355",
       "status": "new",
       "target_domains": [
         "media"
@@ -3243,7 +3243,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/sync",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2481",
+      "source": "routes/webhook.py:2420",
       "status": "new",
       "target_domains": [
         "media"
@@ -3264,7 +3264,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/plugin-update",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1882",
+      "source": "routes/webhook.py:1821",
       "status": "new",
       "target_domains": [
         "media"
@@ -3613,80 +3613,84 @@
       "contract_id": "route-binding-d5234c536990",
       "decorator_contract_id": "route-decorator-213029d0d158",
       "endpoint": "auto_save_auth",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native authorization callback validates and atomically stores an account-bound token pair without echoing credentials.",
       "path": "/api/p115/auto_save_auth",
       "retirement_approval": null,
       "source": "routes/p115.py:686",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
       "contract_id": "route-binding-8703e6e3d08a",
       "decorator_contract_id": "route-decorator-7ed9f86fe861",
       "endpoint": "save_manual_cookie",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native manual Cookie transport delegates to the account-bound atomic credential adapter until P11.",
       "path": "/api/p115/cookie",
       "retirement_approval": null,
       "source": "routes/p115.py:533",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
       "contract_id": "route-binding-effd8e33160b",
       "decorator_contract_id": "route-decorator-07a797c60d7b",
       "endpoint": "get_cookie_qrcode",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native Cookie QR transport uses bounded httpx provider calls and sanitized local fixtures.",
       "path": "/api/p115/cookie_qrcode",
       "retirement_approval": null,
       "source": "routes/p115.py:451",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
       "contract_id": "route-binding-0c19f6240b44",
       "decorator_contract_id": "route-decorator-0d92c6d0361b",
       "endpoint": "check_cookie_qrcode_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native Cookie QR status transport with process-local bounded session state and atomic compatibility credential storage until P11.",
       "path": "/api/p115/cookie_qrcode/status",
       "retirement_approval": null,
       "source": "routes/p115.py:478",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -3699,7 +3703,7 @@
       "new_owner": null,
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3488",
+      "source": "routes/p115.py:3491",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3719,7 +3723,7 @@
       "new_owner": null,
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3488",
+      "source": "routes/p115.py:3491",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -3733,340 +3737,357 @@
       "contract_id": "route-binding-bb3a6629583e",
       "decorator_contract_id": "route-decorator-797363a0e940",
       "endpoint": "list_115_directories",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native read-only directory transport pins the credential account revision and retains the split OpenAPI/Cookie client as a P11 compatibility adapter.",
       "path": "/api/p115/dirs",
       "retirement_approval": null,
       "source": "routes/p115.py:1188",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
       "contract_id": "route-binding-41a28ba47686",
       "decorator_contract_id": "route-decorator-06519368ec61",
       "endpoint": "handle_episode_regex_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-episode-regex.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native episode-recognition policy read preserves the ordered success envelope and non-array fallback.",
       "path": "/api/p115/episode_regex_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:3179",
-      "status": "legacy",
+      "source": "routes/p115.py:3182",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-pure-policy-postgres18-and-openapi",
+      "validation_owner": "p115/episode-recognition"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d3d0d3268aa9",
       "decorator_contract_id": "route-decorator-06519368ec61",
       "endpoint": "handle_episode_regex_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-episode-regex.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native episode-recognition policy save preserves top-level and wrapped arrays, exact validation errors, ordered normalization, and unknown-field removal.",
       "path": "/api/p115/episode_regex_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:3179",
-      "status": "legacy",
+      "source": "routes/p115.py:3182",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-pure-policy-postgres18-and-openapi",
+      "validation_owner": "p115/episode-recognition"
     },
     {
       "application": "api",
       "contract_id": "route-binding-74bf0272224e",
       "decorator_contract_id": "route-decorator-b5124565e4af",
       "endpoint": "get_cached_mediainfo_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 native MediaInfo cache route precedes the compatibility mount; account identity and cache revisions are owned by the P6 repository.",
       "path": "/api/p115/mediainfo/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2272",
-      "status": "legacy",
+      "source": "routes/p115.py:2275",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
       "contract_id": "route-binding-6c51057a8e74",
       "decorator_contract_id": "route-decorator-fe007d4f1190",
       "endpoint": "commit_deep_delete_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native PickCode deep-delete commit preserves single claim, TTL, replay, and internal persistent execution semantics.",
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2658",
-      "status": "legacy",
+      "source": "routes/p115.py:2661",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-173051f950be",
       "decorator_contract_id": "route-decorator-e5b0e8aab5f0",
       "endpoint": "prepare_deep_delete_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native PickCode deep-delete prepare freezes verified scope without provider mutation.",
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2645",
-      "status": "legacy",
+      "source": "routes/p115.py:2648",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-6a9557b1f580",
       "decorator_contract_id": "route-decorator-e506fce27383",
       "endpoint": "sync_intro_snapshot_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-intro-sync.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.10 native PickCode intro-sync preserves cache-miss identity, feature-first validation, bounded revision CAS, and best-effort P9 export isolation.",
       "path": "/api/p115/mediainfo/<pick_code>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2414",
-      "status": "legacy",
+      "source": "routes/p115.py:2417",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "application": "api",
       "contract_id": "route-binding-e66b57710c5b",
       "decorator_contract_id": "route-decorator-97e18bb9d52b",
       "endpoint": "accept_emby_item_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native PickCode item-ready consumes durable pending binding before native lightweight rebind.",
       "path": "/api/p115/mediainfo/<pick_code>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2427",
-      "status": "legacy",
+      "source": "routes/p115.py:2430",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-durable-binding",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-314d4660ad1d",
       "decorator_contract_id": "route-decorator-cbcffb38c3a4",
       "endpoint": "get_cached_metadata_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 verifies P115 MediaInfo identity before delegating metadata rendering to the P5 domain owner.",
       "path": "/api/p115/mediainfo/<pick_code>/metadata",
       "retirement_approval": null,
-      "source": "routes/p115.py:2335",
-      "status": "legacy",
+      "source": "routes/p115.py:2338",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
       "contract_id": "route-binding-a745c34682ac",
       "decorator_contract_id": "route-decorator-fdbb41c368e3",
       "endpoint": "trigger_metadata_backfill_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 verifies P115 identity before delegating durable metadata backfill submission to the P5 media use case.",
       "path": "/api/p115/mediainfo/<pick_code>/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/p115.py:2366",
-      "status": "legacy",
+      "source": "routes/p115.py:2369",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-task-submission",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
       "contract_id": "route-binding-3fb4ef36f8f3",
       "decorator_contract_id": "route-decorator-4802efcbdb26",
       "endpoint": "get_cached_mediainfo_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 native MediaInfo cache route precedes the compatibility mount; account identity and cache revisions are owned by the P6 repository.",
       "path": "/api/p115/mediainfo/sha1/<sha1>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2280",
-      "status": "legacy",
+      "source": "routes/p115.py:2283",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
       "contract_id": "route-binding-98169a59ba46",
       "decorator_contract_id": "route-decorator-b1696276caf6",
       "endpoint": "commit_deep_delete_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native SHA1 deep-delete commit preserves cross-identity token capability and idempotent replay.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2666",
-      "status": "legacy",
+      "source": "routes/p115.py:2669",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-ec7ef0e14f22",
       "decorator_contract_id": "route-decorator-247b43017ca7",
       "endpoint": "prepare_deep_delete_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native SHA1 deep-delete prepare preserves exact, hierarchy, and virtual-local-only scope semantics.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2653",
-      "status": "legacy",
+      "source": "routes/p115.py:2656",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-14e00f62ecc9",
       "decorator_contract_id": "route-decorator-9c0a9cf83ad0",
       "endpoint": "sync_intro_snapshot_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-intro-sync.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.10 native SHA1 intro-sync keeps the optional transport identity outside FastAPI validation and applies a bounded revision-fenced chapter merge.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2422",
-      "status": "legacy",
+      "source": "routes/p115.py:2425",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "application": "api",
       "contract_id": "route-binding-317a082181c7",
       "decorator_contract_id": "route-decorator-486930f3a81f",
       "endpoint": "accept_emby_item_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native SHA1 item-ready consumes durable pending binding or invokes native lightweight rebind without local queue fallback.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2435",
-      "status": "legacy",
+      "source": "routes/p115.py:2438",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-durable-binding",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
       "contract_id": "route-binding-70e090a41dd1",
       "decorator_contract_id": "route-decorator-e68d4378d9d5",
       "endpoint": "get_cached_metadata_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 verifies P115 MediaInfo identity before delegating metadata rendering to the P5 domain owner.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/metadata",
       "retirement_approval": null,
-      "source": "routes/p115.py:2343",
-      "status": "legacy",
+      "source": "routes/p115.py:2346",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
       "contract_id": "route-binding-85f329d7159e",
       "decorator_contract_id": "route-decorator-ceb8f06eac7c",
       "endpoint": "trigger_metadata_backfill_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 verifies P115 identity before delegating durable metadata backfill submission to the P5 media use case.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/p115.py:2374",
-      "status": "legacy",
+      "source": "routes/p115.py:2377",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-task-submission",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
@@ -4093,380 +4114,399 @@
       "contract_id": "route-binding-3d57dcd04617",
       "decorator_contract_id": "route-decorator-f9b14c22ade2",
       "endpoint": "play_115_video",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 native direct-play resolution preserves the legacy path while signed 115 URLs remain confined to redirect or streaming responses.",
       "path": "/api/p115/play/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2674",
-      "status": "legacy",
+      "source": "routes/p115.py:2677",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-b60e04a528cc",
       "decorator_contract_id": "route-decorator-f9b14c22ade2",
       "endpoint": "play_115_video",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "HEAD",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 native direct-play HEAD preserves the legacy empty probe response without resolving a provider URL.",
       "path": "/api/p115/play/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2674",
-      "status": "legacy",
+      "source": "routes/p115.py:2677",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-4931cca64263",
       "decorator_contract_id": "route-decorator-bfb634ec9c49",
       "endpoint": "play_115_video",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 native direct-play resolution preserves the filename path while never forwarding filename into provider identity.",
       "path": "/api/p115/play/<pick_code>/<path:filename>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2675",
-      "status": "legacy",
+      "source": "routes/p115.py:2678",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-38aa977ea2e2",
       "decorator_contract_id": "route-decorator-bfb634ec9c49",
       "endpoint": "play_115_video",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "HEAD",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 native filename-route HEAD preserves the legacy empty probe response without resolving a provider URL.",
       "path": "/api/p115/play/<pick_code>/<path:filename>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2675",
-      "status": "legacy",
+      "source": "routes/p115.py:2678",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-152bdf674631",
       "decorator_contract_id": "route-decorator-dd9eb1a23411",
       "endpoint": "get_play_pool_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 reads the normalized playback-pool projection through the native service.",
       "path": "/api/p115/play_pool",
       "retirement_approval": null,
       "source": "routes/p115.py:1288",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-38734fe15aed",
       "decorator_contract_id": "route-decorator-5bb42ffc1bef",
       "endpoint": "save_play_pool_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 validates and persists playback-pool settings before durable remote preparation.",
       "path": "/api/p115/play_pool",
       "retirement_approval": null,
       "source": "routes/p115.py:1294",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d93d0e2c01e2",
       "decorator_contract_id": "route-decorator-49b60532d617",
       "endpoint": "add_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 creates a normalized pool account and reserves remote directory preparation through the durable operation ledger.",
       "path": "/api/p115/play_pool/accounts",
       "retirement_approval": null,
       "source": "routes/p115.py:1302",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d5e906a1cd44",
       "decorator_contract_id": "route-decorator-e327c70013fe",
       "endpoint": "delete_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 releases account leases before deleting the local pool-account projection.",
       "path": "/api/p115/play_pool/accounts/<account_id>",
       "retirement_approval": null,
       "source": "routes/p115.py:1403",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-a04cfdc8430b",
       "decorator_contract_id": "route-decorator-015a1409a105",
       "endpoint": "update_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "PUT",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 updates a normalized pool account and reserves any required remote directory preparation durably.",
       "path": "/api/p115/play_pool/accounts/<account_id>",
       "retirement_approval": null,
       "source": "routes/p115.py:1393",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d4bba978105a",
       "decorator_contract_id": "route-decorator-af62eaab14b2",
       "endpoint": "speedtest_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 reserves a deterministic speedtest operation and returns only sanitized result data.",
       "path": "/api/p115/play_pool/accounts/<account_id>/speedtest",
       "retirement_approval": null,
       "source": "routes/p115.py:1410",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-c84a2071b8d1",
       "decorator_contract_id": "route-decorator-60f4772e77d5",
       "endpoint": "cleanup_play_pool_sessions",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 cleanup uses durable lease and reclamation fences instead of remote file age alone.",
       "path": "/api/p115/play_pool/cleanup",
       "retirement_approval": null,
       "source": "routes/p115.py:1422",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-60f76c234424",
       "decorator_contract_id": "route-decorator-8b870aa230e2",
       "endpoint": "get_play_pool_cookie_qrcode",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 creates owner-scoped, expiring QR sessions without exposing credentials to another user.",
       "path": "/api/p115/play_pool/cookie_qrcode",
       "retirement_approval": null,
       "source": "routes/p115.py:549",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-6afc4a90629e",
       "decorator_contract_id": "route-decorator-92648a216080",
       "endpoint": "check_play_pool_cookie_qrcode_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 polls only the current owner's QR session and destroys expired provider credentials.",
       "path": "/api/p115/play_pool/cookie_qrcode/status",
       "retirement_approval": null,
       "source": "routes/p115.py:599",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-e5806240cd6c",
       "decorator_contract_id": "route-decorator-e64a82a520eb",
       "endpoint": "delete_user_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 releases user-account leases before deleting the local account projection.",
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
       "source": "routes/p115.py:1375",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-fc1d1208ca0b",
       "decorator_contract_id": "route-decorator-ac5ee8c6ae20",
       "endpoint": "get_user_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 returns only the authenticated user's normalized pool-account projection.",
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
       "source": "routes/p115.py:1366",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-36f0349463d8",
       "decorator_contract_id": "route-decorator-01c3e3e38262",
       "endpoint": "save_user_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 saves the authenticated user's normalized pool-account projection without importing P9 contribution transport.",
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
       "source": "routes/p115.py:1312",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-82e25f2b7dae",
       "decorator_contract_id": "route-decorator-b570347d78f4",
       "endpoint": "get_user_play_pool_rewards",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 preserves the reward-summary envelope while P9 contribution ledger ownership remains deferred.",
       "path": "/api/p115/play_pool/user-account/rewards",
       "retirement_approval": null,
       "source": "routes/p115.py:1386",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-048dfcd4d8a1",
       "decorator_contract_id": "route-decorator-b797f4fbf6ac",
       "endpoint": "get_qrcode",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native authorization transport; provider behavior is covered by isolated legacy golden and local httpx stubs, while Live 115 acceptance remains pending.",
       "path": "/api/p115/qrcode",
       "retirement_approval": null,
       "source": "routes/p115.py:370",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
       "contract_id": "route-binding-97bba11de2cb",
       "decorator_contract_id": "route-decorator-5e2c043920f8",
       "endpoint": "check_qrcode_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native OpenAPI QR status transport binds credentials only after a stable account identity is proven.",
       "path": "/api/p115/qrcode/status",
       "retirement_approval": null,
       "source": "routes/p115.py:389",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -4479,7 +4519,7 @@
       "new_owner": null,
       "path": "/api/p115/quick_deploy",
       "retirement_approval": null,
-      "source": "routes/p115.py:1939",
+      "source": "routes/p115.py:1942",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4493,40 +4533,42 @@
       "contract_id": "route-binding-5d412758d9a9",
       "decorator_contract_id": "route-decorator-0ce2d912b5bc",
       "endpoint": "get_organize_records",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-organize-execution-records.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native record query transport preserves the legacy pagination, filter, statistics, and fail-reason envelope through the Native PostgreSQL records repository.",
       "path": "/api/p115/records",
       "retirement_approval": null,
-      "source": "routes/p115.py:3210",
-      "status": "legacy",
+      "source": "routes/p115.py:3213",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-envelope-fake-repository-and-openapi",
+      "validation_owner": "p115/organize-records"
     },
     {
       "application": "api",
       "contract_id": "route-binding-5be2d81af735",
       "decorator_contract_id": "route-decorator-3113b2ec5864",
       "endpoint": "delete_organize_record",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-organize-execution-records.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native record deletion is idempotent for missing rows and removes only local record and filesystem-cache state without resolving a 115 mutation provider.",
       "path": "/api/p115/records/<int:record_id>",
       "retirement_approval": null,
-      "source": "routes/p115.py:3303",
-      "status": "legacy",
+      "source": "routes/p115.py:3306",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-envelope-no-provider-effect-and-openapi",
+      "validation_owner": "p115/organize-records"
     },
     {
       "application": "api",
@@ -4539,7 +4581,7 @@
       "new_owner": null,
       "path": "/api/p115/recycle_bin/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3335",
+      "source": "routes/p115.py:3338",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4559,7 +4601,7 @@
       "new_owner": null,
       "path": "/api/p115/release_groups",
       "retirement_approval": null,
-      "source": "routes/p115.py:2049",
+      "source": "routes/p115.py:2052",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4573,40 +4615,42 @@
       "contract_id": "route-binding-bcd56474c68c",
       "decorator_contract_id": "route-decorator-971da8658572",
       "endpoint": "handle_rename_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native rename-config read merges the complete frozen defaults and legacy file-template fallbacks.",
       "path": "/api/p115/rename_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2819",
-      "status": "legacy",
+      "source": "routes/p115.py:2822",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-postgres18-and-openapi",
+      "validation_owner": "p115/rename-config"
     },
     {
       "application": "api",
       "contract_id": "route-binding-21d5ffa8ac0a",
       "decorator_contract_id": "route-decorator-971da8658572",
       "endpoint": "handle_rename_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native rename-config save preserves non-object clearing and legacy conflict-mode splitting; washing policy execution remains an explicit P7 compatibility gateway.",
       "path": "/api/p115/rename_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2819",
-      "status": "legacy",
+      "source": "routes/p115.py:2822",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-postgres18-and-openapi",
+      "validation_owner": "p115/rename-config"
     },
     {
       "application": "api",
@@ -4619,7 +4663,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/export",
       "retirement_approval": null,
-      "source": "routes/p115.py:3086",
+      "source": "routes/p115.py:3089",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4639,7 +4683,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/import",
       "retirement_approval": null,
-      "source": "routes/p115.py:3052",
+      "source": "routes/p115.py:3055",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4653,80 +4697,84 @@
       "contract_id": "route-binding-c9381ea47f0a",
       "decorator_contract_id": "route-decorator-d76e76f83a94",
       "endpoint": "preview_rename_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native preview transport renders fixed local samples through an explicit P11 compatibility renderer and performs no provider or persistence write.",
       "path": "/api/p115/rename_config/preview",
       "retirement_approval": null,
-      "source": "routes/p115.py:2928",
-      "status": "legacy",
+      "source": "routes/p115.py:2931",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-no-effect-and-openapi",
+      "validation_owner": "p115/rename-preview"
     },
     {
       "application": "api",
       "contract_id": "route-binding-0321f9da1f8b",
       "decorator_contract_id": "route-decorator-5229848d8a38",
       "endpoint": "replace_strm_files",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-replace-strm.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.5 native admin transport preserves the synchronous plain/regex replacement contract and legacy unknown-mode no-op, while intentionally failing closed on a per-file error; local writes are atomic and Live acceptance remains pending.",
       "path": "/api/p115/replace_strm",
       "retirement_approval": null,
-      "source": "routes/p115.py:2753",
-      "status": "legacy",
+      "source": "routes/p115.py:2756",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-atomic-local-adapter-and-openapi",
+      "validation_owner": "p115/strm-replacement"
     },
     {
       "application": "api",
       "contract_id": "route-binding-c9f23defe779",
       "decorator_contract_id": "route-decorator-af5f3fd3fd1c",
       "endpoint": "handle_sorting_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-sorting-rules.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native sorting-rule transport preserves JSON-string compatibility and returns the legacy bare array without provider writes.",
       "path": "/api/p115/sorting_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:2125",
-      "status": "legacy",
+      "source": "routes/p115.py:2128",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-postgres18-and-openapi",
+      "validation_owner": "p115/sorting-rules"
     },
     {
       "application": "api",
       "contract_id": "route-binding-af2a0d5b83fc",
       "decorator_contract_id": "route-decorator-af5f3fd3fd1c",
       "endpoint": "handle_sorting_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-sorting-rules.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native sorting-rule transport preserves valid legacy bare-array and non-array-save contracts while atomically recording the account binding used by directory synchronization. Malformed mixed-element arrays are an explicit fail-closed variance: Native returns JSON 500 before provider or persistence instead of saving invalid values when the legacy client was unavailable.",
       "path": "/api/p115/sorting_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:2125",
-      "status": "legacy",
+      "source": "routes/p115.py:2128",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-native-variance-postgres18-and-openapi",
+      "validation_owner": "p115/sorting-rules"
     },
     {
       "application": "api",
@@ -4753,20 +4801,21 @@
       "contract_id": "route-binding-dbc7127853fe",
       "decorator_contract_id": "route-decorator-9af785f097c1",
       "endpoint": "get_115_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native credential status transport probes one immutable credential snapshot and conditionally binds stable account identity.",
       "path": "/api/p115/status",
       "retirement_approval": null,
       "source": "routes/p115.py:1005",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -4779,7 +4828,7 @@
       "new_owner": null,
       "path": "/api/p115/system/directories",
       "retirement_approval": null,
-      "source": "routes/p115.py:3385",
+      "source": "routes/p115.py:3388",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4793,40 +4842,42 @@
       "contract_id": "route-binding-cf2854ba3de4",
       "decorator_contract_id": "route-decorator-4dd9b5002590",
       "endpoint": "get_temp_dir_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 reads the normalized primary temporary-directory projection without a remote effect.",
       "path": "/api/p115/temp_dir_config",
       "retirement_approval": null,
       "source": "routes/p115.py:1429",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
       "contract_id": "route-binding-3c80f1a379f7",
       "decorator_contract_id": "route-decorator-7bd2240d7720",
       "endpoint": "save_temp_dir_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 persists primary temporary-directory intent and executes its remote mutation through the durable operation state machine.",
       "path": "/api/p115/temp_dir_config",
       "retirement_approval": null,
       "source": "routes/p115.py:1436",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -4839,7 +4890,7 @@
       "new_owner": null,
       "path": "/api/p115/unrecognized/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3350",
+      "source": "routes/p115.py:3353",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4853,40 +4904,42 @@
       "contract_id": "route-binding-db961218ae8c",
       "decorator_contract_id": "route-decorator-931f8e775a88",
       "endpoint": "handle_upload_monitor_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.8 native FastAPI GET reads the revisioned upload-monitor configuration without starting process-local monitor state or writing defaults from the API process.",
       "path": "/api/p115/upload_monitor/config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3433",
-      "status": "legacy",
+      "source": "routes/p115.py:3436",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-config-revision",
+      "validation_owner": "p115/upload-monitor"
     },
     {
       "application": "api",
       "contract_id": "route-binding-52dc313869ae",
       "decorator_contract_id": "route-decorator-931f8e775a88",
       "endpoint": "handle_upload_monitor_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.8 native FastAPI POST validates and persists a requested configuration revision; monitor_restarted only reports Coordinator acknowledgement of that revision.",
       "path": "/api/p115/upload_monitor/config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3433",
-      "status": "legacy",
+      "source": "routes/p115.py:3436",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-config-revision",
+      "validation_owner": "p115/upload-monitor"
     },
     {
       "application": "api",
@@ -4899,7 +4952,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2066",
+      "source": "routes/p115.py:2069",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4919,7 +4972,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2066",
+      "source": "routes/p115.py:2069",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4939,7 +4992,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_groups",
       "retirement_approval": null,
-      "source": "routes/p115.py:2017",
+      "source": "routes/p115.py:2020",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4959,7 +5012,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_groups",
       "retirement_approval": null,
-      "source": "routes/p115.py:2017",
+      "source": "routes/p115.py:2020",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -4979,7 +5032,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_recalculate",
       "retirement_approval": null,
-      "source": "routes/p115.py:2087",
+      "source": "routes/p115.py:2090",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -7543,7 +7596,7 @@
       "new_owner": null,
       "path": "/webhook/emby",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2550",
+      "source": "routes/webhook.py:2489",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -7565,7 +7618,7 @@
       "new_owner": null,
       "path": "/",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1747",
+      "source": "reverse_proxy.py:1759",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7586,7 +7639,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1748",
+      "source": "reverse_proxy.py:1760",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7607,7 +7660,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1748",
+      "source": "reverse_proxy.py:1760",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7628,7 +7681,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1748",
+      "source": "reverse_proxy.py:1760",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7649,7 +7702,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1748",
+      "source": "reverse_proxy.py:1760",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7670,7 +7723,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1748",
+      "source": "reverse_proxy.py:1760",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7691,7 +7744,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1748",
+      "source": "reverse_proxy.py:1760",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7722,7 +7775,7 @@
       "new_owner": null,
       "path": "/",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1747",
+      "source": "reverse_proxy.py:1759",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -7751,7 +7804,7 @@
       "new_owner": null,
       "path": "/<path:path>",
       "retirement_approval": null,
-      "source": "reverse_proxy.py:1748",
+      "source": "reverse_proxy.py:1760",
       "status": "legacy",
       "target_domains": [
         "sharing",
@@ -10979,7 +11032,7 @@
       "new_owner": null,
       "path": "/api/emby/collections/activate",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1969",
+      "source": "routes/webhook.py:1908",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11005,7 +11058,7 @@
       "notes": "P5 owns /api/emby/events ingress, reservation, and dispatch transport; eleven P7/P9 business handlers remain future-domain compatibility until their stages, and the legacy route remains until P11.",
       "path": "/api/emby/events",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2551",
+      "source": "routes/webhook.py:2490",
       "status": "new",
       "target_domains": [
         "media",
@@ -11030,7 +11083,7 @@
       "new_owner": null,
       "path": "/api/emby/intro-detection/backfill",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2182",
+      "source": "routes/webhook.py:2121",
       "status": "legacy",
       "target_domains": [
         "ingestion",
@@ -11056,7 +11109,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1923",
+      "source": "routes/webhook.py:1862",
       "status": "new",
       "target_domains": [
         "media"
@@ -11080,7 +11133,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1993",
+      "source": "routes/webhook.py:1932",
       "status": "new",
       "target_domains": [
         "media"
@@ -11104,7 +11157,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/item",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2136",
+      "source": "routes/webhook.py:2075",
       "status": "new",
       "target_domains": [
         "media"
@@ -11128,7 +11181,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/items",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2144",
+      "source": "routes/webhook.py:2083",
       "status": "new",
       "target_domains": [
         "media"
@@ -11152,7 +11205,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/backfill/library",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2155",
+      "source": "routes/webhook.py:2094",
       "status": "new",
       "target_domains": [
         "media"
@@ -11176,7 +11229,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/refresh",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2222",
+      "source": "routes/webhook.py:2161",
       "status": "new",
       "target_domains": [
         "media"
@@ -11200,7 +11253,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/search",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2416",
+      "source": "routes/webhook.py:2355",
       "status": "new",
       "target_domains": [
         "media"
@@ -11224,7 +11277,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/metadata/images/sync",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2481",
+      "source": "routes/webhook.py:2420",
       "status": "new",
       "target_domains": [
         "media"
@@ -11248,7 +11301,7 @@
       "notes": "P5 native FastAPI Bridge route precedes the compatibility mount; legacy implementation remains until P11.",
       "path": "/api/emby/plugin-update",
       "retirement_approval": null,
-      "source": "routes/webhook.py:1882",
+      "source": "routes/webhook.py:1821",
       "status": "new",
       "target_domains": [
         "media"
@@ -11646,22 +11699,23 @@
       "contract_id": "route-decorator-213029d0d158",
       "declared_path": "/auto_save_auth",
       "endpoint": "auto_save_auth",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native authorization callback validates and atomically stores an account-bound token pair without echoing credentials.",
       "path": "/api/p115/auto_save_auth",
       "retirement_approval": null,
       "source": "routes/p115.py:686",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -11669,22 +11723,23 @@
       "contract_id": "route-decorator-7ed9f86fe861",
       "declared_path": "/cookie",
       "endpoint": "save_manual_cookie",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native manual Cookie transport delegates to the account-bound atomic credential adapter until P11.",
       "path": "/api/p115/cookie",
       "retirement_approval": null,
       "source": "routes/p115.py:533",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -11692,22 +11747,23 @@
       "contract_id": "route-decorator-07a797c60d7b",
       "declared_path": "/cookie_qrcode",
       "endpoint": "get_cookie_qrcode",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native Cookie QR transport uses bounded httpx provider calls and sanitized local fixtures.",
       "path": "/api/p115/cookie_qrcode",
       "retirement_approval": null,
       "source": "routes/p115.py:451",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -11715,22 +11771,23 @@
       "contract_id": "route-decorator-0d92c6d0361b",
       "declared_path": "/cookie_qrcode/status",
       "endpoint": "check_cookie_qrcode_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native Cookie QR status transport with process-local bounded session state and atomic compatibility credential storage until P11.",
       "path": "/api/p115/cookie_qrcode/status",
       "retirement_approval": null,
       "source": "routes/p115.py:478",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -11747,7 +11804,7 @@
       "new_owner": null,
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3488",
+      "source": "routes/p115.py:3491",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -11762,22 +11819,23 @@
       "contract_id": "route-decorator-797363a0e940",
       "declared_path": "/dirs",
       "endpoint": "list_115_directories",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native read-only directory transport pins the credential account revision and retains the split OpenAPI/Cookie client as a P11 compatibility adapter.",
       "path": "/api/p115/dirs",
       "retirement_approval": null,
       "source": "routes/p115.py:1188",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -11785,23 +11843,24 @@
       "contract_id": "route-decorator-06519368ec61",
       "declared_path": "/episode_regex_rules",
       "endpoint": "handle_episode_regex_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-episode-regex.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native GET/POST episode-regex transport owns validated, ordered, pure recognition policy without external effects.",
       "path": "/api/p115/episode_regex_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:3179",
-      "status": "legacy",
+      "source": "routes/p115.py:3182",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-pure-policy-postgres18-and-openapi",
+      "validation_owner": "p115/episode-recognition"
     },
     {
       "application": "api",
@@ -11809,22 +11868,23 @@
       "contract_id": "route-decorator-b5124565e4af",
       "declared_path": "/mediainfo/<pick_code>",
       "endpoint": "get_cached_mediainfo_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 native MediaInfo cache route precedes the compatibility mount; account identity and cache revisions are owned by the P6 repository.",
       "path": "/api/p115/mediainfo/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2272",
-      "status": "legacy",
+      "source": "routes/p115.py:2275",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
@@ -11832,22 +11892,23 @@
       "contract_id": "route-decorator-fe007d4f1190",
       "declared_path": "/mediainfo/<pick_code>/deep-delete/commit",
       "endpoint": "commit_deep_delete_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native PickCode deep-delete commit preserves single claim, TTL, replay, and internal persistent execution semantics.",
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2658",
-      "status": "legacy",
+      "source": "routes/p115.py:2661",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
@@ -11855,22 +11916,23 @@
       "contract_id": "route-decorator-e5b0e8aab5f0",
       "declared_path": "/mediainfo/<pick_code>/deep-delete/prepare",
       "endpoint": "prepare_deep_delete_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native PickCode deep-delete prepare freezes verified scope without provider mutation.",
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2645",
-      "status": "legacy",
+      "source": "routes/p115.py:2648",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
@@ -11878,22 +11940,23 @@
       "contract_id": "route-decorator-e506fce27383",
       "declared_path": "/mediainfo/<pick_code>/intro-sync",
       "endpoint": "sync_intro_snapshot_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-intro-sync.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.10 native PickCode intro-sync owner preserves auth-none callback transport without request-body or automatic 422 drift.",
       "path": "/api/p115/mediainfo/<pick_code>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2414",
-      "status": "legacy",
+      "source": "routes/p115.py:2417",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "application": "api",
@@ -11901,22 +11964,23 @@
       "contract_id": "route-decorator-97e18bb9d52b",
       "declared_path": "/mediainfo/<pick_code>/item-ready",
       "endpoint": "accept_emby_item_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native PickCode item-ready consumes durable pending binding before native lightweight rebind.",
       "path": "/api/p115/mediainfo/<pick_code>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2427",
-      "status": "legacy",
+      "source": "routes/p115.py:2430",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-durable-binding",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
@@ -11924,22 +11988,23 @@
       "contract_id": "route-decorator-cbcffb38c3a4",
       "declared_path": "/mediainfo/<pick_code>/metadata",
       "endpoint": "get_cached_metadata_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 verifies P115 MediaInfo identity before delegating metadata rendering to the P5 domain owner.",
       "path": "/api/p115/mediainfo/<pick_code>/metadata",
       "retirement_approval": null,
-      "source": "routes/p115.py:2335",
-      "status": "legacy",
+      "source": "routes/p115.py:2338",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
@@ -11947,22 +12012,23 @@
       "contract_id": "route-decorator-fdbb41c368e3",
       "declared_path": "/mediainfo/<pick_code>/metadata/backfill",
       "endpoint": "trigger_metadata_backfill_by_pick_code",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 verifies P115 identity before delegating durable metadata backfill submission to the P5 media use case.",
       "path": "/api/p115/mediainfo/<pick_code>/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/p115.py:2366",
-      "status": "legacy",
+      "source": "routes/p115.py:2369",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-task-submission",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
@@ -11970,22 +12036,23 @@
       "contract_id": "route-decorator-4802efcbdb26",
       "declared_path": "/mediainfo/sha1/<sha1>",
       "endpoint": "get_cached_mediainfo_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 native MediaInfo cache route precedes the compatibility mount; account identity and cache revisions are owned by the P6 repository.",
       "path": "/api/p115/mediainfo/sha1/<sha1>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2280",
-      "status": "legacy",
+      "source": "routes/p115.py:2283",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
@@ -11993,22 +12060,23 @@
       "contract_id": "route-decorator-b1696276caf6",
       "declared_path": "/mediainfo/sha1/<sha1>/deep-delete/commit",
       "endpoint": "commit_deep_delete_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native SHA1 deep-delete commit preserves cross-identity token capability and idempotent replay.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit",
       "retirement_approval": null,
-      "source": "routes/p115.py:2666",
-      "status": "legacy",
+      "source": "routes/p115.py:2669",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
@@ -12016,22 +12084,23 @@
       "contract_id": "route-decorator-247b43017ca7",
       "declared_path": "/mediainfo/sha1/<sha1>/deep-delete/prepare",
       "endpoint": "prepare_deep_delete_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native SHA1 deep-delete prepare preserves exact, hierarchy, and virtual-local-only scope semantics.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare",
       "retirement_approval": null,
-      "source": "routes/p115.py:2653",
-      "status": "legacy",
+      "source": "routes/p115.py:2656",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
@@ -12039,22 +12108,23 @@
       "contract_id": "route-decorator-9c0a9cf83ad0",
       "declared_path": "/mediainfo/sha1/<sha1>/intro-sync",
       "endpoint": "sync_intro_snapshot_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-intro-sync.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.10 native SHA1 intro-sync owner preserves auth-none callback transport and optional emby_item_id semantics.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/intro-sync",
       "retirement_approval": null,
-      "source": "routes/p115.py:2422",
-      "status": "legacy",
+      "source": "routes/p115.py:2425",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "application": "api",
@@ -12062,22 +12132,23 @@
       "contract_id": "route-decorator-486930f3a81f",
       "declared_path": "/mediainfo/sha1/<sha1>/item-ready",
       "endpoint": "accept_emby_item_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native SHA1 item-ready consumes durable pending binding or invokes native lightweight rebind without local queue fallback.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/item-ready",
       "retirement_approval": null,
-      "source": "routes/p115.py:2435",
-      "status": "legacy",
+      "source": "routes/p115.py:2438",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-durable-binding",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "application": "api",
@@ -12085,22 +12156,23 @@
       "contract_id": "route-decorator-e68d4378d9d5",
       "declared_path": "/mediainfo/sha1/<sha1>/metadata",
       "endpoint": "get_cached_metadata_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 verifies P115 MediaInfo identity before delegating metadata rendering to the P5 domain owner.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/metadata",
       "retirement_approval": null,
-      "source": "routes/p115.py:2343",
-      "status": "legacy",
+      "source": "routes/p115.py:2346",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
@@ -12108,22 +12180,23 @@
       "contract_id": "route-decorator-ceb8f06eac7c",
       "declared_path": "/mediainfo/sha1/<sha1>/metadata/backfill",
       "endpoint": "trigger_metadata_backfill_by_sha1",
-      "fixture": "verification/fixtures/http/bridge-mediainfo.json",
+      "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 verifies P115 identity before delegating durable metadata backfill submission to the P5 media use case.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/metadata/backfill",
       "retirement_approval": null,
-      "source": "routes/p115.py:2374",
-      "status": "legacy",
+      "source": "routes/p115.py:2377",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-task-submission",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "application": "api",
@@ -12154,23 +12227,24 @@
       "contract_id": "route-decorator-f9b14c22ade2",
       "declared_path": "/play/<pick_code>",
       "endpoint": "play_115_video",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "HEAD"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 native GET/HEAD direct-play owner confines signed URLs to redirect or streaming transport and keeps HEAD effect-free.",
       "path": "/api/p115/play/<pick_code>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2674",
-      "status": "legacy",
+      "source": "routes/p115.py:2677",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12178,23 +12252,24 @@
       "contract_id": "route-decorator-bfb634ec9c49",
       "declared_path": "/play/<pick_code>/<path:filename>",
       "endpoint": "play_115_video",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "HEAD"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 native filename GET/HEAD owner preserves the legacy path while filename remains outside provider identity.",
       "path": "/api/p115/play/<pick_code>/<path:filename>",
       "retirement_approval": null,
-      "source": "routes/p115.py:2675",
-      "status": "legacy",
+      "source": "routes/p115.py:2678",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12202,22 +12277,23 @@
       "contract_id": "route-decorator-dd9eb1a23411",
       "declared_path": "/play_pool",
       "endpoint": "get_play_pool_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 reads the normalized playback-pool projection through the native service.",
       "path": "/api/p115/play_pool",
       "retirement_approval": null,
       "source": "routes/p115.py:1288",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12225,22 +12301,23 @@
       "contract_id": "route-decorator-5bb42ffc1bef",
       "declared_path": "/play_pool",
       "endpoint": "save_play_pool_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 validates settings before durable playback preparation.",
       "path": "/api/p115/play_pool",
       "retirement_approval": null,
       "source": "routes/p115.py:1294",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12248,22 +12325,23 @@
       "contract_id": "route-decorator-49b60532d617",
       "declared_path": "/play_pool/accounts",
       "endpoint": "add_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 creates a normalized pool account and reserves remote preparation durably.",
       "path": "/api/p115/play_pool/accounts",
       "retirement_approval": null,
       "source": "routes/p115.py:1302",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12271,22 +12349,23 @@
       "contract_id": "route-decorator-e327c70013fe",
       "declared_path": "/play_pool/accounts/<account_id>",
       "endpoint": "delete_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 releases account leases before deleting its local projection.",
       "path": "/api/p115/play_pool/accounts/<account_id>",
       "retirement_approval": null,
       "source": "routes/p115.py:1403",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12294,22 +12373,23 @@
       "contract_id": "route-decorator-015a1409a105",
       "declared_path": "/play_pool/accounts/<account_id>",
       "endpoint": "update_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "PUT"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 updates a normalized pool account and reserves required remote preparation durably.",
       "path": "/api/p115/play_pool/accounts/<account_id>",
       "retirement_approval": null,
       "source": "routes/p115.py:1393",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12317,22 +12397,23 @@
       "contract_id": "route-decorator-af62eaab14b2",
       "declared_path": "/play_pool/accounts/<account_id>/speedtest",
       "endpoint": "speedtest_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 runs speedtest through a deterministic durable operation and returns sanitized result data.",
       "path": "/api/p115/play_pool/accounts/<account_id>/speedtest",
       "retirement_approval": null,
       "source": "routes/p115.py:1410",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12340,22 +12421,23 @@
       "contract_id": "route-decorator-60f4772e77d5",
       "declared_path": "/play_pool/cleanup",
       "endpoint": "cleanup_play_pool_sessions",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 cleanup is fenced by durable leases and artifact generations rather than remote file age alone.",
       "path": "/api/p115/play_pool/cleanup",
       "retirement_approval": null,
       "source": "routes/p115.py:1422",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12363,22 +12445,23 @@
       "contract_id": "route-decorator-8b870aa230e2",
       "declared_path": "/play_pool/cookie_qrcode",
       "endpoint": "get_play_pool_cookie_qrcode",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 creates owner-scoped, expiring QR authorization sessions.",
       "path": "/api/p115/play_pool/cookie_qrcode",
       "retirement_approval": null,
       "source": "routes/p115.py:549",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12386,22 +12469,23 @@
       "contract_id": "route-decorator-92648a216080",
       "declared_path": "/play_pool/cookie_qrcode/status",
       "endpoint": "check_play_pool_cookie_qrcode_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 polls only the current owner's QR session and destroys credentials on expiry.",
       "path": "/api/p115/play_pool/cookie_qrcode/status",
       "retirement_approval": null,
       "source": "routes/p115.py:599",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12409,22 +12493,23 @@
       "contract_id": "route-decorator-e64a82a520eb",
       "declared_path": "/play_pool/user-account",
       "endpoint": "delete_user_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 releases the user's leases before deleting the local account projection.",
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
       "source": "routes/p115.py:1375",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12432,22 +12517,23 @@
       "contract_id": "route-decorator-ac5ee8c6ae20",
       "declared_path": "/play_pool/user-account",
       "endpoint": "get_user_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 returns only the authenticated user's normalized account projection.",
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
       "source": "routes/p115.py:1366",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12455,22 +12541,23 @@
       "contract_id": "route-decorator-01c3e3e38262",
       "declared_path": "/play_pool/user-account",
       "endpoint": "save_user_play_pool_account",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 saves the authenticated user's normalized account projection while P9 contribution transport remains deferred.",
       "path": "/api/p115/play_pool/user-account",
       "retirement_approval": null,
       "source": "routes/p115.py:1312",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12478,22 +12565,23 @@
       "contract_id": "route-decorator-b570347d78f4",
       "declared_path": "/play_pool/user-account/rewards",
       "endpoint": "get_user_play_pool_rewards",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 preserves the reward-summary envelope while the P9 contribution ledger remains deferred.",
       "path": "/api/p115/play_pool/user-account/rewards",
       "retirement_approval": null,
       "source": "routes/p115.py:1386",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12501,22 +12589,23 @@
       "contract_id": "route-decorator-b797f4fbf6ac",
       "declared_path": "/qrcode",
       "endpoint": "get_qrcode",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native authorization transport; provider behavior is covered by isolated legacy golden and local httpx stubs, while Live 115 acceptance remains pending.",
       "path": "/api/p115/qrcode",
       "retirement_approval": null,
       "source": "routes/p115.py:370",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -12524,22 +12613,23 @@
       "contract_id": "route-decorator-5e2c043920f8",
       "declared_path": "/qrcode/status",
       "endpoint": "check_qrcode_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native OpenAPI QR status transport binds credentials only after a stable account identity is proven.",
       "path": "/api/p115/qrcode/status",
       "retirement_approval": null,
       "source": "routes/p115.py:389",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -12555,7 +12645,7 @@
       "new_owner": null,
       "path": "/api/p115/quick_deploy",
       "retirement_approval": null,
-      "source": "routes/p115.py:1939",
+      "source": "routes/p115.py:1942",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12570,22 +12660,23 @@
       "contract_id": "route-decorator-0ce2d912b5bc",
       "declared_path": "/records",
       "endpoint": "get_organize_records",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-organize-execution-records.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native record query transport preserves the legacy pagination, filter, statistics, and fail-reason envelope through the Native PostgreSQL records repository.",
       "path": "/api/p115/records",
       "retirement_approval": null,
-      "source": "routes/p115.py:3210",
-      "status": "legacy",
+      "source": "routes/p115.py:3213",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-envelope-fake-repository-and-openapi",
+      "validation_owner": "p115/organize-records"
     },
     {
       "application": "api",
@@ -12593,22 +12684,23 @@
       "contract_id": "route-decorator-3113b2ec5864",
       "declared_path": "/records/<int:record_id>",
       "endpoint": "delete_organize_record",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-organize-execution-records.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native record deletion is idempotent for missing rows and removes only local record and filesystem-cache state without resolving a 115 mutation provider.",
       "path": "/api/p115/records/<int:record_id>",
       "retirement_approval": null,
-      "source": "routes/p115.py:3303",
-      "status": "legacy",
+      "source": "routes/p115.py:3306",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-envelope-no-provider-effect-and-openapi",
+      "validation_owner": "p115/organize-records"
     },
     {
       "application": "api",
@@ -12624,7 +12716,7 @@
       "new_owner": null,
       "path": "/api/p115/recycle_bin/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3335",
+      "source": "routes/p115.py:3338",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12647,7 +12739,7 @@
       "new_owner": null,
       "path": "/api/p115/release_groups",
       "retirement_approval": null,
-      "source": "routes/p115.py:2049",
+      "source": "routes/p115.py:2052",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12662,23 +12754,24 @@
       "contract_id": "route-decorator-971da8658572",
       "declared_path": "/rename_config",
       "endpoint": "handle_rename_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native GET/POST rename-config transport preserves defaults, legacy template fallback, and conflict-mode splitting.",
       "path": "/api/p115/rename_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2819",
-      "status": "legacy",
+      "source": "routes/p115.py:2822",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-postgres18-and-openapi",
+      "validation_owner": "p115/rename-config"
     },
     {
       "application": "api",
@@ -12694,7 +12787,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/export",
       "retirement_approval": null,
-      "source": "routes/p115.py:3086",
+      "source": "routes/p115.py:3089",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12717,7 +12810,7 @@
       "new_owner": null,
       "path": "/api/p115/rename_config/mp/import",
       "retirement_approval": null,
-      "source": "routes/p115.py:3052",
+      "source": "routes/p115.py:3055",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12732,22 +12825,23 @@
       "contract_id": "route-decorator-d76e76f83a94",
       "declared_path": "/rename_config/preview",
       "endpoint": "preview_rename_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native fixed-sample rename preview has a tested no-effect boundary; the renderer remains an explicit P11 compatibility adapter.",
       "path": "/api/p115/rename_config/preview",
       "retirement_approval": null,
-      "source": "routes/p115.py:2928",
-      "status": "legacy",
+      "source": "routes/p115.py:2931",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-no-effect-and-openapi",
+      "validation_owner": "p115/rename-preview"
     },
     {
       "application": "api",
@@ -12755,22 +12849,23 @@
       "contract_id": "route-decorator-5229848d8a38",
       "declared_path": "/replace_strm",
       "endpoint": "replace_strm_files",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-replace-strm.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.5 native FastAPI route precedes the compatibility mount and is frozen by the replace-STRM HTTP fixture, including its explicit fail-closed variance.",
       "path": "/api/p115/replace_strm",
       "retirement_approval": null,
-      "source": "routes/p115.py:2753",
-      "status": "legacy",
+      "source": "routes/p115.py:2756",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-atomic-local-adapter-and-openapi",
+      "validation_owner": "p115/strm-replacement"
     },
     {
       "application": "api",
@@ -12778,23 +12873,24 @@
       "contract_id": "route-decorator-af5f3fd3fd1c",
       "declared_path": "/sorting_rules",
       "endpoint": "handle_sorting_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-sorting-rules.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native GET/POST sorting-rule transport preserves legacy response shapes for valid rule documents and uses account-bound persistence only as an internal safety precondition. The fixture records the intentional malformed mixed-element fail-closed variance before provider or persistence.",
       "path": "/api/p115/sorting_rules",
       "retirement_approval": null,
-      "source": "routes/p115.py:2125",
-      "status": "legacy",
+      "source": "routes/p115.py:2128",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-native-variance-postgres18-and-openapi",
+      "validation_owner": "p115/sorting-rules"
     },
     {
       "application": "api",
@@ -12825,22 +12921,23 @@
       "contract_id": "route-decorator-9af785f097c1",
       "declared_path": "/status",
       "endpoint": "get_115_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6 native credential status transport probes one immutable credential snapshot and conditionally binds stable account identity.",
       "path": "/api/p115/status",
       "retirement_approval": null,
       "source": "routes/p115.py:1005",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+      "validation_owner": "p115/auth-directory"
     },
     {
       "application": "api",
@@ -12856,7 +12953,7 @@
       "new_owner": null,
       "path": "/api/p115/system/directories",
       "retirement_approval": null,
-      "source": "routes/p115.py:3385",
+      "source": "routes/p115.py:3388",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12871,22 +12968,23 @@
       "contract_id": "route-decorator-4dd9b5002590",
       "declared_path": "/temp_dir_config",
       "endpoint": "get_temp_dir_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 reads the normalized primary temporary-directory projection without a remote effect.",
       "path": "/api/p115/temp_dir_config",
       "retirement_approval": null,
       "source": "routes/p115.py:1429",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12894,22 +12992,23 @@
       "contract_id": "route-decorator-7bd2240d7720",
       "declared_path": "/temp_dir_config",
       "endpoint": "save_temp_dir_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_router",
+      "notes": "P6.9 persists temporary-directory intent and executes its remote mutation through the durable operation state machine.",
       "path": "/api/p115/temp_dir_config",
       "retirement_approval": null,
       "source": "routes/p115.py:1436",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+      "validation_owner": "p115/playback"
     },
     {
       "application": "api",
@@ -12925,7 +13024,7 @@
       "new_owner": null,
       "path": "/api/p115/unrecognized/empty",
       "retirement_approval": null,
-      "source": "routes/p115.py:3350",
+      "source": "routes/p115.py:3353",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12940,23 +13039,24 @@
       "contract_id": "route-decorator-931f8e775a88",
       "declared_path": "/upload_monitor/config",
       "endpoint": "handle_upload_monitor_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.8 native GET/POST owner preserves the legacy path and envelopes while split-process lifecycle ownership remains with Coordinator and Worker.",
       "path": "/api/p115/upload_monitor/config",
       "retirement_approval": null,
-      "source": "routes/p115.py:3433",
-      "status": "legacy",
+      "source": "routes/p115.py:3436",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-http-fixture-openapi-and-process-role-contract",
+      "validation_owner": "p115/upload-monitor"
     },
     {
       "application": "api",
@@ -12973,7 +13073,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_config",
       "retirement_approval": null,
-      "source": "routes/p115.py:2066",
+      "source": "routes/p115.py:2069",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -12997,7 +13097,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_groups",
       "retirement_approval": null,
-      "source": "routes/p115.py:2017",
+      "source": "routes/p115.py:2020",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -13020,7 +13120,7 @@
       "new_owner": null,
       "path": "/api/p115/washing_priority_recalculate",
       "retirement_approval": null,
-      "source": "routes/p115.py:2087",
+      "source": "routes/p115.py:2090",
       "status": "legacy",
       "target_domains": [
         "p115"
@@ -15825,7 +15925,7 @@
       "new_owner": null,
       "path": "/webhook/emby",
       "retirement_approval": null,
-      "source": "routes/webhook.py:2550",
+      "source": "routes/webhook.py:2489",
       "status": "legacy",
       "target_domains": [
         "ingestion",

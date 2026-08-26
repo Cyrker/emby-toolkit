@@ -22,6 +22,8 @@ import constants
 
 logger = logging.getLogger(__name__)
 WASHING_PRIORITY_RECALCULATE_SETTING_KEY = 'p115_washing_priority_recalculate_state'
+P115_SORTING_RULES_KEY = 'p115_sorting_rules'
+P115_SORTING_RULES_ACCOUNT_KEY = 'p115_sorting_rules_account_id'
 _dynamic_config_lock_state = threading.local()
 _p115_auth_lock_state = threading.local()
 _p115_unrecognized_delete_lock_state = threading.local()
@@ -43,7 +45,7 @@ def get_setting(setting_key: str) -> Optional[Any]:
         logger.error(f"DB: 获取设置 '{setting_key}' 时失败: {e}", exc_info=True)
         raise
 
-def _save_setting_with_cursor(cursor, setting_key: str, value: Dict[str, Any]):
+def _save_setting_with_cursor(cursor, setting_key: str, value: Any):
     """【内部函数】使用一个已有的数据库游标来保存设置。"""
     
     sql = """
@@ -139,6 +141,32 @@ def p115_auth_write_lock():
                 "SELECT pg_advisory_unlock(%s, %s)",
                 (DYNAMIC_CONFIG_LOCK_NAMESPACE, P115_AUTH_LOCK_KEY),
             )
+            conn.commit()
+
+
+def save_p115_sorting_rules(rules: list[Mapping[str, Any]], *, account_id: str) -> None:
+    """Atomically bind sorting rules to the currently persisted 115 account."""
+
+    normalized_account_id = str(account_id or '').strip()
+    if not normalized_account_id.isdigit():
+        raise ValueError('115 分类规则需要稳定的数字账号 ID')
+    normalized_rules = [dict(rule) for rule in rules]
+    with p115_auth_write_lock():
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT value_json ->> 'account_id' AS account_id
+                FROM app_settings
+                WHERE setting_key = 'p115_auth_tokens'
+                """
+            )
+            row = cursor.fetchone()
+            persisted_account_id = str((row or {}).get('account_id') or '').strip()
+            if persisted_account_id != normalized_account_id:
+                raise RuntimeError('115 账号在分类规则提交前发生变化，事务已回滚')
+            _save_setting_with_cursor(cursor, P115_SORTING_RULES_KEY, normalized_rules)
+            _save_setting_with_cursor(cursor, P115_SORTING_RULES_ACCOUNT_KEY, normalized_account_id)
             conn.commit()
 
 

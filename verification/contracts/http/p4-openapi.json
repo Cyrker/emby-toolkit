@@ -255,6 +255,11 @@
         "title": "DatabaseTableListResponse",
         "type": "array"
       },
+      "ExternalArrayResponse": {
+        "items": {},
+        "title": "ExternalArrayResponse",
+        "type": "array"
+      },
       "ExternalObjectResponse": {
         "additionalProperties": true,
         "title": "ExternalObjectResponse",
@@ -612,6 +617,382 @@
       "ObjectMapResponse": {
         "additionalProperties": true,
         "title": "ObjectMapResponse",
+        "type": "object"
+      },
+      "OrganizeExecutionEnvelopeResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "OrganizeExecutionEnvelopeResponse",
+        "type": "object"
+      },
+      "OrganizePlanActionResponse": {
+        "properties": {
+          "action_id": {
+            "title": "Action Id",
+            "type": "string"
+          },
+          "action_index": {
+            "title": "Action Index",
+            "type": "integer"
+          },
+          "decision_basis": {
+            "additionalProperties": true,
+            "title": "Decision Basis",
+            "type": "object"
+          },
+          "deferred_slice": {
+            "title": "Deferred Slice",
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "destination": {
+            "additionalProperties": true,
+            "title": "Destination",
+            "type": "object"
+          },
+          "destructive": {
+            "title": "Destructive",
+            "type": "boolean"
+          },
+          "effect_key": {
+            "title": "Effect Key",
+            "type": "string"
+          },
+          "expected_postcondition": {
+            "additionalProperties": true,
+            "title": "Expected Postcondition",
+            "type": "object"
+          },
+          "kind": {
+            "enum": [
+              "ENSURE_DIRECTORY",
+              "MOVE",
+              "RENAME"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "preconditions": {
+            "additionalProperties": true,
+            "title": "Preconditions",
+            "type": "object"
+          },
+          "risk": {
+            "additionalProperties": true,
+            "title": "Risk",
+            "type": "object"
+          },
+          "subject": {
+            "additionalProperties": true,
+            "title": "Subject",
+            "type": "object"
+          }
+        },
+        "required": [
+          "action_index",
+          "action_id",
+          "kind",
+          "subject",
+          "destination",
+          "dependencies",
+          "preconditions",
+          "effect_key",
+          "decision_basis",
+          "risk",
+          "destructive",
+          "expected_postcondition",
+          "deferred_slice"
+        ],
+        "title": "OrganizePlanActionResponse",
+        "type": "object"
+      },
+      "OrganizePlanDocumentResponse": {
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "string"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/OrganizePlanActionResponse"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "config_snapshot": {
+            "additionalProperties": true,
+            "title": "Config Snapshot",
+            "type": "object"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "errors": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "input_fingerprint": {
+            "title": "Input Fingerprint",
+            "type": "string"
+          },
+          "plan_id": {
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "planner_version": {
+            "title": "Planner Version",
+            "type": "string"
+          },
+          "provider_evidence": {
+            "additionalProperties": true,
+            "title": "Provider Evidence",
+            "type": "object"
+          },
+          "recognition_evidence": {
+            "additionalProperties": true,
+            "title": "Recognition Evidence",
+            "type": "object"
+          },
+          "request_hash": {
+            "title": "Request Hash",
+            "type": "string"
+          },
+          "request_intent_id": {
+            "title": "Request Intent Id",
+            "type": "string"
+          },
+          "revisions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Revisions",
+            "type": "object"
+          },
+          "risk_summary": {
+            "additionalProperties": true,
+            "title": "Risk Summary",
+            "type": "object"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "source_root": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Source Root",
+            "type": "object"
+          },
+          "source_snapshot": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Source Snapshot",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "blocked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "plan_id",
+          "schema_version",
+          "planner_version",
+          "request_intent_id",
+          "request_hash",
+          "input_fingerprint",
+          "status",
+          "account_id",
+          "source_root",
+          "revisions",
+          "config_snapshot",
+          "source_snapshot",
+          "provider_evidence",
+          "recognition_evidence",
+          "warnings",
+          "errors",
+          "risk_summary",
+          "actions",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "OrganizePlanDocumentResponse",
+        "type": "object"
+      },
+      "OrganizePlanEnvelopeResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrganizePlanDocumentResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "OrganizePlanEnvelopeResponse",
+        "type": "object"
+      },
+      "OrganizeRecordsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "fail_reasons": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fail Reasons"
+          },
+          "items": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "stats": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stats"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "OrganizeRecordsResponse",
         "type": "object"
       },
       "PromptsResetResponse": {
@@ -3692,6 +4073,4357 @@
         "tags": [
           "media",
           "editing"
+        ]
+      }
+    },
+    "/api/p115/auto_save_auth": {
+      "get": {
+        "operationId": "save_callback_authorization_api_p115_auto_save_auth_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "data",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Save Callback Authorization",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/cookie": {
+      "post": {
+        "operationId": "save_manual_cookie_api_p115_cookie_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "app_type": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "App Type"
+                  },
+                  "cookie": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Cookie"
+                  }
+                },
+                "title": "ManualCookieRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Save Manual Cookie",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/cookie_qrcode": {
+      "get": {
+        "operationId": "create_cookie_qrcode_api_p115_cookie_qrcode_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Create Cookie Qrcode",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/cookie_qrcode/status": {
+      "get": {
+        "operationId": "poll_cookie_qrcode_api_p115_cookie_qrcode_status_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Poll Cookie Qrcode",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/dirs": {
+      "get": {
+        "operationId": "list_directories_api_p115_dirs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cid",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List Directories",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/episode_regex_rules": {
+      "get": {
+        "operationId": "get_episode_regex_rules_api_p115_episode_regex_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Episode Regex Rules",
+        "tags": [
+          "p115"
+        ]
+      },
+      "post": {
+        "operationId": "save_episode_regex_rules_api_p115_episode_regex_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "ExternalObjectResponse",
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "ExternalObjectResponse",
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Save Episode Regex Rules",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/sha1/{sha1}": {
+      "get": {
+        "operationId": "get_cached_mediainfo_by_sha1_api_p115_mediainfo_sha1__sha1__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sha1",
+            "required": true,
+            "schema": {
+              "title": "Sha1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Get Cached Mediainfo By Sha1",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/sha1/{sha1}/deep-delete/commit": {
+      "post": {
+        "operationId": "commit_deep_delete_by_sha1_api_p115_mediainfo_sha1__sha1__deep_delete_commit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sha1",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Commit Deep Delete By Sha1",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/sha1/{sha1}/deep-delete/prepare": {
+      "post": {
+        "operationId": "prepare_deep_delete_by_sha1_api_p115_mediainfo_sha1__sha1__deep_delete_prepare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sha1",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "anchor_item_id": {
+                    "type": "string"
+                  },
+                  "item_name": {
+                    "type": "string"
+                  },
+                  "item_type": {
+                    "type": "string"
+                  },
+                  "root_item_id": {
+                    "type": "string"
+                  },
+                  "series_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "root_item_id",
+                  "anchor_item_id",
+                  "item_type"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Prepare Deep Delete By Sha1",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/sha1/{sha1}/intro-sync": {
+      "post": {
+        "operationId": "sync_intro_by_sha1_api_p115_mediainfo_sha1__sha1__intro_sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sha1",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "emby_item_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sync Intro By Sha1",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/sha1/{sha1}/item-ready": {
+      "post": {
+        "operationId": "accept_emby_item_by_sha1_api_p115_mediainfo_sha1__sha1__item_ready_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sha1",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "emby_item_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Accept Emby Item By Sha1",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/sha1/{sha1}/metadata": {
+      "get": {
+        "operationId": "get_cached_metadata_by_sha1_api_p115_mediainfo_sha1__sha1__metadata_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sha1",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "item_type",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "season_number",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "episode_number",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Get Cached Metadata By Sha1",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/sha1/{sha1}/metadata/backfill": {
+      "post": {
+        "operationId": "trigger_metadata_backfill_by_sha1_api_p115_mediainfo_sha1__sha1__metadata_backfill_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sha1",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Trigger Metadata Backfill By Sha1",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/{pick_code}": {
+      "get": {
+        "operationId": "get_cached_mediainfo_by_pick_code_api_p115_mediainfo__pick_code__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pick_code",
+            "required": true,
+            "schema": {
+              "title": "Pick Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Get Cached Mediainfo By Pick Code",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/{pick_code}/deep-delete/commit": {
+      "post": {
+        "operationId": "commit_deep_delete_by_pick_code_api_p115_mediainfo__pick_code__deep_delete_commit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pick_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Commit Deep Delete By Pick Code",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/{pick_code}/deep-delete/prepare": {
+      "post": {
+        "operationId": "prepare_deep_delete_by_pick_code_api_p115_mediainfo__pick_code__deep_delete_prepare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pick_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "anchor_item_id": {
+                    "type": "string"
+                  },
+                  "item_name": {
+                    "type": "string"
+                  },
+                  "item_type": {
+                    "type": "string"
+                  },
+                  "root_item_id": {
+                    "type": "string"
+                  },
+                  "series_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "root_item_id",
+                  "anchor_item_id",
+                  "item_type"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Prepare Deep Delete By Pick Code",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/{pick_code}/intro-sync": {
+      "post": {
+        "operationId": "sync_intro_by_pick_code_api_p115_mediainfo__pick_code__intro_sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pick_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "emby_item_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Sync Intro By Pick Code",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/{pick_code}/item-ready": {
+      "post": {
+        "operationId": "accept_emby_item_by_pick_code_api_p115_mediainfo__pick_code__item_ready_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pick_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "emby_item_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Accept Emby Item By Pick Code",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/{pick_code}/metadata": {
+      "get": {
+        "operationId": "get_cached_metadata_by_pick_code_api_p115_mediainfo__pick_code__metadata_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pick_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "item_type",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "season_number",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "episode_number",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        },
+        "summary": "Get Cached Metadata By Pick Code",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/mediainfo/{pick_code}/metadata/backfill": {
+      "post": {
+        "operationId": "trigger_metadata_backfill_by_pick_code_api_p115_mediainfo__pick_code__metadata_backfill_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pick_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Trigger Metadata Backfill By Pick Code",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/organize/executions/{execution_id}": {
+      "get": {
+        "operationId": "get_organize_execution_api_p115_organize_executions__execution_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Organize Execution",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/organize/executions/{execution_id}/reconcile": {
+      "post": {
+        "operationId": "reconcile_organize_execution_api_p115_organize_executions__execution_id__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "approved_reconciliation_intent_id": {
+                    "title": "Approved Reconciliation Intent Id",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "approved_reconciliation_intent_id"
+                ],
+                "title": "OrganizeReconciliationRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Reconcile Organize Execution",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/organize/plans/dry-run": {
+      "post": {
+        "operationId": "create_organize_dry_run_plan_api_p115_organize_plans_dry_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "recognition_hints": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Recognition Hints"
+                  },
+                  "request_intent_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Request Intent Id"
+                  },
+                  "source_cid": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Source Cid"
+                  },
+                  "source_name": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Source Name"
+                  }
+                },
+                "title": "OrganizePlanRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizePlanEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$defs": {
+                    "OrganizePlanActionResponse": {
+                      "properties": {
+                        "action_id": {
+                          "title": "Action Id",
+                          "type": "string"
+                        },
+                        "action_index": {
+                          "title": "Action Index",
+                          "type": "integer"
+                        },
+                        "decision_basis": {
+                          "additionalProperties": true,
+                          "title": "Decision Basis",
+                          "type": "object"
+                        },
+                        "deferred_slice": {
+                          "title": "Deferred Slice",
+                          "type": "string"
+                        },
+                        "dependencies": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "title": "Dependencies",
+                          "type": "array"
+                        },
+                        "destination": {
+                          "additionalProperties": true,
+                          "title": "Destination",
+                          "type": "object"
+                        },
+                        "destructive": {
+                          "title": "Destructive",
+                          "type": "boolean"
+                        },
+                        "effect_key": {
+                          "title": "Effect Key",
+                          "type": "string"
+                        },
+                        "expected_postcondition": {
+                          "additionalProperties": true,
+                          "title": "Expected Postcondition",
+                          "type": "object"
+                        },
+                        "kind": {
+                          "enum": [
+                            "ENSURE_DIRECTORY",
+                            "MOVE",
+                            "RENAME"
+                          ],
+                          "title": "Kind",
+                          "type": "string"
+                        },
+                        "preconditions": {
+                          "additionalProperties": true,
+                          "title": "Preconditions",
+                          "type": "object"
+                        },
+                        "risk": {
+                          "additionalProperties": true,
+                          "title": "Risk",
+                          "type": "object"
+                        },
+                        "subject": {
+                          "additionalProperties": true,
+                          "title": "Subject",
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "action_index",
+                        "action_id",
+                        "kind",
+                        "subject",
+                        "destination",
+                        "dependencies",
+                        "preconditions",
+                        "effect_key",
+                        "decision_basis",
+                        "risk",
+                        "destructive",
+                        "expected_postcondition",
+                        "deferred_slice"
+                      ],
+                      "title": "OrganizePlanActionResponse",
+                      "type": "object"
+                    },
+                    "OrganizePlanDocumentResponse": {
+                      "properties": {
+                        "account_id": {
+                          "title": "Account Id",
+                          "type": "string"
+                        },
+                        "actions": {
+                          "items": {
+                            "$ref": "#/$defs/OrganizePlanActionResponse"
+                          },
+                          "title": "Actions",
+                          "type": "array"
+                        },
+                        "config_snapshot": {
+                          "additionalProperties": true,
+                          "title": "Config Snapshot",
+                          "type": "object"
+                        },
+                        "created_at": {
+                          "title": "Created At",
+                          "type": "string"
+                        },
+                        "errors": {
+                          "items": {
+                            "additionalProperties": true,
+                            "type": "object"
+                          },
+                          "title": "Errors",
+                          "type": "array"
+                        },
+                        "expires_at": {
+                          "title": "Expires At",
+                          "type": "string"
+                        },
+                        "input_fingerprint": {
+                          "title": "Input Fingerprint",
+                          "type": "string"
+                        },
+                        "plan_id": {
+                          "title": "Plan Id",
+                          "type": "string"
+                        },
+                        "planner_version": {
+                          "title": "Planner Version",
+                          "type": "string"
+                        },
+                        "provider_evidence": {
+                          "additionalProperties": true,
+                          "title": "Provider Evidence",
+                          "type": "object"
+                        },
+                        "recognition_evidence": {
+                          "additionalProperties": true,
+                          "title": "Recognition Evidence",
+                          "type": "object"
+                        },
+                        "request_hash": {
+                          "title": "Request Hash",
+                          "type": "string"
+                        },
+                        "request_intent_id": {
+                          "title": "Request Intent Id",
+                          "type": "string"
+                        },
+                        "revisions": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "title": "Revisions",
+                          "type": "object"
+                        },
+                        "risk_summary": {
+                          "additionalProperties": true,
+                          "title": "Risk Summary",
+                          "type": "object"
+                        },
+                        "schema_version": {
+                          "title": "Schema Version",
+                          "type": "integer"
+                        },
+                        "source_root": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "title": "Source Root",
+                          "type": "object"
+                        },
+                        "source_snapshot": {
+                          "items": {
+                            "additionalProperties": true,
+                            "type": "object"
+                          },
+                          "title": "Source Snapshot",
+                          "type": "array"
+                        },
+                        "status": {
+                          "enum": [
+                            "ready",
+                            "blocked"
+                          ],
+                          "title": "Status",
+                          "type": "string"
+                        },
+                        "warnings": {
+                          "items": {
+                            "additionalProperties": true,
+                            "type": "object"
+                          },
+                          "title": "Warnings",
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "plan_id",
+                        "schema_version",
+                        "planner_version",
+                        "request_intent_id",
+                        "request_hash",
+                        "input_fingerprint",
+                        "status",
+                        "account_id",
+                        "source_root",
+                        "revisions",
+                        "config_snapshot",
+                        "source_snapshot",
+                        "provider_evidence",
+                        "recognition_evidence",
+                        "warnings",
+                        "errors",
+                        "risk_summary",
+                        "actions",
+                        "created_at",
+                        "expires_at"
+                      ],
+                      "title": "OrganizePlanDocumentResponse",
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": true,
+                  "properties": {
+                    "data": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/OrganizePlanDocumentResponse"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "title": "Message"
+                    },
+                    "success": {
+                      "title": "Success",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ],
+                  "title": "OrganizePlanEnvelopeResponse",
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizePlanEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Create Organize Dry Run Plan",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/organize/plans/{plan_id}": {
+      "get": {
+        "operationId": "get_organize_dry_run_plan_api_p115_organize_plans__plan_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizePlanEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizePlanEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Organize Dry Run Plan",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/organize/plans/{plan_id}/execute": {
+      "post": {
+        "operationId": "execute_organize_plan_api_p115_organize_plans__plan_id__execute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "approved_execution_intent_id": {
+                    "title": "Approved Execution Intent Id",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "approved_execution_intent_id"
+                ],
+                "title": "OrganizeExecutionRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Accepted",
+            "headers": {
+              "x-etk-job-id": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeExecutionEnvelopeResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Execute Organize Plan",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/play/{pick_code}": {
+      "get": {
+        "operationId": "direct_play_api_p115_play__pick_code__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pick_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "206": {
+            "description": "Upstream partial-content response"
+          },
+          "302": {
+            "description": "115 direct-link redirect"
+          },
+          "404": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "default": {
+            "description": "Upstream status, headers, and body are passed through"
+          }
+        },
+        "summary": "Direct Play",
+        "tags": [
+          "p115-playback"
+        ]
+      },
+      "head": {
+        "operationId": "direct_play_head_api_p115_play__pick_code__head",
+        "responses": {
+          "200": {
+            "description": "Legacy probe response"
+          }
+        },
+        "summary": "Direct Play Head",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/play/{pick_code}/{filename}": {
+      "get": {
+        "operationId": "direct_play_with_filename_api_p115_play__pick_code___filename__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pick_code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "filename",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "206": {
+            "description": "Upstream partial-content response"
+          },
+          "302": {
+            "description": "115 direct-link redirect"
+          },
+          "404": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "default": {
+            "description": "Upstream status, headers, and body are passed through"
+          }
+        },
+        "summary": "Direct Play With Filename",
+        "tags": [
+          "p115-playback"
+        ]
+      },
+      "head": {
+        "operationId": "direct_play_with_filename_head_api_p115_play__pick_code___filename__head",
+        "responses": {
+          "200": {
+            "description": "Legacy probe response"
+          }
+        },
+        "summary": "Direct Play With Filename Head",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/play_pool": {
+      "get": {
+        "operationId": "get_play_pool_api_p115_play_pool_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Play Pool",
+        "tags": [
+          "p115-playback"
+        ]
+      },
+      "post": {
+        "operationId": "save_play_pool_api_p115_play_pool_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Save Play Pool",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/play_pool/accounts": {
+      "post": {
+        "operationId": "add_play_pool_account_api_p115_play_pool_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Add Play Pool Account",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/play_pool/accounts/{account_id}": {
+      "delete": {
+        "operationId": "delete_play_pool_account_api_p115_play_pool_accounts__account_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Delete Play Pool Account",
+        "tags": [
+          "p115-playback"
+        ]
+      },
+      "put": {
+        "operationId": "update_play_pool_account_api_p115_play_pool_accounts__account_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Update Play Pool Account",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/play_pool/accounts/{account_id}/speedtest": {
+      "post": {
+        "operationId": "speedtest_play_pool_account_api_p115_play_pool_accounts__account_id__speedtest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Speedtest Play Pool Account",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/play_pool/cleanup": {
+      "post": {
+        "operationId": "cleanup_play_pool_api_p115_play_pool_cleanup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Cleanup Play Pool",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/play_pool/cookie_qrcode": {
+      "get": {
+        "operationId": "create_play_pool_qrcode_api_p115_play_pool_cookie_qrcode_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Create Play Pool Qrcode",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/play_pool/cookie_qrcode/status": {
+      "get": {
+        "operationId": "poll_play_pool_qrcode_api_p115_play_pool_cookie_qrcode_status_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "uid",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Poll Play Pool Qrcode",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/play_pool/user-account": {
+      "delete": {
+        "operationId": "delete_user_play_pool_account_api_p115_play_pool_user_account_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Delete User Play Pool Account",
+        "tags": [
+          "p115-playback"
+        ]
+      },
+      "get": {
+        "operationId": "get_user_play_pool_account_api_p115_play_pool_user_account_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get User Play Pool Account",
+        "tags": [
+          "p115-playback"
+        ]
+      },
+      "post": {
+        "operationId": "save_user_play_pool_account_api_p115_play_pool_user_account_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Save User Play Pool Account",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/play_pool/user-account/rewards": {
+      "get": {
+        "operationId": "get_user_play_pool_rewards_api_p115_play_pool_user_account_rewards_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get User Play Pool Rewards",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/qrcode": {
+      "post": {
+        "operationId": "create_openapi_qrcode_api_p115_qrcode_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Create Openapi Qrcode",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/qrcode/status": {
+      "get": {
+        "operationId": "poll_openapi_qrcode_api_p115_qrcode_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Poll Openapi Qrcode",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/records": {
+      "get": {
+        "operationId": "get_organize_records_api_p115_records_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "per_page",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cid",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "fail_reason",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeRecordsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeRecordsResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Organize Records",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/records/{record_id}": {
+      "delete": {
+        "operationId": "delete_organize_record_api_p115_records__record_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeRecordsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeRecordsResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizeRecordsResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Delete Organize Record",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/rename_config": {
+      "get": {
+        "operationId": "get_rename_config_api_p115_rename_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Rename Config",
+        "tags": [
+          "p115"
+        ]
+      },
+      "post": {
+        "operationId": "save_rename_config_api_p115_rename_config_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Save Rename Config",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/rename_config/preview": {
+      "post": {
+        "operationId": "preview_rename_config_api_p115_rename_config_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "ExternalObjectResponse",
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Preview Rename Config",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/replace_strm": {
+      "post": {
+        "operationId": "replace_strm_files_api_p115_replace_strm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "mode": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": "plain",
+                    "title": "Mode"
+                  },
+                  "replace": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": "",
+                    "title": "Replace"
+                  },
+                  "search": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": "",
+                    "title": "Search"
+                  }
+                },
+                "title": "ReplaceStrmRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "ExternalObjectResponse",
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "ExternalObjectResponse",
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Replace Strm Files",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/sorting_rules": {
+      "get": {
+        "operationId": "list_sorting_rules_api_p115_sorting_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalArrayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "List Sorting Rules",
+        "tags": [
+          "p115"
+        ]
+      },
+      "post": {
+        "operationId": "save_sorting_rules_api_p115_sorting_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Save Sorting Rules",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/status": {
+      "get": {
+        "operationId": "status_api_p115_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Status",
+        "tags": [
+          "p115"
+        ]
+      }
+    },
+    "/api/p115/temp_dir_config": {
+      "get": {
+        "operationId": "get_temp_dir_config_api_p115_temp_dir_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Temp Dir Config",
+        "tags": [
+          "p115-playback"
+        ]
+      },
+      "post": {
+        "operationId": "save_temp_dir_config_api_p115_temp_dir_config_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "415": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Save Temp Dir Config",
+        "tags": [
+          "p115-playback"
+        ]
+      }
+    },
+    "/api/p115/upload_monitor/config": {
+      "get": {
+        "operationId": "get_upload_monitor_config_api_p115_upload_monitor_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Get Upload Monitor Config",
+        "tags": [
+          "p115"
+        ]
+      },
+      "post": {
+        "operationId": "save_upload_monitor_config_api_p115_upload_monitor_config_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "mappings": {
+                    "items": {
+                      "type": "object"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalObjectResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Save Upload Monitor Config",
+        "tags": [
+          "p115"
         ]
       }
     },

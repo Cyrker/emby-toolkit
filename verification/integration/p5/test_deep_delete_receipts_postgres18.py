@@ -175,12 +175,12 @@ def test_pg18_deep_delete_unknown_shared_outcome_is_not_blindly_replayed(
     first = maintenance_db.cleanup_deleted_media_item(**options)
     replay = maintenance_db.cleanup_deleted_media_item(**options)
 
-    assert first is not None and first["ok"] is False
-    assert replay == {
+    expected = {
         "ok": False,
         "item_id": "movie-unknown",
         "item_type": "Movie",
         "indeterminate": True,
         "error": "shared cleanup outcome is unknown; automatic replay is forbidden",
     }
+    assert first == replay == expected
     assert calls == 1

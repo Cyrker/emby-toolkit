@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .catalog import LEGACY_TASK_KEY_ORDER, P4_NATIVE_TASK_KEYS
+from .catalog import LEGACY_TASK_KEY_ORDER, P4_NATIVE_TASK_KEYS, P5_NATIVE_TASK_KEYS, P6_NATIVE_TASK_KEYS
 from .models import (
     JsonValue,
     ProcessorIdentity,
@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 __all__ = [
     "LEGACY_TASK_KEY_ORDER",
     "P4_NATIVE_TASK_KEYS",
+    "P5_NATIVE_TASK_KEYS",
+    "P6_NATIVE_TASK_KEYS",
     "JsonValue",
     "LegacyCompatibilityResolver",
     "LegacyTaskAdapter",

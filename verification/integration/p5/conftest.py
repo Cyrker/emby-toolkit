@@ -78,6 +78,7 @@ def _clear_p5_state(runtime: DatabaseRuntime) -> None:
                 """
                 TRUNCATE TABLE
                     media_effects,
+                    p115_media_probe_items,
                     p115_mediainfo_cache,
                     media_image_policy_cache,
                     media_image_cache,

@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "kind": "p6-p115-sorting-rules-local-golden-contract",
+  "captured_live": false,
+  "routes": [
+    {"method": "GET", "path": "/api/p115/sorting_rules"},
+    {"method": "POST", "path": "/api/p115/sorting_rules"}
+  ],
+  "golden_cases": [
+    {
+      "case_id": "get-list-adds-missing-id",
+      "request": {"method": "GET", "path": "/api/p115/sorting_rules"},
+      "stored": [{"name": "Movies", "cid": "movies"}],
+      "account_id": "115001",
+      "response": {
+        "status": 200,
+        "body": [{"id": "123456", "name": "Movies", "cid": "movies"}]
+      }
+    },
+    {
+      "case_id": "get-legacy-json-string",
+      "request": {"method": "GET", "path": "/api/p115/sorting_rules"},
+      "stored": "[{\"id\":\"legacy\",\"cid\":\"legacy-dir\",\"custom\":true}]",
+      "account_id": "115001",
+      "response": {
+        "status": 200,
+        "body": [{"id": "legacy", "cid": "legacy-dir", "custom": true}]
+      }
+    },
+    {
+      "case_id": "get-invalid-json-string-falls-back-to-empty-array",
+      "request": {"method": "GET", "path": "/api/p115/sorting_rules"},
+      "stored": "not-json",
+      "account_id": "115001",
+      "response": {"status": 200, "body": []}
+    },
+    {
+      "case_id": "post-non-array-without-client-saves-empty-array",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/sorting_rules",
+        "body": {"not": "an array"}
+      },
+      "stored": [{"id": "old", "cid": "old-dir"}],
+      "account_id": "",
+      "provider": "unavailable",
+      "expected_saved": [],
+      "response": {
+        "status": 200,
+        "body": {"status": "success", "message": "115 分类规则已保存"}
+      }
+    },
+    {
+      "case_id": "post-same-cid-reuses-relative-category-path",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/sorting_rules",
+        "body": [{"id": "same", "cid": "movies", "dir_name": "电影", "custom": "kept"}]
+      },
+      "stored": [{"id": "same", "cid": "movies", "category_path": "媒体库/电影"}],
+      "account_id": "115001",
+      "provider": "must-not-call",
+      "expected_saved": [
+        {
+          "id": "same",
+          "cid": "movies",
+          "dir_name": "电影",
+          "custom": "kept",
+          "category_path": "电影"
+        }
+      ],
+      "response": {
+        "status": 200,
+        "body": {"status": "success", "message": "115 分类规则已保存"}
+      }
+    },
+    {
+      "case_id": "post-provider-unavailable-preserves-raw-rule-shape",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/sorting_rules",
+        "body": [{"id": "raw", "cid": "movies", "dir_name": "电影", "custom": true}]
+      },
+      "stored": [],
+      "account_id": "115001",
+      "provider": "unavailable",
+      "expected_saved": [{"id": "raw", "cid": "movies", "dir_name": "电影", "custom": true}],
+      "response": {
+        "status": 200,
+        "body": {"status": "success", "message": "115 分类规则已保存"}
+      }
+    },
+    {
+      "case_id": "post-provider-error-falls-back-to-dir-name",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/sorting_rules",
+        "body": [{"id": "changed", "cid": "new-dir", "dir_name": "新目录"}]
+      },
+      "stored": [{"id": "changed", "cid": "old-dir", "category_path": "旧目录"}],
+      "account_id": "115001",
+      "provider": "error",
+      "expected_saved": [
+        {"id": "changed", "cid": "new-dir", "dir_name": "新目录", "category_path": "新目录"}
+      ],
+      "response": {
+        "status": 200,
+        "body": {"status": "success", "message": "115 分类规则已保存"}
+      }
+    }
+  ],
+  "native_variance_cases": [
+    {
+      "case_id": "post-mixed-element-array-fails-closed-before-provider-or-save",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/sorting_rules",
+        "body": [{"id": "valid", "cid": "movies"}, 1]
+      },
+      "account_id": "115001",
+      "native_response": {
+        "status": 500,
+        "body": {
+          "status": "error",
+          "message": "p115_sorting_rules[1] 必须是对象"
+        }
+      },
+      "native_expected_saved": [],
+      "native_expected_provider_calls": [],
+      "legacy_unavailable_provider_observation": {
+        "status": 200,
+        "body": {"status": "success", "message": "115 分类规则已保存"},
+        "expected_saved": [{"id": "valid", "cid": "movies"}, 1]
+      },
+      "variance": "Native intentionally rejects malformed mixed-element arrays before provider or persistence so invalid rule values cannot enter plan revisions."
+    }
+  ],
+  "limitations": [
+    "All provider behavior is isolated with local fakes; no real 115 credential or request is used.",
+    "The companion account binding is an internal safety precondition and does not change the legacy HTTP envelope.",
+    "Malformed mixed-element arrays are an intentional fail-closed variance: Native returns JSON 500 without provider or persistence, while legacy with no client saved the invalid array and returned 200.",
+    "Live 115 path semantics and account-switch acceptance remain HUMAN_PENDING."
+  ]
+}

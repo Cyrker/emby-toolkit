@@ -15,6 +15,17 @@ from etk.compatibility.flask_app import (
     LazyCompatibilityApplication,
     create_flask_app,
 )
+from etk.compatibility.intro_detection import (
+    LazyPersistentIntroDetectionGateway,
+    clear_persistent_intro_detection_gateway,
+    install_persistent_intro_detection_gateway,
+)
+from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
+from etk.compatibility.playback import (
+    NativePlaybackCompatibilityGateway,
+    clear_persistent_playback_gateway,
+    install_persistent_playback_gateway,
+)
 from etk.compatibility.response_contract import fastapi_json_response
 from etk.compatibility.session_codec import LazyLegacySessionCodec
 from etk.compatibility.system_defaults import LegacyStandaloneSettingsDefaults
@@ -26,6 +37,7 @@ from etk.domains.identity import (
     SqlAlchemyIdentityRepository,
 )
 from etk.domains.identity.router import router as identity_router
+from etk.domains.ingestion import PostgresIngestionMonitorLedger
 from etk.domains.media.bridge_client import HttpxEmbyBridgeClient, HttpxPluginUpdateGateway
 from etk.domains.media.cast_editor import MediaCastEditorService
 from etk.domains.media.cast_editor_compatibility import LegacyMediaCastEditorGateway
@@ -64,6 +76,62 @@ from etk.domains.operations.logs import LocalLogStorage, LogService
 from etk.domains.operations.runtime import ManifestTaskCatalog
 from etk.domains.operations.runtime_router import router as runtime_query_router
 from etk.domains.operations.system_runtime_router import router as system_runtime_router
+from etk.domains.p115 import (
+    AtomicP115LocalStrmLibraryGateway,
+    HttpxP115AuthorizationGateway,
+    HttpxP115BridgeEmbyGateway,
+    IntroDetectionSubmissionService,
+    LegacyP7IntroRuntimeSource,
+    LegacyP115CredentialStore,
+    LegacyP115DeepDeleteScopeGateway,
+    LegacyP115DirectLinkGateway,
+    LegacyP115DirectoryGateway,
+    LegacyP115DirectoryTreeGateway,
+    LegacyP115IntroSnapshotExporter,
+    LegacyP115IntroSyncFeature,
+    LegacyP115OrganizeMutationGateway,
+    LegacyP115PlanNamingGateway,
+    LegacyP115PlaybackProvider,
+    LegacyP115PlaybackSourceGateway,
+    LegacyP115PlaybackUserGateway,
+    LegacyP115RenamePreviewGateway,
+    LegacyP115RuleRecognitionGateway,
+    LegacyP115SortingRuleDirectoryGateway,
+    LegacyP115WashingPriorityConfigGateway,
+    NativeP115IntroDetectionGateway,
+    P115AuthDirectoryService,
+    P115DeepDeleteJobGateway,
+    P115DeepDeleteService,
+    P115EpisodeRegexService,
+    P115IntroBackfillTaskService,
+    P115IntroSyncService,
+    P115ItemReadyService,
+    P115MediaInfoCacheService,
+    P115OrganizeExecutionService,
+    P115OrganizePlanService,
+    P115OrganizeRecordsService,
+    P115PlaybackConfigService,
+    P115PlaybackQrService,
+    P115PlaybackService,
+    P115RenameConfigService,
+    P115SortingRulesService,
+    P115StrmReplaceService,
+    PostgresP115IntroDetectionRepository,
+    PostgresP115PlaybackRepository,
+    PostgresP115StrmSyncCoordinator,
+    SqlAlchemyP115DeepDeleteSnapshotRepository,
+    SqlAlchemyP115EpisodeRegexRepository,
+    SqlAlchemyP115MediaInfoRepository,
+    SqlAlchemyP115OrganizeExecutionRepository,
+    SqlAlchemyP115OrganizePlanRepository,
+    SqlAlchemyP115OrganizeRecordsRepository,
+    SqlAlchemyP115RenameConfigRepository,
+    SqlAlchemyP115SortingRulesRepository,
+)
+from etk.domains.p115.playback_router import router as p115_playback_router
+from etk.domains.p115.router import router as p115_router
+from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService
+from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
 from etk.domains.system.compatibility import LegacyConfigurationGateway
 from etk.domains.system.configuration import ConfigurationService
 from etk.domains.system.configuration_router import router as configuration_router
@@ -78,6 +146,8 @@ from etk.platform.jobs import PostgresExecutionGuard, PostgresJobStore
 from etk.platform.observability import MetricsMiddleware, TraceIdMiddleware, get_metrics, metrics_response
 from etk.platform.tasks import TaskRegistry
 from etk.platform.web import CookieSessionMiddleware
+from etk.processes.p6_ingestion import LegacyIngestionBindingDelivery, PersistentPendingBindingGateway
+from etk.processes.p6_playback import P115PlaybackOperationExecutor
 
 from .runtime_supervisor import RuntimeRole, RuntimeState, RuntimeSupervisor, get_runtime_supervisor
 
@@ -110,11 +180,14 @@ def create_app(
         _register_log_providers(app_container, data_dir)
         _register_database_read_providers(app_container)
         _register_system_providers(app_container, runtime)
+        _register_p115_providers(app_container)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         persistent_gateway = None
         background_gateway = None
+        playback_gateway = None
+        intro_detection_gateway = None
         try:
             if start_runtime:
                 from etk.compatibility.background import (
@@ -126,8 +199,14 @@ def create_app(
 
                 persistent_gateway = LazyPersistentTaskManagerGateway(lambda: app_container.use_case("operations.jobs"))
                 background_gateway = PersistentBackgroundGateway(lambda: app_container.use_case("operations.jobs"))
+                playback_gateway = NativePlaybackCompatibilityGateway(lambda: app_container.use_case("p115.playback"))
+                intro_detection_gateway = LazyPersistentIntroDetectionGateway(
+                    lambda: app_container.use_case("p115.intro-detection-gateway")
+                )
                 install_persistent_submission_gateway(persistent_gateway)
                 install_persistent_background_gateway(background_gateway)
+                install_persistent_playback_gateway(playback_gateway)
+                install_persistent_intro_detection_gateway(intro_detection_gateway)
                 runtime.start(role=RuntimeRole.API, background=False)
             yield
         finally:
@@ -137,6 +216,10 @@ def create_app(
                         from etk.compatibility.background import clear_persistent_background_gateway
 
                         clear_persistent_background_gateway(background_gateway)
+                    if playback_gateway is not None:
+                        clear_persistent_playback_gateway(playback_gateway)
+                    if intro_detection_gateway is not None:
+                        clear_persistent_intro_detection_gateway(intro_detection_gateway)
                     if persistent_gateway is not None:
                         from task_manager import clear_persistent_submission_gateway
 
@@ -222,6 +305,8 @@ def create_app(
     app.include_router(media_image_editing_router)
     app.include_router(media_cast_editor_router)
     app.include_router(media_image_proxy_router)
+    app.include_router(p115_router)
+    app.include_router(p115_playback_router)
 
     @app.get("/api/health", include_in_schema=False)
     def health() -> Any:
@@ -489,6 +574,335 @@ def _register_media_providers(
         "media.image-editing",
         lambda current: MediaImageEditingService(
             current.client("media-image-editing"),
+        ),
+    )
+
+
+def _register_p115_providers(container: AppContainer) -> None:
+    container.register_repository(
+        "ingestion.monitor",
+        lambda current: PostgresIngestionMonitorLedger(current.database.unit_of_work),
+    )
+    container.register_repository(
+        "p115.upload-monitor",
+        lambda current: PostgresP115UploadMonitorRepository(current.database.unit_of_work),
+    )
+    container.register_repository(
+        "p115.playback",
+        lambda current: PostgresP115PlaybackRepository(current.database.unit_of_work),
+    )
+    container.register_client(
+        "ingestion.pending-bindings",
+        lambda current: PersistentPendingBindingGateway(
+            ledger=current.repository("ingestion.monitor"),
+            delivery=LegacyIngestionBindingDelivery(
+                jobs=lambda: current.use_case("operations.jobs"),
+                uow_factory=current.database.unit_of_work,
+                bridge=current.client("media-emby-bridge"),
+                lease_seconds=lambda: max(float(current.settings.emby_api_timeout) + 30, 90),
+            ),
+            lease_seconds=max(float(current.settings.emby_api_timeout) + 30, 90),
+        ),
+    )
+    container.register_repository(
+        "p115.credentials",
+        lambda _: LegacyP115CredentialStore(),
+    )
+    container.register_client(
+        "p115.authorization",
+        lambda _: HttpxP115AuthorizationGateway(),
+    )
+    container.register_client(
+        "p115.playback-users",
+        lambda _: LegacyP115PlaybackUserGateway(),
+    )
+    container.register_client(
+        "p115.playback-sources",
+        lambda _: LegacyP115PlaybackSourceGateway(),
+    )
+    container.register_client(
+        "p115.directories",
+        lambda _: LegacyP115DirectoryGateway(),
+    )
+    container.register_client(
+        "p115.directory-tree",
+        lambda _: LegacyP115DirectoryTreeGateway(),
+    )
+    container.register_repository(
+        "p115.sorting-rules",
+        lambda current: SqlAlchemyP115SortingRulesRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_client(
+        "p115.sorting-rule-directories",
+        lambda _: LegacyP115SortingRuleDirectoryGateway(),
+    )
+    container.register_repository(
+        "p115.rename-config",
+        lambda current: SqlAlchemyP115RenameConfigRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_repository(
+        "p115.episode-regex",
+        lambda current: SqlAlchemyP115EpisodeRegexRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_repository(
+        "p115.organize-plans",
+        lambda current: SqlAlchemyP115OrganizePlanRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_repository(
+        "p115.organize-executions",
+        lambda current: SqlAlchemyP115OrganizeExecutionRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_repository(
+        "p115.organize-records",
+        lambda current: SqlAlchemyP115OrganizeRecordsRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_repository(
+        "p115.media-info",
+        lambda current: SqlAlchemyP115MediaInfoRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_repository(
+        "p115.intro-detection",
+        lambda current: PostgresP115IntroDetectionRepository(current.database.unit_of_work),
+    )
+    container.register_repository(
+        "p115.deep-delete-snapshots",
+        lambda current: SqlAlchemyP115DeepDeleteSnapshotRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_client(
+        "p115.bridge-emby",
+        lambda current: HttpxP115BridgeEmbyGateway(lambda: current.settings),
+    )
+    container.register_client(
+        "p115.intro-p7-reads",
+        lambda current: LegacyP7IntroRuntimeSource(current.repository("p115.intro-detection")),
+    )
+    container.register_client(
+        "p115.intro-sync-feature",
+        lambda _: LegacyP115IntroSyncFeature(),
+    )
+    container.register_client(
+        "p115.intro-snapshot-exporter",
+        lambda _: LegacyP115IntroSnapshotExporter(),
+    )
+    container.register_client(
+        "p115.deep-delete-scope",
+        lambda _: LegacyP115DeepDeleteScopeGateway(),
+    )
+    container.register_client(
+        "p115.deep-delete-jobs",
+        lambda current: P115DeepDeleteJobGateway(lambda: current.use_case("operations.jobs")),
+    )
+    container.register_client(
+        "p115.rename-preview",
+        lambda _: LegacyP115RenamePreviewGateway(),
+    )
+    container.register_client(
+        "p115.washing-priority-config",
+        lambda _: LegacyP115WashingPriorityConfigGateway(),
+    )
+    container.register_client(
+        "p115.plan-recognition",
+        lambda _: LegacyP115RuleRecognitionGateway(),
+    )
+    container.register_client(
+        "p115.plan-naming",
+        lambda _: LegacyP115PlanNamingGateway(),
+    )
+    container.register_client(
+        "p115.organize-mutations",
+        lambda _: LegacyP115OrganizeMutationGateway(),
+    )
+    container.register_client(
+        "p115.local-strm-library",
+        lambda _: AtomicP115LocalStrmLibraryGateway(),
+    )
+    container.register_client(
+        "p115.strm-sync-coordinator",
+        lambda current: PostgresP115StrmSyncCoordinator(current.database.engine),
+    )
+    container.register_use_case(
+        "p115.auth-directory",
+        lambda current: P115AuthDirectoryService(
+            settings=lambda: current.settings,
+            authorization=current.client("p115.authorization"),
+            credentials=current.repository("p115.credentials"),
+            directories=current.client("p115.directories"),
+        ),
+    )
+    container.register_use_case(
+        "p115.upload-monitor-config",
+        lambda current: P115UploadMonitorConfigService(
+            current.repository("p115.upload-monitor"),
+            lambda: current.settings.monitor_extensions,
+        ),
+    )
+    container.register_use_case(
+        "p115.playback-config",
+        lambda current: P115PlaybackConfigService(
+            PostgresRuntimeStateBackend(current.database.raw_pool.connection),
+            current.client("p115.playback-users"),
+        ),
+    )
+    container.register_client(
+        "p115.playback-provider",
+        lambda current: LegacyP115PlaybackProvider(current.use_case("p115.playback-config")),
+    )
+    container.register_client(
+        "p115.playback-direct-links",
+        lambda current: LegacyP115DirectLinkGateway(current.use_case("p115.playback-config")),
+    )
+    container.register_use_case(
+        "p115.playback-executor",
+        lambda current: P115PlaybackOperationExecutor(
+            repository=current.repository("p115.playback"),
+            provider=current.client("p115.playback-provider"),
+            config=current.use_case("p115.playback-config"),
+            worker_id=f"api:{os.getpid()}:p115-playback",
+        ),
+    )
+    container.register_use_case(
+        "p115.playback",
+        lambda current: P115PlaybackService(
+            config=current.use_case("p115.playback-config"),
+            repository=current.repository("p115.playback"),
+            sources=current.client("p115.playback-sources"),
+            direct_links=current.client("p115.playback-direct-links"),
+            executor=current.use_case("p115.playback-executor"),
+        ),
+    )
+    container.register_use_case(
+        "p115.playback-qr",
+        lambda current: P115PlaybackQrService(
+            current.repository("p115.playback"),
+            current.client("p115.authorization"),
+        ),
+    )
+    container.register_use_case(
+        "p115.sorting-rules",
+        lambda current: P115SortingRulesService(
+            settings=lambda: current.settings,
+            credentials=current.repository("p115.credentials"),
+            repository=current.repository("p115.sorting-rules"),
+            directories=current.client("p115.sorting-rule-directories"),
+        ),
+    )
+    container.register_use_case(
+        "p115.rename-config",
+        lambda current: P115RenameConfigService(
+            repository=current.repository("p115.rename-config"),
+            preview=current.client("p115.rename-preview"),
+            washing_priority=current.client("p115.washing-priority-config"),
+        ),
+    )
+    container.register_use_case(
+        "p115.episode-regex",
+        lambda current: P115EpisodeRegexService(
+            current.repository("p115.episode-regex"),
+        ),
+    )
+    container.register_use_case(
+        "p115.organize-plans",
+        lambda current: P115OrganizePlanService(
+            settings=lambda: current.settings,
+            credentials=current.repository("p115.credentials"),
+            directories=current.client("p115.directory-tree"),
+            sorting_rules=current.repository("p115.sorting-rules"),
+            rename_config=current.repository("p115.rename-config"),
+            episode_regex=current.repository("p115.episode-regex"),
+            repository=current.repository("p115.organize-plans"),
+            recognition=current.client("p115.plan-recognition"),
+            naming=current.client("p115.plan-naming"),
+        ),
+    )
+    container.register_use_case(
+        "p115.organize-executions",
+        lambda current: P115OrganizeExecutionService(
+            plans=current.repository("p115.organize-plans"),
+            repository=current.repository("p115.organize-executions"),
+            mutations=current.client("p115.organize-mutations"),
+        ),
+    )
+    container.register_use_case(
+        "p115.organize-records",
+        lambda current: P115OrganizeRecordsService(
+            current.repository("p115.organize-records"),
+        ),
+    )
+    container.register_use_case(
+        "p115.strm-replace",
+        lambda current: P115StrmReplaceService(
+            settings=lambda: current.settings,
+            libraries=current.client("p115.local-strm-library"),
+            coordinator=current.client("p115.strm-sync-coordinator"),
+        ),
+    )
+    container.register_use_case(
+        "p115.media-info",
+        lambda current: P115MediaInfoCacheService(
+            current.repository("p115.media-info"),
+            current.repository("p115.credentials"),
+        ),
+    )
+    container.register_use_case(
+        "p115.intro-detection-submission",
+        lambda current: IntroDetectionSubmissionService(current.repository("p115.intro-detection")),
+    )
+    container.register_use_case(
+        "p115.intro-detection-gateway",
+        lambda current: NativeP115IntroDetectionGateway(
+            submission=current.use_case("p115.intro-detection-submission"),
+            source=current.client("p115.intro-p7-reads"),
+            account_id=lambda: current.repository("p115.credentials").load().account_id,
+        ),
+    )
+    container.register_use_case(
+        "p115.intro-backfill",
+        lambda current: P115IntroBackfillTaskService(current.use_case("p115.intro-detection-gateway")),
+    )
+    container.register_use_case(
+        "p115.intro-sync",
+        lambda current: P115IntroSyncService(
+            repository=current.repository("p115.media-info"),
+            feature=current.client("p115.intro-sync-feature"),
+            verifier=current.client("p115.bridge-emby"),
+            exporter=current.client("p115.intro-snapshot-exporter"),
+            account_id=lambda: current.repository("p115.credentials").load().account_id,
+        ),
+    )
+    container.register_use_case(
+        "p115.deep-delete",
+        lambda current: P115DeepDeleteService(
+            identities=current.use_case("p115.media-info"),
+            verifier=current.client("p115.bridge-emby"),
+            emby=current.client("p115.bridge-emby"),
+            scope=current.client("p115.deep-delete-scope"),
+            snapshots=current.repository("p115.deep-delete-snapshots"),
+            submissions=current.client("p115.deep-delete-jobs"),
+        ),
+    )
+    container.register_use_case(
+        "p115.item-ready",
+        lambda current: P115ItemReadyService(
+            identities=current.use_case("p115.media-info"),
+            emby=current.client("p115.bridge-emby"),
+            pending_bindings=current.client("ingestion.pending-bindings"),
+            media=current.use_case("media"),
         ),
     )
 

@@ -21,6 +21,12 @@ from manifest_common import (
 )
 
 SECRET_FRAGMENTS = ("password", "secret", "token", "cookie", "api_key", "license_key")
+EXPLICIT_SECRET_KEYS = frozenset({"p115_play_pool_config"})
+
+
+def _is_secret_key(key: str) -> bool:
+    normalized = key.casefold()
+    return normalized in EXPLICIT_SECRET_KEYS or any(fragment in normalized for fragment in SECRET_FRAGMENTS)
 
 
 def _find_top_level_assignment(tree: ast.Module, name: str) -> ast.Assign:
@@ -75,21 +81,21 @@ def _extract_definition(
         effective = definitions[-1]
         entries.append(
             apply_contract_override(
-            {
-                "contract_id": stable_id("config", key),
-                "key": key,
-                **effective,
-                "definition_history": definitions,
-                "storage": storage,
-                "mutability": mutability,
-                "secret": any(fragment in key.casefold() for fragment in SECRET_FRAGMENTS),
-                "target_stage": "P2",
-                "status": "legacy",
-                "new_owner": None,
-                "validation_owner": "system/configuration",
-                "validation_method": "config-contract",
-            },
-            "configs",
+                {
+                    "contract_id": stable_id("config", key),
+                    "key": key,
+                    **effective,
+                    "definition_history": definitions,
+                    "storage": storage,
+                    "mutability": mutability,
+                    "secret": _is_secret_key(key),
+                    "target_stage": "P2",
+                    "status": "legacy",
+                    "new_owner": None,
+                    "validation_owner": "system/configuration",
+                    "validation_method": "config-contract",
+                },
+                "configs",
             )
         )
     return entries, history
@@ -99,10 +105,12 @@ def _static_setting_keys(
     call: ast.Call,
     local_symbols: dict[str, set[str]],
     constant_symbols: dict[str, Any],
+    *,
+    argument_index: int = 0,
 ) -> list[str]:
-    if not call.args:
+    if len(call.args) <= argument_index:
         return []
-    argument = call.args[0]
+    argument = call.args[argument_index]
     if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
         return [argument.value]
     if isinstance(argument, ast.Name):
@@ -126,11 +134,7 @@ def _static_string_values(node: ast.AST, constant_symbols: dict[str, Any]) -> se
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return {node.value}
     if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
-        values = {
-            item.value
-            for item in node.elts
-            if isinstance(item, ast.Constant) and isinstance(item.value, str)
-        }
+        values = {item.value for item in node.elts if isinstance(item, ast.Constant) and isinstance(item.value, str)}
         return values if len(values) == len(node.elts) else set()
     if (
         isinstance(node, ast.Call)
@@ -154,8 +158,14 @@ def _static_string_values(node: ast.AST, constant_symbols: dict[str, Any]) -> se
 def _scan_setting_calls() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     resolved: dict[str, list[dict[str, Any]]] = defaultdict(list)
     unresolved: list[dict[str, Any]] = []
-    call_names = {"get_setting", "save_setting", "delete_setting"}
+    call_names = {"get_setting", "save_setting", "delete_setting", "_save_setting_with_cursor"}
     constant_symbols = load_constant_symbols(REPO_ROOT / "constants.py", module_alias="constants")
+    constant_symbols.update(
+        load_constant_symbols(
+            REPO_ROOT / "database/settings_db.py",
+            module_alias="settings_db",
+        )
+    )
     for path in iter_project_python_files():
         rel = relative_path(path)
         if rel == "main.py" or rel.startswith(("scripts/refactor/", "verification/", "src/etk/")):
@@ -171,10 +181,7 @@ def _scan_setting_calls() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 for target in node.targets:
                     if isinstance(target, ast.Name) and values:
                         local_symbols[target.id].update(values)
-            if (
-                isinstance(node, ast.For)
-                and isinstance(node.target, ast.Name)
-            ):
+            if isinstance(node, ast.For) and isinstance(node.target, ast.Name):
                 values = _static_string_values(node.iter, constant_symbols)
                 if values:
                     local_symbols[node.target.id].update(values)
@@ -195,30 +202,47 @@ def _scan_setting_calls() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 continue
             if operation not in call_names:
                 continue
-            keys = _static_setting_keys(node, local_symbols, constant_symbols)
+            keys = _static_setting_keys(
+                node,
+                local_symbols,
+                constant_symbols,
+                argument_index=1 if operation == "_save_setting_with_cursor" else 0,
+            )
             item = {"operation": operation, "source": source_ref(path, node.lineno)}
             if keys:
                 for key in keys:
                     resolved[key].append(item)
+            elif (
+                operation == "_save_setting_with_cursor"
+                and rel == "database/settings_db.py"
+                and len(node.args) > 1
+                and isinstance(node.args[1], ast.Name)
+                and node.args[1].id == "setting_key"
+            ):
+                # The public save_setting wrapper owns this deliberately dynamic forwarding call.
+                continue
             else:
                 unresolved.append(item)
     entries = [
-        apply_contract_override({
-            "contract_id": stable_id("setting", key),
-            "key": key,
-            "storage": "app_settings",
-            "storage_default": None,
-            "default_source": "no database default; read fallbacks are call-site-specific",
-            "accesses": sorted(accesses, key=lambda item: (item["source"], item["operation"])),
-            "secret": any(fragment in key.casefold() for fragment in SECRET_FRAGMENTS),
-            "mutability": "runtime_dynamic",
-            "restart_level": "call-site-specific",
-            "target_stage": "P2",
-            "status": "legacy",
-            "new_owner": None,
-            "validation_owner": "system/configuration",
-            "validation_method": "app-settings-contract",
-        }, "settings")
+        apply_contract_override(
+            {
+                "contract_id": stable_id("setting", key),
+                "key": key,
+                "storage": "app_settings",
+                "storage_default": None,
+                "default_source": "no database default; read fallbacks are call-site-specific",
+                "accesses": sorted(accesses, key=lambda item: (item["source"], item["operation"])),
+                "secret": _is_secret_key(key),
+                "mutability": "runtime_dynamic",
+                "restart_level": "call-site-specific",
+                "target_stage": "P2",
+                "status": "legacy",
+                "new_owner": None,
+                "validation_owner": "system/configuration",
+                "validation_method": "app-settings-contract",
+            },
+            "settings",
+        )
         for key, accesses in sorted(resolved.items())
     ]
     return entries, sorted(unresolved, key=lambda item: item["source"])

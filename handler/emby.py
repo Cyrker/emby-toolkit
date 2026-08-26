@@ -1323,7 +1323,7 @@ def get_emby_item_by_path(
         "api_key": api_key,
         "Path": file_path,
         "Recursive": "true",
-        "Fields": "Path,ProviderIds,SeriesId,SeasonId,ParentId,IndexNumber,ParentIndexNumber",
+        "Fields": "Path,MediaSources,ProviderIds,SeriesId,SeasonId,ParentId,IndexNumber,ParentIndexNumber,Type,Name",
         "EnableTotalRecordCount": "false",
     }
     if user_id:

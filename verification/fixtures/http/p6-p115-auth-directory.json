@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "kind": "p6-p115-auth-directory-local-stub-contract",
+  "captured_live": false,
+  "routes": [
+    {"method": "POST", "path": "/api/p115/qrcode"},
+    {"method": "GET", "path": "/api/p115/qrcode/status"},
+    {"method": "GET", "path": "/api/p115/cookie_qrcode"},
+    {"method": "GET", "path": "/api/p115/cookie_qrcode/status"},
+    {"method": "POST", "path": "/api/p115/cookie"},
+    {"method": "GET", "path": "/api/p115/auto_save_auth"},
+    {"method": "GET", "path": "/api/p115/status"},
+    {"method": "GET", "path": "/api/p115/dirs"}
+  ],
+  "golden_cases": [
+    {
+      "case_id": "openapi-qrcode-missing-app-id",
+      "request": {"method": "POST", "path": "/api/p115/qrcode"},
+      "settings": {"p115_app_id": ""},
+      "response": {
+        "status": 400,
+        "body": {"success": false, "message": "未配置自定义 AppID，请先在设置中保存"}
+      }
+    },
+    {
+      "case_id": "openapi-qrcode-provider-failure",
+      "request": {"method": "POST", "path": "/api/p115/qrcode"},
+      "settings": {"p115_app_id": "fixture-app"},
+      "gateway": {"openapi_create_error": true},
+      "response": {
+        "status": 500,
+        "body": {"success": false, "message": "获取二维码失败"}
+      }
+    },
+    {
+      "case_id": "openapi-status-without-session",
+      "request": {"method": "GET", "path": "/api/p115/qrcode/status"},
+      "response": {
+        "status": 200,
+        "body": {"success": true, "status": "waiting", "message": "等待扫码..."}
+      }
+    },
+    {
+      "case_id": "cookie-status-without-session",
+      "request": {"method": "GET", "path": "/api/p115/cookie_qrcode/status"},
+      "response": {
+        "status": 200,
+        "body": {"success": false, "status": "expired", "message": "请先获取二维码"}
+      }
+    },
+    {
+      "case_id": "manual-cookie-success",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/cookie",
+        "body": {"cookie": "fixture-cookie", "app_type": "web"}
+      },
+      "response": {"status": 200, "body": {"success": true, "message": "Cookie 已保存"}}
+    },
+    {
+      "case_id": "callback-missing-data",
+      "request": {"method": "GET", "path": "/api/p115/auto_save_auth"},
+      "response": {"status": 400, "text": "授权失败：缺少 Token 数据"}
+    },
+    {
+      "case_id": "status-without-credentials",
+      "request": {"method": "GET", "path": "/api/p115/status"},
+      "response": {
+        "status": 200,
+        "body": {
+          "status": "success",
+          "data": {
+            "has_token": false,
+            "has_cookie": false,
+            "cookie_valid": null,
+            "cookie_app_type": null,
+            "cookie_app_label": null,
+            "valid": false,
+            "msg": "未配置任何凭证",
+            "user_info": null
+          }
+        }
+      }
+    },
+    {
+      "case_id": "directories-without-client",
+      "request": {"method": "GET", "path": "/api/p115/dirs"},
+      "gateway": {"directories": null},
+      "response": {
+        "status": 500,
+        "body": {"status": "error", "message": "无法初始化 115 客户端，请检查凭证"}
+      }
+    }
+  ],
+  "limitations": [
+    "All provider success and failure behavior is exercised with local Fake or httpx MockTransport adapters.",
+    "No real 115 credential, QR session, directory, or external request is used.",
+    "Live QR, Cookie, token refresh, and rate-limit acceptance remains HUMAN_PENDING."
+  ]
+}

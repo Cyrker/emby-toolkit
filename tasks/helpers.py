@@ -1114,29 +1114,25 @@ def _season_consistency_effect_key(asset: Dict[str, Any]) -> str:
         return 'SDR'
     return 'Unknown'
 
-# tasks/helpers.py
+def _submit_native_p115_fingerprint_repair(*, log_prefix: str) -> dict[str, Any]:
+    """Queue the P6-owned global repair task without running its legacy callable inline."""
+    import task_manager
 
-def _get_local_strm_root_for_consistency(processor=None) -> str:
-    local_root = ''
+    from .media import task_repair_p115_fingerprints
 
-    if processor is not None:
-        try:
-            local_root = processor.config.get(constants.CONFIG_OPTION_LOCAL_STRM_ROOT, '') or ''
-        except Exception:
-            local_root = ''
-
-    if not local_root:
-        try:
-            import config_manager
-            local_root = (
-                config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_LOCAL_STRM_ROOT, '')
-                or config_manager.APP_CONFIG.get('local_strm_root', '')
-                or ''
-            )
-        except Exception:
-            local_root = ''
-
-    return str(local_root or '').strip()
+    submitted = task_manager.submit_persistent_task(
+        task_repair_p115_fingerprints,
+        "补齐缓存指纹",
+        processor_type="media",
+        silent=True,
+    )
+    message = "已提交 P6 原生补齐缓存指纹任务" if submitted else "P6 原生补齐缓存指纹任务未被接受"
+    return {
+        "submitted": bool(submitted),
+        "deferred": True,
+        "fixed_assets": 0,
+        "message": f"{log_prefix}: {message}",
+    }
 
 def check_season_consistency(
     tmdb_id: str,
@@ -1158,10 +1154,9 @@ def check_season_consistency(
     3. HDR/杜比特效、制作组是可选维度；整季都没有则不参与校验，
        但只要任一集标注了该维度，就要求每一集都标注且完全一致。
 
-    repair_missing_fingerprints=True 时，会在当前季范围内尝试补齐缺失的 115 PC/SHA1，
-    不调用 media.task_repair_p115_fingerprints，也不会扫描全库。调用方传入 processor 时，
-    会复用 processor._extract_115_fingerprints；未传 processor 时，也会尽量通过本地缓存/
-    STRM 路径反查补齐。
+    repair_missing_fingerprints=True 时，只提交 P6 原生“补齐缓存指纹”任务；当前一致性检查
+    继续使用调用开始时的行快照并保持 fail-closed，不再内联运行 legacy helper 或 Processor
+    私有指纹提取器。后续 P7 所属流程可在下一次重试时读取修复后的持久数据。
 
     返回结构化结果，调用方可直接使用 result['ok'] 作为布尔结果，也可把 message
     透传给前端/维护任务日志。
@@ -1288,9 +1283,8 @@ def check_season_consistency(
                 'series_name': series_name,
             }
 
-        # 只针对当前季做轻量 PC/SHA1 补齐。
         # 如果 rows 是调用方传入的旧结构且没有 file_sha1_json/file_pickcode_json，
-        # 不主动回写，避免把未知旧值覆盖成空数组。
+        # 不提交修复，避免把一个无法确认身份的兼容快照扩张为全库任务。
         has_fingerprint_columns = any(
             ('file_sha1_json' in row or 'file_pickcode_json' in row)
             for row in (rows or [])
@@ -1298,28 +1292,16 @@ def check_season_consistency(
         )
         if repair_missing_fingerprints and rows and (not rows_were_provided or has_fingerprint_columns):
             try:
-                from .p115_fingerprint_helpers import repair_p115_fingerprints_for_rows
-
-                local_root = _get_local_strm_root_for_consistency(processor)
-
-                fingerprint_repair_stats = repair_p115_fingerprints_for_rows(
-                    processor,
-                    rows,
-                    local_root=local_root,
-                    update_db=True,
-                    allow_api_fetch=True,
+                fingerprint_repair_stats = _submit_native_p115_fingerprint_repair(
                     log_prefix=(
                         f"一致性检查补齐指纹 {series_name} S{season_number_int:02d}"
                         if series_name else f"一致性检查补齐指纹 S{season_number_int:02d}"
                     ),
-                    should_stop=getattr(processor, 'is_stop_requested', None) if processor is not None else None,
-                    progress_callback=None,
-                    progress_interval=0,
                 )
-                if log_result and fingerprint_repair_stats.get('fixed_assets'):
+                if log_result and fingerprint_repair_stats.get('submitted'):
                     logger.info(
-                        f"  ➜ [一致性检查] {_season_label_text()} 已实时补齐 "
-                        f"{fingerprint_repair_stats.get('fixed_assets')} 个缺失 PC/SHA1。"
+                        f"  ➜ [一致性检查] {_season_label_text()} 已提交 P6 原生补齐缓存指纹任务；"
+                        "本次继续使用当前快照。"
                     )
             except Exception as e:
                 fingerprint_repair_stats = {

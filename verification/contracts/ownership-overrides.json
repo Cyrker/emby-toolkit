@@ -160,11 +160,502 @@
         "status": "new",
         "validation_method": "pytest-golden-and-httpx-stub-contract",
         "validation_owner": "media/bridge"
+      },
+      "bridge-inbound-baacd5a53601": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-mediainfo.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 native PickCode formatted-cache transport uses account-bound identity resolution and canonical no-store MediaInfo responses; Live 115 and Emby acceptance remains pending.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-cache-contract",
+        "validation_owner": "p115/mediainfo-bridge"
+      },
+      "bridge-inbound-17630408ec24": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-mediainfo.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 native PickCode metadata transport resolves only verified P115 cache identity before delegating to the P5 metadata owner.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-cache-contract",
+        "validation_owner": "p115/mediainfo-bridge"
+      },
+      "bridge-inbound-3dacec9dcdc2": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-mediainfo.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 native SHA1 formatted-cache transport validates canonical identity and returns a normalized no-store MediaInfo response.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-cache-contract",
+        "validation_owner": "p115/mediainfo-bridge"
+      },
+      "bridge-inbound-aaa90120b3e8": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-mediainfo.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 native SHA1 metadata transport resolves only verified P115 cache identity before delegating to the P5 metadata owner.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-cache-contract",
+        "validation_owner": "p115/mediainfo-bridge"
+      },
+      "bridge-inbound-4d43478b1b45": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-mediainfo.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 native PickCode metadata-backfill transport verifies P115 identity before submitting the existing P5 metadata backfill use case.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-task-submission-contract",
+        "validation_owner": "p115/mediainfo-bridge"
+      },
+      "bridge-inbound-1d1229762a72": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-mediainfo.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 native SHA1 metadata-backfill transport verifies P115 identity before submitting the existing P5 metadata backfill use case.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-task-submission-contract",
+        "validation_owner": "p115/mediainfo-bridge"
+      },
+      "bridge-inbound-52a525635811": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-ingestion-delete.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native PickCode deep-delete commit preserves the single-use token capability, lost-response replay, and persistent internal operation submission.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim-contract",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "bridge-inbound-d5b5cdc5106f": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-ingestion-delete.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native PickCode deep-delete prepare verifies Emby identity and freezes the exact or hierarchical delete scope without mutating providers.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot-contract",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "bridge-inbound-c0b2b42ff285": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-ingestion-delete.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native PickCode item-ready verifies the callback path identity and consumes durable pending binding before native lightweight rebind.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-durable-binding-contract",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "bridge-inbound-7429ffea250f": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-ingestion-delete.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native SHA1 deep-delete commit preserves the cross-identity token capability and idempotent internal operation replay.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim-contract",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "bridge-inbound-37ae031c1496": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-ingestion-delete.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native SHA1 deep-delete prepare preserves validation, virtual-local-only, exact-version, and hierarchical scope semantics.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot-contract",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "bridge-inbound-bd5deb601b60": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-ingestion-delete.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native SHA1 item-ready verifies callback identity and uses durable pending acceptance or native lightweight rebind without local queue fallback.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-durable-binding-contract",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "bridge-inbound-f04a41c9ac19": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-intro-sync.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.10 native PickCode intro-sync verifies callback identity before a bounded revision-CAS chapter merge; shared-center export remains best-effort P9 compatibility.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas-contract",
+        "validation_owner": "p115/intro-detection"
+      },
+      "bridge-inbound-812d67208b80": {
+        "fixtures": [
+          "verification/fixtures/http/p6-p115-intro-sync.json"
+        ],
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.10 native SHA1 intro-sync keeps emby_item_id optional, preserves legacy chapter semantics, and never stages an inbound Bridge effect.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas-contract",
+        "validation_owner": "p115/intro-detection"
       }
     },
-    "configs": {},
+    "configs": {
+      "config-34e2119a50fa": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.5 reads the typed extension allowlist into the immutable STRM scan revision; MediaInfo semantics for the same extensions remain deferred to P6.6.",
+        "status": "new",
+        "validation_method": "typed-settings-strm-sync-unit-and-complete-scan-contract",
+        "validation_owner": "p115/strm-sync"
+      },
+      "config-5466f77dd0b0": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.5 binds this container-visible root into the operation revision and the atomic path-confined local projection adapter.",
+        "status": "new",
+        "validation_method": "typed-settings-path-safety-atomic-write-and-http-fixture",
+        "validation_owner": "p115/strm-sync"
+      },
+      "config-6ec552e2417c": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.5 snapshots this cleanup policy before planning and permits execution only for deletion paths frozen in the durable action plan.",
+        "status": "new",
+        "validation_method": "typed-settings-preview-plan-and-local-adapter-contract",
+        "validation_owner": "p115/strm-sync"
+      },
+      "config-97d6e007a1d5": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.5 validates and snapshots this base URL before producing exact unencoded no-newline STRM content; playback resolution remains P6.9.",
+        "status": "new",
+        "validation_method": "typed-settings-exact-byte-strm-contract",
+        "validation_owner": "p115/strm-sync"
+      },
+      "config-ab26bd95fb8b": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.5 snapshots this switch before the authoritative scan and materializes subtitles atomically only when enabled.",
+        "status": "new",
+        "validation_method": "typed-settings-subtitle-atomicity-and-interruption-contract",
+        "validation_owner": "p115/strm-sync"
+      },
+      "config-b574f061b0d7": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.5 snapshots this MiB threshold into the operation revision and applies it before any local projection.",
+        "status": "new",
+        "validation_method": "typed-settings-complete-scan-unit-contract",
+        "validation_owner": "p115/strm-sync"
+      },
+      "config-0afd313eb77a": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.7 uses this typed switch to suspend durable monitor promotion without deleting backlog and to control the leader-owned Observer.",
+        "status": "new",
+        "validation_method": "typed-settings-durable-monitor-suspend-resume-contract",
+        "validation_owner": "ingestion/monitor"
+      },
+      "config-7e200ca6da91": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.7 snapshots normalized real path boundaries for refresh-only Watchdog classification and deterministic scan exclusion.",
+        "status": "new",
+        "validation_method": "typed-settings-path-boundary-and-classification-contract",
+        "validation_owner": "ingestion/monitor"
+      },
+      "config-55baaf710551": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.7 preserves the typed exclude refresh delay in the durable monitor configuration snapshot and execution policy.",
+        "status": "new",
+        "validation_method": "typed-settings-durable-refresh-policy-contract",
+        "validation_owner": "ingestion/monitor"
+      },
+      "config-1ad3d6c81e9d": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.7 normalizes the typed media extension allowlist for Observer filtering and deterministic catch-up scanning.",
+        "status": "new",
+        "validation_method": "typed-settings-observer-and-scan-extension-contract",
+        "validation_owner": "ingestion/monitor"
+      },
+      "config-80e580e6a407": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.7 binds typed monitor roots into event provenance, containment checks, Observer lifecycle, and deterministic scanning.",
+        "status": "new",
+        "validation_method": "typed-settings-root-provenance-and-observer-contract",
+        "validation_owner": "ingestion/monitor"
+      },
+      "config-4fd73882c930": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.7 validates this typed batch size before deterministic catch-up candidates enter the durable intake.",
+        "status": "new",
+        "validation_method": "typed-settings-native-scan-batch-contract",
+        "validation_owner": "ingestion/monitor"
+      },
+      "config-397431b5a22a": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.7 preserves the existing per-directory scan limit with zero meaning unlimited and records limit reach explicitly.",
+        "status": "new",
+        "validation_method": "typed-settings-native-scan-limit-contract",
+        "validation_owner": "ingestion/monitor"
+      },
+      "config-87f2af15475f": {
+        "new_owner": "etk.platform.config.Settings",
+        "notes": "P6.7 keeps the typed physical-media fingerprint lookup policy available to the explicit worker compatibility execution seam.",
+        "status": "new",
+        "validation_method": "typed-settings-worker-compatibility-policy-contract",
+        "validation_owner": "ingestion/monitor"
+      }
+    },
     "frontend_routes": {},
     "route_bindings": {
+      "route-binding-db961218ae8c": {
+        "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.8 native FastAPI GET reads the revisioned upload-monitor configuration without starting process-local monitor state or writing defaults from the API process.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-config-revision",
+        "validation_owner": "p115/upload-monitor"
+      },
+      "route-binding-52dc313869ae": {
+        "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.8 native FastAPI POST validates and persists a requested configuration revision; monitor_restarted only reports Coordinator acknowledgement of that revision.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-config-revision",
+        "validation_owner": "p115/upload-monitor"
+      },
+      "route-binding-6c51057a8e74": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native PickCode deep-delete commit preserves single claim, TTL, replay, and internal persistent execution semantics.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-binding-173051f950be": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native PickCode deep-delete prepare freezes verified scope without provider mutation.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-binding-6a9557b1f580": {
+        "fixture": "verification/fixtures/http/p6-p115-intro-sync.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.10 native PickCode intro-sync preserves cache-miss identity, feature-first validation, bounded revision CAS, and best-effort P9 export isolation.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas",
+        "validation_owner": "p115/intro-detection"
+      },
+      "route-binding-e66b57710c5b": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native PickCode item-ready consumes durable pending binding before native lightweight rebind.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-durable-binding",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-binding-98169a59ba46": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native SHA1 deep-delete commit preserves cross-identity token capability and idempotent replay.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-binding-ec7ef0e14f22": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native SHA1 deep-delete prepare preserves exact, hierarchy, and virtual-local-only scope semantics.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-binding-14e00f62ecc9": {
+        "fixture": "verification/fixtures/http/p6-p115-intro-sync.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.10 native SHA1 intro-sync keeps the optional transport identity outside FastAPI validation and applies a bounded revision-fenced chapter merge.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas",
+        "validation_owner": "p115/intro-detection"
+      },
+      "route-binding-317a082181c7": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native SHA1 item-ready consumes durable pending binding or invokes native lightweight rebind without local queue fallback.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-durable-binding",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-binding-0321f9da1f8b": {
+        "fixture": "verification/fixtures/http/p6-p115-replace-strm.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.5 native admin transport preserves the synchronous plain/regex replacement contract and legacy unknown-mode no-op, while intentionally failing closed on a per-file error; local writes are atomic and Live acceptance remains pending.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-atomic-local-adapter-and-openapi",
+        "validation_owner": "p115/strm-replacement"
+      },
+      "route-binding-048dfcd4d8a1": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native authorization transport; provider behavior is covered by isolated legacy golden and local httpx stubs, while Live 115 acceptance remains pending.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-binding-0c19f6240b44": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native Cookie QR status transport with process-local bounded session state and atomic compatibility credential storage until P11.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-binding-8703e6e3d08a": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native manual Cookie transport delegates to the account-bound atomic credential adapter until P11.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-binding-97bba11de2cb": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native OpenAPI QR status transport binds credentials only after a stable account identity is proven.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-binding-bb3a6629583e": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native read-only directory transport pins the credential account revision and retains the split OpenAPI/Cookie client as a P11 compatibility adapter.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-binding-d5234c536990": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native authorization callback validates and atomically stores an account-bound token pair without echoing credentials.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-binding-dbc7127853fe": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native credential status transport probes one immutable credential snapshot and conditionally binds stable account identity.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-binding-effd8e33160b": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native Cookie QR transport uses bounded httpx provider calls and sanitized local fixtures.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-binding-af2a0d5b83fc": {
+        "fixture": "verification/fixtures/http/p6-p115-sorting-rules.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native sorting-rule transport preserves valid legacy bare-array and non-array-save contracts while atomically recording the account binding used by directory synchronization. Malformed mixed-element arrays are an explicit fail-closed variance: Native returns JSON 500 before provider or persistence instead of saving invalid values when the legacy client was unavailable.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-native-variance-postgres18-and-openapi",
+        "validation_owner": "p115/sorting-rules"
+      },
+      "route-binding-c9f23defe779": {
+        "fixture": "verification/fixtures/http/p6-p115-sorting-rules.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native sorting-rule transport preserves JSON-string compatibility and returns the legacy bare array without provider writes.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-postgres18-and-openapi",
+        "validation_owner": "p115/sorting-rules"
+      },
+      "route-binding-21d5ffa8ac0a": {
+        "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native rename-config save preserves non-object clearing and legacy conflict-mode splitting; washing policy execution remains an explicit P7 compatibility gateway.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-postgres18-and-openapi",
+        "validation_owner": "p115/rename-config"
+      },
+      "route-binding-41a28ba47686": {
+        "fixture": "verification/fixtures/http/p6-p115-episode-regex.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native episode-recognition policy read preserves the ordered success envelope and non-array fallback.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-pure-policy-postgres18-and-openapi",
+        "validation_owner": "p115/episode-recognition"
+      },
+      "route-binding-bcd56474c68c": {
+        "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native rename-config read merges the complete frozen defaults and legacy file-template fallbacks.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-postgres18-and-openapi",
+        "validation_owner": "p115/rename-config"
+      },
+      "route-binding-c9381ea47f0a": {
+        "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native preview transport renders fixed local samples through an explicit P11 compatibility renderer and performs no provider or persistence write.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-no-effect-and-openapi",
+        "validation_owner": "p115/rename-preview"
+      },
+      "route-binding-d3d0d3268aa9": {
+        "fixture": "verification/fixtures/http/p6-p115-episode-regex.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native episode-recognition policy save preserves top-level and wrapped arrays, exact validation errors, ordered normalization, and unknown-field removal.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-pure-policy-postgres18-and-openapi",
+        "validation_owner": "p115/episode-recognition"
+      },
+      "route-binding-5d412758d9a9": {
+        "fixture": "verification/fixtures/http/p6-p115-organize-execution-records.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native record query transport preserves the legacy pagination, filter, statistics, and fail-reason envelope through the Native PostgreSQL records repository.",
+        "status": "new",
+        "validation_method": "pytest-legacy-envelope-fake-repository-and-openapi",
+        "validation_owner": "p115/organize-records"
+      },
+      "route-binding-5be2d81af735": {
+        "fixture": "verification/fixtures/http/p6-p115-organize-execution-records.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native record deletion is idempotent for missing rows and removes only local record and filesystem-cache state without resolving a 115 mutation provider.",
+        "status": "new",
+        "validation_method": "pytest-legacy-envelope-no-provider-effect-and-openapi",
+        "validation_owner": "p115/organize-records"
+      },
       "route-binding-00618505c3de": {
         "fixture": "verification/fixtures/http/runtime-query-routes.json",
         "fixture_exception": null,
@@ -776,9 +1267,441 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "operations/database"
+      },
+      "route-binding-74bf0272224e": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 native MediaInfo cache route precedes the compatibility mount; account identity and cache revisions are owned by the P6 repository.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-binding-3fb4ef36f8f3": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 native MediaInfo cache route precedes the compatibility mount; account identity and cache revisions are owned by the P6 repository.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-binding-314d4660ad1d": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 verifies P115 MediaInfo identity before delegating metadata rendering to the P5 domain owner.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-binding-70e090a41dd1": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 verifies P115 MediaInfo identity before delegating metadata rendering to the P5 domain owner.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-binding-a745c34682ac": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 verifies P115 identity before delegating durable metadata backfill submission to the P5 media use case.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-task-submission",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-binding-85f329d7159e": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 verifies P115 identity before delegating durable metadata backfill submission to the P5 media use case.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-task-submission",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-binding-3d57dcd04617": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 native direct-play resolution preserves the legacy path while signed 115 URLs remain confined to redirect or streaming responses.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-b60e04a528cc": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 native direct-play HEAD preserves the legacy empty probe response without resolving a provider URL.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-4931cca64263": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 native direct-play resolution preserves the filename path while never forwarding filename into provider identity.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-38aa977ea2e2": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 native filename-route HEAD preserves the legacy empty probe response without resolving a provider URL.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-152bdf674631": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 reads the normalized playback-pool projection through the native service.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-38734fe15aed": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 validates and persists playback-pool settings before durable remote preparation.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-d93d0e2c01e2": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 creates a normalized pool account and reserves remote directory preparation through the durable operation ledger.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-d5e906a1cd44": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 releases account leases before deleting the local pool-account projection.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-a04cfdc8430b": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 updates a normalized pool account and reserves any required remote directory preparation durably.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-d4bba978105a": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 reserves a deterministic speedtest operation and returns only sanitized result data.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-c84a2071b8d1": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 cleanup uses durable lease and reclamation fences instead of remote file age alone.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-60f76c234424": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 creates owner-scoped, expiring QR sessions without exposing credentials to another user.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-6afc4a90629e": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 polls only the current owner's QR session and destroys expired provider credentials.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-e5806240cd6c": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 releases user-account leases before deleting the local account projection.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-fc1d1208ca0b": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 returns only the authenticated user's normalized pool-account projection.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-36f0349463d8": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 saves the authenticated user's normalized pool-account projection without importing P9 contribution transport.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-82e25f2b7dae": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 preserves the reward-summary envelope while P9 contribution ledger ownership remains deferred.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-cf2854ba3de4": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 reads the normalized primary temporary-directory projection without a remote effect.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-binding-3c80f1a379f7": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 persists primary temporary-directory intent and executes its remote mutation through the durable operation state machine.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
       }
     },
     "route_decorators": {
+      "route-decorator-931f8e775a88": {
+        "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.8 native GET/POST owner preserves the legacy path and envelopes while split-process lifecycle ownership remains with Coordinator and Worker.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-process-role-contract",
+        "validation_owner": "p115/upload-monitor"
+      },
+      "route-decorator-fe007d4f1190": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native PickCode deep-delete commit preserves single claim, TTL, replay, and internal persistent execution semantics.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-decorator-e5b0e8aab5f0": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native PickCode deep-delete prepare freezes verified scope without provider mutation.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-decorator-e506fce27383": {
+        "fixture": "verification/fixtures/http/p6-p115-intro-sync.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.10 native PickCode intro-sync owner preserves auth-none callback transport without request-body or automatic 422 drift.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas",
+        "validation_owner": "p115/intro-detection"
+      },
+      "route-decorator-97e18bb9d52b": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native PickCode item-ready consumes durable pending binding before native lightweight rebind.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-durable-binding",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-decorator-b1696276caf6": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native SHA1 deep-delete commit preserves cross-identity token capability and idempotent replay.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-decorator-247b43017ca7": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native SHA1 deep-delete prepare preserves exact, hierarchy, and virtual-local-only scope semantics.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-decorator-9c0a9cf83ad0": {
+        "fixture": "verification/fixtures/http/p6-p115-intro-sync.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.10 native SHA1 intro-sync owner preserves auth-none callback transport and optional emby_item_id semantics.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas",
+        "validation_owner": "p115/intro-detection"
+      },
+      "route-decorator-486930f3a81f": {
+        "fixture": "verification/fixtures/http/p6-p115-ingestion-delete.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.7 native SHA1 item-ready consumes durable pending binding or invokes native lightweight rebind without local queue fallback.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-durable-binding",
+        "validation_owner": "p115/ingestion-bridge"
+      },
+      "route-decorator-07a797c60d7b": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native Cookie QR transport uses bounded httpx provider calls and sanitized local fixtures.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-decorator-0d92c6d0361b": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native Cookie QR status transport with process-local bounded session state and atomic compatibility credential storage until P11.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-decorator-213029d0d158": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native authorization callback validates and atomically stores an account-bound token pair without echoing credentials.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-decorator-5e2c043920f8": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native OpenAPI QR status transport binds credentials only after a stable account identity is proven.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-decorator-797363a0e940": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native read-only directory transport pins the credential account revision and retains the split OpenAPI/Cookie client as a P11 compatibility adapter.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-decorator-7ed9f86fe861": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native manual Cookie transport delegates to the account-bound atomic credential adapter until P11.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-decorator-9af785f097c1": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native credential status transport probes one immutable credential snapshot and conditionally binds stable account identity.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-decorator-b797f4fbf6ac": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native authorization transport; provider behavior is covered by isolated legacy golden and local httpx stubs, while Live 115 acceptance remains pending.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-httpx-stub-and-openapi",
+        "validation_owner": "p115/auth-directory"
+      },
+      "route-decorator-af5f3fd3fd1c": {
+        "fixture": "verification/fixtures/http/p6-p115-sorting-rules.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native GET/POST sorting-rule transport preserves legacy response shapes for valid rule documents and uses account-bound persistence only as an internal safety precondition. The fixture records the intentional malformed mixed-element fail-closed variance before provider or persistence.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-native-variance-postgres18-and-openapi",
+        "validation_owner": "p115/sorting-rules"
+      },
+      "route-decorator-06519368ec61": {
+        "fixture": "verification/fixtures/http/p6-p115-episode-regex.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native GET/POST episode-regex transport owns validated, ordered, pure recognition policy without external effects.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-pure-policy-postgres18-and-openapi",
+        "validation_owner": "p115/episode-recognition"
+      },
+      "route-decorator-971da8658572": {
+        "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native GET/POST rename-config transport preserves defaults, legacy template fallback, and conflict-mode splitting.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-postgres18-and-openapi",
+        "validation_owner": "p115/rename-config"
+      },
+      "route-decorator-d76e76f83a94": {
+        "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native fixed-sample rename preview has a tested no-effect boundary; the renderer remains an explicit P11 compatibility adapter.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-no-effect-and-openapi",
+        "validation_owner": "p115/rename-preview"
+      },
+      "route-decorator-0ce2d912b5bc": {
+        "fixture": "verification/fixtures/http/p6-p115-organize-execution-records.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native record query transport preserves the legacy pagination, filter, statistics, and fail-reason envelope through the Native PostgreSQL records repository.",
+        "status": "new",
+        "validation_method": "pytest-legacy-envelope-fake-repository-and-openapi",
+        "validation_owner": "p115/organize-records"
+      },
+      "route-decorator-3113b2ec5864": {
+        "fixture": "verification/fixtures/http/p6-p115-organize-execution-records.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6 native record deletion is idempotent for missing rows and removes only local record and filesystem-cache state without resolving a 115 mutation provider.",
+        "status": "new",
+        "validation_method": "pytest-legacy-envelope-no-provider-effect-and-openapi",
+        "validation_owner": "p115/organize-records"
+      },
       "route-decorator-0558cfb3b7f0": {
         "fixture": "verification/fixtures/http/system-runtime-routes.json",
         "fixture_exception": null,
@@ -913,6 +1836,15 @@
         "status": "new",
         "validation_method": "pytest-contract-and-openapi",
         "validation_owner": "system/integrations"
+      },
+      "route-decorator-5229848d8a38": {
+        "fixture": "verification/fixtures/http/p6-p115-replace-strm.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.5 native FastAPI route precedes the compatibility mount and is frozen by the replace-STRM HTTP fixture, including its explicit fail-closed variance.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-atomic-local-adapter-and-openapi",
+        "validation_owner": "p115/strm-replacement"
       },
       "route-decorator-53d24b036fe1": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
@@ -1390,10 +2322,349 @@
         "status": "new",
         "validation_method": "pytest-golden-stub-and-openapi",
         "validation_owner": "media/bridge"
+      },
+      "route-decorator-b5124565e4af": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 native MediaInfo cache route precedes the compatibility mount; account identity and cache revisions are owned by the P6 repository.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-decorator-4802efcbdb26": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 native MediaInfo cache route precedes the compatibility mount; account identity and cache revisions are owned by the P6 repository.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-decorator-cbcffb38c3a4": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 verifies P115 MediaInfo identity before delegating metadata rendering to the P5 domain owner.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-decorator-e68d4378d9d5": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 verifies P115 MediaInfo identity before delegating metadata rendering to the P5 domain owner.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-decorator-fdbb41c368e3": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 verifies P115 identity before delegating durable metadata backfill submission to the P5 media use case.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-task-submission",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-decorator-ceb8f06eac7c": {
+        "fixture": "verification/fixtures/http/p6-p115-mediainfo.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P6.6 verifies P115 identity before delegating durable metadata backfill submission to the P5 media use case.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-task-submission",
+        "validation_owner": "p115/mediainfo"
+      },
+      "route-decorator-f9b14c22ade2": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 native GET/HEAD direct-play owner confines signed URLs to redirect or streaming transport and keeps HEAD effect-free.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-bfb634ec9c49": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 native filename GET/HEAD owner preserves the legacy path while filename remains outside provider identity.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-dd9eb1a23411": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 reads the normalized playback-pool projection through the native service.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-5bb42ffc1bef": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 validates settings before durable playback preparation.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-49b60532d617": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 creates a normalized pool account and reserves remote preparation durably.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-e327c70013fe": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 releases account leases before deleting its local projection.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-015a1409a105": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 updates a normalized pool account and reserves required remote preparation durably.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-af62eaab14b2": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 runs speedtest through a deterministic durable operation and returns sanitized result data.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-60f4772e77d5": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 cleanup is fenced by durable leases and artifact generations rather than remote file age alone.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-8b870aa230e2": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 creates owner-scoped, expiring QR authorization sessions.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-92648a216080": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 polls only the current owner's QR session and destroys credentials on expiry.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-e64a82a520eb": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 releases the user's leases before deleting the local account projection.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-ac5ee8c6ae20": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 returns only the authenticated user's normalized account projection.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-01c3e3e38262": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 saves the authenticated user's normalized account projection while P9 contribution transport remains deferred.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-b570347d78f4": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 preserves the reward-summary envelope while the P9 contribution ledger remains deferred.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-4dd9b5002590": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 reads the normalized primary temporary-directory projection without a remote effect.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
+      },
+      "route-decorator-7bd2240d7720": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback_router",
+        "notes": "P6.9 persists temporary-directory intent and executes its remote mutation through the durable operation state machine.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
+        "validation_owner": "p115/playback"
       }
     },
-    "settings": {},
-    "tables": {},
+    "settings": {
+      "setting-9c5e65b39ae5": {
+        "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.upload_monitor.P115UploadMonitorConfigService",
+        "notes": "P6.8 preserves the independent app_settings key, normalizes per-mapping extension and mode semantics, and fences Coordinator application with a durable revision and generation.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-and-postgres18-config-revision-cas",
+        "validation_owner": "p115/upload-monitor"
+      },
+      "setting-8c289bfe520d": {
+        "fixture": "verification/integration/p6/test_p115_directory_cache_postgres.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.repository.SqlAlchemyP115SortingRulesRepository",
+        "notes": "P6 companion setting records the stable 115 account that owns the sorting-rule CID set; an empty value preserves pre-auth legacy saves but cannot drive directory synchronization.",
+        "status": "new",
+        "validation_method": "postgres18-atomic-settings-and-account-cas",
+        "validation_owner": "p115/sorting-rules"
+      },
+      "setting-8d2b1199b60e": {
+        "fixture": "verification/fixtures/http/p6-p115-episode-regex.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.repository.SqlAlchemyP115EpisodeRegexRepository",
+        "notes": "P6 native repository preserves validated rule order and exposes a canonical revision for immutable organization plans.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-pure-policy-and-postgres18",
+        "validation_owner": "p115/episode-recognition"
+      },
+      "setting-e817c8fd27c1": {
+        "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.repository.SqlAlchemyP115RenameConfigRepository",
+        "notes": "P6 native repository preserves the independent JSON config and exposes a canonical effective-config revision for immutable organization plans.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-and-postgres18",
+        "validation_owner": "p115/rename-config"
+      },
+      "setting-9f2158f24dde": {
+        "fixture": "verification/fixtures/http/p6-p115-sorting-rules.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.repository.SqlAlchemyP115SortingRulesRepository",
+        "notes": "P6 native repository preserves list and legacy JSON-string values and atomically writes the rule array with its account-binding companion setting.",
+        "status": "new",
+        "validation_method": "pytest-legacy-golden-and-postgres18-atomic-settings",
+        "validation_owner": "p115/sorting-rules"
+      },
+      "setting-90de55ebcf99": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback.P115PlaybackConfigService",
+        "notes": "P6.9 atomically normalizes playback-pool account, authorization, access, traffic, and speedtest configuration through the runtime-state backend.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-postgres18-operation-and-config-cas",
+        "validation_owner": "p115/playback"
+      },
+      "setting-497d9f940ded": {
+        "fixture": "verification/fixtures/http/p6-p115-playback.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.playback.P115PlaybackConfigService",
+        "notes": "P6.9 atomically normalizes the primary temporary-directory intent and records durable remote-preparation receipts through the runtime-state backend.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-postgres18-operation-and-config-cas",
+        "validation_owner": "p115/playback"
+      }
+    },
+    "tables": {
+      "table-0661d1e5c85d": {
+        "fixture": "verification/integration/p6/test_p115_upload_monitor_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.upload_repository.PostgresP115UploadMonitorRepository",
+        "notes": "P6.8 reuses the legacy table only as the native completed-source ledger; upload operation, resumable request, and retry state live in the new p115_upload_operations table.",
+        "status": "new",
+        "validation_method": "postgres18-completed-source-sequence-and-snapshot-cas-contract",
+        "validation_owner": "p115/upload-monitor"
+      },
+      "table-1650ca2632a8": {
+        "fixture": "verification/integration/p6/test_p115_directory_cache_postgres.py",
+        "fixtures": [
+          "verification/integration/p6/test_p115_directory_cache_postgres.py",
+          "verification/integration/p6/test_p115_strm_sync_postgres.py"
+        ],
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.repository.SqlAlchemyP115DirectoryCacheRepository",
+        "notes": "P6 native PostgreSQL 18 ownership is split by projection: SqlAlchemyP115DirectoryCacheRepository reconciles direct-child directory listings, while SqlAlchemyP115StrmSyncRepository owns account/root-bound file and STRM-content projection under a durable sync plan. Both fail closed before pruning on incomplete provider state.",
+        "status": "new",
+        "validation_method": "postgres18-directory-and-strm-plan-cache-cas-contract",
+        "validation_owner": "p115/directory-cache-and-strm-sync"
+      },
+      "table-9178e3939383": {
+        "fixture": "verification/integration/p6/test_p115_organize_execution_postgres.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.organize_records_repository.SqlAlchemyP115OrganizeRecordsRepository",
+        "notes": "P6 Native execution appends immutable organization records transactionally; the records repository owns filtered reads and local record/cache cleanup, with no remote 115 delete operation.",
+        "status": "new",
+        "validation_method": "postgres18-execution-ledger-http-application-and-no-provider-effect",
+        "validation_owner": "p115/organize-records"
+      },
+      "table-4e7ee3efef71": {
+        "fixture": "verification/integration/p6/test_p115_media_info_postgres.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.media_info_repository.SqlAlchemyP115MediaInfoRepository",
+        "notes": "P6.6 owns the canonical revisioned formatted/RAW MediaInfo cache, account-bound PickCode/SHA1 resolution, persistent probe worklist, and compare-and-swap writes. The internal p115_media_probe_items table is declared by Alembic 0008 and verified by the same PostgreSQL 18 contract.",
+        "status": "new",
+        "validation_method": "postgres18-cache-revision-probe-worklist-fingerprint-and-durable-effect-contract",
+        "validation_owner": "p115/mediainfo"
+      },
+      "table-25ce1289b8a8": {
+        "fixture": "verification/integration/p6/test_p115_intro_detection_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.intro_detection_repository.PostgresP115IntroDetectionRepository",
+        "notes": "P6.10 preserves the legacy season and episode terminal-failure semantics behind the native lease-fenced season operation repository.",
+        "status": "new",
+        "validation_method": "postgres18-intro-operation-failure-and-algorithm-version-contract",
+        "validation_owner": "p115/intro-detection"
+      },
+      "table-db36af9ee574": {
+        "fixture": "verification/integration/p6/test_p115_intro_detection_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.intro_detection_repository.PostgresP115IntroDetectionRepository",
+        "notes": "P6.10 owns monotonic progressive intro and credits fingerprint coverage while signed provider URLs remain operation-local memory only.",
+        "status": "new",
+        "validation_method": "postgres18-monotonic-fingerprint-coverage-and-signed-url-redaction-contract",
+        "validation_owner": "p115/intro-detection"
+      },
+      "table-530c2595db1a": {
+        "fixture": "verification/integration/p6/test_p115_intro_detection_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.intro_detection_repository.PostgresP115IntroDetectionRepository",
+        "notes": "P6.10 retains fingerprint extraction attempt counters as diagnostics without treating them as an implicit permanent-failure threshold.",
+        "status": "new",
+        "validation_method": "postgres18-fingerprint-failure-diagnostic-contract",
+        "validation_owner": "p115/intro-detection"
+      }
+    },
     "tasks": {
       "task-0646f4d4ce8c": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -1452,29 +2723,29 @@
       "task-21fd73305651": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p6_ingestion_tasks.P6IngestionTaskRouter",
+        "notes": "P6.7 native Worker envelope performs deterministic compatibility scanning and writes every selected candidate to the durable ingestion intake without invoking monitor_service.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-deterministic-scan-and-postgres18-intake",
+        "validation_owner": "ingestion/monitor"
       },
       "task-3a864f101232": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "notes": "P6 native reconciliation-only Worker envelope accepts only an execution id and approved reconciliation intent; it performs authoritative readback, records the local ledger, and never invokes the legacy mutating correction callable.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-read-only-reconciliation-and-postgres18",
+        "validation_owner": "p115/organize-reconciliation"
       },
       "task-3fb40ec1002a": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "notes": "P6.6 native Worker dispatch executes the account-bound fingerprint repair use case without constructing a legacy Processor or calling tasks.media.task_repair_p115_fingerprints.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-fingerprint-unit-and-postgres18",
+        "validation_owner": "p115/fingerprints"
       },
       "task-418ca693681d": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -1543,19 +2814,19 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "notes": "P5 retains the strict persistent task envelope while P6.6 executes native MediaInfo restore, fingerprint repair, RAW reformat, bounded probe, and durable Bridge effects without the legacy callable or Processor.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-        "validation_owner": "media/task-envelope"
+        "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18-effect",
+        "validation_owner": "media/task-envelope-and-p115/mediainfo"
       },
       "task-62c236c3a38a": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "notes": "P6.5 native Worker envelope dispatches an account-bound complete-scan STRM/subtitle projection with a durable local action plan, cache CAS, and media-effect Outbox; MediaInfo remains P6.6 and monitoring remains P6.7/P6.8.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-plan-recovery-postgres18-and-worker-routing",
+        "validation_owner": "p115/strm-sync"
       },
       "task-669ade78ec0b": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -1641,11 +2912,11 @@
       "task-a6eeb309e50b": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "notes": "P6 native Worker envelope dispatches durable organize execution directly to the native service; the execution repository atomically terminalizes the owning P4 attempt and Job after authoritative readback, without legacy organizer fallback.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-durable-effect-readback-and-postgres18",
+        "validation_owner": "p115/organize-execution"
       },
       "task-a7f4d87690aa": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -1677,11 +2948,11 @@
       "task-b96e91eb5abd": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "notes": "P6 native Worker envelope and directory-sync use case use an account-bound read adapter and atomic PostgreSQL cache reconciliation without a legacy task callable.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-use-case-and-postgres18",
+        "validation_owner": "p115/directory-sync"
       },
       "task-b9dff80c1641": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -1704,11 +2975,11 @@
       "task-c30864f78abd": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "notes": "P6.8 preserves this legacy task key as home-video-only STRM, subtitle, and MediaInfo reconciliation. The retired Life Event daemon is not restarted; NFO, screenshot, and live provider acceptance remain separate seams.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-home-scope-postgres18-and-worker-routing",
+        "validation_owner": "p115/strm-sync"
       },
       "task-c4fb3ea230e6": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -1758,11 +3029,11 @@
       "task-d8992e83dc43": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "notes": "P6.10 native Worker envelope preserves the frozen watchlist processor and empty external payload while reserving durable season operations through the compatibility candidate port.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-and-intro-operation-contract",
+        "validation_owner": "p115/intro-detection"
       },
       "task-d99bbb3999e8": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -1821,11 +3092,11 @@
       "task-ee530b886a49": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "notes": "P6.9 native Worker envelope invokes the durable playback service daily speedtest without resolving the legacy task callable.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-playback-state-machine-and-worker-routing",
+        "validation_owner": "p115/playback"
       },
       "task-f5c43ac67585": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

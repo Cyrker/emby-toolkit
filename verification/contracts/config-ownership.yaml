@@ -875,15 +875,16 @@
       "environment_aliases": [],
       "key": "etk_server_url",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.5 validates and snapshots this base URL before producing exact unencoded no-newline STRM content; playback resolution remains P6.9.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:204",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-exact-byte-strm-contract",
+      "validation_owner": "p115/strm-sync"
     },
     {
       "contract_id": "config-9c7bcb609f51",
@@ -1025,15 +1026,16 @@
       "environment_aliases": [],
       "key": "local_strm_root",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.5 binds this container-visible root into the operation revision and the atomic path-confined local projection adapter.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:203",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-path-safety-atomic-write-and-http-fixture",
+      "validation_owner": "p115/strm-sync"
     },
     {
       "contract_id": "config-6ea529d9743a",
@@ -1200,15 +1202,16 @@
       "environment_aliases": [],
       "key": "monitor_enabled",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.7 uses this typed switch to suspend durable monitor promotion without deleting backlog and to control the leader-owned Observer.",
       "secret": false,
       "section": "Monitor",
       "source": "config_manager.py:176",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-durable-monitor-suspend-resume-contract",
+      "validation_owner": "ingestion/monitor"
     },
     {
       "contract_id": "config-7e200ca6da91",
@@ -1225,15 +1228,16 @@
       "environment_aliases": [],
       "key": "monitor_exclude_dirs",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.7 snapshots normalized real path boundaries for refresh-only Watchdog classification and deterministic scan exclusion.",
       "secret": false,
       "section": "Monitor",
       "source": "config_manager.py:181",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-path-boundary-and-classification-contract",
+      "validation_owner": "ingestion/monitor"
     },
     {
       "contract_id": "config-55baaf710551",
@@ -1250,15 +1254,16 @@
       "environment_aliases": [],
       "key": "monitor_exclude_refresh_delay",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.7 preserves the typed exclude refresh delay in the durable monitor configuration snapshot and execution policy.",
       "secret": false,
       "section": "Monitor",
       "source": "config_manager.py:182",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-durable-refresh-policy-contract",
+      "validation_owner": "ingestion/monitor"
     },
     {
       "contract_id": "config-1ad3d6c81e9d",
@@ -1291,15 +1296,16 @@
       "environment_aliases": [],
       "key": "monitor_extensions",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.7 normalizes the typed media extension allowlist for Observer filtering and deterministic catch-up scanning.",
       "secret": false,
       "section": "Monitor",
       "source": "config_manager.py:178",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-observer-and-scan-extension-contract",
+      "validation_owner": "ingestion/monitor"
     },
     {
       "contract_id": "config-80e580e6a407",
@@ -1316,15 +1322,16 @@
       "environment_aliases": [],
       "key": "monitor_paths",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.7 binds typed monitor roots into event provenance, containment checks, Observer lifecycle, and deterministic scanning.",
       "secret": false,
       "section": "Monitor",
       "source": "config_manager.py:177",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-root-provenance-and-observer-contract",
+      "validation_owner": "ingestion/monitor"
     },
     {
       "contract_id": "config-4fd73882c930",
@@ -1341,15 +1348,16 @@
       "environment_aliases": [],
       "key": "monitor_scan_batch_size",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.7 validates this typed batch size before deterministic catch-up candidates enter the durable intake.",
       "secret": false,
       "section": "Monitor",
       "source": "config_manager.py:180",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-native-scan-batch-contract",
+      "validation_owner": "ingestion/monitor"
     },
     {
       "contract_id": "config-397431b5a22a",
@@ -1366,15 +1374,16 @@
       "environment_aliases": [],
       "key": "monitor_scan_max_tasks",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.7 preserves the existing per-directory scan limit with zero meaning unlimited and records limit reach explicitly.",
       "secret": false,
       "section": "Monitor",
       "source": "config_manager.py:179",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-native-scan-limit-contract",
+      "validation_owner": "ingestion/monitor"
     },
     {
       "contract_id": "config-87f2af15475f",
@@ -1391,15 +1400,16 @@
       "environment_aliases": [],
       "key": "monitor_sha1_pc_search",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.7 keeps the typed physical-media fingerprint lookup policy available to the explicit worker compatibility execution seam.",
       "secret": false,
       "section": "Monitor",
       "source": "config_manager.py:183",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-worker-compatibility-policy-contract",
+      "validation_owner": "ingestion/monitor"
     },
     {
       "contract_id": "config-8e154e33112b",
@@ -1541,15 +1551,16 @@
       "environment_aliases": [],
       "key": "p115_download_subs",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.5 snapshots this switch before the authoritative scan and materializes subtitles atomically only when enabled.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:208",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-subtitle-atomicity-and-interruption-contract",
+      "validation_owner": "p115/strm-sync"
     },
     {
       "contract_id": "config-aacbb1aa9a25",
@@ -1613,15 +1624,16 @@
       "environment_aliases": [],
       "key": "p115_extensions",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.5 reads the typed extension allowlist into the immutable STRM scan revision; MediaInfo semantics for the same extensions remain deferred to P6.6.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:196",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-strm-sync-unit-and-complete-scan-contract",
+      "validation_owner": "p115/strm-sync"
     },
     {
       "contract_id": "config-6ec552e2417c",
@@ -1638,15 +1650,16 @@
       "environment_aliases": [],
       "key": "p115_local_cleanup",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.5 snapshots this cleanup policy before planning and permits execution only for deletion paths frozen in the durable action plan.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:209",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-preview-plan-and-local-adapter-contract",
+      "validation_owner": "p115/strm-sync"
     },
     {
       "contract_id": "config-a831be9dbf3b",
@@ -1769,15 +1782,16 @@
       "environment_aliases": [],
       "key": "p115_min_video_size",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "P6.5 snapshots this MiB threshold into the operation revision and applies it before any local projection.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:195",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-complete-scan-unit-contract",
+      "validation_owner": "p115/strm-sync"
     },
     {
       "contract_id": "config-c960931ff2fa",
@@ -2746,7 +2760,7 @@
     "bootstrap_key_count": 7,
     "duplicate_definition_key_count": 2,
     "dynamic_key_count": 96,
-    "standalone_setting_key_count": 52,
+    "standalone_setting_key_count": 53,
     "unresolved_setting_call_count": 0
   },
   "runtime_derived_config": [
@@ -2855,7 +2869,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "routes/webhook.py:1598"
+          "source": "routes/webhook.py:1537"
         },
         {
           "operation": "get_setting",
@@ -2880,7 +2894,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6334"
+          "source": "handler/p115_service.py:6468"
         },
         {
           "operation": "get_setting",
@@ -2921,7 +2935,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "routes/webhook.py:1501"
+          "source": "routes/webhook.py:1440"
         },
         {
           "operation": "get_setting",
@@ -3086,7 +3100,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:7824"
+          "source": "handler/p115_service.py:7958"
         },
         {
           "operation": "get_setting",
@@ -3123,7 +3137,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6331"
+          "source": "handler/p115_service.py:6465"
         },
         {
           "operation": "get_setting",
@@ -3180,11 +3194,11 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_play_pool.py:1266"
+          "source": "handler/p115_play_pool.py:1281"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6335"
+          "source": "handler/p115_service.py:6469"
         },
         {
           "operation": "get_setting",
@@ -3391,7 +3405,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:687"
+          "source": "database/settings_db.py:715"
         },
         {
           "operation": "get_setting",
@@ -3475,7 +3489,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:10972"
+          "source": "handler/p115_service.py:11106"
         },
         {
           "operation": "get_setting",
@@ -3704,11 +3718,11 @@
         },
         {
           "operation": "get_setting",
-          "source": "routes/p115.py:3578"
+          "source": "routes/p115.py:3581"
         },
         {
           "operation": "save_setting",
-          "source": "routes/p115.py:3591"
+          "source": "routes/p115.py:3594"
         }
       ],
       "contract_id": "setting-c04d846dbf0c",
@@ -3729,30 +3743,33 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:7191"
+          "source": "handler/p115_service.py:7325"
         },
         {
           "operation": "get_setting",
-          "source": "routes/p115.py:3186"
+          "source": "routes/p115.py:3189"
         },
         {
           "operation": "save_setting",
-          "source": "routes/p115.py:3198"
+          "source": "routes/p115.py:3201"
         }
       ],
       "contract_id": "setting-8d2b1199b60e",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p6-p115-episode-regex.json",
+      "fixture_exception": null,
       "key": "p115_episode_regex_rules",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.repository.SqlAlchemyP115EpisodeRegexRepository",
+      "notes": "P6 native repository preserves validated rule order and exposes a canonical revision for immutable organization plans.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-legacy-golden-pure-policy-and-postgres18",
+      "validation_owner": "p115/episode-recognition"
     },
     {
       "accesses": [
@@ -3767,27 +3784,30 @@
       ],
       "contract_id": "setting-90de55ebcf99",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "key": "p115_play_pool_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback.P115PlaybackConfigService",
+      "notes": "P6.9 atomically normalizes playback-pool account, authorization, access, traffic, and speedtest configuration through the runtime-state backend.",
       "restart_level": "call-site-specific",
-      "secret": false,
-      "status": "legacy",
+      "secret": true,
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-http-fixture-postgres18-operation-and-config-cas",
+      "validation_owner": "p115/playback"
     },
     {
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_play_pool.py:659"
+          "source": "handler/p115_play_pool.py:664"
         },
         {
           "operation": "save_setting",
-          "source": "handler/p115_play_pool.py:664"
+          "source": "handler/p115_play_pool.py:669"
         }
       ],
       "contract_id": "setting-3ff546971deb",
@@ -3833,15 +3853,15 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:596"
+          "source": "database/settings_db.py:624"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6353"
+          "source": "handler/p115_service.py:6487"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_upload_monitor.py:940"
+          "source": "handler/p115_upload_monitor.py:982"
         },
         {
           "operation": "get_setting",
@@ -3853,11 +3873,11 @@
         },
         {
           "operation": "get_setting",
-          "source": "routes/p115.py:2824"
+          "source": "routes/p115.py:2827"
         },
         {
           "operation": "save_setting",
-          "source": "routes/p115.py:2859"
+          "source": "routes/p115.py:2862"
         },
         {
           "operation": "get_setting",
@@ -3866,51 +3886,54 @@
       ],
       "contract_id": "setting-e817c8fd27c1",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p6-p115-rename-config.json",
+      "fixture_exception": null,
       "key": "p115_rename_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.repository.SqlAlchemyP115RenameConfigRepository",
+      "notes": "P6 native repository preserves the independent JSON config and exposes a canonical effective-config revision for immutable organization plans.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-legacy-golden-and-postgres18",
+      "validation_owner": "p115/rename-config"
     },
     {
       "accesses": [
+        {
+          "operation": "_save_setting_with_cursor",
+          "source": "database/settings_db.py:168"
+        },
         {
           "operation": "get_setting",
           "source": "handler/p115_service.py:237"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6097"
+          "source": "handler/p115_service.py:6231"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6367"
+          "source": "handler/p115_service.py:6501"
         },
         {
           "operation": "save_setting",
-          "source": "handler/p115_service.py:7713"
-        },
-        {
-          "operation": "save_setting",
-          "source": "routes/p115.py:1552"
+          "source": "handler/p115_service.py:7847"
         },
         {
           "operation": "get_setting",
-          "source": "routes/p115.py:2130"
+          "source": "routes/p115.py:2133"
         },
         {
           "operation": "get_setting",
-          "source": "routes/p115.py:2156"
+          "source": "routes/p115.py:2159"
         },
         {
           "operation": "save_setting",
-          "source": "routes/p115.py:2252"
+          "source": "routes/p115.py:2255"
         },
         {
           "operation": "get_setting",
@@ -3923,17 +3946,44 @@
       ],
       "contract_id": "setting-9f2158f24dde",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p6-p115-sorting-rules.json",
+      "fixture_exception": null,
       "key": "p115_sorting_rules",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.repository.SqlAlchemyP115SortingRulesRepository",
+      "notes": "P6 native repository preserves list and legacy JSON-string values and atomically writes the rule array with its account-binding companion setting.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-legacy-golden-and-postgres18-atomic-settings",
+      "validation_owner": "p115/sorting-rules"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "_save_setting_with_cursor",
+          "source": "database/settings_db.py:169"
+        }
+      ],
+      "contract_id": "setting-8c289bfe520d",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p6/test_p115_directory_cache_postgres.py",
+      "fixture_exception": null,
+      "key": "p115_sorting_rules_account_id",
+      "mutability": "runtime_dynamic",
+      "new_owner": "etk.domains.p115.repository.SqlAlchemyP115SortingRulesRepository",
+      "notes": "P6 companion setting records the stable 115 account that owns the sorting-rule CID set; an empty value preserves pre-auth legacy saves but cannot drive directory synchronization.",
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "new",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "postgres18-atomic-settings-and-account-cas",
+      "validation_owner": "p115/sorting-rules"
     },
     {
       "accesses": [
@@ -3948,17 +3998,20 @@
       ],
       "contract_id": "setting-497d9f940ded",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p6-p115-playback.json",
+      "fixture_exception": null,
       "key": "p115_temp_dir_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback.P115PlaybackConfigService",
+      "notes": "P6.9 atomically normalizes the primary temporary-directory intent and records durable remote-preparation receipts through the runtime-state backend.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-http-fixture-postgres18-operation-and-config-cas",
+      "validation_owner": "p115/playback"
     },
     {
       "accesses": [
@@ -3973,17 +4026,20 @@
       ],
       "contract_id": "setting-9c5e65b39ae5",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
+      "fixture_exception": null,
       "key": "p115_upload_monitor_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.upload_monitor.P115UploadMonitorConfigService",
+      "notes": "P6.8 preserves the independent app_settings key, normalizes per-mapping extension and mode semantics, and fences Coordinator application with a durable revision and generation.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-http-fixture-and-postgres18-config-revision-cas",
+      "validation_owner": "p115/upload-monitor"
     },
     {
       "accesses": [
@@ -4014,11 +4070,15 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:585"
+          "source": "database/settings_db.py:613"
         },
         {
           "operation": "save_setting",
-          "source": "database/settings_db.py:608"
+          "source": "database/settings_db.py:636"
+        },
+        {
+          "operation": "_save_setting_with_cursor",
+          "source": "database/settings_db.py:671"
         }
       ],
       "contract_id": "setting-76801fa87ade",
@@ -4039,7 +4099,19 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:527"
+          "source": "database/settings_db.py:555"
+        },
+        {
+          "operation": "_save_setting_with_cursor",
+          "source": "database/settings_db.py:603"
+        },
+        {
+          "operation": "_save_setting_with_cursor",
+          "source": "database/settings_db.py:683"
+        },
+        {
+          "operation": "_save_setting_with_cursor",
+          "source": "routes/p115.py:1590"
         }
       ],
       "contract_id": "setting-9fd0793fc158",
@@ -4134,7 +4206,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6332"
+          "source": "handler/p115_service.py:6466"
         },
         {
           "operation": "get_setting",
@@ -4158,7 +4230,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/helpers.py:2128"
+          "source": "tasks/helpers.py:2110"
         },
         {
           "operation": "get_setting",
@@ -4183,7 +4255,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6333"
+          "source": "handler/p115_service.py:6467"
         },
         {
           "operation": "get_setting",
@@ -4195,7 +4267,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/helpers.py:2129"
+          "source": "tasks/helpers.py:2111"
         },
         {
           "operation": "get_setting",
@@ -4360,23 +4432,23 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:842"
+          "source": "database/settings_db.py:870"
         },
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:961"
+          "source": "database/settings_db.py:989"
         },
         {
           "operation": "get_shared_resource_config",
-          "source": "database/settings_db.py:969"
+          "source": "database/settings_db.py:997"
         },
         {
           "operation": "save_setting",
-          "source": "database/settings_db.py:971"
+          "source": "database/settings_db.py:999"
         },
         {
           "operation": "get_setting",
-          "source": "handler/intro_detection_service.py:416"
+          "source": "handler/intro_detection_service.py:442"
         },
         {
           "operation": "get_shared_resource_config",
@@ -4502,7 +4574,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6330"
+          "source": "handler/p115_service.py:6464"
         },
         {
           "operation": "get_setting",
@@ -4547,15 +4619,19 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:694"
+          "source": "database/settings_db.py:722"
         },
         {
           "operation": "save_setting",
-          "source": "database/settings_db.py:704"
+          "source": "database/settings_db.py:732"
         },
         {
           "operation": "save_setting",
-          "source": "database/settings_db.py:726"
+          "source": "database/settings_db.py:754"
+        },
+        {
+          "operation": "_save_setting_with_cursor",
+          "source": "database/settings_db.py:784"
         }
       ],
       "contract_id": "setting-fac06b386ddb",
@@ -4708,23 +4784,23 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:849"
+          "source": "database/settings_db.py:877"
         },
         {
           "operation": "save_setting",
-          "source": "database/settings_db.py:856"
+          "source": "database/settings_db.py:884"
         },
         {
           "operation": "get_setting",
-          "source": "handler/intro_detection_service.py:409"
+          "source": "handler/intro_detection_service.py:435"
         },
         {
           "operation": "get_setting",
-          "source": "handler/intro_detection_service.py:436"
+          "source": "handler/intro_detection_service.py:462"
         },
         {
           "operation": "get_setting",
-          "source": "handler/intro_detection_service.py:451"
+          "source": "handler/intro_detection_service.py:477"
         },
         {
           "operation": "get_setting",
@@ -4748,7 +4824,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/helpers.py:1655"
+          "source": "tasks/helpers.py:1637"
         },
         {
           "operation": "get_setting",

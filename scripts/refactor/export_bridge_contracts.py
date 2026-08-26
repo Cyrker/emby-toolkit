@@ -127,7 +127,7 @@ P115_OPERATIONS = {
         ["path.identity", "query.item_type?", "query.season_number?", "query.episode_number?"],
     ),
     "/metadata/backfill": ("POST", [202, 200, 404, 409], ["path.identity"]),
-    "/intro-sync": ("POST", [200, 404], ["path.identity", "query.emby_item_id"]),
+    "/intro-sync": ("POST", [200, 404], ["path.identity", "query.emby_item_id?"]),
     "/item-ready": ("POST", [200, 404, 409, 503], ["path.identity", "query.emby_item_id"]),
     "/deep-delete/prepare": (
         "POST",
@@ -136,10 +136,17 @@ P115_OPERATIONS = {
     ),
     "/deep-delete/commit": (
         "POST",
-        [202, 400, 404, 410],
+        [202, 400, 404, 410, 500],
         ["path.identity", "body.token"],
     ),
 }
+P115_DEFERRED_SUFFIXES: tuple[str, ...] = ()
+P115_P6_7_SUFFIXES = (
+    "/item-ready",
+    "/deep-delete/prepare",
+    "/deep-delete/commit",
+)
+P115_DEFERRED_FIXTURE_EXCEPTION = "Native fixture-backed acceptance is deferred to P6.10 intro/credits."
 
 
 def _p115_inbound() -> dict[tuple[str, str], dict[str, Any]]:
@@ -147,9 +154,10 @@ def _p115_inbound() -> dict[tuple[str, str], dict[str, Any]]:
     bases = ["/api/p115/mediainfo/<pick_code>", "/api/p115/mediainfo/sha1/<sha1>"]
     for base in bases:
         for suffix, (method, statuses, fields) in P115_OPERATIONS.items():
+            effective_statuses = [200] if suffix == "/intro-sync" and "/sha1/" in base else statuses
             contracts[(method, base + suffix)] = {
                 "request_fields": fields,
-                "response_statuses": statuses,
+                "response_statuses": effective_statuses,
             }
     return contracts
 
@@ -201,6 +209,8 @@ OUTBOUND = [
 
 
 def _inbound_fixtures(path: str) -> list[str]:
+    if _p115_deferred(path):
+        return []
     fixtures = ["verification/fixtures/http/bridge-validation-errors.json"]
     if path == "/api/emby/metadata":
         fixtures.insert(0, "verification/fixtures/http/bridge-metadata.json")
@@ -209,7 +219,15 @@ def _inbound_fixtures(path: str) -> list[str]:
         "/api/p115/mediainfo/sha1/<sha1>",
     }:
         fixtures.insert(0, "verification/fixtures/http/bridge-mediainfo.json")
+    if path.startswith("/api/p115/mediainfo/") and path.endswith(P115_P6_7_SUFFIXES):
+        fixtures.insert(0, "verification/fixtures/http/p6-p115-ingestion-delete.json")
+    if path.startswith("/api/p115/mediainfo/") and path.endswith("/intro-sync"):
+        fixtures.insert(0, "verification/fixtures/http/p6-p115-intro-sync.json")
     return fixtures
+
+
+def _p115_deferred(path: str) -> bool:
+    return path.startswith("/api/p115/mediainfo/") and path.endswith(P115_DEFERRED_SUFFIXES)
 
 
 def export_bridge_contracts() -> dict[str, Any]:
@@ -226,6 +244,7 @@ def export_bridge_contracts() -> dict[str, Any]:
     inbound: list[dict[str, Any]] = []
     for (method, path), details in sorted(required.items()):
         source = route_lookup[(method, path)]
+        deferred = _p115_deferred(path)
         inbound.append(
             apply_contract_override(
                 {
@@ -253,11 +272,16 @@ def export_bridge_contracts() -> dict[str, Any]:
                     "status": "legacy",
                     "new_owner": None,
                     "fixtures": _inbound_fixtures(path),
+                    "fixture_exception": P115_DEFERRED_FIXTURE_EXCEPTION if deferred else None,
                     "validation_owner": "media/bridge" if path.startswith("/api/emby/") else "p115/bridge",
                     "validation_method": (
-                        "legacy-differential-and-stub-contract"
-                        if path.startswith("/api/emby/")
-                        else "source-contract-and-validation-fixture"
+                        "static-source-contract-deferred"
+                        if deferred
+                        else (
+                            "legacy-differential-and-stub-contract"
+                            if path.startswith("/api/emby/")
+                            else "source-contract-and-validation-fixture"
+                        )
                     ),
                     **(
                         {"event_ownership": [dict(value) for value in details["event_ownership"]]}
@@ -309,19 +333,37 @@ def export_bridge_contracts() -> dict[str, Any]:
                     "media identity, metadata, image, event transport, durable refresh, and deep-delete receipts"
                 ),
             },
-            "p6_deferred": {
-                "inbound_contracts": "the fourteen PickCode/SHA1 /api/p115/mediainfo/* operations",
-                "reason": "the approved route ownership table assigns routes/p115.py and P115 business execution to P6",
-                "acceptance": "P6 must provide native HTTP ownership and legacy-vs-native differential evidence",
+            "p6_6_owned": {
+                "inbound_contracts": (
+                    "the six PickCode/SHA1 formatted-cache, metadata-query, and metadata-backfill operations"
+                ),
+                "invariants": (
+                    "account-bound identity, canonical formatted and RAW cache, native metadata delegation, and "
+                    "durable task submission"
+                ),
             },
-            "compatibility_rule": "P5 must not mark the fourteen P115 operations new or claim them locally accepted",
+            "p6_7_owned": {
+                "inbound_contracts": ("the six PickCode/SHA1 item-ready and deep-delete prepare/commit operations"),
+                "invariants": (
+                    "durable pending binding, verified item identity, two-phase token capability, single claim, "
+                    "idempotent background execution, and compatibility cleanup receipts"
+                ),
+            },
+            "p6_10_owned": {
+                "inbound_contracts": "the two PickCode/SHA1 intro-sync operations",
+                "invariants": (
+                    "feature-first validation, verified Emby identity, bounded MediaInfo revision CAS, "
+                    "legacy-compatible chapter merge, and best-effort P9 export isolation"
+                ),
+            },
+            "compatibility_rule": ("P6.10 owns all fourteen PickCode/SHA1 MediaInfo Bridge operations natively"),
         },
         "limitations": [
             "The Bridge DLL source is not part of this repository; outbound response schemas cover only fields "
             "consumed by ETK.",
             "Success payloads that depend on database or external adapters require sanitized fixtures and local stubs.",
-            "The fourteen PickCode/SHA1 P115 inbound operations remain a P6 gate and are not part of P5 native "
-            "ownership.",
+            "Six PickCode/SHA1 query and backfill operations are native in P6.6; six item-ready/deep-delete "
+            "operations are native in P6.7; two intro-sync operations are native in P6.10.",
         ],
         "contracts": inbound + outbound,
     }

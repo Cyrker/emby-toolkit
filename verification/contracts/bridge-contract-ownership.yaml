@@ -5,6 +5,7 @@
       "contract_id": "bridge-inbound-03911a60ddcd",
       "direction": "inbound",
       "endpoint": "get_emby_metadata_by_path",
+      "fixture_exception": null,
       "fixtures": [
         "verification/fixtures/http/p5-media-bridge.json"
       ],
@@ -35,7 +36,7 @@
         400,
         404
       ],
-      "source": "routes/webhook.py:1923",
+      "source": "routes/webhook.py:1862",
       "status": "new",
       "target_stage": "P5",
       "transport": "http",
@@ -47,6 +48,7 @@
       "contract_id": "bridge-inbound-aba6a1c7b78d",
       "direction": "inbound",
       "endpoint": "search_emby_metadata_images",
+      "fixture_exception": null,
       "fixtures": [
         "verification/fixtures/http/p5-media-bridge.json"
       ],
@@ -81,7 +83,7 @@
         502,
         503
       ],
-      "source": "routes/webhook.py:2416",
+      "source": "routes/webhook.py:2355",
       "status": "new",
       "target_stage": "P5",
       "transport": "http",
@@ -93,6 +95,7 @@
       "contract_id": "bridge-inbound-a055537ee82c",
       "direction": "inbound",
       "endpoint": "proxy_emby_plugin_update",
+      "fixture_exception": null,
       "fixtures": [
         "verification/fixtures/http/p5-media-bridge.json"
       ],
@@ -118,7 +121,7 @@
         200,
         502
       ],
-      "source": "routes/webhook.py:1882",
+      "source": "routes/webhook.py:1821",
       "status": "new",
       "target_stage": "P5",
       "transport": "http",
@@ -130,12 +133,13 @@
       "contract_id": "bridge-inbound-baacd5a53601",
       "direction": "inbound",
       "endpoint": "get_cached_mediainfo_by_pick_code",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-mediainfo.json",
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-mediainfo.json"
       ],
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 native PickCode formatted-cache transport uses account-bound identity resolution and canonical no-store MediaInfo responses; Live 115 and Emby acceptance remains pending.",
       "path": "/api/p115/mediainfo/<pick_code>",
       "redactions": [
         "Authorization",
@@ -158,23 +162,25 @@
         404,
         422
       ],
-      "source": "routes/p115.py:2272",
-      "status": "legacy",
+      "source": "routes/p115.py:2275",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-cache-contract",
+      "validation_owner": "p115/mediainfo-bridge"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-17630408ec24",
       "direction": "inbound",
       "endpoint": "get_cached_metadata_by_pick_code",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-mediainfo.json"
       ],
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 native PickCode metadata transport resolves only verified P115 cache identity before delegating to the P5 metadata owner.",
       "path": "/api/p115/mediainfo/<pick_code>/metadata",
       "redactions": [
         "Authorization",
@@ -199,24 +205,25 @@
         400,
         404
       ],
-      "source": "routes/p115.py:2335",
-      "status": "legacy",
+      "source": "routes/p115.py:2338",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-cache-contract",
+      "validation_owner": "p115/mediainfo-bridge"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-3dacec9dcdc2",
       "direction": "inbound",
       "endpoint": "get_cached_mediainfo_by_sha1",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-mediainfo.json",
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-mediainfo.json"
       ],
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 native SHA1 formatted-cache transport validates canonical identity and returns a normalized no-store MediaInfo response.",
       "path": "/api/p115/mediainfo/sha1/<sha1>",
       "redactions": [
         "Authorization",
@@ -239,23 +246,25 @@
         404,
         422
       ],
-      "source": "routes/p115.py:2280",
-      "status": "legacy",
+      "source": "routes/p115.py:2283",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-cache-contract",
+      "validation_owner": "p115/mediainfo-bridge"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-aaa90120b3e8",
       "direction": "inbound",
       "endpoint": "get_cached_metadata_by_sha1",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-mediainfo.json"
       ],
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 native SHA1 metadata transport resolves only verified P115 cache identity before delegating to the P5 metadata owner.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/metadata",
       "redactions": [
         "Authorization",
@@ -280,12 +289,12 @@
         400,
         404
       ],
-      "source": "routes/p115.py:2343",
-      "status": "legacy",
+      "source": "routes/p115.py:2346",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-cache-contract",
+      "validation_owner": "p115/mediainfo-bridge"
     },
     {
       "auth": "source-marker-only",
@@ -385,6 +394,7 @@
           "transport_owner": "etk.domains.media.router"
         }
       ],
+      "fixture_exception": null,
       "fixtures": [
         "verification/fixtures/http/p5-media-bridge.json"
       ],
@@ -415,7 +425,7 @@
         500,
         503
       ],
-      "source": "routes/webhook.py:2551",
+      "source": "routes/webhook.py:2490",
       "status": "new",
       "target_stage": "P5",
       "transport": "http",
@@ -427,6 +437,7 @@
       "contract_id": "bridge-inbound-1a2af69cb62d",
       "direction": "inbound",
       "endpoint": "trigger_emby_metadata_backfill",
+      "fixture_exception": null,
       "fixtures": [
         "verification/fixtures/http/p5-media-bridge.json"
       ],
@@ -452,7 +463,7 @@
         200,
         409
       ],
-      "source": "routes/webhook.py:1993",
+      "source": "routes/webhook.py:1932",
       "status": "new",
       "target_stage": "P5",
       "transport": "http",
@@ -464,6 +475,7 @@
       "contract_id": "bridge-inbound-2cd416352e06",
       "direction": "inbound",
       "endpoint": "trigger_emby_item_metadata_backfill",
+      "fixture_exception": null,
       "fixtures": [
         "verification/fixtures/http/p5-media-bridge.json"
       ],
@@ -492,7 +504,7 @@
         400,
         409
       ],
-      "source": "routes/webhook.py:2136",
+      "source": "routes/webhook.py:2075",
       "status": "new",
       "target_stage": "P5",
       "transport": "http",
@@ -504,6 +516,7 @@
       "contract_id": "bridge-inbound-b11b6364834b",
       "direction": "inbound",
       "endpoint": "trigger_emby_items_metadata_backfill",
+      "fixture_exception": null,
       "fixtures": [
         "verification/fixtures/http/p5-media-bridge.json"
       ],
@@ -532,7 +545,7 @@
         400,
         409
       ],
-      "source": "routes/webhook.py:2144",
+      "source": "routes/webhook.py:2083",
       "status": "new",
       "target_stage": "P5",
       "transport": "http",
@@ -544,6 +557,7 @@
       "contract_id": "bridge-inbound-ef191d723860",
       "direction": "inbound",
       "endpoint": "trigger_emby_library_metadata_backfill",
+      "fixture_exception": null,
       "fixtures": [
         "verification/fixtures/http/p5-media-bridge.json"
       ],
@@ -573,7 +587,7 @@
         400,
         409
       ],
-      "source": "routes/webhook.py:2155",
+      "source": "routes/webhook.py:2094",
       "status": "new",
       "target_stage": "P5",
       "transport": "http",
@@ -585,6 +599,7 @@
       "contract_id": "bridge-inbound-4415d220d7fb",
       "direction": "inbound",
       "endpoint": "refresh_emby_metadata_images",
+      "fixture_exception": null,
       "fixtures": [
         "verification/fixtures/http/p5-media-bridge.json"
       ],
@@ -619,7 +634,7 @@
         502,
         503
       ],
-      "source": "routes/webhook.py:2222",
+      "source": "routes/webhook.py:2161",
       "status": "new",
       "target_stage": "P5",
       "transport": "http",
@@ -631,6 +646,7 @@
       "contract_id": "bridge-inbound-2183b9cf5188",
       "direction": "inbound",
       "endpoint": "sync_emby_metadata_images",
+      "fixture_exception": null,
       "fixtures": [
         "verification/fixtures/http/p5-media-bridge.json"
       ],
@@ -666,7 +682,7 @@
         410,
         502
       ],
-      "source": "routes/webhook.py:2481",
+      "source": "routes/webhook.py:2420",
       "status": "new",
       "target_stage": "P5",
       "transport": "http",
@@ -678,11 +694,13 @@
       "contract_id": "bridge-inbound-52a525635811",
       "direction": "inbound",
       "endpoint": "commit_deep_delete_by_pick_code",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-ingestion-delete.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native PickCode deep-delete commit preserves the single-use token capability, lost-response replay, and persistent internal operation submission.",
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/commit",
       "redactions": [
         "Authorization",
@@ -704,25 +722,28 @@
         202,
         400,
         404,
-        410
+        410,
+        500
       ],
-      "source": "routes/p115.py:2658",
-      "status": "legacy",
+      "source": "routes/p115.py:2661",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim-contract",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-d5b5cdc5106f",
       "direction": "inbound",
       "endpoint": "prepare_deep_delete_by_pick_code",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-ingestion-delete.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native PickCode deep-delete prepare verifies Emby identity and freezes the exact or hierarchical delete scope without mutating providers.",
       "path": "/api/p115/mediainfo/<pick_code>/deep-delete/prepare",
       "redactions": [
         "Authorization",
@@ -748,23 +769,25 @@
         404,
         409
       ],
-      "source": "routes/p115.py:2645",
-      "status": "legacy",
+      "source": "routes/p115.py:2648",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot-contract",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-f04a41c9ac19",
       "direction": "inbound",
       "endpoint": "sync_intro_snapshot_by_pick_code",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-intro-sync.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.10 native PickCode intro-sync verifies callback identity before a bounded revision-CAS chapter merge; shared-center export remains best-effort P9 compatibility.",
       "path": "/api/p115/mediainfo/<pick_code>/intro-sync",
       "redactions": [
         "Authorization",
@@ -777,7 +800,7 @@
       ],
       "request_fields": [
         "path.identity",
-        "query.emby_item_id"
+        "query.emby_item_id?"
       ],
       "response_content_types": [
         "application/json"
@@ -786,23 +809,25 @@
         200,
         404
       ],
-      "source": "routes/p115.py:2414",
-      "status": "legacy",
+      "source": "routes/p115.py:2417",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas-contract",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-c0b2b42ff285",
       "direction": "inbound",
       "endpoint": "accept_emby_item_by_pick_code",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-ingestion-delete.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native PickCode item-ready verifies the callback path identity and consumes durable pending binding before native lightweight rebind.",
       "path": "/api/p115/mediainfo/<pick_code>/item-ready",
       "redactions": [
         "Authorization",
@@ -826,23 +851,25 @@
         409,
         503
       ],
-      "source": "routes/p115.py:2427",
-      "status": "legacy",
+      "source": "routes/p115.py:2430",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-durable-binding-contract",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-4d43478b1b45",
       "direction": "inbound",
       "endpoint": "trigger_metadata_backfill_by_pick_code",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-mediainfo.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 native PickCode metadata-backfill transport verifies P115 identity before submitting the existing P5 metadata backfill use case.",
       "path": "/api/p115/mediainfo/<pick_code>/metadata/backfill",
       "redactions": [
         "Authorization",
@@ -865,23 +892,25 @@
         404,
         409
       ],
-      "source": "routes/p115.py:2366",
-      "status": "legacy",
+      "source": "routes/p115.py:2369",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-task-submission-contract",
+      "validation_owner": "p115/mediainfo-bridge"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-7429ffea250f",
       "direction": "inbound",
       "endpoint": "commit_deep_delete_by_sha1",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-ingestion-delete.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native SHA1 deep-delete commit preserves the cross-identity token capability and idempotent internal operation replay.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/commit",
       "redactions": [
         "Authorization",
@@ -903,25 +932,28 @@
         202,
         400,
         404,
-        410
+        410,
+        500
       ],
-      "source": "routes/p115.py:2666",
-      "status": "legacy",
+      "source": "routes/p115.py:2669",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-single-claim-contract",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-37ae031c1496",
       "direction": "inbound",
       "endpoint": "prepare_deep_delete_by_sha1",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-ingestion-delete.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native SHA1 deep-delete prepare preserves validation, virtual-local-only, exact-version, and hierarchical scope semantics.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/deep-delete/prepare",
       "redactions": [
         "Authorization",
@@ -947,23 +979,25 @@
         404,
         409
       ],
-      "source": "routes/p115.py:2653",
-      "status": "legacy",
+      "source": "routes/p115.py:2656",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-snapshot-contract",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-812d67208b80",
       "direction": "inbound",
       "endpoint": "sync_intro_snapshot_by_sha1",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-intro-sync.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.10 native SHA1 intro-sync keeps emby_item_id optional, preserves legacy chapter semantics, and never stages an inbound Bridge effect.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/intro-sync",
       "redactions": [
         "Authorization",
@@ -976,32 +1010,33 @@
       ],
       "request_fields": [
         "path.identity",
-        "query.emby_item_id"
+        "query.emby_item_id?"
       ],
       "response_content_types": [
         "application/json"
       ],
       "response_statuses": [
-        200,
-        404
+        200
       ],
-      "source": "routes/p115.py:2422",
-      "status": "legacy",
+      "source": "routes/p115.py:2425",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-revision-cas-contract",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-bd5deb601b60",
       "direction": "inbound",
       "endpoint": "accept_emby_item_by_sha1",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-ingestion-delete.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.7 native SHA1 item-ready verifies callback identity and uses durable pending acceptance or native lightweight rebind without local queue fallback.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/item-ready",
       "redactions": [
         "Authorization",
@@ -1025,23 +1060,25 @@
         409,
         503
       ],
-      "source": "routes/p115.py:2435",
-      "status": "legacy",
+      "source": "routes/p115.py:2438",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-durable-binding-contract",
+      "validation_owner": "p115/ingestion-bridge"
     },
     {
       "auth": "none",
       "contract_id": "bridge-inbound-1d1229762a72",
       "direction": "inbound",
       "endpoint": "trigger_metadata_backfill_by_sha1",
+      "fixture_exception": null,
       "fixtures": [
-        "verification/fixtures/http/bridge-validation-errors.json"
+        "verification/fixtures/http/p6-p115-mediainfo.json"
       ],
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P6.6 native SHA1 metadata-backfill transport verifies P115 identity before submitting the existing P5 metadata backfill use case.",
       "path": "/api/p115/mediainfo/sha1/<sha1>/metadata/backfill",
       "redactions": [
         "Authorization",
@@ -1064,12 +1101,12 @@
         404,
         409
       ],
-      "source": "routes/p115.py:2374",
-      "status": "legacy",
+      "source": "routes/p115.py:2377",
+      "status": "new",
       "target_stage": "P6",
       "transport": "http",
-      "validation_method": "source-contract-and-validation-fixture",
-      "validation_owner": "p115/bridge"
+      "validation_method": "pytest-http-fixture-openapi-and-task-submission-contract",
+      "validation_owner": "p115/mediainfo-bridge"
     },
     {
       "auth": "emby-token",
@@ -1287,7 +1324,7 @@
   "limitations": [
     "The Bridge DLL source is not part of this repository; outbound response schemas cover only fields consumed by ETK.",
     "Success payloads that depend on database or external adapters require sanitized fixtures and local stubs.",
-    "The fourteen PickCode/SHA1 P115 inbound operations remain a P6 gate and are not part of P5 native ownership."
+    "Six PickCode/SHA1 query and backfill operations are native in P6.6; six item-ready/deep-delete operations are native in P6.7; two intro-sync operations are native in P6.10."
   ],
   "metrics": {
     "outbound_bridge_contract_count": 6,
@@ -1301,17 +1338,24 @@
     "handler/emby.py"
   ],
   "stage_boundary": {
-    "compatibility_rule": "P5 must not mark the fourteen P115 operations new or claim them locally accepted",
+    "compatibility_rule": "P6.10 owns all fourteen PickCode/SHA1 MediaInfo Bridge operations natively",
     "decision": "split-central-media-and-p115-transport",
     "p5_owned": {
       "inbound_contracts": "the ten /api/emby/* operations",
       "invariants": "media identity, metadata, image, event transport, durable refresh, and deep-delete receipts",
       "outbound_contracts": "the six ETKMediaInfo Bridge write operations"
     },
-    "p6_deferred": {
-      "acceptance": "P6 must provide native HTTP ownership and legacy-vs-native differential evidence",
-      "inbound_contracts": "the fourteen PickCode/SHA1 /api/p115/mediainfo/* operations",
-      "reason": "the approved route ownership table assigns routes/p115.py and P115 business execution to P6"
+    "p6_10_owned": {
+      "inbound_contracts": "the two PickCode/SHA1 intro-sync operations",
+      "invariants": "feature-first validation, verified Emby identity, bounded MediaInfo revision CAS, legacy-compatible chapter merge, and best-effort P9 export isolation"
+    },
+    "p6_6_owned": {
+      "inbound_contracts": "the six PickCode/SHA1 formatted-cache, metadata-query, and metadata-backfill operations",
+      "invariants": "account-bound identity, canonical formatted and RAW cache, native metadata delegation, and durable task submission"
+    },
+    "p6_7_owned": {
+      "inbound_contracts": "the six PickCode/SHA1 item-ready and deep-delete prepare/commit operations",
+      "invariants": "durable pending binding, verified item identity, two-phase token capability, single claim, idempotent background execution, and compatibility cleanup receipts"
     }
   }
 }

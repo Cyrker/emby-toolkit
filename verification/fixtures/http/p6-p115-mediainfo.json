@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "kind": "p6-p115-mediainfo-http-contract",
+  "captured_live": false,
+  "provenance": {
+    "kind": "isolated-legacy-contract-and-native-fake-adapters",
+    "legacy_source": "routes/p115.py",
+    "native_source": "src/etk/domains/p115/router.py"
+  },
+  "routes": [
+    {"method": "GET", "path": "/api/p115/mediainfo/<pick_code>"},
+    {"method": "GET", "path": "/api/p115/mediainfo/sha1/<sha1>"},
+    {"method": "GET", "path": "/api/p115/mediainfo/<pick_code>/metadata"},
+    {"method": "GET", "path": "/api/p115/mediainfo/sha1/<sha1>/metadata"},
+    {"method": "POST", "path": "/api/p115/mediainfo/<pick_code>/metadata/backfill"},
+    {"method": "POST", "path": "/api/p115/mediainfo/sha1/<sha1>/metadata/backfill"}
+  ],
+  "cases": [
+    {
+      "case_id": "pick-code-formatted-success",
+      "record": "valid",
+      "request": {"method": "GET", "path": "/api/p115/mediainfo/pc-a"},
+      "expected": {
+        "status": 200,
+        "headers": {"Cache-Control": "no-store"},
+        "body": {
+          "MediaSourceInfo": {"MediaStreams": [], "Container": "mkv", "Chapters": []},
+          "Chapters": []
+        }
+      }
+    },
+    {
+      "case_id": "sha1-formatted-success",
+      "record": "valid",
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "expected": {
+        "status": 200,
+        "headers": {"Cache-Control": "no-store"},
+        "body": {
+          "MediaSourceInfo": {"MediaStreams": [], "Container": "mkv", "Chapters": []},
+          "Chapters": []
+        }
+      }
+    },
+    {
+      "case_id": "pick-code-metadata-success",
+      "record": "valid",
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/mediainfo/pc-a/metadata",
+        "query": {"item_type": "Episode", "episode_number": "7"}
+      },
+      "expected": {
+        "status": 200,
+        "headers": {"Cache-Control": "no-store"},
+        "body": {"ProviderIds": {"Tmdb": "101"}, "Type": "Episode", "IndexNumber": 7}
+      }
+    },
+    {
+      "case_id": "sha1-metadata-success",
+      "record": "valid",
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/metadata",
+        "query": {"item_type": "Episode", "episode_number": "8"}
+      },
+      "expected": {
+        "status": 200,
+        "headers": {"Cache-Control": "no-store"},
+        "body": {"ProviderIds": {"Tmdb": "101"}, "Type": "Episode", "IndexNumber": 8}
+      }
+    },
+    {
+      "case_id": "pick-code-backfill-accepted",
+      "record": "valid",
+      "request": {"method": "POST", "path": "/api/p115/mediainfo/pc-a/metadata/backfill"},
+      "expected": {"status": 202, "body": {"ok": true, "submitted": true}}
+    },
+    {
+      "case_id": "sha1-backfill-accepted",
+      "record": "valid",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/metadata/backfill"
+      },
+      "expected": {"status": 202, "body": {"ok": true, "submitted": true}}
+    },
+    {
+      "case_id": "invalid-sha1-is-400",
+      "record": "valid",
+      "request": {"method": "GET", "path": "/api/p115/mediainfo/sha1/not-sha1"},
+      "expected": {"status": 400, "body": {"error": "invalid sha1"}}
+    },
+    {
+      "case_id": "invalid-formatted-cache-is-422",
+      "record": "invalid_formatted",
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "expected": {"status": 422, "body": {"error": "invalid media info cache"}}
+    },
+    {
+      "case_id": "missing-backfill-identity-is-404",
+      "record": "missing",
+      "request": {"method": "POST", "path": "/api/p115/mediainfo/missing/metadata/backfill"},
+      "expected": {"status": 404, "body": {"error": "metadata identity not found"}}
+    }
+  ],
+  "compatibility_notes": [
+    "The six query, metadata, and backfill operations are native in P6.6.",
+    "The eight item-ready, deep-delete, and intro-sync operations were deferred from P6.6 and are now separately owned by P6.7 and P6.10.",
+    "All provider and database effects in verification use Fake, Stub, or disposable PostgreSQL 18 adapters."
+  ]
+}

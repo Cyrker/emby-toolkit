@@ -86,22 +86,6 @@ def _install_runtime_modules(monkeypatch, events: list[str]) -> FakeConfigManage
     scheduler_module.scheduler_manager = Scheduler()
     monkeypatch.setitem(sys.modules, "scheduler_manager", scheduler_module)
 
-    tasks_module = types.ModuleType("tasks")
-    tasks_module.__path__ = []
-
-    class P115Module(types.ModuleType):
-        LifeEventMonitorDaemon: type[Any]
-
-    p115_module = P115Module("tasks.p115")
-
-    class LifeEventMonitorDaemon:
-        @staticmethod
-        def start_or_update() -> None:
-            events.append("life-event-monitor")
-
-    p115_module.LifeEventMonitorDaemon = LifeEventMonitorDaemon
-    monkeypatch.setitem(sys.modules, "tasks", tasks_module)
-    monkeypatch.setitem(sys.modules, "tasks.p115", p115_module)
     return config_manager
 
 
@@ -159,7 +143,6 @@ def test_runtime_failure_restores_exact_config_and_rebuilds_previous_services(mo
         "monitor",
         "processors",
         "monitor",
-        "life-event-monitor",
         "shared-listener",
         "telegram",
         "vector-cache",
@@ -171,7 +154,6 @@ def test_runtime_failure_restores_exact_config_and_rebuilds_previous_services(mo
     assert events == [
         "processors",
         "monitor",
-        "life-event-monitor",
         "shared-listener",
         "telegram",
         "vector-cache",
@@ -240,7 +222,6 @@ def test_persisted_snapshot_reload_does_not_write_the_database_again(monkeypatch
     assert events == [
         "processors",
         "monitor",
-        "life-event-monitor",
         "shared-listener",
         "telegram",
         "vector-cache",

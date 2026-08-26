@@ -100,6 +100,60 @@ Recorded baseline variances and limitations:
 - All P0 Docker containers are stopped. No production/old config, database, credential, webhook,
   external write, push, release, or deployment was used.
 
+P6.8 implementation evidence:
+
+- Retired the resident 115 Life Event daemon from active startup/reload ownership. The preserved
+  `monitor-115-life-events` task key is now an explicit Worker one-shot home-video STRM, subtitle,
+  and MediaInfo reconciliation task; help and ordered task artifacts state that it does not consume
+  retired Life Events and does not perform screenshot work.
+- Added Alembic revision `0010_p6_upload_monitor`, durable config revision/generation control,
+  operation sequence, claim/token/lease, request/readback state, local projection state, and native
+  completed-source ownership. API GET remains side-effect free; the Coordinator initializes a
+  missing default before Observer startup and owns ingress install/apply/clear.
+- Worker/Celery owns operation execution and native deep-delete source cleanup. Provider backend
+  and numeric account are pinned at the first checkpoint and remote receipt; request-not-sent is
+  retryable, unknown outcomes are readback-only, and remote receipt commits before local cache,
+  STRM, ingestion, screenshot submission, or source deletion.
+- Upload and remote-delete continuations use the immutable operation/snapshot identity. Older local
+  continuations cannot overwrite a newer completed source; deep-delete and local cleanup remove
+  ledger rows only by full snapshot CAS. Remote delete readback uses pinned account/backend FID
+  lookup, so a remote move out of the original parent cannot be misreported as deletion.
+- Local source deletion now atomically renames the descriptor-relative target into a random `0700`
+  quarantine, rechecks full fingerprint and root/parent attachment, and only then unlinks. A raced
+  replacement is restored without overwrite; when the original name is already occupied, both the
+  newer path and quarantined replacement are retained with an explicit conflict.
+- Added native package exports, route/config/table ownership, process-role and architecture gates,
+  upload HTTP fixture, ordered help currentness, and exact OpenAPI gates. Removed an initially added
+  nonessential expression index on legacy `p115_upload_records` after PostgreSQL catalog comparison
+  detected a 120-to-121 legacy-index drift; the frozen 39-table catalog remains unchanged.
+
+P6.8 verification evidence:
+
+- Current P6 application/architecture/OpenAPI plus process-role/task-catalog gate passed 491 tests
+  with one expected Starlette WSGI deprecation warning.
+- Current P6.8 application focus passed 26 tests. Current upload-monitor PostgreSQL 18 focus passed
+  14 tests, including backend/account checkpoint rejection, config retry bounds, sequence CAS,
+  cleanup CAS, mode fences, migration downgrade/upgrade, and the two local deletion race branches.
+- Current combined disposable PostgreSQL 18 P3/P5/P6/platform gate passed 154 tests with one
+  expected warning. It verified PostgreSQL 18, Alembic head `0010_p6_upload_monitor`, 57 total
+  Greenfield tables, the frozen 39-table catalog, 478 columns, 60 constraints, and 120 indexes.
+- Disposable PostgreSQL 18 + Redis 7 + real Celery process verification passed 9 tests after the
+  Worker custom-task and cleanup lifecycle changes.
+- Current repository-wide default verification passed 1132 tests with 204 explicit opt-in
+  PostgreSQL/Redis/Celery skips and one expected warning. Required integration gates were run
+  separately and passed; their default skips were not accepted as evidence.
+- Generated manifests are clean at 126 legacy Python files, 55 Vue files, 22 Blueprints,
+  343 route decorators, 367 method bindings, 50 task keys, and 39 legacy tables. OpenAPI is clean at
+  96 paths / 107 operations. Scoped Ruff check/format, Pyright with zero diagnostics,
+  compileall/py_compile, touched-legacy F821, three fixture secret scans, and `git diff --check`
+  passed.
+- Two independent final read-only reviews returned `proceed` with no unresolved P0/P1/P2 after
+  quarantine, keep-mode, sequence, account/backend, readback, lifecycle, ownership, manifest, and
+  OpenAPI findings were closed.
+- No real 115, Emby, MoviePilot, shared center, Telegram, HDHive, production database, old
+  `/config`, external write, push, release, deployment, credential, media, `web_app.py`, or retired
+  worktree was used. Live Acceptance remains `HUMAN_PENDING`.
+
 Primary verification commands:
 
 ```text
@@ -592,6 +646,419 @@ Next:
   directory browsing. Keep every external write behind Fake/Stub adapters and keep Live Acceptance
   pending.
 
+## P6
+
+Status: DOING
+
+Completed local sub-slices:
+
+- P6.1: 115 authentication, OpenAPI/Cookie QR flows, manual Cookie, credential status, and
+  read-only directory browsing.
+- P6.2: account-bound, generation-swapped directory cache and complete paginated synchronization.
+- P6.3: sorting/rename/episode policy ownership plus immutable media-recognition, naming, and
+  organization Dry Run plans.
+- P6.4: whole-Plan organization execution, durable effect ledger, fixed-backend authoritative
+  readback, records, and reconciliation-only manual correction.
+- P6.5: full/home-video STRM and subtitle projection, local filesystem effects, cache CAS, and
+  durable Emby path notifications.
+- P6.6: MediaInfo cache/probe/restore, native ISO and bounded ffprobe/preid, PickCode/SHA1 repair,
+  STRM enrichment, and six native Bridge operations.
+- P6.7: durable Watchdog ingestion, scan and callback/polling ItemID binding, MediaInfo injection,
+  item-ready, and two-phase deep delete.
+- P6.8: durable upload monitoring, one-shot Life Event replacement, immutable upload/readback
+  continuation, and race-safe local cleanup.
+- P6.9: direct links, playback-pool and primary-account configuration, durable prepare/reclaim
+  operations, temporary artifacts, viewer leases, QR authorization, copy/virtual compatibility,
+  and bounded server streaming. P6.10 remains incomplete, so P6 is not DONE and no P6 stage commit
+  has been created.
+
+P6.1-P6.2 evidence:
+
+- Added native admin-gated FastAPI transports and local Fake/httpx contracts for OpenAPI token and
+  Cookie authorization without echoing secrets or connecting a real 115 account.
+- Added Alembic revision `0004_p6_p115_directory_cache`, account/revision-bound settings, complete
+  pagination evidence, generation fencing, atomic cache activation, stale-account rejection, and
+  persistent task registration for the documented P6 directory-sync task keys.
+- Provider failure, repeated/incomplete pages, account drift, generation rollback, and local
+  PostgreSQL 18 behavior are covered by application, architecture, and integration verification.
+
+P6.3 implementation evidence:
+
+- Added native sorting, rename, and episode-regex repositories/services while preserving valid
+  legacy HTTP envelopes. Malformed mixed-element sorting arrays are an explicit fail-closed
+  variance: Native returns JSON 500 before provider or persistence rather than saving invalid rule
+  values when the legacy client is unavailable. The variance is frozen in
+  `verification/fixtures/http/p6-p115-sorting-rules.json` and recorded in route ownership notes.
+- Added immutable `p115_organize_plans` and `p115_organize_plan_actions` documents in Alembic
+  revision `0005_p6_organize_plans`, with native-only `POST /api/p115/organize/plans/dry-run` and
+  `GET /api/p115/organize/plans/{plan_id}` contracts.
+- Explicit `request_intent_id` provides strict replay/conflict behavior; omitted intent creates a
+  fresh no-effect plan. Any planning error produces a blocked Plan with no actions.
+- Frozen preconditions cover account, sorting/rename/episode/policy revisions, runtime config, each
+  MediaInfo snapshot, source identity, and target absence. Commit-time PostgreSQL locks recheck all
+  mutable evidence before the Plan and actions are inserted atomically.
+- MOVE/RENAME effect identity contains original file ID, parent, name, SHA1, size, stable target
+  root CID, and authoritative relative target path. It excludes plan/intent/time, input fingerprint,
+  display-only category paths, worker count, and dependency action IDs.
+- Multi-level directories are explicit ordered `ENSURE_DIRECTORY` actions. One namespace reserves
+  every directory, MOVE-intermediate, and final path; file/file cross-phase conflicts and
+  directory/file conflicts block the whole Plan. Existing remote file targets remain frozen as
+  `destination_must_be_absent=true` for P6.4 fail-closed preflight.
+- RENAME depends on MOVE and describes origin identity separately from the MOVE-output parent.
+  No-op rename actions are omitted. Existing-target replacement/delete and washing remain an
+  explicit P7 seam and are not inferred by the Plan.
+- MediaInfo cache evidence supplies resolution, codec/bit depth, HDR/DoVi, frame rate, audio codec,
+  channels, and stream count to the compatibility naming renderer. Compatibility mapping defaults
+  enrich label-based sorting dimensions without constructing `SmartOrganizer`.
+- Caller hints and copied config are recursively scrubbed using normalized secret-key detection.
+  Dry Run request DTOs are manually validated to JSON 400 without FastAPI automatic 422; admin
+  denial precedes parsing/provider/persistence for sorting, rename, episode regex, and planning.
+- Final independent read-only reviews of HTTP/OpenAPI behavior and Plan/effect semantics reported no
+  unresolved P0/P1/P2 findings. Neither review modified files or accessed external systems.
+
+P6.3 verification evidence:
+
+- Generated manifests are clean at 126 legacy Python files, 55 Vue files, 22 Blueprints,
+  343 route decorators, 367 method bindings, 50 task keys, and 39 legacy tables. Config inventory
+  reports 53 standalone keys and zero unresolved setting calls; all four P6.3 setting owners are
+  `new`.
+- OpenAPI is clean at 77 paths / 87 operations. The Dry Run request has exactly the four documented
+  fields; Plan and Action DTOs are frozen; all seven P115 POST operations omit automatic 422;
+  qrcode 500 remains JSON and episode-regex 500 declares JSON plus HTML.
+- P6 application/architecture/OpenAPI scope: 115 passed with one expected Starlette WSGI
+  deprecation warning.
+- Disposable PostgreSQL 18 P6/platform integration: 30 passed.
+- Repository-wide default verification: 739 passed, 119 explicitly flagged integration skips, and
+  one expected Starlette WSGI deprecation warning. Required P6 PostgreSQL tests were run separately
+  with the integration flag rather than counted as accepted skips.
+- Scoped Ruff check and format, Pyright (zero errors/warnings), legacy touched-file F821,
+  compileall/py_compile, three fixture/contract secret scans, OpenAPI check, manifest check, and
+  `git diff --check` all passed.
+
+P6.4 implementation evidence:
+
+- Added Alembic revision `0006_p6_organize_execution` with execution, global effect,
+  execution-action overlay, reconciliation intent, and append-only effect event tables. Whole-Plan
+  provider preflight completes before one PostgreSQL Unit of Work reserves the execution, effects,
+  P4 Job/attempt, and Transactional Outbox message.
+- One execution pins one account and one `openapi` or `cookie` backend. Mutation never falls back
+  after it starts; authoritative readback uses the same backend with complete pagination. Provider
+  requests are fenced by effect claim tokens, while the P4 attempt remains the sole orchestration
+  owner.
+- Effect lifecycle and crash recovery distinguish request-not-sent retryability from post-request
+  indeterminacy. Provider receipt and authoritative readback commit separately; terminal global
+  outcomes remain immutable across later Plans and reconciliation. Reconciliation is read-only and
+  never replays a mutation merely because the effect is absent.
+- Added native execute/get/reconcile and records GET/DELETE HTTP contracts. Admin denial precedes
+  path/body parsing and persistence; manually validated bodies avoid automatic FastAPI `422`.
+  Reservations return `202` plus `x-etk-job-id`, intent replay returns `200`, and records DELETE is
+  local-only and idempotent without invoking the 115 provider.
+- Migrated `scan-organize-115`, `sync-115-directory-tree`, and
+  `manual-correct-organize-records` to the P6 native TaskRouter. Scan accepts only an approved
+  `execution_id`; manual correction accepts only an execution and approved reconciliation intent,
+  rejects legacy mutating payloads before the service call, and executes zero provider mutations.
+  P4/P6 double-terminalization now requires the marker and matching persisted Job/attempt terminal
+  state, including the post-terminal progress/heartbeat race windows.
+- Frozen legacy catalog visibility still advertises `scan-organize-115` for empty-payload chain and
+  manual entry points, while the safe native contract now fails closed without `execution_id`.
+  `OrganizeRecordsPage.vue` likewise still submits the retired raw mutating correction payload and
+  is rejected. No legacy organizer fallback was restored; visibility/help/frontend workflow is a
+  later P10 compatibility decision.
+
+P6.4 verification evidence:
+
+- Focused P4/P6 verification passed: 222 tests. Repository-wide default verification passed:
+  803 tests with 130 explicit PostgreSQL/Redis/Celery opt-in skips and one expected Starlette WSGI
+  deprecation warning.
+- Disposable PostgreSQL 18 P6/platform verification passed: 29 tests. Combined
+  P3/P4/P5/P6/platform PostgreSQL 18 verification passed: 133 tests with nine Redis/Celery-only
+  skips. P3/P5 migration-head/table-count regression passed: 12 tests.
+- Disposable PostgreSQL 18 + Redis 7 + Celery regression passed: 98 tests. Migration revision
+  `0006_p6_organize_execution` was upgraded from an empty database, downgraded to `0005`, and
+  upgraded again to the single Alembic head.
+- Latest scoped Ruff check and format check passed for 53 native/migration/verification files;
+  legacy touched-file F821, `py_compile`/`compileall`, and Pyright passed with zero errors or
+  warnings. OpenAPI remained clean at 82 paths / 92 operations; manifest, fixture secret scans,
+  and `git diff --check` passed.
+- All provider behavior used Fake/Stub adapters and disposable local services. Production
+  PostgreSQL, real 115/Emby and all other Live Acceptance remain `HUMAN_PENDING`.
+
+P6.5 implementation evidence:
+
+- Added native full and home-video STRM/subtitle synchronization with complete, count-checked 115
+  pagination, pinned account/backend/config revisions, exact STRM bytes, bounded subtitle downloads,
+  PickCode/SHA1 identity preservation, and full desired-cache projection before local effects.
+- Added durable schema-v2 STRM action plans and migration `0007_p6_strm_sync`. Plans bind account,
+  scope, backend, roots, managed roots, expected/desired cache revisions, exact local write/delete
+  identities, current/recovered Emby notifications, authorization revision, and retry state. Missing
+  ownership, plan keys, revisions, roots, or action identities fail closed at both application and
+  PostgreSQL boundaries.
+- Local writes and cleanup use root-anchored `dir_fd`, `O_DIRECTORY`, and `O_NOFOLLOW` operations.
+  Writes are atomic within the opened parent; files and directories are quarantined under the
+  opened library root before identity/attachment verification, then deleted or restored. Root
+  swaps, detached parents, symlink traversal, replacement races, and postcondition drift abort
+  before cache/effect confirmation.
+- Cache reconciliation, plan confirmation/supersession, Emby path-change effects, and Outbox events
+  share one PostgreSQL transaction. Failed local/finalization attempts remain retryable; successor
+  confirmation preserves recovery chains across scope/cache/operation changes.
+- Authorization-drift recovery now keeps the latest per-path Modified/Deleted semantics across all
+  later effects, handles opposite semantics and A-to-B-to-A authorization cycles, and versions a
+  recovery effect with the durable plan revision when a terminal `authorization_changed` intent
+  would otherwise be reused. Recovered Deleted paths require unique historical library-root
+  provenance and are checked absent both before staging and immediately before database commit.
+- Current scan semantics override conflicting recovered semantics. Missing Emby URL or API token
+  now fails before remote scan, local projection, cache snapshot, or plan staging, preventing a
+  terminal `configuration_incomplete` effect from losing an already-committed notification intent.
+- Added the native `POST /api/p115/replace_strm` compatibility contract and confirmable Emby HTTP
+  path-change delivery. Exact route ownership, Worker wiring, task ownership, migration structure,
+  OpenAPI shape, and later-slice deferrals are guarded by P6 architecture/contract verification.
+  P6.6 MediaInfo/ISO/ffprobe/preid/fingerprint work and P6.7-P6.10 remain outside this slice.
+
+P6.5 verification evidence:
+
+- Service and local-adapter focused verification passed: 27 and 18 tests. The complete P6.5
+  application/architecture focus passed before final gates; the latest full P6 non-PostgreSQL gate
+  passed 275 tests with one expected Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 STRM repository/migration focus passed 17 tests. The complete
+  P6/platform PostgreSQL 18 gate passed 58 tests; the independent P3/P5 migration-head/table-count
+  regression passed 12 tests with the same expected warning.
+- Repository-wide default verification passed 897 tests with 147 explicit
+  PostgreSQL/Redis/Celery opt-in skips and one expected warning. Scoped Ruff check/format, Pyright
+  with zero errors or warnings, compileall, OpenAPI check, manifest check, fixture secret scan, and
+  `git diff --check` all passed on the final tree.
+- The final read-only effect/repository reviewer returned `proceed` with no remaining P0/P1/P2
+  finding after root provenance, final Deleted recheck, semantic precedence, authorization-cycle,
+  migration-key, effect-identity, and Emby configuration fixes.
+- All remote/provider behavior remained Fake/Stub and all databases were disposable local
+  PostgreSQL 18 instances. No real 115, Emby, production database, external write, deployment,
+  release, push, old `/config`, credential, media, or `web_app.py` access occurred. Live Acceptance
+  remains `HUMAN_PENDING`.
+
+P6.6 implementation evidence:
+
+- Added Alembic revision `0008_p6_mediainfo_cache`, revisioned formatted/RAW cache ownership, a
+  persistent provenance-bound probe worklist, and a database trigger that advances revision and
+  `updated_at` for compatibility writers without double-advancing native CAS writes.
+- Added canonical MediaInfo formatting, bounded direct-url ffprobe/preid, native ISO/Blu-ray
+  probing, account-bound fingerprint repair, persistent STRM per-item enrichment, and native
+  `restore_mediainfo` execution. Reclaim refreshes the current cache revision; terminal replay is
+  invalidated by cache, formatter-policy, or probe-generation drift; all restore cache decisions
+  are fenced against read-before-reserve races.
+- Worker shares one credential store, cache repository, fingerprint service, process runner,
+  policy provider, probe service, Bridge client, and persistent media-effect executor. The P5 task
+  envelope remains stable, but `restore_mediainfo` cannot execute its legacy callable; the P6
+  fingerprint task and legacy webhook/helper seams submit persistent-only and fail closed without
+  a gateway.
+- Six PickCode/SHA1 query, metadata, and metadata-backfill operations are native. Eight intro-sync,
+  item-ready, and deep-delete operations remain explicitly legacy/source-only for P6.7/P6.10;
+  deep-delete commit declares its real `500` submission-failure response.
+- Reviewer findings covering cache revision bypass, worklist recovery, terminal provenance,
+  restore races, false 2160p HDR inference, duplicate-SHA1 identity, task-submission TOCTOU,
+  deferred contract evidence, and executable legacy ownership were fixed. Both final independent
+  read-only re-audits returned `proceed` with no unresolved P0/P1/P2 finding.
+
+P6.6 verification evidence:
+
+- Combined disposable PostgreSQL 18 P3/P5/P6/platform regression passed 113 tests. This includes
+  empty-database Alembic head, downgrade/upgrade paths, revision trigger, cache/worklist CAS,
+  fingerprint identity, STRM enrichment, P5 durable generated effects, 53-table total, and the
+  frozen 39-table legacy catalog.
+- Repository-wide default verification passed 1034 tests with 163 explicit PostgreSQL/Redis/Celery
+  opt-in skips and one expected Starlette WSGI deprecation warning. Required PostgreSQL tests were
+  run separately and are not accepted through those skips.
+- Generated manifests are clean at 126 legacy Python files, 55 Vue files, 22 Blueprints,
+  343 route decorators, 367 method bindings, 50 task keys, and 39 legacy tables. Task ownership is
+  14 native / 36 legacy; OpenAPI is clean at 89 paths / 99 operations.
+- Scoped Ruff check/format and Pyright passed with zero diagnostics; touched compatibility files
+  passed F821; compileall, manifest/OpenAPI currentness, three fixture/contract secret scans, and
+  `git diff --check` passed.
+
+P6.7 implementation evidence:
+
+- Added Alembic revision `0009_p6_ingestion_monitor` and a durable ingestion ledger for Watchdog,
+  scan, and explicit active-enqueue provenance. Created/moved/deleted events are idempotent,
+  coalesced by normalized path, stability sampled, suspended/resumed with monitor configuration,
+  and dispatched through the Transactional Outbox. Refresh-only exclusions snapshot and apply the
+  configured delay only after stability is established.
+- Coordinator recovery now expires stale monitor and binding claims before enabled-state
+  transitions; disabled ticks suspend without publishing, failed transitions are retried, and one
+  unreadable or concurrently changed file cannot stop the batch. Coordinator and Worker roles both
+  install the durable compatibility ingress, while only Coordinator starts Watchdog leadership.
+- Physical and STRM ingestion reserve one durable Emby path-notification Media Effect and one
+  pending ItemID binding. The binding claim is gated by the live parent monitor lease and confirmed
+  notification effect; notification failure terminalizes the binding and monitor atomically.
+  Callback and polling paths share PickCode/SHA1 identity rules, preserve historical ItemID replay,
+  and reconcile callback claim/confirmation races before any monitor terminal transition.
+- MediaInfo injection is a deterministic durable Media Effect keyed by binding ID. Effect and Job
+  replay use persisted authorization, MediaInfo, Item/Series/Name snapshots and the existing Job
+  idempotency record instead of mutable runtime state. Effect/binding in-progress states and binding
+  delivery retries no longer consume the parent monitor terminal budget.
+- Native item-ready and two-phase P115 deep-delete contracts are wired through API and Worker roles.
+  Deep-delete receipts distinguish request-not-sent retryability from a first unknown shared-cleanup
+  outcome, which becomes indeterminate immediately and is never automatically replayed.
+- Final independent read-only Worker/state-machine and STRM/enrichment reviews both returned
+  `proceed` with no unresolved P0/P1/P2 finding after the callback TOCTOU, notification claim,
+  retry-budget, active-provenance, and effect/Job crash-replay fixes.
+
+P6.7 verification evidence:
+
+- Focused ingestion application/HTTP verification passed 24 tests. Full P6
+  application/architecture/OpenAPI verification passed 421 tests with one expected Starlette WSGI
+  deprecation warning.
+- Focused ingestion/deep-delete PostgreSQL 18 verification passed 29 tests. Combined disposable
+  PostgreSQL 18 P3/P5/P6/platform verification passed 140 tests, including empty-database Alembic
+  head, 55 Greenfield tables, the frozen 39-table legacy catalog, notification uniqueness, binding
+  claim fencing, deep-delete receipts, and downgrade/upgrade currentness.
+- Disposable PostgreSQL 18 + Redis 7 + real Celery process regression passed 9 tests after Worker
+  ingress wiring changed.
+- Repository-wide default verification passed 1097 tests with 190 explicit PostgreSQL/Redis/Celery
+  opt-in skips and one expected warning. Required integration gates were run separately and passed;
+  their default skips were not accepted as evidence.
+- Generated manifests are clean at 126 legacy Python files, 55 Vue files, 22 Blueprints,
+  343 route decorators, 367 method bindings, 50 task keys, and 39 legacy tables. Scoped Ruff
+  check/format, touched-legacy F821, Pyright with zero diagnostics, compileall/py_compile,
+  manifest/OpenAPI currentness, three fixture/contract secret scans, `git diff --check`, and final
+  status audit passed.
+- All external behavior used Fake/Stub adapters and disposable local PostgreSQL/Redis/Celery.
+  Real 115, Emby, MoviePilot, shared center, Telegram, HDHive, production database, old `/config`,
+  external writes, push, release, deployment, and `web_app.py` access remain outside this run. Live
+  Acceptance remains `HUMAN_PENDING`.
+
+P6.9 implementation evidence:
+
+- Added Alembic revision `0011_p6_playback` with exactly four native tables for deterministic
+  operations, generationed artifacts, viewer leases, and owner-scoped QR sessions. Canonical
+  request hashes, deterministic UUIDs, claim-token/lease-expiry fences, provider checkpoints,
+  authoritative readback, Outbox recovery, artifact identity, and terminal conflict rules are
+  enforced in PostgreSQL-backed repositories.
+- Prepare, reclaim, known-rejection, and local-projection recovery distinguish request-not-sent,
+  checkpointed, remotely confirmed, rejected, and indeterminate outcomes. Stable provider identity
+  cannot be cleared or drifted; a reclaimed artifact cannot skip an in-flight or indeterminate next
+  generation; one request can create at most one new prepare generation.
+- ACTIVE leases fence reclamation. RELEASED/EXPIRED leases can only reactivate or rebind to an
+  available higher generation with the same artifact key and viewer identity. Copy-play
+  `force_new` is a CAS against the PickCode that actually failed, so a delayed stale g1 failure
+  reuses a concurrently rebuilt g2 instead of deleting it or creating g3.
+- Coordinator ticks expire stale claims, leases, dead dispatches, and QR TTLs. Successful/error QR
+  terminal transitions scrub verifier/sign material immediately; expired successful credentials are
+  batch-destroyed even if the user never polls again.
+- Nineteen native playback Method/Path bindings preserve admin authorization, malformed-body,
+  OpenAPI, direct-link, pool, copy, virtual, cleanup, and QR contracts. Server streaming requests
+  identity encoding, preserves Range, removes incompatible encoded lengths, and closes response and
+  client resources on setup, iteration, and terminal paths.
+- Native API, Worker, and proxy roles install the durable compatibility gateway. Legacy active
+  clone/source projections stop mutating when the gateway is installed. Signed proxy URLs and P9
+  shared-center, ledger, Telegram, and full proxy transport remain outside the P6 durable core.
+- `p115_play_pool_config` is classified as secret because it contains nested Cookie/OpenAPI tokens.
+  Manifest tooling still counts `web_app.py` as one opaque legacy inventory entry without reading or
+  parsing the prohibited source.
+
+P6.9 verification evidence:
+
+- Current P6 application/architecture/unit/process verification passed 596 tests with one expected
+  Starlette WSGI deprecation warning. Focused playback PostgreSQL 18 verification passed 18 tests.
+- Combined disposable PostgreSQL 18 P3/P5/P6/platform verification passed 172 tests with one expected
+  warning. Disposable PostgreSQL 18 + Redis 7 + real Celery verification passed 9 tests.
+- Repository-wide default verification passed 1219 tests with 222 explicit PostgreSQL/Redis/Celery
+  opt-in skips and one expected warning. Required integration gates were run separately and passed;
+  their default skips were not accepted as evidence.
+- Generated manifests are clean at 126 opaque-aware legacy Python files, 55 Vue files, 22
+  Blueprints, 343 route decorators, 367 method bindings, 50 task keys, and 39 frozen legacy tables.
+  OpenAPI is clean at 108 paths / 126 operations, including the exact 19 playback bindings.
+- Scoped Ruff check/format, touched-legacy F821, project-environment Pyright with zero diagnostics,
+  compileall plus 167-file modified-Python `py_compile`, three fixture/contract secret scans,
+  manifest/OpenAPI currentness, and `git diff --check` passed.
+- Two independent final read-only reviews returned `proceed` with no unresolved P0/P1/P2 after
+  checkpoint, generation, claim, artifact, lease, QR, Outbox, streaming, secret classification, and
+  delayed `force_new` CAS findings were closed.
+- All external behavior remained Fake/Stub or disposable local infrastructure. No real 115, Emby,
+  MoviePilot, shared center, Telegram, HDHive, production database, old `/config`, credential,
+  external write, push, release, deployment, `web_app.py`, or retired worktree was used. Live
+  Acceptance remains `HUMAN_PENDING`.
+
+P6.10 implementation evidence:
+
+- Added Alembic revision `0012_p6_intro_detection` and a season-scoped durable intro/credits
+  operation with deterministic reservation, claim token, lease, revision, cancellation, bounded
+  retry/continuation, active-season uniqueness, Transactional Outbox dispatch, and atomic chapter
+  cache/Media Effect staging. The legacy fingerprint cache/failure tables retain their frozen
+  semantics while normalized credits coverage repairs legacy raw 600-second rows without allowing
+  a 180-second downgrade.
+- Native extraction processes are timeout/cancellation/output bounded and process-group reaped.
+  Signed URLs remain operation-local, account-fenced before and after every use, keyed by account
+  and PickCode, cleared on success/error/cancellation, and excluded from durable state and repr.
+  Each kind processes at most three episodes per batch; durable rotation reaches later episodes,
+  and two complete no-progress sweeps terminalize deterministic extraction/no-match failures.
+- Cancellation is part of the transactional claim fence, so late staging/retry/result work cannot
+  write cache, effects, or progress after an accepted cancel. Only a true lost claim can bypass the
+  bounded state-error attempt path. A final review finding that intro common-match timeout could
+  retry forever was fixed by routing it through durable `no_progress_batches`, rotation, and the
+  two-sweep terminal budget while preserving large-season coverage.
+- Added two auth-none intro-sync POST routes for PickCode and SHA1. They preserve the frozen
+  no-body/optional-query/404-or-200 contract, feature-check order, legacy chapter merge rules, and
+  three-read revision CAS. Inbound sync updates MediaInfo only, creates no media/outbox effect, and
+  keeps P9 snapshot export as a best-effort compatibility seam.
+- Added narrow P7 trigger and P9 notification compatibility ports, native Worker/Coordinator/Celery
+  execution, native backfill task ownership, route/task/table/Bridge manifests, and OpenAPI
+  ownership. API startup installs a `LazyPersistentIntroDetectionGateway`, keeping PostgreSQL lazy;
+  Worker keeps the concrete native gateway.
+
+P6.10 verification evidence:
+
+- Final P6 application/architecture/OpenAPI focus passed 579 tests with one expected Starlette WSGI
+  deprecation warning. Repository-wide default verification passed 1273 tests with 234 explicit
+  PostgreSQL/Redis/Celery opt-in skips and the same warning.
+- Combined disposable PostgreSQL 18 P3/P5/P6/platform verification passed 184 tests. This includes
+  the intro operation migration/repository, cancellation staging fence, credits normalization and
+  self-heal, intro-sync CAS/cache behavior, inbound zero media/outbox effects, empty-database
+  Alembic head, 62-table Greenfield catalog, and frozen 39-table legacy catalog. The unchanged
+  disposable PostgreSQL 18 + Redis 7 + real Celery process gate remains passed at 9 tests.
+- Generated manifests are current at 126 opaque-aware legacy Python files, 55 Vue files, 22
+  Blueprints, 343 route decorators, 367 method bindings, 50 task keys, and 39 frozen legacy tables;
+  static manifest verification passed 8 tests. OpenAPI is clean at 110 paths / 128 operations.
+- Scoped Ruff check/format, configured and P6.10-specific Pyright with zero diagnostics,
+  touched-legacy F821, native compileall, touched-legacy py_compile, three fixture/contract secret
+  scans, `git diff --check`, and API lazy-start regression checks passed.
+- Two independent final read-only reviews returned `proceed` with no remaining P0/P1/P2 after the
+  cancellation, deterministic-state retry, batch rotation, signed-URL fence, credits coverage,
+  HTTP/CAS/ownership, lazy-start, and common-match timeout findings were closed.
+- All external behavior remained Fake/Stub or disposable local infrastructure. No real 115, Emby,
+  MoviePilot, shared center, Telegram, HDHive, production database, old `/config`, credential,
+  external write, push, release, deployment, `web_app.py`, or retired worktree was used. Live
+  Acceptance remains `HUMAN_PENDING`.
+
+Primary verification commands:
+
+```text
+python3 scripts/refactor/export_manifests.py
+python3 scripts/refactor/check_manifests.py
+uv run python scripts/refactor/export_openapi.py
+uv run python scripts/refactor/export_openapi.py --check
+uv run pytest -p no:cacheprovider verification/application/p6 verification/architecture/p6 verification/contracts/test_p4_openapi.py -q
+ETK_RUN_POSTGRES_INTEGRATION=1 uv run pytest -p no:cacheprovider verification/integration/p3 verification/integration/p5 verification/integration/p6 verification/integration/platform -q
+ETK_RUN_POSTGRES_INTEGRATION=1 ETK_RUN_CELERY_REDIS_INTEGRATION=1 uv run pytest -p no:cacheprovider verification/integration/p4/test_celery_redis_runtime.py -q
+uv run pytest -p no:cacheprovider verification -q
+uv run ruff check <P6 scoped files>
+uv run ruff format --check <P6 scoped files>
+uv run pyright <P6 scoped files>
+uv run python -m compileall -q main.py src/etk migrations scripts/refactor verification
+uv run python scripts/refactor/scan_fixture_secrets.py verification/fixtures
+uv run python scripts/refactor/scan_fixture_secrets.py verification/contracts/http
+uv run python scripts/refactor/scan_fixture_secrets.py verification/contracts/db
+git diff --check
+```
+
+Safety boundary:
+
+- All 115 behavior remains Fake/Stub or read-only static/fixture evidence. No real 115, Emby,
+  MoviePilot, shared center, Telegram, HDHive, production database, old `/config`, credential,
+  external write, push, release, deployment, or production environment was used.
+
+Next:
+
+- Begin P7 subscription/watchlist/actor/washing/MoviePilot work only from the committed P6 local
+  baseline. Keep all real external-system acceptance pending and use Fake/Stub adapters.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -611,4 +1078,5 @@ Read first:
 
 Next:
 
-- Continue P6 from the P5 stage commit. Keep all Live Acceptance items pending.
+- Audit the P6 stage commit, then begin P7 from `goal-tasks.md` and this log. Keep all Live
+  Acceptance items pending.

@@ -54,7 +54,7 @@ TASK_HELP_TEXTS = {
     'scan-organize-115': '扫描 115 网盘待整理目录，并按规则识别、整理、生成记录，适合新增资源后手动触发。',
     'full-sync-strm': '全量重建 STRM 与字幕文件，保持网盘和本地一致，适合媒体库重建或迁移时使用。',
     'backfill-organize-record-tmdb-ids': '按 PickCode 或 SHA1 从媒体元数据补齐整理记录缺失的 TMDb ID，不覆盖已有身份。',
-    'monitor-115-life-events': '扫描家庭视频分类，同步 STRM 和字幕；入库后按截图开关补齐 Emby 缓存图片。',
+    'monitor-115-life-events': '全量对账家庭视频分类的 STRM、字幕和 MediaInfo；不消费已停用的 115 生活事件，截图请单独运行“补齐视频截图”。',
     'repair-p115-fingerprints': '扫描在库电影和分集，补齐共享资源必需的 115 PC 与 SHA1 以及缓存；优先从本地缓存恢复，必要时查询 115。',
     'restore_mediainfo': '增量模式检查 Emby 并仅恢复缺失媒体流的实际版本；全量模式重建并注入全部在库 Emby Item。',
     'hdhive-auto-checkin': '执行影巢自动签到，获取签到奖励或保持账号活跃。',

@@ -363,20 +363,25 @@
       "function": "task_full_sync_strm_and_subs",
       "help": "全量重建 STRM 与字幕文件，保持网盘和本地一致，适合媒体库重建或迁移时使用。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+      "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+      "notes": "P6.5 native Worker envelope dispatches an account-bound complete-scan STRM/subtitle projection with a durable local action plan, cache CAS, and media-effect Outbox; MediaInfo remains P6.6 and monitoring remains P6.7/P6.8.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.strm_sync.P115StrmSyncService"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:310",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
       "task_key": "full-sync-strm",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-plan-recovery-postgres18-and-worker-routing",
+      "validation_owner": "p115/strm-sync",
       "visible_in": [
         "all",
         "chain",
@@ -510,20 +515,25 @@
       "function": "task_intro_fingerprint_backfill",
       "help": "按当前触发策略扫描缺少片头/片尾章节的季；入库即扫覆盖所选媒体库存量，播放过半仅实时提取。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+      "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+      "notes": "P6.10 native Worker envelope preserves the frozen watchlist processor and empty external payload while reserving durable season operations through the compatibility candidate port.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.intro_detection_compatibility.P115IntroBackfillTaskService"
+      },
       "processor_type": "watchlist",
       "retirement_approval": null,
       "source": "tasks/core.py:301",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
       "task_key": "intro-fingerprint-backfill",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-router-and-intro-operation-contract",
+      "validation_owner": "p115/intro-detection",
       "visible_in": [
         "all",
         "chain",
@@ -539,21 +549,25 @@
       "function": "task_manual_correct_organize_records",
       "help": "按用户指定的 TMDb、媒体类型和目标目录重新整理；电视剧会按季联动分类不同的记录，已在目标分类的记录直接跳过。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P8.",
+      "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+      "notes": "P6 native reconciliation-only Worker envelope accepts only an execution id and approved reconciliation intent; it performs authoritative readback, records the local ledger, and never invokes the legacy mutating correction callable.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.organize_execution.P115OrganizeExecutionService.reconcile"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:343",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
-        "collection",
-        "users",
-        "operations"
+        "p115",
+        "ingestion"
       ],
-      "target_stage": "P8",
+      "target_stage": "P6",
       "task_key": "manual-correct-organize-records",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-read-only-reconciliation-and-postgres18",
+      "validation_owner": "p115/organize-reconciliation",
       "visible_in": [
         "all"
       ]
@@ -619,22 +633,27 @@
       "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
       "fixture_exception": null,
       "function": "task_sync_home_video_strm",
-      "help": "扫描家庭视频分类，同步 STRM 和字幕；入库后按截图开关补齐 Emby 缓存图片。",
+      "help": "全量对账家庭视频分类的 STRM、字幕和 MediaInfo；不消费已停用的 115 生活事件，截图请单独运行“补齐视频截图”。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+      "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+      "notes": "P6.8 preserves this legacy task key as home-video-only STRM, subtitle, and MediaInfo reconciliation. The retired Life Event daemon is not restarted; NFO, screenshot, and live provider acceptance remain separate seams.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.strm_sync.P115StrmSyncService"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:313",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
       "task_key": "monitor-115-life-events",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-home-scope-postgres18-and-worker-routing",
+      "validation_owner": "p115/strm-sync",
       "visible_in": [
         "all",
         "chain",
@@ -650,20 +669,25 @@
       "function": "task_play_pool_daily_speedtest",
       "help": "小号池测速",
       "help_source": "display_name_fallback",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+      "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+      "notes": "P6.9 native Worker envelope invokes the durable playback service daily speedtest without resolving the legacy task callable.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.playback_service.P115PlaybackService.daily_speedtest"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:346",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
       "task_key": "play-pool-daily-speedtest",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-playback-state-machine-and-worker-routing",
+      "validation_owner": "p115/playback",
       "visible_in": [
         "all"
       ]
@@ -908,20 +932,25 @@
       "function": "task_repair_p115_fingerprints",
       "help": "扫描在库电影和分集，补齐共享资源必需的 115 PC 与 SHA1 以及缓存；优先从本地缓存恢复，必要时查询 115。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+      "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+      "notes": "P6.6 native Worker dispatch executes the account-bound fingerprint repair use case without constructing a legacy Processor or calling tasks.media.task_repair_p115_fingerprints.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.fingerprints.P115FingerprintRepairService"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:314",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
       "task_key": "repair-p115-fingerprints",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-router-fingerprint-unit-and-postgres18",
+      "validation_owner": "p115/fingerprints",
       "visible_in": [
         "all",
         "chain",
@@ -973,12 +1002,11 @@
       "help": "增量模式检查 Emby 并仅恢复缺失媒体流的实际版本；全量模式重建并注入全部在库 Emby Item。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-      "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+      "notes": "P5 retains the strict persistent task envelope while P6.6 executes native MediaInfo restore, fingerprint repair, RAW reformat, bounded probe, and durable Bridge effects without the legacy callable or Processor.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "tasks.media.task_restore_mediainfo",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.media_info_restore.P115MediaInfoRestoreService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -990,8 +1018,8 @@
       ],
       "target_stage": "P5",
       "task_key": "restore_mediainfo",
-      "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-      "validation_owner": "media/task-envelope",
+      "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18-effect",
+      "validation_owner": "media/task-envelope-and-p115/mediainfo",
       "visible_in": [
         "all",
         "chain",
@@ -1097,20 +1125,25 @@
       "function": "task_scan_monitor_folders",
       "help": "扫描配置的监控目录，发现新增媒体文件后进入识别、整理或入库流程，适合查漏补缺。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+      "new_owner": "etk.processes.p6_ingestion_tasks.P6IngestionTaskRouter",
+      "notes": "P6.7 native Worker envelope performs deterministic compatibility scanning and writes every selected candidate to the durable ingestion intake without invoking monitor_service.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p6_ingestion_tasks.P6IngestionTaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.processes.p6_ingestion_tasks.P6IngestionScanService"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:308",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
       "task_key": "scan-monitor-folders",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-deterministic-scan-and-postgres18-intake",
+      "validation_owner": "ingestion/monitor",
       "visible_in": [
         "all",
         "chain",
@@ -1126,20 +1159,25 @@
       "function": "task_scan_and_organize_115",
       "help": "扫描 115 网盘待整理目录，并按规则识别、整理、生成记录，适合新增资源后手动触发。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+      "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+      "notes": "P6 native Worker envelope dispatches durable organize execution directly to the native service; the execution repository atomically terminalizes the owning P4 attempt and Job after authoritative readback, without legacy organizer fallback.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.organize_execution.P115OrganizeExecutionService.execute"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:309",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
       "task_key": "scan-organize-115",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-durable-effect-readback-and-postgres18",
+      "validation_owner": "p115/organize-execution",
       "visible_in": [
         "all",
         "chain",
@@ -1291,20 +1329,25 @@
       "function": "task_sync_115_directory_tree",
       "help": "同步 115 网盘目录树缓存，适合目录结构变化大或缓存不准时使用。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+      "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+      "notes": "P6 native Worker envelope and directory-sync use case use an account-bound read adapter and atomic PostgreSQL cache reconciliation without a legacy task callable.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.directory_sync.P115DirectorySyncService"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:322",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
       "task_key": "sync-115-directory-tree",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-use-case-and-postgres18",
+      "validation_owner": "p115/directory-sync",
       "visible_in": [
         "all",
         "chain",

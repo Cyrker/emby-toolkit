@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import text
 
@@ -14,6 +15,7 @@ from etk.domains.media.editing import (
     prepare_chapter_update,
 )
 from etk.domains.media.editing_effects import PersistentMediaInfoCommandGateway
+from etk.domains.media.models import MediaInfoEditContext
 from etk.domains.media.repository import (
     MediaIdentityConflictError,
     SqlAlchemyMediaRepository,
@@ -21,6 +23,7 @@ from etk.domains.media.repository import (
 from etk.platform.db import DatabaseRuntime
 
 SHA_A = "A" * 40
+PROVENANCE_A = "a" * 64
 
 
 class FakeBridge:
@@ -107,6 +110,48 @@ def _seed(runtime: DatabaseRuntime) -> None:
             ),
             {"sha1": SHA_A, "mediainfo": json.dumps(mediainfo)},
         )
+
+
+def _seed_generated_probe(
+    runtime: DatabaseRuntime,
+    *,
+    expected_cache_revision: int | None,
+) -> tuple[str, str]:
+    item_id = str(uuid4())
+    claim_token = str(uuid4())
+    with runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO app_settings (setting_key, value_json)
+                VALUES ('p115_auth_tokens', '{"account_id":"115001"}'::jsonb)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_media_probe_items (
+                    id, operation_key, provenance_key, source, account_id, sha1, pick_code,
+                    file_name, status, attempts, claim_token, lease_expires_at,
+                    expected_cache_revision
+                ) VALUES (
+                    CAST(:id AS uuid), 'fixture-generated-operation', :provenance_key, 'restore_mediainfo',
+                    '115001', :sha1, 'pc-900', 'effect.mkv', 'probing', 1,
+                    CAST(:claim_token AS uuid), NOW() + INTERVAL '2 minutes',
+                    :expected_cache_revision
+                )
+                """
+            ),
+            {
+                "id": item_id,
+                "provenance_key": PROVENANCE_A,
+                "sha1": SHA_A,
+                "claim_token": claim_token,
+                "expected_cache_revision": expected_cache_revision,
+            },
+        )
+    return item_id, claim_token
 
 
 def test_pg18_mediainfo_write_effect_is_atomic_confirmed_and_idempotent(
@@ -263,3 +308,192 @@ def test_pg18_stale_item_binding_rolls_back_local_write_and_effect(
             )
             == "h264"
         )
+
+
+def test_pg18_generated_mediainfo_atomically_inserts_cache_confirms_work_and_reserves_effect(
+    p5_runtime: DatabaseRuntime,
+) -> None:
+    _seed(p5_runtime)
+    with p5_runtime.engine.begin() as connection:
+        connection.execute(text("DELETE FROM p115_mediainfo_cache WHERE sha1 = :sha1"), {"sha1": SHA_A})
+    probe_item_id, claim_token = _seed_generated_probe(
+        p5_runtime,
+        expected_cache_revision=None,
+    )
+    desired = {
+        "MediaSourceInfo": {
+            "RunTimeTicks": 800_000_000,
+            "MediaStreams": [{"Type": "Video", "Codec": "av1"}],
+        },
+        "Chapters": [],
+    }
+    raw = {
+        "streams": [{"codec_type": "video", "codec_name": "av1", "width": 3840, "height": 2160}],
+        "format": {"duration": "80.0"},
+        "_etk": {"tmdb_id": "900", "type": "Movie", "sha1": SHA_A},
+    }
+    context = MediaInfoEditContext(
+        item_id="item-900",
+        sha1=SHA_A,
+        mediainfo=desired,
+        title="Effect Fixture",
+        item_type="Movie",
+    )
+    bridge = FakeBridge()
+    gateway = PersistentMediaInfoCommandGateway(
+        p5_runtime.unit_of_work,
+        bridge,
+        worker_id="fixture-generated",
+    )
+
+    outcome = gateway.apply_generated_mediainfo(
+        context,
+        desired,
+        raw,
+        probe_item_id=probe_item_id,
+        probe_claim_token=claim_token,
+        account_id="115001",
+        provider_backend="openapi",
+        formatter_revision="formatter-v1",
+        probe_revision="ffprobe-v1",
+        probe_result={"probe_method": "ffprobe"},
+    )
+
+    assert outcome.status is MediaCommandStatus.CONFIRMED
+    assert len(bridge.calls) == 1
+    with p5_runtime.engine.connect() as connection:
+        cache = (
+            connection.execute(
+                text(
+                    """
+                    SELECT mediainfo_json, raw_ffprobe_json, cache_revision,
+                           raw_schema_version, formatter_revision, probe_revision
+                    FROM p115_mediainfo_cache
+                    WHERE sha1 = :sha1
+                    """
+                ),
+                {"sha1": SHA_A},
+            )
+            .mappings()
+            .one()
+        )
+        work = (
+            connection.execute(
+                text(
+                    """
+                    SELECT status, claim_token, lease_expires_at, provider_backend,
+                           result_json, finished_at
+                    FROM p115_media_probe_items
+                    WHERE id = CAST(:id AS uuid)
+                    """
+                ),
+                {"id": probe_item_id},
+            )
+            .mappings()
+            .one()
+        )
+        effect_count = connection.scalar(text("SELECT count(*) FROM media_effects"))
+        outbox_status = connection.scalar(
+            text("SELECT status FROM outbox_events WHERE topic = 'media.effect.requested'")
+        )
+    assert cache["mediainfo_json"] == desired
+    assert cache["raw_ffprobe_json"] == raw
+    assert cache["cache_revision"] == 1
+    assert cache["raw_schema_version"] == 1
+    assert cache["formatter_revision"] == "formatter-v1"
+    assert cache["probe_revision"] == "ffprobe-v1"
+    assert work["status"] == "confirmed"
+    assert work["claim_token"] is None
+    assert work["lease_expires_at"] is None
+    assert work["provider_backend"] == "openapi"
+    assert work["result_json"] == {
+        "probe_method": "ffprobe",
+        "effect_id": outcome.effect_id,
+        "cache_revision": 1,
+        "source": "restore_mediainfo",
+    }
+    assert work["finished_at"] is not None
+    assert effect_count == 1
+    assert outbox_status == "processed"
+
+
+def test_pg18_generated_mediainfo_cache_revision_conflict_rolls_back_work_and_effect(
+    p5_runtime: DatabaseRuntime,
+) -> None:
+    _seed(p5_runtime)
+    probe_item_id, claim_token = _seed_generated_probe(
+        p5_runtime,
+        expected_cache_revision=0,
+    )
+    with p5_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE p115_mediainfo_cache
+                SET cache_revision = 1,
+                    mediainfo_json = CAST(:mediainfo AS jsonb)
+                WHERE sha1 = :sha1
+                """
+            ),
+            {"sha1": SHA_A, "mediainfo": json.dumps({"preserved": True})},
+        )
+    desired = {"MediaSourceInfo": {"MediaStreams": [{"Type": "Video"}]}, "Chapters": []}
+    context = MediaInfoEditContext(
+        item_id="item-900",
+        sha1=SHA_A,
+        mediainfo=desired,
+        title="Effect Fixture",
+        item_type="Movie",
+    )
+    gateway = PersistentMediaInfoCommandGateway(
+        p5_runtime.unit_of_work,
+        FakeBridge(),
+        worker_id="fixture-generated",
+    )
+
+    try:
+        gateway.apply_generated_mediainfo(
+            context,
+            desired,
+            {"streams": [{"codec_type": "video"}]},
+            probe_item_id=probe_item_id,
+            probe_claim_token=claim_token,
+            account_id="115001",
+            provider_backend="openapi",
+            formatter_revision="formatter-v1",
+            probe_revision="ffprobe-v1",
+        )
+    except MediaIdentityConflictError:
+        pass
+    else:
+        raise AssertionError("generated MediaInfo cache revision drift must fail closed")
+
+    with p5_runtime.engine.connect() as connection:
+        cache = (
+            connection.execute(
+                text("SELECT mediainfo_json, cache_revision FROM p115_mediainfo_cache WHERE sha1 = :sha1"),
+                {"sha1": SHA_A},
+            )
+            .mappings()
+            .one()
+        )
+        work = (
+            connection.execute(
+                text(
+                    "SELECT status, claim_token, finished_at FROM p115_media_probe_items WHERE id = CAST(:id AS uuid)"
+                ),
+                {"id": probe_item_id},
+            )
+            .mappings()
+            .one()
+        )
+        effect_count = connection.scalar(text("SELECT count(*) FROM media_effects"))
+        outbox_count = connection.scalar(
+            text("SELECT count(*) FROM outbox_events WHERE topic = 'media.effect.requested'")
+        )
+    assert dict(cache) == {"mediainfo_json": {"preserved": True}, "cache_revision": 1}
+    assert work["status"] == "probing"
+    assert str(work["claim_token"]) == claim_token
+    assert work["finished_at"] is None
+    assert effect_count == 0
+    assert outbox_count == 0

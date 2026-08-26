@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+import json
+import threading
 from contextlib import contextmanager, nullcontext
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
 from flask import Flask
 
+import task_manager
 from etk.platform.jobs import JobStatus
 from handler import p115_service
 from routes import p115 as p115_routes
 
 JOB_ID = UUID("00000000-0000-0000-0000-000000000177")
+BRIDGE_VALIDATION_FIXTURE = json.loads(
+    (Path(__file__).resolve().parents[3] / "verification/fixtures/http/bridge-validation-errors.json").read_text(
+        encoding="utf-8"
+    )
+)
 
 
 class FakeHandle:
@@ -25,6 +34,85 @@ class FakeHandle:
 
     def kill(self) -> None:
         self.cancelled = True
+
+
+def test_persistent_only_task_submission_fails_closed_without_local_queue(monkeypatch) -> None:
+    monkeypatch.setattr(task_manager, "_persistent_gateway", None)
+    monkeypatch.setattr(
+        task_manager.task_queue,
+        "put",
+        lambda _value: (_ for _ in ()).throw(AssertionError("persistent-only submit must not use local queue")),
+    )
+
+    assert task_manager.submit_persistent_task(lambda: None, "fixture", processor_type="media") is False
+
+
+def test_persistent_only_task_submission_holds_the_gateway_lock_during_submit(monkeypatch) -> None:
+    state = {"locked": False}
+
+    class TrackingLock:
+        def __enter__(self):
+            state["locked"] = True
+
+        def __exit__(self, *_args):
+            state["locked"] = False
+
+    class Gateway:
+        def submit(self, *_args, **_kwargs) -> bool:
+            assert state["locked"] is True
+            return True
+
+    monkeypatch.setattr(task_manager, "_persistent_gateway_lock", TrackingLock())
+    monkeypatch.setattr(task_manager, "_persistent_gateway", Gateway())
+
+    assert task_manager.submit_persistent_task(lambda: None, "fixture", processor_type="media") is True
+
+
+def test_persistent_only_task_submission_cannot_be_cleared_mid_submit(monkeypatch) -> None:
+    entered = threading.Event()
+    release = threading.Event()
+    clear_started = threading.Event()
+    cleared = threading.Event()
+    result: list[bool] = []
+
+    class Gateway:
+        def submit(self, *_args, **_kwargs) -> bool:
+            entered.set()
+            assert release.wait(1)
+            return True
+
+        def is_busy(self) -> bool:
+            return False
+
+        def status(self) -> dict[str, object]:
+            return {}
+
+    gateway = Gateway()
+    monkeypatch.setattr(task_manager, "_persistent_gateway", gateway)
+    submitter = threading.Thread(
+        target=lambda: result.append(
+            task_manager.submit_persistent_task(lambda: None, "fixture", processor_type="media")
+        )
+    )
+
+    def clear() -> None:
+        clear_started.set()
+        task_manager.clear_persistent_submission_gateway(gateway)
+        cleared.set()
+
+    clearer = threading.Thread(target=clear)
+    submitter.start()
+    assert entered.wait(1)
+    clearer.start()
+    assert clear_started.wait(1)
+    assert not cleared.wait(0.05)
+    release.set()
+    submitter.join(1)
+    clearer.join(1)
+
+    assert result == [True]
+    assert cleared.is_set()
+    assert task_manager._persistent_gateway is None
 
 
 def test_quick_deploy_terminal_success_reloads_the_api_runtime(monkeypatch) -> None:
@@ -562,6 +650,7 @@ def _stub_quick_deploy_dependencies(monkeypatch) -> list[dict[str, object]]:
         p115_routes.constants.CONFIG_OPTION_115_EXTENSIONS: ["fixture"],
     }
     monkeypatch.setattr(p115_routes.P115Service, "get_client", lambda **_kwargs: object())
+    monkeypatch.setattr(p115_routes, "get_115_account_id", lambda: "115001")
     monkeypatch.setattr(p115_routes, "get_config", lambda: config)
     monkeypatch.setattr(p115_routes.config_manager, "is_emby_service_authorized", lambda: True)
     monkeypatch.setattr(p115_routes.emby, "test_connection", lambda *_args: {"success": True})
@@ -572,7 +661,7 @@ def _stub_quick_deploy_dependencies(monkeypatch) -> list[dict[str, object]]:
         lambda _client, _parent, name: {"cid": f"cid-{name}", "name": name, "created": False},
     )
     monkeypatch.setattr(p115_routes, "_p115_create_local_mirror", lambda *_args: [])
-    monkeypatch.setattr(p115_routes, "_p115_deploy_sorting_rules", lambda *_args: [])
+    monkeypatch.setattr(p115_routes, "_p115_deploy_sorting_rules", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(p115_routes, "_p115_deploy_washing_groups", lambda *_args: [])
     monkeypatch.setattr(p115_routes.settings_db, "save_setting", lambda *_args: None)
     monkeypatch.setattr(p115_routes.settings_db, "save_washing_priority_config", lambda *_args: None)
@@ -653,6 +742,44 @@ def test_deep_delete_uses_a_retryable_idempotent_persistent_job(monkeypatch) -> 
     assert captured["timeout_seconds"] == 900
     assert captured["idempotency_key"] == "token"
     assert captured["idempotency_scope"] == "deep-delete"
+
+
+def test_deep_delete_persistent_submission_failure_matches_sanitized_fixture(monkeypatch) -> None:
+    case = next(
+        value
+        for value in BRIDGE_VALIDATION_FIXTURE["cases"]
+        if value["case_id"] == "deep-delete-persistent-submission-failure"
+    )
+    snapshot = {
+        "created_at": p115_routes.time.time(),
+        "item_id": "123",
+        "item_name": "Fixture",
+        "item_type": "Movie",
+        "series_id": "",
+        "pickcodes": ["pc-fixture"],
+        "p115_file_snapshots": [],
+    }
+    restored: list[tuple[str, dict[str, object]]] = []
+    monkeypatch.setattr(p115_routes, "_claim_deep_delete_snapshot", lambda _token: snapshot)
+    monkeypatch.setattr(
+        p115_routes,
+        "_store_deep_delete_snapshot",
+        lambda token, value: restored.append((token, dict(value))),
+    )
+    monkeypatch.setattr(
+        p115_routes,
+        "submit_persistent_background",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("fixture submission unavailable")),
+    )
+
+    app = Flask(__name__)
+    with app.test_request_context(json=case["request"]["body"]):
+        response, status = p115_routes._commit_deep_delete_response()
+
+    assert status == case["response"]["status"]
+    assert response.get_json() == case["response"]["body"]
+    assert restored[0][0] == "fixture-token"
+    assert restored[0][1]["delete_token"] == "fixture-token"
 
 
 def test_deep_delete_retry_recovers_the_job_after_the_commit_response_is_lost(monkeypatch) -> None:

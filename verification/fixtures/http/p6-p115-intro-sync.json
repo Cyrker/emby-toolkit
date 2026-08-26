@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "kind": "p6-p115-intro-sync-http-contract",
+  "captured_live": false,
+  "provenance": {
+    "kind": "isolated-legacy-contract-and-native-fake-adapters",
+    "legacy_source": "routes/p115.py and handler/shared_intro_service.py",
+    "native_source": "src/etk/domains/p115/router.py and src/etk/domains/p115/intro_sync.py"
+  },
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/api/p115/mediainfo/<pick_code>/intro-sync",
+      "auth": "none",
+      "request_body": false,
+      "query": [{"name": "emby_item_id", "required": false}],
+      "statuses": [200, 404]
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/mediainfo/sha1/<sha1>/intro-sync",
+      "auth": "none",
+      "request_body": false,
+      "query": [{"name": "emby_item_id", "required": false}],
+      "statuses": [200]
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "pick-code-updated",
+      "feature": "enabled",
+      "record": "old_intro",
+      "verifier": "matched_intro",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/pc-a/intro-sync",
+        "query": {"emby_item_id": "1001"}
+      },
+      "expected": {"status": 200, "body": {"ok": true, "updated": true, "chapter_count": 2}}
+    },
+    {
+      "case_id": "sha1-unchanged",
+      "feature": "enabled",
+      "record": "current_intro",
+      "verifier": "matched_intro",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/intro-sync",
+        "query": {"emby_item_id": "1001"}
+      },
+      "expected": {"status": 200, "body": {"ok": true, "updated": false, "chapter_count": 2}}
+    },
+    {
+      "case_id": "pick-code-cache-miss",
+      "feature": "disabled",
+      "record": "missing",
+      "verifier": "matched_intro",
+      "request": {"method": "POST", "path": "/api/p115/mediainfo/missing/intro-sync"},
+      "expected": {"status": 404, "body": {"error": "media info cache not found"}}
+    },
+    {
+      "case_id": "disabled-before-sha1-and-item-validation",
+      "feature": "disabled",
+      "record": "old_intro",
+      "verifier": "mismatch",
+      "request": {"method": "POST", "path": "/api/p115/mediainfo/sha1/not-a-sha1/intro-sync"},
+      "expected": {
+        "status": 200,
+        "body": {"ok": false, "skipped": true, "reason": "shared_intro_disabled"}
+      }
+    },
+    {
+      "case_id": "missing-emby-item-id",
+      "feature": "enabled",
+      "record": "old_intro",
+      "verifier": "matched_intro",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/intro-sync"
+      },
+      "expected": {
+        "status": 200,
+        "body": {"ok": false, "skipped": true, "reason": "item_identity_mismatch"}
+      }
+    },
+    {
+      "case_id": "invalid-emby-item-id",
+      "feature": "enabled",
+      "record": "old_intro",
+      "verifier": "matched_intro",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/intro-sync",
+        "query": {"emby_item_id": "invalid"}
+      },
+      "expected": {
+        "status": 200,
+        "body": {"ok": false, "skipped": true, "reason": "item_identity_mismatch"}
+      }
+    },
+    {
+      "case_id": "emby-path-mismatch",
+      "feature": "enabled",
+      "record": "old_intro",
+      "verifier": "mismatch",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/intro-sync",
+        "query": {"emby_item_id": "1001"}
+      },
+      "expected": {
+        "status": 200,
+        "body": {"ok": false, "skipped": true, "reason": "item_identity_mismatch"}
+      }
+    },
+    {
+      "case_id": "intro-not-detected",
+      "feature": "enabled",
+      "record": "old_intro",
+      "verifier": "matched_without_intro",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/intro-sync",
+        "query": {"emby_item_id": "1001"}
+      },
+      "expected": {
+        "status": 200,
+        "body": {"ok": false, "skipped": true, "reason": "intro_not_detected"}
+      }
+    },
+    {
+      "case_id": "mediainfo-cache-missing",
+      "feature": "enabled",
+      "record": "missing",
+      "verifier": "matched_intro",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mediainfo/sha1/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/intro-sync",
+        "query": {"emby_item_id": "1001"}
+      },
+      "expected": {
+        "status": 200,
+        "body": {"ok": false, "skipped": true, "reason": "media_info_cache_not_found"}
+      }
+    }
+  ],
+  "compatibility_notes": [
+    "Both routes are auth-none and accept an optional emby_item_id query without a request body.",
+    "PickCode identity resolution precedes the shared-intro feature check; SHA1 and Emby identity validation follow it.",
+    "All provider and database behavior in application verification uses Fake adapters."
+  ]
+}
