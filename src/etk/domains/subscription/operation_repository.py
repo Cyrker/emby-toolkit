@@ -725,7 +725,7 @@ class PostgresSubscriptionOperationRepository:
         now: datetime,
     ) -> SubscriptionOperation:
         with self._unit_of_work() as uow:
-            _require_live_claim(
+            current = _require_live_claim(
                 uow,
                 operation_id,
                 claim_token,
@@ -738,6 +738,10 @@ class PostgresSubscriptionOperationRepository:
                 now=now,
                 allow_cancel_requested=True,
             )
+            if status is SubscriptionOperationStatus.CANCELLED and current.provider_request_started_at is not None:
+                raise SubscriptionOperationStateError(
+                    "subscription operation provider request started; cancellation requires authoritative readback"
+                )
             row = (
                 uow.session.execute(
                     text(

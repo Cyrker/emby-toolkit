@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 
 import pytest
 from sqlalchemy import text
 
+from etk.domains.subscription.moviepilot import (
+    MoviePilotQueryDisposition,
+    MoviePilotQueryResult,
+    MoviePilotWriteResult,
+)
 from etk.domains.subscription.operation_repository import (
     PostgresSubscriptionOperationRepository,
     SubscriptionOperationClaimLostError,
@@ -17,6 +24,7 @@ from etk.domains.subscription.operations import (
     SubscriptionOperationStatus,
     SubscriptionQuotaRequirement,
 )
+from etk.domains.subscription.provider_execution import SubscriptionOperationExecutor
 from etk.domains.subscription.runtime_repository import (
     PostgresSubscriptionRuntimeRepository,
     SubscriptionQuotaExhaustedError,
@@ -33,6 +41,48 @@ def _repository(runtime: DatabaseRuntime) -> PostgresSubscriptionRuntimeReposito
 
 def _operation_repository(runtime: DatabaseRuntime) -> PostgresSubscriptionOperationRepository:
     return PostgresSubscriptionOperationRepository(runtime.unit_of_work)
+
+
+class _ScriptedMoviePilotGateway:
+    def __init__(
+        self,
+        query_results: list[MoviePilotQueryResult],
+        *,
+        on_write: Callable[[], object] | None = None,
+    ) -> None:
+        self.query_results = list(query_results)
+        self.on_write = on_write
+        self.writes: list[tuple[str, Any]] = []
+        self.queries: list[tuple[str, int | None]] = []
+
+    def query_subscription(self, tmdb_id: int | str, *, season: int | None = None) -> MoviePilotQueryResult:
+        self.queries.append((str(tmdb_id), season))
+        return self.query_results.pop(0)
+
+    def create_subscription(self, payload: Mapping[str, Any]) -> MoviePilotWriteResult:
+        return self._write("create", dict(payload))
+
+    def update_subscription(self, payload: Mapping[str, Any]) -> MoviePilotWriteResult:
+        return self._write("update", dict(payload))
+
+    def update_subscription_status(
+        self,
+        tmdb_id: int | str,
+        status: str,
+        *,
+        season: int | None = None,
+        total_episodes: int | None = None,
+    ) -> MoviePilotWriteResult:
+        return self._write("update_status", (str(tmdb_id), status, season, total_episodes))
+
+    def delete_subscription(self, tmdb_id: int | str, *, season: int | None = None) -> MoviePilotWriteResult:
+        return self._write("delete", (str(tmdb_id), season))
+
+    def _write(self, action: str, payload: Any) -> MoviePilotWriteResult:
+        self.writes.append((action, payload))
+        if self.on_write is not None:
+            self.on_write()
+        return MoviePilotWriteResult(f"{action}-subscription", 200)
 
 
 def test_quota_reservation_is_idempotent_and_projects_legacy_state(
@@ -639,7 +689,7 @@ def test_stale_claim_recovery_retries_only_before_request_checkpoint(
     assert all(row["available_at"] == now + timedelta(seconds=7) for row in outbox_rows)
 
 
-def test_cancellation_releases_only_when_provider_request_cannot_have_started(
+def test_repository_cancellation_releases_only_before_provider_checkpoint(
     p7_runtime: DatabaseRuntime,
 ) -> None:
     repository = _operation_repository(p7_runtime)
@@ -672,27 +722,34 @@ def test_cancellation_releases_only_when_provider_request_cannot_have_started(
     pending = repository.request_cancel(after_intent.id, now=now + timedelta(seconds=2))
     assert pending.status is SubscriptionOperationStatus.REQUESTING
     assert pending.cancel_requested_at == now + timedelta(seconds=2)
+    with pytest.raises(SubscriptionOperationStateError, match="requires authoritative readback"):
+        repository.mark_cancelled_before_write(
+            after_intent.id,
+            claimed.claim_token,
+            evidence={"provider_write_invoked": False},
+            now=now + timedelta(seconds=3),
+        )
     awaiting = repository.mark_awaiting_readback(
         after_intent.id,
         claimed.claim_token,
         error={"type": "cancelled_during_request"},
-        now=now + timedelta(seconds=3),
+        now=now + timedelta(seconds=4),
     )
     assert awaiting.status is SubscriptionOperationStatus.AWAITING_READBACK
     recovered = repository.claim_by_id(
         after_intent.id,
         worker_id="readback-worker",
         lease_seconds=60,
-        now=now + timedelta(seconds=4),
-    )
-    assert recovered is not None and recovered.claim_token is not None
-    rejected = repository.mark_rejected(
-        after_intent.id,
-        recovered.claim_token,
-        error={"type": "authoritative_absence"},
         now=now + timedelta(seconds=5),
     )
-    assert rejected.status is SubscriptionOperationStatus.REJECTED
+    assert recovered is not None and recovered.claim_token is not None
+    indeterminate = repository.mark_indeterminate(
+        after_intent.id,
+        recovered.claim_token,
+        error={"type": "readback_budget_exhausted"},
+        now=now + timedelta(seconds=6),
+    )
+    assert indeterminate.status is SubscriptionOperationStatus.INDETERMINATE
 
     with p7_runtime.engine.connect() as connection:
         statuses = (
@@ -708,7 +765,175 @@ def test_cancellation_releases_only_when_provider_request_cannot_have_started(
             .mappings()
             .all()
         )
-    assert {str(row["status"]) for row in statuses} == {"released"}
+    by_operation = {row["operation_id"]: str(row["status"]) for row in statuses}
+    assert by_operation[before_intent.id] == "released"
+    assert by_operation[after_intent.id] == "committed"
+
+
+def test_executor_cancellation_readback_keeps_quota_and_outbox_consistent(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    repository = _operation_repository(p7_runtime)
+    now = datetime.now(UTC)
+    quota = SubscriptionQuotaRequirement(now.date(), daily_cap=3)
+
+    def reserve(season: int) -> SubscriptionOperationIntent:
+        intent = SubscriptionOperationIntent.create(
+            kind="create",
+            scope_key=f"series:808:season:{season}",
+            request={
+                "action": "create",
+                "tmdb_id": "808",
+                "season": season,
+                "payload": {"tmdbid": 808, "season": season},
+                "expected": {"state": "R"},
+            },
+            available_at=now,
+            quota=quota,
+        )
+        repository.reserve(intent)
+        return intent
+
+    cancelled_before_write = reserve(1)
+    repository.request_cancel(cancelled_before_write.id, now=now)
+    cancelled_gateway = _ScriptedMoviePilotGateway([])
+    cancelled_result = SubscriptionOperationExecutor(repository, cancelled_gateway).execute(
+        cancelled_before_write.id,
+        worker_id="cancelled-worker",
+        lease_seconds=60,
+        now=now,
+    )
+    assert cancelled_result is not None
+    assert cancelled_result.operation.status is SubscriptionOperationStatus.CANCELLED
+    assert cancelled_gateway.writes == []
+    assert cancelled_gateway.queries == []
+
+    confirmed_after_cancel = reserve(2)
+    confirmed_gateway = _ScriptedMoviePilotGateway(
+        [
+            MoviePilotQueryResult(MoviePilotQueryDisposition.EMPTY, None),
+            MoviePilotQueryResult(
+                MoviePilotQueryDisposition.FOUND,
+                {"id": 82, "tmdbid": 808, "season": 2, "state": "R"},
+            ),
+        ],
+        on_write=lambda: repository.request_cancel(confirmed_after_cancel.id, now=now),
+    )
+    confirmed_executor = SubscriptionOperationExecutor(
+        repository,
+        confirmed_gateway,
+        max_attempts=2,
+        readback_delay_seconds=0,
+    )
+    awaiting_confirmation = confirmed_executor.execute(
+        confirmed_after_cancel.id,
+        worker_id="confirmed-worker",
+        lease_seconds=60,
+        now=now,
+    )
+    assert awaiting_confirmation is not None
+    assert awaiting_confirmation.operation.status is SubscriptionOperationStatus.AWAITING_READBACK
+    with p7_runtime.engine.connect() as connection:
+        awaiting_state = (
+            connection.execute(
+                text(
+                    """
+                    SELECT
+                        (SELECT status FROM subscription_quota_reservations WHERE operation_id = :id) AS quota_status,
+                        (SELECT status FROM outbox_events WHERE aggregate_id = :aggregate_id) AS outbox_status,
+                        (SELECT processed_at FROM outbox_events WHERE aggregate_id = :aggregate_id) AS processed_at
+                    """
+                ),
+                {"id": confirmed_after_cancel.id, "aggregate_id": str(confirmed_after_cancel.id)},
+            )
+            .mappings()
+            .one()
+        )
+    assert dict(awaiting_state) == {
+        "quota_status": "reserved",
+        "outbox_status": "pending",
+        "processed_at": None,
+    }
+    confirmed = confirmed_executor.execute(
+        confirmed_after_cancel.id,
+        worker_id="confirmed-worker",
+        lease_seconds=60,
+        now=now,
+    )
+    assert confirmed is not None and confirmed.operation.status is SubscriptionOperationStatus.CONFIRMED
+    assert len(confirmed_gateway.writes) == 1
+
+    indeterminate_after_cancel = reserve(3)
+    indeterminate_gateway = _ScriptedMoviePilotGateway(
+        [
+            MoviePilotQueryResult(MoviePilotQueryDisposition.EMPTY, None),
+            MoviePilotQueryResult(MoviePilotQueryDisposition.EMPTY, None),
+        ],
+        on_write=lambda: repository.request_cancel(indeterminate_after_cancel.id, now=now),
+    )
+    indeterminate_executor = SubscriptionOperationExecutor(
+        repository,
+        indeterminate_gateway,
+        max_attempts=2,
+        readback_delay_seconds=0,
+    )
+    awaiting_indeterminate = indeterminate_executor.execute(
+        indeterminate_after_cancel.id,
+        worker_id="indeterminate-worker",
+        lease_seconds=60,
+        now=now,
+    )
+    terminal = indeterminate_executor.execute(
+        indeterminate_after_cancel.id,
+        worker_id="indeterminate-worker",
+        lease_seconds=60,
+        now=now,
+    )
+    assert awaiting_indeterminate is not None
+    assert awaiting_indeterminate.operation.status is SubscriptionOperationStatus.AWAITING_READBACK
+    assert terminal is not None and terminal.operation.status is SubscriptionOperationStatus.INDETERMINATE
+    assert len(indeterminate_gateway.writes) == 1
+
+    with p7_runtime.engine.connect() as connection:
+        quota_rows = (
+            connection.execute(
+                text(
+                    """
+                    SELECT operation_id, status
+                    FROM subscription_quota_reservations
+                    ORDER BY operation_id
+                    """
+                )
+            )
+            .mappings()
+            .all()
+        )
+        outbox_rows = (
+            connection.execute(
+                text(
+                    """
+                    SELECT aggregate_id, status
+                    FROM outbox_events
+                    WHERE topic = 'subscription.operation.requested'
+                    ORDER BY aggregate_id
+                    """
+                )
+            )
+            .mappings()
+            .all()
+        )
+    quota_statuses = {row["operation_id"]: str(row["status"]) for row in quota_rows}
+    assert quota_statuses == {
+        cancelled_before_write.id: "released",
+        confirmed_after_cancel.id: "committed",
+        indeterminate_after_cancel.id: "committed",
+    }
+    outbox_statuses = {str(row["aggregate_id"]): str(row["status"]) for row in outbox_rows}
+    assert outbox_statuses == {
+        str(cancelled_before_write.id): "processed",
+        str(confirmed_after_cancel.id): "processed",
+        str(indeterminate_after_cancel.id): "processed",
+    }
 
 
 def test_operation_bound_quota_does_not_expire_while_operation_is_nonterminal(

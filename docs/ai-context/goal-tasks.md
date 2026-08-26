@@ -10,6 +10,7 @@ Allowed status:
 - DOING
 - VERIFYING
 - DONE
+- LOCAL_DONE
 - BLOCKED
 - HUMAN_PENDING
 - SKIPPED_HUMAN
@@ -24,7 +25,7 @@ Allowed status:
 | P4 | Plan §10 P4 | Add Celery, Redis, persistent jobs, Coordinator, and all 50 task keys | DONE | yes | `goal-log.md#p4` | local PG18/Redis/Celery and isolated image evidence; external effects remain Live pending |
 | P5 | Plan §10 P5 | Migrate Media, Metadata, Image, Bridge, and Emby events | DONE | yes | `goal-log.md#p5` | native transport and durable effects verified; Live Emby/Bridge remains pending |
 | P6 | Plan §10 P6 | Migrate 115, ingestion, monitoring, STRM, media info, and playback | DONE | yes | `goal-log.md#p6` | P6.1-P6.10 locally complete; external writes use Fake/Stub adapters and Live remains pending |
-| P7 | Plan §10 P7 | Migrate subscriptions, watchlist, actors, washing, and MoviePilot adapter | DOING | yes | `goal-log.md#p7` | contract and state/runtime inventory in progress from committed P6 baseline |
+| P7 | Plan §10 P7 | Migrate subscriptions, watchlist, actors, washing, and MoviePilot adapter | DOING | yes | `goal-log.md#p7` | `13c6d32e` checkpoint plus P7-FIX; P7-HTTP/STATE is next and stage full gates remain pending |
 | P8 | Plan §10 P8 | Migrate collections, covers, users, discovery, and secondary administration | TODO | yes | pending | |
 | P9 | Plan §10 P9 | Migrate sharing, credit ledger, proxy, Telegram, and HDHive | TODO | yes | pending | |
 | P10 | Plan §10 P10 | Migrate frontend to TypeScript, generated OpenAPI client, Vue Query, Vitest, and E2E | TODO | yes | pending | |

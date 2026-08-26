@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -28,7 +28,23 @@ class FakeOperationRepository:
     def __init__(self, operation: SubscriptionOperation) -> None:
         self.operation = operation
         self.claim_token = uuid4()
-        self.cancel_on_requesting = False
+
+    def request_cancel(self, *, now: datetime = NOW) -> SubscriptionOperation:
+        if self.operation.provider_request_started_at is None:
+            self.operation = replace(
+                self.operation,
+                status=SubscriptionOperationStatus.CANCELLED,
+                claimed_by=None,
+                claim_token=None,
+                claimed_at=None,
+                lease_expires_at=None,
+                cancel_requested_at=now,
+                error={"type": "cancel_requested_before_provider_request"},
+                finished_at=now,
+            )
+        else:
+            self.operation = replace(self.operation, cancel_requested_at=now)
+        return self.operation
 
     def read(self, operation_id: UUID) -> SubscriptionOperation | None:
         return self.operation if operation_id == self.operation.id else None
@@ -74,7 +90,6 @@ class FakeOperationRepository:
             self.operation,
             status=SubscriptionOperationStatus.REQUESTING,
             provider_request_started_at=now or NOW,
-            cancel_requested_at=(now or NOW) if self.cancel_on_requesting else None,
         )
         return self.operation
 
@@ -229,6 +244,7 @@ class FakeMoviePilotGateway:
         self.writes: list[tuple[str, Any]] = []
         self.queries: list[tuple[str, int | None]] = []
         self.write_error: Exception | None = None
+        self.on_write: Callable[[], object] | None = None
         self.query_errors: list[Exception] = []
         self.query_results: list[MoviePilotQueryResult] = []
 
@@ -261,6 +277,8 @@ class FakeMoviePilotGateway:
 
     def _write(self, action: str, payload: Any) -> MoviePilotWriteResult:
         self.writes.append((action, payload))
+        if self.on_write is not None:
+            self.on_write()
         if self.write_error is not None:
             raise self.write_error
         return MoviePilotWriteResult(f"{action}-subscription", 200)
@@ -423,9 +441,91 @@ def test_conflict_is_resolved_by_authoritative_existing_state() -> None:
     assert result is not None and result.operation.status is SubscriptionOperationStatus.CONFIRMED
 
 
-def test_cancellation_after_checkpoint_prevents_provider_write() -> None:
+def test_successful_write_with_concurrent_cancel_and_stale_readback_stays_awaiting() -> None:
+    repository = FakeOperationRepository(_operation({"action": "create", "tmdb_id": "101", "payload": {"tmdbid": 101}}))
+    gateway = FakeMoviePilotGateway()
+    gateway.on_write = repository.request_cancel
+
+    result = SubscriptionOperationExecutor(repository, gateway).execute(
+        repository.operation.id,
+        worker_id="fixture-worker",
+        lease_seconds=60,
+        now=NOW,
+    )
+
+    assert result is not None and result.operation.status is SubscriptionOperationStatus.AWAITING_READBACK
+    assert result.operation.provider_request_started_at is not None
+    assert result.operation.provider_receipt is not None
+    assert result.operation.cancel_requested_at == NOW
+    assert result.operation.finished_at is None
+    assert result.operation.error is not None and result.operation.error["type"] == "desired_state_not_observed"
+    assert gateway.writes == [("create", {"tmdbid": 101})]
+    assert gateway.queries == [("101", None)]
+
+
+def test_unknown_write_with_concurrent_cancel_and_stale_readback_stays_awaiting() -> None:
+    repository = FakeOperationRepository(_operation({"action": "create", "tmdb_id": "101", "payload": {"tmdbid": 101}}))
+    gateway = FakeMoviePilotGateway()
+    gateway.on_write = repository.request_cancel
+    gateway.write_error = _provider_error(
+        MoviePilotProviderErrorKind.TIMEOUT,
+        outcome=MoviePilotWriteOutcome.INDETERMINATE,
+    )
+
+    result = SubscriptionOperationExecutor(repository, gateway).execute(
+        repository.operation.id,
+        worker_id="fixture-worker",
+        lease_seconds=60,
+        now=NOW,
+    )
+
+    assert result is not None and result.operation.status is SubscriptionOperationStatus.AWAITING_READBACK
+    assert result.operation.provider_request_started_at is not None
+    assert result.operation.provider_receipt is None
+    assert result.operation.cancel_requested_at == NOW
+    assert result.operation.finished_at is None
+    assert result.operation.error is not None and result.operation.error["outcome"] == "indeterminate"
+    assert len(gateway.writes) == 1
+    assert gateway.queries == [("101", None)]
+
+
+def test_cancel_after_request_checkpoint_can_confirm_on_later_readback_without_resend() -> None:
+    repository = FakeOperationRepository(_operation({"action": "create", "tmdb_id": "101", "payload": {"tmdbid": 101}}))
+    gateway = FakeMoviePilotGateway()
+    gateway.on_write = repository.request_cancel
+    executor = SubscriptionOperationExecutor(repository, gateway, readback_delay_seconds=0)
+
+    first = executor.execute(repository.operation.id, worker_id="fixture-worker", lease_seconds=60, now=NOW)
+    gateway.query_results = [_found(id=77, tmdbid=101)]
+    recovered = executor.execute(repository.operation.id, worker_id="fixture-worker", lease_seconds=60, now=NOW)
+
+    assert first is not None and first.operation.status is SubscriptionOperationStatus.AWAITING_READBACK
+    assert recovered is not None and recovered.operation.status is SubscriptionOperationStatus.CONFIRMED
+    assert recovered.operation.result == {"action": "create", "readback_confirmed": True}
+    assert recovered.operation.attempts == 2
+    assert len(gateway.writes) == 1
+    assert len(gateway.queries) == 2
+
+
+def test_cancel_after_request_checkpoint_becomes_indeterminate_when_readback_budget_is_exhausted() -> None:
+    repository = FakeOperationRepository(_operation({"action": "create", "tmdb_id": "101", "payload": {"tmdbid": 101}}))
+    gateway = FakeMoviePilotGateway()
+    gateway.on_write = repository.request_cancel
+    executor = SubscriptionOperationExecutor(repository, gateway, max_attempts=2, readback_delay_seconds=0)
+
+    first = executor.execute(repository.operation.id, worker_id="fixture-worker", lease_seconds=60, now=NOW)
+    terminal = executor.execute(repository.operation.id, worker_id="fixture-worker", lease_seconds=60, now=NOW)
+
+    assert first is not None and first.operation.status is SubscriptionOperationStatus.AWAITING_READBACK
+    assert terminal is not None and terminal.operation.status is SubscriptionOperationStatus.INDETERMINATE
+    assert terminal.operation.error is not None and terminal.operation.error["attempts"] == 2
+    assert len(gateway.writes) == 1
+    assert len(gateway.queries) == 2
+
+
+def test_cancellation_before_provider_checkpoint_prevents_provider_write() -> None:
     repository = FakeOperationRepository(_operation({"action": "delete", "tmdb_id": "101", "season": 2}))
-    repository.cancel_on_requesting = True
+    repository.request_cancel()
     gateway = FakeMoviePilotGateway()
 
     result = SubscriptionOperationExecutor(repository, gateway).execute(
@@ -436,8 +536,11 @@ def test_cancellation_after_checkpoint_prevents_provider_write() -> None:
     )
 
     assert result is not None and result.operation.status is SubscriptionOperationStatus.CANCELLED
-    assert result.operation.readback == {"provider_write_invoked": False}
+    assert result.operation.provider_request_started_at is None
+    assert result.operation.error == {"type": "cancel_requested_before_provider_request"}
+    assert result.claimed is False
     assert gateway.writes == []
+    assert gateway.queries == []
 
 
 def test_invalid_durable_request_is_rejected_before_provider_checkpoint() -> None:

@@ -218,18 +218,6 @@ class SubscriptionOperationExecutor:
             return SubscriptionOperationExecution(current, claimed=True) if current is not None else None
 
         requesting = self._repository.mark_requesting(operation.id, claim_token, now=now)
-        if self._repository.is_cancel_requested(operation.id, claim_token, now=now):
-            current = self._repository.read(operation.id)
-            if current is None or not _claim_is_active(current, claim_token, now=now):
-                return SubscriptionOperationExecution(current or requesting, claimed=True)
-            if current.cancel_requested_at is not None:
-                cancelled = self._repository.mark_cancelled_before_write(
-                    operation.id,
-                    claim_token,
-                    evidence={"provider_write_invoked": False},
-                    now=now,
-                )
-                return SubscriptionOperationExecution(cancelled, claimed=True)
 
         try:
             write_result = self._write(plan)
@@ -333,15 +321,8 @@ class SubscriptionOperationExecutor:
                 readback=projection,
                 now=now,
             )
-        if current.cancel_requested_at is not None:
-            return self._repository.mark_cancelled_before_write(
-                operation.id,
-                claim_token,
-                evidence={**projection, "provider_write_effect_observed": False},
-                now=now,
-            )
         return self._defer_or_terminalize(
-            operation,
+            current,
             claim_token,
             plan,
             error=dict(prior_error or {"type": "desired_state_not_observed"}),

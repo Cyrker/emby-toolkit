@@ -1036,45 +1036,64 @@ P6 stage audit:
 
 Status: DOING
 
-Current scope:
+Stage / Batch: P7 / P7-FIX
 
-- Inventory the frozen route/task/table/config contracts and the current watchlist, actor,
-  subscription, resubscribe, washing, subscribe-assistant, and MoviePilot state/runtime behavior.
-- Derive dependency-ordered P7 slices from source and manifest evidence before implementation.
-- Keep all MoviePilot, Emby, 115, shared-center, production-database, and other Live Acceptance on
-  Fake/Stub or `HUMAN_PENDING`; do not connect to real external systems.
+HEAD / Commit:
 
-Primary verification commands:
+- Pre-batch HEAD: `f5e20b29` (`13c6d32e` plus the P7-P12 Mac handoff).
+- P7-FIX checkpoint: the commit containing this entry; no amend, push, deploy, or release.
 
-```text
-python3 scripts/refactor/export_manifests.py
-python3 scripts/refactor/check_manifests.py
-uv run python scripts/refactor/export_openapi.py
-uv run python scripts/refactor/export_openapi.py --check
-uv run pytest -p no:cacheprovider verification/application/p6 verification/architecture/p6 verification/contracts/test_p4_openapi.py -q
-ETK_RUN_POSTGRES_INTEGRATION=1 uv run pytest -p no:cacheprovider verification/integration/p3 verification/integration/p5 verification/integration/p6 verification/integration/platform -q
-ETK_RUN_POSTGRES_INTEGRATION=1 ETK_RUN_CELERY_REDIS_INTEGRATION=1 uv run pytest -p no:cacheprovider verification/integration/p4/test_celery_redis_runtime.py -q
-uv run pytest -p no:cacheprovider verification -q
-uv run ruff check <P6 scoped files>
-uv run ruff format --check <P6 scoped files>
-uv run pyright <P6 scoped files>
-uv run python -m compileall -q main.py src/etk migrations scripts/refactor verification
-uv run python scripts/refactor/scan_fixture_secrets.py verification/fixtures
-uv run python scripts/refactor/scan_fixture_secrets.py verification/contracts/http
-uv run python scripts/refactor/scan_fixture_secrets.py verification/contracts/db
-git diff --check
-```
+Implemented:
+
+- `13c6d32e` already contains subscription runtime, Actor/Watchlist native routes,
+  Cleanup/Resubscribe foundations, PostgreSQL operation/quota/runtime state, MoviePilot provider
+  execution, process wiring, migration `0013_p7_subscription_runtime`, and P7 verification assets.
+- Fixed cancellation/readback recovery so a request checkpoint can no longer become
+  `CANCELLED/RELEASED` merely because one authoritative readback is stale. Later observation becomes
+  `CONFIRMED/COMMITTED`; exhausted recovery becomes `INDETERMINATE/COMMITTED`; no checkpointed write
+  is resent.
+- Hardened the PostgreSQL Repository against `mark_cancelled_before_write()` after
+  `provider_request_started_at`, and added disposable PostgreSQL 18 version enforcement.
+- Added the five required regression classes: successful write plus cancellation and stale read,
+  timeout unknown plus cancellation and stale read, later confirmation, final indeterminate, and
+  cancellation before provider write.
+- Made the Actor HTTP UTF-8 fixture read explicit and persisted the P7-P12 compressed execution
+  cadence in the execution plan.
+
+Targeted gate:
+
+- `PYTHONUTF8=0 LC_ALL=C ... test_actor_subscription_http.py -q` -> `19 passed`.
+- `pytest verification/application/p7 verification/architecture/p7 -q` -> `158 passed`, with one
+  existing Starlette WSGI deprecation warning.
+- Digest-pinned disposable PostgreSQL 18, with `ETK_TEST_DATABASE_URL` unset:
+  `pytest verification/integration/p7 -q` -> `33 passed`; the session fixture rejects non-18 servers.
+- Scoped Ruff -> passed; Ruff format check -> 6 files already formatted; scoped Pyright ->
+  `0 errors, 0 warnings`; `git diff --check` -> passed.
+- Detailed output: `/tmp/etk-refactor-artifacts/p7-fix-targeted.log` and
+  `/tmp/etk-refactor-artifacts/p7-fix-final-targeted.log`.
+
+Stage full gate:
+
+- Not run by batch cadence. Manifest/OpenAPI regeneration and checks, full Ruff/Pyright/pytest,
+  cross-stage PostgreSQL 18, Redis/Celery, compileall, secret scans, focused transaction review, and
+  P7 integration review remain pending until P7 stage close.
+
+Pending:
+
+- `P7-HTTP/STATE`: Resubscribe, Cleanup, core subscription routes, MoviePilot config, batch delete,
+  wiring/contracts, and targeted PostgreSQL 18 delete/quota/Outbox/claim invariants.
+- `P7-RUNTIME`: Subscribe Assistant persistent Job/State, remaining native task handlers, retry,
+  cancellation, timeout, Worker restart recovery, and Redis/Celery process paths.
+
+Blocker: none for P7-FIX.
+
+Next: execute `P7-HTTP/STATE` without re-exploring the already accepted Actor, Watchlist, or operation
+runtime unless a new deterministic failure appears.
 
 Safety boundary:
 
-- All 115 behavior remains Fake/Stub or read-only static/fixture evidence. No real 115, Emby,
-  MoviePilot, shared center, Telegram, HDHive, production database, old `/config`, credential,
-  external write, push, release, deployment, or production environment was used.
-
-Next:
-
-- Begin P7 subscription/watchlist/actor/washing/MoviePilot work only from the committed P6 local
-  baseline. Keep all real external-system acceptance pending and use Fake/Stub adapters.
+- No real Emby, 115, MoviePilot, shared center, Telegram, HDHive, production database, old `/config`,
+  external write, push, deployment, release, or production environment was used.
 
 ## LIVE
 
@@ -1095,5 +1114,4 @@ Read first:
 
 Next:
 
-- Audit the P6 stage commit, then begin P7 from `goal-tasks.md` and this log. Keep all Live
-  Acceptance items pending.
+- Continue with `P7-HTTP/STATE`, then `P7-RUNTIME`. Keep all Live Acceptance items pending.

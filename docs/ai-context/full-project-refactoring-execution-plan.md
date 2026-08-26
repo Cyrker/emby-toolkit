@@ -1,7 +1,7 @@
 # ETK 全项目重构执行方案
 
 > 文档编号：`ETK-RF-001`
-> 状态：架构方向已确认，尚未开始实现
+> 状态：实施中；阶段状态以 `goal-tasks.md` 为准
 > 编制日期：2026-08-22
 > 代码基线：`main@00786dcd`，应用版本 `10.8.65`
 > 适用范围：当前仓库中的旧版 Emby ToolKit，不代表上游 ETKvNext 仓库的实现计划
@@ -842,6 +842,17 @@ uv run pyright src/etk/platform src/etk/bootstrap
 - `services/subscribe_assistant/`
 - MoviePilot 订阅和相关任务
 
+#### 当前实施状态
+
+- `13c6d32e` 已提交 subscription runtime、Actor/Watchlist native routes、Cleanup/Resubscribe
+  foundations、PostgreSQL operation state、MoviePilot provider execution、process wiring 和 P7
+  verification assets；P7 仍为 `DOING`。
+- 后续按三个批次收口：`P7-FIX`、`P7-HTTP/STATE`、`P7-RUNTIME`。
+- 已通过的 Actor、Watchlist 和 operation runtime 不重新探索或重做，除非测试或 review
+  提供新的确定缺陷。
+- Manifest/OpenAPI 可在阶段批次内暂时 stale，但必须记录为 pending，并在 P7 阶段末统一更新和
+  `--check`。
+
 #### 工作项
 
 - [ ] 把追剧状态转换为显式 State Machine。
@@ -893,13 +904,18 @@ uv run pyright src/etk/platform src/etk/bootstrap
 - [ ] HTTP 和 WebSocket 代理分别建立合同与压力测试。
 - [ ] 虚拟库、虚拟播放、并发限制和临时资源回收使用持久租约。
 
-#### 退出门槛
+#### Local Code Complete 门槛
 
 - 同一事件重复投递不会重复扣减或奖励贡献点。
 - 共享中心部分成功/超时可以安全重试或补偿。
 - 虚拟库响应、ID、排序、分页和客户端兼容性通过 Golden Master。
-- WebSocket、起播、停止、并发限制和临时文件回收通过真实 Emby 测试。
+- HTTP/WebSocket Proxy、起播/停止状态、并发租约和资源回收使用隔离测试服务及 Fake/Stub
+  通过合同、并发和压力验证。
 - Telegram/HDHive 离线不会拖垮 API 或主任务队列。
+
+本地门禁只使用 Fake/Stub，通过后将 P9 标记为 `LOCAL_DONE`。真实 Emby 起播、停止、
+WebSocket、并发限制和资源回收属于 Live Acceptance，保持 `LIVE/HUMAN_PENDING`，不得用本地
+Fake/Stub、HTTP 200 或健康检查替代。
 
 ### P10：前端 TypeScript 与统一 API 层
 
@@ -908,7 +924,8 @@ uv run pyright src/etk/platform src/etk/bootstrap
 #### 工作项
 
 - [ ] 启用 TypeScript strict、`vue-tsc --noEmit` 和 ESLint/Ruff 等价质量门槛。
-- [ ] 从 OpenAPI 生成 `frontend/src/api/generated/`。
+- [ ] P3-P9 后端合同冻结后只从 OpenAPI 生成一次 `frontend/src/api/generated/`；禁止手改生成物，
+  只有后端合同变化时才重新打开合同阶段并重新生成。
 - [ ] 用 openapi-fetch 封装兼容 envelope、上传、下载和流式请求。
 - [ ] 用 Vue Query 管理查询、缓存、失效和 Mutation；Pinia 只保留 auth/UI 状态。
 - [ ] 按路由逐页把 55 个 Vue 文件迁移为 `<script setup lang="ts">`。
@@ -940,7 +957,10 @@ npm --prefix frontend run test:e2e
 
 #### 工作项
 
-- [ ] 路由所有权清单达到 100%，移除 WSGI fallback。
+- [ ] 先使 Route/Task/Table/Config/Frontend ownership 全部达到 100%，生成 legacy 删除清单、
+  替代位置、依赖/import 扫描和镜像内容清单。
+- [ ] 在上述 pre-removal 证据完整后，一次受控移除 WSGI fallback 和其他 active legacy runtime；
+  不删除仓库中的 `web_app.py`。
 - [ ] 移除活动代码对 Flask、gevent、psycopg2、requests 和 extensions 的依赖。
 - [ ] 移除旧 Processor、TaskManager、SchedulerManager 和启动建表调用。
 - [ ] 旧文件删除前逐个在迁移清单标记替代位置和验证证据。
@@ -965,6 +985,18 @@ npm --prefix frontend run test:e2e
 **目标：** 从空目录和空 Volume 创建独立的新环境；全部验收通过后，一次启用外部访问和写入。当前环境不参与部署、数据迁移或回退。
 
 #### 12.1 可销毁环境演练
+
+本节必须由只允许作用于 disposable local Greenfield 的安全自动化 harness 执行：
+
+```text
+create -> migrate -> verify -> capture evidence -> destroy
+       -> rebuild from empty -> verify -> failure-rebuild drill
+```
+
+在任何销毁动作前，harness 必须断言目标是允许根目录下的绝对路径，Compose Project 名称隔离且
+可识别，并从解析后的 Compose 配置及 labels 核对容器、网络和 Volume 全部属于该新环境；发现旧
+`/config`、旧数据库路径、生产别名或未知 Volume 时必须拒绝执行。证据包至少保存镜像 Digest、
+PostgreSQL Server Version、Alembic revision、配置摘要、日志和测试报告。
 
 1. 创建与目标环境同拓扑、但名称和端口完全隔离的演练 Compose Project。
 2. 为 `/config`、PostgreSQL 18、Redis、媒体测试目录和静态文件创建全新路径/Volume。
@@ -1118,6 +1150,19 @@ npm run docs:build
 8. **性能以数据决策。** 只有 p95、CPU Profile、DB Query Plan 或队列数据证明有瓶颈时才引入 async、缓存或并发。
 9. **外部副作用先幂等。** 任何转存、删除、扣点、订阅、回写在并行化前先建立幂等和对账。
 10. **不夹带依赖升级。** 框架、领域、前端和基础设施升级分别提交，失败时能单独回退。
+11. **每阶段只盘点一次。** 没有新测试失败或 review 证据时，不重新扫描已经确认的范围。
+12. **每阶段压缩为 2-3 个完整批次。** 一个批次完成实现、targeted gate 和 checkpoint 后才进入
+    下一批。
+13. **每批只运行一次正式 targeted gate。** 开发中的最小复现不冒充批次门禁；高风险批次必须
+    同时验证事务、幂等、删除、额度、Ledger、Outbox、claim 和恢复不变量。
+14. **完整门禁只在阶段末运行一次。** 统一执行 Ruff、Pyright、pytest、PostgreSQL 18、
+    Redis/Celery、Manifest、OpenAPI 和 secret scan；默认 skip 不算通过。
+15. **Review 按风险分层。** 高风险事务在阶段内做一次聚焦 review，阶段末再做一次集成 review；
+    普通 CRUD 和机械迁移不重复双 review。
+16. **每批创建独立本地 checkpoint commit。** 不 amend，不把多个大批次长期留在 dirty
+    worktree；push、部署和发布另行授权。
+17. **Goal 日志保持紧凑。** 每批只记录 `Stage / Batch`、`HEAD / Commit`、`Implemented`、
+    `Targeted gate`、`Stage full gate`、`Pending`、`Blocker` 和 `Next`，详细输出保存在 artifact。
 
 ## 14. 关键架构决策记录
 

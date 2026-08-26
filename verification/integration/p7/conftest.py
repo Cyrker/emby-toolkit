@@ -41,6 +41,17 @@ def migrated_p7_postgres_url(p7_postgres_url: str) -> Iterator[str]:
     previous = os.environ.get("ETK_DATABASE_URL")
     os.environ["ETK_DATABASE_URL"] = p7_postgres_url
     try:
+        probe = DatabaseRuntime.create(
+            EngineConfig(p7_postgres_url, application_name="etk-p7-postgres-version-probe"),
+        )
+        probe.start()
+        try:
+            with probe.engine.connect() as connection:
+                server_version_num = str(connection.scalar(text("SHOW server_version_num")) or "")
+        finally:
+            probe.shutdown()
+        if not server_version_num.startswith("18"):
+            pytest.fail(f"P7 integration tests require PostgreSQL 18, got {server_version_num or 'unknown'}")
         command.upgrade(Config(str(REPO_ROOT / "alembic.ini")), "head")
         yield p7_postgres_url
     finally:

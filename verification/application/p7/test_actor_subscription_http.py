@@ -21,7 +21,9 @@ from etk.domains.subscription.actor_router import router
 from etk.platform.web import CookieSessionMiddleware, PermissionPolicy
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CONTRACT = json.loads((REPO_ROOT / "verification/fixtures/http/p7-actor-subscriptions.json").read_text())
+CONTRACT = json.loads(
+    (REPO_ROOT / "verification/fixtures/http/p7-actor-subscriptions.json").read_text(encoding="utf-8")
+)
 
 
 class FakePermissions:
