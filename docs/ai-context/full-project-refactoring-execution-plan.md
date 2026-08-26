@@ -846,23 +846,24 @@ uv run pyright src/etk/platform src/etk/bootstrap
 
 - `13c6d32e` 已提交 subscription runtime、Actor/Watchlist native routes、Cleanup/Resubscribe
   foundations、PostgreSQL operation state、MoviePilot provider execution、process wiring 和 P7
-  verification assets；P7 仍为 `DOING`。
-- `P7-FIX` 已修复 cancellation/readback/quota P1 缺陷；`P7-HTTP/STATE` 已完成 Cleanup、
-  Resubscribe、核心 subscription routes、MoviePilot config、batch delete、wiring/contracts 和
-  PostgreSQL 18 针对性不变量；下一批为 `P7-RUNTIME`，P7 仍为 `DOING`。
-- 已通过的 Actor、Watchlist 和 operation runtime 不重新探索或重做，除非测试或 review
-  提供新的确定缺陷。
-- Manifest/OpenAPI 可在阶段批次内暂时 stale，但必须记录为 pending，并在 P7 阶段末统一更新和
-  `--check`。
+  verification assets。
+- `b612384f` 完成 `P7-FIX`；`bfd6f75b` 完成 `P7-HTTP/STATE`；`b615d47c` 完成
+  `P7-RUNTIME`，包括 Cleanup durable execution、Subscribe Assistant 持久 snapshot/claim、14 个
+  native task envelope、Worker/Coordinator wiring、MoviePilot durable effects/outcomes 和迁移
+  `0015_p7_assistant_snapshot_claims`。
+- P7 阶段完整 Ruff、format、Pyright、compileall、全仓 pytest、PostgreSQL 18、Redis/Celery、
+  Manifest、OpenAPI、secret scan 和 frontend build 均通过；Cleanup/MoviePilot 聚焦 review 与
+  阶段集成 review 均为 clean，剩余可达 P0/P1/P2 为 0。
+- P7 状态为 `DONE`；真实外部系统验收仍独立保持 `HUMAN_PENDING`。
 
 #### 工作项
 
-- [ ] 把追剧状态转换为显式 State Machine。
-- [ ] 把订阅来源、额度、补订阅和洗版决策转换为领域 Policy。
-- [ ] 为演员订阅、人物映射和作品筛选建立独立领域服务。
-- [ ] 订阅助手使用持久 Job/State，不依赖单进程内存。
-- [ ] MoviePilot Client 统一 timeout、错误映射和幂等提交。
-- [ ] 对订阅额度、共享积分和自动删除建立事务不变量测试。
+- [x] 把追剧状态转换为显式 State Machine。
+- [x] 把订阅来源、额度、补订阅和洗版决策转换为领域 Policy。
+- [x] 为演员订阅、人物映射和作品筛选建立独立领域服务。
+- [x] 订阅助手使用持久 Job/State，不依赖单进程内存。
+- [x] MoviePilot Client 统一 timeout、错误映射和幂等提交。
+- [x] 对订阅额度和自动删除建立事务不变量测试；共享贡献点 Ledger 按阶段边界留在 P9。
 
 #### 退出门槛
 

@@ -1034,7 +1034,7 @@ P6 stage audit:
 
 ## P7
 
-Status: DOING
+Status: DONE
 
 Stage / Batch: P7 / P7-FIX
 
@@ -1154,6 +1154,74 @@ Safety boundary:
 - No real Emby, 115, MoviePilot, shared center, Telegram, HDHive, production database, old `/config`,
   external write, push, deployment, release, or production environment was used.
 
+### P7-RUNTIME / Stage Close
+
+Stage / Batch: P7 / P7-RUNTIME and stage close
+
+HEAD / Commit:
+
+- Pre-batch HEAD: `bfd6f75b` (`P7-HTTP/STATE`).
+- Runtime checkpoint: `b615d47c refactor(p7): migrate subscription task runtime`.
+- Stage-close documentation: the commit containing this entry; no amend, push, deploy, or release.
+
+Implemented:
+
+- Completed Cleanup durable execution and cancellation recovery, including frozen snapshots,
+  Job/Attempt/Outbox state, claim/lease fencing, atomic quarantine, effect receipts, authoritative
+  readback, retry budget, and recovery after Worker restart.
+- Added Subscribe Assistant persistent snapshot claims and migration
+  `0015_p7_assistant_snapshot_claims`; timeout, retry, cancellation, stale Attempt, lease renewal,
+  maintenance checkpoints, and restart recovery no longer depend on process memory.
+- Added 14 native P7 task envelopes plus Worker/Coordinator process wiring. MoviePilot writes and
+  deletes now use durable operation identity, stable occurrences, typed outcomes, and explicit
+  `failed`/`partial`/`indeterminate` semantics without duplicate external effects.
+- Closed review findings for task ownership cross-checks, Cleanup message-only HTTP responses, and
+  async deletion UI wording. Updated Manifest/OpenAPI and synchronized the ordered task fixture from
+  current AST definitions.
+
+Targeted gate:
+
+- P7 application/architecture/worker verification -> `273 passed`, one existing Starlette WSGI
+  deprecation warning.
+- Disposable PostgreSQL 18 P7 suite with `ETK_TEST_DATABASE_URL` unset -> `108 passed`, one existing
+  warning; covers retry, cancel, timeout, readback, quota, Outbox, claim, leases and restart recovery.
+- Cleanup cancellation and MoviePilot/provider focused reviews -> clean; no reachable P0/P1/P2.
+- Detailed targeted artifacts: `/tmp/etk-refactor-artifacts/p7-runtime/` and
+  `/tmp/etk-refactor-artifacts/p7-runtime-review-fixes/`.
+
+Stage full gate:
+
+- Ruff -> clean; Ruff format -> `457 files already formatted`; Pyright -> `0 errors, 0 warnings`;
+  compileall and `git diff --check` -> passed.
+- `pytest -p no:cacheprovider verification -q` -> `1524 passed, 345 skipped, 1 warning`; opt-in skips
+  are not counted as PostgreSQL or Redis/Celery evidence.
+- Disposable PostgreSQL 18 selected suites (`p3`, `p5`, `p6`, `p7`, `platform`) ->
+  `293 passed, 1 warning`.
+- Disposable Redis/Celery process-path suite -> `11 passed in 114.73s`.
+- Manifest and OpenAPI currentness -> clean; all three fixture/contract secret scans -> clean.
+- Frontend production build -> passed, `14940 modules transformed`.
+- Final independent P7 integration review -> clean; remaining reachable P0/P1/P2 findings: 0.
+- Current evidence: `/tmp/etk-refactor-artifacts/p7-stage-close-20260827/` plus
+  `/tmp/etk-refactor-artifacts/p7-runtime-review-fixes/final2-redis-celery.log`.
+
+Pending:
+
+- Begin `P8-LOCAL`: collections, covers, users, discovery, logs/statistics, permissions and fixed
+  rendering fixtures.
+- Real Emby, 115, MoviePilot, shared center, Telegram and HDHive acceptance remains
+  `HUMAN_PENDING` and was not used as local evidence.
+
+Blocker: none. Non-blocking coverage note: migration `0015` has head/schema/FK/check/claim coverage
+but no revision-local downgrade/re-upgrade test; the stage review found no migration defect.
+
+Next: execute `P8-LOCAL`, then `P8-EFFECTS`; do not reopen P7 without a new deterministic failure or
+review finding.
+
+Safety boundary:
+
+- No real external system, production database, old `/config`, credential, external write, push,
+  deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -1173,4 +1241,4 @@ Read first:
 
 Next:
 
-- Continue with `P7-RUNTIME`. Keep all Live Acceptance items pending.
+- Continue with `P8-LOCAL`. Keep all Live Acceptance items pending.
