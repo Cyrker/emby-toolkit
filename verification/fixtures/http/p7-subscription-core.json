@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "kind": "p7-subscription-core-local-http-contract",
+  "provenance": {
+    "captured_live": false,
+    "local_legacy_blueprint_verified": true,
+    "sanitized": true,
+    "external_validation": "pending",
+    "sources": [
+      "routes/subscription.py:19-48",
+      "routes/media.py:470-740",
+      "database/media_db.py:553-617",
+      "database/media_db.py:1017-1068"
+    ]
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/subscription/status",
+      "auth": "public",
+      "request_body": false,
+      "response_statuses": [200, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/subscription/status",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 415, 500]
+    },
+    {
+      "method": "GET",
+      "path": "/api/subscriptions/all",
+      "auth": "admin",
+      "request_body": false,
+      "response_statuses": [200, 403, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/batch_delete",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 409, 415, 500]
+    }
+  ],
+  "boundaries": [
+    "SUBSCRIBED to NONE or IGNORED commits the final local desired state with one generation-aware MoviePilot DELETE operation and Outbox event in the same transaction",
+    "PENDING_RELEASE remains the existing not-yet-released business state and is never reused as a provider-operation pending marker",
+    "provider rejection, cancellation, unknown, or indeterminate outcomes remain durable operation facts and do not rewrite the committed local desired state",
+    "subscription_sources_json remains opaque JSON and preserves manual and user_request source objects",
+    "batch delete never bypasses a subscribed provider deletion and never creates or releases quota",
+    "active Cleanup or Resubscribe work returns an intentional 409 compatibility correction instead of deleting an owned item",
+    "real MoviePilot, Emby, HDHive, shared pool, Telegram, production database, and credentials are excluded from local verification"
+  ]
+}

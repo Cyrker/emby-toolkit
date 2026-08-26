@@ -43,6 +43,7 @@ from etk.domains.media.bridge_client import HttpxEmbyBridgeClient, HttpxPluginUp
 from etk.domains.media.cast_editor import MediaCastEditorService
 from etk.domains.media.cast_editor_compatibility import LegacyMediaCastEditorGateway
 from etk.domains.media.cast_editor_router import router as media_cast_editor_router
+from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
 from etk.domains.media.compatibility import (
     LegacyFutureDomainEventGateway,
     LegacyMediaImageGateway,
@@ -62,8 +63,10 @@ from etk.domains.media.image_proxy import MediaImageProxyService
 from etk.domains.media.image_proxy_compatibility import LegacyMediaImageProxyGateway
 from etk.domains.media.image_proxy_router import router as media_image_proxy_router
 from etk.domains.media.repository import SqlAlchemyMediaRepository
+from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
 from etk.domains.media.router import router as media_router
 from etk.domains.media.service import MediaService
+from etk.domains.media.subscription_projection import SqlAlchemySubscriptionMediaProjection
 from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
 from etk.domains.operations.database import DatabaseReadService, SqlAlchemyDatabaseReadRepository
 from etk.domains.operations.database_router import router as database_read_router
@@ -138,15 +141,46 @@ from etk.domains.subscription.actor import ActorSubscriptionService, SqlAlchemyA
 from etk.domains.subscription.actor_operations import ActorCancellationOperationStager
 from etk.domains.subscription.actor_router import router as actor_subscription_router
 from etk.domains.subscription.adapters import (
+    ConfiguredEmbyLibraryGateway,
+    ConfiguredResubscribePolicy,
+    ConfiguredSubscriptionAvailabilityGateway,
     HttpxEmbyItemDeletionGateway,
+    LegacyAssistantDefaultsAdapter,
     NativeActorRuntimeGateway,
     NativeActorSearchGateway,
     NativeWatchlistExternalDeleteGateway,
     PersistentActorRefreshGateway,
+    PersistentResubscribeTaskGateway,
     PersistentWatchlistRefreshGateway,
 )
+from etk.domains.subscription.cleanup import CleanupService
+from etk.domains.subscription.cleanup_repository import (
+    PostgresCleanupExecutionGateway,
+    SqlAlchemyCleanupRepository,
+)
+from etk.domains.subscription.cleanup_router import router as cleanup_router
+from etk.domains.subscription.core import (
+    SUBSCRIPTION_CORE_USE_CASE_PROVIDER,
+    PostgresCoreSubscriptionOperationStager,
+    SqlAlchemySubscriptionCoreRepository,
+    SubscriptionCoreService,
+)
+from etk.domains.subscription.core_router import router as subscription_core_router
+from etk.domains.subscription.moviepilot_config import (
+    MOVIEPILOT_CONFIG_USE_CASE_PROVIDER,
+    SUBSCRIPTION_STRATEGY_USE_CASE_PROVIDER,
+    MoviePilotConfigService,
+    SubscriptionStrategyService,
+)
+from etk.domains.subscription.moviepilot_config_router import router as moviepilot_config_router
 from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotGateway
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
+from etk.domains.subscription.resubscribe import (
+    PostgresResubscribeOperationStager,
+    ResubscribeService,
+    SqlAlchemyResubscribeRepository,
+)
+from etk.domains.subscription.resubscribe_router import router as resubscribe_router
 from etk.domains.subscription.watchlist import WatchlistService
 from etk.domains.subscription.watchlist_router import router as watchlist_router
 from etk.domains.system.compatibility import LegacyConfigurationGateway
@@ -327,6 +361,10 @@ def create_app(
     app.include_router(p115_playback_router)
     app.include_router(actor_subscription_router)
     app.include_router(watchlist_router)
+    app.include_router(cleanup_router)
+    app.include_router(resubscribe_router)
+    app.include_router(moviepilot_config_router)
+    app.include_router(subscription_core_router)
 
     @app.get("/api/health", include_in_schema=False)
     def health() -> Any:
@@ -948,6 +986,43 @@ def _register_subscription_providers(container: AppContainer) -> None:
         "media.watchlist-projection",
         lambda current: SqlAlchemyWatchlistMediaProjectionRepository(current.database.unit_of_work),
     )
+    container.register_repository(
+        "media.cleanup-projection",
+        lambda _: SqlAlchemyCleanupMediaProjection(),
+    )
+    container.register_repository(
+        "media.resubscribe-projection",
+        lambda _: SqlAlchemyResubscribeMediaProjection(),
+    )
+    container.register_repository(
+        "media.subscription-projection",
+        lambda _: SqlAlchemySubscriptionMediaProjection(),
+    )
+    container.register_repository(
+        "subscription.cleanup-index",
+        lambda current: SqlAlchemyCleanupRepository(
+            current.database.unit_of_work,
+            current.repository("media.cleanup-projection"),
+        ),
+    )
+    container.register_repository(
+        "subscription.resubscribe",
+        lambda current: SqlAlchemyResubscribeRepository(
+            current.database.unit_of_work,
+            current.repository("media.resubscribe-projection"),
+            PostgresResubscribeOperationStager(),
+            current.client("subscription.resubscribe-policy"),
+        ),
+    )
+    container.register_repository(
+        "subscription.core",
+        lambda current: SqlAlchemySubscriptionCoreRepository(
+            current.database.unit_of_work,
+            current.repository("media.subscription-projection"),
+            PostgresCoreSubscriptionOperationStager(),
+            current.repository("app-settings"),
+        ),
+    )
     container.register_client(
         "subscription.actor-search",
         lambda current: NativeActorSearchGateway(lambda: current.settings),
@@ -980,6 +1055,30 @@ def _register_subscription_providers(container: AppContainer) -> None:
         "subscription.watchlist-refresh",
         lambda current: PersistentWatchlistRefreshGateway(lambda: current.use_case("operations.jobs")),
     )
+    container.register_client(
+        "subscription.cleanup-execution",
+        lambda current: PostgresCleanupExecutionGateway(current.repository("subscription.cleanup-index")),
+    )
+    container.register_client(
+        "subscription.resubscribe-policy",
+        lambda current: ConfiguredResubscribePolicy(current.repository("app-settings")),
+    )
+    container.register_client(
+        "subscription.resubscribe-tasks",
+        lambda current: PersistentResubscribeTaskGateway(lambda: current.use_case("operations.jobs")),
+    )
+    container.register_client(
+        "subscription.resubscribe-libraries",
+        lambda current: ConfiguredEmbyLibraryGateway(lambda: current.settings),
+    )
+    container.register_client(
+        "subscription.assistant-defaults",
+        lambda _: LegacyAssistantDefaultsAdapter(),
+    )
+    container.register_client(
+        "subscription.availability",
+        lambda current: ConfiguredSubscriptionAvailabilityGateway(current.repository("app-settings")),
+    )
     container.register_use_case(
         "subscription.actors",
         lambda current: ActorSubscriptionService(
@@ -997,6 +1096,46 @@ def _register_subscription_providers(container: AppContainer) -> None:
             settings=current.repository("app-settings"),
             external_delete=current.client("subscription.watchlist-external-delete"),
             refresh=current.client("subscription.watchlist-refresh"),
+        ),
+    )
+    container.register_use_case(
+        "subscription.cleanup",
+        lambda current: CleanupService(
+            repository=current.repository("subscription.cleanup-index"),
+            settings=current.repository("app-settings"),
+            jobs=current.use_case("operations.jobs"),
+            readiness=current.client("operations.job-readiness"),
+            execution=current.client("subscription.cleanup-execution"),
+        ),
+    )
+    container.register_use_case(
+        "subscription.resubscribe",
+        lambda current: ResubscribeService(
+            repository=current.repository("subscription.resubscribe"),
+            tasks=current.client("subscription.resubscribe-tasks"),
+            libraries=current.client("subscription.resubscribe-libraries"),
+        ),
+    )
+    container.register_use_case(
+        MOVIEPILOT_CONFIG_USE_CASE_PROVIDER,
+        lambda current: MoviePilotConfigService(
+            current.repository("app-settings"),
+            current.client("subscription.assistant-defaults"),
+        ),
+    )
+    container.register_use_case(
+        SUBSCRIPTION_STRATEGY_USE_CASE_PROVIDER,
+        lambda current: SubscriptionStrategyService(
+            current.repository("app-settings"),
+            current.client("subscription.availability"),
+        ),
+    )
+    container.register_use_case(
+        SUBSCRIPTION_CORE_USE_CASE_PROVIDER,
+        lambda current: SubscriptionCoreService(
+            current.repository("subscription.core"),
+            current.client("subscription.availability"),
+            current.repository("identity"),
         ),
     )
 

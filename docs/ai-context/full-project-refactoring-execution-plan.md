@@ -847,7 +847,9 @@ uv run pyright src/etk/platform src/etk/bootstrap
 - `13c6d32e` 已提交 subscription runtime、Actor/Watchlist native routes、Cleanup/Resubscribe
   foundations、PostgreSQL operation state、MoviePilot provider execution、process wiring 和 P7
   verification assets；P7 仍为 `DOING`。
-- 后续按三个批次收口：`P7-FIX`、`P7-HTTP/STATE`、`P7-RUNTIME`。
+- `P7-FIX` 已修复 cancellation/readback/quota P1 缺陷；`P7-HTTP/STATE` 已完成 Cleanup、
+  Resubscribe、核心 subscription routes、MoviePilot config、batch delete、wiring/contracts 和
+  PostgreSQL 18 针对性不变量；下一批为 `P7-RUNTIME`，P7 仍为 `DOING`。
 - 已通过的 Actor、Watchlist 和 operation runtime 不重新探索或重做，除非测试或 review
   提供新的确定缺陷。
 - Manifest/OpenAPI 可在阶段批次内暂时 stale，但必须记录为 pending，并在 P7 阶段末统一更新和

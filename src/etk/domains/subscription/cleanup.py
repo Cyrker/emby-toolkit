@@ -87,13 +87,21 @@ class CleanupProcessorReadinessPort(Protocol):
 class CleanupExecutionSubmissionPort(Protocol):
     """Durable P7 execution intent; the runtime adapter owns actual deletion work."""
 
-    def submit_cleanup(self, task_ids: Sequence[Any]) -> Any: ...
+    def submit_cleanup(
+        self,
+        task_ids: Sequence[Any],
+        *,
+        requested_by_user_id: str | None = None,
+        trace_id: str | None = None,
+    ) -> Any: ...
 
-
-class CleanupVersionDeletionPort(Protocol):
-    """P5-owned physical/media deletion boundary for one Emby version."""
-
-    def delete_version(self, emby_id: str) -> None: ...
+    def submit_version_deletion(
+        self,
+        emby_id: str,
+        *,
+        requested_by_user_id: str | None = None,
+        trace_id: str | None = None,
+    ) -> Any: ...
 
 
 class CleanupVersionNotFoundError(LookupError):
@@ -120,14 +128,12 @@ class CleanupService:
         jobs: CleanupJobSubmissionPort,
         readiness: CleanupProcessorReadinessPort,
         execution: CleanupExecutionSubmissionPort,
-        version_deletion: CleanupVersionDeletionPort,
     ) -> None:
         self._repository = repository
         self._settings = settings
         self._jobs = jobs
         self._readiness = readiness
         self._execution = execution
-        self._version_deletion = version_deletion
 
     def list_tasks(self) -> list[dict[str, Any]]:
         return [dict(task) for task in self._repository.list_pending_tasks()]
@@ -138,8 +144,18 @@ class CleanupService:
     def processor_ready(self) -> bool:
         return self._readiness.media_ready()
 
-    def execute(self, task_ids: Sequence[Any]) -> None:
-        self._execution.submit_cleanup(tuple(task_ids))
+    def execute(
+        self,
+        task_ids: Sequence[Any],
+        *,
+        requested_by_user_id: str | None = None,
+        trace_id: str | None = None,
+    ) -> Any:
+        return self._execution.submit_cleanup(
+            tuple(task_ids),
+            requested_by_user_id=requested_by_user_id,
+            trace_id=trace_id,
+        )
 
     def ignore(self, task_ids: Sequence[Any]) -> int:
         return self._repository.ignore_tasks(tuple(task_ids))
@@ -147,11 +163,20 @@ class CleanupService:
     def delete(self, task_ids: Sequence[Any]) -> int:
         return self._repository.delete_tasks(tuple(task_ids))
 
-    def clear_all(self) -> CleanupClearAllResult:
+    def clear_all(
+        self,
+        *,
+        requested_by_user_id: str | None = None,
+        trace_id: str | None = None,
+    ) -> CleanupClearAllResult:
         task_ids = tuple(self._repository.pending_task_ids())
         if not task_ids:
             return CleanupClearAllResult(0, False)
-        self._execution.submit_cleanup(task_ids)
+        self._execution.submit_cleanup(
+            task_ids,
+            requested_by_user_id=requested_by_user_id,
+            trace_id=trace_id,
+        )
         return CleanupClearAllResult(len(task_ids), True)
 
     def get_settings(self) -> dict[str, Any]:
@@ -203,10 +228,22 @@ class CleanupService:
             reject_when_busy=True,
         )
 
-    def delete_version(self, emby_id: Any) -> None:
+    def delete_version(
+        self,
+        emby_id: Any,
+        *,
+        requested_by_user_id: str | None = None,
+        trace_id: str | None = None,
+    ) -> Any:
         normalized_id = str(emby_id)
-        self._version_deletion.delete_version(normalized_id)
-        self._repository.remove_deleted_version(normalized_id)
+        try:
+            return self._execution.submit_version_deletion(
+                normalized_id,
+                requested_by_user_id=requested_by_user_id,
+                trace_id=trace_id,
+            )
+        except LookupError as exc:
+            raise CleanupVersionNotFoundError(normalized_id) from exc
 
 
 def _merge_cleanup_rules(value: Any) -> list[dict[str, Any]]:
@@ -299,7 +336,6 @@ __all__ = [
     "CleanupPhysicalDeletionError",
     "CleanupProcessorReadinessPort",
     "CleanupService",
-    "CleanupVersionDeletionPort",
     "CleanupVersionNotFoundError",
     "SCAN_CLEANUP_TASK_KEY",
 ]

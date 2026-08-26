@@ -68,11 +68,27 @@ def p7_runtime(migrated_p7_postgres_url: str) -> Iterator[DatabaseRuntime]:
     )
     runtime.start()
     with runtime.engine.begin() as connection:
-        connection.execute(text("DELETE FROM outbox_events WHERE topic = 'subscription.operation.requested'"))
+        connection.execute(text("DELETE FROM cleanup_execution_items"))
+        connection.execute(text("DELETE FROM idempotency_records"))
+        connection.execute(text("DELETE FROM outbox_events"))
+        connection.execute(text("DELETE FROM job_attempts"))
+        connection.execute(text("DELETE FROM job_runs"))
         connection.execute(text("DELETE FROM subscription_quota_reservations"))
         connection.execute(text("DELETE FROM subscription_operations"))
         connection.execute(text("DELETE FROM subscription_runtime_states"))
-        connection.execute(text("DELETE FROM app_settings WHERE setting_key = 'subscription_quota_state'"))
+        connection.execute(
+            text(
+                """
+                DELETE FROM app_settings
+                WHERE setting_key IN (
+                    'mp_config',
+                    'subscription_quota_state',
+                    'subscription_strategy_config',
+                    'watchlist_config'
+                )
+                """
+            )
+        )
     try:
         yield runtime
     finally:

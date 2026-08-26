@@ -4,7 +4,7 @@ import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Any, Protocol
 from uuid import UUID
@@ -21,7 +21,9 @@ from .operations import (
     SubscriptionOperationKind,
     SubscriptionOperationReservation,
     SubscriptionOperationStatus,
+    SubscriptionQuotaRequirement,
 )
+from .runtime_repository import SubscriptionQuotaExhaustedError
 
 RESUBSCRIBE_USE_CASE_PROVIDER = "subscription.resubscribe"
 
@@ -87,6 +89,12 @@ class ResubscribeTaskBusyError(RuntimeError):
     pass
 
 
+class UnsupportedResubscribeBatchError(RuntimeError):
+    def __init__(self, item_ids: Sequence[str]) -> None:
+        self.item_ids = tuple(item_ids)
+        super().__init__("batch contains actions owned by a later adapter stage")
+
+
 @dataclass(frozen=True, slots=True)
 class ResubscribeResult:
     payload: Any
@@ -136,6 +144,19 @@ class ResubscribeTaskIntent:
 @dataclass(frozen=True, slots=True)
 class ResubscribeBatchReservation:
     operation_ids: tuple[UUID, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ResubscribePolicySnapshot:
+    quota_date: date
+    daily_cap: int
+    delay_seconds: float
+    language_keywords: Mapping[str, Sequence[str]]
+    release_group_mapping: Mapping[str, Sequence[str]]
+
+
+class ResubscribePolicyPort(Protocol):
+    def snapshot(self) -> ResubscribePolicySnapshot: ...
 
 
 class WashingAction(StrEnum):
@@ -238,10 +259,12 @@ class SqlAlchemyResubscribeRepository:
         unit_of_work: Callable[[], SqlAlchemyUnitOfWork],
         media_projection: ResubscribeMediaProjectionPort,
         operation_stager: ResubscribeOperationStagePort,
+        policy: ResubscribePolicyPort,
     ) -> None:
         self._unit_of_work = unit_of_work
         self._media_projection = media_projection
         self._operation_stager = operation_stager
+        self._policy = policy
 
     def list_rules(self) -> list[dict[str, Any]]:
         try:
@@ -418,6 +441,7 @@ class SqlAlchemyResubscribeRepository:
 
     def stage_replacements(self, keys: Sequence[ResubscribeItemKey]) -> ResubscribeBatchReservation:
         unique_keys = tuple(dict.fromkeys(keys))
+        policy = self._policy.snapshot()
         with self._unit_of_work() as uow:
             rows: dict[ResubscribeItemKey, dict[str, Any]] = {}
             for key in unique_keys:
@@ -426,15 +450,10 @@ class SqlAlchemyResubscribeRepository:
                         text(
                             """
                             SELECT
-                                idx.last_checked_at,
+                                idx.last_checked_at AS index_last_checked_at,
                                 COALESCE(rule.rule_type, 'resubscribe') AS action,
                                 COALESCE(rule.resubscribe_source, 'moviepilot') AS resubscribe_source,
-                                rule.custom_resubscribe_enabled,
-                                rule.resubscribe_entire_season,
-                                rule.resubscribe_resolution_enabled,
-                                rule.resubscribe_resolution_threshold,
-                                rule.resubscribe_quality_enabled,
-                                rule.resubscribe_quality_include
+                                rule.*
                             FROM resubscribe_index AS idx
                             LEFT JOIN resubscribe_rules AS rule ON rule.id = idx.matched_rule_id
                             WHERE idx.tmdb_id = :tmdb_id
@@ -453,13 +472,25 @@ class SqlAlchemyResubscribeRepository:
                     .first()
                 )
                 if row is not None:
-                    rows[key] = dict(row)
+                    values = dict(row)
+                    values["last_checked_at"] = values.pop("index_last_checked_at")
+                    rows[key] = values
+            unsupported = tuple(
+                key.item_id
+                for key, rule in rows.items()
+                if rule["action"] != "resubscribe" or rule["resubscribe_source"] != "moviepilot"
+            )
+            if unsupported:
+                raise UnsupportedResubscribeBatchError(unsupported)
             descriptions = self._media_projection.describe_items(uow, tuple(rows))
             operation_ids: list[UUID] = []
             for key, rule in rows.items():
-                if rule["action"] != "resubscribe" or rule["resubscribe_source"] != "moviepilot":
-                    continue
-                intent = _replacement_delete_intent(key, rule, descriptions.get(key, {}))
+                intent = _replacement_delete_intent(
+                    key,
+                    rule,
+                    descriptions.get(key, {}),
+                    policy,
+                )
                 reservation = self._operation_stager.stage(uow, intent)
                 operation_ids.append(reservation.operation.id)
                 uow.session.execute(
@@ -625,6 +656,16 @@ class ResubscribeService:
                 count = self._repository.batch_update_status(keys, "ok")
                 return ResubscribeResult({"message": f"成功取消忽略了 {count} 个媒体项。"})
             return ResubscribeResult({"message": "批量删除操作暂未实现。"})
+        except SubscriptionQuotaExhaustedError:
+            return ResubscribeResult({"error": "每日订阅配额已用尽。"}, 409)
+        except UnsupportedResubscribeBatchError as exc:
+            return ResubscribeResult(
+                {
+                    "error": "所选项目包含尚未迁移的删除或 HDHive 处理，已整批拒绝。",
+                    "unsupported_item_ids": list(exc.item_ids),
+                },
+                409,
+            )
         except Exception:
             logger.exception("Applying resubscribe batch action %r failed", normalized_action)
             return ResubscribeResult({"error": "服务器内部错误"}, 500)
@@ -710,10 +751,10 @@ class WashingPriorityPolicy:
 
 
 def _rule_values(data: Mapping[str, Any]) -> dict[str, Any]:
-    unknown = set(data) - _RULE_FIELDS
+    values = {key: value for key, value in data.items() if key != "id"}
+    unknown = set(values) - _RULE_FIELDS
     if unknown:
         raise ValueError(f"unknown resubscribe rule fields: {sorted(unknown)}")
-    values = dict(data)
     for field in _JSON_RULE_FIELDS & values.keys():
         values[field] = None if values[field] is None else json.dumps(values[field], ensure_ascii=False)
     return values
@@ -731,6 +772,7 @@ def _replacement_delete_intent(
     key: ResubscribeItemKey,
     rule: Mapping[str, Any],
     media: Mapping[str, Any],
+    policy: ResubscribePolicySnapshot,
 ) -> SubscriptionOperationIntent:
     generation_value = rule.get("last_checked_at")
     generation = (
@@ -739,7 +781,7 @@ def _replacement_delete_intent(
     create_request = {
         "action": "create",
         "tmdb_id": key.tmdb_id,
-        "payload": _provider_payload(key, rule, media),
+        "payload": _provider_payload(key, rule, media, policy),
         "expected": {},
     }
     if key.item_type == "Season":
@@ -759,6 +801,7 @@ def _replacement_delete_intent(
             "version": 1,
             "generation": generation,
             "next_operation": descriptor,
+            "delay_seconds": policy.delay_seconds,
         },
     }
     if key.item_type == "Season":
@@ -768,6 +811,11 @@ def _replacement_delete_intent(
         scope_key=f"resubscribe:{key.scope_key}:{generation}:delete",
         request=request,
         available_at=datetime.now(UTC),
+        quota=SubscriptionQuotaRequirement(
+            quota_date=policy.quota_date,
+            daily_cap=policy.daily_cap,
+            ttl_seconds=86_400,
+        ),
     )
 
 
@@ -775,6 +823,7 @@ def _provider_payload(
     key: ResubscribeItemKey,
     rule: Mapping[str, Any],
     media: Mapping[str, Any],
+    policy: ResubscribePolicySnapshot,
 ) -> dict[str, Any]:
     tmdb_id: int | str = int(key.tmdb_id) if key.tmdb_id.isdigit() else key.tmdb_id
     name = str(media.get("item_name") or "未知项目").split(" - 第", maxsplit=1)[0]
@@ -787,10 +836,20 @@ def _provider_payload(
     }
     if key.item_type == "Season":
         payload["season"] = key.season_number
-        if not rule.get("resubscribe_entire_season"):
-            payload.pop("best_version", None)
-    if rule.get("custom_resubscribe_enabled"):
-        payload.pop("best_version", None)
+    else:
+        release_groups = _string_values(media.get("release_group_raw"))
+        excluded = [
+            keyword
+            for group in release_groups
+            for keyword in policy.release_group_mapping.get(group, ())
+            if str(keyword).strip()
+        ]
+        if excluded:
+            payload["exclude"] = f"(?:{'|'.join(str(keyword) for keyword in excluded)})"
+    if not rule.get("custom_resubscribe_enabled"):
+        _apply_season_resubscribe_mode(payload, key, rule)
+        return payload
+    payload.pop("best_version", None)
     if rule.get("resubscribe_resolution_enabled"):
         threshold = rule.get("resubscribe_resolution_threshold")
         if threshold == 3840:
@@ -800,7 +859,88 @@ def _provider_payload(
     qualities = rule.get("resubscribe_quality_include")
     if rule.get("resubscribe_quality_enabled") and isinstance(qualities, list) and qualities:
         payload["quality"] = ",".join(str(value) for value in qualities)
+    include: list[str] = []
+    codecs = rule.get("resubscribe_codec_include")
+    if rule.get("resubscribe_codec_enabled") and isinstance(codecs, list):
+        codec_aliases = {
+            "hevc": ("hevc", "h265", "x265"),
+            "h264": ("h264", "avc", "x264"),
+        }
+        values = [alias for codec in codecs for alias in codec_aliases.get(str(codec).casefold(), ())]
+        if values:
+            include.append(f"(?=.*({'|'.join(values)}))")
+    effects = rule.get("resubscribe_effect_include")
+    if rule.get("resubscribe_effect_enabled") and isinstance(effects, list):
+        hierarchy = ("dovi_p8", "dovi_p7", "dovi_p5", "dovi_other", "hdr10+", "hdr", "sdr")
+        aliases = {"杜比视界": "dovi_other", "HDR": "hdr"}
+        choices = [aliases.get(str(value), str(value)) for value in effects]
+        selected = next((value for value in hierarchy if value in choices), None)
+        effect_map = {
+            "dovi_p8": ("(?=.*(dovi|dolby|dv))(?=.*hdr)", "dovi"),
+            "dovi_p7": ("(?=.*(dovi|dolby|dv))(?=.*(p7|profile.?7))", "dovi"),
+            "dovi_p5": ("(?=.*(dovi|dolby|dv))", "dovi"),
+            "dovi_other": ("(?=.*(dovi|dolby|dv))", "dovi"),
+            "hdr10+": (r"(?=.*(hdr10\+|hdr10plus))", "hdr10+"),
+            "hdr": ("(?=.*hdr)", "hdr"),
+        }
+        regex, simple = effect_map.get(selected or "", (None, None))
+        if regex:
+            include.append(regex)
+        if simple:
+            payload["effect"] = simple
+    audio_languages = rule.get("resubscribe_audio_missing_languages")
+    if rule.get("resubscribe_audio_enabled") and isinstance(audio_languages, list):
+        keywords = _language_keywords(policy.language_keywords, audio_languages, subtitle=False)
+        if keywords:
+            include.append(f"(?=.*({'|'.join(keywords)}))")
+    if rule.get("resubscribe_subtitle_effect_only"):
+        include.append("(?=.*特效)")
+    else:
+        subtitle_languages = rule.get("resubscribe_subtitle_missing_languages")
+        if rule.get("resubscribe_subtitle_enabled") and isinstance(subtitle_languages, list):
+            keywords = _language_keywords(policy.language_keywords, subtitle_languages, subtitle=True)
+            if keywords:
+                include.append(f"(?=.*({'|'.join(keywords)}))")
+    if include:
+        payload["include"] = "".join(include)
+    _apply_season_resubscribe_mode(payload, key, rule)
     return payload
+
+
+def _apply_season_resubscribe_mode(
+    payload: dict[str, Any],
+    key: ResubscribeItemKey,
+    rule: Mapping[str, Any],
+) -> None:
+    if key.item_type != "Season":
+        return
+    if rule.get("resubscribe_entire_season"):
+        payload["best_version"] = 1
+    else:
+        payload.pop("best_version", None)
+
+
+def _language_keywords(
+    keyword_map: Mapping[str, Sequence[str]],
+    languages: Sequence[Any],
+    *,
+    subtitle: bool,
+) -> list[str]:
+    values: set[str] = set()
+    for language in languages:
+        code = str(language)
+        keys = ("sub_chi", "sub_yue") if subtitle and code == "zh" else ((f"sub_{code}",) if subtitle else (code,))
+        for key in keys:
+            values.update(str(value) for value in keyword_map.get(key, ()) if str(value))
+    return sorted(values, key=lambda value: (-len(value), value))
+
+
+def _string_values(value: Any) -> tuple[str, ...]:
+    if isinstance(value, str):
+        return (value,) if value and value != "无" else ()
+    if isinstance(value, Sequence):
+        return tuple(str(item) for item in value if str(item))
+    return ()
 
 
 def _continuation_descriptor(operation: SubscriptionOperation) -> Mapping[str, Any]:

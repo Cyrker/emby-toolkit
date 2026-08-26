@@ -15,10 +15,10 @@ from etk.domains.subscription.cleanup import (
     CLEANUP_CONFIG_SETTING,
     CLEANUP_USE_CASE_PROVIDER,
     SCAN_CLEANUP_TASK_KEY,
-    CleanupPhysicalDeletionError,
     CleanupService,
     CleanupVersionNotFoundError,
 )
+from etk.domains.subscription.cleanup_repository import CleanupExecutionConflictError
 from etk.domains.subscription.cleanup_router import router
 from etk.platform import AppContainer, Settings
 from etk.platform.web import CookieSessionMiddleware
@@ -51,6 +51,7 @@ class FakeCleanupRepository:
         self.ignored: list[tuple[Any, ...]] = []
         self.deleted: list[tuple[Any, ...]] = []
         self.fail_on: str | None = None
+        self.conflict_on: str | None = None
 
     def list_pending_tasks(self) -> Sequence[Mapping[str, Any]]:
         self._fail("list")
@@ -64,6 +65,8 @@ class FakeCleanupRepository:
 
     def ignore_tasks(self, task_ids: Sequence[Any]) -> int:
         self._fail("ignore")
+        if self.conflict_on == "ignore":
+            raise CleanupExecutionConflictError(("cleanup:1",))
         normalized = tuple(task_ids)
         self.ignored.append(normalized)
         self.events.append(f"repository:ignore:{normalized}")
@@ -71,6 +74,8 @@ class FakeCleanupRepository:
 
     def delete_tasks(self, task_ids: Sequence[Any]) -> int:
         self._fail("delete")
+        if self.conflict_on == "delete":
+            raise CleanupExecutionConflictError(("cleanup:1",))
         normalized = tuple(task_ids)
         self.deleted.append(normalized)
         self.events.append(f"repository:delete:{normalized}")
@@ -157,28 +162,27 @@ class FakeExecution:
     def __init__(self, events: list[str]) -> None:
         self.events = events
         self.calls: list[tuple[Any, ...]] = []
+        self.options: list[Mapping[str, Any]] = []
+        self.version_calls: list[str] = []
         self.raise_on_submit: Exception | None = None
+        self.version_error: Exception | None = None
 
-    def submit_cleanup(self, task_ids: Sequence[Any]) -> object:
+    def submit_cleanup(self, task_ids: Sequence[Any], **options: Any) -> object:
         normalized = tuple(task_ids)
         self.events.append(f"execution:submit:{normalized}")
         if self.raise_on_submit is not None:
             raise self.raise_on_submit
         self.calls.append(normalized)
+        self.options.append(dict(options))
         return object()
 
-
-class FakeVersionDeletion:
-    def __init__(self, events: list[str]) -> None:
-        self.events = events
-        self.calls: list[str] = []
-        self.error: Exception | None = None
-
-    def delete_version(self, emby_id: str) -> None:
-        self.calls.append(emby_id)
-        self.events.append(f"deletion:{emby_id}")
-        if self.error is not None:
-            raise self.error
+    def submit_version_deletion(self, emby_id: str, **options: Any) -> object:
+        self.events.append(f"execution:version:{emby_id}")
+        if self.version_error is not None:
+            raise self.version_error
+        self.version_calls.append(emby_id)
+        self.options.append(dict(options))
+        return object()
 
 
 def _build_app(
@@ -193,7 +197,6 @@ def _build_app(
     FakeJobs,
     FakeReadiness,
     FakeExecution,
-    FakeVersionDeletion,
     list[str],
 ]:
     events: list[str] = []
@@ -203,8 +206,7 @@ def _build_app(
     jobs = FakeJobs(events)
     readiness = FakeReadiness(events)
     execution = FakeExecution(events)
-    deletion = FakeVersionDeletion(events)
-    service = CleanupService(repository, settings, jobs, readiness, execution, deletion)
+    service = CleanupService(repository, settings, jobs, readiness, execution)
     container = AppContainer(
         Settings(auth_enabled=auth_enabled),
         repository_providers={"identity": lambda _: permissions},
@@ -215,7 +217,7 @@ def _build_app(
     app.state.container = container
     app.add_middleware(CookieSessionMiddleware, codec_provider=lambda: codec)
     app.include_router(router)
-    return app, permissions, repository, settings, jobs, readiness, execution, deletion, events
+    return app, permissions, repository, settings, jobs, readiness, execution, events
 
 
 def _set_user(client: TestClient, user_id: str) -> None:
@@ -356,7 +358,7 @@ def test_ignore_and_delete_keep_counts_validation_and_json_failure_envelopes() -
 
 
 def test_clear_all_reads_pending_before_submission_without_mutating_state() -> None:
-    app, _permissions, repository, _settings, _jobs, _readiness, execution, _deletion, events = _build_app()
+    app, _permissions, repository, _settings, _jobs, _readiness, execution, events = _build_app()
     with TestClient(app) as client:
         empty = client.post("/api/cleanup/clear_all")
         repository.pending_ids = (4, 5)
@@ -491,6 +493,22 @@ def test_settings_repository_failure_keeps_legacy_json_500() -> None:
     assert response.json() == {"error": "保存清理设置时失败: fixture save failure"}
 
 
+def test_ignore_and_delete_report_active_execution_claim_conflicts() -> None:
+    app, _permissions, repository, *_ = _build_app()
+    with TestClient(app) as client:
+        repository.conflict_on = "ignore"
+        ignored = client.post("/api/cleanup/ignore", json={"task_ids": [1]})
+        repository.conflict_on = "delete"
+        deleted = client.post("/api/cleanup/delete", json={"task_ids": [1]})
+
+    expected = {
+        "error": "清理任务已提交执行，不能同时忽略或删除。",
+        "conflict_ids": ["cleanup:1"],
+    }
+    assert ignored.status_code == 409 and ignored.json() == expected
+    assert deleted.status_code == 409 and deleted.json() == expected
+
+
 def test_scan_reports_busy_unavailable_and_only_submits_p8_catalog_seam() -> None:
     app, _permissions, _repository, _settings, jobs, readiness, *_ = _build_app()
     with TestClient(app) as client:
@@ -526,31 +544,28 @@ def test_scan_reports_busy_unavailable_and_only_submits_p8_catalog_seam() -> Non
     assert failed.json() == {"error": "提交扫描任务失败: fixture scan unavailable"}
 
 
-def test_delete_version_uses_external_port_before_independent_index_transaction() -> None:
-    app, _permissions, repository, _settings, _jobs, _readiness, _execution, deletion, events = _build_app()
+def test_delete_version_stages_one_durable_job_instead_of_running_physical_effects_in_http() -> None:
+    app, _permissions, repository, _settings, _jobs, _readiness, execution, events = _build_app()
     with TestClient(app) as client:
         missing_body = client.post("/api/cleanup/delete_version", json={})
-        deletion.error = CleanupVersionNotFoundError("fixture missing")
+        execution.version_error = CleanupVersionNotFoundError("fixture missing")
         not_found = client.post("/api/cleanup/delete_version", json={"emby_id": "missing"})
-        deletion.error = CleanupPhysicalDeletionError("fixture unlink")
-        physical = client.post("/api/cleanup/delete_version", json={"emby_id": "physical"})
-        deletion.error = None
+        execution.version_error = CleanupExecutionConflictError(("version:busy",))
+        conflict = client.post("/api/cleanup/delete_version", json={"emby_id": "busy"})
+        execution.version_error = None
         success = client.post("/api/cleanup/delete_version", json={"emby_id": "emby-1"})
-        repository.fail_on = "remove-version"
-        index_failed = client.post("/api/cleanup/delete_version", json={"emby_id": "emby-2"})
 
     assert missing_body.status_code == 400
     assert missing_body.json() == {"error": "缺少 emby_id"}
     assert not_found.status_code == 404
     assert not_found.json() == {"error": "未找到对应的物理文件路径"}
-    assert physical.status_code == 500
-    assert physical.json() == {"error": "删除物理文件失败: fixture unlink"}
-    assert success.status_code == 200
-    assert success.json() == {"message": "删除成功"}
-    assert index_failed.status_code == 500
-    assert index_failed.json() == {"error": "删除失败: fixture remove-version failure"}
-    success_external = events.index("deletion:emby-1")
-    assert events[success_external + 1] == "repository:remove-version:emby-1"
-    failed_external = events.index("deletion:emby-2")
-    assert failed_external > success_external
-    assert "repository:remove-version:emby-2" not in events
+    assert conflict.status_code == 409
+    assert conflict.json() == {
+        "error": "清理任务已提交执行，不能同时忽略或删除。",
+        "conflict_ids": ["version:busy"],
+    }
+    assert success.status_code == 202
+    assert success.json() == {"message": "删除任务已提交到后台。"}
+    assert execution.version_calls == ["emby-1"]
+    assert repository.removed_versions == []
+    assert events[-1] == "execution:version:emby-1"

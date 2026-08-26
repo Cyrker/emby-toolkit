@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -13,6 +13,8 @@ class IdentityRepository(Protocol):
     def is_admin(self, user_id: str) -> bool: ...
 
     def subscription_permission(self, user_id: str) -> bool: ...
+
+    def display_names(self, user_ids: Sequence[str]) -> Mapping[str, str]: ...
 
 
 class EmbyIdentityGateway(Protocol):

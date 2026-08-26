@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from etk.platform.db import SqlAlchemyUnitOfWork
 
@@ -82,6 +82,18 @@ class SqlAlchemyIdentityRepository:
                 {"user_id": user_id},
             )
         return bool(value)
+
+    def display_names(self, user_ids: Sequence[str]) -> Mapping[str, str]:
+        normalized = tuple(dict.fromkeys(str(user_id).strip() for user_id in user_ids if str(user_id).strip()))
+        if not normalized:
+            return {}
+        with self._unit_of_work() as uow:
+            rows = uow.session.execute(
+                text("SELECT id, name FROM emby_users WHERE id IN :ids").bindparams(bindparam("ids", expanding=True)),
+                {"ids": normalized},
+            ).mappings()
+            names = {str(row["id"]): str(row["name"]) for row in rows}
+        return names
 
 
 def _optional_datetime(value: Any) -> datetime | None:

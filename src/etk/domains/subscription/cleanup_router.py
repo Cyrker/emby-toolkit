@@ -15,10 +15,10 @@ from etk.platform.web import PermissionPolicy, get_request_session
 
 from .cleanup import (
     CLEANUP_USE_CASE_PROVIDER,
-    CleanupPhysicalDeletionError,
     CleanupService,
     CleanupVersionNotFoundError,
 )
+from .cleanup_repository import CleanupExecutionConflictError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cleanup", tags=["subscription"])
@@ -128,6 +128,20 @@ def _unavailable(service: CleanupService) -> JSONResponse | None:
     return fastapi_json_response({"error": "核心处理器未就绪。"}, status_code=503)
 
 
+def _submission_context(request: Request) -> tuple[str | None, str | None]:
+    session = get_request_session(request)
+    user_id = str(session.get("emby_user_id") or "").strip() or None
+    trace_id = str(getattr(request.state, "trace_id", "") or "").strip() or None
+    return user_id, trace_id
+
+
+def _claim_conflict(error: CleanupExecutionConflictError) -> JSONResponse:
+    return fastapi_json_response(
+        {"error": "清理任务已提交执行，不能同时忽略或删除。", "conflict_ids": list(error.conflict_ids)},
+        status_code=409,
+    )
+
+
 @router.get("/tasks", responses=_responses(200, 403, 500))
 def get_cleanup_tasks(request: Request) -> JSONResponse:
     denied = _admin_denial(request)
@@ -165,7 +179,15 @@ async def execute_cleanup_tasks(request: Request) -> Response:
     if not task_ids or not isinstance(task_ids, list):
         return fastapi_json_response({"error": "缺少或无效的 task_ids 参数"}, status_code=400)
     try:
-        await run_in_threadpool(service.execute, task_ids)
+        user_id, trace_id = _submission_context(request)
+        await run_in_threadpool(
+            service.execute,
+            task_ids,
+            requested_by_user_id=user_id,
+            trace_id=trace_id,
+        )
+    except CleanupExecutionConflictError as exc:
+        return _claim_conflict(exc)
     except Exception:
         logger.exception("Unable to submit cleanup execution")
         return _html_error(InternalServerError())
@@ -174,7 +196,7 @@ async def execute_cleanup_tasks(request: Request) -> Response:
 
 @router.post(
     "/ignore",
-    responses=_responses(200, 400, 403, 415, 500),
+    responses=_responses(200, 400, 403, 409, 415, 500),
     openapi_extra=_TASK_IDS_BODY,
 )
 async def ignore_cleanup_tasks(request: Request) -> Response:
@@ -191,13 +213,15 @@ async def ignore_cleanup_tasks(request: Request) -> Response:
     try:
         updated_count = await run_in_threadpool(_service(request).ignore, task_ids)
         return fastapi_json_response({"message": f"成功忽略 {updated_count} 个任务。"})
+    except CleanupExecutionConflictError as exc:
+        return _claim_conflict(exc)
     except Exception as exc:
         return fastapi_json_response({"error": f"忽略任务时失败: {exc}"}, status_code=500)
 
 
 @router.post(
     "/delete",
-    responses=_responses(200, 400, 403, 415, 500),
+    responses=_responses(200, 400, 403, 409, 415, 500),
     openapi_extra=_TASK_IDS_BODY,
 )
 async def delete_cleanup_tasks(request: Request) -> Response:
@@ -214,6 +238,8 @@ async def delete_cleanup_tasks(request: Request) -> Response:
     try:
         deleted_count = await run_in_threadpool(_service(request).delete, task_ids)
         return fastapi_json_response({"message": f"成功删除 {deleted_count} 个任务。"})
+    except CleanupExecutionConflictError as exc:
+        return _claim_conflict(exc)
     except Exception as exc:
         return fastapi_json_response({"error": f"删除任务时失败: {exc}"}, status_code=500)
 
@@ -231,10 +257,17 @@ async def clear_all_cleanup_tasks(request: Request) -> JSONResponse:
     if unavailable is not None:
         return unavailable
     try:
-        result = await run_in_threadpool(service.clear_all)
+        user_id, trace_id = _submission_context(request)
+        result = await run_in_threadpool(
+            service.clear_all,
+            requested_by_user_id=user_id,
+            trace_id=trace_id,
+        )
         if not result.submitted:
             return fastapi_json_response({"message": "没有发现待处理的清理任务。"})
         return fastapi_json_response({"message": "一键清理任务已提交到后台。"}, status_code=202)
+    except CleanupExecutionConflictError as exc:
+        return _claim_conflict(exc)
     except Exception as exc:
         logger.exception("Unable to submit all pending cleanup tasks")
         return fastapi_json_response({"error": f"一键清理失败: {exc}"}, status_code=500)
@@ -315,7 +348,8 @@ async def trigger_cleanup_scan(request: Request) -> JSONResponse:
 
 @router.post(
     "/delete_version",
-    responses=_responses(200, 400, 403, 404, 415, 500),
+    status_code=202,
+    responses=_responses(202, 400, 403, 404, 409, 415, 500),
     openapi_extra=_DELETE_VERSION_BODY,
 )
 async def delete_single_version(request: Request) -> Response:
@@ -330,12 +364,18 @@ async def delete_single_version(request: Request) -> Response:
     if not emby_id:
         return fastapi_json_response({"error": "缺少 emby_id"}, status_code=400)
     try:
-        await run_in_threadpool(_service(request).delete_version, emby_id)
-        return fastapi_json_response({"message": "删除成功"})
+        user_id, trace_id = _submission_context(request)
+        await run_in_threadpool(
+            _service(request).delete_version,
+            emby_id,
+            requested_by_user_id=user_id,
+            trace_id=trace_id,
+        )
+        return fastapi_json_response({"message": "删除任务已提交到后台。"}, status_code=202)
     except CleanupVersionNotFoundError:
         return fastapi_json_response({"error": "未找到对应的物理文件路径"}, status_code=404)
-    except CleanupPhysicalDeletionError as exc:
-        return fastapi_json_response({"error": f"删除物理文件失败: {exc}"}, status_code=500)
+    except CleanupExecutionConflictError as exc:
+        return _claim_conflict(exc)
     except Exception as exc:
         logger.exception("Unable to delete cleanup media version")
         return fastapi_json_response({"error": f"删除失败: {exc}"}, status_code=500)

@@ -786,8 +786,44 @@ class PostgresSubscriptionOperationRepository:
             )
             _transition_operation_quota(uow, operation_id, quota_target, now)
             _complete_outbox(uow, operation_id)
+            if status is SubscriptionOperationStatus.CONFIRMED:
+                _stage_resubscribe_continuation(uow, current, now=now)
             uow.commit()
         return _operation(row)
+
+
+def _stage_resubscribe_continuation(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SubscriptionOperation,
+    *,
+    now: datetime,
+) -> None:
+    if operation.kind is not SubscriptionOperationKind.RESUBSCRIBE:
+        return
+    workflow = operation.request.get("workflow")
+    if not isinstance(workflow, Mapping):
+        raise SubscriptionOperationStateError("confirmed resubscribe operation is missing its workflow")
+    if workflow.get("type") != "delete_then_create" or workflow.get("version") != 1:
+        raise SubscriptionOperationStateError("confirmed resubscribe operation has an unsupported workflow")
+    descriptor = workflow.get("next_operation")
+    if not isinstance(descriptor, Mapping):
+        raise SubscriptionOperationStateError("confirmed resubscribe operation is missing its continuation")
+    request = descriptor.get("request")
+    if not isinstance(request, Mapping):
+        raise SubscriptionOperationStateError("resubscribe continuation request must be an object")
+    try:
+        delay_seconds = float(workflow.get("delay_seconds", 0))
+    except (TypeError, ValueError) as exc:
+        raise SubscriptionOperationStateError("resubscribe continuation delay is invalid") from exc
+    if not math.isfinite(delay_seconds) or delay_seconds < 0:
+        raise SubscriptionOperationStateError("resubscribe continuation delay is invalid")
+    intent = SubscriptionOperationIntent.create(
+        kind=str(descriptor.get("kind") or ""),
+        scope_key=str(descriptor.get("scope_key") or ""),
+        request=dict(request),
+        available_at=now + timedelta(seconds=delay_seconds),
+    )
+    _reserve_operation_in_uow(uow, intent)
 
 
 def _reserve_operation_in_uow(

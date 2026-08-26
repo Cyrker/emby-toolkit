@@ -33,14 +33,14 @@
       "path": "/api/cleanup/ignore",
       "auth": "admin",
       "request_body": true,
-      "response_statuses": [200, 400, 403, 415, 500]
+      "response_statuses": [200, 400, 403, 409, 415, 500]
     },
     {
       "method": "POST",
       "path": "/api/cleanup/delete",
       "auth": "admin",
       "request_body": true,
-      "response_statuses": [200, 400, 403, 415, 500]
+      "response_statuses": [200, 400, 403, 409, 415, 500]
     },
     {
       "method": "POST",
@@ -75,7 +75,7 @@
       "path": "/api/cleanup/delete_version",
       "auth": "admin",
       "request_body": true,
-      "response_statuses": [200, 400, 403, 404, 415, 500]
+      "response_statuses": [202, 400, 403, 404, 409, 415, 500]
     }
   ],
   "cases": [
@@ -126,8 +126,10 @@
   "boundaries": [
     "cleanup_index state is P7-owned and media_metadata reads are delegated to a P5 projection",
     "scan only submits the P8-owned scan-cleanup-issues catalog seam and performs no scan work in the HTTP process",
-    "execute and clear_all submit a durable execution intent through an injected port because no native execute-cleanup catalog key exists",
-    "single-version physical/media deletion completes through an injected P5 port before the cleanup_index convergence transaction begins",
+    "execute and clear_all atomically stage a durable Job, Outbox event, and cleanup item claim through an injected port",
+    "single-version deletion returns 202 only after its durable snapshot and Job/Outbox intent commit; physical work never runs in HTTP",
+    "single-version media_metadata lookup remains behind a P5 port while P7 owns cleanup execution state",
+    "ignore and delete return 409 for any row already owned by an active cleanup execution",
     "no database transaction is held across physical deletion, Job submission, Emby, 115, or filesystem work",
     "route /api/media/batch_delete is outside this slice",
     "all external effects are Fake-only in application verification"

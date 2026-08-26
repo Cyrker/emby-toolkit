@@ -7,12 +7,15 @@ import httpx
 from pydantic import SecretStr
 
 from etk.domains.subscription.adapters import (
+    ConfiguredSubscriptionAvailabilityGateway,
     HttpxEmbyItemDeletionGateway,
+    LegacyAssistantDefaultsAdapter,
     NativeWatchlistExternalDeleteGateway,
 )
 from etk.domains.subscription.moviepilot import MoviePilotListResult, MoviePilotWriteResult
 from etk.domains.subscription.watchlist import WatchlistDeleteContext
 from etk.platform import Settings
+from services.subscribe_assistant.config import default_assistant_config_dict
 
 
 class FakeSettingsRepository:
@@ -22,6 +25,22 @@ class FakeSettingsRepository:
     def load(self, key: str) -> Any:
         del key
         return self.value
+
+    def save(self, key: str, value: Any) -> None:
+        del key, value
+        raise AssertionError("unexpected save")
+
+    def delete(self, key: str) -> bool:
+        del key
+        raise AssertionError("unexpected delete")
+
+
+class DictSettingsRepository:
+    def __init__(self, values: Mapping[str, Any]) -> None:
+        self.values = dict(values)
+
+    def load(self, key: str) -> Any:
+        return self.values.get(key)
 
     def save(self, key: str, value: Any) -> None:
         del key, value
@@ -122,3 +141,41 @@ def test_httpx_emby_delete_uses_configured_token_and_treats_missing_item_as_done
         "url": "https://emby.invalid/Items/item%20%2F%201/Delete?UserId=fixture-user",
         "token": "fixture-token",
     }
+
+
+def test_subscription_availability_uses_injected_probes_and_degrades_probe_failures() -> None:
+    repository = DictSettingsRepository(
+        {
+            "mp_config": {"moviepilot_url": "https://mp.invalid"},
+            "tg_userbot_config": {"enabled": True, "channels": ["fixture"]},
+        }
+    )
+    gateway = ConfiguredSubscriptionAvailabilityGateway(
+        repository,
+        hdhive_probe=lambda: True,
+        shared_pool_probe=lambda: False,
+    )
+
+    assert gateway.status() == {
+        "mp_configured": True,
+        "hdhive_configured": True,
+        "tg_userbot_configured": True,
+        "shared_pool_configured": False,
+        "cloud_search_configured": True,
+    }
+    assert gateway.available_sources() == ("mp", "hdhive", "tg_channel")
+
+    def failed_probe() -> bool:
+        raise RuntimeError("fixture probe failure")
+
+    degraded = ConfiguredSubscriptionAvailabilityGateway(
+        repository,
+        hdhive_probe=failed_probe,
+        shared_pool_probe=failed_probe,
+    )
+    assert degraded.status()["hdhive_configured"] is False
+    assert degraded.status()["shared_pool_configured"] is False
+
+
+def test_assistant_defaults_adapter_matches_the_existing_canonical_defaults() -> None:
+    assert LegacyAssistantDefaultsAdapter.defaults() == default_assistant_config_dict()

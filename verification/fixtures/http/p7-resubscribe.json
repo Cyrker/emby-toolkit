@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "kind": "p7-resubscribe-local-http-contract",
+  "routes": [
+    {"method": "GET", "path": "/api/resubscribe/rules", "response_statuses": [200, 403, 500], "request_body": false},
+    {"method": "POST", "path": "/api/resubscribe/rules", "response_statuses": [201, 400, 403, 409, 415, 500], "request_body": true},
+    {"method": "PUT", "path": "/api/resubscribe/rules/{rule_id}", "response_statuses": [200, 400, 403, 404, 415, 500], "request_body": true},
+    {"method": "DELETE", "path": "/api/resubscribe/rules/{rule_id}", "response_statuses": [200, 403, 404, 500], "request_body": false},
+    {"method": "POST", "path": "/api/resubscribe/rules/order", "response_statuses": [200, 400, 403, 415, 500], "request_body": true},
+    {"method": "GET", "path": "/api/resubscribe/library_status", "response_statuses": [200, 403, 500], "request_body": false},
+    {"method": "POST", "path": "/api/resubscribe/refresh_status", "response_statuses": [202, 403, 409, 500], "request_body": false},
+    {"method": "POST", "path": "/api/resubscribe/resubscribe_all", "response_statuses": [202, 403, 409, 500], "request_body": false},
+    {"method": "GET", "path": "/api/resubscribe/libraries", "response_statuses": [200, 403, 500, 503], "request_body": false},
+    {"method": "POST", "path": "/api/resubscribe/batch_action", "response_statuses": [200, 202, 400, 403, 409, 415, 500], "request_body": true}
+  ],
+  "boundaries": [
+    "MoviePilot delete then create is durable and reserves quota before deletion",
+    "delete and HDHive rows are P7 or P9 adapter work and are rejected as one batch instead of silently partially succeeding",
+    "real MoviePilot, Emby, HDHive, filesystem, and production database access are excluded from local verification"
+  ]
+}

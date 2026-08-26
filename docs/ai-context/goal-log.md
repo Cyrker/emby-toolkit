@@ -1095,6 +1095,65 @@ Safety boundary:
 - No real Emby, 115, MoviePilot, shared center, Telegram, HDHive, production database, old `/config`,
   external write, push, deployment, release, or production environment was used.
 
+### P7-HTTP/STATE
+
+Stage / Batch: P7 / P7-HTTP/STATE
+
+HEAD / Commit:
+
+- Pre-batch HEAD: `b612384f` (`P7-FIX`).
+- P7-HTTP/STATE checkpoint: the commit containing this entry; no amend, push, deploy, or release.
+
+Implemented:
+
+- Added durable Cleanup execution state with frozen snapshots, Job/Attempt/Outbox staging, claims,
+  leases, effect checkpoints, idempotent replay, and `FOR UPDATE` conflict protection for execute,
+  ignore, delete, and version deletion.
+- Completed Resubscribe HTTP/state flow: delete-side quota reservation, atomic delete confirmation and
+  create continuation, generation-safe idempotency, complete MoviePilot rule payloads, and rejection
+  of mixed unsupported batches without partial state.
+- Added native MoviePilot configuration and Strategy contracts with atomic settings updates, injected
+  availability probes, compatibility-preserving error behavior, and no real external access.
+- Added native core subscription/status/all/batch-delete routes, projection and identity enrichment,
+  season provider identity handling, generation-scoped provider DELETE staging, precise index cleanup,
+  and local desired-state commits that cannot be promoted back to `WANTED`.
+- Wired the new routers, repositories, adapters, migration `0014_p7_cleanup_execution`, fixtures, and
+  application/architecture/PostgreSQL 18 verification assets.
+
+Targeted gate:
+
+- `pytest verification/application/p7 verification/architecture/p7 verification/application/p1/test_app_factory_contract.py -q`
+  -> `187 passed`, with one existing Starlette WSGI deprecation warning.
+- Digest-pinned disposable PostgreSQL 18, with `ETK_TEST_DATABASE_URL` unset:
+  `pytest verification/integration/p7 -q` -> `57 passed`; this includes delete, quota, Outbox, claim,
+  rollback, concurrency, continuation, and generation invariants.
+- Scoped Ruff over 30 changed/untracked Python files -> passed; Ruff format check -> 30 files already
+  formatted; scoped Pyright -> `0 errors, 0 warnings`; `git diff --check` -> passed.
+- Detailed output: `/tmp/etk-refactor-artifacts/p7-http-state-application-architecture-final.log`,
+  `/tmp/etk-refactor-artifacts/p7-http-state-postgres18-final.log`, and
+  `/tmp/etk-refactor-artifacts/p7-http-state-static-final.log`.
+
+Stage full gate:
+
+- Not run by batch cadence. Manifest/OpenAPI regeneration and checks, full Ruff/Pyright/pytest,
+  cross-stage PostgreSQL 18, Redis/Celery, compileall, secret scans, focused transaction review, and
+  P7 integration review remain pending until P7 stage close.
+
+Pending:
+
+- `P7-RUNTIME`: Cleanup native execution, Subscribe Assistant persistent Job/State, remaining native
+  task handlers, retry/cancellation/timeout/Worker-restart recovery, and Redis/Celery process paths.
+
+Blocker: none for P7-HTTP/STATE.
+
+Next: execute `P7-RUNTIME`; do not re-explore accepted Actor, Watchlist, or operation runtime unless a
+new deterministic test or review finding requires it.
+
+Safety boundary:
+
+- No real Emby, 115, MoviePilot, shared center, Telegram, HDHive, production database, old `/config`,
+  external write, push, deployment, release, or production environment was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -1114,4 +1173,4 @@ Read first:
 
 Next:
 
-- Continue with `P7-HTTP/STATE`, then `P7-RUNTIME`. Keep all Live Acceptance items pending.
+- Continue with `P7-RUNTIME`. Keep all Live Acceptance items pending.

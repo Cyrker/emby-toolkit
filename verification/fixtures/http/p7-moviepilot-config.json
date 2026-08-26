@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "kind": "p7-moviepilot-config-local-http-contract",
+  "provenance": {
+    "captured_live": false,
+    "local_legacy_blueprint_verified": true,
+    "sanitized": true,
+    "external_validation": "pending",
+    "sources": [
+      "routes/subscription.py:51-120",
+      "routes/media.py:30-53",
+      "routes/media.py:689-740"
+    ]
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/subscription/mp/config",
+      "auth": "admin",
+      "request_body": false,
+      "response_statuses": [200, 403, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/subscription/mp/config",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 415, 500]
+    },
+    {
+      "method": "GET",
+      "path": "/api/subscription/strategy",
+      "auth": "admin",
+      "request_body": false,
+      "response_statuses": [200, 403, 500]
+    },
+    {
+      "method": "POST",
+      "path": "/api/subscription/strategy",
+      "auth": "admin",
+      "request_body": true,
+      "response_statuses": [200, 400, 403, 500]
+    }
+  ],
+  "boundaries": [
+    "MoviePilot configuration is stored as one canonical replacement after retired and stale assistant keys are removed",
+    "assistant defaults and watchlist fallback preserve the existing administrator-facing response",
+    "strategy source filtering and MoviePilot assistant disable are committed by one save_many transaction",
+    "availability probes are injected and Fake-only during local verification",
+    "real MoviePilot, HDHive, shared pool, Telegram, production database, and credentials are excluded from local verification"
+  ]
+}

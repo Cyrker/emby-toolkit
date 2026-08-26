@@ -48,5 +48,42 @@ class SqlAlchemyCleanupMediaProjection:
         )
         return tuple(dict(row) for row in rows)
 
+    def version_deletion_snapshot(
+        self,
+        uow: SqlAlchemyUnitOfWork,
+        emby_id: str,
+    ) -> Mapping[str, Any] | None:
+        row = (
+            uow.session.execute(
+                text(
+                    """
+                    SELECT tmdb_id, item_type, title, asset_details_json, file_pickcode_json
+                    FROM media_metadata
+                    WHERE jsonb_typeof(asset_details_json) = 'array'
+                      AND EXISTS (
+                          SELECT 1
+                          FROM jsonb_array_elements(asset_details_json) AS asset(value)
+                          WHERE COALESCE(asset.value->>'emby_item_id', asset.value->>'id') = :emby_id
+                      )
+                    ORDER BY tmdb_id, item_type
+                    LIMIT 1
+                    FOR UPDATE
+                    """
+                ),
+                {"emby_id": emby_id},
+            )
+            .mappings()
+            .first()
+        )
+        if row is None:
+            return None
+        return {
+            "tmdb_id": str(row["tmdb_id"]),
+            "item_type": str(row["item_type"]),
+            "title": row["title"],
+            "asset_details": row["asset_details_json"],
+            "file_pickcodes": row["file_pickcode_json"],
+        }
+
 
 __all__ = ["SqlAlchemyCleanupMediaProjection"]
