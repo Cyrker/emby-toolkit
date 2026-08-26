@@ -103,7 +103,11 @@ async def _legacy_json_object(request: Request) -> tuple[dict[str, Any] | None, 
     return dict(value), None
 
 
-@router.get("/rules", responses=_responses(200, 403, 500))
+@router.get(
+    "/rules",
+    response_model=list[dict[str, Any]],
+    responses=_responses(200, 403, 500),
+)
 async def list_rules(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
@@ -113,6 +117,7 @@ async def list_rules(request: Request) -> Response:
 
 @router.post(
     "/rules",
+    response_model=dict[str, Any],
     status_code=201,
     responses=_responses(201, 400, 403, 409, 415, 500),
     openapi_extra=_RULE_BODY,
@@ -130,6 +135,7 @@ async def create_rule(request: Request) -> Response:
 
 @router.put(
     "/rules/{rule_id:int}",
+    response_model=dict[str, Any],
     responses=_responses(200, 400, 403, 404, 415, 500),
     openapi_extra=_RULE_BODY,
 )
@@ -145,7 +151,11 @@ async def update_rule(request: Request) -> Response:
     return _response(await run_in_threadpool(_service(request).update_rule, rule_id, data))
 
 
-@router.delete("/rules/{rule_id:int}", responses=_responses(200, 403, 404, 500))
+@router.delete(
+    "/rules/{rule_id:int}",
+    response_model=dict[str, Any],
+    responses=_responses(200, 403, 404, 500),
+)
 async def delete_rule(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
@@ -156,6 +166,7 @@ async def delete_rule(request: Request) -> Response:
 
 @router.post(
     "/rules/order",
+    response_model=dict[str, Any],
     responses=_responses(200, 400, 403, 415, 500),
     openapi_extra=_ORDER_BODY,
 )
@@ -171,7 +182,11 @@ async def order_rules(request: Request) -> Response:
     return _response(await run_in_threadpool(_service(request).order_rules, data))
 
 
-@router.get("/library_status", responses=_responses(200, 403, 500))
+@router.get(
+    "/library_status",
+    response_model=list[dict[str, Any]],
+    responses=_responses(200, 403, 500),
+)
 async def list_library_status(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
@@ -179,7 +194,12 @@ async def list_library_status(request: Request) -> Response:
     return _response(await run_in_threadpool(_service(request).list_library_status))
 
 
-@router.post("/refresh_status", status_code=202, responses=_responses(202, 403, 409, 500))
+@router.post(
+    "/refresh_status",
+    response_model=dict[str, Any],
+    status_code=202,
+    responses=_responses(202, 403, 409, 500),
+)
 async def refresh_status(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
@@ -187,7 +207,12 @@ async def refresh_status(request: Request) -> Response:
     return _response(await run_in_threadpool(_service(request).refresh_status))
 
 
-@router.post("/resubscribe_all", status_code=202, responses=_responses(202, 403, 409, 500))
+@router.post(
+    "/resubscribe_all",
+    response_model=dict[str, Any],
+    status_code=202,
+    responses=_responses(202, 403, 409, 500),
+)
 async def resubscribe_all(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
@@ -195,7 +220,11 @@ async def resubscribe_all(request: Request) -> Response:
     return _response(await run_in_threadpool(_service(request).resubscribe_all))
 
 
-@router.get("/libraries", responses=_responses(200, 403, 500, 503))
+@router.get(
+    "/libraries",
+    response_model=list[dict[str, Any]],
+    responses=_responses(200, 403, 500, 503),
+)
 async def libraries(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
@@ -205,6 +234,7 @@ async def libraries(request: Request) -> Response:
 
 @router.post(
     "/batch_action",
+    response_model=dict[str, Any],
     responses=_responses(200, 202, 400, 403, 409, 415, 500),
     openapi_extra=_BATCH_BODY,
 )

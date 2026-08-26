@@ -154,11 +154,13 @@ from etk.domains.subscription.adapters import (
     PersistentWatchlistRefreshGateway,
 )
 from etk.domains.subscription.cleanup import CleanupService
+from etk.domains.subscription.cleanup_adapters import SettingsCleanupExecutionPolicy
 from etk.domains.subscription.cleanup_repository import (
     PostgresCleanupExecutionGateway,
     SqlAlchemyCleanupRepository,
 )
 from etk.domains.subscription.cleanup_router import router as cleanup_router
+from etk.domains.subscription.cleanup_runtime_repository import SqlAlchemyCleanupExecutionRepository
 from etk.domains.subscription.core import (
     SUBSCRIPTION_CORE_USE_CASE_PROVIDER,
     PostgresCoreSubscriptionOperationStager,
@@ -446,6 +448,7 @@ def _register_job_providers(container: AppContainer) -> None:
         lambda current: PostgresJobStore(
             lambda: current.database.unit_of_work(),
             execution_guard=PostgresExecutionGuard(current.database.raw_pool),
+            cancellation_policy=SqlAlchemyCleanupExecutionRepository(current.database.unit_of_work),
         ),
     )
     container.register_use_case(
@@ -1003,6 +1006,7 @@ def _register_subscription_providers(container: AppContainer) -> None:
         lambda current: SqlAlchemyCleanupRepository(
             current.database.unit_of_work,
             current.repository("media.cleanup-projection"),
+            SettingsCleanupExecutionPolicy(lambda: current.settings),
         ),
     )
     container.register_repository(

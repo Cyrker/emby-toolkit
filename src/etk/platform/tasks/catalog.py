@@ -81,4 +81,23 @@ P6_P115_NATIVE_TASK_KEYS = frozenset(
 P6_INGESTION_NATIVE_TASK_KEYS = frozenset({"scan-monitor-folders"})
 P6_NATIVE_TASK_KEYS = P6_P115_NATIVE_TASK_KEYS | P6_INGESTION_NATIVE_TASK_KEYS
 
-NATIVE_TASK_KEYS = P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS
+P7_NATIVE_TASK_KEYS = frozenset(
+    {
+        "add-all-series-to-watchlist",
+        "actor-tracking",
+        "auto-subscribe",
+        "enrich-aliases",
+        "manual_subscribe_batch",
+        "merge-duplicate-actors",
+        "process-watchlist",
+        "purge-ghost-actors",
+        "recalculate_library_washing_priorities",
+        "refresh_completed_series",
+        "resubscribe-library",
+        "scan_old_seasons_backfill",
+        "subscribe-assistant-maintenance",
+        "update-resubscribe-cache",
+    }
+)
+
+NATIVE_TASK_KEYS = P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS | P7_NATIVE_TASK_KEYS

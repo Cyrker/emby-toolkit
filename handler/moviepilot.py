@@ -4,6 +4,9 @@ import requests
 import json
 import re
 import logging
+from contextlib import contextmanager
+from hashlib import sha256
+from threading import RLock
 from typing import Dict, Any, Optional, List, Tuple
 
 import handler.tmdb as tmdb
@@ -12,6 +15,30 @@ from database import settings_db
 from handler.tg_media_candidate import candidate_to_recognition_hints, is_recognition_hint_eligible
 
 logger = logging.getLogger(__name__)
+
+_persistent_effect_lock = RLock()
+_persistent_effect_gateway = None
+
+
+@contextmanager
+def persistent_moviepilot_effects(gateway):
+    """Bind P7 durable MoviePilot writes inside the serial Worker execution."""
+    global _persistent_effect_gateway
+    with _persistent_effect_lock:
+        if _persistent_effect_gateway is not None:
+            raise RuntimeError("a durable MoviePilot effect gateway is already bound")
+        _persistent_effect_gateway = gateway
+    try:
+        yield
+    finally:
+        with _persistent_effect_lock:
+            if _persistent_effect_gateway is gateway:
+                _persistent_effect_gateway = None
+
+
+def _current_persistent_effect_gateway():
+    with _persistent_effect_lock:
+        return _persistent_effect_gateway
 
 _ETK_TO_MP_RENAME_VARS = {
     "title_zh": "title",
@@ -171,6 +198,10 @@ def redo_transfer_history(config: Dict[str, Any] = None, history_ids: List[int] 
             continue
     if not ids:
         return False
+
+    gateway = _current_persistent_effect_gateway()
+    if gateway is not None:
+        return bool(gateway.redo_transfer_history(ids))
 
     try:
         moviepilot_url, headers, err = _get_mp_base_and_headers(config)
@@ -353,6 +384,9 @@ def subscribe_with_custom_payload(payload: dict, config: Dict[str, Any] = None, 
     【核心订阅函数】直接接收一个完整的订阅 payload 并提交。
     所有其他订阅函数最终都应调用此函数。
     """
+    gateway = _current_persistent_effect_gateway()
+    if gateway is not None:
+        return bool(gateway.create_subscription(payload, consume_quota=consume_quota))
     try:
         mp_config = settings_db.get_setting('mp_config') or {}
         moviepilot_url = mp_config.get('moviepilot_url', '').rstrip('/')
@@ -393,6 +427,9 @@ def cancel_subscription(tmdb_id: str, item_type: str, config: Dict[str, Any], se
     """
     【取消订阅】根据 TMDB ID 和类型取消订阅。
     """
+    gateway = _current_persistent_effect_gateway()
+    if gateway is not None:
+        return bool(gateway.delete_subscription(tmdb_id, season=season))
     try:
         mp_config = settings_db.get_setting('mp_config') or {}
         moviepilot_url = mp_config.get('moviepilot_url', '').rstrip('/')
@@ -528,6 +565,9 @@ def find_subscriptions(tmdb_id: str, season: Optional[int] = None, config: Dict[
 
 
 def delete_subscription_by_id(subscribe_id: int, config: Dict[str, Any] = None) -> bool:
+    gateway = _current_persistent_effect_gateway()
+    if gateway is not None:
+        return bool(gateway.delete_subscription_by_id(subscribe_id))
     try:
         moviepilot_url, headers, error = _get_mp_base_and_headers(config)
         if error:
@@ -588,6 +628,16 @@ def update_subscription_status(tmdb_id: int, season: Optional[int], status: str,
     兼容电影 (season=None) 和 剧集 (season=int)。
     status: 'R' (运行/订阅), 'S' (暂停/停止), 'P' (待定)
     """
+    gateway = _current_persistent_effect_gateway()
+    if gateway is not None:
+        return bool(
+            gateway.update_subscription_status(
+                tmdb_id,
+                season=season,
+                status=status,
+                total_episodes=total_episodes,
+            )
+        )
     try:
         mp_config = settings_db.get_setting('mp_config') or {}
         moviepilot_url = mp_config.get('moviepilot_url', '').rstrip('/')
@@ -1375,8 +1425,23 @@ def analyze_mp_episode_residue_download_history(tmdb_id: str, seasons: Optional[
         logger.warning(f"  ➜ [MP智能清理] 分析分集残留下载历史失败: {e}")
         return []
 
+def _episode_residue_occurrence_prefix(tmdb_id: str, seasons: Optional[List[int]]) -> str:
+    season_values = sorted({int(value) for value in (seasons or []) if value})
+    season_scope = ",".join(str(value) for value in season_values) or "all"
+    return f"episode-residue:{str(tmdb_id).strip()}:{season_scope}"
+
+
+def _transfer_history_record_identity(record: Dict[str, Any]) -> str:
+    record_id = str(record.get("id") or "").strip()
+    if record_id:
+        return record_id
+    canonical = json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def smart_cleanup_mp_episode_residue(tmdb_id: str, seasons: Optional[List[int]], title: str, config: Dict[str, Any], delete_history: bool = True, delete_files: bool = True) -> bool:
     """订阅完成后清理分集转全集留下的单集整理记录、种子和源文件。"""
+    gateway = _current_persistent_effect_gateway()
     try:
         mp_config = settings_db.get_setting('mp_config') or {}
         moviepilot_url = mp_config.get('moviepilot_url', '').rstrip('/')
@@ -1396,13 +1461,20 @@ def smart_cleanup_mp_episode_residue(tmdb_id: str, seasons: Optional[List[int]],
 
         if delete_history and records_to_delete:
             logger.info(f"  ➜ [订阅清理] 准备删除 {len(records_to_delete)} 条分集整理记录。")
-            del_url = f"{moviepilot_url}/api/v1/history/transfer"
-            del_params = {"deletesrc": "false", "deletedest": "false"}
-            for rec in records_to_delete:
-                try:
-                    requests.delete(del_url, headers=headers, params=del_params, json=rec, timeout=10)
-                except Exception:
-                    pass
+            if gateway is not None:
+                prefix = _episode_residue_occurrence_prefix(tmdb_id, seasons)
+                for rec in records_to_delete:
+                    occurrence = f"{prefix}:history:{_transfer_history_record_identity(rec)}"
+                    if not gateway.delete_transfer_history(rec, operation_occurrence=occurrence):
+                        return False
+            else:
+                del_url = f"{moviepilot_url}/api/v1/history/transfer"
+                del_params = {"deletesrc": "false", "deletedest": "false"}
+                for rec in records_to_delete:
+                    try:
+                        requests.delete(del_url, headers=headers, params=del_params, json=rec, timeout=10)
+                    except Exception:
+                        pass
             logger.info("  ➜ [订阅清理] 分集整理记录删除完成。")
 
         if delete_files and hashes_to_delete:
@@ -1411,6 +1483,15 @@ def smart_cleanup_mp_episode_residue(tmdb_id: str, seasons: Optional[List[int]],
             all_tasks.extend(get_all_torrents_from_downloaders(config, moviepilot_url, headers))
             tasks_to_delete = _expand_hashes_with_same_data(hashes_to_delete, all_tasks, action_name="删除")
             for h in tasks_to_delete:
+                if gateway is not None:
+                    prefix = _episode_residue_occurrence_prefix(tmdb_id, seasons)
+                    normalized_hash = _normalize_hash(h) or str(h).strip().casefold()
+                    if not gateway.delete_download_tasks(
+                        [h],
+                        operation_occurrence=f"{prefix}:download:{normalized_hash}",
+                    ):
+                        return False
+                    continue
                 try:
                     res = requests.delete(f"{moviepilot_url}/api/v1/download/{h}", headers=headers, timeout=20)
                     ok = res.status_code in [200, 204]
@@ -1432,6 +1513,8 @@ def smart_cleanup_mp_episode_residue(tmdb_id: str, seasons: Optional[List[int]],
             logger.info(f"  ➜ [订阅清理] 《{title}》{seasons_text} 未发现可清理的分集残留。")
         return True
     except Exception as e:
+        if gateway is not None:
+            raise
         logger.error(f"  ➜ [订阅清理] 分集残留清理异常: {e}", exc_info=True)
         return False
 
@@ -1505,7 +1588,13 @@ def smart_cleanup_mp_media(tmdb_id: str, item_type: str, season: Optional[int], 
         logger.error(f"  ➜ [MP智能清理] 发生异常: {e}", exc_info=True)
         return False
 
-def delete_download_tasks(keyword: str, config: Dict[str, Any] = None, hashes: list = None) -> bool:
+def delete_download_tasks(
+    keyword: str,
+    config: Dict[str, Any] = None,
+    hashes: list = None,
+    *,
+    operation_occurrence: Optional[str] = None,
+) -> bool:
     """
     清理下载任务 - 安全版
     Strict Mode: 仅接受 hashes 列表进行精确删除。
@@ -1513,6 +1602,15 @@ def delete_download_tasks(keyword: str, config: Dict[str, Any] = None, hashes: l
     """
     if not hashes:
         return False
+
+    gateway = _current_persistent_effect_gateway()
+    if gateway is not None:
+        return bool(
+            gateway.delete_download_tasks(
+                hashes,
+                operation_occurrence=operation_occurrence,
+            )
+        )
 
     try:
         mp_config = settings_db.get_setting('mp_config') or {}
@@ -1633,6 +1731,9 @@ def update_subscription(payload: dict, config: Dict[str, Any] = None) -> bool:
     """
     【更新订阅】根据提供的 payload 更新订阅信息。
     """
+    gateway = _current_persistent_effect_gateway()
+    if gateway is not None:
+        return bool(gateway.update_subscription(payload))
     try:
         mp_config = settings_db.get_setting('mp_config') or {}
         moviepilot_url = mp_config.get('moviepilot_url', '').rstrip('/')
@@ -1652,6 +1753,9 @@ def update_subscription(payload: dict, config: Dict[str, Any] = None) -> bool:
 
 def search_subscription(sub_id: int, config: Dict[str, Any] = None) -> bool:
     """触发指定订阅的立即搜索"""
+    gateway = _current_persistent_effect_gateway()
+    if gateway is not None:
+        return bool(gateway.search_subscription(sub_id))
     try:
         mp_config = settings_db.get_setting('mp_config') or {}
         moviepilot_url = mp_config.get('moviepilot_url', '').rstrip('/')

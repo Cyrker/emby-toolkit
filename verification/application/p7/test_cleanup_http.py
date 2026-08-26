@@ -5,6 +5,7 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import pytest
 from fastapi import FastAPI
@@ -18,7 +19,7 @@ from etk.domains.subscription.cleanup import (
     CleanupService,
     CleanupVersionNotFoundError,
 )
-from etk.domains.subscription.cleanup_repository import CleanupExecutionConflictError
+from etk.domains.subscription.cleanup_repository import CleanupExecutionConflictError, CleanupExecutionSubmission
 from etk.domains.subscription.cleanup_router import router
 from etk.platform import AppContainer, Settings
 from etk.platform.web import CookieSessionMiddleware
@@ -174,7 +175,12 @@ class FakeExecution:
             raise self.raise_on_submit
         self.calls.append(normalized)
         self.options.append(dict(options))
-        return object()
+        return CleanupExecutionSubmission(
+            UUID("00000000-0000-0000-0000-000000000701"),
+            "fixture-cleanup-execution",
+            len(normalized),
+            reused=True,
+        )
 
     def submit_version_deletion(self, emby_id: str, **options: Any) -> object:
         self.events.append(f"execution:version:{emby_id}")
@@ -182,7 +188,12 @@ class FakeExecution:
             raise self.version_error
         self.version_calls.append(emby_id)
         self.options.append(dict(options))
-        return object()
+        return CleanupExecutionSubmission(
+            UUID("00000000-0000-0000-0000-000000000702"),
+            "fixture-cleanup-version",
+            1,
+            resumed=True,
+        )
 
 
 def _build_app(

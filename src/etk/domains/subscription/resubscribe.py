@@ -493,22 +493,6 @@ class SqlAlchemyResubscribeRepository:
                 )
                 reservation = self._operation_stager.stage(uow, intent)
                 operation_ids.append(reservation.operation.id)
-                uow.session.execute(
-                    text(
-                        """
-                        UPDATE resubscribe_index
-                        SET status = 'subscribed'
-                        WHERE tmdb_id = :tmdb_id
-                          AND item_type = :item_type
-                          AND season_number = :season_number
-                        """
-                    ),
-                    {
-                        "tmdb_id": key.tmdb_id,
-                        "item_type": key.item_type,
-                        "season_number": key.season_number,
-                    },
-                )
             uow.commit()
         return ResubscribeBatchReservation(tuple(operation_ids))
 
@@ -783,6 +767,12 @@ def _replacement_delete_intent(
         "tmdb_id": key.tmdb_id,
         "payload": _provider_payload(key, rule, media, policy),
         "expected": {},
+        "local_continuation": {
+            "type": "mark_resubscribe_subscribed",
+            "tmdb_id": key.tmdb_id,
+            "item_type": key.item_type,
+            "season": key.season_number,
+        },
     }
     if key.item_type == "Season":
         create_request["season"] = key.season_number

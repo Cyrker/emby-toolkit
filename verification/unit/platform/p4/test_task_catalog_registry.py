@@ -13,6 +13,7 @@ from etk.platform.tasks import (
     P4_NATIVE_TASK_KEYS,
     P5_NATIVE_TASK_KEYS,
     P6_NATIVE_TASK_KEYS,
+    P7_NATIVE_TASK_KEYS,
     LegacyTaskAdapter,
     ProcessorIdentity,
     TaskHandlerKind,
@@ -41,11 +42,11 @@ def test_frozen_registry_preserves_all_50_legacy_definitions_and_context_orders(
     assert len(definitions) == 50
     assert {definition.processor for definition in definitions} == set(ProcessorIdentity)
     assert {definition.key for definition in definitions if definition.handler_kind is TaskHandlerKind.NATIVE} == (
-        P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS
+        P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS | P7_NATIVE_TASK_KEYS
     )
-    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 33
-    assert fixture["metrics"]["native_handler_count"] == 17
-    assert fixture["metrics"]["legacy_adapter_count"] == 33
+    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 19
+    assert fixture["metrics"]["native_handler_count"] == 31
+    assert fixture["metrics"]["legacy_adapter_count"] == 19
     assert [definition.key for definition in registry.available(TaskVisibility.ALL)] == fixture["contexts"]["all"]
     assert [definition.key for definition in registry.available(TaskVisibility.CHAIN)] == fixture["contexts"]["chain"]
     assert [definition.key for definition in registry.available(TaskVisibility.MANUAL)] == fixture["contexts"]["manual"]
@@ -103,6 +104,10 @@ def test_ordered_fixture_matches_the_manifest_and_legacy_source_signatures() -> 
         assert item["legacy_function"] == manifest_entry["function"]
         assert item["registry_source"] == manifest_entry["source"]
         assert item["target_stage"] == manifest_entry["target_stage"]
+        assert manifest_entry["status"] == ("new" if item["handler_kind"] == "native" else "legacy")
+        if item["key"] in P7_NATIVE_TASK_KEYS:
+            assert manifest_entry["new_owner"] == ("etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter")
+            assert manifest_entry["ownership_layers"]["envelope_owner"] == manifest_entry["new_owner"]
 
         source_path, source_line = item["legacy_definition"].rsplit(":", 1)
         source_tree = ast.parse((REPO_ROOT / source_path).read_text(encoding="utf-8-sig"))
@@ -233,19 +238,19 @@ def test_legacy_adapter_rejects_native_keys_and_registry_mismatches_before_resol
 
     adapter = LegacyTaskAdapter(registry, Resolver())
 
-    with pytest.raises(ValueError, match="native P4 handler"):
+    with pytest.raises(ValueError, match="native task handler"):
         adapter.execute(registry.create_message("task-chain-high-freq"))
 
     wrong_processor = TaskMessage.create(
-        task_key="process-watchlist",
-        processor=ProcessorIdentity.MEDIA,
+        task_key="process-single-custom-collection",
+        processor=ProcessorIdentity.ACTOR,
     )
     with pytest.raises(ValueError, match="processor identity"):
         adapter.execute(wrong_processor)
 
     wrong_version = TaskMessage.create(
-        task_key="process-watchlist",
-        processor=ProcessorIdentity.WATCHLIST,
+        task_key="process-single-custom-collection",
+        processor=ProcessorIdentity.MEDIA,
         payload_version=2,
     )
     with pytest.raises(ValueError, match="payload version"):
@@ -254,7 +259,7 @@ def test_legacy_adapter_rejects_native_keys_and_registry_mismatches_before_resol
 
 def test_transport_and_adapter_revalidate_mutated_payloads_before_resolution() -> None:
     registry = _registry()
-    message = registry.create_message("process-watchlist", {"force_full_update": False})
+    message = registry.create_message("process-single-custom-collection", {"custom_collection_id": 42})
     cast(dict[str, object], message.payload.data)["callable"] = lambda: None
 
     class Resolver:

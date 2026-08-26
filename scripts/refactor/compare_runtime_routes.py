@@ -10,9 +10,7 @@ from manifest_common import REPO_ROOT, dump_json, load_json
 def _items(identities: set[tuple[str, str, str]]) -> list[dict[str, str]]:
     return [
         {"application": application, "method": method, "path": path}
-        for application, method, path in sorted(
-            identities, key=lambda item: (item[0], item[2], item[1])
-        )
+        for application, method, path in sorted(identities, key=lambda item: (item[0], item[2], item[1]))
     ]
 
 
@@ -24,13 +22,8 @@ def compare_runtime_routes(
     static = load_json(static_manifest)
     api_runtime = load_json(api_runtime_manifest)
     proxy_runtime = load_json(proxy_runtime_manifest)
-    static_unfiltered = {
-        (entry["application"], entry["method"], entry["path"])
-        for entry in static["method_bindings"]
-    }
-    static_normalized = {
-        identity for identity in static_unfiltered if identity[1] not in {"HEAD", "OPTIONS"}
-    }
+    static_unfiltered = {(entry["application"], entry["method"], entry["path"]) for entry in static["method_bindings"]}
+    static_normalized = {identity for identity in static_unfiltered if identity[1] not in {"HEAD", "OPTIONS"}}
     runtime_normalized: set[tuple[str, str, str]] = set()
     for application, runtime in (("api", api_runtime), ("proxy", proxy_runtime)):
         runtime_normalized.update(

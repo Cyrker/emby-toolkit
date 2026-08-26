@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -115,6 +115,28 @@ class FakeOperationRepository:
         )
         return self.operation
 
+    def mark_retryable(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        error: Mapping[str, Any],
+        retry_after_seconds: float,
+        now: datetime | None = None,
+    ) -> SubscriptionOperation:
+        self._claim(operation_id, claim_token)
+        self.operation = replace(
+            self.operation,
+            status=SubscriptionOperationStatus.RETRYABLE,
+            claimed_by=None,
+            claim_token=None,
+            claimed_at=None,
+            lease_expires_at=None,
+            error=dict(error),
+            available_at=(now or NOW) + timedelta(seconds=retry_after_seconds),
+        )
+        return self.operation
+
     def mark_remote_confirmed(
         self,
         operation_id: UUID,
@@ -146,6 +168,23 @@ class FakeOperationRepository:
             SubscriptionOperationStatus.CONFIRMED,
             result=dict(result),
             readback=dict(readback) if readback is not None else None,
+        )
+
+    def mark_confirmed_without_write(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        result: Mapping[str, Any],
+        readback: Mapping[str, Any],
+        now: datetime | None = None,
+    ) -> SubscriptionOperation:
+        return self.mark_confirmed(
+            operation_id,
+            claim_token,
+            result=result,
+            readback=readback,
+            now=now,
         )
 
     def mark_rejected(
@@ -274,6 +313,21 @@ class FakeMoviePilotGateway:
 
     def delete_subscription(self, tmdb_id: int | str, *, season: int | None = None) -> MoviePilotWriteResult:
         return self._write("delete", (str(tmdb_id), season))
+
+    def delete_subscription_by_id(self, subscription_id: int | str) -> MoviePilotWriteResult:
+        return self._write("delete_by_id", str(subscription_id))
+
+    def search_subscription(self, subscription_id: int | str) -> MoviePilotWriteResult:
+        return self._write("search", str(subscription_id))
+
+    def delete_download_tasks(self, hashes: Sequence[str]) -> MoviePilotWriteResult:
+        return self._write("delete_downloads", list(hashes))
+
+    def delete_transfer_history(self, record: Mapping[str, Any]) -> MoviePilotWriteResult:
+        return self._write("delete_transfer_history", dict(record))
+
+    def redo_transfer_history(self, history_ids: Sequence[int]) -> MoviePilotWriteResult:
+        return self._write("redo_transfer_history", list(history_ids))
 
     def _write(self, action: str, payload: Any) -> MoviePilotWriteResult:
         self.writes.append((action, payload))
@@ -583,3 +637,52 @@ def test_update_status_maps_the_typed_payload_without_shape_drift() -> None:
 
     assert result is not None and result.operation.status is SubscriptionOperationStatus.CONFIRMED
     assert gateway.writes == [("update_status", ("101", "S", 2, 12))]
+
+
+def test_transfer_history_delete_is_durable_and_does_not_require_readback() -> None:
+    record = {"id": 7, "tmdbid": 101, "seasons": "S02", "episodes": "E01"}
+    repository = FakeOperationRepository(
+        _operation(
+            {
+                "action": "delete_transfer_history",
+                "payload": {"record": record},
+                "expected": {},
+            }
+        )
+    )
+    gateway = FakeMoviePilotGateway()
+
+    result = SubscriptionOperationExecutor(repository, gateway).execute(
+        repository.operation.id,
+        worker_id="fixture-worker",
+        lease_seconds=60,
+        now=NOW,
+    )
+
+    assert result is not None and result.operation.status is SubscriptionOperationStatus.CONFIRMED
+    assert gateway.writes == [("delete_transfer_history", record)]
+    assert gateway.queries == []
+
+
+def test_transfer_history_delete_rejects_missing_record_before_provider_io() -> None:
+    repository = FakeOperationRepository(
+        _operation(
+            {
+                "action": "delete_transfer_history",
+                "payload": {},
+                "expected": {},
+            }
+        )
+    )
+    gateway = FakeMoviePilotGateway()
+
+    result = SubscriptionOperationExecutor(repository, gateway).execute(
+        repository.operation.id,
+        worker_id="fixture-worker",
+        lease_seconds=60,
+        now=NOW,
+    )
+
+    assert result is not None and result.operation.status is SubscriptionOperationStatus.REJECTED
+    assert result.operation.provider_request_started_at is None
+    assert gateway.writes == []

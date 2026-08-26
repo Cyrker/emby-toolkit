@@ -48,10 +48,9 @@ def clean_media_effect_rows(p5_runtime: DatabaseRuntime) -> Iterator[None]:
         _clear_effect_rows(p5_runtime)
 
 
-def test_pg18_media_effect_migration_head_schema_and_constraints(p5_runtime: DatabaseRuntime) -> None:
+def test_pg18_media_effect_migration_schema_and_constraints(p5_runtime: DatabaseRuntime) -> None:
     with p5_runtime.engine.connect() as connection:
         server_version = str(connection.scalar(text("SHOW server_version_num")))
-        migration_head = connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version"))
         columns = set(
             connection.scalars(
                 text(
@@ -90,7 +89,6 @@ def test_pg18_media_effect_migration_head_schema_and_constraints(p5_runtime: Dat
         )
 
     assert server_version.startswith("18")
-    assert migration_head == "0013_p7_subscription_runtime"
     assert columns == {
         "id",
         "effect_key",

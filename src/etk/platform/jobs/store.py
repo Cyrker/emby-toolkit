@@ -27,6 +27,7 @@ from .types import (
     HeartbeatResult,
     IdempotencyConflictError,
     InvalidStateTransitionError,
+    JobCancellationPolicy,
     JobNotFoundError,
     JobProjection,
     JobStatus,
@@ -46,9 +47,15 @@ _SERIAL_CLAIM_LOCK_KEY = 5
 class PostgresJobStore:
     """Synchronous PostgreSQL source of truth for P4 jobs and delivery state."""
 
-    def __init__(self, uow_factory: UnitOfWorkFactory, execution_guard: ExecutionGuard | None = None):
+    def __init__(
+        self,
+        uow_factory: UnitOfWorkFactory,
+        execution_guard: ExecutionGuard | None = None,
+        cancellation_policy: JobCancellationPolicy | None = None,
+    ):
         self._uow_factory = uow_factory
         self._execution_guard = execution_guard
+        self._cancellation_policy = cancellation_policy
 
     def create_job(
         self,
@@ -275,6 +282,14 @@ class PostgresJobStore:
             if status.terminal:
                 return _require_projection(repository.projection(job_id), job_id)
             if status in {JobStatus.QUEUED, JobStatus.RETRY_WAIT}:
+                if self._cancellation_policy is not None and self._cancellation_policy.preserve_recovery_on_cancel(
+                    uow,
+                    job=job,
+                    attempt=attempt,
+                ):
+                    projection = _require_projection(repository.projection(job_id), job_id)
+                    uow.commit()
+                    return projection
                 if AttemptStatus(attempt["status"]) is AttemptStatus.CREATED:
                     repository.mark_attempt_terminal(
                         attempt["id"],

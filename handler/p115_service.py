@@ -11267,9 +11267,11 @@ def _p115_remote_node_exists(client, node_id, parent_id):
                 if item_id == node_id:
                     return True
             if len(items) < limit:
-                return False
+                break
             offset += limit
 
+    # A frozen parent directory is only a lookup accelerator. Files can move
+    # without changing FID, so absence from that directory is not authoritative.
     response = client.fs_get_info(node_id)
     if isinstance(response, dict) and response.get('state'):
         data = response.get('data') or {}

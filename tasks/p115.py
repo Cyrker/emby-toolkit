@@ -3704,6 +3704,8 @@ def task_recalculate_library_washing_priorities(
                 processed_scope,
             )
         except Exception as e:
+            stats['errors'] += 1
+            stats['scope_acknowledged'] = False
             logger.warning(f"  ➜ [洗版优先级重算] 清理已处理影响范围失败: {e}", exc_info=True)
 
     stats['finished_at'] = datetime.utcnow().isoformat() + 'Z'

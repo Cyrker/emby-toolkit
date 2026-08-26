@@ -42,10 +42,8 @@ def compare(expected: Any, actual: Any, ignored: set[str] | None = None) -> list
             return
         if isinstance(left, list):
             if len(left) != len(right):
-                differences.append(
-                    {"path": pointer, "kind": "length", "expected": len(left), "actual": len(right)}
-                )
-            for index, (left_item, right_item) in enumerate(zip(left, right)):
+                differences.append({"path": pointer, "kind": "length", "expected": len(left), "actual": len(right)})
+            for index, (left_item, right_item) in enumerate(zip(left, right, strict=False)):
                 visit(left_item, right_item, [*parts, str(index)])
             return
         if left != right:

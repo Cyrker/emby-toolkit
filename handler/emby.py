@@ -1211,7 +1211,8 @@ def get_emby_library_items(
     sort_by: Optional[str] = None,
     sort_order: Optional[str] = "Descending",
     limit: Optional[int] = None,
-    force_user_endpoint: bool = False
+    force_user_endpoint: bool = False,
+    require_complete: bool = False,
 ) -> Optional[List[Dict[str, Any]]]:
     if not base_url or not api_key:
         logger.error("get_emby_library_items: base_url 或 api_key 未提供。")
@@ -1243,6 +1244,7 @@ def get_emby_library_items(
         return []
 
     all_items_from_selected_libraries: List[Dict[str, Any]] = []
+    failed_library_ids: List[str] = []
     for lib_id in library_ids:
         if not lib_id or not lib_id.strip():
             continue
@@ -1287,7 +1289,12 @@ def get_emby_library_items(
         
         except Exception as e:
             logger.error(f"请求库 '{library_name}' 中的项目失败: {e}", exc_info=True)
+            failed_library_ids.append(lib_id)
             continue
+
+    if require_complete and failed_library_ids:
+        logger.error("媒体库项目读取不完整，失败库: %s", failed_library_ids)
+        return None
 
     type_to_chinese = {"Movie": "电影", "Series": "电视剧", "Video": "视频", "MusicAlbum": "音乐专辑"}
     media_type_in_chinese = ""

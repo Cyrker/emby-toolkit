@@ -44,11 +44,12 @@ class _Gateway:
     def __init__(self) -> None:
         self.writes = 0
         self.queries = 0
+        self.query_result = MoviePilotQueryResult(MoviePilotQueryDisposition.EMPTY, None)
 
     def query_subscription(self, tmdb_id: int | str, *, season: int | None = None) -> MoviePilotQueryResult:
         del tmdb_id, season
         self.queries += 1
-        return MoviePilotQueryResult(MoviePilotQueryDisposition.EMPTY, None)
+        return self.query_result
 
     def create_subscription(self, payload: Mapping[str, Any]) -> MoviePilotWriteResult:
         del payload
@@ -171,7 +172,7 @@ def test_resubscribe_stages_index_operation_quota_and_outbox_in_one_transaction(
             .one()
         )
     assert dict(state) == {
-        "index_status": "subscribed",
+        "index_status": "needed",
         "operation_status": "ready",
         "quota_status": "reserved",
         "outbox_status": "pending",
@@ -289,3 +290,17 @@ def test_delete_confirmation_atomically_commits_quota_and_stages_one_create_cont
     assert rows[1]["available_at"] >= now + timedelta(seconds=2)
     assert quota_status == "committed"
     assert [row["status"] for row in outbox] == ["processed", "pending"]
+
+    gateway.query_result = MoviePilotQueryResult(
+        MoviePilotQueryDisposition.FOUND,
+        {"id": 806, "tmdbid": 806, "state": "R"},
+    )
+    created = executor.execute(
+        rows[1]["id"],
+        worker_id="fixture-resubscribe",
+        lease_seconds=30,
+        now=now + timedelta(seconds=3),
+    )
+    assert created is not None and created.operation.status.value == "confirmed"
+    with p7_runtime.engine.connect() as connection:
+        assert connection.scalar(text("SELECT status FROM resubscribe_index WHERE tmdb_id = '806'")) == "subscribed"

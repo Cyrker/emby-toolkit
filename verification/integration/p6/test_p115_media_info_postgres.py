@@ -110,11 +110,10 @@ def _insert_restore_row(runtime: DatabaseRuntime) -> None:
         )
 
 
-def test_p6_6_migration_is_head_and_declares_revisioned_cache(
+def test_p6_6_migration_declares_revisioned_cache(
     p6_runtime: DatabaseRuntime,
 ) -> None:
     with p6_runtime.engine.connect() as connection:
-        head = connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version"))
         columns = {
             row["column_name"]
             for row in connection.execute(
@@ -129,7 +128,6 @@ def test_p6_6_migration_is_head_and_declares_revisioned_cache(
             ).mappings()
         }
         probe_table = connection.scalar(text("SELECT to_regclass('public.p115_media_probe_items')"))
-    assert head == "0013_p7_subscription_runtime"
     assert columns >= {
         "updated_at",
         "cache_revision",

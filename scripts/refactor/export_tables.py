@@ -15,7 +15,6 @@ from manifest_common import (
     stable_id,
 )
 
-
 TABLE_OWNER_RULES: list[tuple[set[str], list[str], str]] = [
     ({"processed_log", "failed_log"}, ["operations"], "P3"),
     ({"app_settings"}, ["system"], "P2"),
@@ -177,23 +176,26 @@ def export_tables() -> dict[str, Any]:
                 constraints.append(definition)
                 continue
             columns.append({"name": column_match.group(1), "definition": column_match.group(2)})
-        entry = apply_contract_override({
-            "contract_id": stable_id("table", name),
-            "name": name,
-            "source": f"{rel}:{line}",
-            "create_sql": _normalized_sql(sql),
-            "columns_static": columns,
-            "constraints_static": constraints,
-            "indexes_static": [],
-            "post_create_alters": [],
-            "target_domains": domains,
-            "target_stage": stage,
-            "status": "legacy",
-            "new_owner": None,
-            "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
-            "validation_owner": "/".join(domains),
-            "validation_method": "postgres-schema-contract",
-        }, "tables")
+        entry = apply_contract_override(
+            {
+                "contract_id": stable_id("table", name),
+                "name": name,
+                "source": f"{rel}:{line}",
+                "create_sql": _normalized_sql(sql),
+                "columns_static": columns,
+                "constraints_static": constraints,
+                "indexes_static": [],
+                "post_create_alters": [],
+                "target_domains": domains,
+                "target_stage": stage,
+                "status": "legacy",
+                "new_owner": None,
+                "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
+                "validation_owner": "/".join(domains),
+                "validation_method": "postgres-schema-contract",
+            },
+            "tables",
+        )
         if name in table_by_name:
             raise ValueError(f"duplicate CREATE TABLE for {name}")
         table_by_name[name] = entry
@@ -235,11 +237,7 @@ def export_tables() -> dict[str, Any]:
     index_names: dict[str, list[dict[str, Any]]] = {}
     for item in indexes:
         index_names.setdefault(item["name"], []).append(item)
-    duplicate_indexes = {
-        name: definitions
-        for name, definitions in sorted(index_names.items())
-        if len(definitions) > 1
-    }
+    duplicate_indexes = {name: definitions for name, definitions in sorted(index_names.items()) if len(definitions) > 1}
     return {
         "schema_version": 1,
         "generator": "scripts/refactor/export_tables.py",

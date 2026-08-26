@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -16,7 +16,7 @@ from .moviepilot import (
     MoviePilotWriteOutcome,
     MoviePilotWriteResult,
 )
-from .operations import SubscriptionOperation
+from .operations import SubscriptionOperation, SubscriptionOperationStatus
 
 
 class SubscriptionProviderAction(StrEnum):
@@ -24,6 +24,11 @@ class SubscriptionProviderAction(StrEnum):
     UPDATE = "update"
     UPDATE_STATUS = "update_status"
     DELETE = "delete"
+    DELETE_BY_ID = "delete_by_id"
+    SEARCH = "search"
+    DELETE_DOWNLOADS = "delete_downloads"
+    DELETE_TRANSFER_HISTORY = "delete_transfer_history"
+    REDO_TRANSFER_HISTORY = "redo_transfer_history"
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,10 +40,20 @@ class SubscriptionOperationExecution:
 @dataclass(frozen=True, slots=True)
 class _WritePlan:
     action: SubscriptionProviderAction
-    tmdb_id: str
+    tmdb_id: str | None
     season: int | None
+    subscription_id: str | None
     payload: Mapping[str, Any]
     expected: Mapping[str, Any]
+
+    @property
+    def supports_authoritative_readback(self) -> bool:
+        return self.action in {
+            SubscriptionProviderAction.CREATE,
+            SubscriptionProviderAction.UPDATE,
+            SubscriptionProviderAction.UPDATE_STATUS,
+            SubscriptionProviderAction.DELETE,
+        }
 
 
 class MoviePilotOperationGateway(Protocol):
@@ -68,6 +83,16 @@ class MoviePilotOperationGateway(Protocol):
         *,
         season: int | None = None,
     ) -> MoviePilotWriteResult: ...
+
+    def delete_subscription_by_id(self, subscription_id: int | str) -> MoviePilotWriteResult: ...
+
+    def search_subscription(self, subscription_id: int | str) -> MoviePilotWriteResult: ...
+
+    def delete_download_tasks(self, hashes: Sequence[str]) -> MoviePilotWriteResult: ...
+
+    def delete_transfer_history(self, record: Mapping[str, Any]) -> MoviePilotWriteResult: ...
+
+    def redo_transfer_history(self, history_ids: Sequence[int]) -> MoviePilotWriteResult: ...
 
 
 class SubscriptionOperationRepositoryPort(Protocol):
@@ -100,6 +125,16 @@ class SubscriptionOperationRepositoryPort(Protocol):
         now: datetime | None = None,
     ) -> SubscriptionOperation: ...
 
+    def mark_retryable(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        error: Mapping[str, Any],
+        retry_after_seconds: float,
+        now: datetime | None = None,
+    ) -> SubscriptionOperation: ...
+
     def mark_remote_confirmed(
         self,
         operation_id: UUID,
@@ -116,6 +151,16 @@ class SubscriptionOperationRepositoryPort(Protocol):
         *,
         result: Mapping[str, Any],
         readback: Mapping[str, Any] | None = None,
+        now: datetime | None = None,
+    ) -> SubscriptionOperation: ...
+
+    def mark_confirmed_without_write(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        result: Mapping[str, Any],
+        readback: Mapping[str, Any],
         now: datetime | None = None,
     ) -> SubscriptionOperation: ...
 
@@ -210,14 +255,25 @@ class SubscriptionOperationExecutor:
             return SubscriptionOperationExecution(rejected, claimed=True)
 
         if operation.provider_request_started_at is not None:
-            recovered = self._readback(operation, claim_token, plan, now=now)
+            recovered = (
+                self._readback(operation, claim_token, plan, now=now)
+                if plan.supports_authoritative_readback
+                else self._recover_without_readback(operation, claim_token, plan, now=now)
+            )
             return SubscriptionOperationExecution(recovered, claimed=True)
 
         if self._repository.is_cancel_requested(operation.id, claim_token, now=now):
             current = self._repository.read(operation.id)
             return SubscriptionOperationExecution(current, claimed=True) if current is not None else None
 
+        if operation.request.get("preflight_readback") is True and plan.supports_authoritative_readback:
+            preflight = self._preflight(operation, claim_token, plan, now=now)
+            if preflight is not None:
+                return SubscriptionOperationExecution(preflight, claimed=True)
+
         requesting = self._repository.mark_requesting(operation.id, claim_token, now=now)
+        if requesting.status is not SubscriptionOperationStatus.REQUESTING:
+            return SubscriptionOperationExecution(requesting, claimed=True)
 
         try:
             write_result = self._write(plan)
@@ -226,7 +282,16 @@ class SubscriptionOperationExecutor:
             if exc.outcome is MoviePilotWriteOutcome.REJECTED and exc.kind is not MoviePilotProviderErrorKind.CONFLICT:
                 rejected = self._repository.mark_rejected(operation.id, claim_token, error=error, now=now)
                 return SubscriptionOperationExecution(rejected, claimed=True)
-            recovered = self._readback(requesting, claim_token, plan, prior_error=error, now=now)
+            recovered = (
+                self._readback(requesting, claim_token, plan, prior_error=error, now=now)
+                if plan.supports_authoritative_readback
+                else self._repository.mark_indeterminate(
+                    operation.id,
+                    claim_token,
+                    error={**error, "action": plan.action.value, "authoritative_readback": False},
+                    now=now,
+                )
+            )
             return SubscriptionOperationExecution(recovered, claimed=True)
         except (TypeError, ValueError) as exc:
             rejected = self._repository.mark_rejected(
@@ -240,12 +305,16 @@ class SubscriptionOperationExecutor:
             )
             return SubscriptionOperationExecution(rejected, claimed=True)
         except Exception as exc:
-            recovered = self._readback(
-                requesting,
-                claim_token,
-                plan,
-                prior_error={"type": "provider_unexpected_error", "error_class": type(exc).__name__},
-                now=now,
+            error = {"type": "provider_unexpected_error", "error_class": type(exc).__name__}
+            recovered = (
+                self._readback(requesting, claim_token, plan, prior_error=error, now=now)
+                if plan.supports_authoritative_readback
+                else self._repository.mark_indeterminate(
+                    operation.id,
+                    claim_token,
+                    error={**error, "action": plan.action.value, "authoritative_readback": False},
+                    now=now,
+                )
             )
             return SubscriptionOperationExecution(recovered, claimed=True)
 
@@ -259,7 +328,17 @@ class SubscriptionOperationExecutor:
             },
             now=now,
         )
-        reconciled = self._readback(remote_confirmed, claim_token, plan, now=now)
+        reconciled = (
+            self._readback(remote_confirmed, claim_token, plan, now=now)
+            if plan.supports_authoritative_readback
+            else self._repository.mark_confirmed(
+                operation.id,
+                claim_token,
+                result={"action": plan.action.value, "provider_response_confirmed": True},
+                readback={"disposition": "provider_accepted", "authoritative_readback": False},
+                now=now,
+            )
+        )
         return SubscriptionOperationExecution(reconciled, claimed=True)
 
     def _write(self, plan: _WritePlan) -> MoviePilotWriteResult:
@@ -271,12 +350,91 @@ class SubscriptionOperationExecutor:
             status = str(plan.payload["status"])
             total_episodes = _optional_nonnegative_int(plan.payload.get("total_episodes"), "total_episodes")
             return self._gateway.update_subscription_status(
-                plan.tmdb_id,
+                _required_plan_tmdb_id(plan),
                 status,
                 season=plan.season,
                 total_episodes=total_episodes,
             )
-        return self._gateway.delete_subscription(plan.tmdb_id, season=plan.season)
+        if plan.action is SubscriptionProviderAction.DELETE:
+            return self._gateway.delete_subscription(_required_plan_tmdb_id(plan), season=plan.season)
+        if plan.action is SubscriptionProviderAction.DELETE_BY_ID:
+            return self._gateway.delete_subscription_by_id(_required_subscription_id(plan))
+        if plan.action is SubscriptionProviderAction.SEARCH:
+            return self._gateway.search_subscription(_required_subscription_id(plan))
+        if plan.action is SubscriptionProviderAction.DELETE_DOWNLOADS:
+            return self._gateway.delete_download_tasks(_string_sequence(plan.payload.get("hashes"), "hashes"))
+        if plan.action is SubscriptionProviderAction.DELETE_TRANSFER_HISTORY:
+            return self._gateway.delete_transfer_history(
+                _mapping(plan.payload.get("record"), "record"),
+            )
+        if plan.action is SubscriptionProviderAction.REDO_TRANSFER_HISTORY:
+            return self._gateway.redo_transfer_history(
+                _positive_int_sequence(plan.payload.get("history_ids"), "history_ids")
+            )
+        raise AssertionError(f"unsupported subscription provider action: {plan.action.value}")
+
+    def _preflight(
+        self,
+        operation: SubscriptionOperation,
+        claim_token: UUID,
+        plan: _WritePlan,
+        *,
+        now: datetime | None,
+    ) -> SubscriptionOperation | None:
+        try:
+            readback = self._gateway.query_subscription(_required_plan_tmdb_id(plan), season=plan.season)
+        except MoviePilotProviderError as exc:
+            return self._repository.mark_retryable(
+                operation.id,
+                claim_token,
+                error={"type": "preflight_readback_failed", **_provider_error(exc)},
+                retry_after_seconds=self._readback_delay_seconds,
+                now=now,
+            )
+        except Exception as exc:
+            return self._repository.mark_retryable(
+                operation.id,
+                claim_token,
+                error={"type": "preflight_readback_failed", "error_class": type(exc).__name__},
+                retry_after_seconds=self._readback_delay_seconds,
+                now=now,
+            )
+        if not _desired_state_observed(plan, readback):
+            return None
+        return self._repository.mark_confirmed_without_write(
+            operation.id,
+            claim_token,
+            result={"action": plan.action.value, "provider_write_invoked": False},
+            readback=_readback_projection(readback),
+            now=now,
+        )
+
+    def _recover_without_readback(
+        self,
+        operation: SubscriptionOperation,
+        claim_token: UUID,
+        plan: _WritePlan,
+        *,
+        now: datetime | None,
+    ) -> SubscriptionOperation:
+        if operation.provider_receipt is not None:
+            return self._repository.mark_confirmed(
+                operation.id,
+                claim_token,
+                result={"action": plan.action.value, "provider_response_confirmed": True},
+                readback={"disposition": "provider_accepted", "authoritative_readback": False},
+                now=now,
+            )
+        return self._repository.mark_indeterminate(
+            operation.id,
+            claim_token,
+            error={
+                "type": "provider_outcome_unknown_without_readback",
+                "action": plan.action.value,
+                "authoritative_readback": False,
+            },
+            now=now,
+        )
 
     def _readback(
         self,
@@ -288,7 +446,7 @@ class SubscriptionOperationExecutor:
         now: datetime | None,
     ) -> SubscriptionOperation:
         try:
-            readback = self._gateway.query_subscription(plan.tmdb_id, season=plan.season)
+            readback = self._gateway.query_subscription(_required_plan_tmdb_id(plan), season=plan.season)
         except MoviePilotProviderError as exc:
             return self._defer_or_terminalize(
                 operation,
@@ -364,8 +522,20 @@ def _write_plan(operation: SubscriptionOperation) -> _WritePlan:
     except ValueError as exc:
         raise ValueError("unsupported subscription provider action") from exc
     tmdb_id = str(request.get("tmdb_id") or request.get("tmdbid") or "").strip()
-    if not tmdb_id:
+    subscription_id = str(request.get("subscription_id") or "").strip()
+    if (
+        action
+        in {
+            SubscriptionProviderAction.CREATE,
+            SubscriptionProviderAction.UPDATE,
+            SubscriptionProviderAction.UPDATE_STATUS,
+            SubscriptionProviderAction.DELETE,
+        }
+        and not tmdb_id
+    ):
         raise ValueError("subscription provider operation requires tmdb_id")
+    if action in {SubscriptionProviderAction.DELETE_BY_ID, SubscriptionProviderAction.SEARCH} and not subscription_id:
+        raise ValueError("subscription provider operation requires subscription_id")
     season = _optional_nonnegative_int(request.get("season"), "season")
     payload = request.get("payload", {})
     expected = request.get("expected", {})
@@ -379,7 +549,13 @@ def _write_plan(operation: SubscriptionOperation) -> _WritePlan:
         if status not in {"P", "R", "S"}:
             raise ValueError("subscription provider status operation requires P, R, or S")
         normalized_payload["status"] = status
-    return _WritePlan(action, tmdb_id, season, normalized_payload, dict(expected))
+    if action is SubscriptionProviderAction.DELETE_DOWNLOADS:
+        _string_sequence(normalized_payload.get("hashes"), "hashes")
+    if action is SubscriptionProviderAction.DELETE_TRANSFER_HISTORY:
+        _mapping(normalized_payload.get("record"), "record")
+    if action is SubscriptionProviderAction.REDO_TRANSFER_HISTORY:
+        _positive_int_sequence(normalized_payload.get("history_ids"), "history_ids")
+    return _WritePlan(action, tmdb_id or None, season, subscription_id or None, normalized_payload, dict(expected))
 
 
 def _desired_state_observed(plan: _WritePlan, readback: MoviePilotQueryResult) -> bool:
@@ -391,6 +567,53 @@ def _desired_state_observed(plan: _WritePlan, readback: MoviePilotQueryResult) -
         if readback.subscription.get(key) != expected:
             return False
     return True
+
+
+def _required_plan_tmdb_id(plan: _WritePlan) -> str:
+    if plan.tmdb_id is None:
+        raise ValueError(f"subscription provider action {plan.action.value!r} requires tmdb_id")
+    return plan.tmdb_id
+
+
+def _required_subscription_id(plan: _WritePlan) -> str:
+    if plan.subscription_id is None:
+        raise ValueError(f"subscription provider action {plan.action.value!r} requires subscription_id")
+    return plan.subscription_id
+
+
+def _string_sequence(value: object, field: str) -> tuple[str, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        raise TypeError(f"subscription provider {field} must be an array")
+    normalized = tuple(dict.fromkeys(str(item or "").strip() for item in value if str(item or "").strip()))
+    if not normalized:
+        raise ValueError(f"subscription provider {field} must not be empty")
+    return normalized
+
+
+def _mapping(value: object, field: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping) or not value:
+        raise TypeError(f"subscription provider {field} must be a non-empty object")
+    return dict(value)
+
+
+def _positive_int_sequence(value: object, field: str) -> tuple[int, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        raise TypeError(f"subscription provider {field} must be an array")
+    normalized: list[int] = []
+    for item in value:
+        if isinstance(item, bool):
+            raise ValueError(f"subscription provider {field} values must be positive integers")
+        try:
+            number = int(item)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"subscription provider {field} values must be positive integers") from exc
+        if number < 1:
+            raise ValueError(f"subscription provider {field} values must be positive integers")
+        if number not in normalized:
+            normalized.append(number)
+    if not normalized:
+        raise ValueError(f"subscription provider {field} must not be empty")
+    return tuple(normalized)
 
 
 def _readback_projection(readback: MoviePilotQueryResult) -> dict[str, Any]:

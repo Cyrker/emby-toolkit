@@ -203,6 +203,19 @@
         "title": "CastUpdateResponse",
         "type": "object"
       },
+      "CleanupMessageResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "CleanupMessageResponse",
+        "type": "object"
+      },
       "ConfigurationResponse": {
         "additionalProperties": true,
         "title": "ConfigurationResponse",
@@ -2388,6 +2401,437 @@
         ]
       }
     },
+    "/api/cleanup/clear_all": {
+      "post": {
+        "operationId": "clear_all_cleanup_tasks_api_cleanup_clear_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Clear All Cleanup Tasks Api Cleanup Clear All Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible cleanup response"
+          },
+          "202": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "403": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "409": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "500": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "503": {
+            "description": "Legacy-compatible cleanup response"
+          }
+        },
+        "summary": "Clear All Cleanup Tasks",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/cleanup/delete": {
+      "post": {
+        "operationId": "delete_cleanup_tasks_api_cleanup_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "task_ids": {
+                    "items": {},
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "task_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Cleanup Tasks Api Cleanup Delete Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible cleanup response"
+          },
+          "400": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "403": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "409": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "415": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "500": {
+            "description": "Legacy-compatible cleanup response"
+          }
+        },
+        "summary": "Delete Cleanup Tasks",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/cleanup/delete_version": {
+      "post": {
+        "operationId": "delete_single_version_api_cleanup_delete_version_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "emby_id": {
+                    "type": [
+                      "string",
+                      "integer"
+                    ]
+                  }
+                },
+                "required": [
+                  "emby_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupMessageResponse"
+                }
+              }
+            },
+            "description": "Legacy-compatible cleanup response"
+          },
+          "400": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "403": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "404": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "409": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "415": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "500": {
+            "description": "Legacy-compatible cleanup response"
+          }
+        },
+        "summary": "Delete Single Version",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/cleanup/execute": {
+      "post": {
+        "operationId": "execute_cleanup_tasks_api_cleanup_execute_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "task_ids": {
+                    "items": {},
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "task_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupMessageResponse"
+                }
+              }
+            },
+            "description": "Legacy-compatible cleanup response"
+          },
+          "400": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "403": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "409": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "415": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "500": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "503": {
+            "description": "Legacy-compatible cleanup response"
+          }
+        },
+        "summary": "Execute Cleanup Tasks",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/cleanup/ignore": {
+      "post": {
+        "operationId": "ignore_cleanup_tasks_api_cleanup_ignore_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "task_ids": {
+                    "items": {},
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "task_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Ignore Cleanup Tasks Api Cleanup Ignore Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible cleanup response"
+          },
+          "400": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "403": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "409": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "415": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "500": {
+            "description": "Legacy-compatible cleanup response"
+          }
+        },
+        "summary": "Ignore Cleanup Tasks",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/cleanup/scan": {
+      "post": {
+        "operationId": "trigger_cleanup_scan_api_cleanup_scan_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Trigger Cleanup Scan Api Cleanup Scan Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible cleanup response"
+          },
+          "403": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "409": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "500": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "503": {
+            "description": "Legacy-compatible cleanup response"
+          }
+        },
+        "summary": "Trigger Cleanup Scan",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/cleanup/settings": {
+      "get": {
+        "operationId": "get_cleanup_settings_api_cleanup_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Cleanup Settings Api Cleanup Settings Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible cleanup response"
+          },
+          "403": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "500": {
+            "description": "Legacy-compatible cleanup response"
+          }
+        },
+        "summary": "Get Cleanup Settings",
+        "tags": [
+          "subscription"
+        ]
+      },
+      "post": {
+        "operationId": "save_cleanup_settings_api_cleanup_settings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "delete_delay": {},
+                  "keep_one_per_res": {},
+                  "library_ids": {
+                    "items": {},
+                    "type": "array"
+                  },
+                  "manual_delete_without_confirm": {},
+                  "rules": {
+                    "items": {
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "rules",
+                  "library_ids"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Cleanup Settings Api Cleanup Settings Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible cleanup response"
+          },
+          "400": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "403": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "415": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "500": {
+            "description": "Legacy-compatible cleanup response"
+          }
+        },
+        "summary": "Save Cleanup Settings",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/cleanup/tasks": {
+      "get": {
+        "operationId": "get_cleanup_tasks_api_cleanup_tasks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Get Cleanup Tasks Api Cleanup Tasks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Legacy-compatible cleanup response"
+          },
+          "403": {
+            "description": "Legacy-compatible cleanup response"
+          },
+          "500": {
+            "description": "Legacy-compatible cleanup response"
+          }
+        },
+        "summary": "Get Cleanup Tasks",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
     "/api/config": {
       "get": {
         "operationId": "read_config_api_config_get",
@@ -3722,6 +4166,62 @@
         "summary": "View Log File",
         "tags": [
           "operations"
+        ]
+      }
+    },
+    "/api/media/batch_delete": {
+      "post": {
+        "operationId": "batch_delete_api_media_batch_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "items": {
+                    "items": {
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Batch Delete Api Media Batch Delete Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible subscription response"
+          },
+          "400": {
+            "description": "Legacy-compatible subscription response"
+          },
+          "403": {
+            "description": "Legacy-compatible subscription response"
+          },
+          "409": {
+            "description": "Legacy-compatible subscription response"
+          },
+          "415": {
+            "description": "Legacy-compatible subscription response"
+          },
+          "500": {
+            "description": "Legacy-compatible subscription response"
+          }
+        },
+        "summary": "Batch Delete",
+        "tags": [
+          "subscription"
         ]
       }
     },
@@ -8839,6 +9339,408 @@
         ]
       }
     },
+    "/api/resubscribe/batch_action": {
+      "post": {
+        "operationId": "batch_action_api_resubscribe_batch_action_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "action": {
+                    "type": "string"
+                  },
+                  "item_ids": {
+                    "oneOf": [
+                      {
+                        "items": {},
+                        "type": "array"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Batch Action Api Resubscribe Batch Action Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "202": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "400": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "403": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "409": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "415": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "500": {
+            "description": "Legacy-compatible resubscribe response"
+          }
+        },
+        "summary": "Batch Action",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/resubscribe/libraries": {
+      "get": {
+        "operationId": "libraries_api_resubscribe_libraries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Libraries Api Resubscribe Libraries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "403": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "500": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "503": {
+            "description": "Legacy-compatible resubscribe response"
+          }
+        },
+        "summary": "Libraries",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/resubscribe/library_status": {
+      "get": {
+        "operationId": "list_library_status_api_resubscribe_library_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Library Status Api Resubscribe Library Status Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "403": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "500": {
+            "description": "Legacy-compatible resubscribe response"
+          }
+        },
+        "summary": "List Library Status",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/resubscribe/refresh_status": {
+      "post": {
+        "operationId": "refresh_status_api_resubscribe_refresh_status_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Refresh Status Api Resubscribe Refresh Status Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "403": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "409": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "500": {
+            "description": "Legacy-compatible resubscribe response"
+          }
+        },
+        "summary": "Refresh Status",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/resubscribe/resubscribe_all": {
+      "post": {
+        "operationId": "resubscribe_all_api_resubscribe_resubscribe_all_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resubscribe All Api Resubscribe Resubscribe All Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "403": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "409": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "500": {
+            "description": "Legacy-compatible resubscribe response"
+          }
+        },
+        "summary": "Resubscribe All",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/resubscribe/rules": {
+      "get": {
+        "operationId": "list_rules_api_resubscribe_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Rules Api Resubscribe Rules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "403": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "500": {
+            "description": "Legacy-compatible resubscribe response"
+          }
+        },
+        "summary": "List Rules",
+        "tags": [
+          "subscription"
+        ]
+      },
+      "post": {
+        "operationId": "create_rule_api_resubscribe_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Rule Api Resubscribe Rules Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "400": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "403": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "409": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "415": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "500": {
+            "description": "Legacy-compatible resubscribe response"
+          }
+        },
+        "summary": "Create Rule",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/resubscribe/rules/order": {
+      "post": {
+        "operationId": "order_rules_api_resubscribe_rules_order_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {},
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Order Rules Api Resubscribe Rules Order Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "400": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "403": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "415": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "500": {
+            "description": "Legacy-compatible resubscribe response"
+          }
+        },
+        "summary": "Order Rules",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/resubscribe/rules/{rule_id}": {
+      "delete": {
+        "operationId": "delete_rule_api_resubscribe_rules__rule_id__delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Rule Api Resubscribe Rules  Rule Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "403": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "404": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "500": {
+            "description": "Legacy-compatible resubscribe response"
+          }
+        },
+        "summary": "Delete Rule",
+        "tags": [
+          "subscription"
+        ]
+      },
+      "put": {
+        "operationId": "update_rule_api_resubscribe_rules__rule_id__put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Rule Api Resubscribe Rules  Rule Id  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "400": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "403": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "404": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "415": {
+            "description": "Legacy-compatible resubscribe response"
+          },
+          "500": {
+            "description": "Legacy-compatible resubscribe response"
+          }
+        },
+        "summary": "Update Rule",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
     "/api/review_items": {
       "get": {
         "operationId": "review_items_api_review_items_get",
@@ -8899,6 +9801,258 @@
         "summary": "Get Runtime Status",
         "tags": [
           "operations"
+        ]
+      }
+    },
+    "/api/subscription/mp/config": {
+      "get": {
+        "operationId": "get_moviepilot_config_api_subscription_mp_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Moviepilot Config Api Subscription Mp Config Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "403": {
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "500": {
+            "description": "Legacy-compatible subscription configuration response"
+          }
+        },
+        "summary": "Get Moviepilot Config",
+        "tags": [
+          "subscription"
+        ]
+      },
+      "post": {
+        "operationId": "save_moviepilot_config_api_subscription_mp_config_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Moviepilot Config Api Subscription Mp Config Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "400": {
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "403": {
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "415": {
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "500": {
+            "description": "Legacy-compatible subscription configuration response"
+          }
+        },
+        "summary": "Save Moviepilot Config",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/subscription/status": {
+      "get": {
+        "operationId": "subscription_status_api_subscription_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Subscription Status Api Subscription Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible subscription response"
+          },
+          "500": {
+            "description": "Legacy-compatible subscription response"
+          }
+        },
+        "summary": "Subscription Status",
+        "tags": [
+          "subscription"
+        ]
+      },
+      "post": {
+        "operationId": "update_subscription_status_api_subscription_status_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "requests": {
+                    "items": {
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Subscription Status Api Subscription Status Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible subscription response"
+          },
+          "400": {
+            "description": "Legacy-compatible subscription response"
+          },
+          "403": {
+            "description": "Legacy-compatible subscription response"
+          },
+          "415": {
+            "description": "Legacy-compatible subscription response"
+          },
+          "500": {
+            "description": "Legacy-compatible subscription response"
+          }
+        },
+        "summary": "Update Subscription Status",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/subscription/strategy": {
+      "get": {
+        "operationId": "get_subscription_strategy_api_subscription_strategy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Subscription Strategy Api Subscription Strategy Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "403": {
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "500": {
+            "description": "Legacy-compatible subscription configuration response"
+          }
+        },
+        "summary": "Get Subscription Strategy",
+        "tags": [
+          "subscription"
+        ]
+      },
+      "post": {
+        "operationId": "save_subscription_strategy_api_subscription_strategy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Subscription Strategy Api Subscription Strategy Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "400": {
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "403": {
+            "description": "Legacy-compatible subscription configuration response"
+          },
+          "500": {
+            "description": "Legacy-compatible subscription configuration response"
+          }
+        },
+        "summary": "Save Subscription Strategy",
+        "tags": [
+          "subscription"
+        ]
+      }
+    },
+    "/api/subscriptions/all": {
+      "get": {
+        "operationId": "subscriptions_api_subscriptions_all_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Subscriptions Api Subscriptions All Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Legacy-compatible subscription response"
+          },
+          "403": {
+            "description": "Legacy-compatible subscription response"
+          },
+          "500": {
+            "description": "Legacy-compatible subscription response"
+          }
+        },
+        "summary": "Subscriptions",
+        "tags": [
+          "subscription"
         ]
       }
     },

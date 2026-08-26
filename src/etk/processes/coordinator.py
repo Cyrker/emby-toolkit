@@ -48,6 +48,7 @@ from etk.domains.p115.upload_monitor import (
     upload_monitor_config_revision,
 )
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.subscription.cleanup_runtime_repository import SqlAlchemyCleanupExecutionRepository
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
 from etk.platform.jobs import OutboxClaim, PostgresJobStore
@@ -458,6 +459,7 @@ class CoordinatorRuntime:
         self._p115_intro_coordinator: P115IntroDetectionCoordinator | None = None
         self._subscription_publisher = CelerySubscriptionOperationPublisher(self.config)
         self._subscription_coordinator: SubscriptionOperationCoordinator | None = None
+        self._cleanup_execution_repository: SqlAlchemyCleanupExecutionRepository | None = None
         self._publisher_id = f"{socket.gethostname()}:{os.getpid()}"
         self._last_settings_refresh = 0.0
         self._last_settings: Any = None
@@ -470,7 +472,11 @@ class CoordinatorRuntime:
         os.environ["ETK_PROCESS_ROLE"] = "coordinator"
         container, config_adapter = _create_default_container(None)
         database = container.database
-        store = PostgresJobStore(lambda: database.unit_of_work())
+        cleanup_execution_repository = SqlAlchemyCleanupExecutionRepository(database.unit_of_work)
+        store = PostgresJobStore(
+            lambda: database.unit_of_work(),
+            cancellation_policy=cleanup_execution_repository,
+        )
         registry = TaskRegistry.from_fixture(_task_fixture())
         service = JobSubmissionService(store, registry)
         leadership = CoordinatorLeadership(database.raw_pool)
@@ -537,6 +543,7 @@ class CoordinatorRuntime:
             config=self.config,
             publisher_id=f"{self._publisher_id}:subscription",
         )
+        self._cleanup_execution_repository = cleanup_execution_repository
         self._service = service
         self._leadership = leadership
         self._write_health("standby")
@@ -657,8 +664,13 @@ class CoordinatorRuntime:
             raise RuntimeError("Coordinator store is not initialized")
         self._refresh_settings()
         self._process_telegram_commands()
+        cleanup = getattr(self, "_cleanup_execution_repository", None)
+        if cleanup is not None:
+            cleanup.protect_stale_post_effect_cancellations()
         store.enqueue_due_retries(limit=self.config.outbox_batch_size)
         store.recover_stale_attempts(limit=self.config.outbox_batch_size, retry_delay_seconds=1)
+        if cleanup is not None:
+            cleanup.reconcile_terminal_jobs()
         store.requeue_stale_published(
             limit=self.config.outbox_batch_size,
             processed_timeout_seconds=max(self.config.lease_seconds * 2, 60),

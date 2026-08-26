@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from threading import Lock
 from typing import Any
 
@@ -75,6 +75,18 @@ class ConfiguredMoviePilotGateway:
 
     def delete_subscription_by_id(self, subscription_id: int | str) -> MoviePilotWriteResult:
         return self._gateway().delete_subscription_by_id(subscription_id)
+
+    def search_subscription(self, subscription_id: int | str) -> MoviePilotWriteResult:
+        return self._gateway().search_subscription(subscription_id)
+
+    def delete_download_tasks(self, hashes: Sequence[str]) -> MoviePilotWriteResult:
+        return self._gateway().delete_download_tasks(hashes)
+
+    def delete_transfer_history(self, record: Mapping[str, Any]) -> MoviePilotWriteResult:
+        return self._gateway().delete_transfer_history(record)
+
+    def redo_transfer_history(self, history_ids: Sequence[int]) -> MoviePilotWriteResult:
+        return self._gateway().redo_transfer_history(history_ids)
 
     def _gateway(self) -> HttpxMoviePilotGateway:
         value = self._settings.load(MOVIEPILOT_CONFIG_SETTING)

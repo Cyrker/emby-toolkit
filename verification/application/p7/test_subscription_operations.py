@@ -33,6 +33,25 @@ def test_operation_intent_is_deterministic_and_canonicalizes_request_order() -> 
     assert first.id == second.id
 
 
+def test_explicit_idempotency_key_keeps_identity_stable_when_snapshot_request_drifts() -> None:
+    first = SubscriptionOperationIntent.create(
+        kind="reconcile",
+        scope_key="episode-residue:101:2:history:7",
+        request={"record": {"id": 7, "name": "first"}},
+        idempotency_key="episode-residue:101:2:history:7",
+    )
+    second = SubscriptionOperationIntent.create(
+        kind="reconcile",
+        scope_key="episode-residue:101:2:history:7",
+        request={"record": {"id": 7, "name": "changed"}},
+        idempotency_key="episode-residue:101:2:history:7",
+    )
+
+    assert first.id == second.id
+    assert first.operation_key == second.operation_key
+    assert first.request_hash != second.request_hash
+
+
 @pytest.mark.parametrize(
     "payload",
     [

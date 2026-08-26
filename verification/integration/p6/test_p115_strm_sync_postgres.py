@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
@@ -174,15 +175,12 @@ def _effect_event_key(
     return media_effect_event_key(effect_key)
 
 
-def test_strm_sync_migration_schema_is_the_single_postgres18_head(
+def test_strm_sync_migration_schema_is_present_on_postgres18(
     p6_runtime: DatabaseRuntime,
 ) -> None:
     inspector = inspect(p6_runtime.engine)
     with p6_runtime.engine.connect() as connection:
         assert str(connection.scalar(text("SHOW server_version_num"))).startswith("18")
-        assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0013_p7_subscription_runtime"
-        )
     assert "p115_strm_sync_plans" in inspector.get_table_names()
     assert {column["name"] for column in inspector.get_columns("p115_filesystem_cache")} >= {
         "sync_root_id",
@@ -1309,6 +1307,8 @@ def test_strm_sync_revision_downgrades_to_0006_and_reapplies(
     p6_runtime: DatabaseRuntime,
 ) -> None:
     config = Config(str(REPO_ROOT / "alembic.ini"))
+    expected_head = ScriptDirectory.from_config(config).get_current_head()
+    assert expected_head is not None
     try:
         command.downgrade(config, "0006_p6_organize_execution")
         inspector = inspect(p6_runtime.engine)
@@ -1319,6 +1319,4 @@ def test_strm_sync_revision_downgrades_to_0006_and_reapplies(
     finally:
         command.upgrade(config, "head")
     with p6_runtime.engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0013_p7_subscription_runtime"
-        )
+        assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == expected_head

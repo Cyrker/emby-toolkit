@@ -357,6 +357,30 @@ def test_delete_404_is_confirmed_idempotent_for_identity_and_numeric_id() -> Non
     assert all("Idempotency-Key" not in request.headers for request in provider_requests)
 
 
+def test_transfer_history_delete_preserves_query_and_json_contract() -> None:
+    provider_requests: list[httpx.Request] = []
+    responses = iter((httpx.Response(204), httpx.Response(404)))
+    record = {"id": 7, "tmdbid": 101, "seasons": "S02", "episodes": "E01"}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/login/access-token":
+            return _login(request)
+        provider_requests.append(request)
+        return next(responses)
+
+    gateway = _gateway(handler)
+    deleted = gateway.delete_transfer_history(record)
+    replay = gateway.delete_transfer_history(record)
+
+    assert deleted.confirmed is True and deleted.idempotent is False
+    assert replay.confirmed is True and replay.idempotent is True
+    assert [(request.method, request.url.path, dict(request.url.params)) for request in provider_requests] == [
+        ("DELETE", "/api/v1/history/transfer", {"deletesrc": "false", "deletedest": "false"}),
+        ("DELETE", "/api/v1/history/transfer", {"deletesrc": "false", "deletedest": "false"}),
+    ]
+    assert [json.loads(request.content) for request in provider_requests] == [record, record]
+
+
 @pytest.mark.parametrize(
     ("status_code", "expected_kind", "expected_outcome"),
     [

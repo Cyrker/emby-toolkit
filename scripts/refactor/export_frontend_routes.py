@@ -117,39 +117,37 @@ def export_frontend_routes() -> dict[str, Any]:
         line = text.count("\n", 0, offset) + 1
         routes.append(
             apply_contract_override(
-            {
-                "contract_id": stable_id("frontend-route", route_path),
-                "path": route_path,
-                "name": name,
-                "redirect": redirect,
-                "component": component,
-                "lazy_component": lazy_component,
-                "props": _boolean_property(block, "props"),
-                "meta": {
-                    "public": _boolean_property(block, "public"),
-                    "requires_auth": _boolean_property(block, "requiresAuth"),
-                    "requires_admin": _boolean_property(block, "requiresAdmin"),
+                {
+                    "contract_id": stable_id("frontend-route", route_path),
+                    "path": route_path,
+                    "name": name,
+                    "redirect": redirect,
+                    "component": component,
+                    "lazy_component": lazy_component,
+                    "props": _boolean_property(block, "props"),
+                    "meta": {
+                        "public": _boolean_property(block, "public"),
+                        "requires_auth": _boolean_property(block, "requiresAuth"),
+                        "requires_admin": _boolean_property(block, "requiresAdmin"),
+                    },
+                    "guard_enforcement": {
+                        "public": "enforced",
+                        "requires_auth": "implicit_for_non_public_routes",
+                        "requires_admin": "not_enforced_by_router_guard",
+                    },
+                    "source": f"{relative_path(path)}:{line}",
+                    "target_domain": "frontend",
+                    "target_stage": "P10",
+                    "status": "legacy",
+                    "new_owner": None,
+                    "validation_owner": "frontend",
+                    "validation_method": "frontend-route-contract",
                 },
-                "guard_enforcement": {
-                    "public": "enforced",
-                    "requires_auth": "implicit_for_non_public_routes",
-                    "requires_admin": "not_enforced_by_router_guard",
-                },
-                "source": f"{relative_path(path)}:{line}",
-                "target_domain": "frontend",
-                "target_stage": "P10",
-                "status": "legacy",
-                "new_owner": None,
-                "validation_owner": "frontend",
-                "validation_method": "frontend-route-contract",
-            },
-            "frontend_routes",
+                "frontend_routes",
             )
         )
     routes.sort(key=lambda item: item["path"])
-    vue_files = sorted(
-        relative_path(item) for item in (REPO_ROOT / "frontend/src").rglob("*.vue")
-    )
+    vue_files = sorted(relative_path(item) for item in (REPO_ROOT / "frontend/src").rglob("*.vue"))
     page_routes = [item for item in routes if not item["redirect"]]
     return {
         "schema_version": 1,
@@ -161,12 +159,8 @@ def export_frontend_routes() -> dict[str, Any]:
             "page_route_count": len(page_routes),
             "redirect_route_count": sum(1 for item in routes if item["redirect"]),
             "public_route_count": sum(1 for item in page_routes if item["meta"]["public"] is True),
-            "requires_auth_route_count": sum(
-                1 for item in page_routes if item["meta"]["requires_auth"] is True
-            ),
-            "declared_admin_route_count": sum(
-                1 for item in page_routes if item["meta"]["requires_admin"] is True
-            ),
+            "requires_auth_route_count": sum(1 for item in page_routes if item["meta"]["requires_auth"] is True),
+            "declared_admin_route_count": sum(1 for item in page_routes if item["meta"]["requires_admin"] is True),
         },
         "baseline_variances": {
             "plan_page_route_count": 23,

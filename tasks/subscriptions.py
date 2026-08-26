@@ -916,6 +916,7 @@ def _subscribe_full_series_with_logic(
     tmdb_api_key: str,
     source: Dict = None,
     consume_quota: bool = False,
+    provider_failures: List[Dict[str, Any]] = None,
 ) -> bool:
     """
     处理整部剧集的订阅：
@@ -950,7 +951,12 @@ def _subscribe_full_series_with_logic(
             mp_payload = {"name": final_series_name, "tmdbid": tmdb_id, "type": "电视剧"}
             wash_mode = _apply_watchlist_mp_wash_flags(mp_payload, watchlist_config)
             logger.info(f"  ➜ 《{final_series_name}》整剧兜底订阅使用 {wash_mode}。")
-            return moviepilot.subscribe_with_custom_payload(mp_payload, config, consume_quota=consume_quota)
+            submitted = moviepilot.subscribe_with_custom_payload(mp_payload, config, consume_quota=consume_quota)
+            if not submitted and provider_failures is not None:
+                provider_failures.append(
+                    _provider_failure("create", tmdb_id, "Series", None)
+                )
+            return submitted
 
         # 3. 确定最后一季的季号
         last_season_num = valid_seasons[-1]['season_number']
@@ -1091,8 +1097,6 @@ def _subscribe_full_series_with_logic(
                 mp_submit_success = moviepilot.subscribe_with_custom_payload(mp_payload, config, consume_quota=consume_quota)
 
             if mp_submit_success:
-                any_success = True
-
                 # ★★★ 核心修复：如果是待定逻辑，订阅成功后立即修改 MP 状态 ★★★
                 if is_pending_logic:
                     logger.info(f"  ➜ [后置操作] 正在将 S{s_num} 的状态修改为 'P' (待定)，并将总集数修正为 {fake_total_episodes}...")
@@ -1109,6 +1113,13 @@ def _subscribe_full_series_with_logic(
                         logger.info(f"  ➜ S{s_num} 已成功转为待定状态。")
                     else:
                         logger.warning(f"  ➜ S{s_num} 订阅成功，但转待定状态失败。")
+                        if provider_failures is not None:
+                            provider_failures.append(
+                                _provider_failure("update_status", tmdb_id, "Season", s_num)
+                            )
+                        continue
+
+                any_success = True
 
                 # 订阅成功后，更新本地数据库状态为 SUBSCRIBED
                 # (即使 MP 是 Pending，对于本地请求队列来说，它也算是“已处理/已订阅”)
@@ -1128,12 +1139,63 @@ def _subscribe_full_series_with_logic(
                     source=source,
                     media_info_list=[media_info]
                 )
+            elif provider_failures is not None:
+                provider_failures.append(
+                    _provider_failure("create", tmdb_id, "Season", s_num)
+                )
 
         return any_success
 
     except Exception as e:
+        if task_manager.has_persistent_execution():
+            raise
         logger.error(f"处理整剧订阅逻辑时出错: {e}", exc_info=True)
         return False
+
+
+def _provider_failure(
+    action: str,
+    tmdb_id: object,
+    item_type: str,
+    season: object = None,
+) -> Dict[str, Any]:
+    return {
+        "action": str(action),
+        "tmdb_id": str(tmdb_id),
+        "item_type": str(item_type),
+        "season": int(season) if season is not None else None,
+    }
+
+
+def _provider_task_result(
+    message: str,
+    *,
+    requested: int,
+    processed: int,
+    provider_failures: List[Dict[str, Any]],
+    business_skipped: int = 0,
+) -> Dict[str, Any]:
+    if provider_failures:
+        status = "partial" if processed > 0 else "failed"
+        return {
+            "ok": False,
+            "status": status,
+            "message": message,
+            "requested": requested,
+            "processed": processed,
+            "business_skipped": business_skipped,
+            "provider_failures": list(provider_failures),
+            "retryable": False,
+        }
+    return {
+        "ok": True,
+        "status": "succeeded",
+        "message": message,
+        "requested": requested,
+        "processed": processed,
+        "business_skipped": business_skipped,
+        "provider_failures": [],
+    }
 
 # ★★★ 手动动订阅任务 ★★★
 def task_manual_subscribe_batch(processor, subscribe_requests: List[Dict]):
@@ -1147,8 +1209,14 @@ def task_manual_subscribe_batch(processor, subscribe_requests: List[Dict]):
     task_manager.update_status_from_thread(0, "正在准备手动订阅任务...")
 
     if not subscribe_requests:
-        task_manager.update_status_from_thread(100, "任务完成：没有需要处理的项目。")
-        return
+        message = "任务完成：没有需要处理的项目。"
+        task_manager.update_status_from_thread(100, message)
+        return _provider_task_result(
+            message,
+            requested=0,
+            processed=0,
+            provider_failures=[],
+        )
 
     try:
         config = config_manager.APP_CONFIG
@@ -1157,6 +1225,8 @@ def task_manual_subscribe_batch(processor, subscribe_requests: List[Dict]):
         tg_channel_tracking = watchlist_config.get('tg_channel_tracking', False)
 
         processed_count = 0
+        business_skipped = 0
+        provider_failures = []
 
         for i, req in enumerate(subscribe_requests):
             tmdb_id = req.get('tmdb_id')
@@ -1172,6 +1242,7 @@ def task_manual_subscribe_batch(processor, subscribe_requests: List[Dict]):
 
             if not tmdb_id or not item_type:
                 logger.warning(f"跳过一个无效的订阅请求: {req}")
+                business_skipped += 1
                 continue
 
             task_manager.update_status_from_thread(
@@ -1256,6 +1327,7 @@ def task_manual_subscribe_batch(processor, subscribe_requests: List[Dict]):
                         tmdb_api_key=tmdb_api_key,
                         source=source,
                         consume_quota=True,
+                        provider_failures=provider_failures,
                     )
                     if success:
                         # 整剧订阅成功只代表订阅任务已提交，不代表整剧已完成。
@@ -1265,6 +1337,7 @@ def task_manual_subscribe_batch(processor, subscribe_requests: List[Dict]):
 
                 else:
                     logger.error(f"  ➜ 订阅失败：季《{item_title_for_log}》缺少季号信息。")
+                    business_skipped += 1
                     continue
 
             # ==================================================================
@@ -1273,6 +1346,7 @@ def task_manual_subscribe_batch(processor, subscribe_requests: List[Dict]):
             elif item_type == 'Movie':
                 if not is_movie_subscribable(int(tmdb_id), tmdb_api_key, config):
                     logger.warning(f"  ➜ 电影《{item_title_for_log}》不满足发行日期条件，跳过订阅。")
+                    business_skipped += 1
                     continue
 
                 mp_payload = {"name": item_title_for_log, "tmdbid": int(tmdb_id), "type": "电影"}
@@ -1305,14 +1379,33 @@ def task_manual_subscribe_batch(processor, subscribe_requests: List[Dict]):
                 processed_count += 1
             else:
                 logger.error(f"  ➜ 订阅《{item_title_for_log}》失败，请检查 MoviePilot 日志。")
+                if item_type != 'Series':
+                    provider_failures.append(
+                        _provider_failure("create", tmdb_id, item_type, season_number)
+                    )
 
         final_message = f"  ➜ 手动订阅任务完成，成功处理 {processed_count}/{total_items} 个项目。"
         task_manager.update_status_from_thread(100, final_message)
         logger.info(f"--- '{task_name}' 任务执行完毕 ---")
+        return _provider_task_result(
+            final_message,
+            requested=total_items,
+            processed=processed_count,
+            provider_failures=provider_failures,
+            business_skipped=business_skipped,
+        )
 
     except Exception as e:
+        if task_manager.has_persistent_execution():
+            raise
         logger.error(f"  ➜ {task_name} 任务失败: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"错误: {e}")
+        return {
+            "ok": False,
+            "status": "failed",
+            "message": f"错误: {e}",
+            "retryable": True,
+        }
 
 # ★★★ 自动订阅任务 ★★★
 def task_auto_subscribe(processor):
@@ -1341,6 +1434,8 @@ def task_auto_subscribe(processor):
         request_delay = 0
 
     try:
+        provider_failures = []
+        successful_count = 0
         # ======================================================================
         # 阶段 1 - 电影间歇性订阅搜索
         # ======================================================================
@@ -1361,11 +1456,17 @@ def task_auto_subscribe(processor):
                     # season=None 表示电影
                     if moviepilot.update_subscription_status(int(tmdb_id), None, 'R', config):
                         revived_ids.append(tmdb_id)
+                        successful_count += 1
                     else:
                         # 如果更新失败（比如MP里订阅丢了），尝试重新订阅兜底
                         logger.warning(f"    - 《{title}》状态切换失败，尝试重新提交订阅...")
                         if moviepilot.subscribe_with_custom_payload({"tmdbid": int(tmdb_id), "type": "电影"}, config):
                             revived_ids.append(tmdb_id)
+                            successful_count += 1
+                        else:
+                            provider_failures.append(
+                                _provider_failure("revive", tmdb_id, "Movie")
+                            )
 
                 if revived_ids:
                     request_db.update_movie_status_revived(revived_ids)
@@ -1383,6 +1484,7 @@ def task_auto_subscribe(processor):
                     # ★★★ 修改开始：尝试暂停，失败则补订后再次暂停 ★★★
                     if moviepilot.update_subscription_status(int(tmdb_id), None, 'S', config):
                         paused_ids.append(tmdb_id)
+                        successful_count += 1
                     else:
                         logger.warning(f"    - 《{title}》暂停失败 (MP中可能不存在)，尝试重新订阅并同步状态...")
 
@@ -1392,11 +1494,18 @@ def task_auto_subscribe(processor):
                             # 2. 补订成功后，再次尝试将其状态更新为 'S'
                             if moviepilot.update_subscription_status(int(tmdb_id), None, 'S', config):
                                 paused_ids.append(tmdb_id)
+                                successful_count += 1
                                 logger.info(f"    - ➜ 《{title}》补订并暂停成功。")
                             else:
                                 logger.warning(f"    - ➜ 《{title}》补订成功，但暂停状态同步失败。")
+                                provider_failures.append(
+                                    _provider_failure("pause", tmdb_id, "Movie")
+                                )
                         else:
                             logger.error(f"    - ➜ 《{title}》补订失败，无法执行暂停操作。")
+                            provider_failures.append(
+                                _provider_failure("pause", tmdb_id, "Movie")
+                            )
 
                 if paused_ids:
                     request_db.update_movie_status_paused(paused_ids, pause_days=movie_pause_days)
@@ -1414,8 +1523,14 @@ def task_auto_subscribe(processor):
         wanted_items = media_db.get_all_wanted_media()
         if not wanted_items:
             logger.info("  ➜ 待订阅列表为空，无需处理。")
-            task_manager.update_status_from_thread(100, "待订阅列表为空。")
-            return
+            message = "待订阅列表为空。"
+            task_manager.update_status_from_thread(100, message)
+            return _provider_task_result(
+                message,
+                requested=0,
+                processed=successful_count,
+                provider_failures=provider_failures,
+            )
 
         logger.info(f"  ➜ 发现 {len(wanted_items)} 个待处理的订阅请求。")
         task_manager.update_status_from_thread(10, f"发现 {len(wanted_items)} 个待处理请求...")
@@ -1573,6 +1688,8 @@ def task_auto_subscribe(processor):
             # 提交 MP 订阅
             success = False
             action_type = "MP"
+            item_provider_failures = []
+            item_partial_success = False
             watchlist_config = settings_db.get_setting('watchlist_config') or {}
             tg_channel_tracking = watchlist_config.get('tg_channel_tracking', False)
 
@@ -1767,8 +1884,21 @@ def task_auto_subscribe(processor):
                         logger.info(f"  ➜ 正在向 MoviePilot 提交电影《{title}》的订阅...")
                         mp_payload = {"name": title, "tmdbid": int(tmdb_id), "type": "电影"}
                         success = moviepilot.subscribe_with_custom_payload(mp_payload, config, consume_quota=True)
+                        if not success:
+                            item_provider_failures.append(
+                                _provider_failure("create", tmdb_id, "Movie")
+                            )
                     elif item_type == 'Series':
-                        success = _subscribe_full_series_with_logic(int(tmdb_id), title, config, tmdb_api_key, consume_quota=True)
+                        series_success = _subscribe_full_series_with_logic(
+                            int(tmdb_id),
+                            title,
+                            config,
+                            tmdb_api_key,
+                            consume_quota=True,
+                            provider_failures=item_provider_failures,
+                        )
+                        item_partial_success = bool(series_success and item_provider_failures)
+                        success = bool(series_success and not item_provider_failures)
                     elif item_type == 'Episode':
                         logger.info(f"  ➜ [共享资源] 单集《{title}》未命中可消费资源，已跳过 MP 兜底。")
                     elif item_type == 'Season' and parent_tmdb_id and season_number is not None:
@@ -1802,10 +1932,29 @@ def task_auto_subscribe(processor):
                         else:
                             success = moviepilot.subscribe_with_custom_payload(mp_payload, config, consume_quota=True)
                             if success and is_pending:
-                                moviepilot.update_subscription_status(int(parent_tmdb_id), int(season_number), 'P', config, total_episodes=fake_eps)
+                                if not moviepilot.update_subscription_status(
+                                    int(parent_tmdb_id),
+                                    int(season_number),
+                                    'P',
+                                    config,
+                                    total_episodes=fake_eps,
+                                ):
+                                    item_provider_failures.append(
+                                        _provider_failure("update_status", parent_tmdb_id, "Season", season_number)
+                                    )
+                                    success = False
+                            elif not success:
+                                item_provider_failures.append(
+                                    _provider_failure("create", parent_tmdb_id, "Season", season_number)
+                                )
 
             # 处理订阅结果
+            if not success and item_provider_failures:
+                provider_failures.extend(item_provider_failures)
+                if item_partial_success:
+                    successful_count += 1
             if success:
+                successful_count += 1
                 if is_wanted_subscription:
                     logger.info(f"  ➜ 《{title}》订阅成功！")
                 else:
@@ -1961,6 +2110,13 @@ def task_auto_subscribe(processor):
 
         task_manager.update_status_from_thread(100, "统一订阅任务处理完成。")
         logger.info(f"--- '{task_name}' 任务执行完毕 ---")
+        return _provider_task_result(
+            "统一订阅任务处理完成。",
+            requested=len(wanted_items),
+            processed=successful_count,
+            provider_failures=provider_failures,
+            business_skipped=len(rejected_details),
+        )
 
     except Exception as e:
         logger.error(f"  ➜ {task_name} 任务失败: {e}", exc_info=True)

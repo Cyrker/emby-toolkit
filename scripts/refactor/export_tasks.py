@@ -210,6 +210,18 @@ def export_tasks() -> dict[str, Any]:
                 "execution_kind": "native-use-case",
                 "execution_owner": P6_TASK_EXECUTION_OWNERS[task_key],
             }
+        elif task_key in P7_TASKS:
+            native_maintenance = task_key == "subscribe-assistant-maintenance"
+            entry["ownership_layers"] = {
+                "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
+                "execution_kind": "native-use-case" if native_maintenance else "legacy-compatibility-callable",
+                "execution_owner": (
+                    "etk.domains.subscription.assistant.SubscribeAssistantMaintenanceService"
+                    if native_maintenance
+                    else "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway"
+                ),
+                **({} if native_maintenance else {"retirement_stage": "P11"}),
+            }
         entries.append(
             apply_contract_override(
                 entry,

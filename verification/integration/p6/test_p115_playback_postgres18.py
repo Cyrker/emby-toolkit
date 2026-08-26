@@ -373,7 +373,7 @@ def _reclaim_intent(semantic_key: str, artifact: PlaybackArtifact) -> PlaybackOp
     )
 
 
-def test_playback_migration_schema_and_head_are_present(p6_runtime: DatabaseRuntime) -> None:
+def test_playback_migration_schema_is_present(p6_runtime: DatabaseRuntime) -> None:
     inspector = inspect(p6_runtime.engine)
     assert {
         "p115_playback_operations",
@@ -381,10 +381,6 @@ def test_playback_migration_schema_and_head_are_present(p6_runtime: DatabaseRunt
         "p115_playback_leases",
         "p115_playback_qr_sessions",
     } <= set(inspector.get_table_names())
-    with p6_runtime.engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0013_p7_subscription_runtime"
-        )
     assert {
         "ck_p115_playback_operation_hash",
         "ck_p115_playback_operation_claim",

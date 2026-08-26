@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from pathlib import Path
@@ -43,6 +43,9 @@ class FakeIdentityRepository:
 
     def subscription_permission(self, user_id: str) -> bool:
         return user_id == "fixture-user"
+
+    def display_names(self, user_ids: Sequence[str]) -> Mapping[str, str]:
+        return {user_id: user_id for user_id in user_ids}
 
 
 class FakeEmbyIdentityGateway:

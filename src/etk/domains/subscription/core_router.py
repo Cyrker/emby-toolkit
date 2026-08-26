@@ -93,7 +93,11 @@ async def _legacy_json_object(request: Request) -> tuple[dict[str, Any] | None, 
     return dict(value), None
 
 
-@router.get("/subscription/status", responses=_responses(200, 500))
+@router.get(
+    "/subscription/status",
+    response_model=dict[str, Any],
+    responses=_responses(200, 500),
+)
 async def subscription_status(request: Request) -> Response:
     try:
         result = await run_in_threadpool(_service(request).status)
@@ -104,6 +108,7 @@ async def subscription_status(request: Request) -> Response:
 
 @router.post(
     "/subscription/status",
+    response_model=dict[str, Any],
     responses=_responses(200, 400, 403, 415, 500),
     openapi_extra=_STATUS_BODY,
 )
@@ -118,7 +123,11 @@ async def update_subscription_status(request: Request) -> Response:
     return _response(await run_in_threadpool(_service(request).update_status, data.get("requests")))
 
 
-@router.get("/subscriptions/all", responses=_responses(200, 403, 500))
+@router.get(
+    "/subscriptions/all",
+    response_model=list[dict[str, Any]],
+    responses=_responses(200, 403, 500),
+)
 async def subscriptions(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
@@ -128,6 +137,7 @@ async def subscriptions(request: Request) -> Response:
 
 @router.post(
     "/media/batch_delete",
+    response_model=dict[str, Any],
     responses=_responses(200, 400, 403, 409, 415, 500),
     openapi_extra=_DELETE_BODY,
 )

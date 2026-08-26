@@ -10,6 +10,8 @@ import json
 from typing import List, Dict, Optional, Any, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed 
 from collections import defaultdict
+from contextlib import contextmanager
+from threading import RLock
 
 # 导入需要的底层模块
 import task_manager
@@ -36,6 +38,29 @@ from .helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+_persistent_cleanup_lock = RLock()
+_persistent_cleanup_gateway = None
+
+
+@contextmanager
+def persistent_resubscribe_cleanup(gateway):
+    global _persistent_cleanup_gateway
+    with _persistent_cleanup_lock:
+        if _persistent_cleanup_gateway is not None:
+            raise RuntimeError("a durable resubscribe cleanup gateway is already bound")
+        _persistent_cleanup_gateway = gateway
+    try:
+        yield
+    finally:
+        with _persistent_cleanup_lock:
+            if _persistent_cleanup_gateway is gateway:
+                _persistent_cleanup_gateway = None
+
+
+def _current_persistent_cleanup_gateway():
+    with _persistent_cleanup_lock:
+        return _persistent_cleanup_gateway
 
 def _evaluate_rating_rule(rule: dict, rating_value: Any, item_name: str) -> tuple[bool, bool, str]:
     """
@@ -110,6 +135,19 @@ def task_update_resubscribe_cache(processor):
     """
     task_name = "刷新媒体整理"
     logger.trace(f"--- 开始执行 '{task_name}' 任务 ---")
+
+    def cancelled_result(*, published: bool = False):
+        message = (
+            "任务已中止，已停止后续发布和索引清理。"
+            if published
+            else "任务已中止，未发布部分扫描结果。"
+        )
+        task_manager.update_status_from_thread(100, message)
+        return {
+            "ok": False,
+            "status": "cancelled",
+            "message": message,
+        }
     
     try:
         # --- 步骤 1: 加载规则 ---
@@ -118,15 +156,19 @@ def task_update_resubscribe_cache(processor):
         missing_info_updates = {}
         # 获取所有启用的规则，按 sort_order 排序 (优先级高的在前)
         all_enabled_rules = [rule for rule in resubscribe_db.get_all_resubscribe_rules() if rule.get('enabled')]
+
+        if processor.is_stop_requested():
+            return cancelled_result()
         
         # 如果没有规则，清空所有索引
         if not all_enabled_rules:
             logger.info("  ➜ 未检测到启用规则，将清理所有洗版索引...")
             all_keys = resubscribe_db.get_all_resubscribe_index_keys()
             if all_keys:
+                task_manager.persistent_execution_checkpoint()
                 resubscribe_db.delete_resubscribe_index_by_keys(list(all_keys))
             task_manager.update_status_from_thread(100, "任务完成：规则为空，已清理所有索引。")
-            return
+            return {"ok": True, "status": "succeeded", "message": "任务完成：规则为空，已清理所有索引。"}
 
         # --- 步骤 2: 预加载全量媒体数据 (内存缓存) ---
         # 为了避免在循环中反复查库，我们先一次性把所有 Movie 和 Series 的基础信息加载到内存
@@ -170,7 +212,8 @@ def task_update_resubscribe_cache(processor):
         }
         
         for rule_idx, rule in enumerate(all_enabled_rules):
-            if processor.is_stop_requested(): break
+            if processor.is_stop_requested():
+                return cancelled_result()
             
             rule_name = rule.get('name', '未命名')
             scope_rules = rule.get('scope_rules') or []
@@ -221,6 +264,8 @@ def task_update_resubscribe_cache(processor):
 
             # ====== 3a. 处理电影 ======
             for tmdb_id in candidate_movie_ids:
+                if processor.is_stop_requested():
+                    return cancelled_result()
                 movie = movies_map[tmdb_id]
                 processed_tmdb_ids.add(tmdb_id) # 标记已处理
 
@@ -278,6 +323,8 @@ def task_update_resubscribe_cache(processor):
                     episodes_map[str(ep['parent_series_tmdb_id'])].append(ep)
                 
                 for tmdb_id in candidate_series_ids:
+                    if processor.is_stop_requested():
+                        return cancelled_result()
                     series = series_map[tmdb_id]
                     processed_tmdb_ids.add(tmdb_id) # 标记已处理
 
@@ -302,6 +349,8 @@ def task_update_resubscribe_cache(processor):
                     }
 
                     for season_num, eps_in_season in episodes_by_season.items():
+                        if processor.is_stop_requested():
+                            return cancelled_result()
                         if season_num is None: continue
                         if int(season_num) == 0: continue
 
@@ -450,36 +499,52 @@ def task_update_resubscribe_cache(processor):
                         })
 
         # --- 步骤 4: 执行数据库更新与清理 ---
+
+        if processor.is_stop_requested():
+            return cancelled_result()
         
         # 4.0 ★★★ 更新缺集信息到 media_metadata ★★★
+        published = False
         if missing_info_updates:
             task_manager.update_status_from_thread(90, f"正在更新 {len(missing_info_updates)} 条缺集记录...")
+            task_manager.persistent_execution_checkpoint()
             resubscribe_db.batch_update_missing_info(missing_info_updates)
+            published = True
+            if processor.is_stop_requested():
+                return cancelled_result(published=True)
 
         # 4.1 更新有效记录
         if index_update_batch:
             task_manager.update_status_from_thread(95, f"正在保存 {len(index_update_batch)} 条结果...")
+            task_manager.persistent_execution_checkpoint()
             resubscribe_db.upsert_resubscribe_index_batch(index_update_batch)
+            published = True
+            if processor.is_stop_requested():
+                return cancelled_result(published=True)
         
         # 4.2 清理陈旧记录 (ok 的，或者已删除的，或者不再命中任何规则的)
+        task_manager.persistent_execution_checkpoint()
         all_db_keys = resubscribe_db.get_all_resubscribe_index_keys()
         keys_to_purge = all_db_keys - keys_to_keep_in_db
         
         if keys_to_purge:
             logger.info(f"  ➜ 清理 {len(keys_to_purge)} 条已达标(OK)或失效的索引...")
+            if processor.is_stop_requested():
+                return cancelled_result(published=published)
+            task_manager.persistent_execution_checkpoint()
             resubscribe_db.delete_resubscribe_index_by_keys(list(keys_to_purge))
         else:
             logger.info("  ➜ 索引清理完成，无过期条目。")
 
         final_message = "媒体洗版状态刷新完成！"
-        if processor.is_stop_requested(): final_message = "任务已中止。"
-        
         time.sleep(1)
         task_manager.update_status_from_thread(100, final_message)
+        return {"ok": True, "status": "succeeded", "message": final_message}
 
     except Exception as e:
         logger.error(f"执行 '{task_name}' 任务时发生严重错误: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"任务失败: {e}")
+        return {"ok": False, "status": "failed", "message": f"任务失败: {e}"}
 
 # ======================================================================
 # 核心任务：执行洗版订阅
@@ -487,11 +552,11 @@ def task_update_resubscribe_cache(processor):
 
 def task_resubscribe_library(processor):
     """一键媒体整理所有状态为 'needed' 的项目。"""
-    _execute_resubscribe(processor, "一键媒体整理", "needed")
+    return _execute_resubscribe(processor, "一键媒体整理", "needed")
 
 def task_resubscribe_batch(processor, item_ids: List[str]):
     """精准媒体整理指定的项目。"""
-    _execute_resubscribe(processor, "批量媒体整理", item_ids)
+    return _execute_resubscribe(processor, "批量媒体整理", item_ids)
 
 # ======================================================================
 # 内部辅助函数
@@ -1000,9 +1065,18 @@ def _execute_resubscribe(processor, task_name: str, target):
     # 用于在所有任务结束后统一执行批量操作
     all_deleted_paths = []
     all_pickcodes_to_delete = []
+    deferred_cleanup_jobs = []
+    cleanup_failures = []
+    deferred_p9 = []
+    provider_failures = []
 
     for i, item in enumerate(items_to_subscribe):
-        if processor.is_stop_requested(): break
+        if processor.is_stop_requested():
+            return {
+                "ok": False,
+                "status": "cancelled",
+                "message": "任务在下一项外部效果前取消。",
+            }
         
         current_quota = settings_db.get_subscription_quota()
         if current_quota <= 0:
@@ -1052,13 +1126,37 @@ def _execute_resubscribe(processor, task_name: str, target):
                 logger.warning(f"  ➜ 无法执行删除 {item_name}: 未找到有效的物理文件或 Emby ID。")
                 continue
 
+            cleanup_gateway = _current_persistent_cleanup_gateway()
+            if task_manager.has_persistent_execution():
+                if cleanup_gateway is None:
+                    raise RuntimeError("durable resubscribe cleanup gateway is unavailable")
+                staged_ids = set()
+                for target_eid, _file_path, _specific_item_type in targets_to_delete:
+                    if target_eid in staged_ids:
+                        continue
+                    task_manager.persistent_execution_checkpoint()
+                    staged_ids.add(target_eid)
+                    try:
+                        deferred_cleanup_jobs.append(
+                            cleanup_gateway.stage_version_deletion(target_eid)
+                        )
+                    except Exception as e:
+                        cleanup_failures.append({"emby_id": str(target_eid), "error": type(e).__name__})
+                        logger.error(f"  ➜ 无法为 {target_eid} 创建持久清理任务: {e}", exc_info=True)
+                continue
+
             success_count = 0
             total_files = len(targets_to_delete)
             
             task_manager.update_status_from_thread(int((i / total) * 100), f"正在物理清理: {item_name} ({total_files}个文件)")
 
             for idx, (target_eid, file_path, specific_item_type) in enumerate(targets_to_delete):
-                if processor.is_stop_requested(): break
+                if processor.is_stop_requested():
+                    return {
+                        "ok": False,
+                        "status": "cancelled",
+                        "message": "任务在下一项删除效果前取消。",
+                    }
                 
                 # 1. 获取 PC 码 (用于后续联动删除 115 网盘文件)
                 pc = media_db.get_pickcode_by_emby_id(target_eid)
@@ -1168,6 +1266,8 @@ def _execute_resubscribe(processor, task_name: str, target):
                     logger.warning(f"  ➜ 旧订阅清理失败（可能是网络问题），尝试强行提交新订阅...")
                     
             except Exception as e:
+                if task_manager.has_persistent_execution():
+                    raise
                 logger.error(f"  ➜ 清理旧订阅时发生错误: {e}，继续尝试提交...")
             # ======================================================================
 
@@ -1183,12 +1283,29 @@ def _execute_resubscribe(processor, task_name: str, target):
 
             else:
                 logger.error(f"  ➜ 提交订阅到 MoviePilot 失败: {item_name}")                
+                provider_failures.append(
+                    {
+                        "action": "create",
+                        "tmdb_id": str(tmdb_id),
+                        "item_type": str(item_type),
+                        "season": int(season_number) if season_number is not None else None,
+                    }
+                )
                 if i < total - 1: time.sleep(delay)
 
         # =======================================================
         # 场景 B: 影巢资源
         # =======================================================
         elif sub_source == 'hdhive':
+            if task_manager.has_persistent_execution():
+                deferred_p9.append({
+                    "tmdb_id": str(tmdb_id),
+                    "item_type": str(item_type),
+                    "season_number": season_number,
+                    "reason": "deferred_p9",
+                })
+                logger.info(f"  ➜ [影巢] 《{item_name}》已延后到 P9-owned Adapter，不在 P7 Worker 内执行。")
+                continue
             # 新版影巢统一使用 OpenAPI OAuth 授权，经 HDHive Relay 转发请求。
             # 不再读取/校验个人 API Key；只要求用户在影巢设置页完成授权。
             media_type = 'movie' if item_type == 'Movie' else 'tv'
@@ -1282,6 +1399,12 @@ def _execute_resubscribe(processor, task_name: str, target):
     # ======================================================================
     # 统一执行批量操作 (115 联动删除 & Emby 极速刷新)
     # ======================================================================
+    if processor.is_stop_requested():
+        return {
+            "ok": False,
+            "status": "cancelled",
+            "message": "任务在批量外部效果前取消。",
+        }
     if all_pickcodes_to_delete and sync_delete:
         logger.info(f"  ➜ 正在将 {len(all_pickcodes_to_delete)} 个文件加入 115 网盘联动删除队列...")
         delete_115_files_by_webhook(all_pickcodes_to_delete)
@@ -1296,4 +1419,34 @@ def _execute_resubscribe(processor, task_name: str, target):
         )
 
     final_message = f"任务完成！成功提交 {resubscribed_count} 个订阅，删除了 {deleted_count} 个媒体项。"
+    if deferred_cleanup_jobs:
+        final_message += f" 已提交 {len(deferred_cleanup_jobs)} 个持久清理子任务，等待独立执行。"
+    if deferred_p9:
+        final_message += f" {len(deferred_p9)} 个影巢项目延后到 P9 Adapter，当前未执行。"
+    if cleanup_failures:
+        final_message += f" {len(cleanup_failures)} 个清理子任务创建失败。"
+    if provider_failures:
+        final_message += f" {len(provider_failures)} 个 MoviePilot 最终订阅操作失败。"
     task_manager.update_status_from_thread(100, final_message)
+    completed_effects = resubscribed_count + deleted_count + len(deferred_cleanup_jobs)
+    failed = bool(provider_failures and completed_effects == 0 and not deferred_p9)
+    return {
+        "ok": not cleanup_failures and not provider_failures,
+        "status": (
+            "failed"
+            if failed
+            else (
+                "partial"
+                if cleanup_failures or provider_failures
+                else ("deferred" if deferred_cleanup_jobs or deferred_p9 else "succeeded")
+            )
+        ),
+        "message": final_message,
+        "resubscribed": resubscribed_count,
+        "deleted": deleted_count,
+        "deferred_cleanup_jobs": deferred_cleanup_jobs,
+        "cleanup_failures": cleanup_failures,
+        "deferred_p9": deferred_p9,
+        "provider_failures": provider_failures,
+        **({"retryable": False} if provider_failures else {}),
+    }

@@ -204,6 +204,26 @@ def current_persistent_execution_job_id() -> str | None:
     return str(job_id) if job_id else None
 
 
+def current_persistent_execution_identity() -> dict[str, str] | None:
+    """Return the fenced Job/Attempt/Worker identity for a Worker-only native operation."""
+    with _persistent_gateway_lock:
+        persistent = _persistent_execution
+    if persistent is None:
+        return None
+    values = {
+        "job_id": getattr(persistent, "job_id", None),
+        "attempt_id": getattr(persistent, "attempt_id", None),
+        "worker_id": getattr(persistent, "worker_id", None),
+    }
+    if not all(values.values()):
+        return None
+    identity = {key: str(value) for key, value in values.items()}
+    task_key = str(getattr(persistent, "task_key", "") or "").strip()
+    if task_key:
+        identity["task_key"] = task_key
+    return identity
+
+
 def persistent_execution_checkpoint() -> None:
     """Stop at a cooperative boundary before the next persistent side effect."""
     with _persistent_gateway_lock:

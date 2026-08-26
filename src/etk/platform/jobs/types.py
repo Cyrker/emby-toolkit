@@ -276,6 +276,16 @@ class UnitOfWork(Protocol):
 type UnitOfWorkFactory = Callable[[], UnitOfWork]
 
 
+class JobCancellationPolicy(Protocol):
+    def preserve_recovery_on_cancel(
+        self,
+        uow: UnitOfWork,
+        *,
+        job: Mapping[str, Any],
+        attempt: Mapping[str, Any],
+    ) -> bool: ...
+
+
 class ExecutionGuard(Protocol):
     def acquire(self, job_id: UUID) -> AbstractContextManager[bool]: ...
 

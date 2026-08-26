@@ -69,7 +69,11 @@ def test_pg18_deep_delete_retry_resumes_after_local_commit_without_repeating_loc
 
     def shared_cleanup(contexts: list[dict[str, object]]) -> dict[str, object]:
         shared_calls.append(contexts)
-        return {"ok": len(shared_calls) > 1, "attempt": len(shared_calls)}
+        return {
+            "ok": len(shared_calls) > 1,
+            "attempt": len(shared_calls),
+            "confirmed_no_effect": len(shared_calls) == 1,
+        }
 
     monkeypatch.setattr(maintenance_db, "_cleanup_shared_sources_after_media_delete", shared_cleanup)
     options = {
@@ -184,3 +188,75 @@ def test_pg18_deep_delete_unknown_shared_outcome_is_not_blindly_replayed(
     }
     assert first == replay == expected
     assert calls == 1
+
+
+def test_pg18_deep_delete_reported_failure_without_no_effect_proof_is_not_replayed(
+    p5_runtime: DatabaseRuntime,
+    migrated_p5_postgres_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with p5_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, title, original_title, metadata_ready,
+                    in_library, emby_item_ids_json, asset_details_json,
+                    file_sha1_json, file_pickcode_json
+                ) VALUES (
+                    '5003', 'Movie', 'Failed Fixture', 'Failed Fixture', TRUE,
+                    TRUE, '["movie-failed"]'::jsonb,
+                    '[{"path":"/fixture/failed.mkv","emby_item_id":"movie-failed"}]'::jsonb,
+                    '[""]'::jsonb, '[""]'::jsonb
+                )
+                """
+            )
+        )
+
+    @contextmanager
+    def legacy_connection() -> Iterator[object]:
+        connection = psycopg2.connect(
+            _connection_url(migrated_p5_postgres_url),
+            cursor_factory=RealDictCursor,
+        )
+        try:
+            yield connection
+        except BaseException:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    extensions = import_module("extensions")
+    config_manager = import_module("config_manager")
+    monkeypatch.setattr(extensions, "media_processor_instance", None)
+    monkeypatch.setattr(config_manager, "APP_CONFIG", {})
+    monkeypatch.setattr(maintenance_db, "get_db_connection", legacy_connection)
+    calls = 0
+
+    def failed(_contexts: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return {"ok": False, "failed": 1, "error": "fixture timeout after dispatch"}
+
+    monkeypatch.setattr(maintenance_db, "_cleanup_shared_sources_after_media_delete", failed)
+    options = {
+        "item_id": "movie-failed",
+        "item_name": "Failed Fixture",
+        "item_type": "Movie",
+        "operation_id": "fixture-failed-token",
+    }
+
+    first = maintenance_db.cleanup_deleted_media_item(**options)
+    replay = maintenance_db.cleanup_deleted_media_item(**options)
+
+    assert first == replay
+    assert first is not None and first["indeterminate"] is True
+    assert first["ok"] is False
+    assert calls == 1
+    with p5_runtime.engine.connect() as connection:
+        receipt = connection.scalar(
+            text("SELECT value_json FROM app_settings WHERE setting_key = :key"),
+            {"key": maintenance_db._deep_delete_receipt_key("fixture-failed-token")},
+        )
+    assert receipt["state"] == "shared_indeterminate"

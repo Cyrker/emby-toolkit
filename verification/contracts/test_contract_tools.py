@@ -4,15 +4,16 @@ import sys
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts/refactor"))
 
 from compare_contracts import compare  # noqa: E402
 from export_contracts import _loopback_base_url, _percentile  # noqa: E402
 from manifest_common import apply_contract_override  # noqa: E402
-from scan_fixture_secrets import scan_path  # noqa: E402
-from scan_fixture_secrets import scan_payload  # noqa: E402
+from scan_fixture_secrets import (  # noqa: E402
+    scan_path,
+    scan_payload,
+)
 
 
 class ContractToolTests(unittest.TestCase):

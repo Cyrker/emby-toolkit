@@ -43,6 +43,7 @@ from etk.compatibility.upload_monitor import (
 )
 from etk.domains.ingestion import MonitorItemProjection, PostgresIngestionMonitorLedger
 from etk.domains.media.bridge_client import HttpxEmbyBridgeClient
+from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
 from etk.domains.media.compatibility import LegacyP5MediaEventGateway
 from etk.domains.media.editing_effects import BridgeMediaEffectDelivery, PersistentMediaInfoCommandGateway
 from etk.domains.media.effect_execution import PersistentMediaEffectExecutor, RoutedMediaEffectDelivery
@@ -120,6 +121,24 @@ from etk.domains.p115.upload_adapters import (
 )
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService, UploadOperation
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.subscription.assistant import (
+    SqlAlchemyAssistantMaintenanceRepository,
+    SubscribeAssistantMaintenanceService,
+)
+from etk.domains.subscription.cleanup_adapters import (
+    ConfiguredCleanupEmbyGateway,
+    LegacyCleanupMediaGateway,
+    LegacyCleanupP115Gateway,
+    SafeLocalCleanupGateway,
+    SettingsCleanupExecutionPolicy,
+)
+from etk.domains.subscription.cleanup_execution import (
+    CLEANUP_EXECUTION_TASK_KEY,
+    CleanupExecutionPending,
+    CleanupExecutionService,
+)
+from etk.domains.subscription.cleanup_repository import SqlAlchemyCleanupRepository
+from etk.domains.subscription.cleanup_runtime_repository import SqlAlchemyCleanupExecutionRepository
 from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotGateway
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.operations import SubscriptionOperation
@@ -148,6 +167,7 @@ from etk.platform.tasks.catalog import (
     P6_INGESTION_NATIVE_TASK_KEYS,
     P6_NATIVE_TASK_KEYS,
     P6_P115_NATIVE_TASK_KEYS,
+    P7_NATIVE_TASK_KEYS,
 )
 
 from .p5_media_tasks import LegacyP5MediaCompatibilityGateway, P5MediaTaskRouter
@@ -164,7 +184,18 @@ from .p6_intro_detection import P115IntroDetectionOperationExecutor
 from .p6_p115_tasks import P6P115TaskRouter
 from .p6_playback import P115PlaybackOperationExecutor
 from .p6_upload_monitor import P115UploadOperationExecutor
+from .p7_cleanup import clear_cleanup_executor, install_cleanup_executor
+from .p7_resubscribe_cleanup import PersistentResubscribeCleanupGateway
 from .p7_subscription import SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS
+from .p7_subscription_effects import (
+    DurableMoviePilotEffectIndeterminateError,
+    PersistentMoviePilotEffectGateway,
+)
+from .p7_subscription_tasks import (
+    LegacyP7SubscriptionCompatibilityGateway,
+    LegacySubscribeAssistantMaintenanceGateway,
+    P7SubscriptionTaskRouter,
+)
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -277,6 +308,7 @@ class _ExecutionProgress:
     worker_id: str
     lease_seconds: int
     control: _ExecutionControl
+    task_key: str = ""
     accept_succeeded_terminal_update: bool = False
     _reported_failures: list[str] = field(default_factory=list, init=False, repr=False)
     _failure_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
@@ -325,6 +357,14 @@ class _ExecutionProgress:
         raise _TaskReportedFailure(latest or "legacy task reported failure")
 
     def checkpoint(self) -> None:
+        projection = self.store.get_job(self.job_id)
+        if projection is not None:
+            parent_job_id = projection.job.parent_job_id
+            parent = self.store.get_job(parent_job_id) if parent_job_id is not None else None
+            if projection.job.status in {JobStatus.CANCEL_REQUESTED, JobStatus.CANCELLED} or (
+                parent is not None and parent.job.status in {JobStatus.CANCEL_REQUESTED, JobStatus.CANCELLED}
+            ):
+                self.control.request_cancel()
         self.control.checkpoint()
 
     def record_started_effect(self, label: str) -> None:
@@ -351,6 +391,7 @@ class _HeartbeatMonitor:
         processor: Any,
         control: _ExecutionControl,
         terminate_process: Callable[[], None],
+        prepare_post_effect_cancellation: Callable[[UUID], bool] | None = None,
     ) -> None:
         self._store = store
         self._projection = projection
@@ -359,6 +400,7 @@ class _HeartbeatMonitor:
         self._processor = processor
         self._control = control
         self._terminate_process = terminate_process
+        self._prepare_post_effect_cancellation = prepare_post_effect_cancellation
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, name="etk-job-heartbeat", daemon=True)
         self.cancel_requested = False
@@ -473,6 +515,24 @@ class _HeartbeatMonitor:
     def _terminalize_controlled_attempt(self) -> None:
         projection = self._projection
         attempt = projection.current_attempt
+        if (
+            self.stop_reason == "cancel"
+            and self._prepare_post_effect_cancellation is not None
+            and self._prepare_post_effect_cancellation(projection.job.id)
+        ):
+            retryable = attempt.attempt_no < projection.job.max_attempts
+            self._store.fail_attempt(
+                job_id=projection.job.id,
+                attempt_id=attempt.id,
+                worker_id=self._worker_id,
+                error_type="CleanupExecutionPending",
+                error_message="cleanup cancellation requires authoritative readback",
+                error_details={"control": self._control.state()},
+                retryable=retryable,
+                next_attempt_at=_retry_at(attempt.attempt_no) if retryable else None,
+                honor_cancel_request=False,
+            )
+            return
         control_state = self._control.state()
         effect_failure = _effect_interruption_failure(control_state, self.stop_reason or "cancellation")
         if effect_failure is not None:
@@ -534,6 +594,9 @@ class WorkerRuntime:
         self._p5_media_tasks = P5MediaTaskRouter(LegacyP5MediaCompatibilityGateway())
         self._p6_p115_tasks: P6P115TaskRouter | None = None
         self._p6_ingestion_tasks: P6IngestionTaskRouter | None = None
+        self._p7_subscription_tasks: P7SubscriptionTaskRouter | None = None
+        self._p7_cleanup_executor: CleanupExecutionService | None = None
+        self._p7_cleanup_repository: SqlAlchemyCleanupExecutionRepository | None = None
         self._ingestion_executor: IngestionMonitorExecutor | None = None
         self._ingestion_binding: PersistentPendingBindingGateway | None = None
         self._ingestion_ingress: PersistentIngestionIngressGateway | None = None
@@ -575,22 +638,56 @@ class WorkerRuntime:
             upload_source_cleanup_installed = False
             playback_gateway_installed = False
             intro_detection_gateway_installed = False
+            cleanup_executor_installed = False
             ingestion_binding: PersistentPendingBindingGateway | None = None
             upload_source_cleanup: NativeP115UploadSourceCleanupGateway | None = None
             intro_detection_gateway: NativeP115IntroDetectionGateway | None = None
             try:
                 settings_provider = config_adapter.load
                 database = container.database
+                cleanup_repository = SqlAlchemyCleanupExecutionRepository(database.unit_of_work)
                 store = PostgresJobStore(
                     lambda: database.unit_of_work(),
                     execution_guard=PostgresExecutionGuard(database.raw_pool),
+                    cancellation_policy=cleanup_repository,
                 )
                 registry = TaskRegistry.from_fixture(_task_fixture())
                 service = JobSubmissionService(store, registry)
                 app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
+                cleanup_executor = CleanupExecutionService(
+                    cleanup_repository,
+                    local=SafeLocalCleanupGateway(),
+                    media=LegacyCleanupMediaGateway(),
+                    p115=LegacyCleanupP115Gateway(),
+                    emby=ConfiguredCleanupEmbyGateway(settings_provider),
+                    lease_seconds=max(self.config.lease_seconds, 60),
+                )
+                subscription_operations = PostgresSubscriptionOperationRepository(database.unit_of_work)
                 subscription_executor = SubscriptionOperationExecutor(
-                    PostgresSubscriptionOperationRepository(database.unit_of_work),
+                    subscription_operations,
                     ConfiguredMoviePilotGateway(app_settings),
+                )
+                moviepilot_effects = PersistentMoviePilotEffectGateway(
+                    subscription_operations,
+                    subscription_executor,
+                    app_settings,
+                    lease_seconds=SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS,
+                )
+                resubscribe_cleanup = PersistentResubscribeCleanupGateway(
+                    SqlAlchemyCleanupRepository(
+                        database.unit_of_work,
+                        SqlAlchemyCleanupMediaProjection(),
+                        SettingsCleanupExecutionPolicy(settings_provider),
+                    )
+                )
+                p7_subscription_tasks = P7SubscriptionTaskRouter(
+                    LegacyP7SubscriptionCompatibilityGateway(),
+                    SubscribeAssistantMaintenanceService(
+                        SqlAlchemyAssistantMaintenanceRepository(database.unit_of_work),
+                        LegacySubscribeAssistantMaintenanceGateway(),
+                    ),
+                    moviepilot_effects,
+                    resubscribe_cleanup,
                 )
                 ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
                 upload_repository = PostgresP115UploadMonitorRepository(database.unit_of_work)
@@ -819,8 +916,12 @@ class WorkerRuntime:
                 playback_gateway_installed = True
                 install_persistent_intro_detection_gateway(intro_detection_gateway)
                 intro_detection_gateway_installed = True
+                install_cleanup_executor(cleanup_executor)
+                cleanup_executor_installed = True
             except BaseException:
                 try:
+                    if cleanup_executor_installed:
+                        clear_cleanup_executor(cleanup_executor)
                     if intro_detection_gateway_installed and intro_detection_gateway is not None:
                         clear_persistent_intro_detection_gateway(intro_detection_gateway)
                     if playback_gateway_installed:
@@ -859,6 +960,9 @@ class WorkerRuntime:
             self._p5_media_tasks = p5_media_tasks
             self._p6_p115_tasks = p6_p115_tasks
             self._p6_ingestion_tasks = p6_ingestion_tasks
+            self._p7_subscription_tasks = p7_subscription_tasks
+            self._p7_cleanup_executor = cleanup_executor
+            self._p7_cleanup_repository = cleanup_repository
             self._ingestion_executor = ingestion_executor
             self._ingestion_binding = ingestion_binding
             self._ingestion_ingress = ingestion_ingress
@@ -896,6 +1000,11 @@ class WorkerRuntime:
             if not self._started:
                 return
             errors: list[Exception] = []
+            if self._p7_cleanup_executor is not None:
+                try:
+                    clear_cleanup_executor(self._p7_cleanup_executor)
+                except Exception as exc:
+                    errors.append(exc)
             if self._intro_detection_gateway is not None:
                 try:
                     clear_persistent_intro_detection_gateway(self._intro_detection_gateway)
@@ -966,6 +1075,9 @@ class WorkerRuntime:
             self._media_effects = None
             self._p6_p115_tasks = None
             self._p6_ingestion_tasks = None
+            self._p7_subscription_tasks = None
+            self._p7_cleanup_executor = None
+            self._p7_cleanup_repository = None
             self._ingestion_executor = None
             self._ingestion_binding = None
             self._ingestion_ingress = None
@@ -1187,6 +1299,12 @@ class WorkerRuntime:
             if worker_shutdown_requested():
                 raise WorkerShutdownRequested("process shutdown started before Job claim")
             pending = store.get_job(parsed_job_id)
+            if pending is not None and pending.job.parent_job_id is not None:
+                parent = store.get_job(pending.job.parent_job_id)
+                if parent is not None and parent.job.status in {JobStatus.CANCEL_REQUESTED, JobStatus.CANCELLED}:
+                    cancelled = store.request_cancel(parsed_job_id)
+                    if cancelled.job.status is not JobStatus.QUEUED:
+                        return
             if pending is not None and pending.job.parent_job_id is None:
                 self._refresh_settings()
             claim = store.claim_attempt(
@@ -1245,6 +1363,11 @@ class WorkerRuntime:
             processor=processor,
             control=control,
             terminate_process=self._terminate_process,
+            prepare_post_effect_cancellation=(
+                self._p7_cleanup_repository.prepare_post_effect_cancellation
+                if job.task_key == CLEANUP_EXECUTION_TASK_KEY and self._p7_cleanup_repository is not None
+                else None
+            ),
         )
         progress = _ExecutionProgress(
             store=store,
@@ -1253,6 +1376,7 @@ class WorkerRuntime:
             worker_id=self._worker_id,
             lease_seconds=self.config.lease_seconds,
             control=control,
+            task_key=job.task_key,
             accept_succeeded_terminal_update=job.task_key == "scan-organize-115",
         )
         try:
@@ -1307,6 +1431,26 @@ class WorkerRuntime:
                     raise LookupError(f"P6 native task {definition.key!r} has no task router")
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P6 native task {definition.key!r} did not return TaskOutcome")
+            elif definition is not None and definition.key in P7_NATIVE_TASK_KEYS:
+                metadata = {
+                    "job_id": str(job.id),
+                    "attempt_id": str(attempt.id),
+                    "worker_id": self._worker_id,
+                }
+                message = registry.create_message(
+                    definition.key,
+                    envelope["parameters"],
+                    payload_version=int(envelope["payload_version"]),
+                    metadata=metadata,
+                )
+                if self._p7_subscription_tasks is None:
+                    raise RuntimeError("P7 subscription task router is unavailable")
+                from task_manager import persistent_execution
+
+                with persistent_execution(progress):
+                    result = self._p7_subscription_tasks.execute(message, processor, progress)
+                if not isinstance(result, TaskOutcome):
+                    raise TypeError(f"P7 native task {definition.key!r} did not return TaskOutcome")
             elif definition is not None:
                 message = registry.create_message(
                     definition.key,
@@ -1361,6 +1505,72 @@ class WorkerRuntime:
             ):
                 control_reason = "cancel"
 
+            cleanup_result = (
+                result if job.task_key == CLEANUP_EXECUTION_TASK_KEY and isinstance(result, Mapping) else None
+            )
+            if isinstance(failure, CleanupExecutionPending):
+                retryable = attempt.attempt_no < job.max_attempts
+                safe_error = _error_summary(failure)
+                store.fail_attempt(
+                    job_id=job.id,
+                    attempt_id=attempt.id,
+                    worker_id=self._worker_id,
+                    error_type=type(failure).__name__,
+                    error_message=str(safe_error["message"]),
+                    error_details={**safe_error, "phase": failure.phase, "item_id": str(failure.item_id)},
+                    retryable=retryable,
+                    next_attempt_at=(
+                        datetime.now(UTC) + timedelta(seconds=failure.retry_delay_seconds)
+                        if retryable and failure.retry_delay_seconds is not None
+                        else (_retry_at(attempt.attempt_no) if retryable else None)
+                    ),
+                    honor_cancel_request=False,
+                )
+                return
+            if (
+                cleanup_result is not None
+                and cleanup_result.get("status") == "confirmed"
+                and cleanup_result.get("durable_effect_started") is True
+            ):
+                store.succeed_attempt(
+                    job_id=job.id,
+                    attempt_id=attempt.id,
+                    worker_id=self._worker_id,
+                    result=_result_object(cleanup_result),
+                    honor_cancel_request=False,
+                )
+                return
+            if cleanup_result is not None and cleanup_result.get("status") == "indeterminate":
+                safe_error = _error_summary(
+                    failure or RuntimeError(str(cleanup_result.get("message") or "indeterminate"))
+                )
+                store.fail_attempt(
+                    job_id=job.id,
+                    attempt_id=attempt.id,
+                    worker_id=self._worker_id,
+                    error_type="CleanupExecutionIndeterminate",
+                    error_message=str(safe_error["message"]),
+                    error_details={**safe_error, "task_outcome": _result_object(cleanup_result)},
+                    retryable=False,
+                    honor_cancel_request=False,
+                )
+                return
+            if cleanup_result is not None and cleanup_result.get("status") == "partial":
+                safe_error = _error_summary(
+                    failure or RuntimeError(str(cleanup_result.get("message") or "partial cleanup outcome"))
+                )
+                store.fail_attempt(
+                    job_id=job.id,
+                    attempt_id=attempt.id,
+                    worker_id=self._worker_id,
+                    error_type="CleanupExecutionPartial",
+                    error_message=str(safe_error["message"]),
+                    error_details={**safe_error, "task_outcome": _result_object(cleanup_result)},
+                    retryable=False,
+                    honor_cancel_request=False,
+                )
+                return
+
             if control_reason is not None:
                 effect_failure = _effect_interruption_failure(control_state, control_reason)
                 if effect_failure is not None:
@@ -1410,7 +1620,11 @@ class WorkerRuntime:
                 failure = _effect_interruption_failure(control_state, "failure") or failure
             if isinstance(
                 failure,
-                (PersistentExecutionInterruptedAfterEffect, PersistentEffectIndeterminate),
+                (
+                    DurableMoviePilotEffectIndeterminateError,
+                    PersistentExecutionInterruptedAfterEffect,
+                    PersistentEffectIndeterminate,
+                ),
             ):
                 safe_error = _error_summary(failure)
                 if isinstance(result, TaskOutcome):
@@ -1427,8 +1641,10 @@ class WorkerRuntime:
                 )
                 return
             if failure is not None:
-                retryable = attempt.attempt_no < job.max_attempts and not (
-                    is_direct and (monitor.timed_out or cancellation_requested)
+                retryable = (
+                    attempt.attempt_no < job.max_attempts
+                    and _reported_failure_is_retryable(result)
+                    and not (is_direct and (monitor.timed_out or cancellation_requested))
                 )
                 safe_error = _error_summary(failure)
                 if isinstance(result, TaskOutcome):
@@ -1482,7 +1698,8 @@ class WorkerRuntime:
 
         with persistent_execution(progress):
             if envelope.get("call_style") == "direct":
-                progress.checkpoint()
+                if progress.task_key != CLEANUP_EXECUTION_TASK_KEY:
+                    progress.checkpoint()
                 return task_function(*args, **envelope["parameters"])
             return task_function(processor, *args, **envelope["parameters"])
 
@@ -1787,6 +2004,13 @@ def _raise_for_reported_failure(task_key: str, result: Any) -> None:
         return
     message = str(result.get("message") or f"task {task_key!r} reported an unsuccessful outcome")
     raise _TaskReportedFailure(message)
+
+
+def _reported_failure_is_retryable(result: Any) -> bool:
+    if not isinstance(result, TaskOutcome):
+        return True
+    legacy = result.details.get("legacy_result")
+    return not (isinstance(legacy, Mapping) and legacy.get("retryable") is False)
 
 
 __all__ = [

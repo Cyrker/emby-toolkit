@@ -30,8 +30,12 @@ def test_p6_native_tasks_have_native_catalog_and_execution_ownership() -> None:
     definitions = {item["key"]: item for item in fixture["tasks"]}
     assert all(definitions[task_key]["handler_kind"] == "native" for task_key in P6_NATIVE_TASK_KEYS)
     assert definitions["manual-correct-organize-records"]["target_stage"] == "P6"
-    assert fixture["metrics"]["native_handler_count"] == 17
-    assert fixture["metrics"]["legacy_adapter_count"] == 33
+    assert fixture["metrics"]["native_handler_count"] == sum(
+        item["handler_kind"] == "native" for item in fixture["tasks"]
+    )
+    assert fixture["metrics"]["legacy_adapter_count"] == sum(
+        item["handler_kind"] == "legacy" for item in fixture["tasks"]
+    )
 
     tasks = json.loads((REPO_ROOT / "verification/contracts/task-ownership.yaml").read_text(encoding="utf-8"))
     tasks_by_key = {item["task_key"]: item for item in tasks["tasks"]}

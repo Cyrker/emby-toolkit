@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 
 from etk.domains.p115 import (
@@ -703,6 +704,8 @@ def test_execution_revision_downgrades_cleanly_and_reapplies_as_the_single_head(
     p6_runtime: DatabaseRuntime,
 ) -> None:
     config = Config(str(REPO_ROOT / "alembic.ini"))
+    expected_head = ScriptDirectory.from_config(config).get_current_head()
+    assert expected_head is not None
     try:
         command.downgrade(config, "0005_p6_organize_plans")
         inspector = inspect(p6_runtime.engine)
@@ -719,6 +722,4 @@ def test_execution_revision_downgrades_cleanly_and_reapplies_as_the_single_head(
     finally:
         command.upgrade(config, "head")
     with p6_runtime.engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0013_p7_subscription_runtime"
-        )
+        assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == expected_head

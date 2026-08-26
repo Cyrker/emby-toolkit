@@ -1660,8 +1660,12 @@ def _finish_deep_delete_cleanup(
     )
     if result['ok']:
         _update_deep_delete_receipt(receipt_key, receipt, state='confirmed', result=result)
-    else:
+    elif isinstance(shared_cleanup_result, dict) and shared_cleanup_result.get('confirmed_no_effect') is True:
         _update_deep_delete_receipt(receipt_key, receipt, state='local_committed', result=result)
+    else:
+        result['indeterminate'] = True
+        result.setdefault('error', 'shared cleanup outcome is unknown; automatic replay is forbidden')
+        _update_deep_delete_receipt(receipt_key, receipt, state='shared_indeterminate', result=result)
     return result
 
 
@@ -1693,7 +1697,10 @@ def cleanup_deleted_media_item(item_id: str, item_name: str, item_type: str, ser
                     'item_id': item_id,
                     'item_type': item_type,
                 }
-            if state == 'shared_started':
+            if state in {'shared_started', 'shared_indeterminate'}:
+                stored_result = existing_receipt.get('result')
+                if isinstance(stored_result, dict):
+                    return dict(stored_result)
                 return {
                     'ok': False,
                     'item_id': item_id,

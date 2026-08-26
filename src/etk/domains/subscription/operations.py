@@ -103,6 +103,7 @@ class SubscriptionOperationIntent:
         request: Mapping[str, Any],
         available_at: datetime | None = None,
         quota: SubscriptionQuotaRequirement | None = None,
+        idempotency_key: str | None = None,
     ) -> SubscriptionOperationIntent:
         normalized_kind = kind if isinstance(kind, SubscriptionOperationKind) else SubscriptionOperationKind(kind)
         normalized_scope = str(scope_key or "").strip()
@@ -111,13 +112,23 @@ class SubscriptionOperationIntent:
         normalized_request = _json_object(request)
         request_bytes = canonical_json(normalized_request).encode()
         request_hash = hashlib.sha256(request_bytes).digest()
-        identity = canonical_json(
+        identity_key = None if idempotency_key is None else str(idempotency_key).strip()
+        if idempotency_key is not None and not identity_key:
+            raise ValueError("subscription operation idempotency_key must not be empty")
+        identity_fields = (
             {
+                "kind": normalized_kind.value,
+                "idempotency_key_hash": hashlib.sha256(identity_key.encode()).hexdigest(),
+                "scope_key": normalized_scope,
+            }
+            if identity_key is not None
+            else {
                 "kind": normalized_kind.value,
                 "request_hash": request_hash.hex(),
                 "scope_key": normalized_scope,
             }
         )
+        identity = canonical_json(identity_fields)
         operation_key = hashlib.sha256(identity.encode()).hexdigest()
         timestamp = _utc(available_at)
         return cls(

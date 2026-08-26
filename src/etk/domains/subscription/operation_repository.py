@@ -159,7 +159,18 @@ class PostgresSubscriptionOperationRepository:
         now: datetime | None = None,
     ) -> SubscriptionOperation:
         current_time = _utc(now)
+        initial = self.read(operation_id)
+        if initial is None:
+            raise SubscriptionOperationClaimLostError("subscription operation was not found")
+        origin_job_id = _origin_job_id(initial.request)
         with self._unit_of_work() as uow:
+            origin_status: str | None = None
+            if origin_job_id is not None:
+                origin_status_value = uow.session.scalar(
+                    text("SELECT status FROM job_runs WHERE id = :job_id FOR UPDATE"),
+                    {"job_id": origin_job_id},
+                )
+                origin_status = str(origin_status_value) if origin_status_value is not None else "missing"
             current = _require_live_claim(
                 uow,
                 operation_id,
@@ -171,6 +182,100 @@ class PostgresSubscriptionOperationRepository:
                 raise SubscriptionOperationStateError(
                     "subscription operation is in readback-only recovery and cannot resend the provider request"
                 )
+            if origin_status is not None and origin_status != "running":
+                if origin_status in {"queued", "retry_wait"}:
+                    available_at = current_time + timedelta(seconds=1)
+                    row = (
+                        uow.session.execute(
+                            text(
+                                """
+                                UPDATE subscription_operations
+                                SET status = 'retryable',
+                                    state_revision = state_revision + 1,
+                                    available_at = :available_at,
+                                    claimed_by = NULL,
+                                    claim_token = NULL,
+                                    claimed_at = NULL,
+                                    lease_expires_at = NULL,
+                                    error_json = CAST(:error_json AS jsonb),
+                                    updated_at = :now
+                                WHERE id = :id AND claim_token = :claim_token
+                                RETURNING *
+                                """
+                            ),
+                            {
+                                "id": operation_id,
+                                "claim_token": claim_token,
+                                "available_at": available_at,
+                                "error_json": _mapping_json(
+                                    {
+                                        "type": "origin_job_not_running",
+                                        "origin_job_status": origin_status,
+                                    },
+                                    field="subscription operation origin job error",
+                                ),
+                                "now": current_time,
+                            },
+                        )
+                        .mappings()
+                        .one()
+                    )
+                    operation = _operation(row)
+                    _extend_operation_quota(uow, operation_id, available_at + timedelta(seconds=1))
+                    _stage_outbox(uow, operation)
+                    uow.commit()
+                    return operation
+                row = (
+                    uow.session.execute(
+                        text(
+                            """
+                            UPDATE subscription_operations
+                            SET status = 'cancelled',
+                                state_revision = state_revision + 1,
+                                claimed_by = NULL,
+                                claim_token = NULL,
+                                claimed_at = NULL,
+                                lease_expires_at = NULL,
+                                readback_json = CAST(:readback_json AS jsonb),
+                                error_json = CAST(:error_json AS jsonb),
+                                finished_at = :now,
+                                updated_at = :now
+                            WHERE id = :id AND claim_token = :claim_token
+                            RETURNING *
+                            """
+                        ),
+                        {
+                            "id": operation_id,
+                            "claim_token": claim_token,
+                            "readback_json": _mapping_json(
+                                {
+                                    "provider_write_invoked": False,
+                                    "origin_job_status": origin_status,
+                                },
+                                field="subscription operation origin job cancellation evidence",
+                            ),
+                            "error_json": _mapping_json(
+                                {
+                                    "type": "origin_job_inactive_before_provider_write",
+                                    "origin_job_status": origin_status,
+                                },
+                                field="subscription operation origin job cancellation error",
+                            ),
+                            "now": current_time,
+                        },
+                    )
+                    .mappings()
+                    .one()
+                )
+                _transition_operation_quota(
+                    uow,
+                    operation_id,
+                    SubscriptionQuotaStatus.RELEASED,
+                    current_time,
+                )
+                _complete_outbox(uow, operation_id)
+                uow.commit()
+                return _operation(row)
             row = _claimed_update(
                 uow,
                 operation_id,
@@ -360,6 +465,31 @@ class PostgresSubscriptionOperationRepository:
             readback=readback,
             error=None,
             quota_target=SubscriptionQuotaStatus.COMMITTED,
+            now=_utc(now),
+        )
+
+    def mark_confirmed_without_write(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        result: Mapping[str, Any],
+        readback: Mapping[str, Any],
+        now: datetime | None = None,
+    ) -> SubscriptionOperation:
+        current = self.read(operation_id)
+        if current is None or current.provider_request_started_at is not None:
+            raise SubscriptionOperationStateError(
+                "subscription operation cannot confirm a no-op after the provider request checkpoint"
+            )
+        return self._mark_terminal(
+            operation_id,
+            claim_token,
+            status=SubscriptionOperationStatus.CONFIRMED,
+            result=result,
+            readback=readback,
+            error=None,
+            quota_target=SubscriptionQuotaStatus.RELEASED,
             now=_utc(now),
         )
 
@@ -787,9 +917,102 @@ class PostgresSubscriptionOperationRepository:
             _transition_operation_quota(uow, operation_id, quota_target, now)
             _complete_outbox(uow, operation_id)
             if status is SubscriptionOperationStatus.CONFIRMED:
+                _apply_confirmed_local_continuation(uow, current, now=now)
                 _stage_resubscribe_continuation(uow, current, now=now)
             uow.commit()
         return _operation(row)
+
+
+def _apply_confirmed_local_continuation(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SubscriptionOperation,
+    *,
+    now: datetime,
+) -> None:
+    continuation = operation.request.get("local_continuation")
+    if continuation is None:
+        return
+    if not isinstance(continuation, Mapping):
+        raise SubscriptionOperationStateError("subscription local continuation must be an object")
+    continuation_type = str(continuation.get("type") or "")
+    tmdb_id = str(continuation.get("tmdb_id") or "").strip()
+    if not tmdb_id:
+        raise SubscriptionOperationStateError("subscription local continuation requires tmdb_id")
+    if continuation_type == "mark_media_subscribed":
+        media_type = str(continuation.get("media_type") or "").strip()
+        if media_type not in {"Movie", "Series", "Season"}:
+            raise SubscriptionOperationStateError("subscription media continuation has an invalid media_type")
+        season = _continuation_season(continuation.get("season"), required=media_type == "Season")
+        if media_type == "Season":
+            uow.session.execute(
+                text(
+                    """
+                    UPDATE media_metadata
+                    SET subscription_status = 'SUBSCRIBED',
+                        last_subscribed_at = :now,
+                        last_updated_at = :now
+                    WHERE item_type = 'Season'
+                      AND (tmdb_id = :synthetic_id OR parent_series_tmdb_id = :tmdb_id)
+                      AND season_number = :season
+                      AND (in_library = FALSE OR subscription_status = 'WANTED')
+                    """
+                ),
+                {
+                    "tmdb_id": tmdb_id,
+                    "synthetic_id": f"{tmdb_id}_S{season}",
+                    "season": season,
+                    "now": now,
+                },
+            )
+            return
+        uow.session.execute(
+            text(
+                """
+                UPDATE media_metadata
+                SET subscription_status = 'SUBSCRIBED',
+                    last_subscribed_at = :now,
+                    last_updated_at = :now
+                WHERE tmdb_id = :tmdb_id
+                  AND item_type = :item_type
+                  AND (in_library = FALSE OR subscription_status = 'WANTED')
+                """
+            ),
+            {"tmdb_id": tmdb_id, "item_type": media_type, "now": now},
+        )
+        return
+    if continuation_type == "mark_resubscribe_subscribed":
+        item_type = str(continuation.get("item_type") or "").strip()
+        if item_type not in {"Movie", "Season"}:
+            raise SubscriptionOperationStateError("resubscribe continuation has an invalid item_type")
+        season = _continuation_season(continuation.get("season"), required=True)
+        uow.session.execute(
+            text(
+                """
+                UPDATE resubscribe_index
+                SET status = 'subscribed', last_checked_at = :now
+                WHERE tmdb_id = :tmdb_id
+                  AND item_type = :item_type
+                  AND season_number = :season
+                """
+            ),
+            {"tmdb_id": tmdb_id, "item_type": item_type, "season": season, "now": now},
+        )
+        return
+    raise SubscriptionOperationStateError(f"subscription local continuation type {continuation_type!r} is unsupported")
+
+
+def _continuation_season(value: object, *, required: bool) -> int | None:
+    if value is None and not required:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | str):
+        raise SubscriptionOperationStateError("subscription local continuation season is invalid")
+    try:
+        season = int(value)
+    except (TypeError, ValueError) as exc:
+        raise SubscriptionOperationStateError("subscription local continuation season is invalid") from exc
+    if season < -1:
+        raise SubscriptionOperationStateError("subscription local continuation season is invalid")
+    return season
 
 
 def _stage_resubscribe_continuation(
@@ -1185,7 +1408,7 @@ def _assert_same_intent(
 ) -> None:
     if (
         operation.id != intent.id
-        or operation.request_hash != intent.request_hash
+        or operation.operation_key != intent.operation_key
         or operation.kind is not intent.kind
         or operation.scope_key != intent.scope_key
     ):
@@ -1196,6 +1419,21 @@ def _mapping_json(value: Mapping[str, Any] | None, *, field: str) -> str | None:
     if value is None:
         return None
     return canonical_json(safe_durable_mapping(value, field=field))
+
+
+def _origin_job_id(request: Mapping[str, Any]) -> UUID | None:
+    origin = request.get("origin")
+    if origin is None:
+        return None
+    if not isinstance(origin, Mapping):
+        raise SubscriptionOperationStateError("subscription operation origin must be an object")
+    value = str(origin.get("job_id") or "").strip()
+    if not value:
+        return None
+    try:
+        return UUID(value)
+    except ValueError as exc:
+        raise SubscriptionOperationStateError("subscription operation origin job_id must be a UUID") from exc
 
 
 def _operation(row: Mapping[Any, Any]) -> SubscriptionOperation:

@@ -42,6 +42,7 @@ GREENFIELD_TABLES = {
     "p115_playback_leases",
     "p115_playback_qr_sessions",
     "p115_intro_detection_operations",
+    "cleanup_execution_items",
     "subscription_operations",
     "subscription_quota_reservations",
     "subscription_runtime_states",
@@ -69,6 +70,24 @@ P6_P115_MEDIAINFO_EXTENSION_NAMES = {
         "ck_p115_mediainfo_cache_probe_revision",
     },
     "indexes": {"uq_p115_mediainfo_cache_upper_sha1"},
+}
+P7_SUBSCRIBE_ASSISTANT_EXTENSION_NAMES = {
+    "columns": {
+        "state_revision",
+        "job_id",
+        "attempt_id",
+        "worker_id",
+        "claim_token",
+        "claimed_at",
+        "lease_expires_at",
+    },
+    "constraints": {
+        "fk_sas_snapshot_job",
+        "fk_sas_snapshot_attempt_job",
+        "ck_sas_snapshot_revision",
+        "ck_sas_snapshot_claim",
+    },
+    "indexes": {"ix_sas_snapshot_claim_recovery"},
 }
 
 
@@ -141,6 +160,12 @@ def test_pg18_alembic_schema_matches_legacy_catalog(migrated_postgres18_url: str
             for item in complete_catalog[family]
             if item["table"] == "p115_mediainfo_cache" and item["name"] in names
         } == names
+    for family, names in P7_SUBSCRIBE_ASSISTANT_EXTENSION_NAMES.items():
+        assert {
+            item["name"]
+            for item in complete_catalog[family]
+            if item["table"] == "subscribe_assistant_snapshots" and item["name"] in names
+        } == names
 
 
 def _legacy_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
@@ -154,6 +179,10 @@ def _legacy_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
             and not (item["table"] == "p115_filesystem_cache" and item["name"] in P6_P115_EXTENSION_NAMES[family])
             and not (
                 item["table"] == "p115_mediainfo_cache" and item["name"] in P6_P115_MEDIAINFO_EXTENSION_NAMES[family]
+            )
+            and not (
+                item["table"] == "subscribe_assistant_snapshots"
+                and item["name"] in P7_SUBSCRIBE_ASSISTANT_EXTENSION_NAMES[family]
             )
         ]
     return filtered

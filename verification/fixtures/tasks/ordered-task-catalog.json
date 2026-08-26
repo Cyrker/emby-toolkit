@@ -7,8 +7,8 @@
   },
   "metrics": {
     "task_key_count": 50,
-    "native_handler_count": 17,
-    "legacy_adapter_count": 33,
+    "native_handler_count": 31,
+    "legacy_adapter_count": 19,
     "chain_visible_count": 28,
     "manual_visible_count": 28
   },
@@ -223,10 +223,10 @@
       "payload_version": 1,
       "legacy_function": "task_enrich_aliases",
       "legacy_signature": "task_enrich_aliases(processor, force_full_update: bool=False)",
-      "legacy_definition": "tasks/actors.py:21",
+      "legacy_definition": "tasks/actors.py:23",
       "registry_source": "tasks/core.py:296",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 6,
@@ -265,7 +265,7 @@
       "payload_version": 1,
       "legacy_function": "task_persons_translation",
       "legacy_signature": "task_persons_translation(processor)",
-      "legacy_definition": "tasks/actors.py:133",
+      "legacy_definition": "tasks/actors.py:135",
       "registry_source": "tasks/core.py:298",
       "target_stage": "P5",
       "handler_kind": "native"
@@ -289,7 +289,7 @@
       "legacy_definition": "tasks/watchlist.py:21",
       "registry_source": "tasks/core.py:299",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 9,
@@ -310,7 +310,7 @@
       "legacy_definition": "tasks/watchlist.py:250",
       "registry_source": "tasks/core.py:300",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 10,
@@ -349,10 +349,10 @@
       "payload_version": 1,
       "legacy_function": "task_process_actor_subscriptions",
       "legacy_signature": "task_process_actor_subscriptions(processor)",
-      "legacy_definition": "tasks/actors.py:128",
+      "legacy_definition": "tasks/actors.py:130",
       "registry_source": "tasks/core.py:302",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 12,
@@ -391,10 +391,10 @@
       "payload_version": 1,
       "legacy_function": "task_auto_subscribe",
       "legacy_signature": "task_auto_subscribe(processor)",
-      "legacy_definition": "tasks/subscriptions.py:1318",
+      "legacy_definition": "tasks/subscriptions.py:1411",
       "registry_source": "tasks/core.py:304",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 14,
@@ -457,7 +457,7 @@
       "legacy_definition": "tasks/watchlist.py:60",
       "registry_source": "tasks/core.py:307",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 17,
@@ -770,7 +770,7 @@
       "legacy_definition": "tasks/watchlist.py:78",
       "registry_source": "tasks/core.py:326",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 32,
@@ -843,10 +843,10 @@
       "payload_version": 1,
       "legacy_function": "task_resubscribe_library",
       "legacy_signature": "task_resubscribe_library(processor)",
-      "legacy_definition": "tasks/resubscribe.py:488",
+      "legacy_definition": "tasks/resubscribe.py:553",
       "registry_source": "tasks/core.py:330",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 36,
@@ -881,10 +881,10 @@
       "payload_version": 1,
       "legacy_function": "task_manual_subscribe_batch",
       "legacy_signature": "task_manual_subscribe_batch(processor, subscribe_requests: List[Dict])",
-      "legacy_definition": "tasks/subscriptions.py:1139",
+      "legacy_definition": "tasks/subscriptions.py:1201",
       "registry_source": "tasks/core.py:332",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 38,
@@ -903,7 +903,7 @@
       "legacy_definition": "tasks/watchlist.py:186",
       "registry_source": "tasks/core.py:333",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 39,
@@ -938,10 +938,10 @@
       "payload_version": 1,
       "legacy_function": "task_update_resubscribe_cache",
       "legacy_signature": "task_update_resubscribe_cache(processor)",
-      "legacy_definition": "tasks/resubscribe.py:107",
+      "legacy_definition": "tasks/resubscribe.py:132",
       "registry_source": "tasks/core.py:335",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 41,
@@ -957,10 +957,10 @@
       "payload_version": 1,
       "legacy_function": "task_merge_duplicate_actors",
       "legacy_signature": "task_merge_duplicate_actors(processor)",
-      "legacy_definition": "tasks/actors.py:336",
+      "legacy_definition": "tasks/actors.py:377",
       "registry_source": "tasks/core.py:336",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 42,
@@ -976,10 +976,10 @@
       "payload_version": 1,
       "legacy_function": "task_purge_ghost_actors",
       "legacy_signature": "task_purge_ghost_actors(processor)",
-      "legacy_definition": "tasks/actors.py:545",
+      "legacy_definition": "tasks/actors.py:643",
       "registry_source": "tasks/core.py:337",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 43,
@@ -1074,7 +1074,7 @@
       "legacy_definition": "tasks/p115.py:3535",
       "registry_source": "tasks/core.py:342",
       "target_stage": "P7",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 48,

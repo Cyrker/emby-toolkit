@@ -11,6 +11,7 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 
 from etk.domains.p115.upload_adapters import NativeP115UploadSourceCleanupGateway
@@ -226,9 +227,6 @@ def test_empty_database_upgrade_has_upload_schema_and_singleton_control(
 ) -> None:
     inspector = inspect(p6_runtime.engine)
     with p6_runtime.engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0013_p7_subscription_runtime"
-        )
         assert connection.scalar(text("SELECT COUNT(*) FROM p115_upload_monitor_controls")) == 1
 
     assert {"p115_upload_monitor_controls", "p115_upload_operations"} <= set(inspector.get_table_names())
@@ -848,6 +846,8 @@ def test_upload_monitor_migration_downgrade_and_upgrade_remain_current(
     migrated_p6_postgres_url: str,
 ) -> None:
     config = Config(str(REPO_ROOT / "alembic.ini"))
+    expected_head = ScriptDirectory.from_config(config).get_current_head()
+    assert expected_head is not None
     previous = os.environ.get("ETK_DATABASE_URL")
     os.environ["ETK_DATABASE_URL"] = migrated_p6_postgres_url
     try:
@@ -864,9 +864,7 @@ def test_upload_monitor_migration_downgrade_and_upgrade_remain_current(
         inspector = inspect(p6_runtime.engine)
         assert {"p115_upload_operations", "p115_upload_monitor_controls"} <= set(inspector.get_table_names())
         with p6_runtime.engine.connect() as connection:
-            assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-                "0013_p7_subscription_runtime"
-            )
+            assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == expected_head
     finally:
         if previous is None:
             os.environ.pop("ETK_DATABASE_URL", None)

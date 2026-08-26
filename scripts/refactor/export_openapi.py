@@ -14,8 +14,8 @@ if str(REPO_ROOT) not in sys.path:
 from etk.bootstrap.app_factory import create_app  # noqa: E402
 
 DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi.json"
-EXPECTED_PATHS = 125
-EXPECTED_OPERATIONS = 148
+EXPECTED_PATHS = 146
+EXPECTED_OPERATIONS = 175
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),

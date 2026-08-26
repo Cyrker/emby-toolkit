@@ -93,7 +93,11 @@ async def _legacy_json_value(request: Request) -> tuple[object | None, Response 
         return None, _html_error(BadRequest())
 
 
-@router.get("/mp/config", responses=_responses(200, 403, 500))
+@router.get(
+    "/mp/config",
+    response_model=dict[str, Any],
+    responses=_responses(200, 403, 500),
+)
 async def get_moviepilot_config(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
@@ -108,6 +112,7 @@ async def get_moviepilot_config(request: Request) -> Response:
 
 @router.post(
     "/mp/config",
+    response_model=dict[str, Any],
     responses=_responses(200, 400, 403, 415, 500),
     openapi_extra=_OBJECT_BODY,
 )
@@ -128,7 +133,11 @@ async def save_moviepilot_config(request: Request) -> Response:
     return fastapi_json_response({"success": True, "message": "MoviePilot 配置已保存生效"})
 
 
-@router.get("/strategy", responses=_responses(200, 403, 500))
+@router.get(
+    "/strategy",
+    response_model=dict[str, Any],
+    responses=_responses(200, 403, 500),
+)
 async def get_subscription_strategy(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
@@ -143,6 +152,7 @@ async def get_subscription_strategy(request: Request) -> Response:
 
 @router.post(
     "/strategy",
+    response_model=dict[str, Any],
     responses=_responses(200, 400, 403, 500),
     openapi_extra=_OBJECT_BODY,
 )

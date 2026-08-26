@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from threading import Lock
@@ -315,6 +315,68 @@ class HttpxMoviePilotGateway:
         if response.status_code == 404:
             return MoviePilotWriteResult(operation, 404, idempotent=True)
         return self._confirmed_write(response, operation, _WRITE_STATUS_CODES)
+
+    def search_subscription(self, subscription_id: int | str) -> MoviePilotWriteResult:
+        operation = "search-subscription"
+        normalized_id = self._identifier(subscription_id, "MoviePilot subscription id")
+        response = self._authorized_request(
+            operation,
+            "GET",
+            f"/api/v1/subscribe/search/{quote(normalized_id, safe='')}",
+            write=True,
+        )
+        return self._confirmed_write(response, operation, frozenset({200}))
+
+    def delete_download_tasks(self, hashes: Sequence[str]) -> MoviePilotWriteResult:
+        operation = "delete-download-tasks"
+        normalized = tuple(dict.fromkeys(str(value or "").strip() for value in hashes if str(value or "").strip()))
+        if not normalized:
+            raise ValueError("MoviePilot download hashes must not be empty")
+        last_status = 404
+        all_absent = True
+        for task_hash in normalized:
+            response = self._authorized_request(
+                operation,
+                "DELETE",
+                f"/api/v1/download/{quote(task_hash, safe='')}",
+                write=True,
+            )
+            if response.status_code == 404:
+                continue
+            self._expect_status(response, operation, _WRITE_STATUS_CODES, write=True)
+            last_status = response.status_code
+            all_absent = False
+        return MoviePilotWriteResult(operation, last_status, idempotent=all_absent)
+
+    def delete_transfer_history(self, record: Mapping[str, Any]) -> MoviePilotWriteResult:
+        operation = "delete-transfer-history"
+        if not record:
+            raise ValueError("MoviePilot transfer history record must not be empty")
+        response = self._authorized_request(
+            operation,
+            "DELETE",
+            "/api/v1/history/transfer",
+            params={"deletesrc": "false", "deletedest": "false"},
+            json_body=dict(record),
+            write=True,
+        )
+        if response.status_code == 404:
+            return MoviePilotWriteResult(operation, 404, idempotent=True)
+        return self._confirmed_write(response, operation, frozenset({200, 204}))
+
+    def redo_transfer_history(self, history_ids: Sequence[int]) -> MoviePilotWriteResult:
+        operation = "redo-transfer-history"
+        normalized = tuple(dict.fromkeys(int(value) for value in history_ids if int(value) > 0))
+        if not normalized:
+            raise ValueError("MoviePilot transfer history ids must not be empty")
+        response = self._authorized_request(
+            operation,
+            "POST",
+            "/api/v1/history/transfer/ai-redo",
+            json_body={"history_ids": list(normalized)},
+            write=True,
+        )
+        return self._confirmed_write(response, operation, frozenset({200, 201, 202}))
 
     def _authorized_request(
         self,

@@ -11,9 +11,7 @@ from manifest_common import REPO_ROOT, dump_json
 
 def export_runtime_routes(module_name: str, attribute: str) -> dict[str, Any]:
     if os.environ.get("ETK_ALLOW_ISOLATED_LEGACY_REFERENCE") != "1":
-        raise RuntimeError(
-            "set ETK_ALLOW_ISOLATED_LEGACY_REFERENCE=1 only inside a disposable isolated container"
-        )
+        raise RuntimeError("set ETK_ALLOW_ISOLATED_LEGACY_REFERENCE=1 only inside a disposable isolated container")
     module = importlib.import_module(module_name)
     application = getattr(module, attribute)
     rules: list[dict[str, Any]] = []

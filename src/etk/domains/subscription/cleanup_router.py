@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from fastapi import APIRouter, Request
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse, Response
 from werkzeug.exceptions import BadRequest, InternalServerError, UnsupportedMediaType
@@ -22,6 +23,10 @@ from .cleanup_repository import CleanupExecutionConflictError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cleanup", tags=["subscription"])
+
+
+class CleanupMessageResponse(BaseModel):
+    message: str
 
 
 def _responses(*status_codes: int) -> dict[int | str, dict[str, Any]]:
@@ -142,7 +147,15 @@ def _claim_conflict(error: CleanupExecutionConflictError) -> JSONResponse:
     )
 
 
-@router.get("/tasks", responses=_responses(200, 403, 500))
+def _submission_response(message: str) -> JSONResponse:
+    return fastapi_json_response({"message": message}, status_code=202)
+
+
+@router.get(
+    "/tasks",
+    response_model=list[dict[str, Any]],
+    responses=_responses(200, 403, 500),
+)
 def get_cleanup_tasks(request: Request) -> JSONResponse:
     denied = _admin_denial(request)
     if denied is not None:
@@ -156,6 +169,7 @@ def get_cleanup_tasks(request: Request) -> JSONResponse:
 
 @router.post(
     "/execute",
+    response_model=CleanupMessageResponse,
     status_code=202,
     responses=_responses(202, 400, 403, 409, 415, 500, 503),
     openapi_extra=_TASK_IDS_BODY,
@@ -191,11 +205,12 @@ async def execute_cleanup_tasks(request: Request) -> Response:
     except Exception:
         logger.exception("Unable to submit cleanup execution")
         return _html_error(InternalServerError())
-    return fastapi_json_response({"message": "清理任务已提交到后台执行。"}, status_code=202)
+    return _submission_response("清理任务已提交到后台执行。")
 
 
 @router.post(
     "/ignore",
+    response_model=dict[str, Any],
     responses=_responses(200, 400, 403, 409, 415, 500),
     openapi_extra=_TASK_IDS_BODY,
 )
@@ -221,6 +236,7 @@ async def ignore_cleanup_tasks(request: Request) -> Response:
 
 @router.post(
     "/delete",
+    response_model=dict[str, Any],
     responses=_responses(200, 400, 403, 409, 415, 500),
     openapi_extra=_TASK_IDS_BODY,
 )
@@ -244,7 +260,11 @@ async def delete_cleanup_tasks(request: Request) -> Response:
         return fastapi_json_response({"error": f"删除任务时失败: {exc}"}, status_code=500)
 
 
-@router.post("/clear_all", responses=_responses(200, 202, 403, 409, 500, 503))
+@router.post(
+    "/clear_all",
+    response_model=dict[str, Any],
+    responses=_responses(200, 202, 403, 409, 500, 503),
+)
 async def clear_all_cleanup_tasks(request: Request) -> JSONResponse:
     denied = _admin_denial(request)
     if denied is not None:
@@ -273,7 +293,11 @@ async def clear_all_cleanup_tasks(request: Request) -> JSONResponse:
         return fastapi_json_response({"error": f"一键清理失败: {exc}"}, status_code=500)
 
 
-@router.get("/settings", responses=_responses(200, 403, 500))
+@router.get(
+    "/settings",
+    response_model=dict[str, Any],
+    responses=_responses(200, 403, 500),
+)
 def get_cleanup_settings(request: Request) -> JSONResponse:
     denied = _admin_denial(request)
     if denied is not None:
@@ -287,6 +311,7 @@ def get_cleanup_settings(request: Request) -> JSONResponse:
 
 @router.post(
     "/settings",
+    response_model=dict[str, Any],
     responses=_responses(200, 400, 403, 415, 500),
     openapi_extra=_SETTINGS_BODY,
 )
@@ -319,7 +344,12 @@ async def save_cleanup_settings(request: Request) -> Response:
         return fastapi_json_response({"error": f"保存清理设置时失败: {exc}"}, status_code=500)
 
 
-@router.post("/scan", status_code=202, responses=_responses(202, 403, 409, 500, 503))
+@router.post(
+    "/scan",
+    response_model=dict[str, Any],
+    status_code=202,
+    responses=_responses(202, 403, 409, 500, 503),
+)
 async def trigger_cleanup_scan(request: Request) -> JSONResponse:
     denied = _admin_denial(request)
     if denied is not None:
@@ -348,6 +378,7 @@ async def trigger_cleanup_scan(request: Request) -> JSONResponse:
 
 @router.post(
     "/delete_version",
+    response_model=CleanupMessageResponse,
     status_code=202,
     responses=_responses(202, 400, 403, 404, 409, 415, 500),
     openapi_extra=_DELETE_VERSION_BODY,
@@ -371,7 +402,7 @@ async def delete_single_version(request: Request) -> Response:
             requested_by_user_id=user_id,
             trace_id=trace_id,
         )
-        return fastapi_json_response({"message": "删除任务已提交到后台。"}, status_code=202)
+        return _submission_response("删除任务已提交到后台。")
     except CleanupVersionNotFoundError:
         return fastapi_json_response({"error": "未找到对应的物理文件路径"}, status_code=404)
     except CleanupExecutionConflictError as exc:

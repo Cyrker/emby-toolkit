@@ -204,12 +204,25 @@ class SqlAlchemySubscriptionCoreRepository:
             text(
                 """
                 SELECT TRUE
-                FROM cleanup_index AS cleanup
-                JOIN cleanup_execution_items AS execution
-                  ON execution.cleanup_index_id = cleanup.id
-                WHERE cleanup.tmdb_id = :tmdb_id
-                  AND cleanup.item_type = :item_type
-                  AND execution.status IN :statuses
+                FROM cleanup_execution_items AS execution
+                LEFT JOIN cleanup_index AS cleanup
+                  ON cleanup.id = execution.cleanup_index_id
+                WHERE execution.status IN :statuses
+                  AND (
+                        (cleanup.tmdb_id = :tmdb_id AND cleanup.item_type = :item_type)
+                     OR EXISTS (
+                            SELECT 1
+                            FROM jsonb_array_elements(
+                                CASE
+                                    WHEN jsonb_typeof(execution.snapshot_json->'cleanup_indexes') = 'array'
+                                    THEN execution.snapshot_json->'cleanup_indexes'
+                                    ELSE '[]'::jsonb
+                                END
+                            ) AS cleanup_ref(value)
+                            WHERE cleanup_ref.value->>'tmdb_id' = :tmdb_id
+                              AND cleanup_ref.value->>'item_type' = :item_type
+                        )
+                  )
                 LIMIT 1
                 """
             ).bindparams(bindparam("statuses", expanding=True)),

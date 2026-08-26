@@ -31,7 +31,7 @@ class LegacyTaskAdapter:
             raise TypeError("legacy task adapter requires a TaskMessage")
         definition = self._registry.require(message.task_key)
         if definition.handler_kind is TaskHandlerKind.NATIVE:
-            raise ValueError(f"task {message.task_key!r} requires a native P4 handler")
+            raise ValueError(f"task {message.task_key!r} requires a native task handler")
         if message.processor is not definition.processor:
             raise ValueError(f"task {message.task_key!r} processor identity does not match its registry definition")
         if message.payload.version != definition.payload_version:

@@ -3409,55 +3409,55 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1099"
+          "source": "handler/moviepilot.py:103"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1172"
+          "source": "handler/moviepilot.py:1149"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1259"
+          "source": "handler/moviepilot.py:1222"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1327"
+          "source": "handler/moviepilot.py:123"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1381"
+          "source": "handler/moviepilot.py:1309"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1444"
+          "source": "handler/moviepilot.py:1377"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1518"
+          "source": "handler/moviepilot.py:1446"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1557"
+          "source": "handler/moviepilot.py:1527"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1579"
+          "source": "handler/moviepilot.py:1616"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1609"
+          "source": "handler/moviepilot.py:1655"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1637"
+          "source": "handler/moviepilot.py:1677"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1656"
+          "source": "handler/moviepilot.py:1707"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1675"
+          "source": "handler/moviepilot.py:1738"
         },
         {
           "operation": "get_setting",
@@ -3465,27 +3465,27 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:357"
+          "source": "handler/moviepilot.py:1779"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:397"
+          "source": "handler/moviepilot.py:1864"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:473"
+          "source": "handler/moviepilot.py:391"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:592"
+          "source": "handler/moviepilot.py:434"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:76"
+          "source": "handler/moviepilot.py:510"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:96"
+          "source": "handler/moviepilot.py:642"
         },
         {
           "operation": "get_setting",
@@ -3537,7 +3537,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "services/subscribe_assistant/manager.py:53"
+          "source": "services/subscribe_assistant/manager.py:55"
         },
         {
           "operation": "get_setting",
@@ -3545,15 +3545,15 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/resubscribe.py:994"
+          "source": "tasks/resubscribe.py:1059"
         },
         {
           "operation": "get_setting",
-          "source": "tasks/subscriptions.py:1330"
+          "source": "tasks/subscriptions.py:1423"
         },
         {
           "operation": "get_setting",
-          "source": "tasks/subscriptions.py:1338"
+          "source": "tasks/subscriptions.py:1431"
         },
         {
           "operation": "get_setting",
@@ -4660,11 +4660,11 @@
         },
         {
           "operation": "get_setting",
-          "source": "services/subscribe_assistant/manager.py:63"
+          "source": "services/subscribe_assistant/manager.py:65"
         },
         {
           "operation": "get_setting",
-          "source": "tasks/subscriptions.py:1329"
+          "source": "tasks/subscriptions.py:1422"
         }
       ],
       "contract_id": "setting-db208fbe932e",
@@ -4820,7 +4820,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "services/subscribe_assistant/manager.py:52"
+          "source": "services/subscribe_assistant/manager.py:54"
         },
         {
           "operation": "get_setting",
@@ -4828,15 +4828,15 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/subscriptions.py:1156"
+          "source": "tasks/subscriptions.py:1224"
         },
         {
           "operation": "get_setting",
-          "source": "tasks/subscriptions.py:1576"
+          "source": "tasks/subscriptions.py:1693"
         },
         {
           "operation": "get_setting",
-          "source": "tasks/subscriptions.py:928"
+          "source": "tasks/subscriptions.py:929"
         },
         {
           "operation": "get_setting",

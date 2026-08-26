@@ -17,6 +17,8 @@ from actor_utils import enrich_all_actor_aliases_task
 
 logger = logging.getLogger(__name__)
 
+_ACTOR_REFERENCE_LIBRARY_TYPES = frozenset({"movies", "tvshows", "homevideos", "musicvideos", "mixed"})
+
 # ✨✨✨ 演员数据补充函数 ✨✨✨
 def task_enrich_aliases(processor, force_full_update: bool = False):
     """
@@ -333,6 +335,45 @@ def task_persons_translation(processor):
         task_manager.update_status_from_thread(-1, f"任务失败: {e}")
         return {"status": "failed", "message": f"人物翻译任务失败: {e}"}
 
+def _load_referenced_person_ids(processor, library_ids):
+    items = emby.get_emby_library_items(
+        base_url=processor.emby_url,
+        api_key=processor.emby_api_key,
+        user_id=processor.emby_user_id,
+        library_ids=library_ids,
+        media_type_filter=None,
+        fields="People",
+        require_complete=True,
+    )
+    if items is None:
+        return None
+    referenced = set()
+    for item in items:
+        for person in item.get("People", []):
+            if person_id := person.get("Id"):
+                referenced.add(person_id)
+    return referenced
+
+
+def _load_actor_reference_library_ids(processor):
+    libraries = emby.get_emby_libraries(
+        processor.emby_url,
+        processor.emby_api_key,
+        processor.emby_user_id,
+    )
+    if not libraries:
+        return None
+    return [
+        str(library["Id"])
+        for library in libraries
+        if library.get("Id")
+        and (
+            library.get("CollectionType") in _ACTOR_REFERENCE_LIBRARY_TYPES
+            or (not library.get("CollectionType") and library.get("Type") == "CollectionFolder")
+        )
+    ]
+
+
 def task_merge_duplicate_actors(processor):
     """
     【高危 V2.1 - 修正版】
@@ -354,7 +395,13 @@ def task_merge_duplicate_actors(processor):
         if not library_ids_to_process:
             logger.error("  ➜ 任务中止：未在设置中选择任何要处理的媒体库。")
             task_manager.update_status_from_thread(-1, "任务失败：未选择媒体库")
-            return
+            return {"ok": False, "status": "failed", "message": "任务失败：未选择媒体库"}
+
+        all_reference_library_ids = _load_actor_reference_library_ids(processor)
+        if all_reference_library_ids is None:
+            message = "任务失败：无法读取服务器媒体库列表。"
+            task_manager.update_status_from_thread(-1, message)
+            return {"ok": False, "status": "failed", "message": message}
 
         # ======================================================================
         # 阶段 1: 扫描媒体库，建立演员到媒体项的映射
@@ -364,11 +411,15 @@ def task_merge_duplicate_actors(processor):
 
         all_media_items = emby.get_emby_library_items(
             base_url=processor.emby_url, api_key=processor.emby_api_key, user_id=processor.emby_user_id,
-            library_ids=library_ids_to_process, media_type_filter="Movie,Series", fields="People"
+            library_ids=library_ids_to_process, media_type_filter=None, fields="People", require_complete=True
         )
+        if all_media_items is None:
+            message = "任务失败：无法读取选定媒体库。"
+            task_manager.update_status_from_thread(-1, message)
+            return {"ok": False, "status": "failed", "message": message}
         if not all_media_items:
             task_manager.update_status_from_thread(100, "任务完成：在选定的媒体库中未找到任何媒体项。")
-            return
+            return {"ok": True, "status": "succeeded", "message": "任务完成：未找到媒体项。"}
 
         actor_media_map = defaultdict(set)
         for item in all_media_items:
@@ -395,7 +446,7 @@ def task_merge_duplicate_actors(processor):
             if processor.is_stop_requested():
                 logger.info("任务在扫描演员阶段被用户中断。")
                 task_manager.update_status_from_thread(100, "任务已中止。")
-                return
+                return {"ok": False, "status": "cancelled", "message": "任务在扫描演员阶段取消。"}
             
             for person in person_batch:
                 if tmdb_id := person.get("ProviderIds", {}).get("Tmdb"):
@@ -414,7 +465,7 @@ def task_merge_duplicate_actors(processor):
         if not duplicate_groups:
             logger.info("扫描完成，没有发现任何拥有相同TMDb ID的分身演员。")
             task_manager.update_status_from_thread(100, "任务完成，未发现分身演员。")
-            return
+            return {"ok": True, "status": "succeeded", "message": "任务完成，未发现分身演员。"}
 
         logger.warning(f"  ➜ 发现 {len(duplicate_groups)} 组共用TMDb ID的分身演员，开始应用“保大删小”策略...")
         
@@ -454,17 +505,19 @@ def task_merge_duplicate_actors(processor):
         if processor.is_stop_requested():
             logger.warning("  ➜ 任务已中止，未执行任何合并或删除操作。")
             task_manager.update_status_from_thread(100, "任务已中止。")
-            return
+            return {"ok": False, "status": "cancelled", "message": "任务在执行效果前取消。"}
 
         total_to_process = len(merge_plan)
         if total_to_process == 0:
             logger.info("所有分身组合并分析完成，无需操作。")
             task_manager.update_status_from_thread(100, "任务完成，无需操作。")
-            return
+            return {"ok": True, "status": "succeeded", "message": "任务完成，无需操作。"}
 
         logger.warning(f"  ➜ 合并计划制定完成，共需处理 {total_to_process} 个“小号”演员。")
         deleted_count = 0
         merged_item_count = 0
+        failed_objects = []
+        delete_effect_unknown = False
 
         for i, plan in enumerate(merge_plan):
             if processor.is_stop_requested():
@@ -484,10 +537,15 @@ def task_merge_duplicate_actors(processor):
             if media_ids_to_update:
                 logger.info(f"  ➜ 正在将 '{deletee['Name']}' 的 {len(media_ids_to_update)} 个作品转移给 '{keeper['Name']}'...")
                 for media_id in media_ids_to_update:
+                    if processor.is_stop_requested():
+                        all_media_updates_succeeded = False
+                        failed_objects.append({"type": "cancelled", "media_id": str(media_id)})
+                        break
                     item_details = emby.get_emby_item_details(media_id, processor.emby_url, processor.emby_api_key, processor.emby_user_id)
                     if not item_details:
                         logger.error(f"    - 获取媒体项 {media_id} 详情失败，跳过此项的合并。")
                         all_media_updates_succeeded = False
+                        failed_objects.append({"type": "media_read_failed", "media_id": str(media_id)})
                         continue
                     
                     old_people = item_details.get("People", [])
@@ -506,6 +564,9 @@ def task_merge_duplicate_actors(processor):
                             "Type": "Actor", "Role": role_from_deletee
                         })
                     
+                    task_manager.persistent_execution_checkpoint()
+                    effect_label = f"actor-merge-media:{media_id}"
+                    task_manager.record_persistent_effect_started(effect_label)
                     update_success = emby.update_emby_item_details(
                         item_id=media_id, new_data={"People": new_people},
                         emby_server_url=processor.emby_url, emby_api_key=processor.emby_api_key,
@@ -513,19 +574,43 @@ def task_merge_duplicate_actors(processor):
                     )
 
                     if update_success:
+                        task_manager.record_persistent_effect_committed(effect_label)
                         merged_item_count += 1
                         logger.debug(f"    - ➜ 成功更新媒体项 '{item_details.get('Name')}' 的演员列表。")
                     else:
+                        task_manager.record_persistent_effect_abandoned(effect_label)
                         all_media_updates_succeeded = False
+                        failed_objects.append({"type": "media_update_failed", "media_id": str(media_id)})
                         logger.error(f"    - ➜ 更新媒体项 '{item_details.get('Name')}' 失败！")
 
             if all_media_updates_succeeded:
+                latest_references = _load_referenced_person_ids(processor, all_reference_library_ids)
+                if latest_references is None:
+                    failed_objects.append(
+                        {"type": "reference_readback_failed", "person_id": str(deletee['Id'])}
+                    )
+                    all_media_updates_succeeded = False
+                elif deletee['Id'] in latest_references:
+                    failed_objects.append(
+                        {"type": "person_still_referenced", "person_id": str(deletee['Id'])}
+                    )
+                    all_media_updates_succeeded = False
+
+            if all_media_updates_succeeded:
                 logger.info(f"  ➜ 所有媒体项已成功转移，准备删除“小号”演员 '{deletee['Name']}' (ID: {deletee['Id']})...")
+                task_manager.persistent_execution_checkpoint()
+                effect_label = f"actor-merge-delete:{deletee['Id']}"
+                task_manager.record_persistent_effect_started(effect_label)
                 delete_success = emby.delete_person_custom_api(
                     base_url=processor.emby_url, api_key=processor.emby_api_key, person_id=deletee['Id']
                 )
                 if delete_success:
+                    task_manager.record_persistent_effect_committed(effect_label)
                     deleted_count += 1
+                else:
+                    task_manager.record_persistent_effect_abandoned(effect_label)
+                    delete_effect_unknown = True
+                    failed_objects.append({"type": "person_delete_unconfirmed", "person_id": str(deletee['Id'])})
             else:
                 logger.error(f"  ➜ 由于媒体项更新失败，演员 '{deletee['Name']}' (ID: {deletee['Id']}) 将被跳过，不予删除，以保证数据安全。")
             
@@ -537,10 +622,23 @@ def task_merge_duplicate_actors(processor):
         
         logger.info(final_message)
         task_manager.update_status_from_thread(100, final_message)
+        stopped = processor.is_stop_requested()
+        status = "partial" if failed_objects or stopped else "succeeded"
+        return {
+            "ok": status == "succeeded",
+            "status": status,
+            "message": final_message,
+            "merged_items": merged_item_count,
+            "deleted_people": deleted_count,
+            "failed_objects": failed_objects,
+            "stopped": stopped,
+            "retryable": not delete_effect_unknown,
+        }
 
     except Exception as e:
         logger.error(f"执行 '{task_name}' 任务时发生严重错误: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"任务失败: {e}")
+        return {"ok": False, "status": "failed", "message": f"任务失败: {e}"}
 
 def task_purge_ghost_actors(processor):
     """
@@ -553,6 +651,7 @@ def task_purge_ghost_actors(processor):
     logger.warning("  ➜ 此任务将扫描您整个服务器的媒体和演员，以找出并删除任何未被使用的演员条目。")
     
     task_manager.update_status_from_thread(0, "准备开始全局扫描...")
+    deletion_attempted = False
 
     try:
         # ======================================================================
@@ -561,32 +660,25 @@ def task_purge_ghost_actors(processor):
         task_manager.update_status_from_thread(0, "准备阶段: 正在扫描所有媒体库...")
         
         # 1.1 获取服务器上所有可见的媒体库ID
-        all_libraries = emby.get_emby_libraries(processor.emby_url, processor.emby_api_key, processor.emby_user_id)
-        if not all_libraries:
+        all_library_ids = _load_actor_reference_library_ids(processor)
+        if all_library_ids is None:
             task_manager.update_status_from_thread(100, "任务中止：无法获取服务器媒体库列表。")
-            return
-        
-        all_library_ids = [lib['Id'] for lib in all_libraries if lib.get('CollectionType') in ['movies', 'tvshows', 'homevideos', 'musicvideos']]
+            return {"ok": False, "status": "failed", "message": "任务中止：无法获取服务器媒体库列表。"}
         logger.info(f"  ➜ 将扫描服务器上的 {len(all_library_ids)} 个媒体库...")
 
         # 1.2 获取所有媒体项
-        all_media_items = emby.get_emby_library_items(
-            base_url=processor.emby_url, api_key=processor.emby_api_key, user_id=processor.emby_user_id,
-            library_ids=all_library_ids, media_type_filter="Movie,Series", fields="People"
-        )
-        if not all_media_items:
+        whitelist_person_ids = _load_referenced_person_ids(processor, all_library_ids)
+        if whitelist_person_ids is None:
+            message = "任务中止：无法读取服务器媒体人物引用。"
+            task_manager.update_status_from_thread(-1, message)
+            return {"ok": False, "status": "failed", "message": message}
+        if not all_library_ids:
             task_manager.update_status_from_thread(100, "任务完成：服务器中未找到任何媒体项。")
-            return
+            return {"ok": True, "status": "succeeded", "message": "任务完成：没有可扫描的媒体库。"}
 
-        # 1.3 建立白名单
-        whitelist_person_ids = set()
-        for item in all_media_items:
-            if processor.is_stop_requested():
-                logger.info("任务在建立白名单阶段被用户中断。")
-                return
-            for person in item.get("People", []):
-                if person_id := person.get("Id"):
-                    whitelist_person_ids.add(person_id)
+        if processor.is_stop_requested():
+            logger.info("任务在建立白名单阶段被用户中断。")
+            return {"ok": False, "status": "cancelled", "message": "任务在建立白名单阶段取消。"}
         
         logger.info(f"  ➜ 白名单建立完成，服务器中共有 {len(whitelist_person_ids)} 位被引用的演员/职员。")
 
@@ -605,7 +697,7 @@ def task_purge_ghost_actors(processor):
         for person_batch in person_generator:
             if processor.is_stop_requested():
                 logger.info("任务在扫描演员阶段被用户中断。")
-                return
+                return {"ok": False, "status": "cancelled", "message": "任务在扫描演员阶段取消。"}
             all_person_items.extend(person_batch)
             total_scanned += len(person_batch)
             task_manager.update_status_from_thread(0, f"准备阶段: 已扫描 {total_scanned} 名演员...")
@@ -619,7 +711,7 @@ def task_purge_ghost_actors(processor):
         if total_to_delete == 0:
             logger.info("  ➜ 扫描完成，未发现任何未被引用的“幽灵演员”。")
             task_manager.update_status_from_thread(100, "扫描完成，服务器演员数据很干净！")
-            return
+            return {"ok": True, "status": "succeeded", "message": "扫描完成，未发现幽灵演员。"}
 
         # ======================================================================
         # 阶段 3: 执行删除
@@ -627,6 +719,8 @@ def task_purge_ghost_actors(processor):
         logger.warning(f"  ➜ 筛选完成：...发现 {total_to_delete} 个幽灵演员，即将开始删除...")
         task_manager.update_status_from_thread(0, f"准备阶段: 识别完成，发现 {total_to_delete} 个幽灵演员。")
         deleted_count = 0
+        failures = []
+        skipped_referenced = []
 
         for i, person in enumerate(orphans_to_delete):
             if processor.is_stop_requested():
@@ -639,11 +733,28 @@ def task_purge_ghost_actors(processor):
             progress = int(((i + 1) / total_to_delete) * 100)
             task_manager.update_status_from_thread(progress, f"({i+1}/{total_to_delete}) 正在删除幽灵: {person.get('Name')}")
 
+            latest_references = _load_referenced_person_ids(processor, all_library_ids)
+            if latest_references is None:
+                failures.append({"type": "reference_readback_failed", "person_id": str(person_id)})
+                continue
+            if person_id in latest_references:
+                skipped_referenced.append(str(person_id))
+                logger.info("  ➜ 跳过演员 %s：删除前最新读取发现仍有媒体引用。", person_id)
+                continue
+
+            task_manager.persistent_execution_checkpoint()
+            effect_label = f"actor-purge-delete:{person_id}"
+            task_manager.record_persistent_effect_started(effect_label)
+            deletion_attempted = True
             success = emby.delete_person_custom_api(
                 base_url=processor.emby_url, api_key=processor.emby_api_key, person_id=person_id
             )
             if success:
+                task_manager.record_persistent_effect_committed(effect_label)
                 deleted_count += 1
+            else:
+                task_manager.record_persistent_effect_abandoned(effect_label)
+                failures.append({"type": "person_delete_unconfirmed", "person_id": str(person_id)})
             time.sleep(0.2)
 
         final_message = f"  ➜ “幽灵演员”清理完成！共找到 {total_to_delete} 个目标，成功删除了 {deleted_count} 个。"
@@ -652,7 +763,31 @@ def task_purge_ghost_actors(processor):
         
         logger.info(final_message)
         task_manager.update_status_from_thread(100, final_message)
+        stopped = processor.is_stop_requested()
+        if failures:
+            status = "failed" if deleted_count == 0 else "partial"
+        elif stopped:
+            status = "partial"
+        else:
+            status = "succeeded"
+        return {
+            "ok": status == "succeeded",
+            "status": status,
+            "message": final_message,
+            "candidates": total_to_delete,
+            "deleted": deleted_count,
+            "skipped_referenced": skipped_referenced,
+            "failures": failures,
+            "stopped": stopped,
+            "retryable": not any(item["type"] == "person_delete_unconfirmed" for item in failures),
+        }
 
     except Exception as e:
         logger.error(f"执行 '{task_name}' 任务时发生严重错误: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"任务失败: {e}")
+        return {
+            "ok": False,
+            "status": "failed",
+            "message": f"任务失败: {e}",
+            "retryable": not deletion_attempted,
+        }

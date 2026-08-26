@@ -124,11 +124,6 @@ def _confirm_notification(
 
 def test_migration_schema_constraints_and_indexes_are_present(p6_runtime: DatabaseRuntime) -> None:
     inspector = inspect(p6_runtime.engine)
-    with p6_runtime.engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0013_p7_subscription_runtime"
-        )
-
     assert {"ingestion_monitor_items", "ingestion_pending_bindings"} <= set(inspector.get_table_names())
     monitor_constraints = {
         constraint["name"] for constraint in inspector.get_check_constraints("ingestion_monitor_items")

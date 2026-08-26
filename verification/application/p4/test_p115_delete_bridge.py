@@ -74,6 +74,9 @@ def test_delete_reconciliation_skips_an_effect_completed_before_the_worker_crash
         def fs_files(self, _payload):
             return {"state": True, "data": []}
 
+        def fs_get_info(self, _fid):
+            return {"state": False, "code": 20004, "message": "not found"}
+
         def fs_delete(self, _fids):
             delete_calls.append(True)
             return {"state": True}
@@ -96,6 +99,9 @@ def test_delete_reconciliation_accepts_a_lost_success_response() -> None:
         def fs_files(self, _payload):
             exists = next(states)
             return {"state": True, "data": [{"fid": "fid-one"}] if exists else []}
+
+        def fs_get_info(self, _fid):
+            return {"state": False, "code": 20004, "message": "not found"}
 
         def fs_delete(self, fids):
             assert fids == ["fid-one"]

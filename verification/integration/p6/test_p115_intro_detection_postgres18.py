@@ -25,6 +25,8 @@ from etk.domains.p115.intro_detection import (
 from etk.domains.p115.intro_detection_repository import PostgresP115IntroDetectionRepository
 from etk.platform.db import DatabaseRuntime
 
+DUE_AT = datetime(2000, 1, 1, tzinfo=UTC)
+
 
 def _episode(number: int, *, cache_revision: int = 0) -> IntroEpisodeSnapshot:
     return IntroEpisodeSnapshot.create(
@@ -49,7 +51,7 @@ def _intent(*, second_revision: int = 0) -> IntroDetectionIntent:
             credits_enabled=True,
         ),
         episodes=(_episode(1), _episode(2, cache_revision=second_revision)),
-        available_at=datetime.now(UTC),
+        available_at=DUE_AT,
     )
 
 
@@ -360,7 +362,7 @@ def test_chapter_cache_effect_and_operation_progress_stage_in_one_uow(
             credits_enabled=True,
         ),
         episodes=episodes,
-        available_at=datetime.now(UTC),
+        available_at=DUE_AT,
     )
     operation = repository.reserve(intent).operation
     claimed = repository.claim_by_id(operation.id, worker_id="intro-worker", lease_seconds=60)

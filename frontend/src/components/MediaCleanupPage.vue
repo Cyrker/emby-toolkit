@@ -279,8 +279,7 @@ const executeDeleteVersion = async (row) => {
     await axios.post('/api/cleanup/delete_version', { 
       emby_id: String(row.id)
     });
-    message.success('版本删除成功');
-    fetchData(); // 删除成功后刷新列表
+    message.success('删除任务已提交到后台');
   } catch (err) {
     message.error(err.response?.data?.error || '删除失败');
   }

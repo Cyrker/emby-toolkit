@@ -5,18 +5,27 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, TextIO
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 import pytest
+from pydantic import SecretStr
 from redis import Redis
 from sqlalchemy import text
 
+from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
+from etk.domains.subscription.assistant import ASSISTANT_MAINTENANCE_PHASES, _state_json
+from etk.domains.subscription.cleanup_adapters import SettingsCleanupExecutionPolicy
+from etk.domains.subscription.cleanup_repository import SqlAlchemyCleanupRepository
+from etk.platform import Settings
 from etk.platform.db import DatabaseRuntime
 from etk.platform.jobs import AttemptStatus, JobProjection, JobStatus, PostgresJobStore
 from etk.processes.celery_app import EXECUTE_JOB_TASK, create_celery_app
@@ -56,6 +65,60 @@ def _safe_point_operation(processor: Any, *, marker: str, mode: str) -> dict[str
             return {"stop_observed": True}
         time.sleep(0.05)
     raise TimeoutError("test operation did not observe a cooperative stop before its safety deadline")
+
+
+@dataclass(slots=True)
+class CleanupEmbyStubState:
+    notifications: int = 0
+    item_readbacks: int = 0
+
+
+def _start_cleanup_emby_stub() -> tuple[ThreadingHTTPServer, threading.Thread, CleanupEmbyStubState]:
+    state = CleanupEmbyStubState()
+    lock = threading.Lock()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            if length:
+                self.rfile.read(length)
+            if urlsplit(self.path).path == "/Library/Media/Updated":
+                with lock:
+                    state.notifications += 1
+            self.send_response(204)
+            self.end_headers()
+
+        def do_GET(self) -> None:  # noqa: N802
+            path = urlsplit(self.path).path
+            if path == "/Items/emby-old":
+                with lock:
+                    state.item_readbacks += 1
+                    readback = state.item_readbacks
+                if readback == 1:
+                    payload = b'{"Id":"emby-old"}'
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(payload)))
+                    self.end_headers()
+                    self.wfile.write(payload)
+                    return
+                self.send_response(404)
+                self.end_headers()
+                return
+            payload = b'{"Items":[]}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: object) -> None:
+            del format, args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, name="etk-cleanup-emby-stub", daemon=True)
+    thread.start()
+    return server, thread, state
 
 
 @dataclass(slots=True)
@@ -310,6 +373,273 @@ def test_duplicate_celery_delivery_for_same_attempt_executes_once(
         assert attempts == [(1, "succeeded")]
     finally:
         assert worker.stop() == 0
+
+
+def test_p7_cleanup_worker_restart_uses_readback_only_after_duplicate_delivery(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+) -> None:
+    server, server_thread, emby = _start_cleanup_emby_stub()
+    emby_url = f"http://127.0.0.1:{server.server_address[1]}"
+    local_root = tmp_path / "cleanup-local"
+    local_root.mkdir()
+    target_path = local_root / "old.mkv"
+    settings = Settings(
+        local_strm_root=str(local_root),
+        emby_server_url=emby_url,
+        emby_api_key=SecretStr("fixture-token"),
+        p115_enable_sync_delete=False,
+    )
+    task_id = 900_000 + int(uuid4().hex[:5], 16)
+    with p4_runtime.engine.begin() as connection:
+        prior_dynamic = connection.scalar(
+            text("SELECT value_json FROM app_settings WHERE setting_key = 'dynamic_app_config'")
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                VALUES ('dynamic_app_config', CAST(:value AS jsonb), NOW())
+                ON CONFLICT (setting_key) DO UPDATE SET
+                    value_json = EXCLUDED.value_json,
+                    last_updated_at = NOW()
+                """
+            ),
+            {
+                "value": json.dumps(
+                    {
+                        "local_strm_root": str(local_root),
+                        "emby_server_url": emby_url,
+                        "emby_api_key": "fixture-token",
+                        "p115_enable_sync_delete": False,
+                    },
+                    separators=(",", ":"),
+                )
+            },
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, in_library, emby_item_ids_json,
+                    file_sha1_json, file_pickcode_json, asset_details_json, title
+                ) VALUES (
+                    :tmdb_id, 'Movie', TRUE, CAST(:emby_ids AS jsonb),
+                    '["",""]'::jsonb, '["",""]'::jsonb, CAST(:assets AS jsonb), 'Fixture cleanup'
+                )
+                """
+            ),
+            {
+                "tmdb_id": f"cleanup-process-{task_id}",
+                "emby_ids": '["emby-old","emby-best"]',
+                "assets": json.dumps(
+                    [
+                        {"emby_item_id": "emby-old", "path": str(target_path)},
+                        {"emby_item_id": "emby-best", "path": ""},
+                    ],
+                    separators=(",", ":"),
+                ),
+            },
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO cleanup_index (
+                    id, tmdb_id, item_type, status, versions_info_json, best_version_json
+                ) VALUES (
+                    :id, :tmdb_id, 'Movie', 'pending',
+                    CAST(:versions AS jsonb), '"emby-best"'::jsonb
+                )
+                """
+            ),
+            {
+                "id": task_id,
+                "tmdb_id": f"cleanup-process-{task_id}",
+                "versions": json.dumps(
+                    [
+                        {"id": "emby-old", "path": str(target_path)},
+                        {"id": "emby-best"},
+                    ],
+                    separators=(",", ":"),
+                ),
+            },
+        )
+    submission = SqlAlchemyCleanupRepository(
+        p4_runtime.unit_of_work,
+        SqlAlchemyCleanupMediaProjection(),
+        SettingsCleanupExecutionPolicy(lambda: settings),
+    ).stage_cleanup([task_id])
+    initial = p4_store.get_job(submission.job_id)
+    assert initial is not None
+
+    worker = _start_worker(p4_runtime_environment, tmp_path / "cleanup-worker")
+    coordinator: ManagedProcess | None = None
+    replacement: ManagedProcess | None = None
+    try:
+        _wait_for_worker(worker, p4_runtime_environment.config)
+        _send_delivery(
+            p4_runtime_environment.config,
+            submission.job_id,
+            initial.current_attempt.id,
+            count=2,
+        )
+        first = _wait_for_job(p4_store, submission.job_id, {JobStatus.RETRY_WAIT}, timeout=30)
+        assert first.current_attempt.status is AttemptStatus.FAILED
+        assert emby.notifications == 1
+        assert emby.item_readbacks == 1
+        assert worker.stop() == 0
+
+        coordinator = _start_coordinator(p4_runtime_environment, tmp_path / "cleanup-coordinator")
+        replacement = _start_worker(p4_runtime_environment, tmp_path / "cleanup-replacement")
+        _wait_for_worker(replacement, p4_runtime_environment.config)
+        completed = _wait_for_job(p4_store, submission.job_id, {JobStatus.SUCCEEDED}, timeout=45)
+
+        assert completed.current_attempt.attempt_no == 2
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert emby.notifications == 1
+        assert emby.item_readbacks == 2
+        with p4_runtime.engine.connect() as connection:
+            item = connection.execute(
+                text(
+                    """
+                    SELECT status, receipt_json->'phases'->'emby'->>'status' AS emby_status
+                    FROM cleanup_execution_items
+                    WHERE job_id = :job_id
+                    """
+                ),
+                {"job_id": submission.job_id},
+            ).one()
+        assert item == ("confirmed", "confirmed")
+    finally:
+        if coordinator is not None:
+            assert coordinator.stop() == 128 + signal.SIGTERM
+        if replacement is not None:
+            assert replacement.stop() == 0
+        if worker.process.poll() is None:
+            worker.kill()
+        server.shutdown()
+        server.server_close()
+        server_thread.join(timeout=5)
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(text("DELETE FROM cleanup_index WHERE id = :id"), {"id": task_id})
+            connection.execute(
+                text("DELETE FROM media_metadata WHERE tmdb_id = :tmdb_id AND item_type = 'Movie'"),
+                {"tmdb_id": f"cleanup-process-{task_id}"},
+            )
+            if prior_dynamic is None:
+                connection.execute(text("DELETE FROM app_settings WHERE setting_key = 'dynamic_app_config'"))
+            else:
+                connection.execute(
+                    text(
+                        """
+                        UPDATE app_settings
+                        SET value_json = CAST(:value AS jsonb), last_updated_at = NOW()
+                        WHERE setting_key = 'dynamic_app_config'
+                        """
+                    ),
+                    {"value": json.dumps(prior_dynamic, separators=(",", ":"))},
+                )
+
+
+def test_subscribe_assistant_restart_resumes_frozen_phases_through_real_worker(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+) -> None:
+    phases = tuple(phase for phase in ASSISTANT_MAINTENANCE_PHASES if phase != "download_check")
+    created = p4_store.create_job(
+        task_key="subscribe-assistant-maintenance",
+        queue_name=p4_runtime_environment.queue_name,
+        max_attempts=2,
+        payload={
+            "payload_version": 1,
+            "parameters": {},
+            "processor_type": "watchlist",
+            "display_name": "P7 subscribe assistant restart fixture",
+            "silent": True,
+        },
+    ).projection
+    first_attempt = created.current_attempt.id
+    claim = p4_store.claim_attempt(
+        job_id=created.job.id,
+        attempt_id=first_attempt,
+        worker_id="fixture-crashed-worker",
+        lease_seconds=30,
+    )
+    assert claim.claimed is True
+    p4_store.start_attempt(
+        job_id=created.job.id,
+        attempt_id=first_attempt,
+        worker_id="fixture-crashed-worker",
+        lease_seconds=30,
+    )
+    with p4_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO subscribe_assistant_state (state_key, state_json, updated_at)
+                VALUES (:state_key, CAST(:state_json AS jsonb), NOW())
+                """
+            ),
+            {
+                "state_key": f"maintenance:{created.job.id}",
+                "state_json": _state_json(
+                    created.job.id,
+                    first_attempt,
+                    phases,
+                    (phases[0],),
+                    {phases[0]: 7},
+                    False,
+                ),
+            },
+        )
+    p4_store.fail_attempt(
+        job_id=created.job.id,
+        attempt_id=first_attempt,
+        worker_id="fixture-crashed-worker",
+        error_type="fixture_worker_lost",
+        error_message="fixture worker lost after phase checkpoint",
+        retryable=True,
+        next_attempt_at=datetime.now(UTC) - timedelta(seconds=1),
+        honor_cancel_request=False,
+    )
+    retries = p4_store.enqueue_due_retries()
+    assert len(retries) == 1
+    second_attempt = retries[0].id
+
+    worker = _start_worker(p4_runtime_environment, tmp_path / "subscribe-assistant-worker")
+    try:
+        _wait_for_worker(worker, p4_runtime_environment.config)
+        _send_delivery(p4_runtime_environment.config, created.job.id, second_attempt, count=2)
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=30)
+
+        assert completed.current_attempt.id == second_attempt
+        assert completed.current_attempt.attempt_no == 2
+        with p4_runtime.engine.connect() as connection:
+            state = connection.scalar(
+                text("SELECT state_json FROM subscribe_assistant_state WHERE state_key = :state_key"),
+                {"state_key": f"maintenance:{created.job.id}"},
+            )
+        assert state["completed"] is True
+        assert state["completed_phases"] == list(phases)
+        assert state["results"][phases[0]] == 7
+        assert state["current_attempt_id"] == str(second_attempt)
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in worker.read_log(),
+            description="duplicate Assistant delivery to be skipped",
+            timeout=15,
+        )
+    finally:
+        if worker.process.poll() is None:
+            assert worker.stop() == 0
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text("DELETE FROM subscribe_assistant_state WHERE state_key = :state_key"),
+                {"state_key": f"maintenance:{created.job.id}"},
+            )
 
 
 def test_sigkill_worker_child_recovers_expired_lease_and_retries(

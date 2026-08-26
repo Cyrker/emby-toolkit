@@ -21,6 +21,7 @@ from scripts.refactor.compare_schema import collect_catalog
 TIMEZONE = "Asia/Shanghai"
 LEGACY_TABLE_COUNT = 39
 GREENFIELD_TABLES = {
+    "cleanup_execution_items",
     "idempotency_records",
     "job_attempts",
     "job_runs",
@@ -49,7 +50,7 @@ GREENFIELD_TABLES = {
     "subscription_runtime_states",
 }
 EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(GREENFIELD_TABLES)
-EXPECTED_MIGRATION_HEAD = "0013_p7_subscription_runtime"
+EXPECTED_MIGRATION_HEAD = "0015_p7_assistant_claims"
 _FIXTURE_TABLES = (
     "failed_log",
     "processed_log",

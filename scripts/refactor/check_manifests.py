@@ -3,13 +3,12 @@ from __future__ import annotations
 import argparse
 import filecmp
 import tempfile
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 from compare_runtime_routes import compare_runtime_routes
 from export_manifests import export_all
 from manifest_common import REPO_ROOT, load_json, load_ownership_overrides, stable_id
-
 
 MANIFEST_FILES = [
     "baseline-summary.json",
@@ -62,10 +61,7 @@ def _validate_contracts(directory: Path, override_path: Path) -> list[str]:
         collections[kind] = payload[collection_name]
     collections.update(_config_contracts(directory))
 
-    known_ids = {
-        kind: {entry["contract_id"] for entry in entries}
-        for kind, entries in collections.items()
-    }
+    known_ids = {kind: {entry["contract_id"] for entry in entries} for kind, entries in collections.items()}
     overrides = load_ownership_overrides(override_path)
     override_collections = overrides["contracts"]
     unknown_kinds = sorted(set(override_collections) - set(collections))
@@ -91,9 +87,7 @@ def _validate_contracts(directory: Path, override_path: Path) -> list[str]:
             if status == "new" and not entry.get("new_owner"):
                 failures.append(f"{kind}:{contract_id}: new contract has no new_owner")
             if status == "retired-approved" and not entry.get("retirement_approval"):
-                failures.append(
-                    f"{kind}:{contract_id}: retired contract has no retirement_approval"
-                )
+                failures.append(f"{kind}:{contract_id}: retired contract has no retirement_approval")
             if not entry.get("validation_owner") or not entry.get("validation_method"):
                 failures.append(f"{kind}:{contract_id}: validation ownership is incomplete")
             for fixture in _fixture_paths(entry):
@@ -101,22 +95,36 @@ def _validate_contracts(directory: Path, override_path: Path) -> list[str]:
                     failures.append(f"{kind}:{contract_id}: missing fixture {fixture}")
 
     route_bindings = collections["route_bindings"]
-    identities = [
-        (entry["application"], entry["method"], entry["path"])
-        for entry in route_bindings
-    ]
+    identities = [(entry["application"], entry["method"], entry["path"]) for entry in route_bindings]
     if len(identities) != len(set(identities)):
         failures.append("duplicate active Method/Path route binding")
     for entry in route_bindings:
-        expected_id = stable_id(
-            "route-binding", entry["application"], entry["method"], entry["path"]
-        )
+        expected_id = stable_id("route-binding", entry["application"], entry["method"], entry["path"])
         if entry["contract_id"] != expected_id:
             failures.append(f"unstable route binding id: {entry['contract_id']}")
         if not entry.get("fixture") and not entry.get("fixture_exception"):
-            failures.append(
-                f"route_bindings:{entry['contract_id']}: missing fixture or explicit exception"
-            )
+            failures.append(f"route_bindings:{entry['contract_id']}: missing fixture or explicit exception")
+
+    task_fixture_path = REPO_ROOT / "verification/fixtures/tasks/ordered-task-catalog.json"
+    if not task_fixture_path.is_file():
+        failures.append(f"missing ordered task fixture: {task_fixture_path}")
+    else:
+        task_fixture = load_json(task_fixture_path)
+        fixture_tasks = {entry["key"]: entry for entry in task_fixture.get("tasks", [])}
+        manifest_tasks = {entry["task_key"]: entry for entry in collections["tasks"]}
+        if set(fixture_tasks) != set(manifest_tasks):
+            failures.append("ordered task fixture and task ownership manifest keys differ")
+        for task_key in sorted(set(fixture_tasks) & set(manifest_tasks)):
+            handler_kind = fixture_tasks[task_key].get("handler_kind")
+            if handler_kind not in {"native", "legacy"}:
+                failures.append(f"tasks:{task_key}: invalid handler_kind {handler_kind!r}")
+                continue
+            expected_status = "new" if handler_kind == "native" else "legacy"
+            if manifest_tasks[task_key].get("status") != expected_status:
+                failures.append(
+                    f"tasks:{task_key}: handler_kind {handler_kind!r} conflicts with ownership status "
+                    f"{manifest_tasks[task_key].get('status')!r}"
+                )
     return failures
 
 
