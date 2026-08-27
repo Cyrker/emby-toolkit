@@ -40,9 +40,10 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { computed, ref } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import {
   NAlert,
   NButton,
@@ -118,7 +119,7 @@ const normalizeTemplates = (templates) => ({
 const fetchTemplates = async () => {
   loading.value = true;
   try {
-    const response = await axios.get('/api/telegram/templates');
+    const response = await apiClient.get(apiPath('api_telegram_templates_b0887938'));
     model.value = normalizeTemplates(response.data);
   } catch (error) {
     message.error(error.response?.data?.error || '读取 Telegram 通知模板失败');
@@ -139,7 +140,7 @@ const resetTemplate = (key) => {
 const saveTemplates = async () => {
   saving.value = true;
   try {
-    const response = await axios.post('/api/telegram/templates', {
+    const response = await apiClient.post(apiPath('api_telegram_templates_b0887938'), {
       templates: normalizeTemplates(model.value)
     });
     model.value = normalizeTemplates(response.data?.templates);

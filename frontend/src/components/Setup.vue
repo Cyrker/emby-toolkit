@@ -56,11 +56,12 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { NLayout, NCard, NForm, NFormItem, NInput, NButton, NSpace, useMessage } from 'naive-ui';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { useAuthStore } from '../stores/auth';
 
 const router = useRouter();
@@ -85,7 +86,7 @@ async function handleSave() {
     await formRef.value?.validate();
     loading.value = true;
     
-    const response = await axios.post('/api/auth/setup', formModel.value);
+    const response = await apiClient.post(apiPath('api_auth_setup_0d7c12f3'), formModel.value);
     
     if (response.data.status === 'ok') {
       await authStore.checkAuthStatus();

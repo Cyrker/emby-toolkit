@@ -64,7 +64,8 @@
   </n-form>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, watch } from 'vue';
 import { NForm, NFormItem, NInputNumber, NCheckboxGroup, NCheckbox, NSelect, NSpace, NText } from 'naive-ui';
 

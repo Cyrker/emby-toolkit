@@ -178,10 +178,11 @@
 
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { computed, onBeforeUnmount, ref } from 'vue';
 import { useMessage } from 'naive-ui';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 const message = useMessage();
 const showModal = ref(false);
@@ -301,7 +302,7 @@ const open = async (showLoading = true) => {
   if (showLoading) loading.value = true;
 
   try {
-    const res = await axios.get('/api/subscription/hdhive/config');
+    const res = await apiClient.get(apiPath('api_subscription_hdhive_config_4df8bc6f'));
     if (res.data.success) {
       relayStatus.value = res.data.relay_status || null;
       authorizeUrl.value = res.data.authorize_url || '';
@@ -334,7 +335,7 @@ const openAuthorize = async () => {
   try {
     let url = authorizeUrl.value;
     if (!url) {
-      const res = await axios.get('/api/subscription/hdhive/authorize_url');
+      const res = await apiClient.get(apiPath('api_subscription_hdhive_authorize_url_798667f1'));
       if (res.data.success) {
         url = res.data.authorize_url;
       }
@@ -358,7 +359,7 @@ const openAuthorize = async () => {
 const clearAuthorization = async () => {
   clearingAuth.value = true;
   try {
-    const res = await axios.post('/api/subscription/hdhive/clear_authorization');
+    const res = await apiClient.post(apiPath('api_subscription_hdhive_clear_authorization_2d0b5b57'));
     if (res.data.success) {
       message.success(res.data.message || '影巢授权已清除');
       stopAuthPolling();
@@ -380,7 +381,7 @@ const clearAuthorization = async () => {
 const saveConfig = async () => {
   saving.value = true;
   try {
-    const res = await axios.post('/api/subscription/hdhive/config', {
+    const res = await apiClient.post(apiPath('api_subscription_hdhive_config_4df8bc6f'), {
       hdhive_checkin_mode: hdhiveCheckinMode.value,
       unlock_limit_count: unlockLimitCount.value,
       unlock_limit_window: unlockLimitWindow.value,
@@ -414,7 +415,7 @@ const saveConfig = async () => {
 const doCheckin = async (isGambler) => {
   checkingIn.value = true;
   try {
-    const res = await axios.post('/api/subscription/hdhive/checkin', { is_gambler: isGambler });
+    const res = await apiClient.post(apiPath('api_subscription_hdhive_checkin_8416cca0'), { is_gambler: isGambler });
     if (res.data.success) {
       message.success(res.data.message, { duration: 5000 });
       await open(false);

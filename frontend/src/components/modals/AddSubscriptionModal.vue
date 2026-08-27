@@ -49,11 +49,12 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref } from 'vue';
 import { NModal, NInput, NIcon, NSpin, NList, NListItem, NThing, NAvatar, NText, NButton, NEmpty, useMessage } from 'naive-ui';
 import { SearchOutline as SearchIcon } from '@vicons/ionicons5';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { useDebounceFn } from '@vueuse/core';
 
 // <<< 核心修改点 1：明确 props 和 emits >>>
@@ -80,7 +81,7 @@ const searchActors = async () => {
   }
   searching.value = true;
   try {
-    const response = await axios.get('/api/actor-subscriptions/search', {
+    const response = await apiClient.get(apiPath('api_actor_subscriptions_search_f0036c07'), {
       params: { name: searchQuery.value },
     });
     searchResults.value = response.data;
@@ -100,7 +101,7 @@ const getImageUrl = (path) => {
 
 const handleSelectPerson = async (person) => {
   try {
-    const response = await axios.post('/api/actor-subscriptions', {
+    const response = await apiClient.post(apiPath('api_actor_subscriptions_dead8a05'), {
       tmdb_person_id: person.id,
       actor_name: person.name,
       profile_path: person.profile_path,

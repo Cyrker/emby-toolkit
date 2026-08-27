@@ -1,3 +1,4 @@
+// Node-test compatibility entrypoint. Browser code imports the TypeScript module.
 export const QUICK_DEPLOY_INTENT_STORAGE_KEY = 'etk.quick-deploy.pending-intent';
 
 export const getQuickDeployIntent = (
@@ -17,15 +18,13 @@ export const clearQuickDeployIntent = (storage = globalThis.localStorage) => {
 
 export const assertQuickDeployResponse = async (response, storage = globalThis.localStorage) => {
   if (response.ok && response.body) return;
-
   let serverMessage = '';
   try {
     const payload = await response.json();
     serverMessage = String(payload?.message || payload?.error || '').trim();
   } catch {
-    // An empty or non-JSON failure still gets a deterministic HTTP error below.
+    // Keep the deterministic status fallback for empty/non-JSON responses.
   }
-
   if (response.status === 409) {
     clearQuickDeployIntent(storage);
     throw new Error(serverMessage || '部署目标已变化，请重新确认');

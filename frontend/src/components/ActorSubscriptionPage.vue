@@ -96,12 +96,13 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 // ✨ [核心修改] 引入 onBeforeUnmount 和 watch
 import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue';
 import { NPageHeader, NButton, NIcon, NText, NGrid, NGi, NCard, NSpin, NEmpty, NTag, useMessage, NSpace } from 'naive-ui';
 import { Add as AddIcon, SyncOutline as SyncIcon, SettingsOutline as SettingsIcon } from '@vicons/ionicons5';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import AddSubscriptionModal from './modals/AddSubscriptionModal.vue';
 import SubscriptionDetailsModal from './modals/SubscriptionDetailsModal.vue';
 import DefaultConfigModal from './modals/DefaultConfigModal.vue';
@@ -123,7 +124,7 @@ let observer = null;
 const fetchSubscriptions = async () => {
   loading.value = true;
   try {
-    const response = await axios.get('/api/actor-subscriptions');
+    const response = await apiClient.get(apiPath('api_actor_subscriptions_dead8a05'));
     subscriptions.value = response.data;
     displayCount.value = 40; // 重置
   } catch (error) {
@@ -151,7 +152,7 @@ const loadMore = () => {
 
 const handleRefreshSubscriptions = async () => {
   try {
-    const response = await axios.post('/api/tasks/run', { task_name: 'actor-tracking' });
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: 'actor-tracking' });
     message.success(response.data.message || '演员订阅刷新任务已成功提交到后台！');
   } catch (error) {
     console.error("触发演员订阅刷新失败:", error);

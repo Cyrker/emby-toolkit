@@ -95,9 +95,10 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import {
   NAlert, NButton, NDataTable, NDivider, NForm, NFormItem, NGi, NGrid, NIcon, NInput,
   NInputNumber, NModal, NRadio, NRadioButton, NRadioGroup, NSelect, NSpace, NSwitch, NText, useMessage
@@ -230,7 +231,7 @@ let quoteTimer = null;
 const refreshQuote = async () => {
   if (!selectedMedia.value) return;
   try {
-    const res = await axios.post('/api/shared/resources/share-requests/quote', buildPayload());
+    const res = await apiClient.post(apiPath('api_shared_resources_share_requests_quote_84c8cc35'), buildPayload());
     const data = res.data?.data || null;
     quote.value = data;
   } catch (e) {
@@ -294,7 +295,7 @@ const searchTmdb = async () => {
   if (!keyword) return message.warning('请输入要搜索的片名');
   searchLoading.value = true;
   try {
-    const res = await axios.get('/api/shared/resources/share-requests/tmdb/search', { params: { keyword, media_type: requestMediaType.value } });
+    const res = await apiClient.get(apiPath('api_shared_resources_share_requests_tmdb_search_50aca4c1'), { params: { keyword, media_type: requestMediaType.value } });
     searchItems.value = res.data?.items || [];
     if (!searchItems.value.length) message.info('TMDb 没有搜索到结果');
   } catch (e) {
@@ -317,7 +318,7 @@ const searchColumns = [
 
 const loadParamOptions = async () => {
   try {
-    const res = await axios.get('/api/shared/resources/share-requests/param-options');
+    const res = await apiClient.get(apiPath('api_shared_resources_share_requests_param_options_77080f19'));
     const data = res.data?.data || {};
     Object.keys(paramOptions).forEach(key => {
       if (Array.isArray(data[key]) && data[key].length) paramOptions[key] = data[key];
@@ -335,7 +336,7 @@ const submit = async () => {
   submitting.value = true;
   try {
     const payload = buildPayload();
-    const res = await axios.post('/api/shared/resources/share-requests', payload);
+    const res = await apiClient.post(apiPath('api_shared_resources_share_requests_3abaa4b4'), payload);
     message.success(res.data?.message || '求共享已发布');
     visible.value = false;
     emit('created', res.data?.data || payload);

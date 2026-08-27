@@ -334,14 +334,15 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 // ... (Script 部分保持不变，逻辑无需修改) ...
 import { ref, onMounted, onBeforeUnmount, computed, watch, h } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { NLayout, NPageHeader, NEmpty, NTag, NButton, NSpace, NIcon, useMessage, useDialog, NTooltip, NGrid, NGi, NCard, NImage, NEllipsis, NSpin, NAlert, NModal, NTabs, NTabPane, NPopconfirm, NCheckbox, NDropdown, NInput, NSelect, NButtonGroup } from 'naive-ui';
 import { SyncOutline, AlbumsOutline as AlbumsIcon, EyeOutline as EyeIcon, CloudDownloadOutline as CloudDownloadIcon, CheckmarkCircleOutline as CheckmarkCircle, ArrowUpOutline as ArrowUpIcon, ArrowDownOutline as ArrowDownIcon, SearchOutline as SearchIcon, TrashOutline as TrashIcon, SettingsOutline as SettingsIcon } from '@vicons/ionicons5';
 import { format } from 'date-fns';
-import { useConfig } from '../composables/useConfig.js';
+import { useConfig } from '../composables/useConfig.ts';
 
 const props = defineProps({ taskStatus: { type: Object, required: true } });
 const { configModel } = useConfig();
@@ -414,7 +415,7 @@ const handleDeleteCollection = async (collection) => {
   const d = message.loading('正在删除合集，请稍候...', { duration: 0 });
   
   try {
-    await axios.delete(`/api/collections/${collection.emby_collection_id}`);
+    await apiClient.delete(apiPath('api_collections_param_016004c3', [collection.emby_collection_id]));
     d.destroy();
     message.success(`合集 "${collection.name}" 删除成功！`);
     
@@ -504,7 +505,7 @@ const loadCachedData = async () => {
   if (collections.value.length === 0) isInitialLoading.value = true;
   error.value = null;
   try {
-    const response = await axios.get('/api/collections/status', { headers: { 'Cache-Control': 'no-cache' } });
+    const response = await apiClient.get(apiPath('api_collections_status_5f21bcca'), { headers: { 'Cache-Control': 'no-cache' } });
     collections.value = response.data;
     displayCount.value = 50;
   } catch (err) {
@@ -522,7 +523,7 @@ const isUpdatingSettings = ref(false);
 // ★★★ 2. 加载设置 ★★★
 const loadSettings = async () => {
   try {
-    const response = await axios.get('/api/collections/settings');
+    const response = await apiClient.get(apiPath('api_collections_settings_0ed84fe3'));
     autoSubEnabled.value = response.data.auto_sub_enabled;
   } catch (e) {
     console.error("加载合集设置失败", e);
@@ -535,7 +536,7 @@ const loadSettings = async () => {
 const handleAutoSubChange = async (value) => {
   isUpdatingSettings.value = true;
   try {
-    await axios.post('/api/collections/settings', {
+    await apiClient.post(apiPath('api_collections_settings_0ed84fe3'), {
       auto_sub_enabled: value 
     });
     autoSubEnabled.value = value;
@@ -554,7 +555,7 @@ const handleAutoSubChange = async (value) => {
 const triggerFullRefresh = async () => {
   isRefreshing.value = true;
   try {
-    const response = await axios.post('/api/tasks/run', { task_name: 'refresh-collections' });
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: 'refresh-collections' });
     message.success(response.data.message || '刷新任务已在后台启动！');
   } catch (err) {
     message.error(err.response?.data?.error || '启动刷新任务失败。');
@@ -618,7 +619,7 @@ const getCollectionPosterUrl = (posterPath) => {
     return '/img/poster-placeholder.png';
   }
   const fullTmdbUrl = `https://image.tmdb.org/t/p/w300${posterPath}`;
-  return `/api/image_proxy?url=${encodeURIComponent(fullTmdbUrl)}`;
+  return apiPath('api_image_proxy_url_param_bde13c35', [encodeURIComponent(fullTmdbUrl)]);
 };
 const getTmdbImageUrl = (posterPath) => posterPath ? `https://image.tmdb.org/t/p/w300${posterPath}` : '/img/poster-placeholder.png';
 

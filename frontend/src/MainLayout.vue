@@ -285,7 +285,8 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, computed, h, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import {
@@ -295,7 +296,7 @@ import {
   useMessage, useDialog, NInput, NSpace, NPopconfirm
 } from 'naive-ui';
 import { useAuthStore } from './stores/auth';
-import { themes } from './theme.js';
+import { themes } from './theme.ts';
 import LogViewer from './components/LogViewer.vue';
 import {
   AnalyticsOutline as StatsIcon,
@@ -334,7 +335,7 @@ import {
   ListCircleOutline as MenuEditIcon,
   CloudCircleOutline as SharedResourceIcon
 } from '@vicons/ionicons5';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import logo from './assets/logo.png'
 
 const message = useMessage();
@@ -358,7 +359,7 @@ onUnmounted(() => {
 
 const triggerStopTask = async () => {
   try {
-    await axios.post('/api/trigger_stop_task');
+    await apiClient.post(apiPath('api_trigger_stop_task_06826b15'));
     message.info('已发送停止任务请求。');
   } catch (error) {
     message.error(error.response?.data?.error || '发送停止任务请求失败，请查看日志。');
@@ -457,7 +458,7 @@ const userOptions = computed(() => {
 const triggerRestart = async () => {
   message.info('正在发送重启指令...');
   try {
-    await axios.post('/api/system/restart');
+    await apiClient.post(apiPath('api_system_restart_cf773802'));
     message.success('重启指令已发送，应用正在后台重启。请稍后手动刷新页面。', { duration: 10000 });
   } catch (error) {
     if (error.response) {
@@ -648,7 +649,7 @@ const syncMenuConfig = (savedTree) => {
 const initMenuConfig = async () => {
   isMenuReady.value = false;
   try {
-    const response = await axios.get('/api/system/menu_config');
+    const response = await apiClient.get(apiPath('api_system_menu_config_bad217b0'));
     const saved = response.data || [];
     menuConfigTree.value = syncMenuConfig(saved);
   } catch (error) {
@@ -672,7 +673,7 @@ watch(baseMenuOptions, () => {
 const saveMenuConfig = async () => {
   isSavingMenu.value = true;
   try {
-    await axios.post('/api/system/menu_config', menuConfigTree.value);
+    await apiClient.post(apiPath('api_system_menu_config_bad217b0'), menuConfigTree.value);
     isMenuEditorVisible.value = false;
     message.success('菜单配置已保存，全局生效');
     
@@ -690,7 +691,7 @@ const saveMenuConfig = async () => {
 const resetMenuConfig = async () => {
   isSavingMenu.value = true;
   try {
-    await axios.post('/api/system/menu_config/reset');
+    await apiClient.post(apiPath('api_system_menu_config_reset_12d69dbd'));
     menuConfigTree.value = syncMenuConfig([]); // 传入空数组生成默认树
     message.success('已恢复默认菜单');
     

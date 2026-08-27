@@ -113,14 +113,15 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { 
   NLayout, NCard, NForm, NFormItem, NInput, NButton, NSpin, NAlert, useMessage,
   NModal, NResult, NDescriptions, NDescriptionsItem, NSpace
 } from 'naive-ui';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 const route = useRoute();
 const router = useRouter();
@@ -155,7 +156,7 @@ const formRules = {
 
 const validateToken = async () => {
   try {
-    await axios.get(`/api/register/invite/validate/${token}`);
+    await apiClient.get(apiPath('api_register_invite_validate_param_f23347d8', [token]));
     validationState.value = 'valid';
   } catch (error) {
     validationError.value = error.response?.data?.reason || '邀请链接验证失败';
@@ -168,7 +169,7 @@ const handleRegister = () => {
     if (!errors) {
       loading.value = true;
       try {
-        const response = await axios.post('/api/register/invite', formModel.value);
+        const response = await apiClient.post(apiPath('api_register_invite_25f5a7e6'), formModel.value);
         registrationResult.value = response.data.data;
         showSuccessModal.value = true;
       } catch (error) {

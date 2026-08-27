@@ -80,7 +80,8 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { 
@@ -89,7 +90,7 @@ import {
 } from 'naive-ui';
 import { PersonOutline, LockClosedOutline } from '@vicons/ionicons5';
 import { useAuthStore } from '../stores/auth';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 const router = useRouter();
 const message = useMessage();
@@ -130,7 +131,7 @@ async function handleLogin() {
 async function requestToken() {
   recoveryLoading.value = true;
   try {
-    await axios.post('/api/auth/request_recovery');
+    await apiClient.post(apiPath('api_auth_request_recovery_be43cd10'));
     tokenSent.value = true;
     message.info('令牌已生成，请查看服务器日志');
   } catch (e) {
@@ -144,7 +145,7 @@ async function verifyToken() {
   if (!recoveryToken.value) return;
   recoveryLoading.value = true;
   try {
-    await axios.post('/api/auth/verify_recovery', { token: recoveryToken.value });
+    await apiClient.post(apiPath('api_auth_verify_recovery_5e85e273'), { token: recoveryToken.value });
     message.success('验证成功，正在跳转设置页...');
     showRecoveryModal.value = false;
     router.push({ name: 'Setup' });

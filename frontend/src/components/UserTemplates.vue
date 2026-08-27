@@ -83,7 +83,9 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
+import apiClient, { apiPath } from '@/api/client'
 import { ref, onMounted, h, computed } from 'vue';
 import {
   NButton, NDataTable, NModal, NForm, NFormItem, NSelect, NInputNumber,
@@ -93,15 +95,15 @@ import { Add as AddIcon, TrashOutline as DeleteIcon, CreateOutline as EditIcon }
 
 // --- API ---
 const api = {
-  getUserTemplates: () => fetch('/api/admin/user_templates'),
-  getEmbyUsers: () => fetch('/api/admin/users'),
-  createTemplate: (data) => fetch('/api/admin/user_templates', {
+  getUserTemplates: () => apiClient.raw(apiPath('api_admin_user_templates_1e1e9c1e')),
+  getEmbyUsers: () => apiClient.raw(apiPath('api_admin_users_39683b2a')),
+  createTemplate: (data) => apiClient.raw(apiPath('api_admin_user_templates_1e1e9c1e'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   }),
-  deleteTemplate: (templateId) => fetch(`/api/admin/user_templates/${templateId}`, { method: 'DELETE' }),
-  updateTemplate: (id, data) => fetch(`/api/admin/user_templates/${id}`, {
+  deleteTemplate: (templateId) => apiClient.raw(apiPath('api_admin_user_templates_param_e0e58b53', [templateId]), { method: 'DELETE' }),
+  updateTemplate: (id, data) => apiClient.raw(apiPath('api_admin_user_templates_param_e0e58b53', [id]), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

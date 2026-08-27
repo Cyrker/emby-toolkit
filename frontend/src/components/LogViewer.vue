@@ -7,14 +7,14 @@
     placement="right"
     resizable
   >
-    <n-drawer-content 
-      title="历史日志查看器" 
-      closable 
+    <n-drawer-content
+      title="历史日志查看器"
+      closable
       :native-scrollbar="false"
       body-content-style="height: 100%; display: flex; flex-direction: column; padding: 0;"
     >
       <div class="drawer-inner-wrapper">
-        
+
         <!-- 顶部控制区 -->
         <n-space vertical class="header-section">
           <n-input-group>
@@ -43,7 +43,7 @@
         <n-divider style="margin: 10px 0;" />
 
         <n-spin :show="isLoading" class="flex-spin">
-          
+
           <!-- 场景 1: 定位模式 (HTML iframe) -->
           <div v-if="isSearchMode && searchMode === 'context'" class="view-container">
              <div class="toolbar">
@@ -53,7 +53,7 @@
                </n-button>
                <span class="tip">已隐藏日期与模块名，仅显示核心流</span>
              </div>
-            
+
             <div v-if="htmlContent" class="iframe-wrapper">
               <iframe :srcdoc="htmlContent" frameborder="0" width="100%" height="100%"></iframe>
             </div>
@@ -66,11 +66,11 @@
               <template #icon><n-icon :component="ArrowBackOutline" /></template>
               返回文件浏览
             </n-button>
-            
+
             <div v-if="hasSearchResults" class="log-text-area">
-              <div 
-                v-for="(line, index) in parsedLogResults" 
-                :key="index" 
+              <div
+                v-for="(line, index) in parsedLogResults"
+                :key="index"
                 class="log-line"
                 :class="line.type === 'log' ? line.level.toLowerCase() : 'raw'"
               >
@@ -114,11 +114,12 @@
   </n-drawer>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, watch, computed } from 'vue';
-import axios from 'axios';
-import { 
-  useMessage, NDrawer, NDrawerContent, NSelect, NSpace, NSpin, 
+import apiClient, { apiPath } from '@/api/client'
+import {
+  useMessage, NDrawer, NDrawerContent, NSelect, NSpace, NSpin,
   NInput, NInputGroup, NButton, NDivider, NEmpty, NIcon,
   NRadioGroup, NRadioButton
 } from 'naive-ui';
@@ -178,7 +179,7 @@ const parsedLogResults = computed(() => {
 const fetchLogFiles = async () => {
   isLoadingFiles.value = true;
   try {
-    const response = await axios.get('/api/logs/list');
+    const response = await apiClient.get(apiPath('api_logs_list_99fba90c'));
     logFiles.value = response.data;
     if (!isSearchMode.value && logFiles.value.length > 0 && !selectedFile.value) {
       selectedFile.value = logFiles.value[0];
@@ -197,8 +198,8 @@ const fetchLogContent = async (filename) => {
   isLoadingContent.value = true;
   logContent.value = ''; // 清空旧内容
   try {
-    const response = await axios.get('/api/logs/view', { 
-      params: { 
+    const response = await apiClient.get(apiPath('api_logs_view_109de3a6'), {
+      params: {
         filename,
         format: 'html' // 告诉后端我要 HTML
       },
@@ -224,7 +225,7 @@ const executeSearch = async () => {
 
   try {
     if (searchMode.value === 'context') {
-      const response = await axios.get('/api/logs/search_context', { 
+      const response = await apiClient.get(apiPath('api_logs_search_context_321408d5'), {
         params: { q: searchQuery.value, format: 'html' },
         responseType: 'text'
       });
@@ -234,7 +235,7 @@ const executeSearch = async () => {
         htmlContent.value = '';
       }
     } else {
-      const response = await axios.get('/api/logs/search', { params: { q: searchQuery.value } });
+      const response = await apiClient.get(apiPath('api_logs_search_b03d5d44'), { params: { q: searchQuery.value } });
       searchResults.value = response.data;
     }
   } catch (error) {

@@ -4,21 +4,27 @@
   "version": "10.8.65",
   "type": "module",
   "scripts": {
+    "api:generate": "node scripts/generate-openapi-client.mjs",
+    "check:api-boundary": "node scripts/check-api-boundary.mjs",
     "dev": "vite --force",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@tanstack/vue-query": "^5.102.8",
     "@vicons/fluent": "^0.13.0",
     "@vicons/ionicons5": "^0.13.0",
     "@vueuse/core": "^13.5.0",
     "antd": "^5.27.4",
-    "axios": "^1.9.0",
     "dayjs": "^1.11.18",
     "echarts": "^5.6.0",
     "js-yaml": "^4.1.0",
     "marked": "^16.1.1",
     "naive-ui": "^2.41.0",
+    "openapi-fetch": "^0.14.1",
     "pinia": "^3.0.3",
     "sortablejs": "^1.15.6",
     "vue": "^3.5.13",
@@ -27,9 +33,16 @@
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@vitejs/plugin-vue": "^5.2.3",
+    "@vue/test-utils": "^2.5.0",
+    "jsdom": "^26.1.0",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3",
     "vfonts": "^0.0.3",
     "vite": "^6.3.5",
-    "vite-plugin-pwa": "^0.21.2"
+    "vite-plugin-pwa": "^0.21.2",
+    "vitest": "^3.2.7",
+    "vue-tsc": "^2.2.12"
   }
 }

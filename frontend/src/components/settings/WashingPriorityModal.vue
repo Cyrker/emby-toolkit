@@ -379,9 +379,10 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, computed } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { useDialog, useMessage } from 'naive-ui';
 import draggable from 'vuedraggable';
 import { 
@@ -503,15 +504,15 @@ const open = async () => {
   editingUid.value = null; // 重置编辑状态
   try {
     // 1. 获取 115 分类目录供选择
-    const resRules = await axios.get('/api/p115/sorting_rules');
+    const resRules = await apiClient.get(apiPath('api_p115_sorting_rules_6bca829a'));
     const rules = resRules.data.filter(r => r.enabled && r.cid && r.cid !== '0');
     categoryOptions.value = rules.map(r => ({ label: r.dir_name || r.name, value: r.cid }));
 
-    const resReleaseGroups = await axios.get('/api/p115/release_groups');
+    const resReleaseGroups = await apiClient.get(apiPath('api_p115_release_groups_9868a03c'));
     releaseGroupOptions.value = resReleaseGroups.data?.data || [];
 
     // 2. 获取洗版覆盖模式配置
-    const resConfig = await axios.get('/api/p115/washing_priority_config');
+    const resConfig = await apiClient.get(apiPath('api_p115_washing_priority_config_38254124'));
     config.value = {
       conflict_mode: resConfig.data?.data?.conflict_mode || 'replace',
       skip_scope: resConfig.data?.data?.skip_scope || 'directory',
@@ -522,7 +523,7 @@ const open = async () => {
     };
 
     // 3. 获取洗版优先级组
-    const resGroups = await axios.get('/api/p115/washing_priority_groups');
+    const resGroups = await apiClient.get(apiPath('api_p115_washing_priority_groups_3a1082c8'));
     groups.value = resGroups.data.data || [];
     
     // 为 priorities 添加内部唯一 ID 供拖拽和编辑状态使用
@@ -581,8 +582,8 @@ const saveGroups = async () => {
       }
     });
 
-    await axios.post('/api/p115/washing_priority_config', config.value);
-    const groupsRes = await axios.post('/api/p115/washing_priority_groups', payload);
+    await apiClient.post(apiPath('api_p115_washing_priority_config_38254124'), config.value);
+    const groupsRes = await apiClient.post(apiPath('api_p115_washing_priority_groups_3a1082c8'), payload);
     message.success('保存成功');
     if (config.value.conflict_mode !== 'replace') {
       showModal.value = false;
@@ -617,7 +618,7 @@ const saveGroups = async () => {
 const triggerRecalculate = async () => {
   try {
     recalcLoading.value = true;
-    const res = await axios.post('/api/p115/washing_priority_recalculate', {
+    const res = await apiClient.post(apiPath('api_p115_washing_priority_recalculate_7bad60ca'), {
       item_type: 'all',
       background: true
     });

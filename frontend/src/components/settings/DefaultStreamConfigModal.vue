@@ -269,12 +269,13 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { computed, ref } from 'vue';
 import { NModal, NForm, NFormItem, NSelect, NInput, NInputGroup, NAlert, NSpin, NSpace, NButton, NIcon, NTag, NText, NSwitch, useMessage } from 'naive-ui';
 import { MenuOutline as MenuIcon, CloseOutline as CloseIcon } from '@vicons/ionicons5';
 import draggable from 'vuedraggable';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 const message = useMessage();
 const showModal = ref(false);
@@ -491,7 +492,7 @@ const removeAudioParam = (index) => {
 const loadConfig = async () => {
   loading.value = true;
   try {
-    const res = await axios.get('/api/p115/default_stream_config');
+    const res = await apiClient.get(apiPath('api_p115_default_stream_config_e5bfdef0'));
     if (res.data.success) {
       const data = res.data.data || {};
       config.value.audio_lang = data.audio_lang || '';
@@ -540,7 +541,7 @@ const saveConfig = async () => {
       // ★ 提交开关状态
       realtime_sub_detect: config.value.realtime_sub_detect
     };
-    const res = await axios.post('/api/p115/default_stream_config', payload);
+    const res = await apiClient.post(apiPath('api_p115_default_stream_config_e5bfdef0'), payload);
     if (res.data.success) {
       message.success(res.data.message);
       showModal.value = false;

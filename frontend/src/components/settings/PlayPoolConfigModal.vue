@@ -174,11 +174,12 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { h, ref, onMounted, onUnmounted } from 'vue';
 import { NTag, useMessage, useDialog } from 'naive-ui';
 import { Add as AddIcon, RefreshOutline as RefreshIcon } from '@vicons/ionicons5';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 const emit = defineEmits(['updated']);
 const message = useMessage();
@@ -265,7 +266,7 @@ const accountScopeText = (account) => {
 const loadEmbyUsers = async () => {
   embyUsersLoading.value = true;
   try {
-    const res = await axios.get('/api/custom_collections/config/emby_users');
+    const res = await apiClient.get(apiPath('api_custom_collections_config_emby_users_78bb9903'));
     embyUserOptions.value = Array.isArray(res.data) ? res.data : [];
   } catch (e) {
     message.error('加载 Emby 用户失败: ' + (e.response?.data?.message || e.message));
@@ -288,7 +289,7 @@ const applyConfig = (data) => {
 const loadPlayPoolConfig = async () => {
   playPoolLoading.value = true;
   try {
-    const res = await axios.get('/api/p115/play_pool');
+    const res = await apiClient.get(apiPath('api_p115_play_pool_61a03614'));
     if (res.data?.success && res.data.data) {
       applyConfig(res.data.data);
       emit('updated', res.data.data);
@@ -336,7 +337,7 @@ const resetPlayPoolAccountForm = () => {
 
 const savePlayPoolSettings = async () => {
   try {
-    const res = await axios.post('/api/p115/play_pool', {
+    const res = await apiClient.post(apiPath('api_p115_play_pool_61a03614'), {
       enabled: Boolean(playPoolConfig.value.enabled),
       auto_speedtest_threshold_mbps: Number(playPoolConfig.value.auto_speedtest_threshold_mbps || 0),
       daily_traffic_limit_gb: Number(playPoolConfig.value.daily_traffic_limit_gb || 0)
@@ -376,10 +377,10 @@ const savePlayPoolAccount = async () => {
       payload.refresh_token = String(form.refresh_token || '').trim();
     }
     if (form.id) {
-      await axios.put(`/api/p115/play_pool/accounts/${form.id}`, payload);
+      await apiClient.put(apiPath('api_p115_play_pool_accounts_param_c8712e0c', [form.id]), payload);
       message.success('小号已保存');
     } else {
-      await axios.post('/api/p115/play_pool/accounts', payload);
+      await apiClient.post(apiPath('api_p115_play_pool_accounts_57f8cb20'), payload);
       message.success('小号已添加');
     }
     resetPlayPoolAccountForm();
@@ -419,7 +420,7 @@ const deletePlayPoolAccount = (account) => {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        await axios.delete(`/api/p115/play_pool/accounts/${account.id}`);
+        await apiClient.delete(apiPath('api_p115_play_pool_accounts_param_c8712e0c', [account.id]));
         message.success('小号已删除');
         await loadPlayPoolConfig();
       } catch (e) {
@@ -432,7 +433,7 @@ const deletePlayPoolAccount = (account) => {
 const speedtestPlayPoolAccount = async (account) => {
   playPoolSpeedTestingId.value = account.id;
   try {
-    const res = await axios.post(`/api/p115/play_pool/accounts/${account.id}/speedtest`);
+    const res = await apiClient.post(apiPath('api_p115_play_pool_accounts_param_speedtest_f820f8e0', [account.id]));
     message.success(`小号测速完成：${res.data?.data?.speed_text || '已完成'}`);
     await loadPlayPoolConfig();
   } catch (e) {
@@ -451,7 +452,7 @@ const refreshPlayPoolQrcode = async (mode = 'openapi') => {
   playPoolQrcodeUid.value = '';
   try {
     const app = encodeURIComponent(playPoolAccountForm.value.app_type || 'alipaymini');
-    const res = await axios.get(`/api/p115/play_pool/cookie_qrcode?mode=${mode}&app=${app}`);
+    const res = await apiClient.get(apiPath('api_p115_play_pool_cookie_qrcode_mode_param_app_param_653b8668', [mode, app]));
     if (res.data?.success) {
       playPoolQrcodeUrl.value = res.data.data.qrcode;
       playPoolQrcodeUid.value = res.data.data.uid || '';
@@ -475,7 +476,7 @@ const startPlayPoolQrcodePolling = (mode = playPoolQrcodeMode.value) => {
     try {
       const uid = playPoolQrcodeUid.value ? `&uid=${encodeURIComponent(playPoolQrcodeUid.value)}` : '';
       const app = encodeURIComponent(playPoolAccountForm.value.app_type || 'alipaymini');
-      const res = await axios.get(`/api/p115/play_pool/cookie_qrcode/status?mode=${mode}&app=${app}${uid}`);
+      const res = await apiClient.get(apiPath('api_p115_play_pool_cookie_qrcode_status_mode_param_app_parampara_e9fdd663', [mode, app, uid]));
       if (res.data?.status === 'success') {
         if (mode === 'openapi') {
           playPoolAccountForm.value.access_token = res.data.data?.access_token || '';

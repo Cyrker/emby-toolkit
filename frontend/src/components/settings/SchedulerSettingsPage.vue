@@ -342,7 +342,8 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue';
 import {
   NForm, NFormItem, NInput, NCheckbox, NGrid, NGi, NAlert,
@@ -350,9 +351,9 @@ import {
   useMessage, NLayout, NSpin, NModal, NButtonGroup, NTooltip
 } from 'naive-ui';
 import { Play24Regular, Settings24Regular, Drag24Regular, Save24Regular } from '@vicons/fluent';
-import { useConfig } from '../../composables/useConfig.js';
-import { useTaskStatus } from '../../composables/useTaskStatus.js';
-import axios from 'axios';
+import { useConfig } from '../../composables/useConfig.ts';
+import { useTaskStatus } from '../../composables/useTaskStatus.ts';
+import apiClient, { apiPath } from '@/api/client'
 import Sortable from 'sortablejs';
 
 const message = useMessage();
@@ -441,13 +442,13 @@ const enabledTgMenuTasks = computed(() => {
 // --- API Calls ---
 const fetchAvailableTasks = async () => {
   try {
-    const chainResponse = await axios.get('/api/tasks/available?context=chain');
+    const chainResponse = await apiClient.get(apiPath('api_tasks_available_context_chain_5dd06e2b'));
     availableTasksForChain.value = chainResponse.data;
 
-    const manualResponse = await axios.get('/api/tasks/available?context=manual');
+    const manualResponse = await apiClient.get(apiPath('api_tasks_available_context_manual_a1cdabaa'));
     availableTasksForManualRun.value = manualResponse.data;
 
-    const allResponse = await axios.get('/api/tasks/available?context=all');
+    const allResponse = await apiClient.get(apiPath('api_tasks_available_context_all_e3129b4c'));
     availableTasksForTgMenu.value = allResponse.data;
 
   } catch (error) {
@@ -464,7 +465,7 @@ const runTaskFromModal = async (isDeepMode) => {
 
   try {
     const payload = { task_name: taskIdentifier, force_full_update: isDeepMode };
-    const response = await axios.post('/api/tasks/run', payload);
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), payload);
     message.success(response.data.message || '任务已成功提交！');
   } catch (error) {
     const errorMessage = error.response?.data?.error || '请求后端接口失败。';
@@ -489,7 +490,7 @@ const triggerTaskNow = async (taskIdentifier) => {
 
   isTriggeringTask.value = taskIdentifier;
   try {
-    const response = await axios.post('/api/tasks/run', { task_name: taskIdentifier });
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: taskIdentifier });
     message.success(response.data.message || `任务已成功提交！`);
   } catch (error) {
     const errorMessage = error.response?.data?.error || '请求后端接口失败。';

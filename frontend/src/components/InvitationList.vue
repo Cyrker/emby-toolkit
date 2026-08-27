@@ -71,7 +71,9 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
+import apiClient, { apiPath } from '@/api/client'
 import { ref, onMounted, h, computed } from 'vue';
 import {
   NButton, NDataTable, NModal, NForm, NFormItem, NSelect, NInputNumber,
@@ -84,10 +86,10 @@ import dayjs from 'dayjs';
 
 // --- API ---
 const api = {
-  getInvitations: () => fetch('/api/admin/invitations').then(res => res.json()),
-  deleteInvitation: (id) => fetch(`/api/admin/invitations/${id}`, { method: 'DELETE' }),
-  getUserTemplates: () => fetch('/api/admin/user_templates').then(res => res.json()),
-  createInvitation: (data) => fetch('/api/admin/invitations', {
+  getInvitations: () => apiClient.raw(apiPath('api_admin_invitations_8d5b117e')).then(res => res.json()),
+  deleteInvitation: (id) => apiClient.raw(apiPath('api_admin_invitations_param_d1798d3f', [id]), { method: 'DELETE' }),
+  getUserTemplates: () => apiClient.raw(apiPath('api_admin_user_templates_1e1e9c1e')).then(res => res.json()),
+  createInvitation: (data) => apiClient.raw(apiPath('api_admin_invitations_8d5b117e'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

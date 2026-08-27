@@ -229,10 +229,10 @@
                         <n-ellipsis :line-clamp="4" :tooltip="false" class="overview-text">
                             {{ currentRecommendation.overview }}
                         </n-ellipsis>
-                        <n-button 
-                          type="primary" 
-                          block 
-                          @click="handleSubscribe(currentRecommendation)" 
+                        <n-button
+                          type="primary"
+                          block
+                          @click="handleSubscribe(currentRecommendation)"
                           :loading="subscribingId === currentRecommendation.id"
                           style="margin-top: 24px;"
                         >
@@ -247,8 +247,8 @@
                     <n-h4 style="margin: 0 0 16px 0;">主要演员</n-h4>
                     <div class="actor-list-container">
                         <div v-for="actor in currentRecommendation.cast" :key="actor.id" class="actor-card">
-                            <img 
-                            :src="actor.profile_path ? `https://image.tmdb.org/t/p/w185${actor.profile_path}` : '/default-avatar.png'" 
+                            <img
+                            :src="actor.profile_path ? `https://image.tmdb.org/t/p/w185${actor.profile_path}` : '/default-avatar.png'"
                             class="actor-avatar"
                             @error="onImageError"
                             />
@@ -266,15 +266,15 @@
     <!-- 结果展示区域 -->
     <n-spin :show="loading && results.length === 0">
       <div class="responsive-grid">
-        <div 
-          v-for="media in displayResults" 
-          :key="media.id" 
+        <div
+          v-for="media in displayResults"
+          :key="media.id"
           class="grid-item"
         >
           <n-card class="dashboard-card media-card" content-style="padding: 0; position: relative;" @click="handleClickCard(media)">
             <div class="poster-wrapper">
               <img :src="media.poster_path ? `https://image.tmdb.org/t/p/w300${media.poster_path}` : '/default-poster.png'" class="media-poster" @error="onImageError">
-              
+
               <div v-if="media.in_library" class="ribbon ribbon-green"><span>已入库</span></div>
               <div v-else-if="media.subscription_status === 'SUBSCRIBED'" class="ribbon ribbon-blue"><span>已订阅</span></div>
               <div v-else-if="media.subscription_status === 'PAUSED'" class="ribbon ribbon-blue"><span>已暂停</span></div>
@@ -299,7 +299,7 @@
 
                 <div class="actions-container">
                   <!-- ★ 云资源下载按钮：管理员始终可见，弹窗内自动合并影巢与频道资源 -->
-                  <div 
+                  <div
                     v-if="authStore.isAdmin"
                     class="action-btn"
                     @click.stop="openHDHiveResourceModal(media)"
@@ -311,7 +311,7 @@
                   </div>
 
                   <!-- ★ 常规订阅/想看按钮：即使未配置 MP，也允许标记 WANTED -->
-                  <div 
+                  <div
                     v-if="canShowSubscribeAction(media)"
                     class="action-btn"
                     @click.stop="handleSubscribe(media)"
@@ -347,7 +347,7 @@
     </div>
 
     <div ref="sentinel" style="height: 50px;"></div>
-    
+
     <!-- 季选择模态框 -->
     <n-modal v-model:show="showSeasonModal" preset="card" title="选择要订阅的季" style="width: 600px; max-width: 95%;">
       <n-spin :show="loadingSeasons">
@@ -383,31 +383,32 @@
     </n-modal>
 
     <!-- 云资源搜索模态框 -->
-    <HDHiveResourceModal 
-      v-model:show="showHDHiveResourceModal" 
-      :media="currentHDHiveMedia" 
+    <HDHiveResourceModal
+      v-model:show="showHDHiveResourceModal"
+      :media="currentHDHiveMedia"
       :season-number="currentHDHiveSeason"
     />
-    
+
   </div>
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, reactive, watch, onMounted, onUnmounted, computed, h } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { useAuthStore } from '../stores/auth';
 import HDHiveResourceModal from './HDHiveResourceModal.vue';
-import { 
+import {
   NPageHeader, NCard, NSpace, NRadioGroup, NRadioButton, NSelect,
-  NInputNumber, NSpin, NGrid, NGi, NButton, NThing, useMessage, NIcon, 
+  NInputNumber, NSpin, NGrid, NGi, NButton, NThing, useMessage, NIcon,
   NInput, NInputGroup, NSkeleton, NEllipsis, NEmpty, NDivider, NH4, NH3, NTooltip, NModal, NTag, NSwitch, NAvatar
 } from 'naive-ui';
 import { Heart, HeartOutline, HourglassOutline, Star as StarIcon, FlashOutline as LightningIcon, DiceOutline as DiceIcon, ListOutline as ListIcon, CloudDownloadOutline as CloudDownloadIcon, PersonOutline as PersonIcon, TicketOutline as TicketIcon, CalendarOutline as CalendarIcon } from '@vicons/ionicons5';
 const authStore = useAuthStore();
 const message = useMessage();
-const router = useRouter(); 
+const router = useRouter();
 const isPrivilegedUser = computed(() => {
   return authStore.isAdmin || authStore.user?.allow_unrestricted_subscriptions;
 });
@@ -420,13 +421,13 @@ const subscribingId = ref(null);
 const mediaType = ref('movie');
 const genres = ref([]);
 const selectedGenres = ref([]);
-const countryOptions = ref([]); 
+const countryOptions = ref([]);
 const selectedRegions = ref([]);
 const languageOptions = ref([]);
 const selectedLanguage = ref(null);
-const keywordOptions = ref([]); 
-const selectedKeywords = ref([]); 
-const allStudios = ref([]); 
+const keywordOptions = ref([]);
+const selectedKeywords = ref([]);
+const allStudios = ref([]);
 const selectedStudios = ref([]);
 const selectedActors = ref([]);
 const selectedDirectors = ref([]);
@@ -440,7 +441,7 @@ const isHdhiveConfigured = ref(false);
 
 const fetchSubscriptionStatus = async () => {
   try {
-    const res = await axios.get('/api/subscription/status');
+    const res = await apiClient.get(apiPath('api_subscription_status_d65bf9d0'));
     if (res.data.success) {
       isMpConfigured.value = res.data.mp_configured;
       isHdhiveConfigured.value = res.data.hdhive_configured;
@@ -461,15 +462,15 @@ const studioOptions = computed(() => {
     })
     .map(item => ({
       label: item.label,
-      value: item.value 
+      value: item.value
     }));
 });
-const genreFilterMode = ref('include'); 
+const genreFilterMode = ref('include');
 const yearFrom = ref(null);
 const yearTo = ref(null);
-const recommendationPool = ref([]); 
-const currentRecommendation = ref(null); 
-const isPoolLoading = ref(true); 
+const recommendationPool = ref([]);
+const currentRecommendation = ref(null);
+const isPoolLoading = ref(true);
 const ratingOptions = ref([]);
 const selectedRating = ref(null);
 const recommendationThemeName = ref('每日推荐');
@@ -538,11 +539,11 @@ const studioLabel = computed(() => {
 
 const getGenreNames = (genreIds) => {
   if (!genreIds || genreIds.length === 0 || genres.value.length === 0) return '';
-  
+
   return genreIds
     .map(id => genres.value.find(g => g.id === id)?.name)
-    .filter(Boolean) 
-    .slice(0, 2)    
+    .filter(Boolean)
+    .slice(0, 2)
     .join(' / ');
 };
 
@@ -553,8 +554,8 @@ const getYear = (media) => {
 };
 const genreOptions = computed(() => {
   return genres.value.map(item => ({
-    label: item.name, 
-    value: item.id    
+    label: item.name,
+    value: item.id
   }));
 });
 const renderPersonLabel = (option) => h(
@@ -581,7 +582,7 @@ const searchPerson = (query, targetRef, loadingKey) => {
   personSearchLoading[loadingKey] = true;
   personSearchTimers[loadingKey] = setTimeout(async () => {
     try {
-      const response = await axios.get('/api/custom_collections/config/tmdb_search_persons', {
+      const response = await apiClient.get(apiPath('api_custom_collections_config_tmdb_search_persons_dd6f571f'), {
         params: { q: normalizedQuery }
       });
       targetRef.value = Array.isArray(response.data) ? response.data : [];
@@ -594,20 +595,20 @@ const searchPerson = (query, targetRef, loadingKey) => {
 };
 const handleActorSearch = (query) => searchPerson(query, actorOptions, 'actors');
 const handleDirectorSearch = (query) => searchPerson(query, directorOptions, 'directors');
-const fetchGenres = async () => {  
+const fetchGenres = async () => {
   try {
-    const endpoint = mediaType.value === 'movie' 
-      ? '/api/custom_collections/config/tmdb_movie_genres' 
-      : '/api/custom_collections/config/tmdb_tv_genres';
-    const response = await axios.get(endpoint);
+    const endpoint = mediaType.value === 'movie'
+      ? apiPath('api_custom_collections_config_tmdb_movie_genres_1a336d87')
+      : apiPath('api_custom_collections_config_tmdb_tv_genres_b34fe777');
+    const response = await apiClient.get(endpoint);
     genres.value = response.data;
   } catch (error) {
     message.error('加载类型列表失败');
   }
 };
-const fetchCountries = async () => {  
+const fetchCountries = async () => {
   try {
-    const response = await axios.get('/api/custom_collections/config/tmdb_countries');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_tmdb_countries_237507d0'));
     countryOptions.value = response.data;
   } catch (error) {
     message.error('加载国家列表失败');
@@ -615,7 +616,7 @@ const fetchCountries = async () => {
 };
 const fetchLanguages = async () => {
   try {
-    const response = await axios.get('/api/discover/config/languages');
+    const response = await apiClient.get(apiPath('api_discover_config_languages_aead5197'));
     languageOptions.value = response.data;
   } catch (error) {
     message.error('加载语言列表失败');
@@ -623,7 +624,7 @@ const fetchLanguages = async () => {
 };
 const fetchKeywords = async () => {
   try {
-    const response = await axios.get('/api/discover/config/keywords');
+    const response = await apiClient.get(apiPath('api_discover_config_keywords_c6086d78'));
     keywordOptions.value = response.data;
   } catch (error) {
     message.error('加载关键词列表失败');
@@ -631,7 +632,7 @@ const fetchKeywords = async () => {
 };
 const fetchStudios = async () => {
   try {
-    const response = await axios.get('/api/discover/config/studios');
+    const response = await apiClient.get(apiPath('api_discover_config_studios_2074bc42'));
     allStudios.value = response.data;
   } catch (error) {
     message.error('加载工作室列表失败');
@@ -639,7 +640,7 @@ const fetchStudios = async () => {
 };
 const fetchRatings = async () => {
   try {
-    const response = await axios.get('/api/custom_collections/config/unified_ratings_options');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_unified_ratings_options_7c1ae756'));
     ratingOptions.value = response.data.map(label => ({
       label: label,
       value: label
@@ -654,7 +655,7 @@ const fetchDiscoverData = async () => {
   try {
     let response;
     if (isSearchMode.value) {
-      response = await axios.post('/api/discover/search', {
+      response = await apiClient.post(apiPath('api_discover_search_8bab44ab'), {
         query: searchQuery.value,
         media_type: mediaType.value,
         page: filters.page,
@@ -675,7 +676,7 @@ const fetchDiscoverData = async () => {
         'hide_in_library': hideInLibrary.value
       };
       if (selectedGenres.value.length > 0) {
-        if (genreFilterMode.value === 'include') { apiParams.with_genres = selectedGenres.value.join(','); } 
+        if (genreFilterMode.value === 'include') { apiParams.with_genres = selectedGenres.value.join(','); }
         else { apiParams.without_genres = selectedGenres.value.join(','); }
       }
       const yearGteParam = mediaType.value === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
@@ -683,9 +684,9 @@ const fetchDiscoverData = async () => {
       if (yearFrom.value) { apiParams[yearGteParam] = `${yearFrom.value}-01-01`; }
       if (yearTo.value) { apiParams[yearLteParam] = `${yearTo.value}-12-31`; }
       const cleanedParams = Object.fromEntries(Object.entries(apiParams).filter(([_, v]) => v !== null && v !== ''));
-      response = await axios.post(`/api/discover/${mediaType.value}`, cleanedParams);
+      response = await apiClient.post(apiPath('api_discover_param_9f37dd8c', [mediaType.value]), cleanedParams);
     }
-    if (filters.page === 1) { results.value = response.data.results; } 
+    if (filters.page === 1) { results.value = response.data.results; }
     else { results.value.push(...response.data.results); }
     totalPages.value = response.data.total_pages;
   } catch (error) {
@@ -698,7 +699,7 @@ const fetchDiscoverData = async () => {
 };
 const fetchEmbyConfig = async () => {
   try {
-    const response = await axios.get('/api/config');
+    const response = await apiClient.get(apiPath('api_config_3c5fcdb0'));
     embyServerUrl.value = response.data.emby_server_url;
     embyServerId.value = response.data.emby_server_id;
     registrationRedirectUrl.value = response.data.emby_public_url;
@@ -726,7 +727,7 @@ const pickRandomRecommendation = () => {
 const fetchRecommendationPool = async () => {
   isPoolLoading.value = true;
   try {
-    const response = await axios.get('/api/discover/daily_recommendation');
+    const response = await apiClient.get(apiPath('api_discover_daily_recommendation_a5fd4ede'));
     recommendationPool.value = response.data.pool || [];
     recommendationThemeName.value = response.data.theme_name || '每日推荐';
     pickRandomRecommendation();
@@ -734,7 +735,7 @@ const fetchRecommendationPool = async () => {
   } catch (error) {
     if (error.response && error.response.status === 404) {
       try {
-        await axios.post('/api/discover/trigger_recommendation_update');
+        await apiClient.post(apiPath('api_discover_trigger_recommendation_update_ca4fb8ef'));
         let attempts = 0;
         const maxAttempts = 10;
         const pollInterval = 3000;
@@ -746,7 +747,7 @@ const fetchRecommendationPool = async () => {
             return;
           }
           try {
-            const pollResponse = await axios.get('/api/discover/daily_recommendation');
+            const pollResponse = await apiClient.get(apiPath('api_discover_daily_recommendation_a5fd4ede'));
             if (pollResponse.data && pollResponse.data.pool && pollResponse.data.pool.length > 0) {
               clearInterval(intervalId);
               recommendationPool.value = pollResponse.data.pool;
@@ -772,9 +773,9 @@ const fetchRecommendationPool = async () => {
 const updateMediaStatus = (mediaId, newStatus) => {
   const index = results.value.findIndex(m => m.id === mediaId);
   if (index !== -1) {
-    results.value[index] = { 
-      ...results.value[index], 
-      subscription_status: newStatus 
+    results.value[index] = {
+      ...results.value[index],
+      subscription_status: newStatus
     };
   }
 
@@ -810,7 +811,7 @@ const handleSubscribe = async (media) => {
     loadingSeasons.value = true;
     seasonList.value = [];
     try {
-      const res = await axios.get(`/api/discover/tmdb/tv/${media.id}`);
+      const res = await apiClient.get(apiPath('api_discover_tmdb_tv_param_1f1a0a71', [media.id]));
       if (res.data && res.data.seasons) {
         seasonList.value = res.data.seasons
           .filter(s => s.season_number > 0)
@@ -835,7 +836,7 @@ const submitWantedOnly = async (media) => {
   updateMediaStatus(media.id, 'WANTED');
 
   try {
-    const portalResponse = await axios.post('/api/portal/subscribe', {
+    const portalResponse = await apiClient.post(apiPath('api_portal_subscribe_de1dc57a'), {
       tmdb_id: media.id,
       item_type: (media.media_type === 'tv' || mediaType.value === 'tv') ? 'Series' : 'Movie',
       item_name: media.title || media.name,
@@ -865,7 +866,7 @@ const submitMovieToMP = async (media) => {
   updateMediaStatus(media.id, optimisticStatus);
 
   try {
-    const portalResponse = await axios.post('/api/portal/subscribe', {
+    const portalResponse = await apiClient.post(apiPath('api_portal_subscribe_de1dc57a'), {
       tmdb_id: media.id,
       item_type: 'Movie',
       item_name: media.title || media.name,
@@ -890,7 +891,7 @@ const submitMovieToMP = async (media) => {
 const submitSeasonSubscription = async (season) => {
   subscribingSeasonId.value = season.id;
   try {
-    const portalResponse = await axios.post('/api/portal/subscribe', {
+    const portalResponse = await apiClient.post(apiPath('api_portal_subscribe_de1dc57a'), {
       tmdb_id: currentSeriesForSearch.value.id, // 传剧集ID
       item_type: 'Season',
       season_number: season.season_number,
@@ -916,25 +917,25 @@ const submitAllSeasonsSubscription = async () => {
       message.info("所有季均已入库或已订阅");
       return;
     }
-    
+
     // 直接提交整剧订阅，后端会自动遍历并订阅所有缺失季
-    const portalResponse = await axios.post('/api/portal/subscribe', {
+    const portalResponse = await apiClient.post(apiPath('api_portal_subscribe_de1dc57a'), {
       tmdb_id: currentSeriesForSearch.value.id,
       item_type: 'Series',
       item_name: currentSeriesForSearch.value.title || currentSeriesForSearch.value.name
     });
     message.success("一键订阅已提交");
-    
+
     const finalStatus = normalizePortalStatus(portalResponse.data.status, 'WANTED');
 
     // 更新模态框内状态
     missingSeasons.forEach(s => {
       s.subscription_status = finalStatus;
     });
-    
+
     // 更新外部卡片状态
     updateMediaStatus(currentSeriesForSearch.value.id, finalStatus);
-    
+
     setTimeout(() => { showSeasonModal.value = false; }, 1000);
   } catch (error) {
     message.error(error.response?.data?.message || '一键订阅失败');
@@ -977,7 +978,7 @@ const resetAndFetch = () => {
 };
 watch(mediaType, () => {
   selectedGenres.value = [];
-  selectedStudios.value = []; 
+  selectedStudios.value = [];
   filters['sort_by'] = 'popularity.desc';
   fetchGenres();
   resetAndFetch();
@@ -994,7 +995,7 @@ onMounted(() => {
   fetchKeywords();
   fetchStudios();
   fetchRatings();
-  fetchEmbyConfig(); 
+  fetchEmbyConfig();
   fetchSubscriptionStatus(); // ★ 获取订阅状态
   fetchRecommendationPool();
   resetAndFetch();
@@ -1003,11 +1004,11 @@ onMounted(() => {
   }, { root: null, threshold: 0.1 });
   if (sentinel.value) { observer.observe(sentinel.value); }
 });
-onUnmounted(() => { 
+onUnmounted(() => {
   window.removeEventListener('resize', checkMobile);
   clearTimeout(personSearchTimers.actors);
   clearTimeout(personSearchTimers.directors);
-  if (observer) { observer.disconnect(); } 
+  if (observer) { observer.disconnect(); }
 });
 </script>
 
@@ -1072,13 +1073,13 @@ onUnmounted(() => {
 
 .responsive-grid {
   display: grid;
-  gap: 16px; 
+  gap: 16px;
   margin-top: 24px;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
 
 .grid-item {
-  min-width: 0; 
+  min-width: 0;
   height: 100%;
 }
 
@@ -1089,7 +1090,7 @@ onUnmounted(() => {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   overflow: hidden;
   height: 100%;
-  background-color: #222; 
+  background-color: #222;
   display: flex;
   flex-direction: column;
 }
@@ -1102,7 +1103,7 @@ onUnmounted(() => {
 .poster-wrapper {
   position: relative;
   width: 100%;
-  aspect-ratio: 2 / 3; 
+  aspect-ratio: 2 / 3;
   overflow: hidden;
 }
 .media-poster {
@@ -1122,11 +1123,11 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 50%, transparent 100%);
-  padding: 40px 8px 8px 8px; 
+  padding: 40px 8px 8px 8px;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  pointer-events: none; 
+  pointer-events: none;
 }
 
 .text-content {
@@ -1153,11 +1154,11 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.85);
   font-size: 0.8em;
   text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-  overflow: hidden; 
+  overflow: hidden;
 }
 
 .media-year {
-  flex-shrink: 0; 
+  flex-shrink: 0;
 }
 
 .media-dot {
@@ -1168,11 +1169,11 @@ onUnmounted(() => {
 .media-genres {
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; 
+  text-overflow: ellipsis;
 }
 
 .media-title {
-  margin-bottom: 1px; 
+  margin-bottom: 1px;
 }
 
 .rating-badge {
@@ -1191,14 +1192,14 @@ onUnmounted(() => {
 }
 .actions-container {
   display: flex;
-  gap: 8px; 
+  gap: 8px;
   align-items: center;
 }
 .action-btn {
   pointer-events: auto;
   width: 30px;
   height: 30px;
-  background-color: transparent; 
+  background-color: transparent;
   backdrop-filter: none;
   border-radius: 50%;
   display: flex;
@@ -1258,11 +1259,11 @@ onUnmounted(() => {
 
 .recommendation-grid {
   display: flex;
-  gap: 24px; 
+  gap: 24px;
 }
 
 .poster-column {
-  flex-shrink: 0; 
+  flex-shrink: 0;
 }
 .recommendation-poster {
   width: 150px;
@@ -1275,12 +1276,12 @@ onUnmounted(() => {
 
 .details-column {
   display: flex;
-  flex-direction: column; 
-  min-width: 0; 
+  flex-direction: column;
+  min-width: 0;
 }
 
 .overview-text {
-  flex-grow: 1; 
+  flex-grow: 1;
 }
 
 .actor-list-container {

@@ -246,12 +246,13 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, onUnmounted, computed, h, watch, nextTick } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { NLayout, NPageHeader, NDivider, NEmpty, NTag, NButton, NSpace, NIcon, useMessage, NGrid, NGi, NCard, NImage, NEllipsis, NSpin, NAlert, NRadioGroup, NRadioButton, NModal, NTooltip, NText, NDropdown, useDialog, NCheckbox, NInput, NSelect, NButtonGroup } from 'naive-ui';
 import { SyncOutline, ArrowUpOutline as ArrowUpIcon, ArrowDownOutline as ArrowDownIcon, AlertCircleOutline } from '@vicons/ionicons5';
-import { useConfig } from '../composables/useConfig.js';
+import { useConfig } from '../composables/useConfig.ts';
 import ResubscribeSettingsPage from './settings/ResubscribeSettingsPage.vue';
 import HDHiveResourceModal from './HDHiveResourceModal.vue';
 const EmbyIcon = () => h('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 48 48", width: "18", height: "18" }, [ h('path', { d: "M24,4.2c-11,0-19.8,8.9-19.8,19.8S13,43.8,24,43.8s19.8-8.9,19.8-19.8S35,4.2,24,4.2z M24,39.8c-8.7,0-15.8-7.1-15.8-15.8S15.3,8.2,24,8.2s15.8,7.1,15.8,15.8S32.7,39.8,24,39.8z", fill: "currentColor" }), h('polygon', { points: "22.2,16.4 22.2,22.2 16.4,22.2 16.4,25.8 22.2,25.8 22.2,31.6 25.8,31.6 25.8,25.8 31.6,31.6 31.6,22.2 25.8,22.2 25.8,16.4 ", fill: "currentColor" })]);
@@ -350,7 +351,7 @@ const fetchData = async () => {
   selectedItems.value.clear(); 
   lastSelectedIndex.value = -1;
   try {
-    const response = await axios.get('/api/resubscribe/library_status');
+    const response = await apiClient.get(apiPath('api_resubscribe_library_status_ef6b8f05'));
     allItems.value = response.data;
   } catch (err)
  {
@@ -404,7 +405,7 @@ onUnmounted(() => { if (observer) observer.disconnect(); });
 
 const fetchRules = async () => {
   try {
-    const response = await axios.get('/api/resubscribe/rules');
+    const response = await apiClient.get(apiPath('api_resubscribe_rules_1c1c94db'));
     ruleOptions.value = [{ label: '全部规则', value: null }, ...response.data.map(rule => ({
       label: rule.name,
       value: rule.id
@@ -506,7 +507,7 @@ const sendBatchActionRequest = async (actionKey, ids, isOneClick) => {
   const action = actionMap[actionKey];
 
   try {
-    const response = await axios.post('/api/resubscribe/batch_action', {
+    const response = await apiClient.post(apiPath('api_resubscribe_batch_action_ffb4fd68'), {
       item_ids: ids, action: action, is_one_click: isOneClick, filter: filter.value
     });
     message.success(response.data.message);
@@ -538,7 +539,7 @@ const executeBatchAction = async (actionKey, ids, isOneClick) => {
 
 const ignoreItem = async (item) => {
   try {
-    await axios.post('/api/resubscribe/batch_action', { item_ids: [item.item_id], action: 'ignore' });
+    await apiClient.post(apiPath('api_resubscribe_batch_action_ffb4fd68'), { item_ids: [item.item_id], action: 'ignore' });
     message.success(`《${item.item_name}》已忽略。`);
     const itemInList = allItems.value.find(i => i.item_id === item.item_id);
     if (itemInList) {
@@ -551,7 +552,7 @@ const ignoreItem = async (item) => {
 
 const unignoreItem = async (item) => {
   try {
-    await axios.post('/api/resubscribe/batch_action', { item_ids: [item.item_id], action: 'ok' });
+    await apiClient.post(apiPath('api_resubscribe_batch_action_ffb4fd68'), { item_ids: [item.item_id], action: 'ok' });
     message.success(`《${item.item_name}》已取消忽略。`);
     allItems.value = allItems.value.filter(i => i.item_id !== item.item_id);
   } catch (err) {
@@ -563,13 +564,13 @@ const unignoreItem = async (item) => {
 
 const triggerRefreshStatus = async () => {
   try {
-    await axios.post('/api/resubscribe/refresh_status');
+    await apiClient.post(apiPath('api_resubscribe_refresh_status_55231a3c'));
     message.success('刷新任务已提交，请稍后查看任务状态。');
   } catch (err) {
     message.error(err.response?.data?.error || '提交刷新任务失败。');
   }
 };
-const triggerResubscribeAll = async () => { try { await axios.post('/api/resubscribe/resubscribe_all'); message.success('一键整理任务已提交，请稍后查看任务状态。'); } catch (err) { message.error(err.response?.data?.error || '提交一键整理任务失败。'); }};
+const triggerResubscribeAll = async () => { try { await apiClient.post(apiPath('api_resubscribe_resubscribe_all_3acb45c2')); message.success('一键整理任务已提交，请稍后查看任务状态。'); } catch (err) { message.error(err.response?.data?.error || '提交一键整理任务失败。'); }};
 const resubscribeItem = async (item) => {
   if (item.action === 'resubscribe' && item.resubscribe_source === 'hdhive') {
     hdhiveMedia.value = {
@@ -587,7 +588,7 @@ const resubscribeItem = async (item) => {
 
   subscribing.value[item.item_id] = true;
   try {
-    await axios.post('/api/resubscribe/batch_action', {
+    await apiClient.post(apiPath('api_resubscribe_batch_action_ffb4fd68'), {
       item_ids: [item.item_id],
       action: 'subscribe'
     });

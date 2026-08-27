@@ -73,7 +73,8 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, watch, onMounted } from 'vue';
 import { NModal, NButton, NSpace, NTabs, NTabPane, NGrid, NGi, NFormItem, NColorPicker, NSpin, useMessage, NPopconfirm, NSlider } from 'naive-ui';
 import { cloneDeep } from 'lodash-es';

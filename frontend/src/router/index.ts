@@ -1,4 +1,5 @@
-// src/router/index.js
+// @ts-nocheck -- compatibility module retained during the page-family migration.
+// src/router/index.ts
 
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';

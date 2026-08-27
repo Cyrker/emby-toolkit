@@ -152,9 +152,10 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, onBeforeUnmount, computed, h, reactive } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import {
   NTag, NButton, NSpace, NText, NIcon, NTooltip, NEllipsis, NInputNumber, useMessage, useDialog, NAlert, NRadioGroup, NRadioButton
 } from 'naive-ui';
@@ -392,7 +393,7 @@ const fetchRecords = async () => {
   loading.value = true;
   checkedRowKeys.value = [];
   try {
-    const res = await axios.get('/api/p115/records', { params: { page: 1, per_page: 5000, search: searchQuery.value, status: statusFilter.value, cid: categoryFilter.value, fail_reason: failReasonFilter.value } });
+    const res = await apiClient.get(apiPath('api_p115_records_9f772f05'), { params: { page: 1, per_page: 5000, search: searchQuery.value, status: statusFilter.value, cid: categoryFilter.value, fail_reason: failReasonFilter.value } });
     tableData.value = res.data.items;
     stats.value = res.data.stats;
     failReasonOptions.value = (res.data.fail_reasons || []).map(item => ({
@@ -405,7 +406,7 @@ const fetchRecords = async () => {
 
 const fetchCategories = async () => {
   try {
-    const res = await axios.get('/api/p115/sorting_rules');
+    const res = await apiClient.get(apiPath('api_p115_sorting_rules_6bca829a'));
     const rules = res.data.filter(r => r.enabled && r.cid && r.cid !== '0');
     categoryOptions.value = [{ label: '所有分类', value: null }, ...rules.map(r => ({ label: r.dir_name || r.name, value: r.cid }))];
   } catch (error) { console.error('获取分类规则失败', error); }
@@ -423,7 +424,7 @@ const handleEmptyRecycleBin = () => {
     onPositiveClick: async () => {
       emptyingBin.value = true;
       try {
-        const res = await axios.post('/api/p115/recycle_bin/empty');
+        const res = await apiClient.post(apiPath('api_p115_recycle_bin_empty_f1bc2609'));
         if (res.data.success) message.success(res.data.message);
         else message.error(res.data.message);
       } catch (error) { message.error('清空失败'); } finally { emptyingBin.value = false; }
@@ -440,7 +441,7 @@ const handleEmptyUnrecognized = () => {
     onPositiveClick: async () => {
       emptyingUnrecognized.value = true;
       try {
-        const res = await axios.post('/api/p115/unrecognized/empty');
+        const res = await apiClient.post(apiPath('api_p115_unrecognized_empty_6502967d'));
         if (res.data.success) {
           message.success(res.data.message);
           fetchRecords(); // 刷新列表，未识别记录应该消失了
@@ -535,7 +536,7 @@ const submitCorrection = async () => {
 
   submitting.value = true;
   try {
-    await axios.post('/api/tasks/run', {
+    await apiClient.post(apiPath('api_tasks_run_e0400fed'), {
       task_name: 'manual-correct-organize-records',
       items
     });
@@ -560,7 +561,7 @@ const deleteRecord = (row) => {
     positiveText: '确定', negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        await Promise.all(ids.map(id => axios.delete(`/api/p115/records/${id}`)));
+        await Promise.all(ids.map(id => apiClient.delete(apiPath('api_p115_records_param_a8481fac', [id]))));
         message.success(`成功删除 ${ids.length} 条记录`);
         fetchRecords();
       } catch (error) { message.error('删除失败'); }
@@ -576,7 +577,7 @@ const batchDelete = () => {
     positiveText: '确定', negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        await Promise.all(ids.map(id => axios.delete(`/api/p115/records/${id}`)));
+        await Promise.all(ids.map(id => apiClient.delete(apiPath('api_p115_records_param_a8481fac', [id]))));
         message.success(`成功删除 ${ids.length} 条记录`);
         checkedRowKeys.value = [];
         fetchRecords();

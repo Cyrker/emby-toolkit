@@ -1,4 +1,5 @@
-// src/theme.js (真·最终修复版)
+// @ts-nocheck -- compatibility module retained during the page-family migration.
+// src/theme.ts (真·最终修复版)
 
 export const themes = {
   // ================= 主题一: 赛博科技 =================

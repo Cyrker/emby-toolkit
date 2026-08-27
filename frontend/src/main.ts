@@ -1,7 +1,9 @@
-// src/main.js
+// @ts-nocheck -- compatibility module retained during the page-family migration.
+// src/main.ts
 
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+import { VueQueryPlugin, QueryClient } from '@tanstack/vue-query';
 import App from './App.vue'
 import router from './router';
 import naive from 'naive-ui';
@@ -12,10 +14,16 @@ import './assets/global.css';
 
 // --- 创建核心实例 ---
 const pinia = createPinia();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { refetchOnWindowFocus: false, retry: 1 },
+  },
+});
 const app = createApp(App);
 
 // --- 严格按照顺序注册插件 ---
 app.use(pinia);
+app.use(VueQueryPlugin, { queryClient });
 // 注意：Router 的注册要移到下面，确保在 store 准备好之后
 
 // --- ★★★ 核心修复：异步启动流程 ★★★
@@ -25,7 +33,7 @@ async function initializeApp() {
 
   try {
     // 3. 异步调用 checkAuthStatus，并等待它完成
-    // 这会向后端 /api/auth/status 发送请求，并用权威结果更新 store
+    // 启动阶段向后端同步认证状态，并用权威结果更新 store
     await authStore.checkAuthStatus();
     console.log('认证状态已从后端同步完毕。');
 

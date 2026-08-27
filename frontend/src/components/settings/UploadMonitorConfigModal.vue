@@ -124,9 +124,10 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import {
   NButton, NForm, NFormItem, NGi, NGrid, NIcon, NInput, NInputGroup,
   NModal, NProgress, NRadioButton, NRadioGroup, NSelect, NSpace, NSpin, NSwitch, NTag,
@@ -190,7 +191,7 @@ const statusType = value => ({ pending: 'info', uploading: 'warning', failed: 'e
 
 const refreshStatus = async () => {
   try {
-    const response = await axios.get('/api/p115/upload_monitor/config');
+    const response = await apiClient.get(apiPath('api_p115_upload_monitor_config_b79cb47e'));
     status.value = response.data.status || null;
   } catch (error) {
     console.debug('刷新上传状态失败', error);
@@ -215,7 +216,7 @@ const open = async () => {
   visible.value = true;
   loading.value = true;
   try {
-    const response = await axios.get('/api/p115/upload_monitor/config');
+    const response = await apiClient.get(apiPath('api_p115_upload_monitor_config_b79cb47e'));
     config.value = response.data.data || { enabled: false, mappings: [] };
     status.value = response.data.status || null;
   } catch (error) {
@@ -258,7 +259,7 @@ const save = async () => {
   }
   saving.value = true;
   try {
-    const response = await axios.post('/api/p115/upload_monitor/config', config.value);
+    const response = await apiClient.post(apiPath('api_p115_upload_monitor_config_b79cb47e'), config.value);
     config.value = response.data.data;
     status.value = response.data.status || null;
     message.success(response.data.message || '上传监控配置已保存');

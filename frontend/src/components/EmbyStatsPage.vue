@@ -100,9 +100,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, computed } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { useMessage } from 'naive-ui';
 import { 
   StatsChart, Refresh, Play, Time, People, Videocam 
@@ -227,7 +228,7 @@ const getPosterUrl = (item) => {
     
   //   // ★★★ 核心修改：通过 encodeURIComponent 编码后传给后端代理 ★★★
   //   // 这样服务器就会使用你在 config.ini 里配置的代理去下载图片
-  //   return `/api/image_proxy?url=${encodeURIComponent(tmdbUrl)}`;
+  //   return apiPath('api_image_proxy_url_param_bde13c35', [encodeURIComponent(tmdbUrl)]);
   // }
   
   // 2. 回退：使用 Emby 代理 (如果本地数据库没封面)
@@ -239,7 +240,7 @@ const getPosterUrl = (item) => {
 const fetchData = async () => {
   loading.value = true;
   try {
-    const res = await axios.get(`/api/portal/dashboard-stats?days=${timeRange.value}`);
+    const res = await apiClient.get(apiPath('api_portal_dashboard_stats_days_param_c809dbe6', [timeRange.value]));
     statsData.value = res.data;
   } catch (error) {
     message.error("加载数据失败");

@@ -561,9 +561,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { computed, h, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import draggable from 'vuedraggable';
 import {
   NAlert, NButton, NCard, NDataTable, NDivider, NForm, NFormItem, NGi, NGrid, NIcon, NInput,
@@ -844,7 +845,7 @@ const normalizeCenterHomeTagOptions = (items) => {
 };
 const loadCenterHomeTagOptions = async () => {
   try {
-    const res = await axios.get('/api/shared/resources/center/sources/tags');
+    const res = await apiClient.get(apiPath('api_shared_resources_center_sources_tags_ce46d114'));
     const options = normalizeCenterHomeTagOptions(res.data?.items);
     centerHomeTagOptions.value = options.length ? options : [...CENTER_HOME_TAG_FALLBACK_OPTIONS];
   } catch (e) {
@@ -860,8 +861,8 @@ const normalizeCenterHomeGenreOptions = (items) => (Array.isArray(items) ? items
 const loadCenterHomeGenreOptions = async () => {
   if (centerHomeMovieGenres.value.length && centerHomeTvGenres.value.length) return;
   const [movieRes, tvRes] = await Promise.allSettled([
-    axios.get('/api/custom_collections/config/tmdb_movie_genres'),
-    axios.get('/api/custom_collections/config/tmdb_tv_genres'),
+    apiClient.get(apiPath('api_custom_collections_config_tmdb_movie_genres_1a336d87')),
+    apiClient.get(apiPath('api_custom_collections_config_tmdb_tv_genres_b34fe777')),
   ]);
   if (movieRes.status === 'fulfilled') centerHomeMovieGenres.value = normalizeCenterHomeGenreOptions(movieRes.value.data);
   if (tvRes.status === 'fulfilled') centerHomeTvGenres.value = normalizeCenterHomeGenreOptions(tvRes.value.data);
@@ -2266,7 +2267,7 @@ const executeImport = async (row, mode) => {
     } else {
       requestBody.source_id = sourcePayload.source_id;
     }
-    const res = await axios.post('/api/shared/resources/center/import', requestBody);
+    const res = await apiClient.post(apiPath('api_shared_resources_center_import_7e2a7a56'), requestBody);
     message.success(res.data?.message || '已提交');
     await Promise.allSettled([loadCenterSources(), loadSummary(), loadLedger()]);
   } catch (e) {
@@ -3246,7 +3247,7 @@ const importCenterLogicalEpisode = async (version, episode) => {
   const loadingKey = episode.loadingKey || `logical_episode:${source.source_id}`;
   importingMap[loadingKey] = 'permanent';
   try {
-    const res = await axios.post('/api/shared/resources/center/import', {
+    const res = await apiClient.post(apiPath('api_shared_resources_center_import_7e2a7a56'), {
       mode: 'permanent',
       source_id: source.source_id,
       source,
@@ -3429,7 +3430,7 @@ const centerDetailParams = (row, seasonOverride = null) => {
 };
 
 const loadCenterSourceDetail = async (row, seasonOverride = null) => {
-  const res = await axios.get('/api/shared/resources/center/sources/detail', { params: centerDetailParams(row, seasonOverride) });
+  const res = await apiClient.get(apiPath('api_shared_resources_center_sources_detail_05539e65'), { params: centerDetailParams(row, seasonOverride) });
   if (res.data?.success === false) throw new Error(res.data?.message || '加载详情失败');
   return res.data?.data || res.data || {};
 };
@@ -3503,7 +3504,7 @@ const applySharedConfig = (data = {}) => {
 const loadSharedConfig = async () => {
   sharedConfigLoading.value = true;
   try {
-    const res = await axios.get('/api/shared/resources/config');
+    const res = await apiClient.get(apiPath('api_shared_resources_config_886e59a6'));
     applySharedConfig(res.data?.data || {});
   } catch (e) {
     message.error(e.response?.data?.message || '加载共享资源配置失败');
@@ -3516,7 +3517,7 @@ const loadCenterDeviceStatus = async () => {
   centerDeviceStatusLoading.value = true;
   centerDeviceStatusError.value = '';
   try {
-    const res = await axios.get('/api/shared/resources/center/device/status');
+    const res = await apiClient.get(apiPath('api_shared_resources_center_device_status_ac9d89aa'));
     centerDeviceStatusData.value = res.data?.data || res.data || {};
   } catch (e) {
     centerDeviceStatusData.value = e.response?.data?.data || {};
@@ -3536,7 +3537,7 @@ const saveSharedConfig = async () => {
   sharedConfigSaving.value = true;
   try {
     sharedConfigForm.p115_shared_resource_mode = 'rapid';
-    const res = await axios.post('/api/shared/resources/config', { ...sharedConfigForm });
+    const res = await apiClient.post(apiPath('api_shared_resources_config_886e59a6'), { ...sharedConfigForm });
     applySharedConfig(res.data?.data || sharedConfigForm);
     message.success(res.data?.message || '共享资源配置已保存');
     showSharedConfigModal.value = false;
@@ -3548,12 +3549,12 @@ const saveSharedConfig = async () => {
   }
 };
 
-const loadSummary = async () => { const res = await axios.get('/api/shared/resources/summary'); summary.value = res.data?.data || { shares: {}, credit: {} }; };
-const loadShares = async () => { sharesLoading.value = true; try { const res = await axios.get('/api/shared/resources/shares', { params: { ...shareFilters, page: sharePagination.page, page_size: sharePagination.pageSize } }); shareItems.value = res.data?.items || []; sharePagination.itemCount = Number(res.data?.total || 0); } catch (e) { message.error(e.response?.data?.message || '加载我的共享源失败'); } finally { sharesLoading.value = false; } };
+const loadSummary = async () => { const res = await apiClient.get(apiPath('api_shared_resources_summary_d121ac76')); summary.value = res.data?.data || { shares: {}, credit: {} }; };
+const loadShares = async () => { sharesLoading.value = true; try { const res = await apiClient.get(apiPath('api_shared_resources_shares_3335cb23'), { params: { ...shareFilters, page: sharePagination.page, page_size: sharePagination.pageSize } }); shareItems.value = res.data?.items || []; sharePagination.itemCount = Number(res.data?.total || 0); } catch (e) { message.error(e.response?.data?.message || '加载我的共享源失败'); } finally { sharesLoading.value = false; } };
 const loadVirtualImports = async () => {
   virtualLoading.value = true;
   try {
-    const res = await axios.get('/api/shared/resources/virtual-imports', {
+    const res = await apiClient.get(apiPath('api_shared_resources_virtual_imports_9d24a160'), {
       params: { ...virtualFilters, page: virtualPagination.page, page_size: virtualPagination.pageSize },
     });
     virtualItems.value = res.data?.items || [];
@@ -3572,7 +3573,7 @@ const dismissVirtualImport = (row) => {
     negativeText: '保留',
     onPositiveClick: async () => {
       try {
-        const res = await axios.delete(`/api/shared/resources/virtual-imports/${row.id}`);
+        const res = await apiClient.delete(apiPath('api_shared_resources_virtual_imports_param_5d51ea16', [row.id]));
         message.success(res.data?.message || '已辞退');
         await Promise.allSettled([loadVirtualImports(), loadSummary(), loadLedger()]);
       } catch (e) {
@@ -3589,7 +3590,7 @@ const promoteVirtualImport = (row) => {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        const res = await axios.post(`/api/shared/resources/virtual-imports/${row.id}/promote`, {});
+        const res = await apiClient.post(apiPath('api_shared_resources_virtual_imports_param_promote_013b3e81', [row.id]), {});
         message.success(res.data?.message || '已转正');
         await Promise.allSettled([loadVirtualImports(), loadCenterSources(), loadSummary(), loadLedger()]);
       } catch (e) {
@@ -3632,7 +3633,7 @@ const saveCenterHomeSettings = async () => {
   sharedConfigSaving.value = true;
   try {
     sharedConfigForm.p115_shared_center_home_sections = normalizeCenterHomeSections(centerHomeSettingSections.value);
-    const res = await axios.post('/api/shared/resources/config', { ...sharedConfigForm });
+    const res = await apiClient.post(apiPath('api_shared_resources_config_886e59a6'), { ...sharedConfigForm });
     applySharedConfig(res.data?.data || sharedConfigForm);
     message.success('列表设置已保存');
     showCenterHomeSettingsModal.value = false;
@@ -3656,7 +3657,7 @@ const loadCenterSources = async (forceRefresh = false, append = false) => {
     if (!append && centerHomeMode.value) {
       const params = { limit_per_section: 10 };
       if (forceRefresh) params.force_refresh = 1;
-      const res = await axios.get('/api/shared/resources/center/sources/home', { params });
+      const res = await apiClient.get(apiPath('api_shared_resources_center_sources_home_d28ec7c3'), { params });
       centerHomeSections.value = Array.isArray(res.data?.sections) ? res.data.sections : [];
       centerSources.value = [];
       centerBackendGrouped.value = true;
@@ -3672,7 +3673,7 @@ const loadCenterSources = async (forceRefresh = false, append = false) => {
       offset: (centerPagination.page - 1) * centerPagination.pageSize,
     };
     if (forceRefresh) params.force_refresh = 1;
-    const res = await axios.get('/api/shared/resources/center/sources', { params });
+    const res = await apiClient.get(apiPath('api_shared_resources_center_sources_360f78a1'), { params });
     const items = res.data?.items || [];
     centerBackendGrouped.value = Boolean(res.data?.backend_grouped);
     centerSources.value = append ? [...(centerSources.value || []), ...items] : items;
@@ -3781,7 +3782,7 @@ const loadCenterSourceChildren = async (row) => {
       hub_id: row?.hub_id || '',
       limit: 5000,
     };
-    const res = await axios.get('/api/shared/resources/center/sources/children', { params });
+    const res = await apiClient.get(apiPath('api_shared_resources_center_sources_children_a7f6b545'), { params });
     const children = res.data?.children || res.data?.items || [];
     const packItems = res.data?.pack_items || children;
     applyCenterLoadedChildren(row, children, packItems);
@@ -3852,7 +3853,7 @@ const refreshShareRequestQuote = async () => {
   if (!selectedShareRequestMedia.value) return;
   try {
     const payload = buildShareRequestPayload();
-    const res = await axios.post('/api/shared/resources/share-requests/quote', payload);
+    const res = await apiClient.post(apiPath('api_shared_resources_share_requests_quote_84c8cc35'), payload);
     const q = res.data?.data || null;
     shareRequestQuote.value = q;
   } catch (e) {
@@ -3894,7 +3895,7 @@ const searchShareRequestTmdb = async () => {
   if (!keyword) return message.warning('请输入要搜索的片名');
   shareRequestSearchLoading.value = true;
   try {
-    const res = await axios.get('/api/shared/resources/share-requests/tmdb/search', { params: { keyword } });
+    const res = await apiClient.get(apiPath('api_shared_resources_share_requests_tmdb_search_50aca4c1'), { params: { keyword } });
     shareRequestSearchItems.value = res.data?.items || [];
     if (!shareRequestSearchItems.value.length) message.info('TMDb 没有搜索到结果');
   } catch (e) {
@@ -3926,7 +3927,7 @@ const chooseShareRequestMedia = async (row) => {
 const loadShareRequests = async () => {
   requestLoading.value = true;
   try {
-    const res = await axios.get('/api/shared/resources/share-requests', { params: {
+    const res = await apiClient.get(apiPath('api_shared_resources_share_requests_3abaa4b4'), { params: {
       keyword: requestFilters.keyword,
       status: requestFilters.status,
       media_type: requestFilters.media_type === 'all' ? '' : requestFilters.media_type,
@@ -3951,7 +3952,7 @@ const submitShareRequest = async () => {
   shareRequestSubmitting.value = true;
   try {
     const payload = buildShareRequestPayload();
-    const res = await axios.post('/api/shared/resources/share-requests', payload);
+    const res = await apiClient.post(apiPath('api_shared_resources_share_requests_3abaa4b4'), payload);
     message.success(res.data?.message || '求共享已发布');
     showShareRequestModal.value = false;
     activeTab.value = 'requests';
@@ -3972,7 +3973,7 @@ const confirmCoRequest = (row) => {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        const res = await axios.post(`/api/shared/resources/share-requests/${row.group_id}/co-request`, {});
+        const res = await apiClient.post(apiPath('api_shared_resources_share_requests_param_co_request_1b737567', [row.group_id]), {});
         message.success(res.data?.message || '同求成功');
         await Promise.allSettled([loadShareRequests(), loadSummary(), loadLedger()]);
       } catch (e) {
@@ -3990,7 +3991,7 @@ const confirmCancelShareRequest = (row) => {
     negativeText: '保留',
     onPositiveClick: async () => {
       try {
-        const res = await axios.post(`/api/shared/resources/share-requests/${row.group_id}/cancel`, {});
+        const res = await apiClient.post(apiPath('api_shared_resources_share_requests_param_cancel_8a4c528b', [row.group_id]), {});
         message.success(res.data?.message || '已取消求共享');
         await Promise.allSettled([loadShareRequests(), loadSummary(), loadLedger()]);
       } catch (e) {
@@ -4014,7 +4015,7 @@ const openLocalShareForRequest = async (row) => {
 const triggerSharedMaintenance = async () => {
   maintenanceSubmitting.value = true;
   try {
-    const res = await axios.post('/api/tasks/run', {
+    const res = await apiClient.post(apiPath('api_tasks_run_e0400fed'), {
       task_name: 'shared-resource-maintenance'
     });
     message.success(res.data?.message || '共享资源维护任务已提交');
@@ -4028,7 +4029,7 @@ const triggerSharedMaintenance = async () => {
 const loadLedger = async () => {
   ledgerLoading.value = true;
   try {
-    const res = await axios.get('/api/shared/resources/credit/ledger', {
+    const res = await apiClient.get(apiPath('api_shared_resources_credit_ledger_44a3aa5e'), {
       params: { limit: 200, actual_only: 1, sync_center: 1 },
     });
     ledgerItems.value = res.data?.items || [];
@@ -4079,7 +4080,7 @@ const setupCenterInfiniteObserver = () => {
 const registerCenterDevice = async () => {
   registeringDevice.value = true;
   try {
-    const res = await axios.post('/api/shared/resources/center/device/register', {});
+    const res = await apiClient.post(apiPath('api_shared_resources_center_device_register_66b8d121'), {});
     message.success(res.data?.message || (centerDeviceId.value ? '共享资源中心已重新连接' : '共享资源中心已连接'));
     await Promise.allSettled([loadSharedConfig(), loadCenterDeviceStatus(), loadSummary(), loadLedger(), loadCenterSources()]);
   } catch (e) {
@@ -4096,7 +4097,7 @@ const refreshCredit = async () => {
   }
   refreshingCredit.value = true;
   try {
-    await axios.post('/api/shared/resources/credit/refresh');
+    await apiClient.post(apiPath('api_shared_resources_credit_refresh_07b99f9a'));
     message.success('贡献点已同步');
     await Promise.allSettled([loadSummary(), loadLedger()]);
   } catch (e) {
@@ -4138,7 +4139,7 @@ const searchShareableMedia = async () => {
   try {
     const params = { keyword, limit: requestRow ? 100 : 30 };
     if (requestRow) Object.assign(params, shareRequestSearchFilterParams(requestRow));
-    const res = await axios.get('/api/shared/resources/media/search', { params });
+    const res = await apiClient.get(apiPath('api_shared_resources_media_search_33a303cf'), { params });
     mediaCandidates.value = res.data?.items || [];
     if (!mediaCandidates.value.length) {
       message.info(requestRow ? '本地没有符合该求共享参数的可共享资源' : '没有搜索到本地媒体记录');
@@ -4174,7 +4175,7 @@ const validateManualShareSelection = async () => {
   if (!manualShareForm.root_fid) return null;
   manualShareValidationLoading.value = true;
   try {
-    const res = await axios.post('/api/shared/resources/shares/manual-validate', buildManualSharePayload());
+    const res = await apiClient.post(apiPath('api_shared_resources_shares_manual_validate_926ce71f'), buildManualSharePayload());
     if (seq !== manualShareValidationSeq) return null;
     const data = res.data?.data || {};
     manualShareValidation.value = {
@@ -4244,7 +4245,7 @@ const confirmShareAllLibrary = () => {
     onPositiveClick: async () => {
       shareAllLoading.value = true;
       try {
-        const res = await axios.post('/api/tasks/run', {
+        const res = await apiClient.post(apiPath('api_tasks_run_e0400fed'), {
           task_name: 'share-all-library'
         });
         message.success(res.data?.message || '一键登记媒体库任务已提交');
@@ -4269,7 +4270,7 @@ const manualCreateShare = async () => {
   manualCreating.value = true;
   try {
     const payload = buildManualSharePayload();
-    await axios.post('/api/shared/resources/shares/manual-create', payload);
+    await apiClient.post(apiPath('api_shared_resources_shares_manual_create_6d51a8dd'), payload);
     message.success('资源索引已登记中心');
     showManualShareModal.value = false;
     activeLocalShareRequest.value = null;
@@ -4295,9 +4296,9 @@ const reregisterShare = (row) => {
     onPositiveClick: async () => {
       try {
         if (isBatch) {
-          await axios.post('/api/shared/resources/shares/reregister-batch', { ids });
+          await apiClient.post(apiPath('api_shared_resources_shares_reregister_batch_ddfad2ab'), { ids });
         } else {
-          await axios.post(`/api/shared/resources/shares/${row.id}/reregister`, {});
+          await apiClient.post(apiPath('api_shared_resources_shares_param_reregister_1b66f790', [row.id]), {});
         }
         message.success('已重新登记共享源');
         await Promise.allSettled([loadShares(), loadCenterSources(), loadSummary(), loadLedger()]);
@@ -4327,9 +4328,9 @@ const cancelShare = (row) => {
     onPositiveClick: async () => {
       try {
         if (isBatch) {
-          await axios.post('/api/shared/resources/shares/cancel-batch', { ids });
+          await apiClient.post(apiPath('api_shared_resources_shares_cancel_batch_b084e3bb'), { ids });
         } else {
-          await axios.post(`/api/shared/resources/shares/${row.id}/cancel`);
+          await apiClient.post(apiPath('api_shared_resources_shares_param_cancel_918c2130', [row.id]));
         }
         message.success('已停用共享源');
         await Promise.allSettled([loadShares(), loadSummary(), loadLedger()]);
@@ -4357,9 +4358,9 @@ const deleteShare = (row) => {
     onPositiveClick: async () => {
       try {
         if (isBatch) {
-          await axios.post('/api/shared/resources/shares/delete-batch', { ids });
+          await apiClient.post(apiPath('api_shared_resources_shares_delete_batch_0c935516'), { ids });
         } else {
-          await axios.post(`/api/shared/resources/shares/${row.id}/delete`);
+          await apiClient.post(apiPath('api_shared_resources_shares_param_delete_45317615', [row.id]));
         }
         message.success(alreadyDisabled ? '已删除本地共享记录' : '已取消登记并删除共享记录');
         await Promise.allSettled([loadShares(), loadCenterSources(), loadSummary(), loadLedger()]);

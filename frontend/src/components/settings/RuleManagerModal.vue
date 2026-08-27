@@ -246,9 +246,10 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, computed, h } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import draggable from 'vuedraggable';
 import { 
   NModal, NSpace, NRadioGroup, NRadioButton, NDivider, NTag, NButton, NIcon, NEmpty, 
@@ -291,7 +292,7 @@ const handlePersonSearch = (query) => {
   clearTimeout(personSearchTimeout);
   personSearchTimeout = setTimeout(async () => {
     try {
-      const res = await axios.get(`/api/custom_collections/config/tmdb_search_persons?q=${query}`);
+      const res = await apiClient.get(apiPath('api_custom_collections_config_tmdb_search_persons_q_param_1bc1a3ed', [query]));
       actorOptions.value = res.data || [];
     } finally {
       isSearchingActors.value = false;
@@ -336,13 +337,13 @@ defineExpose({
 const loadOptions = async () => {
   try {
     const [mGenres, tGenres, sRes, cRes, lRes, kRes, rRes] = await Promise.all([
-      axios.get('/api/custom_collections/config/tmdb_movie_genres'),
-      axios.get('/api/custom_collections/config/tmdb_tv_genres'),
-      axios.get('/api/custom_collections/config/studios'),
-      axios.get('/api/custom_collections/config/tmdb_countries'),
-      axios.get('/api/custom_collections/config/languages'),
-      axios.get('/api/custom_collections/config/keywords'),
-      axios.get('/api/custom_collections/config/unified_ratings_options')
+      apiClient.get(apiPath('api_custom_collections_config_tmdb_movie_genres_1a336d87')),
+      apiClient.get(apiPath('api_custom_collections_config_tmdb_tv_genres_b34fe777')),
+      apiClient.get(apiPath('api_custom_collections_config_studios_5ec2686f')),
+      apiClient.get(apiPath('api_custom_collections_config_tmdb_countries_237507d0')),
+      apiClient.get(apiPath('api_custom_collections_config_languages_8a8fb76a')),
+      apiClient.get(apiPath('api_custom_collections_config_keywords_07a45464')),
+      apiClient.get(apiPath('api_custom_collections_config_unified_ratings_options_7c1ae756'))
     ]);
     rawMovieGenres.value = (mGenres.data || []).map(g => ({ label: g.name, value: g.id }));
     rawTvGenres.value = (tGenres.data || []).map(g => ({ label: g.name, value: g.id }));
@@ -356,7 +357,7 @@ const loadOptions = async () => {
 
 const loadSortingRules = async () => {
   try {
-    const res = await axios.get('/api/p115/sorting_rules');
+    const res = await apiClient.get(apiPath('api_p115_sorting_rules_6bca829a'));
     let data = res.data;
     if (typeof data === 'string') try { data = JSON.parse(data); } catch(e) {}
     sortingRules.value = Array.isArray(data) ? data : [];
@@ -365,7 +366,7 @@ const loadSortingRules = async () => {
 
 const saveSortingRules = async () => {
   try {
-    await axios.post('/api/p115/sorting_rules', sortingRules.value);
+    await apiClient.post(apiPath('api_p115_sorting_rules_6bca829a'), sortingRules.value);
   } catch (e) { message.error('保存规则失败'); }
 };
 

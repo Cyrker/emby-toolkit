@@ -1,11 +1,11 @@
 <!-- src/components/UserCenterPage.vue -->
 <template>
   <!-- 动态 Padding -->
-  <div class="user-center-page" :style="{ padding: isMobile ? '12px' : '24px' }"> 
-    
+  <div class="user-center-page" :style="{ padding: isMobile ? '12px' : '24px' }">
+
     <!-- 头部 -->
     <n-page-header :title="`欢迎回来, ${accountInfo?.name || authStore.username}`" subtitle="在这里查看您的账户信息" />
-    
+
     <!-- ================================================================================== -->
     <!-- 视图 A: PC 端 (宽屏) -->
     <!-- ================================================================================== -->
@@ -19,7 +19,7 @@
       </n-grid>
 
       <n-grid :cols="3" :x-gap="20" style="margin-top: 24px;">
-        
+
         <n-gi>
           <n-card :bordered="false" class="dashboard-card" style="height: 100%">
             <template #header>
@@ -75,7 +75,7 @@
                       <n-button text type="primary" tag="a" :href="globalChannelLink" target="_blank" size="small">点击加入频道/群组</n-button>
                     </n-descriptions-item>
                   </n-descriptions>
-                
+
                 <div style="margin-top: 12px;">
                     <n-button text type="primary" size="tiny" @click="openBotChat">1.点此找机器人发送 /start</n-button>
                 </div>
@@ -202,7 +202,7 @@
                   <n-radio-button value="processing">处理中</n-radio-button>
                 </n-radio-group>
             </template>
-            
+
             <n-scrollbar style="max-height: 560px;">
               <n-list size="small">
                 <n-list-item v-for="item in subscriptionHistory" :key="item.id">
@@ -255,9 +255,9 @@
             <n-tag :type="statusType" size="tiny" round>{{ statusText }}</n-tag>
           </div>
         </div>
-        
+
         <n-divider style="margin: 12px 0;" />
-        
+
         <div class="mobile-info-list">
           <div class="mobile-info-row"><span>等级</span><span>{{ authStore.isAdmin ? '管理员' : (accountInfo?.template_name || '未分配') }}</span></div>
           <div class="mobile-info-row"><span>到期</span><span>{{ accountInfo?.expiration_date ? new Date(accountInfo.expiration_date).toLocaleString() : '永久' }}</span></div>
@@ -357,7 +357,7 @@
               备注: {{ item.notes }}
             </div>
           </div>
-          
+
           <!-- 移动端分页 -->
           <div v-if="totalRecords > pageSize" style="margin-top: 16px; display: flex; justify-content: center;">
             <n-pagination v-model:page="currentPage" :page-size="pageSize" :item-count="totalRecords" simple @update:page="fetchSubscriptionHistory" />
@@ -370,13 +370,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { useAuthStore } from '../stores/auth';
-import { 
-  NPageHeader, NCard, NDescriptions, NDescriptionsItem, NTag, NEmpty, NGrid, NGi, 
-  NInputGroup, NInput, NButton, NText, useMessage, NPagination, 
+import {
+  NPageHeader, NCard, NDescriptions, NDescriptionsItem, NTag, NEmpty, NGrid, NGi,
+  NInputGroup, NInput, NButton, NText, useMessage, NPagination,
   NStatistic, NRadioGroup, NRadioButton, NAvatar, NIcon, NDivider, NTooltip, NSpin,
   NList, NListItem, NThing, NSpace, NAlert, NSwitch, NQrCode, NSelect
 } from 'naive-ui';
@@ -418,7 +419,7 @@ const checkMobile = () => {
 
 // 分页相关状态
 const currentPage = ref(1);
-const pageSize = ref(10); 
+const pageSize = ref(10);
 const totalRecords = ref(0);
 const stats = ref({ total: 0, completed: 0, processing: 0, pending: 0, failed: 0 });
 const filterStatus = ref('all');
@@ -454,7 +455,7 @@ const handleAvatarChange = async (event) => {
   formData.append('avatar', file);
   const loadingMsg = message.loading('正在上传头像...', { duration: 0 });
   try {
-    const res = await axios.post('/api/portal/upload-avatar', formData, {
+    const res = await apiClient.post(apiPath('api_portal_upload_avatar_4e8005f3'), formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     loadingMsg.destroy();
@@ -466,7 +467,7 @@ const handleAvatarChange = async (event) => {
     loadingMsg.destroy();
     message.error(error.response?.data?.message || '上传失败');
   } finally {
-    event.target.value = ''; 
+    event.target.value = '';
   }
 };
 
@@ -496,10 +497,10 @@ const globalChannelLink = computed(() => {
 const getStatusInfo = (status) => {
   const map = {
     completed: { type: 'success', text: '已完成' },
-    WANTED: { type: 'info', text: '处理中' }, 
+    WANTED: { type: 'info', text: '处理中' },
     REQUESTED: { type: 'warning', text: '待审核' },
     IGNORED: { type: 'error', text: '已忽略' },
-    SUBSCRIBED: { type: 'info', text: '已订阅' }, 
+    SUBSCRIBED: { type: 'info', text: '已订阅' },
     PENDING_RELEASE: { type: 'error', text: '未上映' },
     NONE: { type: 'warning', text: '已取消' },
     PAUSED: { type: 'warning', text: '已暂停' },
@@ -513,8 +514,8 @@ const getStatusText = (status) => getStatusInfo(status).text;
 const saveChatId = async () => {
   isSavingChatId.value = true;
   try {
-    const response = await axios.post('/api/portal/telegram-chat-id', { 
-      chat_id: telegramChatId.value 
+    const response = await apiClient.post(apiPath('api_portal_telegram_chat_id_7dcd22ff'), {
+      chat_id: telegramChatId.value
     });
     message.success(response.data.message || '保存成功！');
   } catch (error) {
@@ -527,7 +528,7 @@ const saveChatId = async () => {
 const openBotChat = async () => {
   isFetchingBotLink.value = true;
   try {
-    const response = await axios.get('/api/portal/telegram-bot-info');
+    const response = await apiClient.get(apiPath('api_portal_telegram_bot_info_b4eacdce'));
     const botName = response.data.bot_username;
     if (botName) {
       window.open(`https://t.me/${botName}`, '_blank');
@@ -551,7 +552,7 @@ const stopUserCookieQrcodePolling = () => {
 
 const loadUserCookieReward = async () => {
   try {
-    const res = await axios.get('/api/p115/play_pool/user-account/rewards');
+    const res = await apiClient.get(apiPath('api_p115_play_pool_user_account_rewards_f8c38180'));
     if (res.data?.success && res.data.data) {
       userCookieReward.value = res.data.data;
     }
@@ -562,7 +563,7 @@ const loadUserCookieReward = async () => {
 
 const loadUserCookieAccount = async () => {
   try {
-    const res = await axios.get('/api/p115/play_pool/user-account');
+    const res = await apiClient.get(apiPath('api_p115_play_pool_user_account_d5e7c24b'));
     if (res.data?.success && res.data.data) {
       const data = res.data.data;
       userCookieAccountId.value = data.id || '';
@@ -584,7 +585,7 @@ const saveUserCookie = async (credential, appType) => {
   const data = credential || {};
   const cookie = typeof data === 'string' ? data : '';
   const isOpenapi = typeof data === 'object' && Boolean(data.access_token || data.refresh_token);
-  const res = await axios.post('/api/p115/play_pool/user-account', {
+  const res = await apiClient.post(apiPath('api_p115_play_pool_user_account_d5e7c24b'), {
     alias,
     cookie,
     access_token: typeof data === 'object' ? (data.access_token || '') : '',
@@ -611,7 +612,7 @@ const saveUserCookieSettings = async () => {
   userCookieSaving.value = true;
   try {
     const alias = accountInfo.value?.name || authStore.username || '用户小号';
-    const res = await axios.post('/api/p115/play_pool/user-account', {
+    const res = await apiClient.post(apiPath('api_p115_play_pool_user_account_d5e7c24b'), {
       alias,
       app_type: userCookieAppType.value || 'alipaymini',
       shared: Boolean(userCookieShared.value)
@@ -631,7 +632,7 @@ const deleteUserCookie = async () => {
   if (!window.confirm('确认删除当前 115 播放凭据？这会同时删除 Cookie 和 OpenAPI 授权。')) return;
   userCookieDeleting.value = true;
   try {
-    await axios.delete('/api/p115/play_pool/user-account');
+    await apiClient.delete(apiPath('api_p115_play_pool_user_account_d5e7c24b'));
     userCookieAccountId.value = '';
     userCookieShared.value = false;
     userCookieAppType.value = 'alipaymini';
@@ -655,7 +656,7 @@ const startUserCookieQrcodePolling = (mode = userCookieQrcodeMode.value) => {
     try {
       const uid = userCookieQrcodeUid.value ? `&uid=${encodeURIComponent(userCookieQrcodeUid.value)}` : '';
       const app = encodeURIComponent(userCookieAppType.value || 'alipaymini');
-      const res = await axios.get(`/api/p115/play_pool/cookie_qrcode/status?mode=${mode}&app=${app}${uid}`);
+      const res = await apiClient.get(apiPath('api_p115_play_pool_cookie_qrcode_status_mode_param_app_parampara_e9fdd663', [mode, app, uid]));
       if (res.data?.status === 'success') {
         const data = res.data.data || {};
         if (mode === 'openapi') {
@@ -689,7 +690,7 @@ const refreshUserCookieQrcode = async (mode = 'openapi') => {
   userCookieQrcodeUid.value = '';
   try {
     const app = encodeURIComponent(userCookieAppType.value || 'alipaymini');
-    const res = await axios.get(`/api/p115/play_pool/cookie_qrcode?mode=${mode}&app=${app}`);
+    const res = await apiClient.get(apiPath('api_p115_play_pool_cookie_qrcode_mode_param_app_param_653b8668', [mode, app]));
     if (res.data?.success) {
       userCookieQrcodeUrl.value = res.data.data?.qrcode || '';
       userCookieQrcodeUid.value = res.data.data?.uid || '';
@@ -715,7 +716,7 @@ const handleUserCookieAppTypeChange = () => {
 
 const fetchStats = async () => {
   try {
-    const res = await axios.get('/api/portal/subscription-stats');
+    const res = await apiClient.get(apiPath('api_portal_subscription_stats_2836fabf'));
     stats.value = res.data;
   } catch (e) {
     console.error("获取统计失败", e);
@@ -725,7 +726,7 @@ const fetchStats = async () => {
 const fetchSubscriptionHistory = async (page = 1) => {
   loading.value = true;
   try {
-    const response = await axios.get('/api/portal/subscription-history', {
+    const response = await apiClient.get(apiPath('api_portal_subscription_history_3366ba81'), {
       params: {
         page: page,
         page_size: pageSize.value,
@@ -765,7 +766,7 @@ const fetchPlaybackStats = async () => {
   playbackLoading.value = true;
   try {
     // 传入 media_type 参数
-    const res = await axios.get(`/api/portal/playback-report?days=30&media_type=${playbackFilter.value}`);
+    const res = await apiClient.get(apiPath('api_portal_playback_report_days_30_media_type_param_2eab9c1f', [playbackFilter.value]));
     playbackData.value = res.data;
   } catch (error) {
     console.error("获取播放数据失败", error);
@@ -781,7 +782,7 @@ const handleFilterChange = () => {
 };
 
 watch(filterStatus, () => {
-  fetchSubscriptionHistory(1); 
+  fetchSubscriptionHistory(1);
 });
 
 onMounted(async () => {
@@ -789,7 +790,7 @@ onMounted(async () => {
   window.addEventListener('resize', checkMobile);
   try {
     const [accountResponse] = await Promise.all([
-      axios.get('/api/portal/account-info'),
+      apiClient.get(apiPath('api_portal_account_info_c9e154df')),
     ]);
     accountInfo.value = accountResponse.data;
     if (accountInfo.value) {

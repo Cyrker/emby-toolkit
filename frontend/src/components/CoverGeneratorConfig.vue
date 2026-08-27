@@ -326,9 +326,10 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, watch } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { 
   useMessage, NLayout, NPageHeader, NButton, NIcon, NCard, NGrid, NGi, 
   NFormItem, NSwitch, NSelect, NTabs, NTabPane, NCheckboxGroup, NCheckbox, 
@@ -344,7 +345,7 @@ import {
 import * as yaml from 'js-yaml'; // ★ 新增：导入 js-yaml
 
 // 导入静态图片数据
-import { single_1, single_2, multi_1 } from '../assets/cover_styles/images.js';
+import { single_1, single_2, multi_1 } from '../assets/cover_styles/images.ts';
 const stylePreviews = ref({
   single_1: single_1,
   single_2: single_2,
@@ -436,7 +437,7 @@ const removeTitleConfig = (index) => {
 const fetchConfig = async () => {
   isLoading.value = true;
   try {
-    const response = await axios.get('/api/config/cover_generator');
+    const response = await apiClient.get(apiPath('api_config_cover_generator_f42eb1a0'));
     configData.value = response.data;
     // ★ 修改：获取配置后，立即解析YAML
     parseYamlToData(configData.value.title_config);
@@ -449,7 +450,7 @@ const fetchConfig = async () => {
 
 const fetchLibraryOptions = async () => {
   try {
-    const response = await axios.get('/api/config/cover_generator/libraries');
+    const response = await apiClient.get(apiPath('api_config_cover_generator_libraries_300ac2ff'));
     libraryOptions.value = response.data;
   } catch (error) {
     message.error('获取媒体库列表失败，请检查后端。');
@@ -462,7 +463,7 @@ const saveConfig = async () => {
   configData.value.title_config = convertDataToYaml();
   
   try {
-    await axios.post('/api/config/cover_generator', configData.value);
+    await apiClient.post(apiPath('api_config_cover_generator_f42eb1a0'), configData.value);
     message.success('配置已成功保存！');
   } catch (error) {
     message.error('保存配置失败。');
@@ -474,7 +475,7 @@ const saveConfig = async () => {
 const runGenerateAllTask = async () => {
   isGenerating.value = true;
   try {
-    await axios.post('/api/tasks/run', { task_name: 'generate-all-covers' });
+    await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: 'generate-all-covers' });
     message.success('已成功触发“立即生成所有媒体库封面”任务，请在任务队列中查看进度。');
   } catch (error) {
     message.error('触发任务失败，请检查后端日志。');
@@ -499,7 +500,7 @@ function debounceUpdatePreview() {
 const fetchRatingOptions = async () => {
   try {
     // 调用之前在 MappingManager 中用过的 API
-    const response = await axios.get('/api/custom_collections/config/rating_mapping');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_rating_mapping_6409567c'));
     const mapping = response.data || {};
     
     // 使用 Map 来去重 (Key: emby_value, Value: label)
@@ -563,7 +564,7 @@ async function updateAllPreviews() {
     ];
 
     const promises = previewsToUpdate.map(p => 
-      axios.post('/api/config/cover_generator/preview', {
+      apiClient.post(apiPath('api_config_cover_generator_preview_7c3b0e15'), {
         base_image: p.base_image,
         badge_style: configData.value.badge_style,
         badge_size_ratio: configData.value.badge_size_ratio,

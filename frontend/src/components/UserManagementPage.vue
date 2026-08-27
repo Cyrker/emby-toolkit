@@ -32,7 +32,8 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { NTabs, NTabPane, NPageHeader, NAlert } from 'naive-ui';
 import UserList from './UserList.vue';
 import InvitationList from './InvitationList.vue';

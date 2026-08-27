@@ -264,9 +264,10 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { computed, ref } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import {
   NAlert,
   NButton,
@@ -295,7 +296,7 @@ import {
   TrashOutline as TrashIcon
 } from '@vicons/ionicons5';
 
-const API_URL = '/api/p115/episode_regex_rules';
+const API_URL = apiPath('api_p115_episode_regex_rules_79927316');
 const EXPORT_TYPE = 'ETK_P115_EPISODE_REGEX_RULES';
 
 const show = ref(false);
@@ -609,7 +610,7 @@ const confirmImportRules = () => {
 };
 
 const loadRules = async () => {
-  const res = await axios.get(API_URL);
+  const res = await apiClient.get(API_URL);
   const data = Array.isArray(res.data?.data) ? res.data.data : [];
   rules.value = data.length > 0
     ? data.map((item) => normalizeRule({ ...createEmptyRule(), ...item }, { editing: false }))
@@ -647,7 +648,7 @@ const saveRules = async () => {
 
   saving.value = true;
   try {
-    const res = await axios.post(API_URL, {
+    const res = await apiClient.post(API_URL, {
       rules: payload
     });
 

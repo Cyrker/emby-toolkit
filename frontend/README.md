@@ -1,5 +1,20 @@
-# Vue 3 + Vite
+# ETK Frontend
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+The ETK frontend keeps the existing Vue 3/Naive UI experience and is built as
+strict TypeScript at the project boundary. API types are generated once from
+the frozen backend contract at
+`verification/contracts/http/p4-openapi.json`; generated files under
+`src/api/generated/` are never edited by hand.
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+```bash
+npm ci
+npm run typecheck
+npm run test:unit
+npm run build
+npm run test:e2e
+```
+
+All page API calls use the adapter in `src/api/`. The adapter preserves the
+legacy response envelope, credentials, upload/download behavior, and bounded
+timeouts while Vue Query owns server-state caching and invalidation. Pinia is
+limited to authentication and client-only UI state.

@@ -327,10 +327,11 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref } from 'vue';
 import { useMessage } from 'naive-ui';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 const message = useMessage();
 const showModal = ref(false);
@@ -430,7 +431,7 @@ const open = async () => {
   showModal.value = true;
   loading.value = true;
   try {
-    const res = await axios.get('/api/subscription/mp/config');
+    const res = await apiClient.get(apiPath('api_subscription_mp_config_4d7e89fd'));
     if (res.data.success) {
       formModel.value = normalizeFormModel(res.data.data || {});
     }
@@ -445,7 +446,7 @@ const saveConfig = async () => {
   saving.value = true;
   try {
     const payload = normalizeFormModel(formModel.value);
-    const res = await axios.post('/api/subscription/mp/config', payload);
+    const res = await apiClient.post(apiPath('api_subscription_mp_config_4d7e89fd'), payload);
     if (res.data.success) {
       formModel.value = normalizeFormModel(payload);
       message.success(res.data.message);

@@ -651,12 +651,13 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, shallowRef, onMounted, watch, computed, nextTick } from 'vue';
 import draggable from 'vuedraggable';
 import { NIcon, NInput, NGrid, NGridItem, NFormItem, NTag, NAvatar, NPopconfirm, NImage, NModal, NList, NListItem, NThing, NEmpty, NButtonGroup, NDropdown, NTooltip, NInputNumber, NSwitch, NText } from 'naive-ui';
 import { useRoute, useRouter } from 'vue-router';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { NPageHeader, NDivider, NSpin, NCard, NDescriptions, NDescriptionsItem, NButton, NSpace, NAlert, useMessage } from 'naive-ui';
 import {
   MoveOutline as DragHandleIcon,
@@ -778,7 +779,7 @@ const uploadImagePayload = async (payload) => {
       ? { headers: { 'Content-Type': 'multipart/form-data' } } 
       : {};
       
-    const res = await axios.post(`/api/update_media_image/${itemId.value}`, payload, config);
+    const res = await apiClient.post(apiPath('api_update_media_image_param_2ccaf55b', [itemId.value]), payload, config);
     message.success(res.data.message || "图片替换成功！");
     
     // 刷新对应图片的时间戳，强制前端重新加载图片
@@ -883,7 +884,7 @@ const openEpisodeSelector = async (mode) => {
   showEpisodeSelector.value = true;
   isFetchingEpisodes.value = true;
   try {
-    const res = await axios.get(`/api/media_info/series/${itemId.value}/episodes`);
+    const res = await apiClient.get(apiPath('api_media_info_series_param_episodes_318a1fa8', [itemId.value]));
     episodesList.value = res.data;
   } catch (e) {
     message.error(e.response?.data?.error || "获取剧集分集列表失败");
@@ -965,7 +966,7 @@ const openIntroCreditsEditor = async (targetId) => {
   isLoadingIntroCredits.value = true;
   applyIntroCreditsPayload({});
   try {
-    const res = await axios.get(`/api/media_info/chapters/${targetId}`);
+    const res = await apiClient.get(apiPath('api_media_info_chapters_param_c11248c4', [targetId]));
     applyIntroCreditsPayload(res.data || {});
   } catch (e) {
     message.error(e.response?.data?.error || "获取片头片尾失败");
@@ -1011,7 +1012,7 @@ const saveIntroCredits = async () => {
       credits_enabled: introCreditsForm.value.credits_enabled,
       credits_start_seconds: introCreditsForm.value.credits_start_seconds
     };
-    const res = await axios.post(`/api/media_info/chapters/${currentEditMediaId.value}`, payload);
+    const res = await apiClient.post(apiPath('api_media_info_chapters_param_c11248c4', [currentEditMediaId.value]), payload);
     applyIntroCreditsPayload(res.data || {});
     message.success(res.data.message || "片头片尾已更新！");
     showIntroCreditsEditor.value = false;
@@ -1037,10 +1038,10 @@ const clearIntroCreditsForAllEpisodes = async () => {
   try {
     for (const target of targets) {
       try {
-        const info = await axios.get(`/api/media_info/chapters/${target.id}`);
+        const info = await apiClient.get(apiPath('api_media_info_chapters_param_c11248c4', [target.id]));
         const sha1 = info.data?.sha1;
         if (!sha1) throw new Error('missing sha1');
-        await axios.post(`/api/media_info/chapters/${target.id}`, {
+        await apiClient.post(apiPath('api_media_info_chapters_param_c11248c4', [target.id]), {
           sha1,
           intro_enabled: false,
           intro_start_seconds: 0,
@@ -1069,7 +1070,7 @@ const clearIntroCreditsForAllEpisodes = async () => {
 // 1. 获取语言映射表
 const fetchLanguageMapping = async () => {
   try {
-    const res = await axios.get('/api/custom_collections/config/language_mapping');
+    const res = await apiClient.get(apiPath('api_custom_collections_config_language_mapping_0f4f22a7'));
     const rawData = res.data;
 
     // 音轨选项：保持原样 (国语、粤语、英语等)
@@ -1106,7 +1107,7 @@ const openMediaInfoEditor = async (targetId) => {
   
   const loadingMsg = message.loading("正在读取底层媒体指纹...", { duration: 0 });
   try {
-    const res = await axios.get(`/api/media_info/edit/${targetId}`);
+    const res = await apiClient.get(apiPath('api_media_info_edit_param_6edad483', [targetId]));
     mediaInfoContext.value = {
       sha1: res.data.sha1
     };
@@ -1146,7 +1147,7 @@ const saveMediaInfo = async () => {
     };
     
     // 使用 currentEditMediaId 而不是全局的 itemId
-    const res = await axios.post(`/api/media_info/edit/${currentEditMediaId.value}`, payload);
+    const res = await apiClient.post(apiPath('api_media_info_edit_param_6edad483', [currentEditMediaId.value]), payload);
     message.success(res.data.message || "媒体信息已更新！");
     showMediaInfoEditor.value = false;
   } catch (e) {
@@ -1258,7 +1259,7 @@ const openTmdbSelector = async (type, tmdbKey) => {
   if (!tmdbImagesCache.value) {
     isFetchingTmdbImages.value = true;
     try {
-      const res = await axios.get(`/api/tmdb_images/${itemId.value}`);
+      const res = await apiClient.get(apiPath('api_tmdb_images_param_71f000b2', [itemId.value]));
       tmdbImagesCache.value = res.data;
     } catch (error) {
       message.error("获取 TMDb 图片失败");
@@ -1322,7 +1323,7 @@ const handleSearchDropdownSelect = (key) => {
 
 const getActorImageUrl = (actor) => {
   if (actor.imageUrl) {
-    return `/api/image_proxy?url=${encodeURIComponent(actor.imageUrl)}`;
+    return apiPath('api_image_proxy_url_param_bde13c35', [encodeURIComponent(actor.imageUrl)]);
   }
   return ''; 
 };
@@ -1377,7 +1378,7 @@ const searchActors = async () => {
   }
   isSearchingActors.value = true;
   try {
-    const response = await axios.get('/api/custom_collections/config/tmdb_search_persons', {
+    const response = await apiClient.get(apiPath('api_custom_collections_config_tmdb_search_persons_dd6f571f'), {
       params: { q: actorSearchQuery.value }
     });
     actorSearchResults.value = response.data;
@@ -1422,7 +1423,7 @@ const translateAllFields = async () => {
       year: itemDetails.value.production_year,
     };
 
-    const response = await axios.post('/api/actions/translate_cast_sa', payload);
+    const response = await apiClient.post(apiPath('api_actions_translate_cast_sa_6da6a82b'), payload);
     const translatedList = response.data;
 
     editableCast.value = translatedList.map((actor, index) => ({
@@ -1443,7 +1444,7 @@ const translateAllFields = async () => {
 const fetchMediaDetails = async () => {
   isLoading.value = true;
   try {
-    const response = await axios.get(`/api/media_for_editing/${itemId.value}`);
+    const response = await apiClient.get(apiPath('api_media_for_editing_param_08446dbd', [itemId.value]));
     itemDetails.value = response.data;
 
     if (response.data && response.data.search_links) {
@@ -1493,7 +1494,7 @@ const handleSaveChanges = async () => {
       item_name: itemDetails.value.item_name,
     };
     
-    await axios.post(`/api/update_media_cast_sa/${itemDetails.value.item_id}`, payload);
+    await apiClient.post(apiPath('api_update_media_cast_sa_param_dce5c023', [itemDetails.value.item_id]), payload);
     
     message.success("修改已保存，Emby将自动刷新。");
     setTimeout(() => {

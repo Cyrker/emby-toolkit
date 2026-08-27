@@ -410,9 +410,10 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, onUnmounted, computed, reactive } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { 
   NPageHeader, NLayout, NGrid, NGi, NCard, NStatistic, NSpin, NIcon, NSpace, NDivider, NIconWrapper,
   NProgress, NEmpty, useThemeVars, NTag
@@ -459,7 +460,7 @@ const themeVars = useThemeVars();
 // --- API 请求 (共享) ---
 const fetchCore = async () => {
   try {
-    const res = await axios.get('/api/database/stats/core');
+    const res = await apiClient.get(apiPath('api_database_stats_core_692ca379'));
     if (res.data.status === 'success') {
       Object.assign(stats.media_library, { 
         cached_total: res.data.data.media_cached_total,
@@ -472,13 +473,13 @@ const fetchCore = async () => {
 };
 const fetchLibrary = async () => {
   try {
-    const res = await axios.get('/api/database/stats/library');
+    const res = await apiClient.get(apiPath('api_database_stats_library_9a26f2bb'));
     if (res.data.status === 'success') Object.assign(stats.media_library, res.data.data);
   } catch (e) { console.error(e); } finally { loading.library = false; }
 };
 const fetchSystem = async () => {
   try {
-    const res = await axios.get('/api/database/stats/system');
+    const res = await apiClient.get(apiPath('api_database_stats_system_c0c9c6fe'));
     if (res.data.status === 'success') {
       Object.assign(stats.system, res.data.data);
     }
@@ -486,13 +487,13 @@ const fetchSystem = async () => {
 };
 const fetchSubscription = async () => {
   try {
-    const res = await axios.get('/api/database/stats/subscription');
+    const res = await apiClient.get(apiPath('api_database_stats_subscription_4c32b120'));
     if (res.data.status === 'success') Object.assign(stats.subscriptions_card, res.data.data);
   } catch (e) { console.error(e); } finally { loading.subscription = false; }
 };
 const fetchRankings = async () => {
   try {
-    const res = await axios.get('/api/database/stats/rankings');
+    const res = await apiClient.get(apiPath('api_database_stats_rankings_c51b1954'));
     if (res.data.status === 'success') {
       stats.release_group_ranking = res.data.data.release_group_ranking;
       stats.historical_release_group_ranking = res.data.data.historical_release_group_ranking;

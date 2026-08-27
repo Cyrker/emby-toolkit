@@ -27,10 +27,11 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, watch } from 'vue';
 import { NModal, NSpin, NText, NButton, NSpace, useMessage } from 'naive-ui';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 // 假设 SubscriptionConfigForm.vue 在同一目录下或已正确配置路径
 import SubscriptionConfigForm from './SubscriptionConfigForm.vue';
 
@@ -49,7 +50,7 @@ const fetchDefaultConfig = async () => {
   loading.value = true;
   try {
     // 假设这是获取默认配置的 API
-    const response = await axios.get('/api/actor-subscriptions/default-config');
+    const response = await apiClient.get(apiPath('api_actor_subscriptions_default_config_a2c13e57'));
     config.value = response.data;
   } catch (error) {
     console.error("获取默认订阅配置失败:", error);
@@ -64,7 +65,7 @@ const handleSave = async () => {
   saving.value = true;
   try {
     // 假设这是保存默认配置的 API
-    await axios.post('/api/actor-subscriptions/default-config', config.value);
+    await apiClient.post(apiPath('api_actor_subscriptions_default_config_a2c13e57'), config.value);
     message.success('默认配置已保存！');
     await fetchDefaultConfig();
     emit('update:show', false);

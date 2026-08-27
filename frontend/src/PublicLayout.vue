@@ -7,6 +7,7 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { NLayout, NLayoutContent } from 'naive-ui';
 </script>

@@ -51,19 +51,19 @@
             <n-radio-group v-if="!isMobile" v-model:value="filterStatus" size="small">
               <n-radio-button value="REQUESTED">待审核</n-radio-button>
               <n-radio-button value="WANTED">待订阅</n-radio-button>
-              <n-radio-button value="SUBSCRIBED">已订阅</n-radio-button> 
+              <n-radio-button value="SUBSCRIBED">已订阅</n-radio-button>
               <n-radio-button value="PAUSED">已暂停</n-radio-button>
               <n-radio-button value="PENDING_RELEASE">未上映</n-radio-button>
               <n-radio-button value="IGNORED">已忽略</n-radio-button>
             </n-radio-group>
-            
+
             <!-- 手机端显示下拉菜单 -->
-            <n-select 
-              v-else 
-              v-model:value="filterStatus" 
-              :options="statusOptions" 
-              size="small" 
-              style="width: 120px;" 
+            <n-select
+              v-else
+              v-model:value="filterStatus"
+              :options="statusOptions"
+              size="small"
+              style="width: 120px;"
             />
             <n-button @click="openStrategyModal" type="warning" ghost>
               <template #icon><n-icon :component="SettingsIcon" /></template>
@@ -75,8 +75,8 @@
       <n-divider />
 
       <n-space :wrap="true" :size="[20, 12]" style="margin-bottom: 20px; align-items: center;">
-        <n-checkbox 
-          :checked="isAllSelected" 
+        <n-checkbox
+          :checked="isAllSelected"
           :indeterminate="isIndeterminate"
           @update:checked="handleSelectAll"
           style="margin-right: 8px;"
@@ -102,11 +102,11 @@
       <div v-if="isLoading" class="center-container"><n-spin size="large" /></div>
       <div v-else-if="error" class="center-container"><n-alert title="加载错误" type="error">{{ error }}</n-alert></div>
       <div v-else-if="filteredItems.length > 0">
-        
+
         <div class="responsive-grid">
-          <div 
-            v-for="(item, i) in renderedItems" 
-            :key="item.tmdb_id + item.item_type" 
+          <div
+            v-for="(item, i) in renderedItems"
+            :key="item.tmdb_id + item.item_type"
             class="grid-item"
           >
             <n-card class="dashboard-card series-card" :bordered="false">
@@ -125,7 +125,7 @@
               </div>
 
               <div class="card-inner-layout">
-                
+
                 <div class="card-poster-container">
                   <n-image lazy :src="getPosterUrl(item.poster_path)" class="card-poster" object-fit="cover">
                     <template #placeholder><div class="poster-placeholder"><n-icon :component="TvIcon" size="32" /></div></template>
@@ -162,13 +162,13 @@
                       </n-ellipsis>
                     </n-space>
                   </div>
-                  
+
                   <div class="card-actions">
                   <template v-if="item.subscription_status === 'REQUESTED'">
                     <n-tooltip><template #trigger><n-button @click="() => subscribeItem(item)" type="primary" ghost circle size="small"><template #icon><n-icon :component="SubscribedIcon" /></template></n-button></template>批准</n-tooltip>
                     <n-tooltip><template #trigger><n-button @click="() => updateItemStatus(item, 'IGNORED')" type="error" ghost circle size="small"><template #icon><n-icon :component="IgnoredIcon" /></template></n-button></template>忽略</n-tooltip>
                   </template>
-                  
+
                   <template v-if="item.subscription_status === 'WANTED'">
                     <n-tooltip><template #trigger><n-button @click="() => subscribeItem(item)" type="primary" ghost circle size="small"><template #icon><n-icon :component="SubscribedIcon" /></template></n-button></template>订阅</n-tooltip>
                     <n-tooltip><template #trigger><n-button @click="() => updateItemStatus(item, 'IGNORED')" type="error" ghost circle size="small"><template #icon><n-icon :component="IgnoredIcon" /></template></n-button></template>忽略</n-tooltip>
@@ -204,7 +204,7 @@
             </n-card>
           </div>
         </div>
-        
+
         <div ref="loaderRef" class="loader-trigger">
           <n-spin v-if="hasMore" size="small" />
         </div>
@@ -220,7 +220,7 @@
             </n-button>
             <span class="fab-text">已选择 <b>{{ selectedItems.length }}</b> 项</span>
           </div>
-          
+
           <div class="fab-right">
             <n-space>
                <template v-if="filterStatus === 'REQUESTED' || filterStatus === 'WANTED'">
@@ -237,7 +237,7 @@
                     取消订阅
                   </n-button>
                </template>
-               
+
                <template v-else-if="filterStatus === 'PAUSED'">
                   <n-button type="primary" @click="handleBatchAction('resume')">
                     恢复搜索
@@ -266,12 +266,12 @@
     <!-- 订阅策略配置模态框 -->
     <n-modal v-model:show="showStrategyModal" preset="card" title="订阅策略配置" style="width: 600px;" :auto-focus="false" class="custom-modal glass-modal">
       <n-form label-placement="left" label-width="auto" require-mark-placement="right-hanging">
-        
+
         <n-divider title-placement="left">订阅源优先级</n-divider>
         <n-form-item label="订阅源">
           <div v-if="sourceList.length" class="source-list">
-            <div 
-              v-for="(source, index) in sourceList" 
+            <div
+              v-for="(source, index) in sourceList"
               :key="source.value"
               class="source-item"
               draggable="true"
@@ -293,7 +293,7 @@
           </template>
         </n-form-item>
       </n-form>
-      
+
       <template #footer>
         <n-space justify="end">
           <n-button @click="showStrategyModal = false">取消</n-button>
@@ -302,17 +302,18 @@
       </template>
     </n-modal>
   <!-- ★★★ 影巢资源列表模态框 (独立组件) ★★★ -->
-    <HDHiveResourceModal 
-      v-model:show="showHDHiveModal" 
-      :media="currentHDHiveMedia" 
-      @download-success="handleHDHiveDownloadSuccess" 
+    <HDHiveResourceModal
+      v-model:show="showHDHiveModal"
+      :media="currentHDHiveMedia"
+      @download-success="handleHDHiveDownloadSuccess"
     />
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, onBeforeUnmount, h, computed, watch } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { NLayout, NPageHeader, NDivider, NEmpty, NTag, NButton, NSpace, NIcon, useMessage, useDialog, NTooltip, NCard, NImage, NEllipsis, NSpin, NAlert, NRadioGroup, NRadioButton, NCheckbox, NDropdown, NInput, NSelect, NButtonGroup, NCheckboxGroup, NRadio, NForm, NFormItem, NInputNumber, NModal, NPopconfirm } from 'naive-ui';
 import { FilmOutline as FilmIcon, TvOutline as TvIcon, CalendarOutline as CalendarIcon, TimeOutline as TimeIcon, ArrowUpOutline as ArrowUpIcon, ArrowDownOutline as ArrowDownIcon, CaretDownOutline as CaretDownIcon, CheckmarkCircleOutline as WantedIcon, HourglassOutline as PendingIcon, BanOutline as IgnoredIcon, DownloadOutline as SubscribedIcon, PersonCircleOutline as SourceIcon, TrashOutline as TrashIcon, SettingsOutline as SettingsIcon, PauseCircleOutline as PausedIcon, ReaderOutline as AuditIcon, CloseOutline as CloseIcon, CloudDownloadOutline as CloudDownloadIcon, MenuOutline as MenuIcon } from '@vicons/ionicons5';
 import { format } from 'date-fns'
@@ -357,7 +358,7 @@ const allSubscriptionSources = [
 const sourceList = ref([...allSubscriptionSources]);
 
 const loadAvailableSubscriptionSources = async () => {
-  const { data } = await axios.get('/api/subscription/status');
+  const { data } = await apiClient.get(apiPath('api_subscription_status_d65bf9d0'));
   if (!data?.success) return allSubscriptionSources.map(o => o.value);
   const available = [];
   if (data.shared_pool_configured) available.push('shared_pool');
@@ -401,13 +402,13 @@ const handleHDHiveDownloadSuccess = () => {
 const loadStrategyConfig = async () => {
   try {
     const [strategyRes, availableSources] = await Promise.all([
-      axios.get('/api/subscription/strategy'),
+      apiClient.get(apiPath('api_subscription_strategy_ab7996dc')),
       loadAvailableSubscriptionSources()
     ]);
-    
+
     let sources = Array.isArray(strategyRes.data.subscription_sources) ? strategyRes.data.subscription_sources : [];
     sources = sources.filter(source => availableSources.includes(source));
-    
+
     const newSourceList = [];
     sources.forEach(val => {
       const opt = allSubscriptionSources.find(o => o.value === val);
@@ -443,7 +444,7 @@ const saveStrategyConfig = async () => {
       subscription_sources: sourceList.value.filter(o => o.enabled).map(o => o.value)
     };
     strategyConfig.value = payload;
-    await axios.post('/api/subscription/strategy', payload);
+    await apiClient.post(apiPath('api_subscription_strategy_ab7996dc'), payload);
     message.success('策略配置已保存');
     showStrategyModal.value = false;
   } catch (e) {
@@ -459,9 +460,9 @@ const typeFilterOptions = [
   { label: '剧集', value: 'Season' },
 ];
 const sortKeyOptions = computed(() => [
-  { 
-    label: filterStatus.value === 'SUBSCRIBED' ? '按订阅时间' : '按请求时间', 
-    value: 'first_requested_at' 
+  {
+    label: filterStatus.value === 'SUBSCRIBED' ? '按订阅时间' : '按请求时间',
+    value: 'first_requested_at'
   },
   { label: '按媒体名称', value: 'title' },
   { label: '按发行日期', value: 'release_date' },
@@ -509,7 +510,7 @@ const batchActions = computed(() => {
         { label: '批量订阅', key: 'subscribe', icon: () => h(NIcon, { component: SubscribedIcon }) },
         { label: '批量忽略', key: 'ignore', icon: () => h(NIcon, { component: IgnoredIcon }) },
       ];
-    case 'REQUESTED': 
+    case 'REQUESTED':
       return [
         { label: '批量批准', key: 'subscribe', icon: () => h(NIcon, { component: SubscribedIcon }) },
         { label: '批量忽略', key: 'ignore', icon: () => h(NIcon, { component: IgnoredIcon }) },
@@ -521,7 +522,7 @@ const batchActions = computed(() => {
       ];
     case 'PAUSED':
       return [
-        { label: '批量恢复', key: 'resume', icon: () => h(NIcon, { component: SubscribedIcon }) }, 
+        { label: '批量恢复', key: 'resume', icon: () => h(NIcon, { component: SubscribedIcon }) },
         { label: '批量取消订阅 (忽略)', key: 'ignore', icon: () => h(NIcon, { component: IgnoredIcon }) },
       ];
     case 'IGNORED':
@@ -546,7 +547,7 @@ const filteredItems = computed(() => {
   }
 
   if (filterSource.value) {
-    list = list.filter(item => 
+    list = list.filter(item =>
       item.subscription_sources_json?.some(source => source.type === filterSource.value)
     );
   }
@@ -558,7 +559,7 @@ const filteredItems = computed(() => {
         valA = a.title || '';
         valB = b.title || '';
         return sortOrder.value === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-      
+
       case 'release_date':
         valA = a.release_date ? new Date(a.release_date).getTime() : 0;
         valB = b.release_date ? new Date(b.release_date).getTime() : 0;
@@ -569,11 +570,11 @@ const filteredItems = computed(() => {
         valA = (a.subscription_status === 'SUBSCRIBED' && a.last_subscribed_at)
           ? new Date(a.last_subscribed_at).getTime()
           : (a.first_requested_at ? new Date(a.first_requested_at).getTime() : 0);
-        
+
         valB = (b.subscription_status === 'SUBSCRIBED' && b.last_subscribed_at)
           ? new Date(b.last_subscribed_at).getTime()
           : (b.first_requested_at ? new Date(b.first_requested_at).getTime() : 0);
-          
+
         return sortOrder.value === 'asc' ? valA - valB : valB - valA;
     }
   });
@@ -603,13 +604,13 @@ const getTMDbLink = (item) => {
 const toggleSelection = (item, event, index) => {
   if (!event) return;
   const key = { tmdb_id: item.tmdb_id, item_type: item.item_type };
-  
+
   if (event.shiftKey && lastSelectedIndex.value !== null) {
     const start = Math.min(lastSelectedIndex.value, index);
     const end = Math.max(lastSelectedIndex.value, index);
     const itemsInRange = renderedItems.value.slice(start, end + 1);
     const isCurrentlySelected = selectedItems.value.some(sel => sel.tmdb_id === key.tmdb_id && sel.item_type === key.item_type);
-    
+
     if (!isCurrentlySelected) {
       const newSelected = [...selectedItems.value];
       itemsInRange.forEach(rangeItem => {
@@ -635,43 +636,43 @@ const toggleSelection = (item, event, index) => {
 
 const handleBatchAction = (key) => {
   const actionMap = {
-    'subscribe': { 
-      title: '批量订阅', 
-      content: `确定要将选中的 ${selectedItems.value.length} 个媒体项提交到后台订阅吗？`, 
+    'subscribe': {
+      title: '批量订阅',
+      content: `确定要将选中的 ${selectedItems.value.length} 个媒体项提交到后台订阅吗？`,
       task_name: 'manual_subscribe_batch',
       getParams: () => {
-        const fullSelectedItems = rawItems.value.filter(item => 
+        const fullSelectedItems = rawItems.value.filter(item =>
           selectedItems.value.some(sel => sel.tmdb_id === item.tmdb_id && sel.item_type === item.item_type)
         );
         return { subscribe_requests: fullSelectedItems };
       },
       optimistic_status: 'SUBSCRIBED'
     },
-    'ignore': { 
-      title: '批量忽略', 
-      content: `确定要忽略选中的 ${selectedItems.value.length} 个媒体项吗？`, 
-      endpoint: '/api/subscription/status', 
+    'ignore': {
+      title: '批量忽略',
+      content: `确定要忽略选中的 ${selectedItems.value.length} 个媒体项吗？`,
+      endpoint: apiPath('api_subscription_status_d65bf9d0'),
       getParams: () => ({ requests: selectedItems.value.map(item => ({...item, new_status: 'IGNORED', ignore_reason: '手动忽略'})) }),
       optimistic_status: 'IGNORED'
     },
-    'cancel': { 
-      title: '批量取消', 
-      content: `确定要取消订阅选中的 ${selectedItems.value.length} 个媒体项吗？`, 
-      endpoint: '/api/subscription/status',
+    'cancel': {
+      title: '批量取消',
+      content: `确定要取消订阅选中的 ${selectedItems.value.length} 个媒体项吗？`,
+      endpoint: apiPath('api_subscription_status_d65bf9d0'),
       getParams: () => ({ requests: selectedItems.value.map(item => ({...item, new_status: 'NONE'})) }),
       optimistic_status: 'NONE'
     },
-    'resume': { 
-      title: '批量恢复', 
-      content: `确定要立即唤醒选中的 ${selectedItems.value.length} 个媒体项并重新开始搜索吗？`, 
-      endpoint: '/api/subscription/status',
+    'resume': {
+      title: '批量恢复',
+      content: `确定要立即唤醒选中的 ${selectedItems.value.length} 个媒体项并重新开始搜索吗？`,
+      endpoint: apiPath('api_subscription_status_d65bf9d0'),
       getParams: () => ({ requests: selectedItems.value.map(item => ({...item, new_status: 'SUBSCRIBED'})) }),
       optimistic_status: 'SUBSCRIBED'
     },
-    'unignore': { 
-      title: '批量取消忽略', 
-      content: `确定要取消忽略选中的 ${selectedItems.value.length} 个媒体项吗？`, 
-      endpoint: '/api/subscription/status',
+    'unignore': {
+      title: '批量取消忽略',
+      content: `确定要取消忽略选中的 ${selectedItems.value.length} 个媒体项吗？`,
+      endpoint: apiPath('api_subscription_status_d65bf9d0'),
       getParams: () => ({ requests: selectedItems.value.map(item => ({...item, new_status: 'WANTED', force_unignore: true})) }),
       optimistic_status: 'WANTED'
     },
@@ -689,20 +690,20 @@ const handleBatchAction = (key) => {
       try {
         let response;
         if (action.task_name) {
-          response = await axios.post('/api/tasks/run', {
+          response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), {
             task_name: action.task_name,
             ...action.getParams()
           });
         } else if (action.endpoint) {
-          response = await axios.post(action.endpoint, action.getParams());
+          response = await apiClient.post(action.endpoint, action.getParams());
         } else {
           throw new Error("Action spec 未定义 task_name 或 endpoint");
         }
 
         message.success(response.data.message || '批量操作任务已提交！');
-        
+
         const selectedKeys = new Set(selectedItems.value.map(item => `${item.tmdb_id}-${item.item_type}`));
-        
+
         if (action.optimistic_status === 'NONE') {
           rawItems.value = rawItems.value.filter(item => !selectedKeys.has(`${item.tmdb_id}-${item.item_type}`));
         } else {
@@ -715,7 +716,7 @@ const handleBatchAction = (key) => {
             }
           });
         }
-        
+
         selectedItems.value = [];
 
       } catch (err) {
@@ -727,8 +728,8 @@ const handleBatchAction = (key) => {
 
 const subscribeItem = async (item) => {
   try {
-    const request_item = { 
-      tmdb_id: item.tmdb_id, 
+    const request_item = {
+      tmdb_id: item.tmdb_id,
       item_type: item.item_type,
       title: item.title
     };
@@ -739,13 +740,13 @@ const subscribeItem = async (item) => {
     const taskParams = {
       subscribe_requests: [request_item]
     };
-    
-    const response = await axios.post('/api/tasks/run', {
+
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), {
       task_name: 'manual_subscribe_batch',
       ...taskParams
     });
     message.success(response.data.message || '订阅任务已提交到后台！');
-    
+
     const index = rawItems.value.findIndex(i => i.tmdb_id === item.tmdb_id && i.item_type === item.item_type);
     if (index > -1) {
       rawItems.value[index].subscription_status = 'SUBSCRIBED';
@@ -764,12 +765,12 @@ const updateItemStatus = async (item, newStatus, forceUnignore = false) => {
       source: { type: 'manual_admin_op' },
       force_unignore: forceUnignore
     };
-    
+
     if (newStatus === 'IGNORED') {
       requestItem.ignore_reason = '手动忽略';
     }
 
-    await axios.post('/api/subscription/status', { requests: [requestItem] });
+    await apiClient.post(apiPath('api_subscription_status_d65bf9d0'), { requests: [requestItem] });
     message.success('状态更新成功！');
 
     const index = rawItems.value.findIndex(i => i.tmdb_id === item.tmdb_id && i.item_type === item.item_type);
@@ -824,20 +825,20 @@ const handleClearAllIgnored = async () => {
   if (itemsToDelete.length === 0) return;
 
   try {
-    isLoading.value = true; 
-    
-    const response = await axios.post('/api/media/batch_delete', {
+    isLoading.value = true;
+
+    const response = await apiClient.post(apiPath('api_media_batch_delete_bbd5c7ee'), {
       items: itemsToDelete
     });
 
     message.success(response.data.message || '删除成功');
 
     const deletedKeys = new Set(itemsToDelete.map(i => `${i.tmdb_id}-${i.item_type}`));
-    
-    rawItems.value = rawItems.value.filter(item => 
+
+    rawItems.value = rawItems.value.filter(item =>
       !deletedKeys.has(`${item.tmdb_id}-${item.item_type}`)
     );
-    
+
     selectedItems.value = [];
 
   } catch (err) {
@@ -848,16 +849,16 @@ const handleClearAllIgnored = async () => {
 };
 
 const handleBatchDelete = async () => {
-  const itemsToDelete = rawItems.value.filter(item => 
+  const itemsToDelete = rawItems.value.filter(item =>
     selectedItems.value.some(sel => sel.tmdb_id === item.tmdb_id && sel.item_type === item.item_type)
   );
-  
+
   if (itemsToDelete.length === 0) return;
 
   try {
-    isLoading.value = true; 
-    
-    const response = await axios.post('/api/media/batch_delete', {
+    isLoading.value = true;
+
+    const response = await apiClient.post(apiPath('api_media_batch_delete_bbd5c7ee'), {
       items: itemsToDelete.map(item => ({
         tmdb_id: item.tmdb_id,
         item_type: item.item_type
@@ -867,17 +868,17 @@ const handleBatchDelete = async () => {
     message.success(response.data.message || `成功删除 ${itemsToDelete.length} 条记录`);
 
     const deletedKeys = new Set(itemsToDelete.map(i => `${i.tmdb_id}-${i.item_type}`));
-    
-    rawItems.value = rawItems.value.filter(item => 
+
+    rawItems.value = rawItems.value.filter(item =>
       !deletedKeys.has(`${item.tmdb_id}-${item.item_type}`)
     );
-    
+
     selectedItems.value = [];
 
   } catch (err) {
     message.error(err.response?.data?.error || '批量删除失败');
   } finally {
-    isLoading.value = false; 
+    isLoading.value = false;
   }
 };
 
@@ -888,7 +889,7 @@ const formatAirDate = (dateString) => {
   } catch (e) { return 'N/A'; }
 };
 
-const getPosterUrl = (posterPath) => posterPath ? `/api/image_proxy?url=https://image.tmdb.org/t/p/w500${posterPath}` : '/placeholder.png';
+const getPosterUrl = (posterPath) => posterPath ? apiPath('api_image_proxy_url_https_image_tmdb_org_t_p_w500param_df79083f', [posterPath]) : '/placeholder.png';
 
 const statusInfo = (status) => {
   const map = {
@@ -908,7 +909,7 @@ const fetchData = async (autoSwitchTab = false) => {
   isLoading.value = true;
   error.value = null;
   try {
-    const response = await axios.get('/api/subscriptions/all');
+    const response = await apiClient.get(apiPath('api_subscriptions_all_3f62a737'));
     rawItems.value = response.data;
 
     if (autoSwitchTab) {
@@ -916,7 +917,7 @@ const fetchData = async (autoSwitchTab = false) => {
         const hasItem = rawItems.value.some(item => item.subscription_status === status);
         if (hasItem) {
           filterStatus.value = status;
-          break; 
+          break;
         }
       }
     }
@@ -960,8 +961,8 @@ const checkMobile = () => {
 onMounted(() => {
   checkMobile();
   window.addEventListener('resize', checkMobile);
-  fetchData(true); 
-  
+  fetchData(true);
+
   loadStrategyConfig();
   observer = new IntersectionObserver(
     (entries) => {
@@ -1012,11 +1013,11 @@ watch(loaderRef, (newEl, oldEl) => {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   height: 100%;
   position: relative;
-  
-  font-size: calc(14px * var(--card-scale, 1)); 
-  
+
+  font-size: calc(14px * var(--card-scale, 1));
+
   border-radius: calc(12px * var(--card-scale, 1));
-  overflow: hidden; 
+  overflow: hidden;
   border: 1px solid var(--n-border-color);
 }
 
@@ -1034,15 +1035,15 @@ watch(loaderRef, (newEl, oldEl) => {
 .series-card :deep(.n-tag),
 .series-card :deep(.n-text),
 .series-card :deep(.n-ellipsis) {
-  font-size: inherit !important; 
+  font-size: inherit !important;
 }
 
 .series-card :deep(.n-icon) {
-  font-size: 1.2em !important; 
+  font-size: 1.2em !important;
 }
 
 .series-card.dashboard-card > :deep(.n-card__content) {
-  padding: calc(10px * var(--card-scale, 1)) !important; 
+  padding: calc(10px * var(--card-scale, 1)) !important;
   display: flex !important;
   flex-direction: column !important;
   height: 100% !important;
@@ -1053,16 +1054,16 @@ watch(loaderRef, (newEl, oldEl) => {
   flex-direction: row;
   height: 100%;
   width: 100%;
-  align-items: stretch; 
+  align-items: stretch;
   gap: calc(12px * var(--card-scale, 1));
 }
 
 .card-poster-container {
-  flex-shrink: 0; 
+  flex-shrink: 0;
   width: calc(130px * var(--card-scale, 1));
-  height: auto; 
-  min-height: 100%; 
-  
+  height: auto;
+  min-height: 100%;
+
   position: relative;
   background-color: rgba(0,0,0,0.1);
   border-radius: 8px;
@@ -1079,7 +1080,7 @@ watch(loaderRef, (newEl, oldEl) => {
 .card-poster :deep(img) {
   width: 100%;
   height: 100%;
-  object-fit: cover !important; 
+  object-fit: cover !important;
   display: block;
   border-radius: 0 !important;
 }
@@ -1119,7 +1120,7 @@ watch(loaderRef, (newEl, oldEl) => {
 
 .card-title {
   font-weight: 600;
-  font-size: 1.1em !important; 
+  font-size: 1.1em !important;
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1132,31 +1133,31 @@ watch(loaderRef, (newEl, oldEl) => {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px; 
+  gap: 4px;
 }
 
 .last-checked-text, .next-episode-text, .info-text {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.9em !important; 
+  font-size: 0.9em !important;
   line-height: 1.4;
   opacity: 0.8;
 }
 
 .card-actions, .card-actions-bottom {
-  margin-top: auto; 
+  margin-top: auto;
   padding-top: calc(8px * var(--card-scale, 1));
   border-top: 1px solid var(--n-border-color);
   display: flex;
-  justify-content: center; 
+  justify-content: center;
   align-items: center;
   gap: calc(8px * var(--card-scale, 1));
 }
 
 .card-actions :deep(.n-button) {
   padding: 0 6px;
-  height: 24px; 
+  height: 24px;
   font-size: 0.9em !important;
 }
 
@@ -1189,10 +1190,10 @@ watch(loaderRef, (newEl, oldEl) => {
   backdrop-filter: blur(2px);
 }
 
-.series-card:hover .card-checkbox, 
-.card-checkbox.n-checkbox--checked { 
-  opacity: 1; 
-  visibility: visible; 
+.series-card:hover .card-checkbox,
+.card-checkbox.n-checkbox--checked {
+  opacity: 1;
+  visibility: visible;
 }
 
 .meta-info-grid {
@@ -1215,7 +1216,7 @@ watch(loaderRef, (newEl, oldEl) => {
   left: 50%;
   transform: translate(-50%, -50%) rotate(-15deg);
   font-weight: 900;
-  font-size: 1.1em !important; 
+  font-size: 1.1em !important;
   letter-spacing: 1px;
   padding: 2px 8px;
   border-radius: 6px;
@@ -1255,10 +1256,10 @@ watch(loaderRef, (newEl, oldEl) => {
 }
 
 .fab-content {
-  background-color: rgba(30, 30, 30, 0.95); 
+  background-color: rgba(30, 30, 30, 0.95);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 50px; 
+  border-radius: 50px;
   padding: 12px 24px;
   display: flex;
   justify-content: space-between;
@@ -1292,7 +1293,7 @@ watch(loaderRef, (newEl, oldEl) => {
 .slide-up-enter-from,
 .slide-up-leave-to {
   opacity: 0;
-  transform: translate(-50%, 20px); 
+  transform: translate(-50%, 20px);
 }
 
 .source-list {
@@ -1325,37 +1326,37 @@ watch(loaderRef, (newEl, oldEl) => {
 
 @media (max-width: 768px) {
   .responsive-grid {
-    grid-template-columns: 1fr; 
+    grid-template-columns: 1fr;
     gap: 12px;
   }
-  
+
   .card-poster-container {
-    width: 100px !important; 
+    width: 100px !important;
   }
-  
+
   .card-content-container {
     min-width: 0;
     width: 0;
     flex: 1;
   }
-  
+
   .card-actions {
-    justify-content: flex-end; 
+    justify-content: flex-end;
     gap: 8px;
     padding-top: 8px;
   }
-  
+
   .floating-action-bar {
     min-width: auto;
     width: 90%;
     bottom: 16px;
   }
-  
+
   .fab-content {
     padding: 8px 16px;
     gap: 12px;
   }
-  
+
   .fab-text {
     font-size: 12px;
   }

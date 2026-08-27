@@ -100,7 +100,9 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
+import apiClient, { apiPath } from '@/api/client'
 import { ref, onMounted, h, computed } from 'vue';
 import {
   NDataTable, NSwitch, NTag, NSpace, NButton, NPopconfirm, NModal,
@@ -110,12 +112,12 @@ import dayjs from 'dayjs';
 
 // --- API ---
 const api = {
-  getUsers: () => fetch('/api/admin/users').then(res => res.json()),
-  setUserStatus: (userId, disable) => fetch(`/api/admin/users/${userId}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ disable }) }),
-  setUserExpiration: (userId, expirationDate) => fetch(`/api/admin/users/${userId}/expiration`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expiration_date: expirationDate }) }),
-  deleteUser: (userId) => fetch(`/api/admin/users/${userId}`, { method: 'DELETE' }),
-  getUserTemplates: () => fetch('/api/admin/user_templates').then(res => res.json()),
-  changeUserTemplate: (userId, templateId) => fetch(`/api/admin/users/${userId}/template`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ template_id: templateId }) }),
+  getUsers: () => apiClient.raw(apiPath('api_admin_users_39683b2a')).then(res => res.json()),
+  setUserStatus: (userId, disable) => apiClient.raw(apiPath('api_admin_users_param_status_8875ce29', [userId]), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ disable }) }),
+  setUserExpiration: (userId, expirationDate) => apiClient.raw(apiPath('api_admin_users_param_expiration_c445874b', [userId]), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expiration_date: expirationDate }) }),
+  deleteUser: (userId) => apiClient.raw(apiPath('api_admin_users_param_5f084c4f', [userId]), { method: 'DELETE' }),
+  getUserTemplates: () => apiClient.raw(apiPath('api_admin_user_templates_1e1e9c1e')).then(res => res.json()),
+  changeUserTemplate: (userId, templateId) => apiClient.raw(apiPath('api_admin_users_param_template_673428fc', [userId]), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ template_id: templateId }) }),
   // ★★★ 新增批量API (前端封装) ★★★
   bulkDeleteUsers: async (userIds) => {
     const results = [];

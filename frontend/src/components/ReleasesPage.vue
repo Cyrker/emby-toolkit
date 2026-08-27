@@ -6,10 +6,10 @@
           <template #icon><n-icon :component="LogoGithub" /></template>
           反馈问题
         </n-button>
-        
-        <n-button 
-          v-if="appStore.isUpdateAvailable" 
-          type="success" 
+
+        <n-button
+          v-if="isUpdateAvailable"
+          type="success"
           @click="handleUpdate"
           :loading="isUpdating"
         >
@@ -21,16 +21,16 @@
 
     <div v-if="isLoading" class="dashboard-card"><n-spin size="large" /></div>
     <div v-else-if="error" class="center-container"><n-alert title="加载错误" type="error">{{ error }}</n-alert></div>
-    
+
     <div v-else>
       <n-list hoverable clickable>
-        <n-list-item v-for="(release, index) in appStore.releases" :key="release.version">
+        <n-list-item v-for="(release, index) in releases" :key="release.version">
           <n-thing>
             <template #header>
               <n-space align="center">
                 <a :href="release.url" target="_blank" class="version-link">{{ release.version }}</a>
                 <n-tag v-if="index === 0" type="success" size="small" round>最新软件版本</n-tag>
-                <n-tag v-if="release.version === appStore.currentVersion" type="info" size="small" round>当前版本</n-tag>
+                <n-tag v-if="release.version === currentVersion" type="info" size="small" round>当前版本</n-tag>
               </n-space>
             </template>
             <template #header-extra>
@@ -70,28 +70,34 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, computed } from 'vue';
 import { marked } from 'marked';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { 
-  NLayout, NPageHeader, NDivider, NSpin, NAlert, NList, NListItem, NThing, 
+import {
+  NLayout, NPageHeader, NDivider, NSpin, NAlert, NList, NListItem, NThing,
   NTag, NSpace, NButton, NIcon, NText, NModal, NTooltip, useDialog,
   NImage, NP // 确保导入了 NImage 和 NP
 } from 'naive-ui';
 import { LogoGithub, CafeOutline as CafeIcon } from '@vicons/ionicons5';
-import { useAppStore } from '../stores/app';
+import { apiPath } from '@/api/client';
+import { useAboutInfoQuery } from '@/api/queries/system';
 
 const dialog = useDialog();
-const appStore = useAppStore();
+const aboutQuery = useAboutInfoQuery();
+const releases = computed(() => aboutQuery.data.value?.releases ?? []);
+const currentVersion = computed(() => aboutQuery.data.value?.current_version ?? '');
+const latestVersion = computed(() => releases.value[0]?.version ?? '');
+const isUpdateAvailable = computed(() => Boolean(currentVersion.value && latestVersion.value && currentVersion.value.replace(/^v/, '').trim() !== latestVersion.value.replace(/^v/, '').trim()));
 
 const githubRepoOwner = 'hbq0405';
 const githubRepoName = 'emby-toolkit';
 const githubRepo = computed(() => `${githubRepoOwner}/${githubRepoName}`);
 
-const isLoading = ref(false);
-const error = ref(null);
+const isLoading = computed(() => aboutQuery.isLoading.value);
+const error = computed(() => aboutQuery.error.value ? '无法获取版本信息，请检查网络或后端服务。' : null);
 
 // --- 更新状态相关的响应式变量 ---
 const isUpdating = ref(false);
@@ -113,16 +119,16 @@ const handleUpdate = () => {
       isUpdating.value = true;
       updateStatusText.value = '正在连接到更新服务...';
 
-      eventSource = new EventSource('/api/system/update/stream');
+      eventSource = new EventSource(apiPath('api_system_update_stream_a8919b39'));
 
       eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        
+
         // 只需更新状态文本
         if (data.status) {
           updateStatusText.value = data.status;
         }
-        
+
         // 检查更新流是否结束
         if (data.event === 'DONE' || data.event === 'ERROR' || data.event === 'NO_UPDATE') {
           isUpdateFinished.value = true;
@@ -145,15 +151,7 @@ const handleUpdate = () => {
 };
 
 const fetchData = async () => {
-  isLoading.value = true;
-  error.value = null;
-  try {
-    await appStore.fetchVersionInfo();
-  } catch (err) {
-    error.value = '无法获取版本信息，请检查网络或后端服务。';
-  } finally {
-    isLoading.value = false;
-  }
+  await aboutQuery.refetch();
 };
 
 const renderMarkdown = (markdownText) => {

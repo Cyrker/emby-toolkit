@@ -476,9 +476,10 @@
   </n-spin>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, computed, nextTick } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { 
   useMessage, NTag, NIcon, NGrid, NGi, NRadioGroup, NRadioButton, NInputGroup, NCheckbox, NAlert,
   NCard, NSpace, NButton, NSwitch, NPopconfirm, NModal, NForm, NFormItem, NInput, NSelect, NInputNumber
@@ -577,8 +578,8 @@ const loadData = async () => {
   loading.value = true;
   try {
     const [rulesRes, libsRes] = await Promise.all([
-      axios.get('/api/resubscribe/rules'),
-      axios.get('/api/config/cover_generator/libraries')
+      apiClient.get(apiPath('api_resubscribe_rules_1c1c94db')),
+      apiClient.get(apiPath('api_config_cover_generator_libraries_300ac2ff'))
     ]);
     rules.value = rulesRes.data;
     allEmbyLibraries.value = libsRes.data;
@@ -594,13 +595,13 @@ const loadData = async () => {
 
 const loadExtraOptions = async () => {
   try {
-    const countryRes = await axios.get('/api/custom_collections/config/tmdb_countries');
+    const countryRes = await apiClient.get(apiPath('api_custom_collections_config_tmdb_countries_237507d0'));
     countryOptions.value = countryRes.data;
   } catch (e) {}
 
   try {
-    const resM = await axios.get('/api/custom_collections/config/movie_genres');
-    const resT = await axios.get('/api/custom_collections/config/tv_genres');
+    const resM = await apiClient.get(apiPath('api_custom_collections_config_movie_genres_a6373e43'));
+    const resT = await apiClient.get(apiPath('api_custom_collections_config_tv_genres_210d13d6'));
     const genreMap = new Map();
     [...(resM.data||[]), ...(resT.data||[])].forEach(g => {
       const name = (typeof g === 'object' && g !== null) ? g.name : g;
@@ -612,9 +613,9 @@ const loadExtraOptions = async () => {
   } catch (e) {}
 
   try {
-      const studioRes = await axios.get('/api/custom_collections/config/studios');
+      const studioRes = await apiClient.get(apiPath('api_custom_collections_config_studios_5ec2686f'));
       studioOptions.value = studioRes.data;
-      const kwRes = await axios.get('/api/custom_collections/config/keywords');
+      const kwRes = await apiClient.get(apiPath('api_custom_collections_config_keywords_07a45464'));
       keywordOptions.value = kwRes.data;
   } catch (e) {}
 };
@@ -653,8 +654,8 @@ const saveRule = async () => {
     if (!errors) {
       saving.value = true;
       try {
-        const api = isEditing.value ? axios.put : axios.post;
-        const url = isEditing.value ? `/api/resubscribe/rules/${currentRule.value.id}` : '/api/resubscribe/rules';
+        const api = isEditing.value ? apiClient.put : apiClient.post;
+        const url = isEditing.value ? apiPath('api_resubscribe_rules_param_534aa922', [currentRule.value.id]) : apiPath('api_resubscribe_rules_1c1c94db');
         await api(url, currentRule.value);
         message.success('规则保存成功');
         showModal.value = false;
@@ -671,7 +672,7 @@ const saveRule = async () => {
 
 const deleteRule = async (id) => {
   try {
-    await axios.delete(`/api/resubscribe/rules/${id}`);
+    await apiClient.delete(apiPath('api_resubscribe_rules_param_534aa922', [id]));
     message.success('规则已删除');
     loadData();
   } catch (e) { message.error('删除失败'); }
@@ -679,14 +680,14 @@ const deleteRule = async (id) => {
 
 const toggleRuleStatus = async (rule) => {
   try {
-    await axios.put(`/api/resubscribe/rules/${rule.id}`, { enabled: rule.enabled });
+    await apiClient.put(apiPath('api_resubscribe_rules_param_534aa922', [rule.id]), { enabled: rule.enabled });
     message.success('状态已更新');
   } catch (e) { rule.enabled = !rule.enabled; }
 };
 
 const onDragEnd = async () => {
   try {
-    await axios.post('/api/resubscribe/rules/order', rules.value.map(r => r.id));
+    await apiClient.post(apiPath('api_resubscribe_rules_order_3f645f62'), rules.value.map(r => r.id));
     message.success('顺序已更新');
   } catch (e) {}
 };

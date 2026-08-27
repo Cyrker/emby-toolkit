@@ -24,19 +24,19 @@
             <div class="rule-content">
               <!-- 左侧：拖拽手柄 + 信息 -->
               <n-icon class="drag-handle" :component="DragHandleIcon" size="20" />
-              
+
               <div class="rule-details">
                 <div class="rule-name">{{ getRuleDisplayName(rule.id) }}</div>
                 <div class="rule-description">{{ getRuleDescription(rule.id) }}</div>
               </div>
-              
+
               <!-- 右侧：操作控件 -->
               <div class="rule-actions">
                 <!-- 排序切换 (仅部分规则显示) -->
-                <n-radio-group 
-                  v-if="['runtime', 'filesize', 'bitrate', 'bit_depth', 'frame_rate'].includes(rule.id)" 
-                  v-model:value="rule.priority" 
-                  size="small" 
+                <n-radio-group
+                  v-if="['runtime', 'filesize', 'bitrate', 'bit_depth', 'frame_rate'].includes(rule.id)"
+                  v-model:value="rule.priority"
+                  size="small"
                   class="action-item"
                 >
                   <n-radio-button value="desc">{{ getDescLabel(rule.id) }}</n-radio-button>
@@ -44,16 +44,16 @@
                 </n-radio-group>
 
                 <!-- 编辑按钮 (仅列表类规则显示) -->
-                <n-button 
-                  v-if="rule.priority && Array.isArray(rule.priority)" 
-                  text 
+                <n-button
+                  v-if="rule.priority && Array.isArray(rule.priority)"
+                  text
                   class="action-item"
                   @click="openEditModal(rule)"
                 >
                   <template #icon><n-icon :component="EditIcon" size="18" /></template>
                   编辑优先级
                 </n-button>
-                
+
                 <!-- 开关 -->
                 <n-switch v-model:value="rule.enabled" size="small" class="action-item">
                    <template #checked>启用</template>
@@ -68,20 +68,20 @@
       <!-- ★★★ 第二部分：固定的兜底规则区域 (UI重构) ★★★ -->
       <div v-if="fallbackRule">
         <n-divider style="margin: 24px 0 12px 0; font-size: 0.9em; color: #999;">兜底策略 (固定)</n-divider>
-        
+
         <n-card class="rule-card fallback-card" size="small">
           <div class="rule-content">
             <n-icon :component="LockIcon" size="20" style="color: #ccc;" />
-            
+
             <div class="rule-details">
               <div class="rule-name">{{ getRuleDisplayName(fallbackRule.id) }}</div>
               <div class="rule-description">{{ getRuleDescription(fallbackRule.id) }}</div>
             </div>
-            
+
             <div class="rule-actions">
-              <n-radio-group 
-                v-model:value="fallbackRule.priority" 
-                size="small" 
+              <n-radio-group
+                v-model:value="fallbackRule.priority"
+                size="small"
                 class="action-item"
               >
                 <n-radio-button value="desc">保留最新</n-radio-button>
@@ -92,14 +92,14 @@
           </div>
         </n-card>
       </div>
-      
+
       <!-- ★★★ 第三部分：高级策略 & 删除策略 ★★★ -->
       <n-grid :x-gap="24" :y-gap="24" :cols="1" responsive="screen" item-responsive>
         <n-gi span="1">
            <n-divider title-placement="left" style="margin-top: 24px;">高级策略</n-divider>
            <n-card class="rule-card setting-card" size="small" :bordered="false">
             <n-space vertical size="large">
-              
+
               <!-- 保留每种分辨率 -->
               <div class="setting-row">
                 <div class="setting-info">
@@ -184,16 +184,17 @@
   </n-spin>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, defineEmits, computed } from 'vue';
-import axios from 'axios';
-import { 
+import apiClient, { apiPath } from '@/api/client'
+import {
   NCard, NSpace, NSwitch, NButton, useMessage, NSpin, NIcon, NModal, NTag, NText,
   NSelect, NFormItem, NDivider, NTooltip, NGrid, NGi, NInputNumber
 } from 'naive-ui';
 import draggable from 'vuedraggable';
-import { 
-  Pencil as EditIcon, 
+import {
+  Pencil as EditIcon,
   Move as DragHandleIcon,
   HelpCircleOutline as HelpIcon,
   LockClosedOutline as LockIcon
@@ -279,14 +280,14 @@ const fetchSettings = async () => {
   isLibrariesLoading.value = true;
   try {
     const [settingsRes, librariesRes] = await Promise.all([
-      axios.get('/api/cleanup/settings'),
-      axios.get('/api/resubscribe/libraries') 
+      apiClient.get(apiPath('api_cleanup_settings_b55e1641')),
+      apiClient.get(apiPath('api_resubscribe_libraries_98a2a72b'))
     ]);
 
     let loadedRules = settingsRes.data.rules || [];
     keepOnePerRes.value = settingsRes.data.keep_one_per_res || false;
     manualDeleteWithoutConfirm.value = !!settingsRes.data.manual_delete_without_confirm;
-    
+
     loadedRules = loadedRules.map(rule => {
         if (rule.id === 'effect' && Array.isArray(rule.priority)) {
             return { ...rule, priority: formatEffectPriority(rule.priority, 'display') };
@@ -340,7 +341,7 @@ const saveSettings = async () => {
       manual_delete_without_confirm: manualDeleteWithoutConfirm.value
     };
 
-    await axios.post('/api/cleanup/settings', payload);
+    await apiClient.post(apiPath('api_cleanup_settings_b55e1641'), payload);
     message.success('清理设置已成功保存！');
     emit('on-close');
   } catch (error) {

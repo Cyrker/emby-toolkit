@@ -225,7 +225,8 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, computed } from 'vue';
 import { HelpCircleOutline } from '@vicons/ionicons5';
 import { 
@@ -234,7 +235,7 @@ import {
   useDialog, NCollapse, NCollapseItem, NTooltip, NIcon, NDynamicInput, NGrid, NGridItem,
   NRadioGroup, NRadio
 } from 'naive-ui';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 const message = useMessage();
 const dialog = useDialog();
@@ -307,7 +308,7 @@ const open = async () => {
 const fetchConfig = async () => {
   isLoading.value = true;
   try {
-    const res = await axios.get('/api/subscription/tg_userbot/config');
+    const res = await apiClient.get(apiPath('api_subscription_tg_userbot_config_d7023b9d'));
     if (res.data.success) {
       config.value = res.data.data;
       
@@ -372,7 +373,7 @@ const fetchConfig = async () => {
 const saveConfig = async () => {
   isSaving.value = true;
   try {
-    const res = await axios.post('/api/subscription/tg_userbot/config', config.value);
+    const res = await apiClient.post(apiPath('api_subscription_tg_userbot_config_d7023b9d'), config.value);
     if (res.data.success) {
       message.success(res.data.message);
       await checkUserBotStatus(); 
@@ -387,7 +388,7 @@ const saveConfig = async () => {
 // --- 授权相关 API ---
 const checkUserBotStatus = async () => {
   try {
-    const res = await axios.get('/api/subscription/tg_userbot/status');
+    const res = await apiClient.get(apiPath('api_subscription_tg_userbot_status_ae9cf3bf'));
     if (res.data.success) {
       userBotStatus.value = res.data.data.status;
     }
@@ -408,7 +409,7 @@ const sendUserBotCode = async () => {
   }
   isSendingCode.value = true;
   try {
-    const res = await axios.post('/api/subscription/tg_userbot/send_code');
+    const res = await apiClient.post(apiPath('api_subscription_tg_userbot_send_code_5a8629dc'));
     if (res.data.success) {
       message.success(res.data.message);
       showCodeInput.value = true;
@@ -426,7 +427,7 @@ const submitUserBotCode = async () => {
   if (!userBotCode.value) return message.warning('请输入验证码');
   isSubmittingCode.value = true;
   try {
-    const res = await axios.post('/api/subscription/tg_userbot/login', { code: userBotCode.value });
+    const res = await apiClient.post(apiPath('api_subscription_tg_userbot_login_2d7bf4d3'), { code: userBotCode.value });
     if (res.data.success) {
       message.success(res.data.message);
       showCodeInput.value = false;
@@ -443,7 +444,7 @@ const submitUserBotCode = async () => {
 
 const logoutUserBot = async () => {
   try {
-    await axios.post('/api/subscription/tg_userbot/logout');
+    await apiClient.post(apiPath('api_subscription_tg_userbot_logout_d1bb46ae'));
     message.success('已注销');
     await checkUserBotStatus();
   } catch (e) {
@@ -454,7 +455,7 @@ const logoutUserBot = async () => {
 const clearUserBotSession = async () => {
   isClearingSession.value = true;
   try {
-    const res = await axios.post('/api/subscription/tg_userbot/clear_session');
+    const res = await apiClient.post(apiPath('api_subscription_tg_userbot_clear_session_26492bae'));
     if (res.data.success) {
       message.success(res.data.message || '已清理 TG 登录会话文件');
       showCodeInput.value = false;

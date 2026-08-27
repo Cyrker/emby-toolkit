@@ -169,8 +169,8 @@
             <n-form-item label="STRM 链接格式">
               <n-radio-group v-model:value="config.strm_url_fmt">
                 <n-space vertical>
-                  <n-radio value="standard">标准格式 (/api/p115/play/xxx)</n-radio>
-                  <n-radio value="with_name">带文件名后缀 (/api/p115/play/xxx/文件名.mkv)</n-radio>
+                  <n-radio value="standard">标准格式 ({{ apiPath('api_p115_play_example', ['xxx']) }})</n-radio>
+                  <n-radio value="with_name">带文件名后缀 ({{ apiPath('api_p115_play_example', ['xxx/文件名.mkv']) }})</n-radio>
                 </n-space>
               </n-radio-group>
             </n-form-item>
@@ -234,11 +234,12 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, computed, watch } from 'vue';
 import { NModal, NGrid, NGi, NTabs, NTabPane, NForm, NFormItem, NRadioGroup, NSwitch, NSpace, NButton, NIcon, NSpin, NTag, useMessage, NRadio, NAlert, NInput, NSelect, NDivider } from 'naive-ui';
 import { Folder as FolderIcon, DocumentTextOutline as DocumentIcon, EyeOutline as EyeIcon, LinkOutline as LinkIcon } from '@vicons/ionicons5';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 const message = useMessage();
 const isVisible = ref(false);
@@ -456,7 +457,7 @@ const normalizeMpTemplate = (template) => {
 const importMpTemplates = async () => {
   importingMp.value = true;
   try {
-    const res = await axios.get('/api/p115/rename_config/mp/import');
+    const res = await apiClient.get(apiPath('api_p115_rename_config_mp_import_02704d93'));
     if (!res.data.success) {
       message.error(res.data.message || '从 MP 导入模板失败');
       return;
@@ -486,7 +487,7 @@ const exportMpTemplates = async () => {
   }
   exportingMp.value = true;
   try {
-    const res = await axios.post('/api/p115/rename_config/mp/export', config.value);
+    const res = await apiClient.post(apiPath('api_p115_rename_config_mp_export_6ae1a0a1'), config.value);
     if (!res.data.success) {
       message.error(res.data.message || '写入 MP 模板失败');
       return;
@@ -651,12 +652,12 @@ const previewTvFile = computed(() =>
 );
 
 const previewMovieStrm = computed(() => {
-  const baseUrl = 'http://127.0.0.1:5257/api/p115/play/abc123xyz';
+  const baseUrl = `http://127.0.0.1:5257${apiPath('api_p115_play_example', ['abc123xyz'])}`;
   return config.value.strm_url_fmt === 'with_name' ? `${baseUrl}/${previewMovieFile.value}` : baseUrl;
 });
 
 const previewTvStrm = computed(() => {
-  const baseUrl = 'http://127.0.0.1:5257/api/p115/play/def456uvw';
+  const baseUrl = `http://127.0.0.1:5257${apiPath('api_p115_play_example', ['def456uvw'])}`;
   return config.value.strm_url_fmt === 'with_name' ? `${baseUrl}/${previewTvFile.value}` : baseUrl;
 });
 
@@ -669,7 +670,7 @@ const refreshBackendPreview = async () => {
     file_template: config.value.file_template,
   };
   try {
-    const res = await axios.post('/api/p115/rename_config/preview', {
+    const res = await apiClient.post(apiPath('api_p115_rename_config_preview_1de524b8'), {
       config: config.value,
       templates,
     });
@@ -717,7 +718,7 @@ const open = async () => {
   isVisible.value = true;
   loading.value = true;
   try {
-    const res = await axios.get('/api/p115/rename_config');
+    const res = await apiClient.get(apiPath('api_p115_rename_config_999dfaa5'));
     if (res.data.success) {
       config.value = ensureTemplateDefaults(res.data.data);
       await refreshBackendPreview();
@@ -749,7 +750,7 @@ const saveConfig = async () => {
     config.value.file_template = config.value.tv_file_template || config.value.file_template;
     const payload = { ...config.value };
     delete payload.conflict_mode;
-    const res = await axios.post('/api/p115/rename_config', payload);
+    const res = await apiClient.post(apiPath('api_p115_rename_config_999dfaa5'), payload);
     if (res.data.success) {
       message.success('重命名规则已保存');
       isVisible.value = false;

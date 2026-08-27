@@ -1467,6 +1467,57 @@ Targeted and stage gates:
 
 Next: start P10 only after the P3-P9 backend contract baseline is frozen.
 
+## P10
+
+### P10-FOUNDATION / PAGE-FAMILY TRANSPORT
+
+Stage / Batch: P10 / foundation and page-family transport migration
+
+HEAD / Commit:
+
+- Work started from `58e27e6f` (`docs(p9): close sharing migration`); no amend, push, deploy,
+  or release.
+
+Implemented:
+
+- Frozen `verification/contracts/http/p4-openapi.json` is the sole OpenAPI input. Added a
+  deterministic `$defs` normalizer and generated `frontend/src/api/generated/schema.ts` with
+  `openapi-typescript`; generated output remains hands-off.
+- Added the `openapi-fetch` typed client, a single credentials/envelope/error adapter with bounded
+  timeout support, and explicit upload/download/stream helpers. API path literals are isolated in
+  the compatibility endpoint registry; pages no longer import Axios or call native `fetch`.
+- Added Vue Query bootstrap, query/mutation helpers, and migrated release information to a server
+  query. Pinia app state is now client-only UI state; auth remains the only server-backed Pinia store.
+- Migrated all 55 Vue SFCs to `<script setup lang="ts">`, renamed frontend modules to TypeScript,
+  preserved Router paths/guards and existing upload/download/streaming behavior, and added the
+  API-boundary scan.
+- Added Vitest adapter coverage and stubbed Playwright E2E coverage for login/setup plus config,
+  task, organize, subscription, sharing and user-center routes. Browser tests use local Vite and
+  fake responses only.
+
+Targeted gate:
+
+- Pending until the P10 foundation checkpoint is created: typecheck, unit, build, E2E and API
+  boundary checks are being re-run together after the final adapter adjustments.
+
+Stage full gate:
+
+- Not run; P10 page-family and contract review remain pending.
+
+Pending:
+
+- Finish the combined P10 targeted gate, review generated/client boundaries and route/guard parity,
+  then create the first local P10 checkpoint. Complete the stage-end gate before marking P10 `DONE`.
+
+Blocker: none. E2E browser binaries are installed locally; no real backend or external service is used.
+
+Next: run the P10 targeted gate, checkpoint the frontend migration, then perform the stage-end review.
+
+Safety boundary:
+
+- No real Emby, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment or release was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

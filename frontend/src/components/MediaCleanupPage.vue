@@ -17,7 +17,7 @@
         </n-alert>
         <template #extra>
           <n-space>
-            <n-dropdown 
+            <n-dropdown
               trigger="click"
               :options="batchActions"
               @select="handleBatchAction"
@@ -27,23 +27,23 @@
               </n-button>
             </n-dropdown>
 
-            <n-button 
-              type="warning" 
-              @click="handleClearAllTasks" 
+            <n-button
+              type="warning"
+              @click="handleClearAllTasks"
               :disabled="allTasks.length === 0"
             >
               <template #icon><n-icon :component="DeleteIcon" /></template>
               一键清理
             </n-button>
-            
+
             <n-button @click="showSettingsModal = true">
               <template #icon><n-icon :component="SettingsIcon" /></template>
               清理规则
             </n-button>
 
-            <n-button 
-              type="primary" 
-              @click="triggerScan" 
+            <n-button
+              type="primary"
+              @click="triggerScan"
               :loading="isTaskRunning('扫描媒体库重复项')"
             >
               <template #icon><n-icon :component="ScanIcon" /></template>
@@ -70,13 +70,13 @@
         <n-empty description="太棒了！没有发现任何需要清理的项目。" size="huge" />
       </div>
 
-      <n-modal 
-        v-model:show="showSettingsModal" 
-        preset="card" 
-        style="width: 90%; max-width: 700px;" 
+      <n-modal
+        v-model:show="showSettingsModal"
+        preset="card"
+        style="width: 90%; max-width: 700px;"
         title="媒体去重决策规则"
         :on-after-leave="fetchData"
-        class="custom-modal glass-modal" 
+        class="custom-modal glass-modal"
       >
         <MediaCleanupSettingsPage @on-close="showSettingsModal = false" />
       </n-modal>
@@ -85,17 +85,18 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, computed, h, watch } from 'vue';
-import axios from 'axios';
-import { 
-  NLayout, NPageHeader, NDivider, NEmpty, NTag, NButton, NSpace, NIcon, 
-  useMessage, NSpin, NAlert, NDataTable, NDropdown, useDialog, 
+import apiClient, { apiPath } from '@/api/client'
+import {
+  NLayout, NPageHeader, NDivider, NEmpty, NTag, NButton, NSpace, NIcon,
+  useMessage, NSpin, NAlert, NDataTable, NDropdown, useDialog,
   NTooltip, NText, NModal
 } from 'naive-ui';
-import { 
-  ScanCircleOutline as ScanIcon, 
-  TrashBinOutline as DeleteIcon, 
+import {
+  ScanCircleOutline as ScanIcon,
+  TrashBinOutline as DeleteIcon,
   CheckmarkCircleOutline as KeepIcon,
   SettingsOutline as SettingsIcon,
   TvOutline as SeriesIcon,
@@ -113,7 +114,7 @@ const allTasks = ref([]);
 const isLoading = ref(true);
 const error = ref(null);
 const showSettingsModal = ref(false);
-const selectedSeriesNames = ref([]); 
+const selectedSeriesNames = ref([]);
 const currentPage = ref(1);
 const currentPageSize = ref(20);
 const expandedRowKeys = ref([]);
@@ -125,9 +126,9 @@ const manualDeleteWithoutConfirm = ref(false);
 const selectedTaskIds = computed(() => {
   const ids = [];
   const selectedKeysSet = new Set(selectedSeriesNames.value);
-  
+
   groupedTasks.value.forEach(group => {
-    if (selectedKeysSet.has(group.key)) { 
+    if (selectedKeysSet.has(group.key)) {
       group.episodes.forEach(task => {
         ids.push(task.id);
       });
@@ -153,13 +154,13 @@ const groupedTasks = computed(() => {
 
     if (task.item_type === 'Movie') {
       groupName = task.item_name;
-      groupKey = `movie-${task.tmdb_id}`; 
+      groupKey = `movie-${task.tmdb_id}`;
       isMovie = true;
     } else if (task.item_type === 'Episode') {
       groupName = task.parent_series_name || '未知剧集';
       groupKey = `series-${task.parent_series_tmdb_id}`;
       isMovie = false;
-    } else { 
+    } else {
       groupName = task.item_name;
       groupKey = `series-${task.tmdb_id}`;
       isMovie = false;
@@ -182,7 +183,7 @@ const groupedTasks = computed(() => {
 // 主表格的列定义
 const seriesColumns = computed(() => [
   { type: 'selection', width: 40 },
-  { 
+  {
     type: 'expand',
     width: 40,
     expandable: (rowData) => !rowData.isMovie,
@@ -195,7 +196,7 @@ const seriesColumns = computed(() => [
         bottomBordered: false,
         showHeader: false,
         rowKey: row => row.id,
-        style: { padding: '4px 24px 4px 48px', backgroundColor: 'rgba(255, 255, 255, 0.02)' } 
+        style: { padding: '4px 24px 4px 48px', backgroundColor: 'rgba(255, 255, 255, 0.02)' }
       });
     }
   },
@@ -246,7 +247,7 @@ const pagination = computed(() => {
     onUpdatePage: (page) => { currentPage.value = page; },
     onUpdatePageSize: (pageSize) => {
       currentPageSize.value = pageSize;
-      currentPage.value = 1; 
+      currentPage.value = 1;
     }
   };
 });
@@ -276,7 +277,7 @@ const parseBestIds = (val) => {
 
 const executeDeleteVersion = async (row) => {
   try {
-    await axios.post('/api/cleanup/delete_version', { 
+    await apiClient.post(apiPath('api_cleanup_delete_version_fc3e568a'), {
       emby_id: String(row.id)
     });
     message.success('删除任务已提交到后台');
@@ -328,10 +329,10 @@ const createVersionColumns = (bestVersionJson) => {
       render(row) {
         const currentIdStr = String(row.id);
         const isBest = bestIds.includes(currentIdStr);
-        return h(NIcon, { 
-          component: isBest ? KeepIcon : DeleteIcon, 
-          color: isBest ? 'var(--n-success-color)' : 'var(--n-error-color)', 
-          size: 20 
+        return h(NIcon, {
+          component: isBest ? KeepIcon : DeleteIcon,
+          color: isBest ? 'var(--n-success-color)' : 'var(--n-error-color)',
+          size: 20
         });
       }
     },
@@ -360,8 +361,8 @@ const createVersionColumns = (bestVersionJson) => {
       width: 100,
       render: (row) => {
         const effect = formatEffectTagForDisplay(row.effect);
-        return effect !== 'SDR' 
-          ? h(NTag, { size: 'small', bordered: false, type: 'warning' }, { default: () => effect }) 
+        return effect !== 'SDR'
+          ? h(NTag, { size: 'small', bordered: false, type: 'warning' }, { default: () => effect })
           : h(NText, { depth: 3, style: 'font-size: 12px' }, { default: () => 'SDR' });
       }
     },
@@ -379,14 +380,14 @@ const createVersionColumns = (bestVersionJson) => {
         const count = row.subtitle_count || 0;
         const langs = row.subtitle_languages || [];
         const hasChinese = langs.includes('chi') || langs.includes('yue');
-        
+
         let content;
         if (count === 0) {
           content = h(NText, { depth: 3, style: 'font-size: 12px' }, { default: () => '无' });
         } else {
           content = h(
-            NTag, 
-            { size: 'small', bordered: false, type: hasChinese ? 'success' : 'default' }, 
+            NTag,
+            { size: 'small', bordered: false, type: hasChinese ? 'success' : 'default' },
             { default: () => hasChinese ? '中文' : `${count}种` }
           );
         }
@@ -447,14 +448,14 @@ const renderVersions = (row) => {
   const sortedVersions = [...versions].sort((a, b) => {
     const aIsBest = bestIds.includes(String(a.id));
     const bIsBest = bestIds.includes(String(b.id));
-    
+
     if (aIsBest && !bIsBest) return -1;
     if (!aIsBest && bIsBest) return 1;
     return 0;
   });
 
   return h(NDataTable, {
-    columns: createVersionColumns(row.best_version_json), 
+    columns: createVersionColumns(row.best_version_json),
     data: sortedVersions,
     size: 'small',
     bordered: false,
@@ -466,7 +467,7 @@ const renderVersions = (row) => {
 const episodeColumns = [
   {
     key: 'item_name',
-    width: 100, 
+    width: 100,
     align: 'center',
     render(row) {
       let displayName = row.item_name;
@@ -495,8 +496,8 @@ const fetchData = async () => {
 
   try {
     const [tasksResponse, settingsResponse] = await Promise.all([
-      axios.get('/api/cleanup/tasks'),
-      axios.get('/api/cleanup/settings').catch(() => ({ data: {} }))
+      apiClient.get(apiPath('api_cleanup_tasks_8e87e64e')),
+      apiClient.get(apiPath('api_cleanup_settings_b55e1641')).catch(() => ({ data: {} }))
     ]);
     allTasks.value = tasksResponse.data;
     manualDeleteWithoutConfirm.value = !!settingsResponse.data.manual_delete_without_confirm;
@@ -513,7 +514,7 @@ const fetchData = async () => {
 
 const triggerScan = async () => {
   try {
-    await axios.post('/api/tasks/run', { task_name: 'scan-cleanup-issues' });
+    await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: 'scan-cleanup-issues' });
     message.success('扫描任务已提交到后台，请稍后查看任务状态。');
   } catch (err) {
     message.error(err.response?.data?.error || '提交扫描任务失败。');
@@ -541,7 +542,7 @@ const handleBatchAction = (key) => {
 
 const executeCleanup = async (ids) => {
   try {
-    await axios.post('/api/cleanup/execute', { task_ids: ids });
+    await apiClient.post(apiPath('api_cleanup_execute_02b0323f'), { task_ids: ids });
     message.success('清理任务已提交到后台执行。');
     fetchData();
   } catch (err) {
@@ -551,7 +552,7 @@ const executeCleanup = async (ids) => {
 
 const ignoreTasks = async (ids) => {
   try {
-    const response = await axios.post('/api/cleanup/ignore', { task_ids: ids });
+    const response = await apiClient.post(apiPath('api_cleanup_ignore_ac3cce12'), { task_ids: ids });
     message.success(response.data.message);
     fetchData();
   } catch (err) {
@@ -561,7 +562,7 @@ const ignoreTasks = async (ids) => {
 
 const deleteTasks = async (ids) => {
   try {
-    const response = await axios.post('/api/cleanup/delete', { task_ids: ids });
+    const response = await apiClient.post(apiPath('api_cleanup_delete_2cd57ec5'), { task_ids: ids });
     message.success(response.data.message);
     fetchData();
   } catch (err) {
@@ -577,7 +578,7 @@ const handleClearAllTasks = () => {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        const response = await axios.post('/api/cleanup/clear_all');
+        const response = await apiClient.post(apiPath('api_cleanup_clear_all_42507f73'));
         message.success(response.data.message);
         fetchData();
       } catch (err) {

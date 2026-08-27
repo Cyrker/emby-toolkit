@@ -1845,7 +1845,7 @@
       
       <n-alert type="info" :show-icon="true" style="margin-bottom: 16px;">
         <b>ETK 标准格式示例 (不带文件名后缀)：</b><br/>
-        <code>http://192.168.1.100:5257/api/p115/play/abcde12345</code><br/>
+        <code>http://192.168.1.100:5257{{ apiPath('api_p115_play_example', ['abcde12345']) }}</code><br/>
         <span style="font-size: 0.85em; color: gray;">(注意：标准格式以 115 的 PC 码结尾，不带斜杠和 .mkv 等后缀)</span>
       </n-alert>
 
@@ -2084,7 +2084,8 @@
     <PlayPoolConfigModal ref="playPoolModalRef" @updated="handlePlayPoolUpdated" />
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, watch, computed, onMounted, onUnmounted, nextTick, isShallow } from 'vue'; 
 import TGMonitorModal from './TGMonitorModal.vue';
 import TelegramTemplateModal from './TelegramTemplateModal.vue';
@@ -2123,18 +2124,18 @@ import {
   OptionsOutline as OptionsIcon,
   SparklesOutline as SparklesIcon
 } from '@vicons/ionicons5';
-import { useConfig } from '../../composables/useConfig.js';
+import { useConfig } from '../../composables/useConfig.ts';
 import {
   assertQuickDeployResponse,
   clearQuickDeployIntent,
   getQuickDeployIntent
-} from './quickDeployIntent.js';
+} from './quickDeployIntent.ts';
 import RenameConfigModal from './RenameConfigModal.vue';
 import EpisodeRegexConfigModal from './EpisodeRegexConfigModal.vue';
 import RuleManagerModal from './RuleManagerModal.vue'; 
 import WashingPriorityModal from './WashingPriorityModal.vue';
 import MappingManager from '../modals/MappingManager.vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import MoviePilotConfigModal from './MoviePilotConfigModal.vue';
 import HDHiveConfigModal from './HDHiveConfigModal.vue';
 import DefaultStreamConfigModal from './DefaultStreamConfigModal.vue';
@@ -2205,12 +2206,12 @@ const replaceStrmForm = ref({
   mode: 'plain',
   search: '',
   replace: '',
-  testUrl: 'http://192.168.1.100:5257/api/p115/play/abcde12345'
+  testUrl: `http://192.168.1.100:5257${apiPath('api_p115_play_example', ['abcde12345'])}`
 });
 
 const openReplaceStrmModal = () => {
   if (configModel.value?.etk_server_url) {
-    replaceStrmForm.value.testUrl = `${configModel.value.etk_server_url}/api/p115/play/abcde12345`;
+    replaceStrmForm.value.testUrl = `${configModel.value.etk_server_url}${apiPath('api_p115_play_example', ['abcde12345'])}`;
   }
   showReplaceStrmModal.value = true;
 };
@@ -2232,7 +2233,7 @@ const previewResult = computed(() => {
     }
     
     // ★ 校验是否符合 ETK 标准格式 (不带文件名后缀)
-    // 规则: http(s)://域名或IP:端口/api/p115/play/字母数字组合
+    // 规则: http(s)://域名或IP:端口 + ETK 播放路径 + 字母数字组合
     const standardRegex = /^https?:\/\/[^\/]+\/api\/p115\/play\/[a-zA-Z0-9]+$/;
     const isStandard = standardRegex.test(resultUrl);
     const standardMsg = isStandard 
@@ -2255,7 +2256,7 @@ const submitReplaceStrm = async () => {
   }
   isReplacingStrm.value = true;
   try {
-    const response = await axios.post('/api/p115/replace_strm', {
+    const response = await apiClient.post(apiPath('api_p115_replace_strm_e1d8f12c'), {
       mode: replaceStrmForm.value.mode,
       search: replaceStrmForm.value.search,
       replace: replaceStrmForm.value.replace
@@ -2413,7 +2414,7 @@ const isLoadingProPricing = ref(false);
 const loadTempDirConfig = async () => {
   tempDirConfigLoading.value = true;
   try {
-    const res = await axios.get('/api/p115/temp_dir_config');
+    const res = await apiClient.get(apiPath('api_p115_temp_dir_config_87242df9'));
     if (res.data?.success) {
       tempDirConfig.value = {
         cleanup_cron: res.data.data?.cleanup_cron ?? '',
@@ -2435,7 +2436,7 @@ const openTempDirConfigModal = async () => {
 const saveTempDirConfig = async () => {
   tempDirConfigSaving.value = true;
   try {
-    const res = await axios.post('/api/p115/temp_dir_config', {
+    const res = await apiClient.post(apiPath('api_p115_temp_dir_config_87242df9'), {
       cleanup_cron: tempDirConfig.value.cleanup_cron || ''
     });
     if (res.data?.success) {
@@ -2493,7 +2494,7 @@ const loadProPricing = async () => {
   if (isLoadingProPricing.value) return;
   isLoadingProPricing.value = true;
   try {
-    const response = await axios.get('/api/system/pro_pricing');
+    const response = await apiClient.get(apiPath('api_system_pro_pricing_a4b44944'));
     if (response.data?.success && Array.isArray(response.data.tiers)) {
       proPricing.value = response.data;
       syncSelectedProTier();
@@ -2530,9 +2531,9 @@ const handleActivatePro = async () => {
     const wasProBefore = configModel.value?.is_pro_active;
     
     // ★ 智能判断请求哪个接口
-    const endpoint = isTransferMode.value ? '/api/system/transfer_pro' : '/api/system/activate_pro';
+    const endpoint = isTransferMode.value ? apiPath('api_system_transfer_pro_3939230c') : apiPath('api_system_activate_pro_388aa671');
 
-    const response = await axios.post(endpoint, {
+    const response = await apiClient.post(endpoint, {
       license_key: licenseKey.value.trim()
     });
     
@@ -2630,7 +2631,7 @@ const showResetEmbyAssociationsModal = () => { resetEmbyAssociationsModalVisible
 const handleResetEmbyAssociations = async () => {
   isResettingEmbyAssociations.value = true;
   try {
-    const response = await axios.post('/api/actions/prepare-for-library-rebuild');
+    const response = await apiClient.post(apiPath('api_actions_prepare_for_library_rebuild_b88a8fa9'));
     message.success(response.data.message || 'Emby数据已成功重置！');
     resetEmbyAssociationsModalVisible.value = false;
   } catch (error) {
@@ -2646,7 +2647,7 @@ const testProxy = async () => {
   }
   isTestingProxy.value = true;
   try {
-    const response = await axios.post('/api/proxy/test', { url: configModel.value.network_http_proxy_url });
+    const response = await apiClient.post(apiPath('api_proxy_test_9ac531fb'), { url: configModel.value.network_http_proxy_url });
     if (response.data.success) {
       message.success(response.data.message);
     } else {
@@ -2667,7 +2668,7 @@ const refreshAIModels = async () => {
 
   isFetchingAIModels.value = true;
   try {
-    const response = await axios.post('/api/ai/models', configModel.value);
+    const response = await apiClient.post(apiPath('api_ai_models_0d757cba'), configModel.value);
     const models = Array.isArray(response.data?.models) ? response.data.models : [];
 
     aiModelOptions.value = models.map(model => ({
@@ -2713,7 +2714,7 @@ const testAI = async () => {
   isTestingAI.value = true;
   try {
     // 将当前的 configModel 传给后端进行即时测试
-    const response = await axios.post('/api/ai/test', configModel.value);
+    const response = await apiClient.post(apiPath('api_ai_test_8b11676c'), configModel.value);
 
     if (response.data.success) {
       // 使用 dialog 弹出详细结果，看起来更专业
@@ -2740,7 +2741,7 @@ const openPromptModal = async () => {
   promptModalVisible.value = true;
   loadingPrompts.value = true;
   try {
-    const response = await axios.get('/api/ai/prompts');
+    const response = await apiClient.get(apiPath('api_ai_prompts_972c2a5e'));
     promptsModel.value = response.data;
   } catch (error) {
     message.error('加载提示词失败');
@@ -2752,7 +2753,7 @@ const openPromptModal = async () => {
 const savePrompts = async () => {
   savingPrompts.value = true;
   try {
-    await axios.post('/api/ai/prompts', promptsModel.value);
+    await apiClient.post(apiPath('api_ai_prompts_972c2a5e'), promptsModel.value);
     message.success('提示词已保存');
     promptModalVisible.value = false;
   } catch (error) {
@@ -2765,7 +2766,7 @@ const savePrompts = async () => {
 const resetPrompts = async () => {
   savingPrompts.value = true;
   try {
-    const response = await axios.post('/api/ai/prompts/reset');
+    const response = await apiClient.post(apiPath('api_ai_prompts_reset_e05b8fc1'));
     promptsModel.value = response.data.prompts;
     message.success('已恢复默认提示词');
   } catch (error) {
@@ -2783,7 +2784,7 @@ const fetchNativeViewsSimple = async () => {
   nativeLibraryError.value = null;
   try {
     const userId = configModel.value.emby_user_id;
-    const response = await axios.get(`/api/emby/user/${userId}/views`, { headers: { 'X-Emby-Token': configModel.value.emby_api_key } });
+    const response = await apiClient.get(apiPath('api_emby_user_param_views_6acea7ee', [userId]), { headers: { 'X-Emby-Token': configModel.value.emby_api_key } });
     const items = response.data?.Items || [];
     nativeAvailableLibraries.value = items.map(i => ({ Id: i.Id, Name: i.Name, CollectionType: i.CollectionType }));
     if (nativeAvailableLibraries.value.length === 0) nativeLibraryError.value = "未找到原生媒体库。";
@@ -2865,7 +2866,7 @@ const isTableDisabledForImport = (table) => {
 };
 const showClearTablesModal = async () => {
   try {
-    const response = await axios.get('/api/database/tables');
+    const response = await apiClient.get(apiPath('api_database_tables_0c603d05'));
     allDbTables.value = response.data;
     tablesToClear.value = [];
     clearTablesModalVisible.value = true;
@@ -2880,7 +2881,7 @@ const handleClearTables = async () => {
   }
   isClearing.value = true;
   try {
-    const response = await axios.post('/api/actions/clear_tables', { tables: tablesToClear.value });
+    const response = await apiClient.post(apiPath('api_actions_clear_tables_b3035fe9'), { tables: tablesToClear.value });
     message.success(response.data.message || '成功清空所选数据表！');
     clearTablesModalVisible.value = false;
     tablesToClear.value = [];
@@ -2897,7 +2898,7 @@ const initialRestartableConfig = ref(null);
 const triggerRestart = async () => {
   message.info('正在发送重启指令...');
   try {
-    await axios.post('/api/system/restart');
+    await apiClient.post(apiPath('api_system_restart_cf773802'));
     message.success('重启指令已发送，应用正在后台重启。请稍后手动刷新页面。', { duration: 10000 });
   } catch (error) {
     if (error.response) {
@@ -2987,7 +2988,7 @@ const handlePlayPoolUpdated = (data) => {
 
 const loadPlayPoolConfig = async () => {
   try {
-    const res = await axios.get('/api/p115/play_pool');
+    const res = await apiClient.get(apiPath('api_p115_play_pool_61a03614'));
     if (res.data?.success && res.data.data) {
       handlePlayPoolUpdated(res.data.data);
     }
@@ -3008,7 +3009,7 @@ const refreshCookieQrcode = async () => {
   cookieQrcodeLoading.value = true;
   
   try {
-    const res = await axios.get(`/api/p115/cookie_qrcode?app=${cookieAppType.value}`);
+    const res = await apiClient.get(apiPath('api_p115_cookie_qrcode_app_param_25a489fe', [cookieAppType.value]));
     if (res.data && res.data.success) {
       cookieQrcodeUrl.value = res.data.data.qrcode;
       cookieQrcodeStatus.value = 'waiting';
@@ -3028,7 +3029,7 @@ const refreshCookieQrcode = async () => {
 const startCookiePolling = () => {
   cookieQrcodePolling.value = setInterval(async () => {
     try {
-      const res = await axios.get(`/api/p115/cookie_qrcode/status?app=${cookieAppType.value}`);
+      const res = await apiClient.get(apiPath('api_p115_cookie_qrcode_status_app_param_92fd0d45', [cookieAppType.value]));
       const data = res.data;
       
       if (data.status === 'success') {
@@ -3068,7 +3069,7 @@ const saveManualCookie = async () => {
     return;
   }
   try {
-    const res = await axios.post('/api/p115/cookie', {
+    const res = await apiClient.post(apiPath('api_p115_cookie_66afabd8'), {
       cookie: tempCookieInput.value,
       app_type: cookieAppType.value
     });
@@ -3125,7 +3126,7 @@ const openLocalFolderSelector = (targetField, isArray = false) => {
 const fetchLocalFolders = async (path) => {
     loadingLocalFolders.value = true
     try {
-        const res = await axios.get('/api/p115/system/directories', { params: { path } })
+        const res = await apiClient.get(apiPath('api_p115_system_directories_e020c419'), { params: { path } })
         if (res.data.code === 200) {
             localFolders.value = res.data.data
             if (res.data.current_path !== undefined) {
@@ -3204,7 +3205,7 @@ const openQrcodeModal = async () => {
   qrcodeLoading.value = true;
   
   try {
-    const res = await axios.post('/api/p115/qrcode');
+    const res = await apiClient.post(apiPath('api_p115_qrcode_e1f1af7c'));
     if (res.data && res.data.success) {
       qrcodeUrl.value = res.data.data.qrcode;
       qrcodeStatus.value = 'waiting';
@@ -3225,7 +3226,7 @@ const startPolling = () => {
   // 每2秒检查一次二维码状态
   qrcodePolling.value = setInterval(async () => {
     try {
-      const res = await axios.get('/api/p115/qrcode/status');
+      const res = await apiClient.get(apiPath('api_p115_qrcode_status_e227c2c6'));
       const data = res.data;
       
       if (data.status === 'success') {
@@ -3270,7 +3271,7 @@ const startWebAuth = () => {
   // 1. 获取当前 ETK 的访问地址 (例如 http://192.168.1.100:5257)
   const etkHost = window.location.origin; 
   // 2. 拼接回调地址
-  const callbackUrl = `${etkHost}/api/p115/auto_save_auth`;
+  const callbackUrl = `${etkHost}${apiPath('api_p115_auto_save_auth')}`;
   // 3. 拼接最终的 Worker 登录地址
   const authUrl = `https://115.55565576.xyz/login?callback_url=${encodeURIComponent(callbackUrl)}`;
   
@@ -3287,7 +3288,7 @@ const startWebAuth = () => {
   // 5. 开始后台轮询，检查 Token 是否已经悄悄保存成功了
   webAuthPolling = setInterval(async () => {
     try {
-      const res = await axios.get('/api/p115/status');
+      const res = await apiClient.get(apiPath('api_p115_status_1e81b9ab'));
       if (res.data && res.data.data && res.data.data.has_token) {
         // 发现 Token 已经有了！
         clearInterval(webAuthPolling);
@@ -3327,8 +3328,8 @@ const formatSpeedTestBytes = (value) => {
 const check115Status = async (speedTest = false) => {
     loading115Info.value = true;
     try {
-        const endpoint = speedTest ? '/api/p115/speedtest' : '/api/p115/status';
-        const res = await axios.get(endpoint);
+        const endpoint = speedTest ? apiPath('api_p115_speedtest_676a6a62') : apiPath('api_p115_status_1e81b9ab');
+        const res = await apiClient.get(endpoint);
         if (res.data && res.data.data) {
             p115Info.value = speedTest ? { ...(p115Info.value || {}), ...res.data.data } : res.data.data;
             if (speedTest && res.data.data.speed_test) {
@@ -3368,7 +3369,7 @@ const load115Folders = async (cid, folderName = null, isSearch = false) => {
       params.search = searchKeyword.value;
     }
     
-    const res = await axios.get('/api/p115/dirs', { params });
+    const res = await apiClient.get(apiPath('api_p115_dirs_bcc4b3c6'), { params });
     if (res.data && res.data.success) {
       folderList.value = res.data.data;
       currentBrowserCid.value = cid;
@@ -3398,7 +3399,7 @@ const handleClearSearch = () => {
 const handleCreateFolder = async () => {
   if (!newFolderName.value) return;
   try {
-    const res = await axios.post('/api/p115/mkdir', {
+    const res = await apiClient.post(apiPath('api_p115_mkdir_c3b500f7'), {
       pid: currentBrowserCid.value,
       name: newFolderName.value
     });
@@ -3439,7 +3440,7 @@ const handleQuickDeploy115 = () => {
     quickDeployEmbyLibraries.value = [];
     let finalEvent = null;
     try {
-      const response = await fetch('/api/p115/quick_deploy?stream=1', {
+      const response = await apiClient.raw(apiPath('api_p115_quick_deploy_stream_1_94ab0686'), {
         method: 'POST',
         headers: { 'Idempotency-Key': getQuickDeployIntent() }
       });
@@ -3622,7 +3623,7 @@ const fetchEmbyLibrariesInternal = async () => {
   loadingLibraries.value = true;
   libraryError.value = null;
   try {
-    const response = await axios.get(`/api/emby_libraries`);
+    const response = await apiClient.get(apiPath('api_emby_libraries_c07717c8'));
     availableLibraries.value = response.data || [];
     if (availableLibraries.value.length === 0) libraryError.value = "获取到的媒体库列表为空。";
   } catch (err) {
@@ -3634,7 +3635,7 @@ const fetchEmbyLibrariesInternal = async () => {
 };
 const showExportModal = async () => {
   try {
-    const response = await axios.get('/api/database/tables');
+    const response = await apiClient.get(apiPath('api_database_tables_0c603d05'));
     allDbTables.value = response.data;
     tablesToExport.value = [...response.data];
     exportModalVisible.value = true;
@@ -3646,8 +3647,8 @@ const handleExport = async () => {
   isExporting.value = true;
   exportModalVisible.value = false;
   try {
-    const response = await axios.post('/api/database/export', { tables: tablesToExport.value }, { responseType: 'blob' });
-    const contentDisposition = response.headers['content-disposition'];
+    const response = await apiClient.download(apiPath('api_database_export_2d57d9f8'), { method: 'POST', data: { tables: tablesToExport.value } });
+    const contentDisposition = response.headers.get('content-disposition');
     let filename = 'database_backup.json';
     if (contentDisposition) {
       const match = contentDisposition.match(/filename="?(.+?)"?$/);
@@ -3684,7 +3685,7 @@ const handleCustomImportRequest = async ({ file }) => {
     const formData = new FormData();
     formData.append('file', rawFile);
     // ★★★ 调用我们刚刚修改过的后端预览接口 ★★★
-    const response = await axios.post('/api/database/preview-backup', formData);
+    const response = await apiClient.post(apiPath('api_database_preview_backup_6d9ddf10'), formData);
 
     msgReactive.destroy();
 
@@ -3729,7 +3730,7 @@ const testTelegram = async () => {
   isTestingTelegram.value = true;
   try {
     // 发送当前输入框中的配置进行测试，无需先保存
-    const response = await axios.post('/api/telegram/test', {
+    const response = await apiClient.post(apiPath('api_telegram_test_68a9fb5d'), {
       token: configModel.value.telegram_bot_token,
       chat_id: configModel.value.telegram_channel_id
     });
@@ -3769,7 +3770,7 @@ const startImportProcess = () => {
   formData.append('file', fileToImport.value);
   formData.append('tables', tablesToImport.value.join(','));
 
-  axios.post('/api/database/import', formData, {
+  apiClient.upload(apiPath('api_database_import_57d1ea97'), formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
   .then(response => {
@@ -3791,7 +3792,7 @@ const startImportProcess = () => {
 const handleCleanupOfflineMedia = async () => {
   isCleaningOffline.value = true;
   try {
-    const response = await axios.post('/api/actions/cleanup-offline-media');
+    const response = await apiClient.post(apiPath('api_actions_cleanup_offline_media_ae9a6959'));
     const stats = response.data.data || {};
     const deletedCount = stats.media_metadata_deleted || 0;
     
@@ -3811,7 +3812,7 @@ const handleCleanupOfflineMedia = async () => {
 const handleClearVectors = async () => {
   isClearingVectors.value = true;
   try {
-    const response = await axios.post('/api/actions/clear-vectors');
+    const response = await apiClient.post(apiPath('api_actions_clear_vectors_e29b4ed3'));
     message.success(response.data.message || '向量数据已清空！');
   } catch (error) {
     message.error(error.response?.data?.error || '操作失败，请检查后端日志。');
@@ -3826,7 +3827,7 @@ const deselectAllForImport = () => tablesToImport.value = [];
 const handleCorrectSequences = async () => {
   isCorrecting.value = true;
   try {
-    const response = await axios.post('/api/database/correct-sequences');
+    const response = await apiClient.post(apiPath('api_database_correct_sequences_774ba1c1'));
     message.success(response.data.message || 'ID计数器校准成功！');
   } catch (error) {
     message.error(error.response?.data?.error || '校准失败，请检查后端日志。');

@@ -33,10 +33,11 @@
   </n-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, computed } from 'vue';
 import { NCard, NForm, NFormItemRow, NInput, NButton, useMessage } from 'naive-ui';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 const emit = defineEmits(['password-changed']);
 const message = useMessage();
@@ -74,7 +75,7 @@ async function handleChangePassword() {
       current_password: passwords.value.current_password,
       new_password: passwords.value.new_password,
     };
-    await axios.post('/api/auth/change_password', payload);
+    await apiClient.post(apiPath('api_auth_change_password_68b06f44'), payload);
     message.success('密码修改成功！');
     emit('password-changed');
     // 清空表单

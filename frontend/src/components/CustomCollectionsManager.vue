@@ -990,10 +990,11 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, h, computed, watch, nextTick } from 'vue';
-import axios from 'axios';
-import { useConfig } from '../composables/useConfig.js';
+import apiClient, { apiPath } from '@/api/client'
+import { useConfig } from '../composables/useConfig.ts';
 import Sortable from 'sortablejs';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -1251,7 +1252,7 @@ const getCardImageUrl = (item) => {
   }
 
   if (tmdbUrl) {
-    return `/api/image_proxy?url=${encodeURIComponent(tmdbUrl)}`;
+    return apiPath('api_image_proxy_url_param_bde13c35', [encodeURIComponent(tmdbUrl)]);
   }
 
   return null;
@@ -1261,11 +1262,11 @@ const getCardImageUrl = (item) => {
 const submitFixMatch = async (payload) => {
   if (!selectedCollectionDetails.value?.id) return;
   try {
-    const response = await axios.post(`/api/custom_collections/${selectedCollectionDetails.value.id}/fix_match`, payload);
+    const response = await apiClient.post(apiPath('api_custom_collections_param_fix_match_d2319060', [selectedCollectionDetails.value.id]), payload);
     message.success(response.data.message || '修正成功！正在刷新合集详情...');
     isLoadingDetails.value = true; 
     try {
-      const refreshResponse = await axios.get(`/api/custom_collections/${selectedCollectionDetails.value.id}/status`);
+      const refreshResponse = await apiClient.get(apiPath('api_custom_collections_param_status_a7623da6', [selectedCollectionDetails.value.id]));
       selectedCollectionDetails.value = refreshResponse.data;
     } catch (refreshError) {
       message.error('刷新合集详情失败，请重新打开弹窗。');
@@ -1339,7 +1340,7 @@ const audioLangOptions = [
 const filterLanguageOptions = ref([]);
 const fetchLanguageOptions = async () => {
   try {
-    const response = await axios.get('/api/custom_collections/config/languages');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_languages_8a8fb76a'));
     // 后端返回 [{label: '中文', value: 'zh'}, ...]
     // 前端格式化为 "中文 (zh)" 以便展示
     filterLanguageOptions.value = response.data.map(item => ({
@@ -1362,7 +1363,7 @@ const operatorLabels = {
 
 const fetchKeywordOptions = async () => {
   try {
-    const response = await axios.get('/api/custom_collections/config/keywords');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_keywords_07a45464'));
     keywordOptions.value = response.data;
   } catch (error) {
     console.error('获取关键词失败:', error);
@@ -1371,7 +1372,7 @@ const fetchKeywordOptions = async () => {
 
 const fetchStudioMappingOptions = async () => {
   try {
-    const response = await axios.get('/api/custom_collections/config/studios');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_studios_5ec2686f'));
     studioMappingOptions.value = response.data;
   } catch (error) {
     console.error('获取工作室映射失败:', error);
@@ -1451,7 +1452,7 @@ const createRuleWatcher = (rulesRef) => {
 const handleGenerateAllCovers = async () => {
   isGeneratingCovers.value = true;
   try {
-    const response = await axios.post('/api/tasks/run', { task_name: 'generate-custom-collection-covers' });
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: 'generate-custom-collection-covers' });
     message.success(response.data.message || '已提交一键生成自建合集封面任务！');
   } catch (error) {
     message.error(error.response?.data?.error || '提交任务失败。');
@@ -1525,7 +1526,7 @@ const renderSelectOptionWithTag = (option) => {
 const fetchEmbyUsers = async () => {
   isLoadingEmbyUsers.value = true;
   try {
-    const response = await axios.get('/api/custom_collections/config/emby_users');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_emby_users_78bb9903'));
     embyUserOptions.value = response.data;
   } catch (error) {
     message.error('获取Emby用户列表失败。');
@@ -1707,7 +1708,7 @@ const removeCustomUrl = (index) => {
 const fetchEmbyLibraries = async () => {
   isLoadingLibraries.value = true;
   try {
-    const response = await axios.get('/api/custom_collections/config/emby_libraries');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_emby_libraries_dd29b9d4'));
     embyLibraryOptions.value = response.data;
   } catch (error) {
     message.error('获取Emby媒体库列表失败。');
@@ -1718,7 +1719,7 @@ const fetchEmbyLibraries = async () => {
 
 const fetchCountryOptions = async () => {
   try {
-    const response = await axios.get('/api/custom_collections/config/tmdb_countries');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_tmdb_countries_237507d0'));
     countryOptions.value = response.data.map(item => ({
       label: item.label, // 显示：中国大陆
       value: item.value  // 存储：CN
@@ -1743,10 +1744,10 @@ const fetchGenreOptions = async () => {
 
   // 根据选中的类型，添加对应的 API 请求
   if (types.includes('Movie')) {
-    promises.push(axios.get('/api/custom_collections/config/movie_genres').catch(() => ({ data: [] })));
+    promises.push(apiClient.get(apiPath('api_custom_collections_config_movie_genres_a6373e43')).catch(() => ({ data: [] })));
   }
   if (types.includes('Series')) {
-    promises.push(axios.get('/api/custom_collections/config/tv_genres').catch(() => ({ data: [] })));
+    promises.push(apiClient.get(apiPath('api_custom_collections_config_tv_genres_210d13d6')).catch(() => ({ data: [] })));
   }
 
   try {
@@ -1779,7 +1780,7 @@ watch(() => currentCollection.value.definition?.item_type, () => {
 
 const fetchTagOptions = async () => {
   try {
-    const response = await axios.get('/api/custom_collections/config/tags');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_tags_344d4613'));
     tagOptions.value = response.data.map(name => ({
       label: name,
       value: name
@@ -1799,7 +1800,7 @@ const handleStudioSearch = (query) => {
   if (searchTimeout) clearTimeout(searchTimeout);
   searchTimeout = setTimeout(async () => {
     try {
-      const response = await axios.get(`/api/search_studios?q=${query}`);
+      const response = await apiClient.get(apiPath('api_search_studios_q_param_70001a0f', [query]));
       studioOptions.value = response.data.map(name => ({ label: name, value: name }));
     } catch (error) {
       console.error('搜索工作室失败:', error);
@@ -1826,7 +1827,7 @@ const handlePersonSearch = (query, rule) => {
   if (personSearchTimeout) clearTimeout(personSearchTimeout);
   personSearchTimeout = setTimeout(async () => {
     try {
-      const response = await axios.get(`/api/custom_collections/config/tmdb_search_persons?q=${query}`);
+      const response = await apiClient.get(apiPath('api_custom_collections_config_tmdb_search_persons_q_param_1bc1a3ed', [query]));
       const searchResults = response.data || [];
       if (isFilterRule) {
         const selectedPersons = Array.isArray(rule.value) ? rule.value : [];
@@ -1864,7 +1865,7 @@ const updatePersonRuleValue = (rule, selectedOptions) => {
 const fetchUnifiedRatingOptions = async () => {
   try {
     // 调用新的 API (我们在 routes/custom_collections.py 中刚刚修改过的)
-    const response = await axios.get('/api/custom_collections/config/unified_ratings_options');
+    const response = await apiClient.get(apiPath('api_custom_collections_config_unified_ratings_options_7c1ae756'));
     
     // 后端返回的是字符串数组 ['全年龄', '限制级', ...]
     // 我们将其转换为 Naive UI 需要的 { label, value } 格式
@@ -1968,7 +1969,7 @@ const ignoredMediaInModal = computed(() => filterMediaByStatus('ignored'));
 const fetchCollections = async () => {
   isLoading.value = true;
   try {
-    const response = await axios.get('/api/custom_collections');
+    const response = await apiClient.get(apiPath('api_custom_collections_f21336a7'));
     collections.value = response.data;
     
     // 1. 先让 loading 结束，触发 v-else 渲染 grid 容器
@@ -2025,7 +2026,7 @@ const handleDragEnd = async (event) => {
 
   try {
     // 调用后端 API 更新顺序
-    await axios.post('/api/custom_collections/update_order', { ids: orderedIds });
+    await apiClient.post(apiPath('api_custom_collections_update_order_2fa6c00d'), { ids: orderedIds });
     message.success('顺序已更新');
   } catch (error) {
     message.error('保存顺序失败，正在还原...');
@@ -2041,7 +2042,7 @@ const openDetailsModal = async (collection) => {
   isLoadingDetails.value = true;
   selectedCollectionDetails.value = null;
   try {
-    const response = await axios.get(`/api/custom_collections/${collection.id}/status`);
+    const response = await apiClient.get(apiPath('api_custom_collections_param_status_a7623da6', [collection.id]));
     selectedCollectionDetails.value = response.data;
   } catch (error) {
     message.error('获取合集详情失败。');
@@ -2058,7 +2059,7 @@ const handleSync = async (row) => {
       task_name: 'process-single-custom-collection', 
       custom_collection_id: row.id 
     };
-    const response = await axios.post('/api/tasks/run', payload);
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), payload);
     message.success(response.data.message || `已提交同步任务: ${row.name}`);
   } catch (error) {
     message.error(error.response?.data?.error || '提交同步任务失败。');
@@ -2070,7 +2071,7 @@ const handleSync = async (row) => {
 const handleSyncAll = async () => {
   isSyncingAll.value = true;
   try {
-    const response = await axios.post('/api/tasks/run', { task_name: 'process_all_custom_collections' });
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: 'process_all_custom_collections' });
     message.success(response.data.message || '已提交一键生成任务！');
   } catch (error) {
     message.error(error.response?.data?.error || '提交任务失败。');
@@ -2082,7 +2083,7 @@ const handleSyncAll = async () => {
 const triggerMetadataSync = async () => {
   isSyncingMetadata.value = true;
   try {
-    const response = await axios.post('/api/tasks/run', { task_name: 'populate-metadata' });
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: 'populate-metadata' });
     message.success(response.data.message || '快速同步元数据任务已在后台启动！');
   } catch (error) {
     message.error(error.response?.data?.error || '启动任务失败。');
@@ -2173,7 +2174,7 @@ const handleEditClick = (row) => {
 
 const handleDelete = async (row) => {
   try {
-    await axios.delete(`/api/custom_collections/${row.id}`);
+    await apiClient.delete(apiPath('api_custom_collections_param_185d242c', [row.id]));
     message.success(`合集 "${row.name}" 已删除。`);
     fetchCollections();
   } catch (error) {
@@ -2188,10 +2189,10 @@ const handleSave = () => {
     const dataToSend = JSON.parse(JSON.stringify(currentCollection.value));
     try {
       if (isEditing.value) {
-        await axios.put(`/api/custom_collections/${dataToSend.id}`, dataToSend);
+        await apiClient.put(apiPath('api_custom_collections_param_185d242c', [dataToSend.id]), dataToSend);
         message.success('合集更新成功！');
       } else {
-        await axios.post('/api/custom_collections', dataToSend);
+        await apiClient.post(apiPath('api_custom_collections_f21336a7'), dataToSend);
         message.success('合集创建成功！');
       }
       showModal.value = false;

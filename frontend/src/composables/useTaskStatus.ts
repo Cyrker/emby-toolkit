@@ -1,7 +1,8 @@
-// src/composables/useTaskStatus.js
+// @ts-nocheck -- compatibility module retained during the page-family migration.
+// src/composables/useTaskStatus.ts
 
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 // 将状态变量放在函数外部，确保它们在整个应用中是单例的
 const backgroundTaskStatus = ref({
@@ -53,7 +54,7 @@ const fetchStatus = async () => {
   statusFetchInFlight = true;
   statusAbortController = new AbortController();
   try {
-    const response = await axios.get('/api/status', {
+    const response = await apiClient.get(apiPath('api_status_7fbc29f0'), {
       timeout: 8000,
       signal: statusAbortController.signal,
     });

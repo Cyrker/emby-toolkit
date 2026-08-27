@@ -74,7 +74,8 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, watch, onBeforeUnmount, onMounted, computed, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import {
@@ -84,8 +85,8 @@ import {
 import { useAuthStore } from './stores/auth';
 import MainLayout from './MainLayout.vue';
 import ThemeEditor from './components/ThemeEditor.vue';
-import { themes } from './theme.js';
-import axios from 'axios';
+import { themes } from './theme.ts';
+import apiClient, { apiPath } from '@/api/client'
 import { cloneDeep } from 'lodash-es';
 
 // --- 路由和认证 ---
@@ -221,7 +222,7 @@ const handleSaveCustomTheme = async (newThemeConfigForCurrentMode) => {
     } else {
         fullCustomTheme.light = newThemeConfigForCurrentMode;
     }
-    await axios.post('/api/config/custom_theme', fullCustomTheme);
+    await apiClient.post(apiPath('api_config_custom_theme_00a0b2df'), fullCustomTheme);
     userCustomTheme.value = fullCustomTheme;
     selectedTheme.value = 'custom';
     localStorage.setItem('user-theme', 'custom');
@@ -237,7 +238,7 @@ const handleSaveCustomTheme = async (newThemeConfigForCurrentMode) => {
 
 const handleDeleteCustomTheme = async () => {
   try {
-    await axios.delete('/api/config/custom_theme');
+    await apiClient.delete(apiPath('api_config_custom_theme_00a0b2df'));
     userCustomTheme.value = null;
     selectedTheme.value = 'default';
     localStorage.setItem('user-theme', 'default');
@@ -306,7 +307,7 @@ const fetchStatus = async () => {
   statusFetchInFlight = true;
   statusAbortController = new AbortController();
   try {
-    const response = await axios.get('/api/status', {
+    const response = await apiClient.get(apiPath('api_status_7fbc29f0'), {
       timeout: 8000,
       signal: statusAbortController.signal,
     });
@@ -346,7 +347,7 @@ const startStatusPolling = () => {
 const checkServiceAuthorization = async () => {
   if (!authStore.isLoggedIn) return;
   try {
-    const response = await axios.get('/api/auth/service_status');
+    const response = await apiClient.get(apiPath('api_auth_service_status_460ed5e7'));
     serviceAuthorized.value = !!response.data.authorized;
     serviceAuthorizationForm.value.url = response.data.url || '';
     if (!serviceAuthorized.value) serviceAuthorizationVisible.value = true;
@@ -369,7 +370,7 @@ const submitServiceAuthorization = async () => {
   }
   serviceAuthorizationSubmitting.value = true;
   try {
-    const response = await axios.post('/api/auth/reauthorize', serviceAuthorizationForm.value);
+    const response = await apiClient.post(apiPath('api_auth_reauthorize_935831ee'), serviceAuthorizationForm.value);
     const authorization = response.data.authorization || {};
     serviceAuthorized.value = true;
     serviceAuthorizationVisible.value = false;
@@ -403,7 +404,7 @@ watch(() => authStore.isLoggedIn, (isLoggedIn) => {
 onMounted(async () => {
   window.addEventListener('etk-open-emby-authorization', openServiceAuthorization);
   try {
-    const response = await axios.get('/api/config');
+    const response = await apiClient.get(apiPath('api_config_3c5fcdb0'));
     if (response.data.custom_theme && Object.keys(response.data.custom_theme).length > 0) {
       userCustomTheme.value = response.data.custom_theme;
     }

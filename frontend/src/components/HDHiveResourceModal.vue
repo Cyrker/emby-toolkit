@@ -243,7 +243,8 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, computed, watch } from 'vue';
 import {
   NModal,
@@ -258,7 +259,7 @@ import {
   NAlert,
   useMessage
 } from 'naive-ui';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 
 const props = defineProps({
   show: Boolean,
@@ -798,7 +799,7 @@ const fetchResources = async () => {
       params.season = season;
     }
 
-    const res = await axios.get('/api/subscription/cloud/resources', { params });
+    const res = await apiClient.get(apiPath('api_subscription_cloud_resources_7a8ac891'), { params });
 
     if (res.data.success) {
       resources.value = res.data.data || [];
@@ -838,7 +839,7 @@ const download = async (resource) => {
       mode: isSharedPool(resource) ? (hasSharedPoolShareTransfer(resource) ? 'share' : 'rapid') : undefined
     };
 
-    const res = await axios.post('/api/subscription/cloud/download', payload);
+    const res = await apiClient.post(apiPath('api_subscription_cloud_download_b0e1738c'), payload);
 
     if (res.data.success) {
       message.success(res.data.message);

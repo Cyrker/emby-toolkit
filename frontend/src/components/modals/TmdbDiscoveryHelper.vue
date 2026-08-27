@@ -229,10 +229,11 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, computed, watch, h, nextTick } from 'vue';
 import { NAvatar, NText } from 'naive-ui';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { CheckmarkCircleOutline as CheckIcon } from '@vicons/ionicons5';
 
 const props = defineProps({
@@ -512,10 +513,10 @@ const fetchBasicConfigs = async () => {
   try {
     // ★★★ 修改 2: 调用 custom_collections 的接口 ★★★
     const [mvRes, tvRes, cRes, lRes] = await Promise.all([
-      axios.get('/api/custom_collections/config/tmdb_movie_genres'),
-      axios.get('/api/custom_collections/config/tmdb_tv_genres'),
-      axios.get('/api/custom_collections/config/tmdb_countries'), // 获取国家
-      axios.get('/api/custom_collections/config/languages')       // 获取语言
+      apiClient.get(apiPath('api_custom_collections_config_tmdb_movie_genres_1a336d87')),
+      apiClient.get(apiPath('api_custom_collections_config_tmdb_tv_genres_b34fe777')),
+      apiClient.get(apiPath('api_custom_collections_config_tmdb_countries_237507d0')), // 获取国家
+      apiClient.get(apiPath('api_custom_collections_config_languages_8a8fb76a'))       // 获取语言
     ]);
     
     movieGenres.value = mvRes.data;
@@ -671,8 +672,8 @@ const fetchMappings = async () => {
   loading.value.mappings = true;
   try {
     const [kwRes, stRes] = await Promise.all([
-      axios.get('/api/custom_collections/config/keyword_mapping'),
-      axios.get('/api/custom_collections/config/studio_mapping')
+      apiClient.get(apiPath('api_custom_collections_config_keyword_mapping_277bb3c1')),
+      apiClient.get(apiPath('api_custom_collections_config_studio_mapping_f270036e'))
     ]);
 
     // 处理关键词 (保持不变)
@@ -727,7 +728,7 @@ const searchPerson = (query, targetRef, loadingKey) => {
   if (searchTimer) clearTimeout(searchTimer);
   searchTimer = setTimeout(async () => {
     try {
-      const { data } = await axios.get(`/api/custom_collections/config/tmdb_search_persons?q=${query}`);
+      const { data } = await apiClient.get(apiPath('api_custom_collections_config_tmdb_search_persons_q_param_1bc1a3ed', [query]));
       targetRef.value = data;
     } finally {
       loading.value[loadingKey] = false;

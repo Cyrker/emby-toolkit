@@ -100,10 +100,11 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { useRouter } from 'vue-router';
 import { ref, onMounted, computed, h } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import {
     NCard, NSpin, NAlert, NText, NDataTable, NButton, NSpace, NPopconfirm, NEmpty, NInput, NIcon, NSelect,
     useMessage
@@ -139,7 +140,7 @@ const reasonOptions = ref([]);
 
 const fetchReasons = async () => {
   try {
-    const res = await axios.get('/api/review_reasons');
+    const res = await apiClient.get(apiPath('api_review_reasons_5fa76ee3'));
     if (res.data && res.data.data) {
       reasonOptions.value = res.data.data.map(reason => ({
         label: reason,
@@ -173,7 +174,7 @@ const addToWatchlist = async (rowData) => {
       item_name: rowData.item_name,
       item_type: rowData.item_type,
     };
-    const response = await axios.post('/api/watchlist/add', payload);
+    const response = await apiClient.post(apiPath('api_watchlist_add_b6c164b7'), payload);
     message.success(response.data.message || '添加成功！');
   } catch (error) {
     message.error(error.response?.data?.error || '添加到追剧列表失败，可能已存在。');
@@ -198,7 +199,7 @@ const formatDate = (timestamp) => {
 const clearAllReviewItems = async () => {
   loading.value = true;
   try {
-    const response = await axios.post('/api/actions/clear_review_items');
+    const response = await apiClient.post(apiPath('api_actions_clear_review_items_80eadde3'));
     message.success(response.data.message);
     await fetchReviewItems(); 
     await fetchReasons(); // 清空后刷新下拉框
@@ -222,7 +223,7 @@ const handleMarkAsProcessed = async (row) => {
   currentRowId.value = row.item_id;
   loadingAction.value[row.item_id] = true;
   try {
-    await axios.post(`/api/actions/mark_item_processed/${row.item_id}`);
+    await apiClient.post(apiPath('api_actions_mark_item_processed_param_abd41684', [row.item_id]));
     message.success(`项目 "${row.item_name}" 已标记为已处理。`);
     await fetchReviewItems();
     await fetchReasons(); // 标记处理后可能原因列表变了
@@ -368,7 +369,7 @@ const fetchReviewItems = async () => {
   error.value = null;
   isShowingSearchResults.value = false;
   try {
-    const response = await axios.get(`/api/review_items`, {
+    const response = await apiClient.get(apiPath('api_review_items_2a9425d4'), {
         params: {
             page: currentPage.value,
             per_page: itemsPerPage.value,
@@ -390,7 +391,7 @@ const searchEmbyLibrary = async () => {
   isShowingSearchResults.value = true;
   selectedReason.value = null; // 搜索时清空筛选
   try {
-    const response = await axios.get(`/api/search_emby_library`, {
+    const response = await apiClient.get(apiPath('api_search_emby_library_2c086226'), {
         params: { query: searchQuery.value }
     });
     tableData.value = response.data.items.map(item => ({
@@ -410,7 +411,7 @@ const handleReprocessItem = async (row) => {
   currentRowId.value = row.item_id;
   loadingAction.value[row.item_id] = true;
   try {
-    const response = await axios.post(`/api/actions/reprocess_item/${row.item_id}`, {
+    const response = await apiClient.post(apiPath('api_actions_reprocess_item_param_1d7580a7', [row.item_id]), {
         reason: row.reason 
     });
     message.success(response.data.message || `项目 "${row.item_name}" 的重新处理任务已提交。`);
@@ -429,7 +430,7 @@ const handleReprocessItem = async (row) => {
 const reprocessAllReviewItems = async () => {
   try {
     // ★ 提交时带上当前选中的原因
-    const response = await axios.post('/api/actions/reprocess_all_review_items', {
+    const response = await apiClient.post(apiPath('api_actions_reprocess_all_review_items_c2f53e23'), {
       reason: selectedReason.value || ''
     });
     message.success(response.data.message || '重新处理任务已成功提交！');

@@ -319,9 +319,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, nextTick, watch, onUnmounted, computed, h } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import Sortable from 'sortablejs';
 import { useMessage, useDialog, NSelect } from 'naive-ui';
 import { 
@@ -521,15 +522,15 @@ watch(activeTab, () => {
 const fetchData = async () => {
   try {
     const [kwRes, stRes, cnRes, lgRes, rgRes, jpRes, rMapRes, rPrioRes, rLabelRes] = await Promise.all([
-      axios.get('/api/custom_collections/config/keyword_mapping'),
-      axios.get('/api/custom_collections/config/studio_mapping'),
-      axios.get('/api/custom_collections/config/country_mapping'),
-      axios.get('/api/custom_collections/config/language_mapping'),
-      axios.get('/api/custom_collections/config/release_group_mapping'),
-      axios.get('/api/custom_collections/config/junk_file_patterns'),
-      axios.get('/api/custom_collections/config/rating_mapping'),
-      axios.get('/api/custom_collections/config/rating_priority'),
-      axios.get('/api/custom_collections/config/unified_ratings')
+      apiClient.get(apiPath('api_custom_collections_config_keyword_mapping_277bb3c1')),
+      apiClient.get(apiPath('api_custom_collections_config_studio_mapping_f270036e')),
+      apiClient.get(apiPath('api_custom_collections_config_country_mapping_b1d3a5c3')),
+      apiClient.get(apiPath('api_custom_collections_config_language_mapping_0f4f22a7')),
+      apiClient.get(apiPath('api_custom_collections_config_release_group_mapping_92c426cb')),
+      apiClient.get(apiPath('api_custom_collections_config_junk_file_patterns_7bf5989c')),
+      apiClient.get(apiPath('api_custom_collections_config_rating_mapping_6409567c')),
+      apiClient.get(apiPath('api_custom_collections_config_rating_priority_2ad846b8')),
+      apiClient.get(apiPath('api_custom_collections_config_unified_ratings_7082cafc'))
     ]);
     
     keywordList.value = processBackendData(kwRes.data, 'keyword');
@@ -645,8 +646,8 @@ const handleRestoreDefaults = () => {
       onPositiveClick: async () => {
         try {
           const [rMapRes, rPrioRes] = await Promise.all([
-            axios.get('/api/custom_collections/config/rating_mapping/defaults'),
-            axios.get('/api/custom_collections/config/rating_priority/defaults')
+            apiClient.get(apiPath('api_custom_collections_config_rating_mapping_defaults_4c14aa4b')),
+            apiClient.get(apiPath('api_custom_collections_config_rating_priority_defaults_f08089eb'))
           ]);
           ratingMapping.value = rMapRes.data;
           ratingPriority.value = rPrioRes.data;
@@ -680,7 +681,7 @@ const handleRestoreDefaults = () => {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        const res = await axios.get(`/api/custom_collections/config/${current.url}/defaults`);
+        const res = await apiClient.get(apiPath('api_custom_collections_config_param_defaults_9ff70d3f', [current.url]));
         current.list.value = processBackendData(res.data, current.type);
         message.success('已加载默认预设，请点击保存以生效');
         setupSortables();
@@ -695,15 +696,15 @@ const handleSave = async () => {
   isSaving.value = true;
   try {
     await Promise.all([
-      axios.post('/api/custom_collections/config/keyword_mapping', processFrontendData(keywordList.value, 'keyword')),
-      axios.post('/api/custom_collections/config/studio_mapping', processFrontendData(studioList.value, 'studio')),
-      axios.post('/api/custom_collections/config/country_mapping', processFrontendData(countryList.value, 'country')),
-      axios.post('/api/custom_collections/config/language_mapping', processFrontendData(languageList.value, 'language')),
-      axios.post('/api/custom_collections/config/release_group_mapping', processFrontendData(releaseGroupList.value, 'release_group')),
-      axios.post('/api/custom_collections/config/junk_file_patterns', processFrontendData(junkPatternList.value, 'junk_pattern')),
-      axios.post('/api/custom_collections/config/rating_mapping', ratingMapping.value),
-      axios.post('/api/custom_collections/config/rating_priority', ratingPriority.value),
-      axios.post('/api/custom_collections/config/unified_ratings', processFrontendData(ratingLabelList.value, 'simple'))
+      apiClient.post(apiPath('api_custom_collections_config_keyword_mapping_277bb3c1'), processFrontendData(keywordList.value, 'keyword')),
+      apiClient.post(apiPath('api_custom_collections_config_studio_mapping_f270036e'), processFrontendData(studioList.value, 'studio')),
+      apiClient.post(apiPath('api_custom_collections_config_country_mapping_b1d3a5c3'), processFrontendData(countryList.value, 'country')),
+      apiClient.post(apiPath('api_custom_collections_config_language_mapping_0f4f22a7'), processFrontendData(languageList.value, 'language')),
+      apiClient.post(apiPath('api_custom_collections_config_release_group_mapping_92c426cb'), processFrontendData(releaseGroupList.value, 'release_group')),
+      apiClient.post(apiPath('api_custom_collections_config_junk_file_patterns_7bf5989c'), processFrontendData(junkPatternList.value, 'junk_pattern')),
+      apiClient.post(apiPath('api_custom_collections_config_rating_mapping_6409567c'), ratingMapping.value),
+      apiClient.post(apiPath('api_custom_collections_config_rating_priority_2ad846b8'), ratingPriority.value),
+      apiClient.post(apiPath('api_custom_collections_config_unified_ratings_7082cafc'), processFrontendData(ratingLabelList.value, 'simple'))
     ]);
     message.success('所有映射配置已保存');
     await fetchData();

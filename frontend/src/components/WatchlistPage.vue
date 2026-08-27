@@ -64,33 +64,33 @@
 
       <n-space :wrap="true" :size="[20, 12]" style="margin-bottom: 20px;">
         <n-input v-model:value="searchQuery" placeholder="按名称搜索..." clearable style="min-width: 200px;" />
-        
+
         <n-select
           v-if="currentView === 'inProgress'"
           v-model:value="filterStatus"
           :options="statusFilterOptions"
           style="min-width: 140px;"
         />
-        
+
         <n-select
           v-model:value="filterMissing"
           :options="missingFilterOptions"
           style="min-width: 140px;"
         />
-        
+
         <n-select
           v-if="currentView === 'completed'"
           v-model:value="filterGaps"
           :options="gapsFilterOptions"
           style="min-width: 140px;"
         />
-        
+
         <n-select
           v-model:value="sortKey"
           :options="sortKeyOptions"
           style="min-width: 160px;"
         />
-        
+
         <n-button-group>
           <n-button @click="sortOrder = 'asc'" :type="sortOrder === 'asc' ? 'primary' : 'default'" ghost>
             <template #icon><n-icon :component="ArrowUpIcon" /></template>
@@ -106,12 +106,12 @@
       <div v-if="isLoading" class="center-container"><n-spin size="large" /></div>
       <div v-else-if="error" class="center-container"><n-alert title="加载错误" type="error" style="max-width: 500px;">{{ error }}</n-alert></div>
       <div v-else-if="filteredWatchlist.length > 0">
-        
+
         <!-- Grid 容器 -->
         <div class="responsive-grid">
-          <div 
-            v-for="(item, i) in renderedWatchlist" 
-            :key="item.tmdb_id" 
+          <div
+            v-for="(item, i) in renderedWatchlist"
+            :key="item.tmdb_id"
             class="grid-item"
           >
             <n-card class="dashboard-card series-card" :bordered="false">
@@ -120,22 +120,22 @@
                 @update:checked="(checked, event) => toggleSelection(item.tmdb_id, event, i)"
                 class="card-checkbox"
               />
-              
+
               <!-- ★★★ 核心结构：card-inner-layout 包裹层 ★★★ -->
               <div class="card-inner-layout">
-                
+
                 <!-- 左侧海报 -->
                 <div class="card-poster-container">
                   <n-image lazy :src="getPosterUrl(item.emby_item_ids_json)" class="card-poster" object-fit="cover">
                     <template #placeholder><div class="poster-placeholder"><n-icon :component="TvIcon" size="32" /></div></template>
                   </n-image>
-                  
+
                   <!-- 海报上的集数浮层 -->
                   <div class="poster-overlay">
                     <div class="overlay-content" @click.stop>
-                      <n-popover 
-                        trigger="click" 
-                        placement="top" 
+                      <n-popover
+                        trigger="click"
+                        placement="top"
                         style="padding: 10px;"
                         v-model:show="item.show_edit_popover"
                         @update:show="(show) => { if(show) tempTotalEpisodes = item.total_count || item.collected_count }"
@@ -145,20 +145,20 @@
                             {{ item.collected_count || 0 }} / {{ item.total_count || 0 }}
                           </span>
                         </template>
-                        
+
                         <!-- 修正总集数 -->
                         <div style="display: flex; flex-direction: column; gap: 8px; width: 180px;">
                           <n-text strong depth="1">修正总集数</n-text>
-                          <n-input-number 
-                            v-model:value="tempTotalEpisodes" 
-                            size="small" 
+                          <n-input-number
+                            v-model:value="tempTotalEpisodes"
+                            size="small"
                             :min="item.collected_count || 0"
                             placeholder="输入实际集数"
                           />
                           <n-space justify="end" size="small">
                             <!-- 取消按钮 (可选，点击关闭) -->
                             <n-button size="tiny" @click="item.show_edit_popover = false">取消</n-button>
-                            
+
                             <n-button size="tiny" @click="tempTotalEpisodes = item.collected_count">
                               填入当前
                             </n-button>
@@ -264,15 +264,15 @@
                       </template>
                     </n-space>
                   </div>
-                  
+
                   <!-- 进度条作为分隔线 -->
                   <div class="progress-separator">
-                    <n-progress 
-                      type="line" 
-                      :percentage="calculateProgress(item)" 
+                    <n-progress
+                      type="line"
+                      :percentage="calculateProgress(item)"
                       :status="getProgressStatus(item)"
                       :color="getProgressColor(item)"
-                      :height="3" 
+                      :height="3"
                       :show-indicator="false"
                       :border-radius="0"
                       :processing="calculateProgress(item) < 100"
@@ -300,7 +300,7 @@
                       <template #trigger>
                         <n-button
                           circle
-                          :loading="refreshingItems[item.parent_tmdb_id]" 
+                          :loading="refreshingItems[item.parent_tmdb_id]"
                           @click="() => triggerSingleRefresh(item.parent_tmdb_id, item.item_name)"
                         >
                           <template #icon><n-icon :component="SyncOutline" /></template>
@@ -488,13 +488,14 @@
   </n-layout>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, shallowRef, triggerRef, onMounted, onBeforeUnmount, h, computed, watch } from 'vue';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import { NLayout, NPageHeader, NDivider, NEmpty, NTag, NButton, NSpace, NIcon, useMessage, useDialog, NPopconfirm, NTooltip, NCard, NImage, NEllipsis, NSpin, NAlert, NRadioGroup, NRadioButton, NModal, NTabs, NTabPane, NList, NListItem, NCheckbox, NDropdown, NInput, NSelect, NButtonGroup, NProgress, useThemeVars, NPopover, NInputNumber, NSwitch } from 'naive-ui';
 import { SyncOutline, TvOutline as TvIcon, TrashOutline as TrashIcon, EyeOutline as EyeIcon, CalendarOutline as CalendarIcon, TimeOutline as TimeIcon, PlayCircleOutline as WatchingIcon, PauseCircleOutline as PausedIcon, CheckmarkCircleOutline as CompletedIcon, ScanCircleOutline as ScanIcon, CaretDownOutline as CaretDownIcon, FlashOffOutline as ForceEndIcon, ArrowUpOutline as ArrowUpIcon, ArrowDownOutline as ArrowDownIcon, DownloadOutline as DownloadIcon, AlbumsOutline as CollectionsIcon, SettingsOutline as SettingsIcon, HourglassOutline as PendingIcon, TimerOutline as TimerIcon, RefreshCircleOutline as RefreshIcon, GitNetworkOutline as GapIcon, CloudDownloadOutline as BackfillIcon, EarthOutline as DoubanIcon, PaperPlaneOutline as PaperPlaneIcon } from '@vicons/ionicons5';
 import { format, parseISO } from 'date-fns';
-import { useConfig } from '../composables/useConfig.js';
+import { useConfig } from '../composables/useConfig.ts';
 
 // ... (Script 逻辑保持不变) ...
 const EmbyIcon = () => h('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 48 48", width: "18", height: "18" }, [
@@ -576,7 +577,7 @@ const fetchIntroDetectionLibraries = async () => {
   if (introDetectionLibrariesLoading.value || introDetectionLibraries.value.length > 0) return;
   introDetectionLibrariesLoading.value = true;
   try {
-    const { data } = await axios.get('/api/emby_libraries');
+    const { data } = await apiClient.get(apiPath('api_emby_libraries_c07717c8'));
     introDetectionLibraries.value = Array.isArray(data) ? data : [];
   } catch (e) {
     console.warn('获取 Emby 媒体库失败', e);
@@ -590,7 +591,7 @@ const openConfigModal = async () => {
   showConfigModal.value = true;
   fetchIntroDetectionLibraries();
   try {
-    const { data } = await axios.get('/api/watchlist/settings');
+    const { data } = await apiClient.get(apiPath('api_watchlist_settings_6d3d452d'));
     if (data) {
        watchlistConfig.value = buildWatchlistConfig(data);
     }
@@ -603,7 +604,7 @@ const saveConfig = async () => {
   configSaving.value = true;
   try {
     const payload = { ...watchlistConfig.value };
-    await axios.post('/api/watchlist/settings', payload);
+    await apiClient.post(apiPath('api_watchlist_settings_6d3d452d'), payload);
     watchlistConfig.value = buildWatchlistConfig(payload);
     message.success('配置保存成功');
     showConfigModal.value = false;
@@ -623,7 +624,7 @@ const triggerBackfillTask = async () => {
     onPositiveClick: async () => {
       isBackfilling.value = true;
       try {
-        const response = await axios.post('/api/tasks/run', { task_name: 'scan_old_seasons_backfill' });
+        const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: 'scan_old_seasons_backfill' });
         message.success(response.data.message || '补全任务已启动！');
       } catch (err) {
         message.error(err.response?.data?.error || '启动任务失败。');
@@ -653,7 +654,7 @@ const getMissingCountText = (item) => {
   const data = item.missing_info;
   const season_count = data?.missing_seasons?.length || 0;
   const gaps_count = (Array.isArray(data?.seasons_with_gaps) && data.seasons_with_gaps.length > 0) ? 1 : 0;
-  
+
   let parts = [];
   if (season_count > 0) parts.push(`缺 ${season_count} 季`);
   if (gaps_count > 0) parts.push(`有分集缺失`);
@@ -701,7 +702,7 @@ const batchActions = computed(() => {
       },
       removeAction
     ];
-  } 
+  }
   else if (currentView.value === 'completed') {
     const actions = [
       {
@@ -719,7 +720,7 @@ const batchActions = computed(() => {
     return actions;
   }
 
-  return []; 
+  return [];
 });
 
 const filteredWatchlist = computed(() => {
@@ -735,7 +736,7 @@ const filteredWatchlist = computed(() => {
   if (currentView.value === 'inProgress') {
     // --- 追剧中视图 ---
     list = list.filter(item => ['Watching', 'Paused', 'Pending'].includes(item.status) && (item.collected_count || 0) > 0);
-    
+
     if (filterStatus.value !== 'all') {
       list = list.filter(item => item.status === filterStatus.value);
     }
@@ -752,7 +753,7 @@ const filteredWatchlist = computed(() => {
 
   } else if (currentView.value === 'completed') {
     // --- 已完结视图：聚合逻辑 ---
-    
+
     // 1. 先找到所有包含至少一个“已完结”季度的父剧集 ID
     //    (如果不这样筛选，那些纯粹还在追、没有一季看完的剧也会跑进来)
     const completedParentIds = new Set(
@@ -764,21 +765,21 @@ const filteredWatchlist = computed(() => {
     const seasonsToAggregate = list.filter(item => completedParentIds.has(item.parent_tmdb_id));
 
     const groups = {};
-    
+
     // 3. 对所有相关季度进行遍历聚合
     seasonsToAggregate.forEach(season => {
       const pid = season.parent_tmdb_id;
       if (!groups[pid]) {
-        groups[pid] = { 
-          ...season, 
+        groups[pid] = {
+          ...season,
           item_name: season.item_name.replace(/ 第 \d+ 季$/, ''), // 去掉季号作为总标题
           collected_count: 0, // 重置计数，下面累加
           total_count: 0,     // 重置计数，下面累加
-          status: season.series_status, 
+          status: season.series_status,
           is_aggregated: true,
-          
-          seasons_contains: [], 
-          seasons_missing: [],  
+
+          seasons_contains: [],
+          seasons_missing: [],
           seasons_airing: [],
           seasons_force_ended: []
         };
@@ -787,10 +788,10 @@ const filteredWatchlist = computed(() => {
       // 累加集数
       groups[pid].collected_count += (season.collected_count || 0);
       groups[pid].total_count += (season.total_count || 0);
-      
+
       // ★★★ 分类逻辑 ★★★
       const isInLibrary = (season.collected_count > 0);
-      
+
       if (isInLibrary) {
         // 只要在库，就算包含
         // 注意：为了避免重复显示，通常 Completed 的才放入 seasons_contains，或者全部放入
@@ -801,7 +802,7 @@ const filteredWatchlist = computed(() => {
              // 如果在库但不是 Completed，通常也算 contains，但为了区分显示：
              groups[pid].seasons_contains.push(season.season_number);
         }
-        
+
         // 2. 判断是否连载中：在库 且 状态是 Watching/Paused
         if (season.status === 'Watching' || season.status === 'Paused') {
            groups[pid].seasons_airing.push(season.season_number);
@@ -814,7 +815,7 @@ const filteredWatchlist = computed(() => {
       if (season.force_ended) {
         groups[pid].seasons_force_ended.push(season.season_number);
       }
-      
+
       // 更新时间取最新的
       if (new Date(season.last_checked_at) > new Date(groups[pid].last_checked_at)) {
         groups[pid].last_checked_at = season.last_checked_at;
@@ -888,7 +889,7 @@ const formatSeasonRange = (numbers) => {
   return ranges.join(', ');
 };
 
-// 计算剧集层面的精致状态 
+// 计算剧集层面的精致状态
 const getSeriesStatusUI = (item) => {
   const tmdbStatus = item.tmdb_status;
   const internalStatus = item.status; // 'Watching', 'Paused', 'Completed', 'Pending'
@@ -911,7 +912,7 @@ const getSeriesStatusUI = (item) => {
           if (nextEp && nextEp.air_date) {
                return { text: '待回归', type: 'warning', icon: PausedIcon, color: undefined };
           }
-          
+
           return { text: '已完结', type: 'default', icon: CompletedIcon, color: undefined };
       }
   }
@@ -937,12 +938,12 @@ const emptyStateDescription = computed(() => {
 });
 
 const missingData = computed(() => {
-  const defaults = { 
-    missing_seasons: [], 
+  const defaults = {
+    missing_seasons: [],
     seasons_with_gaps: []
   };
   const infoFromServer = selectedSeries.value?.missing_info;
-  
+
   if (infoFromServer && !Array.isArray(infoFromServer.seasons_with_gaps)) {
     infoFromServer.seasons_with_gaps = [];
   }
@@ -1004,7 +1005,7 @@ const handleBatchAction = (key) => {
       negativeText: '取消',
       onPositiveClick: async () => {
         try {
-          const response = await axios.post('/api/watchlist/batch_force_end', { item_ids: seasonIds });
+          const response = await apiClient.post(apiPath('api_watchlist_batch_force_end_3c869c5d'), { item_ids: seasonIds });
           message.success(response.data.message || '批量操作成功！');
           await fetchWatchlist();
           selectedItems.value = [];
@@ -1024,10 +1025,10 @@ const handleBatchAction = (key) => {
       onPositiveClick: async () => {
         try {
           // ★★★ 传 parentIds 给后端 ★★★
-          const response = await axios.post('/api/watchlist/batch_update_status', { item_ids: parentIds, new_status: 'Watching' });
+          const response = await apiClient.post(apiPath('api_watchlist_batch_update_status_948f9b7b'), { item_ids: parentIds, new_status: 'Watching' });
           message.success(response.data.message || '批量操作成功！');
           // 重新追剧后，通常希望留在当前视图或刷新列表，这里简单刷新即可
-          await fetchWatchlist(); 
+          await fetchWatchlist();
           selectedItems.value = [];
           currentView.value = 'inProgress'; // 自动切回追剧中视图方便查看
         } catch (err) {
@@ -1046,7 +1047,7 @@ const handleBatchAction = (key) => {
       onPositiveClick: async () => {
         try {
           // ★★★ 传 parentIds 给后端 ★★★
-          const response = await axios.post('/api/watchlist/batch_remove', {
+          const response = await apiClient.post(apiPath('api_watchlist_batch_remove_5a325649'), {
             item_ids: parentIds
           });
           message.success(response.data.message || '批量删除成功！');
@@ -1063,7 +1064,7 @@ const handleBatchAction = (key) => {
 const addAllSeriesToWatchlist = async () => {
   isAddingAll.value = true;
   try {
-    const response = await axios.post('/api/tasks/run', { task_name: 'add-all-series-to-watchlist' });
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: 'add-all-series-to-watchlist' });
     message.success(response.data.message || '任务已成功提交！');
   } catch (err) {
     message.error(err.response?.data?.error || '启动扫描任务失败。');
@@ -1075,7 +1076,7 @@ const addAllSeriesToWatchlist = async () => {
 const triggerSingleRefresh = async (itemId, itemName) => {
   refreshingItems.value[itemId] = true;
   try {
-    await axios.post(`/api/watchlist/refresh/${itemId}`);
+    await apiClient.post(apiPath('api_watchlist_refresh_param_43c225f6', [itemId]));
     message.success(`《${itemName}》的刷新任务已提交！`);
     setTimeout(() => { fetchWatchlist(); }, 5000);
   } catch (err) {
@@ -1167,7 +1168,7 @@ const fetchWatchlist = async () => {
   isLoading.value = true;
   error.value = null;
   try {
-    const response = await axios.get('/api/watchlist');
+    const response = await apiClient.get(apiPath('api_watchlist_9d361cac'));
     rawWatchlist.value = response.data;
   } catch (err) {
     error.value = err.response?.data?.error || '获取追剧列表失败。';
@@ -1181,18 +1182,18 @@ const updateStatus = async (itemId, newStatus) => {
   if (!item) return;
 
   const oldStatus = item.status;
-  const parentId = item.parent_tmdb_id; 
+  const parentId = item.parent_tmdb_id;
 
   const relatedItems = rawWatchlist.value.filter(i => i.parent_tmdb_id === parentId);
   relatedItems.forEach(i => i.status = newStatus);
-  
+
   // ★★★ 核心修复：手动触发视图更新 ★★★
   triggerRef(rawWatchlist);
 
   try {
-    await axios.post('/api/watchlist/update_status', { 
-      item_id: parentId, 
-      new_status: newStatus 
+    await apiClient.post(apiPath('api_watchlist_update_status_cf9bc79c'), {
+      item_id: parentId,
+      new_status: newStatus
     });
     message.success('状态更新成功！');
   } catch (err) {
@@ -1205,14 +1206,14 @@ const updateStatus = async (itemId, newStatus) => {
 
 const removeFromWatchlist = async (seriesId, itemName) => {
   try {
-    await axios.post(`/api/watchlist/remove/${seriesId}`);
+    await apiClient.post(apiPath('api_watchlist_remove_param_0b970ecc', [seriesId]));
     message.success(`已将《${itemName}》从追剧列表删除。`);
-    
+
     // ★★★ 修正：比对 parent_tmdb_id，把该剧的所有季都移出视图 ★★★
     rawWatchlist.value = rawWatchlist.value.filter(i => i.parent_tmdb_id !== seriesId);
-    
+
     // 如果是在已完结视图（聚合模式），也需要确保清理干净
-    selectedItems.value = []; 
+    selectedItems.value = [];
   } catch (err) {
     message.error(err.response?.data?.error || '删除失败。');
   }
@@ -1221,7 +1222,7 @@ const removeFromWatchlist = async (seriesId, itemName) => {
 const triggerAllWatchlistUpdate = async () => {
   isBatchUpdating.value = true;
   try {
-    const response = await axios.post('/api/tasks/run', { task_name: 'process-watchlist' });
+    const response = await apiClient.post(apiPath('api_tasks_run_e0400fed'), { task_name: 'process-watchlist' });
     message.success(response.data.message || '所有追剧项目更新任务已启动！');
   } catch (err) {
     message.error(err.response?.data?.error || '启动更新任务失败。');
@@ -1274,7 +1275,7 @@ const getProgressColor = (item) => {
   const p = calculateProgress(item);
   // 如果进度 >= 100，返回 undefined，让组件自动变绿 (Success状态)
   if (p >= 100) return undefined;
-  
+
   // 如果未完成，返回当前主题的主色调
   return themeVars.value.primaryColor;
 };
@@ -1283,7 +1284,7 @@ const getProgressColor = (item) => {
 const saveTotalEpisodes = async (item) => {
   const newTotal = tempTotalEpisodes.value || item.collected_count;
   try {
-    await axios.post('/api/watchlist/update_total_episodes', {
+    await apiClient.post(apiPath('api_watchlist_update_total_episodes_5d5b276d'), {
       tmdb_id: item.tmdb_id,
       total_episodes: newTotal,
       item_type: 'Season'
@@ -1291,8 +1292,8 @@ const saveTotalEpisodes = async (item) => {
     message.success(`已将《${item.item_name}》总集数修正为 ${newTotal}`);
     item.total_count = newTotal;
     item.total_episodes_locked = true;
-    item.show_edit_popover = false; 
-    
+    item.show_edit_popover = false;
+
     // ★★★ 核心修复：手动触发视图更新 ★★★
     triggerRef(rawWatchlist);
   } catch (err) {
@@ -1362,12 +1363,12 @@ watch(loaderRef, (newEl, oldEl) => {
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   height: 100%;
   position: relative;
-  
+
   /* ★★★ 核心 1：设定基准字号，所有内部元素都将基于此缩放 ★★★ */
-  font-size: calc(14px * var(--card-scale, 1)); 
-  
+  font-size: calc(14px * var(--card-scale, 1));
+
   border-radius: calc(12px * var(--card-scale, 1));
-  overflow: hidden; 
+  overflow: hidden;
   border: 1px solid var(--n-border-color);
 }
 
@@ -1387,17 +1388,17 @@ watch(loaderRef, (newEl, oldEl) => {
 .series-card :deep(.n-tag),
 .series-card :deep(.n-text),
 .series-card :deep(.n-ellipsis) {
-  font-size: inherit !important; 
+  font-size: inherit !important;
 }
 
 /* 调整图标大小以适应缩放 */
 .series-card :deep(.n-icon) {
-  font-size: 1.2em !important; 
+  font-size: 1.2em !important;
 }
 
 /* 恢复内边距 */
 .series-card.dashboard-card > :deep(.n-card__content) {
-  padding: calc(10px * var(--card-scale, 1)) !important; 
+  padding: calc(10px * var(--card-scale, 1)) !important;
   display: flex !important;
   flex-direction: column !important;
   height: 100% !important;
@@ -1410,19 +1411,19 @@ watch(loaderRef, (newEl, oldEl) => {
   height: 100%;
   width: 100%;
   /* 关键：让海报和内容等高 */
-  align-items: stretch; 
+  align-items: stretch;
   gap: calc(12px * var(--card-scale, 1));
 }
 
 /* ★★★ 海报区域 ★★★ */
 .card-poster-container {
-  flex-shrink: 0; 
+  flex-shrink: 0;
   /* 宽度随比例缩放 */
   width: calc(130px * var(--card-scale, 1));
   /* 关键：高度设为 100%，让它自动填满父容器（父容器高度由右侧文字撑开） */
-  height: auto; 
-  min-height: 100%; 
-  
+  height: auto;
+  min-height: 100%;
+
   position: relative;
   background-color: rgba(0,0,0,0.1);
   border-radius: 8px;
@@ -1473,7 +1474,7 @@ watch(loaderRef, (newEl, oldEl) => {
   width: 100%;
   height: 100%;
   /* 关键：Cover 模式，确保填满且不变形 */
-  object-fit: cover !important; 
+  object-fit: cover !important;
   display: block;
   border-radius: 0 !important;
 }
@@ -1509,7 +1510,7 @@ watch(loaderRef, (newEl, oldEl) => {
 .card-title {
   font-weight: 600;
   /* 标题稍微大一点 */
-  font-size: 1.1em !important; 
+  font-size: 1.1em !important;
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1530,17 +1531,17 @@ watch(loaderRef, (newEl, oldEl) => {
   align-items: center;
   gap: 4px;
   /* 辅助文字稍微小一点 */
-  font-size: 0.9em !important; 
+  font-size: 0.9em !important;
   line-height: 1.4;
   opacity: 0.8;
 }
 
 /* ★★★ 底部按钮区域 ★★★ */
 .card-actions {
-  margin-top: auto; 
+  margin-top: auto;
   padding-top: 6px;
   display: flex;
-  justify-content: center; 
+  justify-content: center;
   align-items: center;
   gap: calc(8px * var(--card-scale, 1));
 }
@@ -1566,10 +1567,10 @@ watch(loaderRef, (newEl, oldEl) => {
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
-.series-card:hover .card-checkbox, 
-.card-checkbox.n-checkbox--checked { 
-  opacity: 1; 
-  visibility: visible; 
+.series-card:hover .card-checkbox,
+.card-checkbox.n-checkbox--checked {
+  opacity: 1;
+  visibility: visible;
 }
 
 .loader-trigger {
@@ -1595,7 +1596,7 @@ watch(loaderRef, (newEl, oldEl) => {
 /* ★★★ 修复进度条背景色在亮色模式下看不清的问题 ★★★ */
 .progress-separator :deep(.n-progress-graph-line-rail) {
   /* 亮色模式：使用深一点的灰色 (黑色的 15% 透明度) */
-  background-color: rgba(0, 0, 0, 0.15) !important; 
+  background-color: rgba(0, 0, 0, 0.15) !important;
 }
 
 /* 暗色模式适配 */
@@ -1751,40 +1752,40 @@ html.dark .progress-separator :deep(.n-progress-graph-line-rail) {
 @media (max-width: 768px) {
   .responsive-grid {
     /* 手机端强制单列，或者双列看情况。单列通常展示信息更全 */
-    grid-template-columns: 1fr; 
+    grid-template-columns: 1fr;
     gap: 12px;
   }
-  
+
   /* 修复卡片右侧切割：确保卡片内部容器不溢出 */
   .series-card {
     width: 100%; /* 强制占满 Grid 单元格 */
     box-sizing: border-box; /* 包含边框和内边距 */
   }
-  
+
   /* 调整海报宽度，手机上稍微窄一点，给右侧留空间 */
   .card-poster-container {
     width: 100px !important; /* 覆盖原来的计算值 */
   }
-  
+
   /* 调整右侧内容区域 */
   .card-content-container {
     /* 关键：防止 flex 子项溢出 */
-    min-width: 0; 
+    min-width: 0;
     width: 0; /* 配合 flex-grow: 1 使用，强制触发文本截断 */
     flex: 1;
   }
-  
+
   /* 调整标题大小 */
   .card-title {
     font-size: 1em !important;
   }
-  
+
   /* 调整底部按钮间距 */
   .card-actions {
     gap: 4px;
     justify-content: flex-start; /* 手机端靠左对齐可能更好，或者保持居中 */
   }
-  
+
   /* 隐藏部分不重要的图标/文字以节省空间 */
   .info-line {
     font-size: 0.85em;

@@ -77,10 +77,11 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, watch, h, computed, nextTick } from 'vue';
 import { NModal, NSpin, NAlert, NTabs, NTabPane, NDataTable, NTag, NButton, NSpace, NPopconfirm, useMessage, NImage, NTooltip, NEmpty } from 'naive-ui';
-import axios from 'axios';
+import apiClient, { apiPath } from '@/api/client'
 import SubscriptionConfigForm from './SubscriptionConfigForm.vue';
 
 const props = defineProps({
@@ -216,7 +217,7 @@ const fetchDetails = async (id) => {
   error.value = null;
   subscriptionData.value = null;
   try {
-    const response = await axios.get(`/api/actor-subscriptions/${id}`);
+    const response = await apiClient.get(apiPath('api_actor_subscriptions_param_9db6d3cd', [id]));
     subscriptionData.value = response.data;
     resetConfig();
 
@@ -260,7 +261,7 @@ const saveConfig = async () => {
     const payload = {
       config: editableConfig.value
     };
-    await axios.put(`/api/actor-subscriptions/${props.subscriptionId}`, payload);
+    await apiClient.put(apiPath('api_actor_subscriptions_param_9db6d3cd', [props.subscriptionId]), payload);
     
     message.success('配置已成功保存！');
     emit('subscription-updated');
@@ -273,7 +274,7 @@ const saveConfig = async () => {
 const handleDelete = async () => {
   if (!props.subscriptionId) return;
   try {
-    await axios.delete(`/api/actor-subscriptions/${props.subscriptionId}`);
+    await apiClient.delete(apiPath('api_actor_subscriptions_param_9db6d3cd', [props.subscriptionId]));
     message.success('订阅已成功删除！');
     emit('subscription-deleted');
     emit('update:show', false);
@@ -285,7 +286,7 @@ const handleDelete = async () => {
 const handleRefresh = async () => {
   if (!props.subscriptionId) return;
   try {
-    await axios.post(`/api/actor-subscriptions/${props.subscriptionId}/refresh`);
+    await apiClient.post(apiPath('api_actor_subscriptions_param_refresh_2ecf5f6c', [props.subscriptionId]));
     message.success('手动刷新任务已提交到后台！请稍后查看任务状态。');
     emit('update:show', false);
   } catch (err) {
@@ -309,7 +310,7 @@ const handleToggleStatus = async () => {
         min_rating: currentConfig.min_rating
       }
     };
-    await axios.put(`/api/actor-subscriptions/${props.subscriptionId}`, payload);
+    await apiClient.put(apiPath('api_actor_subscriptions_param_9db6d3cd', [props.subscriptionId]), payload);
     message.success(`订阅已成功${actionText}！`);
     emit('subscription-updated');
     await fetchDetails(props.subscriptionId);
