@@ -102,7 +102,11 @@ def _component(block: str) -> tuple[str | None, str | None]:
 
 
 def export_frontend_routes() -> dict[str, Any]:
-    path = REPO_ROOT / "frontend/src/router/index.js"
+    router_candidates = (
+        REPO_ROOT / "frontend/src/router/index.ts",
+        REPO_ROOT / "frontend/src/router/index.js",
+    )
+    path = next((candidate for candidate in router_candidates if candidate.exists()), router_candidates[0])
     text = path.read_text(encoding="utf-8-sig")
     routes: list[dict[str, Any]] = []
     for offset, block in _route_objects(text):
@@ -152,7 +156,8 @@ def export_frontend_routes() -> dict[str, Any]:
     return {
         "schema_version": 1,
         "generator": "scripts/refactor/export_frontend_routes.py",
-        "source_scope": ["frontend/src/router/index.js", "frontend/src/**/*.vue"],
+        "source_scope": [relative_path(path), "frontend/src/**/*.vue"],
+        "router_source": relative_path(path),
         "metrics": {
             "vue_file_count": len(vue_files),
             "route_entry_count": len(routes),

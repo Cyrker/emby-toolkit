@@ -142,7 +142,7 @@ def export_all(output_dir: Path, verify_counts: bool = True) -> dict[str, Any]:
         "metrics": actual,
         "expected": EXPECTED,
         "mismatches": mismatches,
-        "legacy_source_sha256": _source_digest([*python_files, *frontend["vue_files"], "frontend/src/router/index.js"]),
+        "legacy_source_sha256": _source_digest([*python_files, *frontend["vue_files"], frontend["router_source"]]),
         "legacy_python_files": python_files,
         "vue_files": frontend["vue_files"],
     }
