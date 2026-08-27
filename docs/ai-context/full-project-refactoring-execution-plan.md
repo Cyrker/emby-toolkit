@@ -889,7 +889,8 @@ uv run pyright src/etk/platform src/etk/bootstrap
   immutable artifact、durable maintenance 202、固定 409 冲突、保护表和 overwrite denylist）。P8 阶段末
   完整门禁、PostgreSQL 18/Redis-Celery、Manifest/OpenAPI、frontend build、高风险事务 review 和阶段集成
   review 均已通过；frontend 当前仍没有 TypeScript typecheck 工具链，留待 P10。
-- P8 状态为 `DONE`；checkpoint 为 `334f630a`，阶段收口证据保存在
+- P8 状态为 `DONE`；P8-EFFECTS 批次 checkpoint 为 `334f630a`，其后验证契约修复为
+  `291d23ca`（不新增 P8 批次），阶段收口证据保存在
   `/tmp/etk-refactor-artifacts/p8-effects-20260827/`。
 
 #### 范围

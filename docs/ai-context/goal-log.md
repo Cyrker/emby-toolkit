@@ -1296,9 +1296,9 @@ Stage / Batch: P8 / stage close
 
 HEAD / Commit:
 
-- `334f630a` (`refactor(p8): migrate secondary domain effects`) remains the sole P8-EFFECTS checkpoint.
-- Evidence-backed verification-contract repairs are pending the next local checkpoint; they do not create a
-  third P8 batch.
+- `334f630a` (`refactor(p8): migrate secondary domain effects`) remains the sole P8-EFFECTS batch checkpoint.
+- `291d23ca` (`fix(p8): align post-checkpoint verification contracts`) records the evidence-backed verification
+  repairs; it is not a third P8 batch or checkpoint.
 
 Implemented:
 
@@ -1329,7 +1329,7 @@ Pending:
 
 Blocker: none for P8 Local Code Complete.
 
-Next: update the local checkpoint for the evidence-backed P8 verification repairs, then start P9-LEDGER.
+Next: start P9-LEDGER from the repaired P8 head `291d23ca`.
 
 ### P8-EFFECTS
 
@@ -1338,7 +1338,8 @@ Stage / Batch: P8 / P8-EFFECTS
 HEAD / Commit:
 
 - Pre-batch HEAD: `23980f8c` (`P8-LOCAL`).
-- P8-EFFECTS checkpoint: the commit containing this entry; no amend, push, deploy, or release.
+- `334f630a` is the sole P8-EFFECTS batch checkpoint; `291d23ca` contains the
+  evidence-backed verification-contract repairs and does not create a third P8 batch.
 
 Implemented:
 
@@ -1371,23 +1372,68 @@ Targeted gate:
 
 Stage full gate:
 
-- Pending until after this single P8-EFFECTS checkpoint: one P8 stage-close Ruff/Pyright/pytest/PG18/
-  Redis-Celery/Manifest/OpenAPI/secret-scan run, frontend build, high-risk transaction review and
-  P8 integration review.
+- Passed after the batch: Ruff/format/Pyright/compileall clean; default verification `1676 passed,
+  468 skipped, 1 warning`; PostgreSQL 18 cross-stage `416 passed, 1 warning`; Redis/Celery `11 passed`;
+  Manifest/OpenAPI/secret scans clean; frontend build succeeded; focused transaction and integration
+  reviews clean with the documented suppression-marker race as a non-blocking residual.
 
 Pending:
 
-- Create the sole P8-EFFECTS checkpoint, then run the P8 stage-close full gate. Keep Live Acceptance
-  `HUMAN_PENDING`.
+- Frontend typecheck remains pending until P10 because no `typecheck` script, `tsc`/`vue-tsc`, or
+  `tsconfig.json` exists. Live Acceptance remains `HUMAN_PENDING`.
 
 Blocker: none.
 
-Next: after the P8 stage-close gate, continue in order with P9-LEDGER, P9-ADAPTERS and P9-PROXY.
+Next: continue in order with P9-LEDGER, P9-ADAPTERS and P9-PROXY.
 
 Safety boundary:
 
 - No real Emby, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old `/config`,
   external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
+## P9
+
+### P9-LEDGER
+
+Stage / Batch: P9 / P9-LEDGER
+
+HEAD / Commit:
+
+- Batch checkpoint is the commit containing this entry; no amend, push, deploy, or release.
+
+Implemented:
+
+- Added `sharing_operations` with deterministic operation identity, scope conflict fencing, claim/lease
+  recovery, terminal state transitions and identifier-only transactional Outbox payloads.
+- Added `sharing_credit_accounts` and append-only `sharing_credit_ledger`. Account-row locking makes
+  concurrent debits atomic; idempotent replay returns the original entry, conflicting reuse is rejected,
+  and compensation is an explicit positive Ledger entry.
+- Added `SharingLedgerService`, in-memory Fake coverage, and a PostgreSQL 18 migration/integration slice.
+  Durable request payloads reject secret fields.
+
+Targeted gate:
+
+- Sharing application tests: `5 passed`.
+- PostgreSQL 18 sharing migration/Ledger tests: `2 passed`.
+- Scoped Ruff, format, Pyright and compileall: clean.
+
+Stage full gate:
+
+- Pending until P9-ADAPTERS and P9-PROXY are complete.
+
+Pending:
+
+- Shared-center, Telegram and HDHive typed adapters, native route/effect wiring, then isolated ASGI
+  HTTP/WebSocket Proxy with virtual IDs, pagination, leases and resource cleanup.
+
+Blocker: none.
+
+Next: P9-ADAPTERS.
+
+Safety boundary:
+
+- Only local Fake/Stub and disposable PostgreSQL 18 were used; no real external system, old `/config`,
+  production database, external write, push, deployment or release was used.
 
 ## LIVE
 
