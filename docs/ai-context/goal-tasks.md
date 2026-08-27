@@ -27,7 +27,7 @@ Allowed status:
 | P6 | Plan §10 P6 | Migrate 115, ingestion, monitoring, STRM, media info, and playback | DONE | yes | `goal-log.md#p6` | P6.1-P6.10 locally complete; external writes use Fake/Stub adapters and Live remains pending |
 | P7 | Plan §10 P7 | Migrate subscriptions, watchlist, actors, washing, and MoviePilot adapter | DONE | yes | `goal-log.md#p7` | three batches complete; PG18/Redis-Celery/full verification and clean reviews passed |
 | P8 | Plan §10 P8 | Migrate collections, covers, users, discovery, and secondary administration | DONE | yes | `goal-log.md#p8-stage-close` | P8-LOCAL/P8-EFFECTS checkpoints and stage-close full gate/reviews passed; frontend typecheck unavailable until P10 |
-| P9 | Plan §10 P9 | Migrate sharing, credit ledger, proxy, Telegram, and HDHive | DOING | yes | `goal-log.md#p9-ledger` | P9-LEDGER complete; P9-ADAPTERS and P9-PROXY remain |
+| P9 | Plan §10 P9 | Migrate sharing, credit ledger, proxy, Telegram, and HDHive | LOCAL_DONE | yes | `goal-log.md#p9-stage-close` | P9-LEDGER, P9-ADAPTERS and P9-PROXY targeted gates, PostgreSQL 18, Redis/Celery, manifests and reviews passed; Live remains HUMAN_PENDING |
 | P10 | Plan §10 P10 | Migrate frontend to TypeScript, generated OpenAPI client, Vue Query, Vitest, and E2E | TODO | yes | pending | |
 | P11 | Plan §10 P11 | Remove active legacy runtime and pass non-functional gates | TODO | yes | pending | legacy deletion only after manifest ownership reaches 100% |
 | P12 | Plan §10 P12 local | Destroy, rebuild, and re-verify an isolated Greenfield Compose environment twice | TODO | yes | pending | no production or real external writes |

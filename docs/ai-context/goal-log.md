@@ -1435,6 +1435,38 @@ Safety boundary:
 - Only local Fake/Stub and disposable PostgreSQL 18 were used; no real external system, old `/config`,
   production database, external write, push, deployment or release was used.
 
+### P9-STAGE-CLOSE
+
+Stage / Batch: P9 / stage close
+
+Status: LOCAL_DONE
+
+HEAD / Checkpoints:
+
+- `5e2ff150` (`refactor(p9): add contribution ledger`)
+- `4d73a33c` (`refactor(p9): migrate sharing adapters`)
+- `ed5f3e6e` (`refactor(p9): migrate sharing proxy`)
+- `355c4625` (`fix(p9): align cross-stage verification contracts`)
+- `7a95ad1d` (`fix(p9): rearm sharing operation outbox`)
+
+Implemented and reviewed:
+
+- Sharing contribution Ledger uses account-row locking, append-only entries, deterministic idempotency and explicit compensation; sharing operations enforce scope fencing, claim leases, terminal state transitions and identifier-only Outbox payloads.
+- Shared Center, Telegram and HDHive typed adapters use bounded transport policy; reads may retry, mutations do not replay, and transport/timeout/5xx/invalid JSON outcomes remain rejected, retryable or indeterminate as appropriate. Four P9 native Worker task types are registered exactly once.
+- Independent ASGI Proxy covers virtual library IDs, visibility, sorting/pagination, playback redirects, non-ETK rejection, WebSocket behavior and persistent playback leases with advisory-lock concurrency, identity refresh, release and expiry reclaim.
+- Fixed sharing Outbox claim/terminal completion and retry/lease-expiry rearm in one transaction; PostgreSQL 18 regression covers pending/processed transitions and stale-claim recovery.
+
+Targeted and stage gates:
+
+- P9 application + PostgreSQL 18 tests: `36 passed`, one expected Starlette WSGI deprecation warning.
+- Complete PostgreSQL 18 integration: `474 passed, 11 skipped` (only explicit Redis/Celery opt-in tests skipped in this command).
+- Disposable PostgreSQL 18 + Redis 7 + Celery process gate: `11 passed`.
+- Full application suite: `1464 passed`, one expected warning; contracts/architecture: `89 passed`, one expected warning.
+- Scoped Ruff check/format, Pyright, compileall, Manifest/OpenAPI and fixture secret scans are clean; OpenAPI remains `256 paths / 303 operations`.
+- Review result: no P0/P1/P2 blocker. Real Emby/115/MoviePilot/shared center/Telegram/HDHive and production systems remain outside scope; Live Acceptance stays `HUMAN_PENDING`.
+
+Next: start P10 only after the P3-P9 backend contract baseline is frozen.
+
 ## LIVE
 
 Status: HUMAN_PENDING
