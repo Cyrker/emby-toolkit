@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
@@ -73,3 +74,66 @@ def test_postgres_sharing_operation_stages_identifier_only_outbox(p9_runtime) ->
             {"operation_id": str(operation.id)},
         ).scalar_one()
     assert set(row) == {"operation_id", "operation_key", "request_hash", "sequence"}
+
+
+def test_postgres_sharing_operation_outbox_claim_retry_expiry_and_terminal_lifecycle(p9_runtime) -> None:
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    operation = repository.reserve(
+        SharingOperationIntent.create(
+            kind=SharingOperationKind.TRANSFER,
+            scope_key="source:lifecycle",
+            principal_id="device-lifecycle",
+            request={"source_id": "lifecycle", "amount": 1},
+            idempotency_key="lifecycle-1",
+        )
+    )
+
+    def outbox_status() -> tuple[str, object]:
+        with p9_runtime.engine.connect() as connection:
+            return connection.execute(
+                text("SELECT status, processed_at FROM outbox_events WHERE aggregate_id = :operation_id"),
+                {"operation_id": str(operation.id)},
+            ).one()
+
+    status, processed_at = outbox_status()
+    assert status == "pending"
+    assert processed_at is None
+
+    claimed = repository.claim_by_id(operation.id, worker_id="worker-lifecycle", lease_seconds=60)
+    assert claimed is not None
+    assert claimed.claim_token is not None
+    status, processed_at = outbox_status()
+    assert status == "processed"
+    assert processed_at is not None
+
+    retried = repository.mark_retryable(
+        operation.id,
+        claimed.claim_token,
+        error={"type": "temporary"},
+        retry_after_seconds=0,
+    )
+    assert retried.status.value == "retryable"
+    status, processed_at = outbox_status()
+    assert status == "pending"
+    assert processed_at is None
+
+    reclaimed = repository.claim_by_id(operation.id, worker_id="worker-lifecycle-2", lease_seconds=1)
+    assert reclaimed is not None
+    assert reclaimed.claim_token is not None
+    expired_at = (reclaimed.lease_expires_at or datetime.now(UTC)) + timedelta(seconds=1)
+    assert repository.expire_stale_claims(now=expired_at) == 1
+    status, processed_at = outbox_status()
+    assert status == "pending"
+    assert processed_at is None
+
+    terminal = repository.claim_by_id(operation.id, worker_id="worker-lifecycle-3", lease_seconds=60, now=expired_at)
+    assert terminal is not None
+    assert terminal.claim_token is not None
+    repository.mark_indeterminate(
+        operation.id,
+        terminal.claim_token,
+        error={"type": "provider_unknown"},
+    )
+    status, processed_at = outbox_status()
+    assert status == "processed"
+    assert processed_at is not None

@@ -276,6 +276,7 @@ class PostgresSharingOperationRepository:
                 SharingOperationStatus.REQUESTING,
                 SharingOperationStatus.AWAITING_READBACK,
             ),
+            complete=True,
         )
 
     def mark_rejected(
@@ -300,6 +301,7 @@ class PostgresSharingOperationRepository:
                 SharingOperationStatus.REQUESTING,
                 SharingOperationStatus.AWAITING_READBACK,
             ),
+            complete=True,
         )
 
     def mark_indeterminate(
@@ -326,6 +328,7 @@ class PostgresSharingOperationRepository:
                 SharingOperationStatus.REQUESTING,
                 SharingOperationStatus.AWAITING_READBACK,
             ),
+            complete=True,
         )
 
     def expire_stale_claims(self, *, limit: int = 100, now: datetime | None = None) -> int:
@@ -336,7 +339,7 @@ class PostgresSharingOperationRepository:
                 text(
                     """
                         WITH stale AS (
-                            SELECT id FROM sharing_operations
+                            SELECT * FROM sharing_operations
                             WHERE status IN ('claimed','requesting') AND lease_expires_at <= :now
                             ORDER BY event_sequence ASC LIMIT :limit FOR UPDATE SKIP LOCKED
                         )
@@ -347,6 +350,7 @@ class PostgresSharingOperationRepository:
                             error_json = CAST(:error_json AS jsonb),
                             state_revision = state_revision + 1, updated_at = :now
                         WHERE id IN (SELECT id FROM stale)
+                        RETURNING *
                         """
                 ),
                 {
@@ -355,7 +359,10 @@ class PostgresSharingOperationRepository:
                     "error_json": json.dumps({"type": "sharing_claim_expired"}),
                 },
             )
-            count = int(getattr(result, "rowcount", 0) or 0)
+            rows = result.mappings().all()
+            for row in rows:
+                self._stage_outbox(uow, _operation(row))
+            count = len(rows)
             uow.commit()
             return count
 
@@ -399,6 +406,7 @@ class PostgresSharingOperationRepository:
         *,
         allowed: tuple[SharingOperationStatus, ...],
         stage: bool = False,
+        complete: bool = False,
     ) -> SharingOperation:
         token = claim_token
         allowed_values = [status.value for status in allowed]
@@ -440,6 +448,8 @@ class PostgresSharingOperationRepository:
                 SharingOperationStatus.AWAITING_READBACK,
             }:
                 self._stage_outbox(uow, operation)
+            if complete:
+                self._complete_outbox(uow, operation.id)
             uow.commit()
             return operation
 
@@ -455,10 +465,11 @@ class PostgresSharingOperationRepository:
                     :id, :event_key, :topic, :aggregate_type, :aggregate_id, 1,
                     CAST(:payload_json AS jsonb), 'pending', :available_at, 20
                 ) ON CONFLICT(event_key) DO UPDATE SET
-                    status = CASE WHEN outbox_events.status = 'processed' THEN outbox_events.status ELSE 'pending' END,
+                    status = 'pending',
                     available_at = EXCLUDED.available_at,
                     claimed_by = NULL, claim_token = NULL, claimed_at = NULL,
                     processed_at = NULL, published_at = NULL, updated_at = NOW()
+                WHERE outbox_events.status <> 'dead'
                 """
             ),
             {
@@ -486,9 +497,12 @@ class PostgresSharingOperationRepository:
         uow.session.execute(
             text(
                 """
-                UPDATE outbox_events SET processed_at = NULL, updated_at = NOW()
+                UPDATE outbox_events
+                SET status = 'processed', processed_at = COALESCE(processed_at, NOW()),
+                    claimed_by = NULL, claim_token = NULL, claimed_at = NULL,
+                    updated_at = NOW()
                 WHERE topic = :topic AND aggregate_type = :aggregate_type
-                  AND aggregate_id = :aggregate_id AND status IN ('pending','published')
+                  AND aggregate_id = :aggregate_id AND status <> 'dead'
                 """
             ),
             {
