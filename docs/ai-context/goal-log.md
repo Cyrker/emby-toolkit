@@ -1290,6 +1290,47 @@ Safety boundary:
 - No real Emby, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old `/config`,
   external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P8-STAGE-CLOSE
+
+Stage / Batch: P8 / stage close
+
+HEAD / Commit:
+
+- `334f630a` (`refactor(p8): migrate secondary domain effects`) remains the sole P8-EFFECTS checkpoint.
+- Evidence-backed verification-contract repairs are pending the next local checkpoint; they do not create a
+  third P8 batch.
+
+Implemented:
+
+- Closed P8-EFFECTS, including the confirmed Database Maintenance contract and all durable effect/Worker paths.
+- Refreshed cross-stage task/catalog/schema expectations exposed by the full gate without changing runtime or
+  migration behavior.
+
+Targeted gate:
+
+- Required regressions: `29 passed, 1 warning`; PostgreSQL 18 identity regression: `20 passed`.
+- P8-EFFECTS targeted gate: Ruff/format/Pyright clean, application `154 passed`, PostgreSQL 18 `123 passed`,
+  Manifest/OpenAPI/fixture secret scan/diff check clean.
+
+Stage full gate:
+
+- Final run: Ruff clean; format `552 files already formatted`; Pyright `0 errors, 0 warnings, 0 informations`;
+  compileall clean; default verification `1676 passed, 468 skipped, 1 warning`; PostgreSQL 18 cross-stage
+  integration `416 passed, 1 warning`; Redis/Celery `11 passed`; Manifest/OpenAPI and all three secret scans
+  clean; frontend build succeeded.
+- High-risk transaction review and P8 integration review are clean with the suppression-marker read/receipt
+  race retained as a non-blocking residual.
+
+Pending:
+
+- Frontend typecheck was not run: `frontend/package.json` has no `typecheck` script and no `tsc`/`vue-tsc` or
+  `tsconfig.json`; this belongs to P10.
+- Live Acceptance remains `HUMAN_PENDING`.
+
+Blocker: none for P8 Local Code Complete.
+
+Next: update the local checkpoint for the evidence-backed P8 verification repairs, then start P9-LEDGER.
+
 ### P8-EFFECTS
 
 Stage / Batch: P8 / P8-EFFECTS
@@ -1367,5 +1408,4 @@ Read first:
 
 Next:
 
-- Continue with `P8-EFFECTS`, starting with the registration and Telegram-token P0 findings. Keep all
-  Live Acceptance items pending.
+- Start `P9-LEDGER`, then `P9-ADAPTERS` and `P9-PROXY` in order. Keep all Live Acceptance items pending.

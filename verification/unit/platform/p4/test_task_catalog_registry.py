@@ -14,6 +14,7 @@ from etk.platform.tasks import (
     P5_NATIVE_TASK_KEYS,
     P6_NATIVE_TASK_KEYS,
     P7_NATIVE_TASK_KEYS,
+    P8_NATIVE_TASK_KEYS,
     LegacyTaskAdapter,
     ProcessorIdentity,
     TaskHandlerKind,
@@ -42,11 +43,11 @@ def test_frozen_registry_preserves_all_50_legacy_definitions_and_context_orders(
     assert len(definitions) == 50
     assert {definition.processor for definition in definitions} == set(ProcessorIdentity)
     assert {definition.key for definition in definitions if definition.handler_kind is TaskHandlerKind.NATIVE} == (
-        P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS | P7_NATIVE_TASK_KEYS
+        P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS | P7_NATIVE_TASK_KEYS | P8_NATIVE_TASK_KEYS
     )
-    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 19
-    assert fixture["metrics"]["native_handler_count"] == 31
-    assert fixture["metrics"]["legacy_adapter_count"] == 19
+    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 5
+    assert fixture["metrics"]["native_handler_count"] == 45
+    assert fixture["metrics"]["legacy_adapter_count"] == 5
     assert [definition.key for definition in registry.available(TaskVisibility.ALL)] == fixture["contexts"]["all"]
     assert [definition.key for definition in registry.available(TaskVisibility.CHAIN)] == fixture["contexts"]["chain"]
     assert [definition.key for definition in registry.available(TaskVisibility.MANUAL)] == fixture["contexts"]["manual"]
@@ -219,12 +220,12 @@ def test_legacy_adapter_resolves_callable_and_processor_only_during_execute() ->
     adapter = LegacyTaskAdapter(registry, Resolver())
     assert calls == []
 
-    message = registry.create_message("process-single-custom-collection", {"custom_collection_id": 42})
+    message = registry.create_message("backfill-organize-record-tmdb-ids", {"custom_collection_id": 42})
     result = adapter.execute(message)
 
     assert result == "completed"
     assert calls == [
-        ("resolve", "process-single-custom-collection", ProcessorIdentity.MEDIA),
+        ("resolve", "backfill-organize-record-tmdb-ids", ProcessorIdentity.MEDIA),
         ("handler", resolved_processor, {"custom_collection_id": 42}),
     ]
 
@@ -242,14 +243,14 @@ def test_legacy_adapter_rejects_native_keys_and_registry_mismatches_before_resol
         adapter.execute(registry.create_message("task-chain-high-freq"))
 
     wrong_processor = TaskMessage.create(
-        task_key="process-single-custom-collection",
+        task_key="backfill-organize-record-tmdb-ids",
         processor=ProcessorIdentity.ACTOR,
     )
     with pytest.raises(ValueError, match="processor identity"):
         adapter.execute(wrong_processor)
 
     wrong_version = TaskMessage.create(
-        task_key="process-single-custom-collection",
+        task_key="backfill-organize-record-tmdb-ids",
         processor=ProcessorIdentity.MEDIA,
         payload_version=2,
     )
@@ -259,7 +260,7 @@ def test_legacy_adapter_rejects_native_keys_and_registry_mismatches_before_resol
 
 def test_transport_and_adapter_revalidate_mutated_payloads_before_resolution() -> None:
     registry = _registry()
-    message = registry.create_message("process-single-custom-collection", {"custom_collection_id": 42})
+    message = registry.create_message("backfill-organize-record-tmdb-ids", {"custom_collection_id": 42})
     cast(dict[str, object], message.payload.data)["callable"] = lambda: None
 
     class Resolver:

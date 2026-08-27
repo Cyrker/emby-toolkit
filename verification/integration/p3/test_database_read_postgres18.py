@@ -40,6 +40,12 @@ GREENFIELD_TABLES = {
     "ingestion_pending_bindings",
     "identity_avatar_artifacts",
     "identity_operations",
+    "identity_projection_clock",
+    "identity_user_tombstones",
+    "portal_subscription_requests",
+    "collection_operations",
+    "database_backup_artifacts",
+    "database_maintenance_operations",
     "p115_upload_monitor_controls",
     "p115_upload_operations",
     "p115_playback_operations",
@@ -52,7 +58,7 @@ GREENFIELD_TABLES = {
     "subscription_runtime_states",
 }
 EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(GREENFIELD_TABLES)
-EXPECTED_MIGRATION_HEAD = "0016_p8_identity_operations"
+EXPECTED_MIGRATION_HEAD = "0017_p8_effects_and_maintenance"
 _FIXTURE_TABLES = (
     "failed_log",
     "processed_log",
@@ -262,7 +268,15 @@ def test_pg18_default_app_factory_serves_all_database_read_routes(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    del database_runtime
+    with database_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO emby_users (id, name, is_administrator, policy_json)
+                VALUES ('fixture-user', 'Fixture User', TRUE, '{}'::jsonb)
+                """
+            )
+        )
     secret_key = b"p3-pg18-default-app-session-key"
     monkeypatch.setenv("ETK_DATABASE_URL", migrated_postgres18_url)
     data_dir = tmp_path / "config"
@@ -275,20 +289,24 @@ def test_pg18_default_app_factory_serves_all_database_read_routes(
     app.state.container.settings = app.state.container.settings.with_updates({"auth_enabled": False})
     cookie = LegacySessionCodec.from_secret_key(secret_key).dumps({"emby_user_id": "fixture-user"})
 
-    with TestClient(app) as client:
-        client.cookies.set("session", cookie)
-        responses = {
-            path: client.get(path)
-            for path in (
-                "/api/database/stats/core",
-                "/api/database/stats/library",
-                "/api/database/stats/system",
-                "/api/database/stats/rankings",
-                "/api/database/tables",
-                "/api/review_items",
-                "/api/review_reasons",
-            )
-        }
+    try:
+        with TestClient(app) as client:
+            client.cookies.set("session", cookie)
+            responses = {
+                path: client.get(path)
+                for path in (
+                    "/api/database/stats/core",
+                    "/api/database/stats/library",
+                    "/api/database/stats/system",
+                    "/api/database/stats/rankings",
+                    "/api/database/tables",
+                    "/api/review_items",
+                    "/api/review_reasons",
+                )
+            }
+    finally:
+        with database_runtime.engine.begin() as connection:
+            connection.execute(text("DELETE FROM emby_users WHERE id = 'fixture-user'"))
 
     assert all(response.status_code == 200 for response in responses.values())
     assert len(responses["/api/database/tables"].json()) == EXPECTED_TABLE_COUNT

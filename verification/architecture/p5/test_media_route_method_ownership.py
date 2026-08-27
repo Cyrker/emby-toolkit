@@ -15,7 +15,7 @@ from scripts.refactor.export_routes import P5_EMBY_ROUTE_PATHS, ROUTE_OWNERS, ex
 from scripts.refactor.export_tasks import P5_TASK_EXECUTION_OWNERS, export_tasks  # noqa: E402
 
 EXPECTED_MEDIA_OWNERSHIP = {
-    ("GET", "/api/search_emby_library"): (("operations",), "P8", "operations/review"),
+    ("GET", "/api/search_emby_library"): (("operations",), "P8", "media/secondary"),
     ("GET", "/api/media_for_editing/<item_id>"): (("media",), "P5", "media/cast-editor"),
     ("POST", "/api/update_media_cast_sa/<item_id>"): (("media",), "P5", "media/cast-editor"),
     ("GET", "/api/image_proxy"): (("media",), "P5", "media/image-delivery"),
@@ -24,14 +24,14 @@ EXPECTED_MEDIA_OWNERSHIP = {
     ("POST", "/api/preview_processed_cast/<item_id>"): (("media",), "P5", "media/cast-editor"),
     ("GET", "/api/emby_libraries"): (("media",), "P8", "media/library-query"),
     ("GET", "/api/emby/user/<user_id>/views"): (("users",), "P8", "users/integration-settings"),
-    ("GET", "/api/search_studios"): (("collection",), "P8", "collection/custom-collection"),
+    ("GET", "/api/search_studios"): (("collection",), "P8", "media/secondary"),
     ("POST", "/api/subscription/status"): (("subscription",), "P7", "subscription/state"),
     ("GET", "/api/subscriptions/all"): (("subscription",), "P7", "subscription/management"),
     ("POST", "/api/media/batch_delete"): (("subscription",), "P7", "subscription/management"),
     ("GET", "/api/subscription/strategy"): (("subscription",), "P7", "subscription/strategy"),
     ("POST", "/api/subscription/strategy"): (("subscription",), "P7", "subscription/strategy"),
-    ("GET", "/api/auto_tagging/rules"): (("media",), "P8", "media/auto-tagging"),
-    ("POST", "/api/auto_tagging/rules"): (("media",), "P8", "media/auto-tagging"),
+    ("GET", "/api/auto_tagging/rules"): (("media",), "P8", "media/secondary"),
+    ("POST", "/api/auto_tagging/rules"): (("media",), "P8", "media/secondary"),
     ("POST", "/api/auto_tagging/run_now"): (("media",), "P8", "media/auto-tagging"),
     ("POST", "/api/auto_tagging/clear_now"): (("media",), "P8", "media/auto-tagging"),
     ("POST", "/api/update_media_image/<item_id>"): (("media",), "P5", "media/image-editor"),
@@ -45,6 +45,14 @@ EXPECTED_MEDIA_OWNERSHIP = {
         "P5",
         "media/mediainfo-editor",
     ),
+}
+
+EXPECTED_MEDIA_BINDING_OWNERSHIP = {
+    **EXPECTED_MEDIA_OWNERSHIP,
+    ("GET", "/api/emby/user/<user_id>/views"): (("users",), "P8", "media/secondary-effects"),
+    ("GET", "/api/emby_libraries"): (("media",), "P8", "media/secondary-effects"),
+    ("POST", "/api/auto_tagging/run_now"): (("media",), "P8", "media/secondary-effects"),
+    ("POST", "/api/auto_tagging/clear_now"): (("media",), "P8", "media/secondary-effects"),
 }
 
 EXPECTED_BRIDGE_OWNERSHIP = {
@@ -101,7 +109,7 @@ def test_media_route_decorators_and_method_bindings_have_exact_method_level_owne
     assert len(media_decorators) == 26
     assert len(media_bindings) == 26
     assert _observed_ownership(media_decorators) == EXPECTED_MEDIA_OWNERSHIP
-    assert _observed_ownership(media_bindings) == EXPECTED_MEDIA_OWNERSHIP
+    assert _observed_ownership(media_bindings) == EXPECTED_MEDIA_BINDING_OWNERSHIP
     assert Counter(value[1] for value in EXPECTED_MEDIA_OWNERSHIP.values()) == {
         "P5": 13,
         "P7": 5,

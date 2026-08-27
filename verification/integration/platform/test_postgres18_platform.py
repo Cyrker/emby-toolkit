@@ -37,6 +37,12 @@ GREENFIELD_TABLES = {
     "ingestion_pending_bindings",
     "identity_avatar_artifacts",
     "identity_operations",
+    "identity_projection_clock",
+    "identity_user_tombstones",
+    "portal_subscription_requests",
+    "collection_operations",
+    "database_backup_artifacts",
+    "database_maintenance_operations",
     "p115_upload_monitor_controls",
     "p115_upload_operations",
     "p115_playback_operations",
@@ -90,6 +96,14 @@ P7_SUBSCRIBE_ASSISTANT_EXTENSION_NAMES = {
         "ck_sas_snapshot_claim",
     },
     "indexes": {"ix_sas_snapshot_claim_recovery"},
+}
+P8_IDENTITY_EXTENSION_NAMES = {
+    "columns": {"reservation_id", "reserved_at", "reservation_expires_at"},
+    "constraints": {
+        "fk_invitations_reservation_identity_operation",
+        "ck_invitations_reservation_fields",
+    },
+    "indexes": {"uq_invitations_reservation_id"},
 }
 
 
@@ -168,6 +182,12 @@ def test_pg18_alembic_schema_matches_legacy_catalog(migrated_postgres18_url: str
             for item in complete_catalog[family]
             if item["table"] == "subscribe_assistant_snapshots" and item["name"] in names
         } == names
+    for family, names in P8_IDENTITY_EXTENSION_NAMES.items():
+        assert {
+            item["name"]
+            for item in complete_catalog[family]
+            if item["table"] == "invitations" and item["name"] in names
+        } == names
 
 
 def _legacy_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
@@ -186,6 +206,7 @@ def _legacy_catalog(catalog: dict[str, Any]) -> dict[str, Any]:
                 item["table"] == "subscribe_assistant_snapshots"
                 and item["name"] in P7_SUBSCRIBE_ASSISTANT_EXTENSION_NAMES[family]
             )
+            and not (item["table"] == "invitations" and item["name"] in P8_IDENTITY_EXTENSION_NAMES[family])
         ]
     return filtered
 

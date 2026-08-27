@@ -18,6 +18,7 @@ from etk.platform.tasks.catalog import (
     P5_NATIVE_TASK_KEYS,
     P6_NATIVE_TASK_KEYS,
     P7_NATIVE_TASK_KEYS,
+    P8_NATIVE_TASK_KEYS,
 )
 from etk.processes.runtime_config import TaskRuntimeConfig
 from etk.processes.worker import (
@@ -601,14 +602,16 @@ def test_every_legacy_catalog_key_routes_negative_failure_evidence_to_worker_ter
 
     registry = TaskRegistry.from_fixture(TASK_FIXTURE)
     definitions = registry.definitions()
-    expected_native_keys = P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS | P7_NATIVE_TASK_KEYS
+    expected_native_keys = (
+        P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS | P7_NATIVE_TASK_KEYS | P8_NATIVE_TASK_KEYS
+    )
     native_keys = {definition.key for definition in definitions if definition.handler_kind is TaskHandlerKind.NATIVE}
     expected_legacy_keys = {definition.key for definition in definitions} - expected_native_keys
 
     assert native_keys == expected_native_keys
     assert {"restore_mediainfo", "repair-p115-fingerprints"} <= native_keys
     assert len(definitions) == 50
-    assert len(expected_legacy_keys) == 19
+    assert len(expected_legacy_keys) == 5
 
     class Resolver:
         @staticmethod

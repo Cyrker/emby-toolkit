@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -277,7 +278,7 @@ def test_default_bootstrap_registers_item_ready_and_durable_pending_binding(
         (),
         {
             "unit_of_work": staticmethod(lambda: None),
-            "raw_pool": object(),
+            "raw_pool": SimpleNamespace(connection=lambda: None),
             "engine": object(),
             "close": staticmethod(lambda: None),
         },

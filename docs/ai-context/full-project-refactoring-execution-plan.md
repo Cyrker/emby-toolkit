@@ -885,7 +885,12 @@ uv run pyright src/etk/platform src/etk/bootstrap
 - 用户活动事件的 native repository 与 durable receipt 已完成，但默认 DI 仍保留 legacy gateway；
   只有 `P8-EFFECTS` 提供 Episode resolver、外部 Adapter 和 effect executor 后才切换，避免本地批次
   提前接触真实 Emby。
-- P8 状态为 `DOING`；`P8-EFFECTS`、阶段完整门禁、聚焦 review 和阶段集成 review 仍待完成。
+- P8-EFFECTS 已完成，包含数据库维护合同（64 MiB compressed、256 MiB expanded、20x ratio、24h TTL、
+  immutable artifact、durable maintenance 202、固定 409 冲突、保护表和 overwrite denylist）。P8 阶段末
+  完整门禁、PostgreSQL 18/Redis-Celery、Manifest/OpenAPI、frontend build、高风险事务 review 和阶段集成
+  review 均已通过；frontend 当前仍没有 TypeScript typecheck 工具链，留待 P10。
+- P8 状态为 `DONE`；checkpoint 为 `334f630a`，阶段收口证据保存在
+  `/tmp/etk-refactor-artifacts/p8-effects-20260827/`。
 
 #### 范围
 
