@@ -25,17 +25,19 @@ export interface ApiRequestConfig extends RequestInit {
 
 export class ApiError<T = unknown> extends Error {
   readonly response?: ApiResponse<T>
+  readonly code?: string
 
-  constructor(message: string, response?: ApiResponse<T>) {
+  constructor(message: string, response?: ApiResponse<T>, code?: string) {
     super(message)
     this.name = 'ApiError'
     this.response = response
+    this.code = code
   }
 }
 
 /** Typed OpenAPI client for newly migrated code. Generated types come only
  * from verification/contracts/http/p4-openapi.json. */
-export const generatedClient = createClient<paths>({ baseUrl: '' })
+export const generatedClient = createClient<paths>({ baseUrl: '', credentials: 'include' })
 
 function appendParams(url: URL, params: ApiRequestConfig['params']): void {
   if (!params) return
@@ -100,8 +102,25 @@ async function request<T = unknown>(method: string, input: string | URL, config:
   const url = new URL(String(input), origin)
   appendParams(url, config.params)
   const body = buildRequestBody(config)
-  const controller = config.timeout ? new AbortController() : undefined
-  const timeoutId = config.timeout && controller ? setTimeout(() => controller.abort(), config.timeout) : undefined
+  const timeout = config.timeout && config.timeout > 0 ? config.timeout : undefined
+  const controller = timeout !== undefined ? new AbortController() : undefined
+  let timedOut = false
+  let removeSignalListener: (() => void) | undefined
+  if (controller && config.signal) {
+    if (config.signal.aborted) {
+      controller.abort()
+    } else {
+      const onAbort = () => controller.abort()
+      config.signal.addEventListener('abort', onAbort, { once: true })
+      removeSignalListener = () => config.signal?.removeEventListener('abort', onAbort)
+    }
+  }
+  const timeoutId = timeout !== undefined && controller
+    ? setTimeout(() => {
+        timedOut = true
+        controller.abort()
+      }, timeout)
+    : undefined
   const { params: _params, responseType: _responseType, data: _data, timeout: _timeout, ...requestInit } = config
   let response: Response
   try {
@@ -109,12 +128,18 @@ async function request<T = unknown>(method: string, input: string | URL, config:
       ...requestInit,
       method,
       body,
-      signal: config.signal ?? controller?.signal,
+      signal: controller?.signal ?? config.signal,
       credentials: config.credentials ?? 'include',
       headers: normalizeHeaders(config, body),
     })
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new ApiError(timedOut ? 'Request timed out' : 'Request aborted', undefined, timedOut ? 'ETIMEDOUT' : 'ERR_CANCELED')
+    }
+    throw error
   } finally {
     if (timeoutId) clearTimeout(timeoutId)
+    removeSignalListener?.()
   }
   let data: T
   try {
@@ -134,6 +159,10 @@ async function request<T = unknown>(method: string, input: string | URL, config:
     throw new ApiError(message, result)
   }
   return result
+}
+
+function isAbortError(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'name' in error && (error as { name?: unknown }).name === 'AbortError')
 }
 
 /** Resolve a generated endpoint template without leaking URL literals into UI components. */

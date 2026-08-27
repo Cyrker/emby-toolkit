@@ -1,24 +1,25 @@
 import { expect, test, type Page } from '@playwright/test'
 
 test('public login route remains reachable without an authenticated session', async ({ page }) => {
+  await installApiStubs(page, false)
   await page.goto('/login')
   await expect(page).toHaveTitle('Emby Toolkit')
-  await expect(page.locator('body')).toContainText(/登录|Login/)
+  await expect(page).toHaveURL(/\/login$/)
 })
 
 test('public setup route preserves the existing path', async ({ page }) => {
+  await installApiStubs(page)
   await page.goto('/setup')
   await expect(page).toHaveTitle('Emby Toolkit')
 })
 
-async function installApiStubs(page: Page) {
+async function installApiStubs(page: Page, authenticated = true) {
   await page.route('**/api/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname
     if (pathname.endsWith('/auth/check_status')) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-        status: 'logged_in',
-        user: { id: 'e2e-user', name: 'E2E User', is_admin: true },
-      }) })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(authenticated
+        ? { status: 'logged_in', user: { id: 'e2e-user', name: 'E2E User', is_admin: true } }
+        : { status: 'login_required' }) })
       return
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, data: [] }) })

@@ -60,4 +60,27 @@ describe('API adapter', () => {
       response: expect.objectContaining({ status: 200 }),
     })
   })
+
+  it('aborts timed-out requests and keeps the legacy cancellation code', async () => {
+    vi.stubGlobal('fetch', vi.fn((_input, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true })
+    })))
+
+    await expect(apiClient.get('/api/status', { timeout: 10 })).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'ETIMEDOUT',
+      message: 'Request timed out',
+    })
+  })
+
+  it('combines caller cancellation with the adapter timeout signal', async () => {
+    const external = new AbortController()
+    vi.stubGlobal('fetch', vi.fn((_input, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true })
+    })))
+    const request = apiClient.get('/api/status', { timeout: 1000, signal: external.signal })
+    external.abort()
+
+    await expect(request).rejects.toMatchObject({ name: 'ApiError', code: 'ERR_CANCELED' })
+  })
 })
