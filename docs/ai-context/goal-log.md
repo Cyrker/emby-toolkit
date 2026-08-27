@@ -1497,21 +1497,67 @@ Implemented:
 
 Targeted gate:
 
-- Pending until the P10 foundation checkpoint is created: typecheck, unit, build, E2E and API
-  boundary checks are being re-run together after the final adapter adjustments.
+- `npm ci` completed (`606 packages added`, `10 vulnerabilities: 2 moderate, 8 high`; no
+  `npm audit fix` was run); `npm run typecheck` passed; `npm run test:unit` passed (`7 tests`);
+  `npm run build` passed (`15005 modules transformed`, Vite 6.4.1, existing large-chunk warning);
+  `npm run test:e2e` passed (`8 passed` using local Vite and Fake API); and
+  `npm run check:api-boundary` passed (`frontend_api_boundary=clean`).
 
 Stage full gate:
 
-- Not run; P10 page-family and contract review remain pending.
+- Frontend stage gate is complete: typecheck, Vitest, build, Playwright E2E and API-boundary scan
+  all pass after the final adapter adjustments. `uv run python scripts/refactor/check_manifests.py`,
+  `uv run python scripts/refactor/export_openapi.py --check`, fixture secret scan and
+  `git diff --check` remain clean from the P10 manifest repair verification.
+
+### P10-STAGE-CLOSE
+
+Stage / Batch: P10 / stage close
+
+HEAD / Commit:
+
+- Frontend implementation checkpoints: `3468296d`, `cf6f3d2e`, `8bfa9b51`, `0eb634eb`.
+- Final transport-cancellation fixes and E2E public-route stub correction are checkpointed before
+  this documentation close; no amend, push, deploy, or release.
+
+Implemented:
+
+- `ApiError` now preserves legacy cancellation codes, timeout aborts are deterministic, and an
+  external `AbortSignal` is combined with adapter timeout handling instead of leaving the timeout
+  controller detached.
+- The generated `openapi-fetch` client explicitly uses `credentials: include`; all page requests
+  remain behind the endpoint registry/adapter boundary, with native fetch limited to adapter and
+  explicit stream/raw helpers.
+- The unauthenticated login E2E stub now returns `login_required` and asserts route reachability;
+  setup and authenticated route checks continue to use local Fake responses.
+
+Targeted gate:
+
+- `npm run test:unit` -> `7 passed`; `npm run typecheck` -> passed; `npm run build` -> passed;
+  `npm run test:e2e` -> `8 passed`; `npm run check:api-boundary` -> `frontend_api_boundary=clean`.
+- Generated `frontend/src/api/generated/schema.ts` remains deterministic and hands-off; route
+  manifest and OpenAPI currentness checks remain clean.
+
+Findings-first review:
+
+- API adapter error/timeout/invalid JSON, FormData boundary handling, blob download, stream/raw
+  escape hatches and credentials were reviewed; the cancellation/timeout issue above was fixed and
+  covered by unit tests.
+- Auth guard paths and public/login/setup behavior match the pre-migration router; route manifest
+  parity is clean. No direct Axios/native fetch or unregistered `/api/` literal remains outside the
+  adapter boundary. Pinia retains only auth and client UI state; server config/release state uses
+  Vue Query.
+- No actionable P0/P1/P2 finding remains. Existing npm audit vulnerabilities and Vite large-chunk
+  warning are residuals outside this migration scope; no dependency upgrade was introduced.
 
 Pending:
 
-- Finish the combined P10 targeted gate, review generated/client boundaries and route/guard parity,
-  then create the first local P10 checkpoint. Complete the stage-end gate before marking P10 `DONE`.
+- P11 pre-removal ownership and legacy removal remain pending. Live Acceptance remains
+  `HUMAN_PENDING`.
 
 Blocker: none. E2E browser binaries are installed locally; no real backend or external service is used.
 
-Next: run the P10 targeted gate, checkpoint the frontend migration, then perform the stage-end review.
+Next: start P11-Pre-removal; do not remove `web_app.py` or execute legacy runtime code.
 
 Safety boundary:
 
@@ -1537,4 +1583,4 @@ Read first:
 
 Next:
 
-- Start `P9-LEDGER`, then `P9-ADAPTERS` and `P9-PROXY` in order. Keep all Live Acceptance items pending.
+- Start `P11-Pre-removal` after the P10 close checkpoint. Keep all Live Acceptance items pending.
