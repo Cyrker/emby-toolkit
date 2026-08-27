@@ -54,6 +54,10 @@ GREENFIELD_TABLES = {
     "subscription_operations",
     "subscription_quota_reservations",
     "subscription_runtime_states",
+    "sharing_operations",
+    "sharing_credit_accounts",
+    "sharing_credit_ledger",
+    "proxy_playback_leases",
 }
 EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(GREENFIELD_TABLES)
 P6_P115_EXTENSION_NAMES = {

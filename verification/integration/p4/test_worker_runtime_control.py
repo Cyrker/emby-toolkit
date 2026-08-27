@@ -92,7 +92,7 @@ def _runtime(
 ) -> tuple[WorkerRuntime, JobSubmissionService]:
     class NativeMediaRouter:
         @staticmethod
-        def execute(message: object, _processor: object) -> TaskOutcome:
+        def execute(message: object, _processor: object, _progress: object = None) -> TaskOutcome:
             return TaskOutcome.succeeded("fixture native media task completed", adapter.execute(message))
 
     registry = TaskRegistry.from_fixture(TASK_FIXTURE)

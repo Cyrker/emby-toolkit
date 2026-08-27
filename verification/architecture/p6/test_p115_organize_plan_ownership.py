@@ -183,4 +183,4 @@ def test_dry_run_compatibility_gateways_import_only_pure_legacy_helpers_and_mapp
 def test_p6_upload_monitor_migration_is_the_single_alembic_head() -> None:
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
 
-    assert scripts.get_heads() == ["0017_p8_effects_and_maintenance"]
+    assert scripts.get_heads() == ["0019_p9_proxy_leases"]

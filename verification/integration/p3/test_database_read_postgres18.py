@@ -56,9 +56,13 @@ GREENFIELD_TABLES = {
     "subscription_operations",
     "subscription_quota_reservations",
     "subscription_runtime_states",
+    "sharing_operations",
+    "sharing_credit_accounts",
+    "sharing_credit_ledger",
+    "proxy_playback_leases",
 }
 EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(GREENFIELD_TABLES)
-EXPECTED_MIGRATION_HEAD = "0017_p8_effects_and_maintenance"
+EXPECTED_MIGRATION_HEAD = "0019_p9_proxy_leases"
 _FIXTURE_TABLES = (
     "failed_log",
     "processed_log",
