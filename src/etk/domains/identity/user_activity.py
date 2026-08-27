@@ -251,7 +251,7 @@ class P8UserEventGateway:
         host_url: str,
         remote_addr: str,
     ) -> ServiceResult:
-        del host_url, remote_addr
+        del host_url
         event_name = str(payload.get("Event") or "").strip()
         event_key = _event_key(payload)
         payload_digest = _payload_digest(payload)
@@ -264,6 +264,7 @@ class P8UserEventGateway:
                     event_name=event_name,
                     event_key=event_key,
                     payload_digest=payload_digest,
+                    remote_addr=remote_addr,
                 )
             return ServiceResult({"status": "event_ignored_not_in_trigger_list"})
         except MediaEffectConflictError:
@@ -319,6 +320,7 @@ class P8UserEventGateway:
         event_name: str,
         event_key: str,
         payload_digest: str,
+        remote_addr: str,
     ) -> ServiceResult:
         user = _mapping(payload.get("User"))
         item = _mapping(payload.get("Item"))
@@ -377,6 +379,7 @@ class P8UserEventGateway:
             item_type=item_type,
             exact_favorite=exact_favorite,
             playback=playback,
+            snapshot=_delivery_snapshot(payload, event_name=event_name, remote_addr=remote_addr),
         )
         has_aggregate_update = aggregate_item_id is not None and any(
             value is not None for value in (is_favorite, played, position, last_played)
@@ -403,10 +406,7 @@ class P8UserEventGateway:
         if item_type in {"Movie", "Series"}:
             return item_id
         if item_type == "Episode":
-            try:
-                return self._resolver.series_id_for_episode(user_id, item_id)
-            except Exception:
-                return None
+            return self._resolver.series_id_for_episode(user_id, item_id)
         return None
 
 
@@ -419,6 +419,7 @@ def _activity_intents(
     item_type: str,
     exact_favorite: bool | None,
     playback: Mapping[str, Any],
+    snapshot: Mapping[str, Any],
 ) -> list[UserEventEffectIntent]:
     base = {
         "event_name": event_name,
@@ -426,6 +427,7 @@ def _activity_intents(
         "user_id": user_id,
         "item_id": item_id,
         "item_type": item_type,
+        "event_snapshot": dict(snapshot),
     }
     intents: list[UserEventEffectIntent] = []
     if exact_favorite is True:
@@ -449,6 +451,36 @@ def _activity_intents(
     elif event_name in {"playback.start", "playback.pause"}:
         intents.append(UserEventEffectIntent("telegram-playback-notification", item_id, base))
     return intents
+
+
+def _delivery_snapshot(
+    payload: Mapping[str, Any],
+    *,
+    event_name: str,
+    remote_addr: str,
+) -> dict[str, Any]:
+    user = dict(_mapping(payload.get("User")))
+    item = dict(_mapping(payload.get("Item")))
+    user_data = dict(_mapping(payload.get("UserData")) or _mapping(item.get("UserData")))
+    playback = dict(_mapping(payload.get("PlaybackInfo")))
+    session = dict(_mapping(payload.get("Session")))
+    user_id = str(user.get("Id") or payload.get("UserId") or "").strip()
+    item_id = str(item.get("Id") or payload.get("ItemId") or "").strip()
+    play_session_id = str(playback.get("PlaySessionId") or payload.get("PlaySessionId") or "").strip()
+    device_id = str(session.get("DeviceId") or payload.get("DeviceId") or "").strip()
+    return {
+        "Event": event_name,
+        "UserId": user_id,
+        "ItemId": item_id,
+        "PlaySessionId": play_session_id,
+        "DeviceId": device_id,
+        "User": user,
+        "Item": item,
+        "UserData": user_data,
+        "PlaybackInfo": playback,
+        "Session": session,
+        "remote_addr": str(remote_addr or ""),
+    }
 
 
 def _exact_favorite(

@@ -9,6 +9,8 @@ from .session import SessionState
 class UserPermissionReader(Protocol):
     def is_admin(self, user_id: str) -> bool: ...
 
+    def is_active(self, user_id: str) -> bool: ...
+
 
 @dataclass(frozen=True, slots=True)
 class AuthorizationDecision:
@@ -51,10 +53,9 @@ class PermissionPolicy:
             return AuthorizationDecision(True, user_id=user_id)
         return AuthorizationDecision(False, status_code=403, user_id=user_id)
 
-    @staticmethod
-    def require_emby_login(session: SessionState) -> AuthorizationDecision:
+    def require_emby_login(self, session: SessionState) -> AuthorizationDecision:
         user_id = _session_user_id(session)
-        if user_id:
+        if user_id and self._is_active(user_id):
             return AuthorizationDecision(True, user_id=user_id)
         return AuthorizationDecision(
             False,
@@ -62,12 +63,15 @@ class PermissionPolicy:
             message="需要 Emby 用户登录才能访问此资源",
         )
 
-    @staticmethod
-    def require_any_login(session: SessionState) -> AuthorizationDecision:
+    def require_any_login(self, session: SessionState) -> AuthorizationDecision:
         user_id = _session_user_id(session)
-        if user_id:
+        if user_id and self._is_active(user_id):
             return AuthorizationDecision(True, user_id=user_id)
         return AuthorizationDecision(False, status_code=401, message="需要登录才能访问此资源")
+
+    def _is_active(self, user_id: str) -> bool:
+        reader = getattr(self._permissions, "is_active", None)
+        return bool(reader(user_id)) if callable(reader) else True
 
 
 def _session_user_id(session: SessionState) -> str | None:

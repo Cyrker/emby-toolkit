@@ -476,6 +476,39 @@ def test_explicit_provider_rejection_releases_without_readback() -> None:
     assert gateway.queries == []
 
 
+def test_preflight_readback_budget_rejects_before_write_instead_of_retrying_forever() -> None:
+    repository = FakeOperationRepository(
+        _operation(
+            {
+                "action": "create",
+                "tmdb_id": "101",
+                "payload": {"tmdbid": 101},
+                "preflight_readback": True,
+            }
+        )
+    )
+    gateway = FakeMoviePilotGateway()
+    gateway.query_errors = [RuntimeError("fixture unavailable"), RuntimeError("fixture unavailable")]
+    executor = SubscriptionOperationExecutor(
+        repository,
+        gateway,
+        max_attempts=2,
+        readback_delay_seconds=0,
+    )
+
+    first = executor.execute(repository.operation.id, worker_id="fixture-worker", lease_seconds=60, now=NOW)
+    exhausted = executor.execute(repository.operation.id, worker_id="fixture-worker", lease_seconds=60, now=NOW)
+
+    assert first is not None and first.operation.status is SubscriptionOperationStatus.RETRYABLE
+    assert exhausted is not None and exhausted.operation.status is SubscriptionOperationStatus.REJECTED
+    assert exhausted.operation.error == {
+        "type": "preflight_readback_failed",
+        "error_class": "RuntimeError",
+        "attempts": 2,
+    }
+    assert gateway.writes == []
+
+
 def test_conflict_is_resolved_by_authoritative_existing_state() -> None:
     repository = FakeOperationRepository(_operation({"action": "create", "tmdb_id": "101", "payload": {"tmdbid": 101}}))
     gateway = FakeMoviePilotGateway()

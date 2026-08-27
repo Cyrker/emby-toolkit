@@ -116,6 +116,82 @@ class SqlAlchemySubscriptionMediaProjection:
         )
         return dict(row) if row is not None else None
 
+    def lock_season_key(
+        self,
+        uow: SqlAlchemyUnitOfWork,
+        *,
+        parent_series_tmdb_id: str,
+        season_number: int,
+    ) -> SubscriptionMediaKey | None:
+        tmdb_id = uow.session.scalar(
+            text(
+                """
+                SELECT tmdb_id
+                FROM media_metadata
+                WHERE item_type = 'Season'
+                  AND parent_series_tmdb_id = :parent_series_tmdb_id
+                  AND season_number = :season_number
+                ORDER BY last_updated_at DESC NULLS LAST, tmdb_id
+                FOR UPDATE
+                LIMIT 1
+                """
+            ),
+            {
+                "parent_series_tmdb_id": parent_series_tmdb_id,
+                "season_number": int(season_number),
+            },
+        )
+        return SubscriptionMediaKey(str(tmdb_id), "Season") if tmdb_id is not None else None
+
+    def ensure_metadata(
+        self,
+        uow: SqlAlchemyUnitOfWork,
+        key: SubscriptionMediaKey,
+        record: Mapping[str, Any],
+    ) -> None:
+        uow.session.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, title, original_title, release_date,
+                    release_year, poster_path, backdrop_path, overview,
+                    season_number, parent_series_tmdb_id,
+                    last_synced_at, last_updated_at
+                ) VALUES (
+                    :tmdb_id, :item_type, :title, :original_title, :release_date,
+                    :release_year, :poster_path, :backdrop_path, :overview,
+                    :season_number, :parent_series_tmdb_id,
+                    NOW(), NOW()
+                )
+                ON CONFLICT (tmdb_id, item_type) DO UPDATE SET
+                    title = EXCLUDED.title,
+                    original_title = EXCLUDED.original_title,
+                    release_date = EXCLUDED.release_date,
+                    release_year = EXCLUDED.release_year,
+                    poster_path = EXCLUDED.poster_path,
+                    backdrop_path = EXCLUDED.backdrop_path,
+                    overview = EXCLUDED.overview,
+                    season_number = EXCLUDED.season_number,
+                    parent_series_tmdb_id = EXCLUDED.parent_series_tmdb_id,
+                    last_synced_at = NOW(),
+                    last_updated_at = NOW()
+                """
+            ),
+            {
+                "tmdb_id": key.tmdb_id,
+                "item_type": key.item_type,
+                "title": record.get("title"),
+                "original_title": record.get("original_title"),
+                "release_date": record.get("release_date") or None,
+                "release_year": record.get("release_year"),
+                "poster_path": record.get("poster_path"),
+                "backdrop_path": record.get("backdrop_path"),
+                "overview": record.get("overview"),
+                "season_number": record.get("season_number"),
+                "parent_series_tmdb_id": record.get("parent_series_tmdb_id"),
+            },
+        )
+
     def set_status(
         self,
         uow: SqlAlchemyUnitOfWork,

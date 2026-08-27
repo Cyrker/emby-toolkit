@@ -89,7 +89,11 @@ def _admin_denial(request: Request) -> Response | None:
 
 
 def _login_denial(request: Request) -> Response | None:
-    decision = PermissionPolicy.require_any_login(get_request_session(request))
+    container = request.app.state.container
+    decision = PermissionPolicy(
+        container.repository("identity"),
+        auth_enabled=bool(container.settings.auth_enabled),
+    ).require_any_login(get_request_session(request))
     if decision.allowed:
         return None
     return fastapi_json_response(
@@ -143,6 +147,11 @@ def _integer(value: str) -> int | None:
     return int(value) if value.isdigit() else None
 
 
+def _principal_id(request: Request) -> str:
+    user_id = str(get_request_session(request).get("emby_user_id") or "").strip()
+    return f"collection-admin:{user_id or 'local-setup'}"
+
+
 async def _body_call(
     request: Request,
     method: Callable[..., CollectionHttpResult],
@@ -182,11 +191,49 @@ def api_get_collections_status(request: Request) -> Response:
 @effects_router.delete(
     "/api/collections/{emby_collection_id}",
     response_model=dict[str, Any],
-    responses=_responses(403, 500),
+    responses=_responses(202, 403, 409, 500),
 )
 def api_delete_collection(request: Request, emby_collection_id: str) -> Response:
     denied = _admin_denial(request)
-    return denied or _response(_service(request).delete_native(emby_collection_id))
+    return denied or _response(
+        _service(request).delete_native(
+            emby_collection_id,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    )
+
+
+@effects_router.get(
+    "/api/collection-operations/{operation_id}/status",
+    response_model=dict[str, Any],
+    responses=_responses(400, 403, 404, 500),
+)
+def api_get_collection_operation_status(request: Request, operation_id: str) -> Response:
+    denied = _admin_denial(request)
+    return denied or _response(_service(request).operation_status(operation_id))
+
+
+@effects_router.post(
+    "/api/collection-operations/{operation_id}/reconcile",
+    response_model=dict[str, Any],
+    responses=_responses(400, 403, 404, 409, 415, 500, 503),
+    openapi_extra=_OBJECT_BODY,
+)
+async def api_reconcile_collection_operation(request: Request, operation_id: str) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _json_value(request)
+    if error is not None:
+        return error
+    result = await run_in_threadpool(
+        _service(request).reconcile_operation,
+        operation_id,
+        payload,
+        resolved_by=_principal_id(request),
+    )
+    return _response(result)
 
 
 @router.get("/api/collections/settings", response_model=dict[str, Any], responses=_responses(403, 500))
@@ -266,14 +313,24 @@ async def api_update_custom_collections_order(request: Request) -> Response:
 @effects_router.delete(
     "/api/custom_collections/{collection_id}",
     response_model=dict[str, Any],
-    responses=_responses(403, 404, 500),
+    responses=_responses(202, 403, 404, 409, 500),
 )
 def api_delete_custom_collection(request: Request, collection_id: str) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
         return denied
     value = _integer(collection_id)
-    return _html_error(NotFound()) if value is None else _response(_service(request).delete_custom(value))
+    return (
+        _html_error(NotFound())
+        if value is None
+        else _response(
+            _service(request).delete_custom(
+                value,
+                principal_id=_principal_id(request),
+                idempotency_key=request.headers.get("idempotency-key"),
+            )
+        )
+    )
 
 
 @router.get(
@@ -292,7 +349,7 @@ def api_get_custom_collection_status(request: Request, collection_id: str) -> Re
 @effects_router.post(
     "/api/custom_collections/{collection_id}/fix_match",
     response_model=dict[str, Any],
-    responses=_responses(400, 403, 404, 415, 500),
+    responses=_responses(400, 403, 404, 409, 415, 500),
     openapi_extra=_OBJECT_BODY,
 )
 async def api_fix_media_match_in_custom_collection(request: Request, collection_id: str) -> Response:

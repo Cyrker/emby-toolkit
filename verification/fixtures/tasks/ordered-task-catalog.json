@@ -373,7 +373,7 @@
       "legacy_definition": "tasks/custom_collections.py:105",
       "registry_source": "tasks/core.py:303",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 13,
@@ -415,7 +415,7 @@
       "legacy_definition": "tasks/covers.py:16",
       "registry_source": "tasks/core.py:305",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 15,
@@ -436,7 +436,7 @@
       "legacy_definition": "tasks/covers.py:135",
       "registry_source": "tasks/core.py:306",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 16,
@@ -688,7 +688,7 @@
       "legacy_definition": "tasks/users.py:20",
       "registry_source": "tasks/core.py:320",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 28,
@@ -709,7 +709,7 @@
       "legacy_definition": "tasks/vector_tasks.py:13",
       "registry_source": "tasks/core.py:321",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 29,
@@ -751,7 +751,7 @@
       "legacy_definition": "tasks/system_update.py:867",
       "registry_source": "tasks/core.py:323",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 31,
@@ -789,7 +789,7 @@
       "legacy_definition": "tasks/custom_collections.py:105",
       "registry_source": "tasks/core.py:327",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 33,
@@ -808,7 +808,7 @@
       "legacy_definition": "tasks/custom_collections.py:379",
       "registry_source": "tasks/core.py:328",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 34,
@@ -827,7 +827,7 @@
       "legacy_definition": "tasks/cleanup.py:298",
       "registry_source": "tasks/core.py:329",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 35,
@@ -865,7 +865,7 @@
       "legacy_definition": "tasks/discover.py:11",
       "registry_source": "tasks/core.py:331",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 37,
@@ -922,7 +922,7 @@
       "legacy_definition": "tasks/tmdb_collections.py:10",
       "registry_source": "tasks/core.py:334",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 40,
@@ -998,7 +998,7 @@
       "legacy_definition": "tasks/media.py:2054",
       "registry_source": "tasks/core.py:338",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 44,
@@ -1017,7 +1017,7 @@
       "legacy_definition": "tasks/media.py:3282",
       "registry_source": "tasks/core.py:339",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 45,
@@ -1036,7 +1036,7 @@
       "legacy_definition": "tasks/users.py:181",
       "registry_source": "tasks/core.py:340",
       "target_stage": "P8",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 46,

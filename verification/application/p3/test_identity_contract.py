@@ -34,12 +34,26 @@ class FakeIdentityRepository:
     def __init__(self) -> None:
         self.users: list[dict[str, Any]] = []
         self.admins = {"fixture-admin"}
+        self.pending_registrations: set[str] = set()
 
-    def upsert_user(self, user: Mapping[str, Any]) -> None:
+    @staticmethod
+    def projection_revision() -> int:
+        return 0
+
+    def upsert_user(self, user: Mapping[str, Any], *, expected_revision: int) -> bool:
+        assert expected_revision == 0
         self.users.append(deepcopy(dict(user)))
+        return True
+
+    def registration_pending(self, username: str) -> bool:
+        return username.casefold() in self.pending_registrations
 
     def is_admin(self, user_id: str) -> bool:
         return user_id in self.admins
+
+    @staticmethod
+    def is_active(user_id: str) -> bool:
+        return user_id in {"fixture-user", "fixture-admin"}
 
     def subscription_permission(self, user_id: str) -> bool:
         return user_id == "fixture-user"
@@ -358,6 +372,21 @@ def test_configured_login_status_reauthorize_logout_and_cookie_bridge(tmp_path: 
             "emby_username": "Fixture User",
             "emby_is_admin": False,
         }
+
+
+def test_login_does_not_publish_remote_registration_user_before_local_commit(tmp_path: Path) -> None:
+    app, _, repository, _gateway, _configuration = _build_app(tmp_path, configured=True)
+    repository.pending_registrations.add("fixture user")
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/auth/login",
+            json={"username": "fixture-user", "password": "fixture-password"},
+        )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "REGISTRATION_PENDING"
+    assert repository.users == []
 
 
 def test_setup_failure_does_not_persist_account_password_or_start_session(tmp_path: Path) -> None:

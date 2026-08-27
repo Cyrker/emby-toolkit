@@ -27,6 +27,19 @@ class MediaEffectDeliveryIndeterminate(RuntimeError):
         self.error = dict(error or {})
 
 
+class MediaEffectDeliveryRetryable(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        error: Mapping[str, Any] | None = None,
+        retry_after_seconds: float = 1,
+    ) -> None:
+        super().__init__(message)
+        self.error = dict(error or {})
+        self.retry_after_seconds = max(0.0, float(retry_after_seconds))
+
+
 class MediaEffectDelivery(Protocol):
     @property
     def effect_types(self) -> frozenset[str]: ...
@@ -115,6 +128,13 @@ class PersistentMediaEffectExecutor:
                 claimed.claim_token,
                 error=_error_payload("provider_outcome_unknown", exc, exc.error),
             )
+        except MediaEffectDeliveryRetryable as exc:
+            transition = self._ledger.mark_retryable(
+                claimed.effect_key,
+                claimed.claim_token,
+                error=_error_payload("delivery_retryable", exc, exc.error),
+                retry_after_seconds=exc.retry_after_seconds,
+            )
         except ValueError as exc:
             transition = self._ledger.mark_rejected(
                 claimed.effect_key,
@@ -162,6 +182,7 @@ __all__ = [
     "MediaEffectDelivery",
     "MediaEffectDeliveryIndeterminate",
     "MediaEffectDeliveryRejected",
+    "MediaEffectDeliveryRetryable",
     "PersistentMediaEffectExecutor",
     "RoutedMediaEffectDelivery",
 ]

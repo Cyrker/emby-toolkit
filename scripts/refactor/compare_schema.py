@@ -133,7 +133,8 @@ def collect_catalog(database_url: str) -> dict[str, Any]:
 def _fetch(cursor: psycopg.Cursor[Any], query: str) -> list[dict[str, Any]]:
     cursor.execute(sql.SQL(cast(LiteralString, query)))
     names = [column.name for column in cursor.description or ()]
-    return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
+    # Keep the catalog comparator runnable with the system Python 3.9.
+    return [dict(zip(names, row)) for row in cursor.fetchall()]  # noqa: B905
 
 
 def _normalized_sql(value: Any) -> Any:

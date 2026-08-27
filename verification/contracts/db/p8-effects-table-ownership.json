@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "stage": "P8-EFFECTS",
+  "purpose": "Greenfield tables introduced after the frozen 39-table legacy catalog; the legacy table-ownership manifest remains unchanged.",
+  "tables": [
+    {
+      "name": "collection_operations",
+      "owner": "etk.domains.collection.operation_repository.PostgresCollectionOperationRepository",
+      "protected": true,
+      "validation": "verification/integration/p8/test_collection_effects_postgres18.py"
+    },
+    {
+      "name": "database_backup_artifacts",
+      "owner": "etk.domains.operations.database_maintenance.PostgresDatabaseMaintenanceRepository",
+      "protected": true,
+      "bytes_lifecycle": "retain metadata and hashes; purge bytes at 24h TTL",
+      "validation": "verification/integration/p8/test_database_maintenance_postgres18.py"
+    },
+    {
+      "name": "database_maintenance_operations",
+      "owner": "etk.domains.operations.database_maintenance.PostgresDatabaseMaintenanceRepository",
+      "protected": true,
+      "validation": "verification/integration/p8/test_database_maintenance_postgres18.py"
+    }
+  ],
+  "protected_control_plane": [
+    "job_runs",
+    "job_attempts",
+    "outbox_events",
+    "idempotency_records",
+    "media_effects",
+    "collection_operations",
+    "identity_operations",
+    "subscription_operations",
+    "database_maintenance_operations",
+    "database_backup_artifacts"
+  ],
+  "share_allowlist": [
+    "person_metadata",
+    "translation_cache",
+    "media_metadata",
+    "p115_mediainfo_cache"
+  ]
+}

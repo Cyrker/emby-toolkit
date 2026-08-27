@@ -85,7 +85,11 @@ def _response(result):
 
 
 def _require_login(request: Request):
-    decision = PermissionPolicy.require_emby_login(get_request_session(request))
+    container = request.app.state.container
+    decision = PermissionPolicy(
+        _service(request).repository,
+        auth_enabled=bool(container.settings.auth_enabled),
+    ).require_emby_login(get_request_session(request))
     if decision.allowed:
         return None
     return fastapi_json_response(

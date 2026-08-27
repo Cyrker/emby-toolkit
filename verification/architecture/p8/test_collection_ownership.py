@@ -86,7 +86,7 @@ def test_collection_repository_keeps_cross_domain_tables_behind_owner_projection
     assert "collections_info" not in user_source
 
 
-def test_only_47_local_collection_routes_precede_compatibility_mount() -> None:
+def test_collection_routes_and_effects_precede_compatibility_mount() -> None:
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     expected = {(route["method"], route["path"]) for route in fixture["routes"]}
     app = create_app(start_runtime=False)
@@ -95,7 +95,7 @@ def test_only_47_local_collection_routes_precede_compatibility_mount() -> None:
         for method, path in expected:
             assert method.casefold() in schema[path]
         for method, path in EFFECT_OPERATIONS:
-            assert path not in schema or method.casefold() not in schema[path]
+            assert method.casefold() in schema[path]
 
         compatibility_index = next(
             index for index, route in enumerate(app.routes) if getattr(route, "name", None) == "legacy-compatibility"

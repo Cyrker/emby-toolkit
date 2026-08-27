@@ -61,6 +61,16 @@ class FakeDiscoverDefaults:
         return [{"label": "默认工作室", "ids": [999]}]
 
 
+class FakePermissions:
+    @staticmethod
+    def is_active(user_id: str) -> bool:
+        return user_id == "fixture-user"
+
+    @staticmethod
+    def is_admin(user_id: str) -> bool:
+        return False
+
+
 def _build_app() -> tuple[FastAPI, FakeDiscoverSettings]:
     repository = FakeDiscoverSettings()
     service = DiscoverService(
@@ -68,7 +78,10 @@ def _build_app() -> tuple[FastAPI, FakeDiscoverSettings]:
         defaults=cast(DiscoverDefaults, FakeDiscoverDefaults()),
     )
     app = FastAPI()
-    app.state.container = AppContainer(Settings(auth_enabled=True))
+    app.state.container = AppContainer(
+        Settings(auth_enabled=True),
+        repository_providers={"identity": lambda _: FakePermissions()},
+    )
     app.state.discover_service = service
     codec = LegacySessionCodec.from_secret_key(SECRET_KEY)
     app.add_middleware(CookieSessionMiddleware, codec_provider=lambda: codec)

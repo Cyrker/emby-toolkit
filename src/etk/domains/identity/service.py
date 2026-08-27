@@ -97,14 +97,24 @@ class IdentityService:
     def check_status(self, session: SessionState) -> IdentityResult:
         if not self.is_configured():
             return IdentityResult(AuthCheckResponse(status="setup_required", message="系统未配置"))
-        if session.get("emby_user_id"):
+        user_id = str(session.get("emby_user_id") or "").strip()
+        if user_id:
+            try:
+                active = self.repository.is_active(user_id)
+                is_admin = self.repository.is_admin(user_id) if active else False
+            except Exception:
+                logger.exception("Unable to verify current identity state")
+                return error_result("身份状态暂时不可用", status_code=503)
+            if not active:
+                session.clear()
+                return IdentityResult(AuthCheckResponse(status="login_required"))
             return IdentityResult(
                 AuthCheckResponse(
                     status="logged_in",
                     user=AuthUser(
-                        id=str(session["emby_user_id"]),
+                        id=user_id,
                         name=session.get("emby_username"),
-                        is_admin=bool(session.get("emby_is_admin", False)),
+                        is_admin=is_admin,
                     ),
                 )
             )
@@ -118,6 +128,15 @@ class IdentityService:
                 code="SETUP_REQUIRED",
             )
         settings = self._settings()
+        try:
+            projection_revision = self.repository.projection_revision()
+        except Exception:
+            logger.exception("Unable to snapshot identity projection before login")
+            return error_result(
+                "登录暂时不可用，请稍后重试",
+                status_code=503,
+                code="IDENTITY_STATE_UNAVAILABLE",
+            )
         try:
             authorization = self._gateway.authenticate(
                 settings.emby_server_url,
@@ -139,7 +158,27 @@ class IdentityService:
                 "登录失败：用户名/密码错误，或无法连接 Emby 服务器",
                 status_code=401,
             )
-        self._start_session(user, session)
+        try:
+            registration_pending = self.repository.registration_pending(str(user.get("Name") or request.username))
+        except Exception:
+            logger.exception("Unable to verify registration ownership before login")
+            return error_result(
+                "登录暂时不可用，请稍后重试",
+                status_code=503,
+                code="REGISTRATION_STATE_UNAVAILABLE",
+            )
+        if registration_pending:
+            return error_result(
+                "注册流程尚未完成或状态尚未确认，请稍后重试",
+                status_code=409,
+                code="REGISTRATION_PENDING",
+            )
+        if not self._start_session(user, session, expected_revision=projection_revision):
+            return error_result(
+                "登录期间用户状态发生变化，请重试",
+                status_code=409,
+                code="IDENTITY_STATE_CHANGED",
+            )
         user_id = str(user["Id"])
         try:
             can_subscribe = self.repository.subscription_permission(user_id)
@@ -152,7 +191,7 @@ class IdentityService:
                 user=AuthUser(
                     id=user_id,
                     name=str(user.get("Name") or ""),
-                    is_admin=bool(_user_policy(user).get("IsAdministrator", False)),
+                    is_admin=bool(session.get("emby_is_admin", False)),
                     allow_unrestricted_subscriptions=can_subscribe,
                     user_type="emby_user",
                 )
@@ -183,6 +222,11 @@ class IdentityService:
     def setup(self, request: SetupRequest, session: SessionState) -> IdentityResult:
         if self.is_configured() and not session.get("is_setup_mode"):
             return error_result("系统已配置，且无重置权限", status_code=403)
+        try:
+            projection_revision = self.repository.projection_revision()
+        except Exception:
+            logger.exception("Unable to snapshot identity projection before setup")
+            return error_result("身份状态暂时不可用", status_code=503)
         authorization, error = self._authorize_service(
             request.url,
             request.username,
@@ -196,7 +240,8 @@ class IdentityService:
             logger.exception("Saving Emby service authorization failed")
             return error_result("保存配置失败，请检查日志", status_code=500)
         user = _authorization_user(authorization)
-        self._start_session(user, session)
+        if not self._start_session(user, session, expected_revision=projection_revision):
+            return error_result("授权期间用户状态发生变化，请重新登录", status_code=409)
         try:
             plugin_install, library_config = self._post_authorization(settings)
         except Exception:
@@ -343,20 +388,34 @@ class IdentityService:
         submission = self._post_authorization_submitter.submit(settings)
         return _post_authorization_projection(submission)
 
-    def _start_session(self, user: Mapping[str, Any], session: SessionState) -> None:
+    def _start_session(
+        self,
+        user: Mapping[str, Any],
+        session: SessionState,
+        *,
+        expected_revision: int,
+    ) -> bool:
+        user_id = str(user.get("Id") or "").strip()
+        if not user_id:
+            return False
         try:
-            self.repository.upsert_user(user)
+            self.repository.upsert_user(user, expected_revision=expected_revision)
+            if not self.repository.is_active(user_id):
+                return False
+            is_admin = self.repository.is_admin(user_id)
         except Exception:
             logger.exception("Login-time Emby user synchronization failed")
+            return False
         session.clear()
         session.update(
             {
                 "_permanent": True,
-                "emby_user_id": str(user.get("Id") or ""),
+                "emby_user_id": user_id,
                 "emby_username": user.get("Name"),
-                "emby_is_admin": bool(_user_policy(user).get("IsAdministrator", False)),
+                "emby_is_admin": is_admin,
             }
         )
+        return True
 
 
 def _post_authorization_projection(

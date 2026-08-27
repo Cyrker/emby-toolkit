@@ -100,4 +100,25 @@ P7_NATIVE_TASK_KEYS = frozenset(
     }
 )
 
-NATIVE_TASK_KEYS = P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS | P7_NATIVE_TASK_KEYS
+P8_NATIVE_TASK_KEYS = frozenset(
+    {
+        "check-expired-users",
+        "custom-collections",
+        "execute-auto-tagging-rules",
+        "fill-studio-images",
+        "generate-all-covers",
+        "generate-custom-collection-covers",
+        "generate_embeddings",
+        "process-single-custom-collection",
+        "process_all_custom_collections",
+        "refresh-collections",
+        "scan-cleanup-issues",
+        "sync-all-user-data",
+        "system-auto-update",
+        "update-daily-theme",
+    }
+)
+
+NATIVE_TASK_KEYS = (
+    P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS | P7_NATIVE_TASK_KEYS | P8_NATIVE_TASK_KEYS
+)

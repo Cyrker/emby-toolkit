@@ -5,15 +5,18 @@ from datetime import date
 from threading import Barrier
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.exc import IntegrityError
 
 from etk.domains.collection.repository import (
+    CollectionCorrectionSnapshot,
+    CollectionMatchConflictError,
     CollectionNameConflictError,
     SqlAlchemyCollectionRepository,
 )
 from etk.domains.identity.collection_projection import SqlAlchemyCollectionUserProjection
 from etk.domains.media.collection_projection import SqlAlchemyCollectionMediaProjection
+from etk.domains.media.subscription_projection import SubscriptionMediaKey
 from etk.domains.system.repository import SqlAlchemyAppSettingsRepository
 from etk.platform.db import DatabaseRuntime
 
@@ -315,6 +318,360 @@ def test_native_collection_unique_emby_activation_race_rolls_back_loser(p8_runti
     active = _repository(p8_runtime).list_native()
     assert len(active) == 1
     assert active[0]["emby_collection_id"] == "shared-emby-boxset"
+
+
+def test_custom_match_updates_movie_metadata_status_source_and_json_in_one_uow(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    repository = _repository(p8_runtime)
+    collection = repository.create_custom(
+        name="Correction Fixture",
+        collection_type="list",
+        definition={"source": "fixture", "corrections": {"preserved": {"tmdb_id": "1"}}},
+        allowed_user_ids=None,
+    )
+    with p8_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE custom_collections
+                SET generated_media_info_json = CAST(:items AS jsonb)
+                WHERE id = :collection_id
+                """
+            ),
+            {
+                "collection_id": collection["id"],
+                "items": """
+                    [
+                      {"tmdb_id":"101","title":"Wrong Match","media_type":"Movie"}
+                    ]
+                """,
+            },
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, title, subscription_status, subscription_sources_json
+                ) VALUES ('101', 'Movie', 'Old Movie', 'WANTED', '[]'::jsonb)
+                """
+            )
+        )
+
+    candidate = repository.inspect_custom_match(
+        int(collection["id"]),
+        old_tmdb_id="101",
+        old_title=None,
+    )
+    assert candidate is not None
+    corrected = repository.apply_custom_match(
+        candidate,
+        CollectionCorrectionSnapshot(
+            collection_tmdb_id="202",
+            season_number=None,
+            target_key=SubscriptionMediaKey("202", "Movie"),
+            target_record={
+                "title": "Correct Movie",
+                "original_title": "Correct Movie Original",
+                "release_date": "2020-01-01",
+                "release_year": 2020,
+                "poster_path": "/movie.jpg",
+                "backdrop_path": "/backdrop.jpg",
+                "overview": "Correct overview",
+                "season_number": None,
+                "parent_series_tmdb_id": None,
+            },
+            target_status="WANTED",
+            corrected_item={
+                "tmdb_id": "202",
+                "title": "Correct Movie",
+                "media_type": "Movie",
+                "status": "subscribed",
+            },
+        ),
+    )
+    assert corrected == {
+        "tmdb_id": "202",
+        "title": "Correct Movie",
+        "media_type": "Movie",
+        "status": "subscribed",
+    }
+    row = repository.get_custom(int(collection["id"]))
+    assert row is not None
+    assert row["generated_media_info_json"][0]["tmdb_id"] == "202"
+    assert row["definition_json"]["corrections"] == {
+        "101": {"tmdb_id": "202"},
+        "preserved": {"tmdb_id": "1"},
+    }
+    with p8_runtime.engine.connect() as connection:
+        media = (
+            connection.execute(
+                text(
+                    """
+                SELECT tmdb_id, item_type, title, original_title, release_date,
+                       subscription_status, subscription_sources_json, ignore_reason
+                FROM media_metadata
+                WHERE (tmdb_id, item_type) IN (('101','Movie'),('202','Movie'))
+                ORDER BY tmdb_id
+                """
+                )
+            )
+            .mappings()
+            .all()
+        )
+    assert media[0]["subscription_status"] == "IGNORED"
+    assert media[0]["ignore_reason"] == "修正为 202"
+    assert media[1]["title"] == "Correct Movie"
+    assert media[1]["original_title"] == "Correct Movie Original"
+    assert media[1]["release_date"] == date(2020, 1, 1)
+    assert media[1]["subscription_status"] == "WANTED"
+    assert media[1]["subscription_sources_json"] == [
+        {"type": "collection_correction", "id": int(collection["id"]), "name": "Correction Fixture"}
+    ]
+
+
+def test_custom_match_season_uses_provider_season_id_and_ignores_old_authoritative_season(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    repository = _repository(p8_runtime)
+    collection = repository.create_custom(
+        name="Season Correction",
+        collection_type="list",
+        definition={"source": "fixture"},
+        allowed_user_ids=None,
+    )
+    with p8_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE custom_collections
+                SET generated_media_info_json = CAST(:items AS jsonb)
+                WHERE id = :collection_id
+                """
+            ),
+            {
+                "collection_id": collection["id"],
+                "items": '[{"tmdb_id":"100","title":"Old Season","media_type":"Series","season":1}]',
+            },
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, title, parent_series_tmdb_id,
+                    season_number, subscription_status
+                ) VALUES (
+                    '10001', 'Season', 'Old Season', '100', 1, 'WANTED'
+                )
+                """
+            )
+        )
+
+    candidate = repository.inspect_custom_match(
+        int(collection["id"]),
+        old_tmdb_id="100",
+        old_title=None,
+    )
+    assert candidate is not None and candidate.season_number == 1
+    corrected = repository.apply_custom_match(
+        candidate,
+        CollectionCorrectionSnapshot(
+            collection_tmdb_id="200",
+            season_number=2,
+            target_key=SubscriptionMediaKey("20002", "Season"),
+            target_record={
+                "title": "New Season",
+                "original_title": "New Season",
+                "release_date": "2099-01-01",
+                "release_year": 2099,
+                "poster_path": "/season.jpg",
+                "backdrop_path": "/series-backdrop.jpg",
+                "overview": "Season overview",
+                "season_number": 2,
+                "parent_series_tmdb_id": "200",
+            },
+            target_status="PENDING_RELEASE",
+            corrected_item={
+                "tmdb_id": "200",
+                "title": "New Series - 第 2 季",
+                "media_type": "Series",
+                "season": 2,
+                "status": "unreleased",
+            },
+            parent_key=SubscriptionMediaKey("200", "Series"),
+            parent_record={
+                "title": "New Series",
+                "original_title": "New Series Original",
+                "release_date": "2020-01-01",
+                "release_year": 2020,
+                "poster_path": "/series.jpg",
+                "backdrop_path": "/series-backdrop.jpg",
+                "overview": "Series overview",
+                "season_number": None,
+                "parent_series_tmdb_id": None,
+            },
+        ),
+    )
+
+    assert corrected["tmdb_id"] == "200"
+    row = repository.get_custom(int(collection["id"]))
+    assert row is not None
+    assert row["generated_media_info_json"][0]["tmdb_id"] == "200"
+    assert row["generated_media_info_json"][0]["season"] == 2
+    with p8_runtime.engine.connect() as connection:
+        values = {
+            (str(item["tmdb_id"]), str(item["item_type"])): dict(item)
+            for item in connection.execute(
+                text(
+                    """
+                    SELECT tmdb_id, item_type, title, parent_series_tmdb_id,
+                           season_number, subscription_status, subscription_sources_json, ignore_reason
+                    FROM media_metadata
+                    WHERE tmdb_id IN ('10001','200','20002')
+                    """
+                )
+            ).mappings()
+        }
+    assert values[("10001", "Season")]["subscription_status"] == "IGNORED"
+    assert values[("10001", "Season")]["ignore_reason"] == "修正为 200"
+    assert values[("200", "Series")]["subscription_status"] == "NONE"
+    assert values[("20002", "Season")]["parent_series_tmdb_id"] == "200"
+    assert values[("20002", "Season")]["season_number"] == 2
+    assert values[("20002", "Season")]["subscription_status"] == "PENDING_RELEASE"
+    assert values[("20002", "Season")]["subscription_sources_json"] == [
+        {"type": "collection_correction", "id": int(collection["id"]), "name": "Season Correction"}
+    ]
+
+
+def test_custom_match_sql_failure_rolls_back_media_and_both_json_documents(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    repository = _repository(p8_runtime)
+    collection = repository.create_custom(
+        name="Correction Rollback",
+        collection_type="list",
+        definition={"source": "fixture"},
+        allowed_user_ids=None,
+    )
+    with p8_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE custom_collections
+                SET generated_media_info_json =
+                    '[{"tmdb_id":"101","title":"Fixture","media_type":"Movie"}]'::jsonb
+                WHERE id = :collection_id
+                """
+            ),
+            {"collection_id": collection["id"]},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (tmdb_id, item_type, title, subscription_status)
+                VALUES ('101', 'Movie', 'Old', 'WANTED')
+                """
+            )
+        )
+    before = repository.get_custom(int(collection["id"]))
+    candidate = repository.inspect_custom_match(
+        int(collection["id"]),
+        old_tmdb_id="101",
+        old_title=None,
+    )
+    assert candidate is not None
+    snapshot = CollectionCorrectionSnapshot(
+        collection_tmdb_id="202",
+        season_number=None,
+        target_key=SubscriptionMediaKey("202", "Movie"),
+        target_record={"title": "New", "release_date": "2020-01-01"},
+        target_status="WANTED",
+        corrected_item={"tmdb_id": "202"},
+    )
+
+    def fail_update(_connection, _cursor, statement, _parameters, _context, _executemany):
+        if "SET definition_json = CAST" in statement:
+            raise RuntimeError("injected update failure")
+
+    event.listen(p8_runtime.engine, "before_cursor_execute", fail_update)
+    try:
+        with pytest.raises(RuntimeError, match="injected update failure"):
+            repository.apply_custom_match(candidate, snapshot)
+    finally:
+        event.remove(p8_runtime.engine, "before_cursor_execute", fail_update)
+
+    after = repository.get_custom(int(collection["id"]))
+    assert after is not None and before is not None
+    assert after["definition_json"] == before["definition_json"]
+    assert after["generated_media_info_json"] == before["generated_media_info_json"]
+    with p8_runtime.engine.connect() as connection:
+        statuses = connection.execute(
+            text(
+                """
+                SELECT tmdb_id, subscription_status
+                FROM media_metadata
+                WHERE tmdb_id IN ('101','202')
+                ORDER BY tmdb_id
+                """
+            )
+        ).all()
+    assert statuses == [("101", "WANTED")]
+
+
+def test_custom_match_rejects_stale_collection_digest_without_media_mutation(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    repository = _repository(p8_runtime)
+    collection = repository.create_custom(
+        name="Correction Drift",
+        collection_type="list",
+        definition={},
+        allowed_user_ids=None,
+    )
+    with p8_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE custom_collections
+                SET generated_media_info_json =
+                    '[{"tmdb_id":"101","title":"Fixture","media_type":"Movie"}]'::jsonb
+                WHERE id = :collection_id
+                """
+            ),
+            {"collection_id": collection["id"]},
+        )
+    candidate = repository.inspect_custom_match(
+        int(collection["id"]),
+        old_tmdb_id="101",
+        old_title=None,
+    )
+    assert candidate is not None
+    with p8_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE custom_collections
+                SET definition_json = CAST(:definition AS jsonb)
+                WHERE id = :collection_id
+                """
+            ),
+            {"collection_id": collection["id"], "definition": '{"changed":true}'},
+        )
+
+    with pytest.raises(CollectionMatchConflictError):
+        repository.apply_custom_match(
+            candidate,
+            CollectionCorrectionSnapshot(
+                collection_tmdb_id="202",
+                season_number=None,
+                target_key=SubscriptionMediaKey("202", "Movie"),
+                target_record={"title": "New"},
+                target_status="WANTED",
+                corrected_item={"tmdb_id": "202"},
+            ),
+        )
+    with p8_runtime.engine.connect() as connection:
+        assert connection.scalar(text("SELECT COUNT(*) FROM media_metadata WHERE tmdb_id = '202'")) == 0
 
 
 def test_all_p8_collection_settings_round_trip_as_jsonb(p8_runtime: DatabaseRuntime) -> None:

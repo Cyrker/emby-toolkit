@@ -14,8 +14,11 @@ if str(REPO_ROOT) not in sys.path:
 from etk.bootstrap.app_factory import create_app  # noqa: E402
 
 DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi.json"
-EXPECTED_PATHS = 146
-EXPECTED_OPERATIONS = 175
+# The compatibility OpenAPI snapshot is regenerated at each backend stage.
+# Keep the historical filename for existing consumers while validating the
+# current P8 surface.
+EXPECTED_PATHS = 245
+EXPECTED_OPERATIONS = 291
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -201,6 +204,26 @@ P6_9_BODY_OPERATIONS = {
     ("post", "/api/p115/temp_dir_config"),
 }
 
+# A handful of compatibility endpoints intentionally return a raw Starlette
+# ``Response`` (gzip downloads and legacy JSON envelopes assembled at runtime).
+# FastAPI represents those dynamic payloads as ``application/json: {}``; that
+# is an explicit contract choice rather than an accidental missing schema.
+EMPTY_RESPONSE_SCHEMA_ALLOWED = {
+    ("post", "/api/actions/mark_item_processed/{item_id}"),
+    ("post", "/api/actions/clear_review_items"),
+    ("post", "/api/actions/reprocess_item/{item_id}"),
+    ("post", "/api/actions/reprocess_all_review_items"),
+    ("post", "/api/database/export"),
+    ("post", "/api/database/preview-backup"),
+    ("post", "/api/database/import"),
+    ("post", "/api/actions/clear_tables"),
+    ("post", "/api/database/correct-sequences"),
+    ("post", "/api/actions/prepare-for-library-rebuild"),
+    ("post", "/api/actions/cleanup-offline-media"),
+    ("post", "/api/actions/clear-vectors"),
+    ("get", "/api/database/maintenance/operations/{operation_id}"),
+}
+
 
 def build_openapi() -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="etk-p4-openapi-") as temporary:
@@ -380,7 +403,11 @@ def _validate_schema(schema: dict[str, Any]) -> None:
             content = success.get("content", {})
             if not content:
                 raise RuntimeError(f"P4 OpenAPI operation has no 2xx content schema: {method} {path}")
-            if "application/json" in content and not content["application/json"].get("schema"):
+            if (
+                "application/json" in content
+                and not content["application/json"].get("schema")
+                and (method.casefold(), path) not in EMPTY_RESPONSE_SCHEMA_ALLOWED
+            ):
                 raise RuntimeError(f"P4 OpenAPI operation has an empty JSON schema: {method} {path}")
 
 

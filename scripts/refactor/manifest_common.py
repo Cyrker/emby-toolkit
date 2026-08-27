@@ -114,7 +114,10 @@ def evaluate_static(node: ast.AST, symbols: dict[str, Any] | None = None) -> Any
     if isinstance(node, ast.Dict):
         return {
             evaluate_static(key, symbols): evaluate_static(value, symbols)
-            for key, value in zip(node.keys, node.values, strict=True)
+            # ``zip(strict=...)`` is unavailable on the system Python 3.9
+            # used by the local contract tooling; AST dictionaries always
+            # expose parallel key/value arrays.
+            for key, value in zip(node.keys, node.values)  # noqa: B905
             if key is not None
         }
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):

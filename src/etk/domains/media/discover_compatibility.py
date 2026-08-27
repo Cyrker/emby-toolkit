@@ -24,5 +24,11 @@ class LegacyDiscoverDefaults:
 
         return deepcopy(DEFAULT_STUDIO_MAPPING)
 
+    @staticmethod
+    def rating_mapping() -> Mapping[str, Sequence[Mapping[str, Any]]]:
+        from utils import DEFAULT_RATING_MAPPING
+
+        return deepcopy(DEFAULT_RATING_MAPPING)
+
 
 __all__ = ["LegacyDiscoverDefaults"]

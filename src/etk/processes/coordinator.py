@@ -36,8 +36,11 @@ from etk.compatibility.upload_monitor import (
     clear_persistent_upload_monitor_ingress,
     install_persistent_upload_monitor_ingress,
 )
+from etk.domains.collection.operation_repository import PostgresCollectionOperationRepository
+from etk.domains.identity.operation_repository import PostgresIdentityOperationRepository
 from etk.domains.ingestion import PostgresIngestionMonitorLedger
 from etk.domains.media.effects import PostgresMediaEffectLedger
+from etk.domains.operations.database_maintenance import PostgresDatabaseMaintenanceRepository
 from etk.domains.operations.jobs import JobSubmissionService, TaskBusyError
 from etk.domains.p115.intro_detection_repository import PostgresP115IntroDetectionRepository
 from etk.domains.p115.playback_repository import PostgresP115PlaybackRepository
@@ -65,6 +68,15 @@ from .p6_intro_detection import CeleryP115IntroDetectionPublisher, P115IntroDete
 from .p6_playback import CeleryP115PlaybackPublisher, P115PlaybackCoordinator
 from .p6_upload_monitor import CeleryP115UploadPublisher, P115UploadMonitorCoordinator
 from .p7_subscription import CelerySubscriptionOperationPublisher, SubscriptionOperationCoordinator
+from .p8_collection_operations import (
+    CeleryCollectionOperationPublisher,
+    CollectionOperationCoordinator,
+)
+from .p8_database_maintenance import (
+    CeleryDatabaseMaintenancePublisher,
+    DatabaseMaintenanceCoordinator,
+)
+from .p8_identity import CeleryIdentityOperationPublisher, IdentityOperationCoordinator
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -459,6 +471,12 @@ class CoordinatorRuntime:
         self._p115_intro_coordinator: P115IntroDetectionCoordinator | None = None
         self._subscription_publisher = CelerySubscriptionOperationPublisher(self.config)
         self._subscription_coordinator: SubscriptionOperationCoordinator | None = None
+        self._collection_operation_publisher = CeleryCollectionOperationPublisher(self.config)
+        self._collection_operation_coordinator: CollectionOperationCoordinator | None = None
+        self._identity_publisher = CeleryIdentityOperationPublisher(self.config)
+        self._identity_coordinator: IdentityOperationCoordinator | None = None
+        self._database_maintenance_publisher = CeleryDatabaseMaintenancePublisher(self.config)
+        self._database_maintenance_coordinator: DatabaseMaintenanceCoordinator | None = None
         self._cleanup_execution_repository: SqlAlchemyCleanupExecutionRepository | None = None
         self._publisher_id = f"{socket.gethostname()}:{os.getpid()}"
         self._last_settings_refresh = 0.0
@@ -542,6 +560,27 @@ class CoordinatorRuntime:
             publisher=self._subscription_publisher,
             config=self.config,
             publisher_id=f"{self._publisher_id}:subscription",
+        )
+        self._collection_operation_coordinator = CollectionOperationCoordinator(
+            store=store,
+            repository=PostgresCollectionOperationRepository(database.unit_of_work),
+            publisher=self._collection_operation_publisher,
+            config=self.config,
+            publisher_id=f"{self._publisher_id}:collection-operation",
+        )
+        self._identity_coordinator = IdentityOperationCoordinator(
+            store=store,
+            repository=PostgresIdentityOperationRepository(database.unit_of_work),
+            publisher=self._identity_publisher,
+            config=self.config,
+            publisher_id=f"{self._publisher_id}:identity",
+        )
+        self._database_maintenance_coordinator = DatabaseMaintenanceCoordinator(
+            store=store,
+            repository=PostgresDatabaseMaintenanceRepository(database.unit_of_work),
+            publisher=self._database_maintenance_publisher,
+            config=self.config,
+            publisher_id=f"{self._publisher_id}:database-maintenance",
         )
         self._cleanup_execution_repository = cleanup_execution_repository
         self._service = service
@@ -778,6 +817,64 @@ class CoordinatorRuntime:
                 )
             if subscription_result.publish.failed or subscription_result.publish.dead:
                 raise RuntimeError("Subscription operation Outbox dispatch is degraded")
+
+        identity = getattr(self, "_identity_coordinator", None)
+        if identity is not None:
+            identity_result = identity.tick()
+            if identity_result.expired_claims:
+                logger.warning(
+                    "Expired identity operation claims were recovered",
+                    extra={"expired_operations": identity_result.expired_claims},
+                )
+            if identity_result.purged_avatar_artifacts:
+                logger.info(
+                    "Expired identity avatar artifacts were purged",
+                    extra={"purged_artifacts": identity_result.purged_avatar_artifacts},
+                )
+            if identity_result.rejected_dead:
+                logger.error(
+                    "Identity operation dispatch exhausted without Worker execution",
+                    extra={"rejected_operations": identity_result.rejected_dead},
+                )
+            if identity_result.publish.failed or identity_result.publish.dead:
+                raise RuntimeError("Identity operation Outbox dispatch is degraded")
+
+        collection = getattr(self, "_collection_operation_coordinator", None)
+        if collection is not None:
+            collection_result = collection.tick()
+            if collection_result.expired_claims:
+                logger.warning(
+                    "Expired collection operation claims were recovered",
+                    extra={"expired_operations": collection_result.expired_claims},
+                )
+            if collection_result.rejected_dead:
+                logger.error(
+                    "Collection operation dispatch exhausted without Worker execution",
+                    extra={"rejected_operations": collection_result.rejected_dead},
+                )
+            if collection_result.publish.failed or collection_result.publish.dead:
+                raise RuntimeError("Collection operation Outbox dispatch is degraded")
+
+        maintenance = getattr(self, "_database_maintenance_coordinator", None)
+        if maintenance is not None:
+            maintenance_result = maintenance.tick()
+            if maintenance_result.expired_claims:
+                logger.warning(
+                    "Expired database maintenance claims were recovered",
+                    extra={"expired_operations": maintenance_result.expired_claims},
+                )
+            if maintenance_result.purged_artifacts:
+                logger.info(
+                    "Expired database backup artifacts were purged",
+                    extra={"purged_artifacts": maintenance_result.purged_artifacts},
+                )
+            if maintenance_result.rejected_dead:
+                logger.error(
+                    "Database maintenance dispatch exhausted without Worker execution",
+                    extra={"rejected_operations": maintenance_result.rejected_dead},
+                )
+            if maintenance_result.publish.failed or maintenance_result.publish.dead:
+                raise RuntimeError("Database maintenance Outbox dispatch is degraded")
 
     def _process_telegram_commands(self) -> None:
         from etk.compatibility.tg_control_bridge import TelegramCommandExecutor, TelegramControlBridge

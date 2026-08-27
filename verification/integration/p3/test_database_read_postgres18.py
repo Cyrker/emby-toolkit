@@ -38,6 +38,8 @@ GREENFIELD_TABLES = {
     "p115_strm_sync_plans",
     "ingestion_monitor_items",
     "ingestion_pending_bindings",
+    "identity_avatar_artifacts",
+    "identity_operations",
     "p115_upload_monitor_controls",
     "p115_upload_operations",
     "p115_playback_operations",
@@ -50,7 +52,7 @@ GREENFIELD_TABLES = {
     "subscription_runtime_states",
 }
 EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(GREENFIELD_TABLES)
-EXPECTED_MIGRATION_HEAD = "0015_p7_assistant_claims"
+EXPECTED_MIGRATION_HEAD = "0016_p8_identity_operations"
 _FIXTURE_TABLES = (
     "failed_log",
     "processed_log",

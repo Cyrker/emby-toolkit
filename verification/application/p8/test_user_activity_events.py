@@ -50,9 +50,12 @@ class FakeResolver:
     def __init__(self) -> None:
         self.values = {"episode-1": "series-1"}
         self.calls: list[tuple[str, str]] = []
+        self.error: BaseException | None = None
 
     def series_id_for_episode(self, user_id: str, episode_id: str) -> str | None:
         self.calls.append((user_id, episode_id))
+        if self.error is not None:
+            raise self.error
         return self.values.get(episode_id)
 
 
@@ -99,6 +102,9 @@ def _event(
         "Item": {"Id": item_id, "Type": item_type, "RunTimeTicks": 1000},
         "UserData": user_data or {},
         "PlaybackInfo": playback or {},
+        "Session": {"DeviceId": "device-1", "DeviceName": "Fixture Device"},
+        "PlaySessionId": "session-1",
+        "UnrelatedSecret": "must-not-be-persisted",
     }
 
 
@@ -213,6 +219,13 @@ def test_playback_stop_and_halfway_freeze_threshold_state_and_intents() -> None:
         "proxy-concurrency-release",
         "telegram-playback-notification",
     ]
+    snapshot = stop_call["intents"][0].payload["event_snapshot"]
+    assert snapshot["UserId"] == "user-1"
+    assert snapshot["ItemId"] == "item-1"
+    assert snapshot["PlaySessionId"] == "session-1"
+    assert snapshot["DeviceId"] == "device-1"
+    assert snapshot["remote_addr"] == "127.0.0.1"
+    assert "UnrelatedSecret" not in snapshot
     assert before_halfway.payload == {"status": "event_ignored_before_halfway"}
     assert at_halfway.status_code == 200
     assert at_halfway.payload == {"status": "user_data_updated"}
@@ -250,3 +263,22 @@ def test_policy_event_stages_refresh_and_conditionally_template_sync() -> None:
     assert suppressed.payload == {"status": "event_ignored_system_triggered"}
     assert suppressed_intents == ["refresh-user-policy"]
     assert missing.payload == {"status": "event_ignored_no_user_id"}
+
+
+def test_episode_resolver_transport_failure_is_not_silently_treated_as_not_found() -> None:
+    gateway, repository, resolver, _guard = _gateway()
+    resolver.error = RuntimeError("fixture Emby timeout")
+
+    result = _handle(
+        gateway,
+        _event(
+            "item.rate",
+            item_type="Episode",
+            item_id="episode-1",
+            user_data={"Played": True},
+        ),
+    )
+
+    assert result.status_code == 500
+    assert result.payload == {"status": "error_updating_user_data"}
+    assert repository.calls == []

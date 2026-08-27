@@ -8,6 +8,31 @@ from typing import Any
 
 from .types import InvalidJsonPayloadError, JsonObject
 
+_FORBIDDEN_DURABLE_KEYS = frozenset(
+    {
+        "access_token",
+        "api_key",
+        "apikey",
+        "authorization",
+        "cookie",
+        "cookies",
+        "password",
+        "secret",
+        "secret_ref",
+        "token",
+    }
+)
+_FORBIDDEN_DURABLE_SUFFIXES = (
+    "_api_key",
+    "_cookie",
+    "_password",
+    "_secret",
+    "_secret_ref",
+    "_token",
+)
+_FORBIDDEN_DURABLE_COMPACT_KEYS = frozenset(key.replace("_", "") for key in _FORBIDDEN_DURABLE_KEYS)
+_FORBIDDEN_DURABLE_COMPACT_SUFFIXES = tuple(suffix.replace("_", "") for suffix in _FORBIDDEN_DURABLE_SUFFIXES)
+
 
 def normalize_json_object(value: Mapping[str, Any], *, field: str = "payload") -> JsonObject:
     """Return a detached JSON object after strict, lossless round-trip validation."""
@@ -29,6 +54,12 @@ def normalize_json_object(value: Mapping[str, Any], *, field: str = "payload") -
     if type(decoded) is not dict:
         raise InvalidJsonPayloadError(f"{field} must round-trip to a JSON object")
     return decoded
+
+
+def normalize_durable_json_object(value: Mapping[str, Any], *, field: str = "payload") -> JsonObject:
+    normalized = normalize_json_object(value, field=field)
+    _reject_durable_secrets(normalized, path=field)
+    return normalized
 
 
 def canonical_json(value: Mapping[str, Any], *, field: str = "payload") -> str:
@@ -70,3 +101,21 @@ def _validate_json_value(value: Any, *, path: str) -> None:
 
 def _reject_constant(value: str) -> None:
     raise ValueError(f"non-finite JSON constant {value!r} is forbidden")
+
+
+def _reject_durable_secrets(value: Any, *, path: str) -> None:
+    if type(value) is dict:
+        for key, item in value.items():
+            normalized_key = key.strip().casefold().replace("-", "_")
+            compact_key = "".join(character for character in normalized_key if character.isalnum())
+            if (
+                normalized_key in _FORBIDDEN_DURABLE_KEYS
+                or normalized_key.endswith(_FORBIDDEN_DURABLE_SUFFIXES)
+                or compact_key in _FORBIDDEN_DURABLE_COMPACT_KEYS
+                or compact_key.endswith(_FORBIDDEN_DURABLE_COMPACT_SUFFIXES)
+            ):
+                raise InvalidJsonPayloadError(f"{path} cannot persist secret field {key!r}")
+            _reject_durable_secrets(item, path=f"{path}.{key}")
+    elif type(value) is list:
+        for index, item in enumerate(value):
+            _reject_durable_secrets(item, path=f"{path}[{index}]")

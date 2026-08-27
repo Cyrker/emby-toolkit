@@ -133,7 +133,19 @@ const api = {
     }
     return results;
   },
-  bulkChangeUserTemplate: (userIds, templateId) => Promise.allSettled(userIds.map(id => api.changeUserTemplate(id, templateId))),
+  bulkChangeUserTemplate: (userIds, templateId) => Promise.allSettled(userIds.map(async (id) => {
+    const response = await api.changeUserTemplate(id, templateId);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      const operation = data?.operation && typeof data.operation === 'object' ? data.operation : {};
+      const error = new Error(data.message || `切换模板失败 (${response.status})`);
+      error.status = response.status;
+      error.operationId = operation.id || null;
+      error.statusUrl = response.headers.get('Location') || operation.status_url || null;
+      throw error;
+    }
+    return response;
+  })),
 };
 
 // --- 状态和Hooks ---
@@ -401,15 +413,20 @@ const handleBulkChangeTemplateOk = () => {
       const userIds = [...checkedRowKeys.value];
       try {
         const results = await api.bulkChangeUserTemplate(userIds, bulkTemplateFormModel.value.template_id);
-        const failedCount = results.filter(r => r.status === 'rejected').length;
-        if (failedCount > 0) {
-          message.error(`${failedCount} 个用户切换模板失败，其余成功。`);
+        const failedIds = userIds.filter((_, index) => results[index].status === 'rejected');
+        const failedResults = results.filter(result => result.status === 'rejected');
+        const successCount = userIds.length - failedIds.length;
+        if (failedIds.length > 0) {
+          const traceable = failedResults.find(result => result.reason?.status === 503 && result.reason?.statusUrl);
+          const traceHint = traceable ? ` 可在 ${traceable.reason.statusUrl} 查看待恢复操作。` : '';
+          message.error(`批量切换模板完成：成功 ${successCount} 个，失败 ${failedIds.length} 个。${traceHint}`);
+          checkedRowKeys.value = failedIds;
         } else {
           message.success(`成功为 ${userIds.length} 个用户切换了模板。`);
+          isBulkTemplateModalVisible.value = false;
+          checkedRowKeys.value = [];
         }
-        isBulkTemplateModalVisible.value = false;
-        checkedRowKeys.value = [];
-        fetchData();
+        await fetchData();
       } catch (error) {
         message.error('批量切换模板时发生未知错误');
       } finally {

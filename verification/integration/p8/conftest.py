@@ -81,12 +81,21 @@ def _truncate_fixture_rows(runtime: DatabaseRuntime) -> None:
             text(
                 """
                 TRUNCATE TABLE
+                    idempotency_records,
+                    job_attempts,
+                    job_runs,
+                    portal_subscription_requests,
+                    database_maintenance_operations,
+                    database_backup_artifacts,
+                    identity_avatar_artifacts,
+                    identity_operations,
                     emby_favorite_items,
                     user_media_data,
                     invitations,
                     emby_users_extended,
                     user_templates,
                     emby_users,
+                    collection_operations,
                     media_effects,
                     outbox_events,
                     subscription_quota_reservations,
@@ -97,6 +106,8 @@ def _truncate_fixture_rows(runtime: DatabaseRuntime) -> None:
                     processed_log,
                     custom_collections,
                     collections_info,
+                    media_image_policy_cache,
+                    media_image_cache,
                     media_metadata,
                     app_settings
                 RESTART IDENTITY CASCADE

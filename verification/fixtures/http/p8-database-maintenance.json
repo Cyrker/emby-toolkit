@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "kind": "p8-database-maintenance-http-contract",
+  "provenance": {
+    "captured_live": false,
+    "external_providers": "postgresql-18-and-fake-only",
+    "stage": "P8-EFFECTS",
+    "sanitized": true
+  },
+  "contract": {
+    "limits": {
+      "max_compressed_bytes": 67108864,
+      "max_expanded_bytes": 268435456,
+      "max_compression_ratio": "20",
+      "artifact_ttl_seconds": 86400
+    },
+    "share_allowlist": ["person_metadata", "translation_cache", "media_metadata", "p115_mediainfo_cache"],
+    "overwrite_denylist": ["emby_users", "cleanup_index", "invitations"],
+    "export": {"status": 200, "content_type": "application/gzip", "mode": "synchronous"},
+    "durable_operations": {"status": 202, "fields": ["operation_id", "status_url"]},
+    "active_conflict_status": 409,
+    "restart_required_after_import": true,
+    "backup_metadata": ["format_version", "schema_fingerprint"]
+  },
+  "routes": [
+    {"method": "POST", "path": "/api/database/export", "owner": "etk.domains.operations.database_router", "response_statuses": [200, 400, 403, 500]},
+    {"method": "POST", "path": "/api/database/preview-backup", "owner": "etk.domains.operations.database_router", "response_statuses": [200, 400, 403, 500]},
+    {"method": "POST", "path": "/api/database/import", "owner": "etk.domains.operations.database_router", "response_statuses": [202, 400, 403, 409, 500]},
+    {"method": "POST", "path": "/api/actions/clear_tables", "owner": "etk.domains.operations.database_router", "response_statuses": [202, 400, 403, 409, 500]},
+    {"method": "POST", "path": "/api/actions/prepare-for-library-rebuild", "owner": "etk.domains.operations.database_router", "response_statuses": [202, 403, 409, 500]},
+    {"method": "POST", "path": "/api/actions/cleanup-offline-media", "owner": "etk.domains.operations.database_router", "response_statuses": [202, 403, 409, 500]},
+    {"method": "POST", "path": "/api/actions/clear-vectors", "owner": "etk.domains.operations.database_router", "response_statuses": [202, 403, 409, 500]},
+    {"method": "POST", "path": "/api/database/correct-sequences", "owner": "etk.domains.operations.database_router", "response_statuses": [202, 403, 409, 500]},
+    {"method": "GET", "path": "/api/database/maintenance/operations/{operation_id}", "owner": "etk.domains.operations.database_router", "response_statuses": [200, 400, 403, 404, 500]}
+  ]
+}

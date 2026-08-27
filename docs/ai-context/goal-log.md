@@ -1290,6 +1290,64 @@ Safety boundary:
 - No real Emby, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old `/config`,
   external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P8-EFFECTS
+
+Stage / Batch: P8 / P8-EFFECTS
+
+HEAD / Commit:
+
+- Pre-batch HEAD: `23980f8c` (`P8-LOCAL`).
+- P8-EFFECTS checkpoint: the commit containing this entry; no amend, push, deploy, or release.
+
+Implemented:
+
+- Added durable Collection provider operations, suppression/readback handling, user policy/template
+  effects, identity registration/avatar/status/template operations, Discover/secondary adapters,
+  Portal subscription/playback effects, review reprocess, and Worker/Celery routing. External calls
+  are typed Ports with local HTTPX Fake/Stub contracts.
+- Added bounded backup preview/import/export and durable database maintenance operations. The confirmed
+  contract uses 64 MiB compressed, 256 MiB expanded, 20x ratio, 24h artifact TTL, immutable preview
+  artifacts, artifact-only import, synchronous gzip export, durable 202 maintenance actions, fixed
+  409 active conflicts, protected-FK rejection, overwrite denylist, version/fingerprint metadata and
+  `restart_required=true` without automatic restart.
+- Added migrations `0016_p8_identity_operations` and `0017_p8_effects_and_maintenance`, ownership
+  overlay entries, P8 HTTP fixtures and Greenfield table ownership evidence. `system-auto-update`
+  remains native `SKIPPED` and never invokes Docker or a legacy updater.
+
+Targeted gate:
+
+- `uv run ruff check src verification scripts` -> clean.
+- `uv run ruff format --check src verification scripts` -> 552 files already formatted.
+- `uv run pyright` -> 0 errors, 0 warnings, 0 informations.
+- P8 application/architecture/contracts plus P5 media-effect regression -> `154 passed`, one existing
+  Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 P8 integration -> `123 passed`.
+- `python3 scripts/refactor/check_manifests.py`, OpenAPI `--check`, fixture secret scan and
+  `git diff --check` -> clean.
+- Findings-first review is recorded in `/tmp/etk-refactor-artifacts/p8-effects-20260827/findings-first-review.md`;
+  no actionable P0/P1/P2 finding remains. The suppression-marker read/receipt race is documented as
+  a non-blocking residual pending reproducible evidence.
+
+Stage full gate:
+
+- Pending until after this single P8-EFFECTS checkpoint: one P8 stage-close Ruff/Pyright/pytest/PG18/
+  Redis-Celery/Manifest/OpenAPI/secret-scan run, frontend build, high-risk transaction review and
+  P8 integration review.
+
+Pending:
+
+- Create the sole P8-EFFECTS checkpoint, then run the P8 stage-close full gate. Keep Live Acceptance
+  `HUMAN_PENDING`.
+
+Blocker: none.
+
+Next: after the P8 stage-close gate, continue in order with P9-LEDGER, P9-ADAPTERS and P9-PROXY.
+
+Safety boundary:
+
+- No real Emby, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old `/config`,
+  external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

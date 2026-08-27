@@ -30,7 +30,10 @@ from etk.compatibility.intro_detection import (
 )
 from etk.compatibility.legacy_jobs import LegacyTaskAdapter
 from etk.compatibility.media_effects import clear_persistent_media_effect_gateway
-from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
+from etk.compatibility.persistent_runtime_state import (
+    PersistentRuntimeStateStore,
+    PostgresRuntimeStateBackend,
+)
 from etk.compatibility.persistent_tasks import PersistentTaskManagerGateway
 from etk.compatibility.playback import (
     NativePlaybackCompatibilityGateway,
@@ -41,6 +44,32 @@ from etk.compatibility.upload_monitor import (
     clear_persistent_upload_source_cleanup,
     install_persistent_upload_source_cleanup,
 )
+from etk.domains.collection.effect_adapters import (
+    HttpxCollectionRemoteEffectsAdapter,
+    LegacyCollectionAssetEffectsAdapter,
+    PersistentCollectionDeletionSuppression,
+)
+from etk.domains.collection.operation_execution import CollectionOperationExecutor
+from etk.domains.collection.operation_repository import PostgresCollectionOperationRepository
+from etk.domains.collection.operations import CollectionOperation
+from etk.domains.identity.effect_adapters import HttpxEmbyIdentityEffectsAdapter
+from etk.domains.identity.effect_execution import (
+    IdentityOperationExecutor,
+    IdentityUserMutationCoordinator,
+    RegistrationSagaCoordinator,
+)
+from etk.domains.identity.operation_repository import PostgresIdentityOperationRepository
+from etk.domains.identity.operations import IdentityOperation
+from etk.domains.identity.repository import SqlAlchemyIdentityRepository
+from etk.domains.identity.user_activity_adapters import HttpxEmbyUserActivityAdapter
+from etk.domains.identity.user_activity_effects import (
+    LegacyUserEventEffectsAdapter,
+    P8UserEventEffectDelivery,
+    SqlAlchemyTemplatePropagationRepository,
+    UserPolicyEffectService,
+)
+from etk.domains.identity.user_sync import SqlAlchemyUserSyncRepository, UserSyncService
+from etk.domains.identity.user_sync_adapter import HttpxEmbyUserSyncAdapter
 from etk.domains.ingestion import MonitorItemProjection, PostgresIngestionMonitorLedger
 from etk.domains.media.bridge_client import HttpxEmbyBridgeClient
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
@@ -56,10 +85,15 @@ from etk.domains.media.final_refresh_effects import (
 )
 from etk.domains.media.image_editing_compatibility import LegacyMediaImageEditingGateway
 from etk.domains.media.image_editing_effects import ManualImageEffectDelivery
+from etk.domains.operations.database_maintenance import (
+    DatabaseMaintenanceExecutor,
+    PostgresDatabaseMaintenanceRepository,
+)
 from etk.domains.operations.jobs import (
     JobSubmissionService,
     import_legacy_operation,
 )
+from etk.domains.operations.review_reprocess import P8_REVIEW_TASK_KEYS
 from etk.domains.p115 import (
     AtomicP115LocalStrmLibraryGateway,
     ChromaprintProcessAdapter,
@@ -168,6 +202,7 @@ from etk.platform.tasks.catalog import (
     P6_NATIVE_TASK_KEYS,
     P6_P115_NATIVE_TASK_KEYS,
     P7_NATIVE_TASK_KEYS,
+    P8_NATIVE_TASK_KEYS,
 )
 
 from .p5_media_tasks import LegacyP5MediaCompatibilityGateway, P5MediaTaskRouter
@@ -195,6 +230,13 @@ from .p7_subscription_tasks import (
     LegacyP7SubscriptionCompatibilityGateway,
     LegacySubscribeAssistantMaintenanceGateway,
     P7SubscriptionTaskRouter,
+)
+from .p8_collection_operations import collection_operation_claim_lease_seconds
+from .p8_database_maintenance import DATABASE_MAINTENANCE_CLAIM_LEASE_SECONDS
+from .p8_effect_tasks import LegacyP8EffectsCompatibilityGateway, P8EffectTaskRouter
+from .p8_identity import (
+    IDENTITY_OPERATION_CLAIM_LEASE_SECONDS,
+    identity_operation_claim_lease_seconds,
 )
 from .runtime_config import TaskRuntimeConfig
 
@@ -310,11 +352,13 @@ class _ExecutionProgress:
     control: _ExecutionControl
     task_key: str = ""
     accept_succeeded_terminal_update: bool = False
+    _last_reported_progress: int | None = field(default=None, init=False, repr=False)
     _reported_failures: list[str] = field(default_factory=list, init=False, repr=False)
     _failure_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     def update(self, progress: int, message: str) -> None:
         normalized_progress = None if progress < 0 else max(0, min(100, int(progress)))
+        self._last_reported_progress = normalized_progress
         if progress < 0:
             with self._failure_lock:
                 self._reported_failures.append(str(message))
@@ -355,6 +399,9 @@ class _ExecutionProgress:
                 return
             latest = self._reported_failures[-1]
         raise _TaskReportedFailure(latest or "legacy task reported failure")
+
+    def success_reported(self) -> bool:
+        return self._last_reported_progress == 100
 
     def checkpoint(self) -> None:
         projection = self.store.get_job(self.job_id)
@@ -595,6 +642,7 @@ class WorkerRuntime:
         self._p6_p115_tasks: P6P115TaskRouter | None = None
         self._p6_ingestion_tasks: P6IngestionTaskRouter | None = None
         self._p7_subscription_tasks: P7SubscriptionTaskRouter | None = None
+        self._p8_effect_tasks: P8EffectTaskRouter | None = None
         self._p7_cleanup_executor: CleanupExecutionService | None = None
         self._p7_cleanup_repository: SqlAlchemyCleanupExecutionRepository | None = None
         self._ingestion_executor: IngestionMonitorExecutor | None = None
@@ -604,6 +652,9 @@ class WorkerRuntime:
         self._p115_playback_executor: P115PlaybackOperationExecutor | None = None
         self._p115_intro_executor: P115IntroDetectionOperationExecutor | None = None
         self._subscription_executor: SubscriptionOperationExecutor | None = None
+        self._collection_operation_executor: CollectionOperationExecutor | None = None
+        self._identity_executor: IdentityOperationExecutor | None = None
+        self._database_maintenance_executor: DatabaseMaintenanceExecutor | None = None
         self._playback_gateway: NativePlaybackCompatibilityGateway | None = None
         self._intro_detection_gateway: NativeP115IntroDetectionGateway | None = None
         self._p115_upload_source_cleanup: NativeP115UploadSourceCleanupGateway | None = None
@@ -618,6 +669,9 @@ class WorkerRuntime:
         self._active_p115_playback_executions = 0
         self._active_p115_intro_executions = 0
         self._active_subscription_executions = 0
+        self._active_collection_operation_executions = 0
+        self._active_identity_executions = 0
+        self._active_database_maintenance_executions = 0
         self._idle = threading.Event()
         self._idle.set()
         self._shutdown_requested = threading.Event()
@@ -667,6 +721,28 @@ class WorkerRuntime:
                     subscription_operations,
                     ConfiguredMoviePilotGateway(app_settings),
                 )
+                identity_operations = PostgresIdentityOperationRepository(database.unit_of_work)
+                identity_effects = HttpxEmbyIdentityEffectsAdapter(settings_provider)
+                identity_registration = RegistrationSagaCoordinator(
+                    identity_operations,
+                    identity_effects,
+                )
+                identity_mutations = IdentityUserMutationCoordinator(
+                    identity_operations,
+                    identity_effects,
+                )
+                identity_executor = IdentityOperationExecutor(
+                    identity_registration,
+                    identity_mutations,
+                    identity_operations,
+                )
+                database_maintenance_repository = PostgresDatabaseMaintenanceRepository(database.unit_of_work)
+                database_maintenance_executor = DatabaseMaintenanceExecutor(
+                    database_maintenance_repository,
+                    unit_of_work=database.unit_of_work,
+                    worker_id=f"{self._worker_id}:database-maintenance",
+                    lease_seconds=DATABASE_MAINTENANCE_CLAIM_LEASE_SECONDS,
+                )
                 moviepilot_effects = PersistentMoviePilotEffectGateway(
                     subscription_operations,
                     subscription_executor,
@@ -688,6 +764,13 @@ class WorkerRuntime:
                     ),
                     moviepilot_effects,
                     resubscribe_cleanup,
+                )
+                p8_effect_tasks = P8EffectTaskRouter(
+                    LegacyP8EffectsCompatibilityGateway(),
+                    UserSyncService(
+                        HttpxEmbyUserSyncAdapter(settings_provider),
+                        SqlAlchemyUserSyncRepository(database.unit_of_work),
+                    ),
                 )
                 ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
                 upload_repository = PostgresP115UploadMonitorRepository(database.unit_of_work)
@@ -814,6 +897,27 @@ class WorkerRuntime:
                         blueprint_specs=(("routes.webhook", "webhook_bp"),),
                     )
                 )
+                collection_operation_executor = CollectionOperationExecutor(
+                    PostgresCollectionOperationRepository(database.unit_of_work),
+                    HttpxCollectionRemoteEffectsAdapter(settings_provider),
+                    LegacyCollectionAssetEffectsAdapter(),
+                    PersistentCollectionDeletionSuppression(
+                        PersistentRuntimeStateStore(PostgresRuntimeStateBackend(database.raw_pool.connection))
+                    ),
+                    worker_id=f"{self._worker_id}:collection-operation",
+                    lease_seconds=lambda: collection_operation_claim_lease_seconds(
+                        config_adapter.load().emby_api_timeout,
+                    ),
+                )
+                user_activity_provider = HttpxEmbyUserActivityAdapter(settings_provider)
+                user_event_delivery = P8UserEventEffectDelivery(
+                    UserPolicyEffectService(
+                        user_activity_provider,
+                        SqlAlchemyIdentityRepository(database.unit_of_work),
+                        SqlAlchemyTemplatePropagationRepository(database.unit_of_work),
+                    ),
+                    LegacyUserEventEffectsAdapter(settings_provider),
+                )
                 media_effects = PersistentMediaEffectExecutor(
                     PostgresMediaEffectLedger(database.unit_of_work),
                     RoutedMediaEffectDelivery(
@@ -822,6 +926,7 @@ class WorkerRuntime:
                             EmbyMetadataRefreshEffectDelivery(settings_provider),
                             ManualImageEffectDelivery(LegacyMediaImageEditingGateway()),
                             P5MediaEventEffectDelivery(LegacyP5MediaEventGateway(event_compatibility)),
+                            user_event_delivery,
                             EmbyPathChangeEffectDelivery(
                                 settings_provider,
                                 HttpxEmbyPathChangeGateway(),
@@ -961,6 +1066,7 @@ class WorkerRuntime:
             self._p6_p115_tasks = p6_p115_tasks
             self._p6_ingestion_tasks = p6_ingestion_tasks
             self._p7_subscription_tasks = p7_subscription_tasks
+            self._p8_effect_tasks = p8_effect_tasks
             self._p7_cleanup_executor = cleanup_executor
             self._p7_cleanup_repository = cleanup_repository
             self._ingestion_executor = ingestion_executor
@@ -970,6 +1076,9 @@ class WorkerRuntime:
             self._p115_playback_executor = playback_executor
             self._p115_intro_executor = intro_executor
             self._subscription_executor = subscription_executor
+            self._collection_operation_executor = collection_operation_executor
+            self._identity_executor = identity_executor
+            self._database_maintenance_executor = database_maintenance_executor
             self._playback_gateway = playback_gateway
             self._intro_detection_gateway = intro_detection_gateway
             self._p115_upload_source_cleanup = upload_source_cleanup
@@ -1076,6 +1185,7 @@ class WorkerRuntime:
             self._p6_p115_tasks = None
             self._p6_ingestion_tasks = None
             self._p7_subscription_tasks = None
+            self._p8_effect_tasks = None
             self._p7_cleanup_executor = None
             self._p7_cleanup_repository = None
             self._ingestion_executor = None
@@ -1085,6 +1195,9 @@ class WorkerRuntime:
             self._p115_playback_executor = None
             self._p115_intro_executor = None
             self._subscription_executor = None
+            self._collection_operation_executor = None
+            self._identity_executor = None
+            self._database_maintenance_executor = None
             self._playback_gateway = None
             self._intro_detection_gateway = None
             self._p115_upload_source_cleanup = None
@@ -1097,6 +1210,9 @@ class WorkerRuntime:
             self._active_p115_playback_executions = 0
             self._active_p115_intro_executions = 0
             self._active_subscription_executions = 0
+            self._active_collection_operation_executions = 0
+            self._active_identity_executions = 0
+            self._active_database_maintenance_executions = 0
             self._idle.set()
             self._started = False
             if errors:
@@ -1144,6 +1260,9 @@ class WorkerRuntime:
                     and self._active_p115_playback_executions == 0
                     and self._active_p115_intro_executions == 0
                     and self._active_subscription_executions == 0
+                    and self._active_collection_operation_executions == 0
+                    and self._active_identity_executions == 0
+                    and getattr(self, "_active_database_maintenance_executions", 0) == 0
                 ):
                     self._idle.set()
 
@@ -1175,6 +1294,9 @@ class WorkerRuntime:
                     and self._active_p115_playback_executions == 0
                     and self._active_p115_intro_executions == 0
                     and self._active_subscription_executions == 0
+                    and self._active_collection_operation_executions == 0
+                    and self._active_identity_executions == 0
+                    and getattr(self, "_active_database_maintenance_executions", 0) == 0
                 ):
                     self._idle.set()
 
@@ -1206,6 +1328,9 @@ class WorkerRuntime:
                     and self._active_p115_playback_executions == 0
                     and self._active_p115_intro_executions == 0
                     and self._active_subscription_executions == 0
+                    and self._active_collection_operation_executions == 0
+                    and self._active_identity_executions == 0
+                    and getattr(self, "_active_database_maintenance_executions", 0) == 0
                 ):
                     self._idle.set()
 
@@ -1241,6 +1366,9 @@ class WorkerRuntime:
                     and self._active_p115_playback_executions == 0
                     and self._active_p115_intro_executions == 0
                     and self._active_subscription_executions == 0
+                    and self._active_collection_operation_executions == 0
+                    and self._active_identity_executions == 0
+                    and getattr(self, "_active_database_maintenance_executions", 0) == 0
                 ):
                     self._idle.set()
 
@@ -1277,6 +1405,132 @@ class WorkerRuntime:
                     and self._active_p115_playback_executions == 0
                     and self._active_p115_intro_executions == 0
                     and self._active_subscription_executions == 0
+                    and self._active_collection_operation_executions == 0
+                    and self._active_identity_executions == 0
+                    and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                ):
+                    self._idle.set()
+
+    def execute_collection_operation(self, *, operation_id: str) -> CollectionOperation | None:
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown is in progress")
+        try:
+            parsed_operation_id = UUID(str(operation_id))
+        except ValueError as exc:
+            raise ValueError("collection operation id must be a UUID") from exc
+        self.start()
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
+        with self._lock:
+            executor = self._collection_operation_executor
+            if executor is None:
+                raise RuntimeError("Worker collection operation executor is not initialized")
+            self._active_collection_operation_executions += 1
+            self._idle.clear()
+        try:
+            return executor.execute(parsed_operation_id)
+        finally:
+            with self._lock:
+                self._active_collection_operation_executions -= 1
+                if (
+                    not self._active_executions
+                    and self._active_ingestion_executions == 0
+                    and self._active_p115_upload_executions == 0
+                    and self._active_p115_playback_executions == 0
+                    and self._active_p115_intro_executions == 0
+                    and self._active_subscription_executions == 0
+                    and self._active_collection_operation_executions == 0
+                    and self._active_identity_executions == 0
+                    and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                ):
+                    self._idle.set()
+
+    def execute_identity_operation(self, *, operation_id: str) -> IdentityOperation | None:
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown is in progress")
+        try:
+            parsed_operation_id = UUID(str(operation_id))
+        except ValueError as exc:
+            raise ValueError("identity operation id must be a UUID") from exc
+        self.start()
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
+        with self._lock:
+            executor = self._identity_executor
+            if executor is None:
+                raise RuntimeError("Worker identity operation executor is not initialized")
+            config_adapter = getattr(self, "_config_adapter", None)
+            self._active_identity_executions += 1
+            self._idle.clear()
+        try:
+            lease_seconds = IDENTITY_OPERATION_CLAIM_LEASE_SECONDS
+            if config_adapter is not None:
+                lease_seconds = identity_operation_claim_lease_seconds(config_adapter.load().emby_api_timeout)
+            execution = executor.execute(
+                parsed_operation_id,
+                worker_id=f"{self._worker_id}:identity",
+                lease_seconds=lease_seconds,
+            )
+            return execution.operation if execution is not None else None
+        finally:
+            with self._lock:
+                self._active_identity_executions -= 1
+                if (
+                    not self._active_executions
+                    and self._active_ingestion_executions == 0
+                    and self._active_p115_upload_executions == 0
+                    and self._active_p115_playback_executions == 0
+                    and self._active_p115_intro_executions == 0
+                    and self._active_subscription_executions == 0
+                    and self._active_collection_operation_executions == 0
+                    and self._active_identity_executions == 0
+                    and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                ):
+                    self._idle.set()
+
+    def execute_database_maintenance(
+        self,
+        *,
+        operation_id: str,
+        artifact_id: str | None = None,
+    ) -> Any:
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown is in progress")
+        try:
+            parsed_operation_id = UUID(str(operation_id))
+        except ValueError as exc:
+            raise ValueError("database maintenance operation id must be a UUID") from exc
+        parsed_artifact_id: UUID | None = None
+        if artifact_id is not None:
+            try:
+                parsed_artifact_id = UUID(str(artifact_id))
+            except ValueError as exc:
+                raise ValueError("database maintenance artifact id must be a UUID") from exc
+        self.start()
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
+        with self._lock:
+            executor = self._database_maintenance_executor
+            if executor is None:
+                raise RuntimeError("Worker database maintenance executor is not initialized")
+            self._active_database_maintenance_executions = getattr(self, "_active_database_maintenance_executions", 0)
+            self._active_database_maintenance_executions += 1
+            self._idle.clear()
+        try:
+            return executor.execute(parsed_operation_id, artifact_id=parsed_artifact_id)
+        finally:
+            with self._lock:
+                self._active_database_maintenance_executions -= 1
+                if (
+                    not self._active_executions
+                    and self._active_ingestion_executions == 0
+                    and self._active_p115_upload_executions == 0
+                    and self._active_p115_playback_executions == 0
+                    and self._active_p115_intro_executions == 0
+                    and self._active_subscription_executions == 0
+                    and self._active_collection_operation_executions == 0
+                    and self._active_identity_executions == 0
+                    and getattr(self, "_active_database_maintenance_executions", 0) == 0
                 ):
                     self._idle.set()
 
@@ -1345,7 +1599,7 @@ class WorkerRuntime:
                 definition is not None
                 and (
                     definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
-                    or definition.key == "restore_mediainfo"
+                    or definition.key in {"restore_mediainfo", "sync-all-user-data", "system-auto-update"}
                 )
             )
             or envelope.get("call_style") == "direct"
@@ -1451,6 +1705,40 @@ class WorkerRuntime:
                     result = self._p7_subscription_tasks.execute(message, processor, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P7 native task {definition.key!r} did not return TaskOutcome")
+            elif definition is not None and definition.key in P8_NATIVE_TASK_KEYS:
+                metadata = {
+                    "job_id": str(job.id),
+                    "attempt_id": str(attempt.id),
+                    "worker_id": self._worker_id,
+                }
+                message = registry.create_message(
+                    definition.key,
+                    envelope["parameters"],
+                    payload_version=int(envelope["payload_version"]),
+                    metadata=metadata,
+                )
+                if self._p8_effect_tasks is None:
+                    raise RuntimeError("P8 effect task router is unavailable")
+                from task_manager import persistent_execution
+
+                with persistent_execution(progress):
+                    result = self._p8_effect_tasks.execute(message, processor, progress)
+                if not isinstance(result, TaskOutcome):
+                    raise TypeError(f"P8 native task {definition.key!r} did not return TaskOutcome")
+            elif job.task_key in P8_REVIEW_TASK_KEYS:
+                if self._p8_effect_tasks is None:
+                    raise RuntimeError("P8 effect task router is unavailable")
+                from task_manager import persistent_execution
+
+                with persistent_execution(progress):
+                    result = self._p8_effect_tasks.execute_review(
+                        job.task_key,
+                        envelope["parameters"],
+                        processor,
+                        progress,
+                    )
+                if not isinstance(result, TaskOutcome):
+                    raise TypeError(f"P8 review task {job.task_key!r} did not return TaskOutcome")
             elif definition is not None:
                 message = registry.create_message(
                     definition.key,
@@ -1826,6 +2114,9 @@ class WorkerRuntime:
                 and self._active_p115_playback_executions == 0
                 and self._active_p115_intro_executions == 0
                 and self._active_subscription_executions == 0
+                and self._active_collection_operation_executions == 0
+                and self._active_identity_executions == 0
+                and getattr(self, "_active_database_maintenance_executions", 0) == 0
             ):
                 self._idle.set()
 

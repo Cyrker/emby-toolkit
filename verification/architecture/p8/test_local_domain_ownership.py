@@ -79,7 +79,7 @@ def test_p8_local_sources_do_not_reverse_import_legacy_runtime() -> None:
         assert not any(module.split(".")[0] in LEGACY_IMPORT_ROOTS for module in imports), path
 
 
-def test_eleven_secondary_local_routes_precede_compatibility_and_effects_do_not() -> None:
+def test_secondary_local_and_effect_routes_precede_compatibility() -> None:
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     expected = {(route["method"], route["path"]) for route in fixture["routes"]}
     assert len(expected) == 11
@@ -89,7 +89,7 @@ def test_eleven_secondary_local_routes_precede_compatibility_and_effects_do_not(
         for method, path in expected:
             assert method.casefold() in schema[path]
         for method, path in P8_EFFECT_PATHS:
-            assert path not in schema or method.casefold() not in schema[path]
+            assert method.casefold() in schema[path]
 
         compatibility_index = next(
             index for index, route in enumerate(app.routes) if getattr(route, "name", None) == "legacy-compatibility"
@@ -105,7 +105,9 @@ def test_eleven_secondary_local_routes_precede_compatibility_and_effects_do_not(
         app.state.container.close()
 
 
-def test_user_activity_is_prepared_but_default_di_remains_legacy_until_effect_adapters() -> None:
+def test_user_activity_and_collection_events_use_the_native_future_domain_gateway() -> None:
     source = APP_FACTORY.read_text(encoding="utf-8")
-    assert "LegacyFutureDomainEventGateway" in source
-    assert "P8UserEventGateway" not in source
+    assert "LegacyFutureDomainEventGateway" not in source
+    assert "P8UserEventGateway" in source
+    assert "P8CollectionRemovalEventGateway" in source
+    assert "P8FutureDomainEventGateway" in source

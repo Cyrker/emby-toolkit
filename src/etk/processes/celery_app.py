@@ -8,12 +8,15 @@ from kombu import Queue
 from .runtime_config import TaskRuntimeConfig
 
 EXECUTE_JOB_TASK = "etk.jobs.execute"
+EXECUTE_COLLECTION_OPERATION_TASK = "etk.collection.operation.execute"
+EXECUTE_IDENTITY_OPERATION_TASK = "etk.identity.operation.execute"
 EXECUTE_MEDIA_EFFECT_TASK = "etk.media.effects.execute"
 EXECUTE_INGESTION_MONITOR_TASK = "etk.ingestion.monitor.execute"
 EXECUTE_P115_INTRO_DETECTION_OPERATION_TASK = "etk.p115.intro_detection.execute"
 EXECUTE_P115_PLAYBACK_OPERATION_TASK = "etk.p115.playback.execute"
 EXECUTE_P115_UPLOAD_OPERATION_TASK = "etk.p115.upload.execute"
 EXECUTE_SUBSCRIPTION_OPERATION_TASK = "etk.subscription.operation.execute"
+EXECUTE_DATABASE_MAINTENANCE_TASK = "etk.database.maintenance.execute"
 
 
 def create_celery_app(config: TaskRuntimeConfig | None = None) -> Celery:
@@ -51,12 +54,15 @@ def create_celery_app(config: TaskRuntimeConfig | None = None) -> Celery:
         task_publish_retry=False,
         task_routes={
             EXECUTE_JOB_TASK: {"queue": runtime.queue_name},
+            EXECUTE_COLLECTION_OPERATION_TASK: {"queue": runtime.queue_name},
+            EXECUTE_IDENTITY_OPERATION_TASK: {"queue": runtime.queue_name},
             EXECUTE_MEDIA_EFFECT_TASK: {"queue": runtime.queue_name},
             EXECUTE_INGESTION_MONITOR_TASK: {"queue": runtime.queue_name},
             EXECUTE_P115_INTRO_DETECTION_OPERATION_TASK: {"queue": runtime.queue_name},
             EXECUTE_P115_PLAYBACK_OPERATION_TASK: {"queue": runtime.queue_name},
             EXECUTE_P115_UPLOAD_OPERATION_TASK: {"queue": runtime.queue_name},
             EXECUTE_SUBSCRIPTION_OPERATION_TASK: {"queue": runtime.queue_name},
+            EXECUTE_DATABASE_MAINTENANCE_TASK: {"queue": runtime.queue_name},
         },
         task_serializer="json",
         timezone="Asia/Shanghai",
@@ -203,6 +209,71 @@ def create_celery_app(config: TaskRuntimeConfig | None = None) -> Celery:
         except WorkerShutdownRequested as exc:
             raise Reject(str(exc), requeue=True) from exc
 
+    @app.task(
+        bind=True,
+        name=EXECUTE_COLLECTION_OPERATION_TASK,
+        acks_late=True,
+        ignore_result=True,
+        reject_on_worker_lost=True,
+        serializer="json",
+        typing=True,
+    )
+    def execute_collection_operation(_task, *, operation_id: str) -> None:
+        from .worker import WorkerShutdownRequested, get_worker_runtime, worker_shutdown_requested
+
+        if worker_shutdown_requested():
+            raise Reject("Worker shutdown is in progress", requeue=True)
+        try:
+            get_worker_runtime().execute_collection_operation(operation_id=operation_id)
+        except WorkerShutdownRequested as exc:
+            raise Reject(str(exc), requeue=True) from exc
+
+    @app.task(
+        bind=True,
+        name=EXECUTE_IDENTITY_OPERATION_TASK,
+        acks_late=True,
+        ignore_result=True,
+        reject_on_worker_lost=True,
+        serializer="json",
+        typing=True,
+    )
+    def execute_identity_operation(_task, *, operation_id: str) -> None:
+        from .worker import WorkerShutdownRequested, get_worker_runtime, worker_shutdown_requested
+
+        if worker_shutdown_requested():
+            raise Reject("Worker shutdown is in progress", requeue=True)
+        try:
+            get_worker_runtime().execute_identity_operation(operation_id=operation_id)
+        except WorkerShutdownRequested as exc:
+            raise Reject(str(exc), requeue=True) from exc
+
+    @app.task(
+        bind=True,
+        name=EXECUTE_DATABASE_MAINTENANCE_TASK,
+        acks_late=True,
+        ignore_result=True,
+        reject_on_worker_lost=True,
+        serializer="json",
+        typing=True,
+    )
+    def execute_database_maintenance(
+        _task,
+        *,
+        operation_id: str,
+        artifact_id: str | None = None,
+    ) -> None:
+        from .worker import WorkerShutdownRequested, get_worker_runtime, worker_shutdown_requested
+
+        if worker_shutdown_requested():
+            raise Reject("Worker shutdown is in progress", requeue=True)
+        try:
+            get_worker_runtime().execute_database_maintenance(
+                operation_id=operation_id,
+                artifact_id=artifact_id,
+            )
+        except WorkerShutdownRequested as exc:
+            raise Reject(str(exc), requeue=True) from exc
+
     return app
 
 
@@ -238,7 +309,10 @@ def _close_worker_runtime(**_kwargs: object) -> None:
 
 
 __all__ = [
+    "EXECUTE_COLLECTION_OPERATION_TASK",
     "EXECUTE_JOB_TASK",
+    "EXECUTE_IDENTITY_OPERATION_TASK",
+    "EXECUTE_DATABASE_MAINTENANCE_TASK",
     "EXECUTE_INGESTION_MONITOR_TASK",
     "EXECUTE_MEDIA_EFFECT_TASK",
     "EXECUTE_P115_INTRO_DETECTION_OPERATION_TASK",

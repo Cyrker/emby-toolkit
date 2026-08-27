@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from sqlalchemy import text
@@ -107,6 +107,55 @@ class SqlAlchemyUserMediaProjection:
                 elif row["subscription_status"] in {"IGNORED", "NONE"}:
                     stats["failed"] += count
         return stats
+
+    def dashboard_aggregation(self, emby_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+        unique_ids = tuple(dict.fromkeys(str(value).strip() for value in emby_ids if str(value).strip()))
+        if not unique_ids:
+            return {}
+        with self._unit_of_work() as uow:
+            rows = uow.session.execute(
+                text(
+                    """
+                    WITH input_ids AS (
+                        SELECT unnest(CAST(:emby_ids AS text[])) AS emby_id
+                    )
+                    SELECT input.emby_id AS input_emby_id,
+                           CASE WHEN media.item_type = 'Episode'
+                               THEN COALESCE(parent.title, media.title)
+                               ELSE media.title END AS title,
+                           CASE WHEN media.item_type = 'Episode'
+                               THEN parent.poster_path ELSE media.poster_path END AS poster_path,
+                           CASE WHEN media.item_type = 'Episode'
+                               THEN COALESCE(parent.tmdb_id, media.tmdb_id)
+                               ELSE media.tmdb_id END AS tmdb_id,
+                           CASE WHEN media.item_type = 'Episode'
+                               THEN 'Series' ELSE 'Movie' END AS target_type,
+                           CASE WHEN media.item_type = 'Episode'
+                               THEN parent.emby_item_ids_json ->> 0
+                               ELSE media.emby_item_ids_json ->> 0 END AS target_emby_id
+                    FROM input_ids AS input
+                    JOIN media_metadata AS media
+                      ON media.emby_item_ids_json @> to_jsonb(input.emby_id)
+                    LEFT JOIN media_metadata AS parent
+                      ON media.parent_series_tmdb_id = parent.tmdb_id
+                     AND parent.item_type = 'Series'
+                    WHERE media.item_type IN ('Movie','Episode')
+                    """
+                ),
+                {"emby_ids": list(unique_ids)},
+            ).mappings()
+            result: dict[str, dict[str, Any]] = {}
+            for row in rows:
+                if not row["tmdb_id"]:
+                    continue
+                result[str(row["input_emby_id"])] = {
+                    "id": row["tmdb_id"],
+                    "name": row["title"],
+                    "poster_path": row["poster_path"],
+                    "type": row["target_type"],
+                    "emby_id": row["target_emby_id"],
+                }
+            return result
 
     def search_library(self, query: str) -> dict[str, Any]:
         search_term = f"%{query}%"

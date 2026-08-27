@@ -20,7 +20,10 @@ from etk.compatibility.intro_detection import (
     clear_persistent_intro_detection_gateway,
     install_persistent_intro_detection_gateway,
 )
-from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
+from etk.compatibility.persistent_runtime_state import (
+    PersistentRuntimeStateStore,
+    PostgresRuntimeStateBackend,
+)
 from etk.compatibility.playback import (
     NativePlaybackCompatibilityGateway,
     clear_persistent_playback_gateway,
@@ -35,6 +38,15 @@ from etk.domains.collection import (
     PillowCoverPreviewRenderer,
     SqlAlchemyCollectionRepository,
 )
+from etk.domains.collection.effect_adapters import (
+    HttpxCollectionRemoteEffectsAdapter,
+    PersistentCollectionDeletionSuppression,
+)
+from etk.domains.collection.effects import PostgresCollectionEffectGateway
+from etk.domains.collection.operation_execution import CollectionOperationReconciler
+from etk.domains.collection.operation_repository import PostgresCollectionOperationRepository
+from etk.domains.collection.query_adapters import HttpxCollectionQueryAdapter
+from etk.domains.collection.router import effects_router as collection_effects_router
 from etk.domains.collection.router import router as collection_router
 from etk.domains.identity import (
     IdentityService,
@@ -44,9 +56,28 @@ from etk.domains.identity import (
     SqlAlchemyCollectionUserProjection,
     SqlAlchemyIdentityRepository,
 )
+from etk.domains.identity.effect_adapters import (
+    HttpxEmbyIdentityEffectsAdapter,
+    HttpxTelegramBotInfoGateway,
+    InProcessRegistrationSecretPort,
+)
+from etk.domains.identity.effect_execution import (
+    IdentityUserMutationCoordinator,
+    RegistrationSagaCoordinator,
+)
+from etk.domains.identity.operation_repository import PostgresIdentityOperationRepository
+from etk.domains.identity.playback import PlaybackReportingService
+from etk.domains.identity.playback_adapter import HttpxPlaybackReportingAdapter
 from etk.domains.identity.router import router as identity_router
+from etk.domains.identity.user_activity import P8UserEventGateway, SqlAlchemyUserActivityRepository
+from etk.domains.identity.user_activity_adapters import (
+    HttpxEmbyUserActivityAdapter,
+    PersistentPolicyPropagationGuard,
+)
 from etk.domains.identity.users import UsersService
+from etk.domains.identity.users_effects import IdentityEffectsService
 from etk.domains.identity.users_repository import SqlAlchemyUsersRepository
+from etk.domains.identity.users_router import effects_router as users_effects_router
 from etk.domains.identity.users_router import router as users_router
 from etk.domains.ingestion import PostgresIngestionMonitorLedger
 from etk.domains.media.actor_subscription_projection import SqlAlchemyActorSubscriptionProjection
@@ -57,19 +88,26 @@ from etk.domains.media.cast_editor_router import router as media_cast_editor_rou
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
 from etk.domains.media.collection_projection import SqlAlchemyCollectionMediaProjection
 from etk.domains.media.compatibility import (
-    LegacyFutureDomainEventGateway,
     LegacyMediaImageGateway,
     LegacyMediaMappingDefaults,
     LegacyMediaRuntimeGateway,
     LegacyP5MediaEventGateway,
 )
 from etk.domains.media.discover import DiscoverService
+from etk.domains.media.discover_adapters import HttpxDiscoverProviderAdapter
 from etk.domains.media.discover_compatibility import LegacyDiscoverDefaults
+from etk.domains.media.discover_effects import DiscoverEffectsService
+from etk.domains.media.discover_projection import SqlAlchemyDiscoverProjection
+from etk.domains.media.discover_router import effects_router as discover_effects_router
 from etk.domains.media.discover_router import router as discover_router
 from etk.domains.media.editing import MediaEditingService
 from etk.domains.media.editing_effects import PersistentMediaInfoCommandGateway
 from etk.domains.media.editing_router import router as media_editing_router
 from etk.domains.media.event_effects import PersistentP5MediaEventGateway
+from etk.domains.media.future_events import (
+    P8CollectionRemovalEventGateway,
+    P8FutureDomainEventGateway,
+)
 from etk.domains.media.image_editing import MediaImageEditingService
 from etk.domains.media.image_editing_compatibility import LegacyMediaImageEditingGateway
 from etk.domains.media.image_editing_effects import PersistentMediaImageEditingGateway
@@ -81,12 +119,21 @@ from etk.domains.media.repository import SqlAlchemyMediaRepository
 from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
 from etk.domains.media.router import router as media_router
 from etk.domains.media.secondary import SecondaryMediaService
+from etk.domains.media.secondary_effect_adapters import HttpxSecondaryEmbyAdapter
+from etk.domains.media.secondary_effects import SecondaryEffectsService
+from etk.domains.media.secondary_router import effects_router as secondary_media_effects_router
 from etk.domains.media.secondary_router import router as secondary_media_router
 from etk.domains.media.service import MediaService
 from etk.domains.media.subscription_projection import SqlAlchemySubscriptionMediaProjection
 from etk.domains.media.user_projection import SqlAlchemyUserMediaProjection
 from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
 from etk.domains.operations.database import DatabaseReadService, SqlAlchemyDatabaseReadRepository
+from etk.domains.operations.database_maintenance import (
+    DatabaseMaintenanceService,
+    PostgresDatabaseMaintenanceRepository,
+)
+from etk.domains.operations.database_router import effects_router as database_effects_router
+from etk.domains.operations.database_router import maintenance_router as database_maintenance_router
 from etk.domains.operations.database_router import router as database_read_router
 from etk.domains.operations.job_router import router as job_router
 from etk.domains.operations.jobs import (
@@ -96,6 +143,11 @@ from etk.domains.operations.jobs import (
 )
 from etk.domains.operations.log_router import router as log_router
 from etk.domains.operations.logs import LocalLogStorage, LogService
+from etk.domains.operations.review_reprocess import (
+    PersistentReviewJobGateway,
+    ReviewReprocessService,
+    SqlAlchemyReviewReprocessRepository,
+)
 from etk.domains.operations.runtime import ManifestTaskCatalog
 from etk.domains.operations.runtime_router import router as runtime_query_router
 from etk.domains.operations.system_runtime_router import router as system_runtime_router
@@ -195,6 +247,12 @@ from etk.domains.subscription.moviepilot_config import (
 from etk.domains.subscription.moviepilot_config_router import router as moviepilot_config_router
 from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotGateway
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
+from etk.domains.subscription.portal import (
+    PORTAL_SUBSCRIPTION_USE_CASE_PROVIDER,
+    PortalSubscriptionRepository,
+    PortalSubscriptionService,
+)
+from etk.domains.subscription.portal_adapter import HttpxPortalTmdbAdapter
 from etk.domains.subscription.resubscribe import (
     PostgresResubscribeOperationStager,
     ResubscribeService,
@@ -220,6 +278,7 @@ from etk.platform.tasks import TaskRegistry
 from etk.platform.web import CookieSessionMiddleware
 from etk.processes.p6_ingestion import LegacyIngestionBindingDelivery, PersistentPendingBindingGateway
 from etk.processes.p6_playback import P115PlaybackOperationExecutor
+from etk.processes.p8_identity import identity_operation_claim_lease_seconds
 
 from .runtime_supervisor import RuntimeRole, RuntimeState, RuntimeSupervisor, get_runtime_supervisor
 
@@ -372,14 +431,20 @@ def create_app(
     app.include_router(system_runtime_router)
     app.include_router(log_router)
     app.include_router(database_read_router)
+    app.include_router(database_effects_router)
+    app.include_router(database_maintenance_router)
     app.include_router(configuration_router)
     app.include_router(standalone_settings_router)
     app.include_router(system_integration_router)
     app.include_router(collection_router)
+    app.include_router(collection_effects_router)
     app.include_router(users_router)
+    app.include_router(users_effects_router)
     app.include_router(media_router)
     app.include_router(secondary_media_router)
+    app.include_router(secondary_media_effects_router)
     app.include_router(discover_router)
+    app.include_router(discover_effects_router)
     app.include_router(media_editing_router)
     app.include_router(media_image_editing_router)
     app.include_router(media_cast_editor_router)
@@ -517,6 +582,32 @@ def _register_database_read_providers(container: AppContainer) -> None:
             runtime_status=lambda: current.use_case("runtime-status").read_status(),
         ),
     )
+    container.register_repository(
+        "operations.database-maintenance",
+        lambda current: PostgresDatabaseMaintenanceRepository(current.database.unit_of_work),
+    )
+    container.register_use_case(
+        "operations.database-maintenance",
+        lambda current: DatabaseMaintenanceService(
+            current.repository("operations.database-maintenance"),
+            unit_of_work=current.database.unit_of_work,
+            settings=lambda: current.settings,
+            jobs=current.repository("operations.jobs"),
+        ),
+    )
+    container.register_repository(
+        "operations.review-reprocess",
+        lambda current: SqlAlchemyReviewReprocessRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_use_case(
+        "operations.review-reprocess",
+        lambda current: ReviewReprocessService(
+            current.repository("operations.review-reprocess"),
+            PersistentReviewJobGateway(current.use_case("operations.jobs")),
+        ),
+    )
 
 
 def _register_system_providers(
@@ -574,6 +665,25 @@ def _register_collection_providers(container: AppContainer) -> None:
             renderer=PillowCoverPreviewRenderer(Path(__file__).resolve().parents[3] / "fonts" / "en_font.ttf"),
         ),
     )
+    container.register_client(
+        "collection.query",
+        lambda current: HttpxCollectionQueryAdapter(lambda: current.settings),
+    )
+    container.register_repository(
+        "collection.operations",
+        lambda current: PostgresCollectionOperationRepository(current.database.unit_of_work),
+    )
+    container.register_client(
+        "collection.effects",
+        lambda current: PostgresCollectionEffectGateway(current.repository("collection.operations")),
+    )
+    container.register_client(
+        "collection.operation-reconciler",
+        lambda current: CollectionOperationReconciler(
+            current.repository("collection.operations"),
+            HttpxCollectionRemoteEffectsAdapter(lambda: current.settings),
+        ),
+    )
     container.register_repository(
         "collection-user-projection",
         lambda current: SqlAlchemyCollectionUserProjection(
@@ -594,16 +704,42 @@ def _register_collection_providers(container: AppContainer) -> None:
             gateway=current.client("collection"),
             user_projection=current.repository("collection-user-projection"),
             media_projection=current.repository("collection-media-projection"),
+            query_gateway=current.client("collection.query"),
+            effect_gateway=current.client("collection.effects"),
+            operation_repository=current.repository("collection.operations"),
+            operation_reconciler=current.client("collection.operation-reconciler"),
         ),
     )
 
 
 def _register_users_providers(container: AppContainer) -> None:
     container.register_repository(
+        "identity.operations",
+        lambda current: PostgresIdentityOperationRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_repository(
         "users",
         lambda current: SqlAlchemyUsersRepository(
             lambda: current.database.unit_of_work(),
         ),
+    )
+    container.register_client(
+        "users.telegram-bot-info",
+        lambda current: HttpxTelegramBotInfoGateway(lambda: current.settings),
+    )
+    container.register_client(
+        "identity.effects.emby",
+        lambda current: HttpxEmbyIdentityEffectsAdapter(lambda: current.settings),
+    )
+    container.register_client(
+        "users.playback-reporting",
+        lambda current: HttpxPlaybackReportingAdapter(lambda: current.settings),
+    )
+    container.register_client(
+        "identity.registration-secret",
+        lambda _: InProcessRegistrationSecretPort(),
     )
     container.register_repository(
         "users-media-projection",
@@ -617,6 +753,33 @@ def _register_users_providers(container: AppContainer) -> None:
             repository=current.repository("users"),
             media=current.repository("users-media-projection"),
             settings=lambda: current.settings,
+            telegram=current.client("users.telegram-bot-info"),
+        ),
+    )
+    container.register_use_case(
+        "users.playback",
+        lambda current: PlaybackReportingService(
+            current.client("users.playback-reporting"),
+            current.repository("users-media-projection"),
+            settings=lambda: current.settings,
+        ),
+    )
+    container.register_use_case(
+        "users.effects",
+        lambda current: IdentityEffectsService(
+            registration=RegistrationSagaCoordinator(
+                current.repository("identity.operations"),
+                current.client("identity.effects.emby"),
+            ),
+            mutations=IdentityUserMutationCoordinator(
+                current.repository("identity.operations"),
+                current.client("identity.effects.emby"),
+            ),
+            secrets=current.client("identity.registration-secret"),
+            repository=current.repository("users"),
+            emby=current.client("identity.effects.emby"),
+            settings=lambda: current.settings,
+            lease_seconds=identity_operation_claim_lease_seconds(current.settings.emby_api_timeout),
         ),
     )
     container.register_use_case(
@@ -626,12 +789,44 @@ def _register_users_providers(container: AppContainer) -> None:
             settings=current.repository("app-settings"),
         ),
     )
+    container.register_client(
+        "media.secondary.effects.emby",
+        lambda current: HttpxSecondaryEmbyAdapter(lambda: current.settings),
+    )
+    container.register_use_case(
+        "media.secondary.effects",
+        lambda current: SecondaryEffectsService(
+            current.client("media.secondary.effects.emby"),
+            current.use_case("operations.jobs"),
+        ),
+    )
     container.register_client("media.discover-defaults", lambda _: LegacyDiscoverDefaults())
+    container.register_client(
+        "media.discover-provider",
+        lambda current: HttpxDiscoverProviderAdapter(lambda: current.settings),
+    )
+    container.register_repository(
+        "media.discover-projection",
+        lambda current: SqlAlchemyDiscoverProjection(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
     container.register_use_case(
         "media.discover",
         lambda current: DiscoverService(
             settings=current.repository("app-settings"),
             defaults=current.client("media.discover-defaults"),
+        ),
+    )
+    container.register_use_case(
+        "media.discover.effects",
+        lambda current: DiscoverEffectsService(
+            current.client("media.discover-provider"),
+            current.repository("media.discover-projection"),
+            current.repository("app-settings"),
+            current.client("media.discover-defaults"),
+            current.use_case("operations.jobs"),
+            include_adult=lambda: bool(current.settings.tmdb_include_adult),
         ),
     )
 
@@ -664,7 +859,21 @@ def _register_media_providers(
     )
     container.register_client(
         "media-future-events",
-        lambda _: LegacyFutureDomainEventGateway(compatibility_app),
+        lambda current: P8FutureDomainEventGateway(
+            P8UserEventGateway(
+                repository=SqlAlchemyUserActivityRepository(current.database.unit_of_work),
+                resolver=HttpxEmbyUserActivityAdapter(lambda: current.settings),
+                policy_guard=PersistentPolicyPropagationGuard(
+                    PersistentRuntimeStateStore(PostgresRuntimeStateBackend(current.database.raw_pool.connection))
+                ),
+            ),
+            P8CollectionRemovalEventGateway(
+                current.database.unit_of_work,
+                PersistentCollectionDeletionSuppression(
+                    PersistentRuntimeStateStore(PostgresRuntimeStateBackend(current.database.raw_pool.connection))
+                ),
+            ),
+        ),
     )
     container.register_client(
         "media-mapping-defaults",
@@ -1134,9 +1343,20 @@ def _register_subscription_providers(container: AppContainer) -> None:
             current.repository("app-settings"),
         ),
     )
+    container.register_repository(
+        "subscription.portal",
+        lambda current: PortalSubscriptionRepository(
+            current.database.unit_of_work,
+            current.repository("app-settings"),
+        ),
+    )
     container.register_client(
         "subscription.actor-search",
         lambda current: NativeActorSearchGateway(lambda: current.settings),
+    )
+    container.register_client(
+        "subscription.portal-tmdb",
+        lambda current: HttpxPortalTmdbAdapter(lambda: current.settings),
     )
     container.register_client(
         "subscription.actor-runtime",
@@ -1247,6 +1467,13 @@ def _register_subscription_providers(container: AppContainer) -> None:
             current.repository("subscription.core"),
             current.client("subscription.availability"),
             current.repository("identity"),
+        ),
+    )
+    container.register_use_case(
+        PORTAL_SUBSCRIPTION_USE_CASE_PROVIDER,
+        lambda current: PortalSubscriptionService(
+            current.repository("subscription.portal"),
+            current.client("subscription.portal-tmdb"),
         ),
     )
 

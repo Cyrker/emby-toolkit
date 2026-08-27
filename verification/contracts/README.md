@@ -23,6 +23,10 @@ only inside an internal Docker network with a fresh `/config` and database; its 
 and the classified static/runtime difference are under `http/`. `legacy-reference-summary.json`
 records the isolation boundary, results, and limitations.
 
+P8-EFFECTS adds Greenfield-owned control-plane tables without changing the frozen 39-table legacy
+catalog. Their ownership, protection rules, and the exact database-maintenance share allowlist are
+recorded in `db/p8-effects-table-ownership.json` and validated by the P8 PostgreSQL 18 tests.
+
 Real external-system checks are intentionally absent. `manual-live-acceptance.md` is the
 authoritative pending checklist and must not be converted to accepted status from local Stub/Fake
 evidence.

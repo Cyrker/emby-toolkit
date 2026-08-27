@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Mapping
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from email import policy
+from email.parser import BytesParser
+from typing import Any, cast
+from uuid import UUID
 
 from fastapi import APIRouter, Request
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
+from werkzeug.exceptions import BadRequest, UnsupportedMediaType
 from werkzeug.http import http_date
 
 from etk.compatibility.response_contract import fastapi_json_response
@@ -21,8 +27,20 @@ from .database import (
     ReviewItemsResponse,
     ReviewTaskBusyError,
 )
+from .database_maintenance import (
+    DatabaseMaintenanceBusyError,
+    DatabaseMaintenanceConflictError,
+    DatabaseMaintenanceHttpResult,
+    DatabaseMaintenanceOperationKind,
+    DatabaseMaintenanceService,
+    DatabaseMaintenanceSizeLimitError,
+    DatabaseMaintenanceValidationError,
+)
+from .review_reprocess import ReviewReprocessHttpResult, ReviewReprocessService
 
 router = APIRouter(prefix="/api", tags=["operations"])
+effects_router = APIRouter(prefix="/api", tags=["operations"])
+maintenance_router = APIRouter(prefix="/api", tags=["operations"])
 logger = logging.getLogger(__name__)
 
 _DATABASE_READ_PROVIDER = "operations.database.read"
@@ -41,6 +59,26 @@ def _service(request: Request) -> DatabaseReadService:
     service = _container(request).use_case(_DATABASE_READ_PROVIDER)
     if not isinstance(service, DatabaseReadService):
         raise TypeError("operations.database.read provider returned an invalid service")
+    return service
+
+
+def _review_reprocess_service(request: Request) -> ReviewReprocessService:
+    direct = getattr(request.app.state, "review_reprocess_service", None)
+    if isinstance(direct, ReviewReprocessService):
+        return direct
+    service = _container(request).use_case("operations.review-reprocess")
+    if not isinstance(service, ReviewReprocessService):
+        raise TypeError("operations.review-reprocess provider returned an invalid service")
+    return service
+
+
+def _maintenance_service(request: Request) -> DatabaseMaintenanceService:
+    direct = getattr(request.app.state, "database_maintenance_service", None)
+    if isinstance(direct, DatabaseMaintenanceService):
+        return direct
+    service = _container(request).use_case("operations.database-maintenance")
+    if not isinstance(service, DatabaseMaintenanceService):
+        raise TypeError("operations.database-maintenance provider returned an invalid service")
     return service
 
 
@@ -71,7 +109,11 @@ def _permission_policy(request: Request) -> PermissionPolicy:
 
 
 def _login_denial(request: Request) -> Response | None:
-    decision = PermissionPolicy.require_any_login(get_request_session(request))
+    container = request.app.state.container
+    decision = PermissionPolicy(
+        container.repository("identity"),
+        auth_enabled=bool(container.settings.auth_enabled),
+    ).require_any_login(get_request_session(request))
     if decision.allowed:
         return None
     return _json_response(
@@ -92,6 +134,98 @@ def _admin_denial(request: Request) -> Response | None:
 
 def _json_response(payload: Any, *, status_code: int = 200) -> Response:
     return fastapi_json_response(_legacy_jsonable(payload), status_code=status_code)
+
+
+def _review_reprocess_response(result: ReviewReprocessHttpResult) -> Response:
+    response = _json_response(result.payload, status_code=result.status_code)
+    if result.location:
+        response.headers["Location"] = result.location
+    return response
+
+
+def _processor_ready(request: Request) -> bool:
+    direct = getattr(request.app.state, "processor_ready", None)
+    if isinstance(direct, bool):
+        return direct
+    if callable(direct):
+        return bool(direct())
+    return bool(_container(request).client("operations.job-readiness").media_ready())
+
+
+async def _json_value(request: Request) -> tuple[Any, Response | None]:
+    content_type = request.headers.get("content-type", "").partition(";")[0].strip().casefold()
+    if content_type != "application/json" and not (
+        content_type.startswith("application/") and content_type.endswith("+json")
+    ):
+        return None, _html_error(UnsupportedMediaType())
+    try:
+        return await request.json(), None
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None, _html_error(BadRequest())
+
+
+async def _backup_upload(request: Request) -> tuple[bytes | None, str, Response | None]:
+    content_type = request.headers.get("content-type", "")
+    if content_type.partition(";")[0].strip().casefold() != "multipart/form-data":
+        return None, "backup.json.gz", _html_error(UnsupportedMediaType())
+    body = await request.body()
+    # A small allowance covers multipart headers/boundaries while keeping the
+    # compressed artifact limit enforced by inspect_backup_bytes.
+    if len(body) > 65 * 1024 * 1024:
+        return (
+            None,
+            "backup.json.gz",
+            _json_response({"status": "error", "message": "压缩备份不能超过 64 MiB"}, status_code=400),
+        )
+    try:
+        message = BytesParser(policy=policy.default).parsebytes(
+            b"Content-Type: " + content_type.encode("latin-1") + b"\r\nMIME-Version: 1.0\r\n\r\n" + body
+        )
+    except (UnicodeEncodeError, ValueError):
+        message = None
+    if message is None or not message.is_multipart():
+        return (
+            None,
+            "backup.json.gz",
+            _json_response({"status": "error", "message": "上传表单格式无效"}, status_code=400),
+        )
+    for part in message.iter_parts():
+        name = str(part.get_param("name", header="content-disposition") or "")
+        filename = str(part.get_filename() or "").strip()
+        if name not in {"file", "backup"} or not filename:
+            continue
+        payload = part.get_payload(decode=True)
+        if isinstance(payload, bytes | bytearray):
+            return bytes(payload), filename, None
+    return None, "backup.json.gz", _json_response({"status": "error", "message": "未找到文件"}, status_code=400)
+
+
+def _maintenance_response(result: DatabaseMaintenanceHttpResult) -> Response:
+    response = _json_response(result.payload, status_code=result.status_code)
+    if result.status_code == 202 and isinstance(result.payload, Mapping):
+        status_url = str(result.payload.get("status_url") or "").strip()
+        if status_url:
+            response.headers["Location"] = status_url
+            response.headers["Retry-After"] = "2"
+    return response
+
+
+def _maintenance_error(exc: Exception) -> Response:
+    if isinstance(exc, DatabaseMaintenanceBusyError | DatabaseMaintenanceConflictError):
+        return _json_response({"status": "error", "message": str(exc)}, status_code=409)
+    if isinstance(exc, DatabaseMaintenanceSizeLimitError | DatabaseMaintenanceValidationError):
+        return _json_response({"status": "error", "message": str(exc)}, status_code=400)
+    logger.exception("database maintenance request failed")
+    return _json_response({"status": "error", "message": "服务器在处理数据库维护请求时发生内部错误"}, status_code=500)
+
+
+def _html_error(error: BadRequest | UnsupportedMediaType) -> Response:
+    headers = dict(error.get_headers())
+    return Response(
+        content=error.get_body(),
+        status_code=int(error.code or 500),
+        headers={"content-type": headers["Content-Type"]},
+    )
 
 
 def _legacy_jsonable(value: Any) -> Any:
@@ -256,3 +390,197 @@ def clear_review_items(request: Request) -> Response:
     else:
         message = "操作完成，待复核列表本就是空的。"
     return _json_response({"message": message})
+
+
+@effects_router.post("/actions/reprocess_item/{item_id}")
+async def reprocess_review_item(item_id: str, request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    if not _processor_ready(request):
+        return _json_response({"error": "核心处理器未就绪。"}, status_code=503)
+    payload, error = await _json_value(request)
+    if error is not None:
+        return error
+    session = get_request_session(request)
+    return _review_reprocess_response(
+        _review_reprocess_service(request).submit_one(
+            item_id,
+            payload,
+            requested_by_user_id=str(session.get("emby_user_id") or "").strip() or None,
+            trace_id=str(getattr(request.state, "trace_id", "") or "").strip() or None,
+            idempotency_key=str(request.headers.get("idempotency-key") or "").strip() or None,
+        )
+    )
+
+
+@effects_router.post("/actions/reprocess_all_review_items")
+async def reprocess_all_review_items(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    if not _processor_ready(request):
+        return _json_response({"error": "核心处理器未就绪。"}, status_code=503)
+    payload, error = await _json_value(request)
+    if error is not None:
+        return error
+    session = get_request_session(request)
+    return _review_reprocess_response(
+        _review_reprocess_service(request).submit_all(
+            payload,
+            requested_by_user_id=str(session.get("emby_user_id") or "").strip() or None,
+            trace_id=str(getattr(request.state, "trace_id", "") or "").strip() or None,
+            idempotency_key=str(request.headers.get("idempotency-key") or "").strip() or None,
+        )
+    )
+
+
+@maintenance_router.post("/database/export", include_in_schema=True)
+async def database_export(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _json_value(request)
+    if error is not None:
+        return error
+    if not isinstance(payload, Mapping):
+        return _json_response({"status": "error", "message": "请求体必须是 JSON 对象"}, status_code=400)
+    try:
+        exported = await run_in_threadpool(
+            _maintenance_service(request).export,
+            cast(Any, payload.get("tables")),
+        )
+        response = Response(exported.content, media_type="application/gzip", status_code=200)
+        response.headers["Content-Disposition"] = f'attachment; filename="{exported.filename}"'
+        response.headers["X-ETK-Expanded-Size"] = str(exported.expanded_size)
+        response.headers["X-ETK-Compressed-Size"] = str(exported.compressed_size)
+        response.headers["X-ETK-Compression-Ratio"] = str(exported.compression_ratio)
+        return response
+    except Exception as exc:
+        return _maintenance_error(exc)
+
+
+@maintenance_router.post("/database/preview-backup", include_in_schema=True)
+async def database_preview_backup(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    content, filename, error = await _backup_upload(request)
+    if error is not None:
+        return error
+    if content is None:
+        return _json_response({"status": "error", "message": "未找到文件"}, status_code=400)
+    try:
+        result = await run_in_threadpool(
+            _maintenance_service(request).preview,
+            content,
+            filename=filename,
+        )
+        return _maintenance_response(result)
+    except Exception as exc:
+        return _maintenance_error(exc)
+
+
+@maintenance_router.post("/database/import", include_in_schema=True)
+async def database_import(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _json_value(request)
+    if error is not None:
+        return error
+    if not isinstance(payload, Mapping):
+        return _json_response(
+            {"status": "error", "message": "导入请求必须引用 artifact_id，且请求体为 JSON 对象"}, status_code=400
+        )
+    if "file" in payload or "backup" in payload or "backup_bytes" in payload:
+        return _json_response(
+            {"status": "error", "message": "导入只接受已持久化 artifact_id，不接受 backup bytes"}, status_code=400
+        )
+    session = get_request_session(request)
+    try:
+        result = await run_in_threadpool(
+            _maintenance_service(request).submit,
+            DatabaseMaintenanceOperationKind.IMPORT,
+            payload,
+            principal_id=str(session.get("emby_user_id") or "admin"),
+            idempotency_key=str(request.headers.get("idempotency-key") or "").strip() or None,
+        )
+        return _maintenance_response(result)
+    except Exception as exc:
+        return _maintenance_error(exc)
+
+
+async def _submit_maintenance_action(
+    request: Request,
+    kind: DatabaseMaintenanceOperationKind,
+) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _json_value(request)
+    if error is not None:
+        return error
+    payload = payload if isinstance(payload, Mapping) else {}
+    session = get_request_session(request)
+    try:
+        result = await run_in_threadpool(
+            _maintenance_service(request).submit,
+            kind,
+            payload,
+            principal_id=str(session.get("emby_user_id") or "admin"),
+            idempotency_key=str(request.headers.get("idempotency-key") or "").strip() or None,
+        )
+        return _maintenance_response(result)
+    except Exception as exc:
+        return _maintenance_error(exc)
+
+
+@maintenance_router.post("/actions/clear_tables", include_in_schema=True)
+async def database_clear_tables(request: Request) -> Response:
+    return await _submit_maintenance_action(request, DatabaseMaintenanceOperationKind.CLEAR_TABLES)
+
+
+@maintenance_router.post("/database/correct-sequences", include_in_schema=True)
+async def database_correct_sequences(request: Request) -> Response:
+    return await _submit_maintenance_action(request, DatabaseMaintenanceOperationKind.CORRECT_SEQUENCES)
+
+
+@maintenance_router.post("/actions/prepare-for-library-rebuild", include_in_schema=True)
+async def database_prepare_for_library_rebuild(request: Request) -> Response:
+    return await _submit_maintenance_action(request, DatabaseMaintenanceOperationKind.PREPARE_FOR_LIBRARY_REBUILD)
+
+
+@maintenance_router.post("/actions/cleanup-offline-media", include_in_schema=True)
+async def database_cleanup_offline_media(request: Request) -> Response:
+    return await _submit_maintenance_action(request, DatabaseMaintenanceOperationKind.CLEANUP_OFFLINE_MEDIA)
+
+
+@maintenance_router.post("/actions/clear-vectors", include_in_schema=True)
+async def database_clear_vectors(request: Request) -> Response:
+    return await _submit_maintenance_action(request, DatabaseMaintenanceOperationKind.CLEAR_VECTORS)
+
+
+@maintenance_router.get("/database/maintenance/operations/{operation_id}", include_in_schema=True)
+def database_maintenance_status(operation_id: str, request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    try:
+        parsed = UUID(operation_id)
+    except ValueError:
+        return _json_response({"status": "error", "message": "operation_id must be a UUID"}, status_code=400)
+    try:
+        return _maintenance_response(_maintenance_service(request).status(parsed))
+    except Exception as exc:
+        return _maintenance_error(exc)
+
+
+# A short alias is retained for clients that model operation status as a
+# top-level operations resource.
+@maintenance_router.get("/database/maintenance/{operation_id}", include_in_schema=False)
+def database_maintenance_status_alias(operation_id: str, request: Request) -> Response:
+    return database_maintenance_status(operation_id, request)
+
+
+__all__ = ["effects_router", "maintenance_router", "router"]

@@ -7,7 +7,7 @@ from typing import Any, Protocol
 
 from etk.platform import Settings
 
-from .users_repository import UserTemplateNameConflictError
+from .users_repository import IdentityReservationConflictError, UserTemplateNameConflictError
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +18,26 @@ class UsersHttpResult:
 
 class UsersRepository(Protocol):
     def list_templates(self) -> list[dict[str, Any]]: ...
+
+    def create_template(
+        self,
+        *,
+        name: str,
+        description: str | None,
+        policy: Mapping[str, Any],
+        default_expiration_days: int,
+        source_emby_user_id: str,
+        configuration: Mapping[str, Any] | None,
+        allow_unrestricted_subscriptions: bool,
+        personal_play_account_only: bool,
+        max_concurrent_streams: int,
+    ) -> int: ...
+
+    def template_effect(self, template_id: int) -> dict[str, Any] | None: ...
+
+    def managed_user_projection(self) -> tuple[set[str], dict[str, dict[str, Any]]]: ...
+
+    def profile_image_tag(self, user_id: str) -> str | None: ...
 
     def update_template(
         self,
@@ -68,6 +88,10 @@ class UsersMediaProjection(Protocol):
     def request_stats(self, user_id: str) -> dict[str, int]: ...
 
 
+class TelegramBotInfoPort(Protocol):
+    def bot_username(self) -> str | None: ...
+
+
 class UsersService:
     def __init__(
         self,
@@ -75,11 +99,13 @@ class UsersService:
         repository: UsersRepository,
         media: UsersMediaProjection,
         settings: Callable[[], Settings],
+        telegram: TelegramBotInfoPort | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._repository = repository
         self._media = media
         self._settings = settings
+        self._telegram = telegram
         self._clock = clock
 
     def list_templates(self) -> UsersHttpResult:
@@ -117,6 +143,11 @@ class UsersService:
     def delete_template(self, template_id: int) -> UsersHttpResult:
         try:
             deleted = self._repository.delete_template(template_id)
+        except IdentityReservationConflictError:
+            return UsersHttpResult(
+                {"status": "error", "message": "模板仍有关联的进行中或待确认注册"},
+                409,
+            )
         except Exception:
             return UsersHttpResult({"status": "error", "message": "删除模板失败"}, 500)
         if not deleted:
@@ -159,6 +190,11 @@ class UsersService:
     def delete_invitation(self, invitation_id: int) -> UsersHttpResult:
         try:
             deleted = self._repository.delete_invitation(invitation_id)
+        except IdentityReservationConflictError:
+            return UsersHttpResult(
+                {"status": "error", "message": "邀请码仍有进行中或待确认注册"},
+                409,
+            )
         except Exception:
             return UsersHttpResult({"status": "error", "message": "删除邀请码失败"}, 500)
         if not deleted:
@@ -238,6 +274,20 @@ class UsersService:
         except Exception:
             return UsersHttpResult({"total": 0, "completed": 0, "processing": 0, "pending": 0, "failed": 0})
 
+    def telegram_bot_info(self) -> UsersHttpResult:
+        token = self._settings().telegram_bot_token.get_secret_value().strip()
+        if not token:
+            return UsersHttpResult({"bot_username": None, "error": "Bot Token未配置"})
+        if self._telegram is None:
+            return UsersHttpResult({"bot_username": None, "error": "Telegram 服务暂时不可用"})
+        try:
+            username = self._telegram.bot_username()
+        except Exception:
+            return UsersHttpResult({"bot_username": None, "error": "Telegram 服务暂时不可用"})
+        if not username:
+            return UsersHttpResult({"bot_username": None, "error": "Telegram 服务暂时不可用"})
+        return UsersHttpResult({"bot_username": username})
+
 
 def _optional_int(value: Any) -> int | None:
     if value is None or value == "":
@@ -252,4 +302,10 @@ def _optional_text(value: Any) -> str | None:
     return normalized or None
 
 
-__all__ = ["UsersHttpResult", "UsersMediaProjection", "UsersRepository", "UsersService"]
+__all__ = [
+    "TelegramBotInfoPort",
+    "UsersHttpResult",
+    "UsersMediaProjection",
+    "UsersRepository",
+    "UsersService",
+]

@@ -95,17 +95,25 @@ def test_permission_policy_matches_legacy_auth_matrix_and_rechecks_admin() -> No
     class Permissions:
         def __init__(self) -> None:
             self.admins = {"admin"}
+            self.active = {"admin", "user"}
 
         def is_admin(self, user_id: str) -> bool:
             return user_id in self.admins
 
-    enabled = PermissionPolicy(Permissions(), auth_enabled=True)
+        def is_active(self, user_id: str) -> bool:
+            return user_id in self.active
+
+    permissions = Permissions()
+    enabled = PermissionPolicy(permissions, auth_enabled=True)
 
     assert enabled.require_admin(SessionState()).status_code == 403
     assert enabled.require_admin(SessionState({"emby_user_id": "user", "emby_is_admin": True})).allowed is False
     assert enabled.require_admin(SessionState({"emby_user_id": "admin"})).allowed is True
     assert enabled.require_emby_login(SessionState()).status_code == 401
     assert enabled.require_any_login(SessionState({"emby_user_id": "user"})).allowed is True
+    permissions.active.remove("user")
+    assert enabled.require_emby_login(SessionState({"emby_user_id": "user"})).status_code == 401
+    assert enabled.require_any_login(SessionState({"emby_user_id": "user"})).status_code == 401
     assert PermissionPolicy(Permissions(), auth_enabled=False).require_admin(SessionState()).allowed is True
     assert enabled.require_config_access(SessionState(), configured=False).allowed is True
     assert enabled.require_config_access(SessionState({"is_setup_mode": True}), configured=True).allowed is True

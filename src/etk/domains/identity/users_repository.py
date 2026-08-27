@@ -15,6 +15,10 @@ class UserTemplateNameConflictError(RuntimeError):
     pass
 
 
+class IdentityReservationConflictError(RuntimeError):
+    pass
+
+
 class SqlAlchemyUsersRepository:
     """P8 identity owner for templates, invitations, profiles, and user lifecycle state."""
 
@@ -44,6 +48,128 @@ class SqlAlchemyUsersRepository:
                 )
             ).mappings()
             return [dict(row) for row in rows]
+
+    def template_effect(self, template_id: int) -> dict[str, Any] | None:
+        with self._unit_of_work() as uow:
+            row = (
+                uow.session.execute(
+                    text(
+                        """
+                        SELECT id, name, emby_policy_json, emby_configuration_json
+                        FROM user_templates WHERE id = :template_id
+                        """
+                    ),
+                    {"template_id": template_id},
+                )
+                .mappings()
+                .first()
+            )
+            return dict(row) if row is not None else None
+
+    def managed_user_projection(self) -> tuple[set[str], dict[str, dict[str, Any]]]:
+        with self._unit_of_work() as uow:
+            source_ids = {
+                str(row[0])
+                for row in uow.session.execute(
+                    text(
+                        """
+                        SELECT source_emby_user_id FROM user_templates
+                        WHERE source_emby_user_id IS NOT NULL
+                        """
+                    )
+                )
+            }
+            rows = uow.session.execute(
+                text(
+                    """
+                    SELECT extended.*, templates.name AS template_name,
+                           COALESCE(templates.max_concurrent_streams, 0)
+                               AS max_concurrent_streams
+                    FROM emby_users_extended AS extended
+                    LEFT JOIN user_templates AS templates ON extended.template_id = templates.id
+                    """
+                )
+            ).mappings()
+            return source_ids, {str(row["emby_user_id"]): dict(row) for row in rows}
+
+    def managed_user_exists(self, user_id: str) -> bool:
+        normalized_user_id = str(user_id or "").strip()
+        if not normalized_user_id:
+            return False
+        with self._unit_of_work() as uow:
+            return bool(
+                uow.session.scalar(
+                    text("SELECT EXISTS (SELECT 1 FROM emby_users WHERE id = :user_id)"),
+                    {"user_id": normalized_user_id},
+                )
+            )
+
+    def adopt_remote_user(self, user: Mapping[str, Any]) -> bool:
+        user_id = str(user.get("Id") or "").strip()
+        username = str(user.get("Name") or "").strip()
+        if not user_id or not username:
+            raise ValueError("remote Emby user requires Id and Name")
+        raw_policy = user.get("Policy")
+        policy = dict(raw_policy) if isinstance(raw_policy, Mapping) else {}
+        with self._unit_of_work() as uow:
+            uow.session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:username_scope, 0))"),
+                {"username_scope": f"identity:registration:username:{username.casefold()}"},
+            )
+            registration_pending = uow.session.scalar(
+                text(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1 FROM identity_operations
+                        WHERE kind = 'register'
+                          AND lower(request_json ->> 'username') = :username
+                          AND status IN (
+                              'ready','claimed','requesting','awaiting_readback','retryable',
+                              'compensating','remote_confirmed','indeterminate'
+                          )
+                    )
+                    """
+                ),
+                {"username": username.casefold()},
+            )
+            if registration_pending:
+                return False
+            uow.session.execute(
+                text(
+                    """
+                    INSERT INTO emby_users (
+                        id, name, is_administrator, profile_image_tag,
+                        policy_json, last_updated_at
+                    ) VALUES (
+                        :id, :name, :is_administrator, :profile_image_tag,
+                        CAST(:policy_json AS jsonb), NOW()
+                    )
+                    ON CONFLICT (id) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        is_administrator = EXCLUDED.is_administrator,
+                        profile_image_tag = EXCLUDED.profile_image_tag,
+                        policy_json = EXCLUDED.policy_json,
+                        last_updated_at = NOW()
+                    """
+                ),
+                {
+                    "id": user_id,
+                    "name": username,
+                    "is_administrator": bool(policy.get("IsAdministrator", False)),
+                    "profile_image_tag": user.get("PrimaryImageTag"),
+                    "policy_json": _json_text(policy),
+                },
+            )
+            uow.commit()
+            return True
+
+    def profile_image_tag(self, user_id: str) -> str | None:
+        with self._unit_of_work() as uow:
+            value = uow.session.scalar(
+                text("SELECT profile_image_tag FROM emby_users WHERE id = :user_id"),
+                {"user_id": user_id},
+            )
+            return str(value).strip() if value is not None and str(value).strip() else None
 
     def create_template(
         self,
@@ -139,6 +265,62 @@ class SqlAlchemyUsersRepository:
 
     def delete_template(self, template_id: int) -> bool:
         with self._unit_of_work() as uow:
+            template_exists = uow.session.scalar(
+                text("SELECT id FROM user_templates WHERE id = :template_id FOR UPDATE"),
+                {"template_id": template_id},
+            )
+            if template_exists is None:
+                return False
+            tuple(
+                uow.session.scalars(
+                    text(
+                        """
+                        SELECT id FROM invitations
+                        WHERE template_id = :template_id
+                        ORDER BY id FOR UPDATE
+                        """
+                    ),
+                    {"template_id": template_id},
+                )
+            )
+            blocked = uow.session.scalar(
+                text(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM invitations AS invitation
+                        JOIN identity_operations AS operation
+                          ON operation.id = invitation.reservation_id
+                        WHERE invitation.template_id = :template_id
+                          AND operation.status NOT IN (
+                              'confirmed','rejected','compensated','cancelled'
+                          )
+                    )
+                    """
+                ),
+                {"template_id": template_id},
+            )
+            if blocked:
+                raise IdentityReservationConflictError("template has an active or indeterminate invitation operation")
+            active_assignment = uow.session.scalar(
+                text(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM identity_operations
+                        WHERE kind = 'assign_template'
+                          AND request_json ->> 'template_id' = CAST(:template_id AS text)
+                          AND status IN (
+                              'ready','claimed','requesting','awaiting_readback','retryable',
+                              'compensating','remote_confirmed','indeterminate'
+                          )
+                    )
+                    """
+                ),
+                {"template_id": template_id},
+            )
+            if active_assignment:
+                raise IdentityReservationConflictError("template has an active or indeterminate assignment")
             result = uow.session.execute(
                 text("DELETE FROM user_templates WHERE id = :template_id"),
                 {"template_id": template_id},
@@ -207,6 +389,31 @@ class SqlAlchemyUsersRepository:
 
     def delete_invitation(self, invitation_id: int) -> bool:
         with self._unit_of_work() as uow:
+            invitation_exists = uow.session.scalar(
+                text("SELECT id FROM invitations WHERE id = :invitation_id FOR UPDATE"),
+                {"invitation_id": invitation_id},
+            )
+            if invitation_exists is None:
+                return False
+            blocked = uow.session.scalar(
+                text(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM invitations AS invitation
+                        JOIN identity_operations AS operation
+                          ON operation.id = invitation.reservation_id
+                        WHERE invitation.id = :invitation_id
+                          AND operation.status NOT IN (
+                              'confirmed','rejected','compensated','cancelled'
+                          )
+                    )
+                    """
+                ),
+                {"invitation_id": invitation_id},
+            )
+            if blocked:
+                raise IdentityReservationConflictError("invitation has an active or indeterminate operation")
             result = uow.session.execute(
                 text("DELETE FROM invitations WHERE id = :invitation_id"),
                 {"invitation_id": invitation_id},
@@ -325,4 +532,8 @@ def _json_text(value: Mapping[str, Any]) -> str:
     return json.dumps(dict(value), ensure_ascii=False)
 
 
-__all__ = ["SqlAlchemyUsersRepository", "UserTemplateNameConflictError"]
+__all__ = [
+    "IdentityReservationConflictError",
+    "SqlAlchemyUsersRepository",
+    "UserTemplateNameConflictError",
+]

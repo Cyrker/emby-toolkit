@@ -2873,7 +2873,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/media.py:2058"
+          "source": "tasks/media.py:2083"
         }
       ],
       "contract_id": "setting-e051fdb1e272",
@@ -4235,7 +4235,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/media.py:603"
+          "source": "tasks/media.py:628"
         }
       ],
       "contract_id": "setting-209f458f6088",
@@ -4272,7 +4272,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/media.py:604"
+          "source": "tasks/media.py:629"
         }
       ],
       "contract_id": "setting-84df55648a58",
@@ -4602,7 +4602,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/media.py:3084"
+          "source": "tasks/media.py:3109"
         }
       ],
       "contract_id": "setting-6bc8ebb39e01",

@@ -4,11 +4,32 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, Protocol
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from .repository import CollectionNameConflictError
+from etk.domains.media.subscription_projection import SubscriptionMediaKey
+
+from .effects import (
+    CollectionEffectSubmission,
+    CollectionRemoteIndeterminate,
+    CollectionRemoteRejected,
+)
+from .operation_execution import CollectionOperationReconciler
+from .operation_repository import PostgresCollectionOperationRepository
+from .operations import (
+    CollectionOperation,
+    CollectionOperationConflictError,
+    CollectionOperationScopeBusyError,
+    CollectionOperationStateError,
+)
+from .repository import (
+    CollectionCorrectionSnapshot,
+    CollectionMatchConflictError,
+    CollectionNameConflictError,
+    CustomMatchCandidate,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +94,20 @@ class CollectionRepository(Protocol):
 
     def deactivate_native(self, emby_collection_id: str) -> bool: ...
 
+    def inspect_custom_match(
+        self,
+        collection_id: int,
+        *,
+        old_tmdb_id: str | None,
+        old_title: str | None,
+    ) -> CustomMatchCandidate | None: ...
+
+    def apply_custom_match(
+        self,
+        candidate: CustomMatchCandidate,
+        snapshot: CollectionCorrectionSnapshot,
+    ) -> dict[str, Any]: ...
+
 
 class CollectionUserProjection(Protocol):
     def expand_template_users(self, selected_user_ids: Sequence[str] | None) -> list[str]: ...
@@ -94,22 +129,10 @@ class CollectionLocalGateway(Protocol):
     def cover_preview(self, payload: Mapping[str, Any]) -> str: ...
 
 
-class CollectionEffectsGateway(Protocol):
+class CollectionQueryGateway(Protocol):
     def collection_details(self, tmdb_collection_id: int) -> Mapping[str, Any] | None: ...
 
     def search_collections(self, query: str) -> Sequence[Mapping[str, Any]]: ...
-
-    def archive_metadata_images(self, payload: Mapping[str, Any], host_url: str) -> None: ...
-
-    def schedule_missing_collection_cleanup(self, tmdb_collection_id: str) -> None: ...
-
-    def delete_native_collection(self, emby_collection_id: str) -> bool: ...
-
-    def delete_custom_collection_effect(self, collection: Mapping[str, Any]) -> None: ...
-
-    def cleanup_custom_placeholders(self, collection: Mapping[str, Any]) -> None: ...
-
-    def fix_custom_match(self, collection_id: int, payload: Mapping[str, Any]) -> Mapping[str, Any] | None: ...
 
     def emby_libraries(self, *, cover: bool = False) -> Sequence[Mapping[str, Any]] | None: ...
 
@@ -121,12 +144,51 @@ class CollectionEffectsGateway(Protocol):
 
     def search_tmdb_people(self, query: str) -> Sequence[Mapping[str, Any]]: ...
 
+    def movie_details(self, tmdb_id: int) -> Mapping[str, Any]: ...
+
+    def series_details(self, tmdb_id: int) -> Mapping[str, Any]: ...
+
+    def season_details(self, series_tmdb_id: int, season_number: int) -> Mapping[str, Any]: ...
+
+
+class CollectionEffectGateway(Protocol):
+    def stage_native_delete(
+        self,
+        emby_collection_id: str,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> CollectionEffectSubmission: ...
+
+    def stage_custom_delete(
+        self,
+        collection_id: int,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> CollectionEffectSubmission | None: ...
+
+    def stage_missing_cleanup(self, tmdb_collection_id: str) -> CollectionEffectSubmission: ...
+
+    def stage_image_archives(self, payload: Mapping[str, Any]) -> tuple[CollectionEffectSubmission, ...]: ...
+
+    def stage_removal_survival_check(
+        self,
+        emby_collection_id: str,
+        *,
+        event_identity: str,
+    ) -> CollectionEffectSubmission: ...
+
 
 class CollectionProviderNotFoundError(LookupError):
     pass
 
 
 class CollectionGatewayConfigurationError(RuntimeError):
+    pass
+
+
+class CollectionProviderUnavailableError(RuntimeError):
     pass
 
 
@@ -175,19 +237,79 @@ class CollectionService:
         gateway: CollectionLocalGateway,
         user_projection: CollectionUserProjection,
         media_projection: CollectionMediaProjection,
-        effects_gateway: CollectionEffectsGateway | None = None,
+        query_gateway: CollectionQueryGateway | None = None,
+        effect_gateway: CollectionEffectGateway | None = None,
+        operation_repository: PostgresCollectionOperationRepository | None = None,
+        operation_reconciler: CollectionOperationReconciler | None = None,
     ) -> None:
         self._repository = repository
         self._settings = settings
         self._gateway = gateway
         self._user_projection = user_projection
         self._media_projection = media_projection
-        self._effects_gateway = effects_gateway
+        self._query_gateway = query_gateway
+        self._effect_gateway = effect_gateway
+        self._operation_repository = operation_repository
+        self._operation_reconciler = operation_reconciler
 
-    def _effects(self) -> CollectionEffectsGateway:
-        if self._effects_gateway is None:
-            raise RuntimeError("collection effects adapter is not configured")
-        return self._effects_gateway
+    def _queries(self) -> CollectionQueryGateway:
+        if self._query_gateway is None:
+            raise RuntimeError("collection query adapter is not configured")
+        return self._query_gateway
+
+    def _effects(self) -> CollectionEffectGateway:
+        if self._effect_gateway is None:
+            raise RuntimeError("collection effect gateway is not configured")
+        return self._effect_gateway
+
+    def operation_status(self, operation_id: str) -> CollectionHttpResult:
+        repository = self._operation_repository
+        if repository is None:
+            return CollectionHttpResult({"error": "合集操作状态服务未配置"}, 500)
+        try:
+            parsed_id = UUID(str(operation_id))
+        except ValueError:
+            return CollectionHttpResult({"error": "无效的合集操作 ID"}, 400)
+        operation = repository.read(parsed_id)
+        if operation is None:
+            return CollectionHttpResult({"error": "未找到合集操作"}, 404)
+        return CollectionHttpResult(_collection_operation_payload(operation))
+
+    def reconcile_operation(
+        self,
+        operation_id: str,
+        payload: Any,
+        *,
+        resolved_by: str,
+    ) -> CollectionHttpResult:
+        reconciler = self._operation_reconciler
+        if reconciler is None:
+            return CollectionHttpResult({"error": "合集操作恢复服务未配置"}, 500)
+        if not isinstance(payload, Mapping):
+            return CollectionHttpResult({"error": "请求无效: 缺少 state_revision"}, 400)
+        raw_revision = payload.get("state_revision")
+        if isinstance(raw_revision, bool):
+            return CollectionHttpResult({"error": "请求无效: state_revision 必须为非负整数"}, 400)
+        try:
+            revision = int(str(raw_revision))
+            parsed_id = UUID(str(operation_id))
+        except (TypeError, ValueError):
+            return CollectionHttpResult({"error": "请求无效: 操作 ID 或 state_revision 无效"}, 400)
+        if revision < 0:
+            return CollectionHttpResult({"error": "请求无效: state_revision 必须为非负整数"}, 400)
+        try:
+            operation = reconciler.reconcile(
+                parsed_id,
+                expected_state_revision=revision,
+                resolved_by=resolved_by,
+            )
+            if operation is None:
+                return CollectionHttpResult({"error": "未找到合集操作"}, 404)
+            return CollectionHttpResult(_collection_operation_payload(operation))
+        except CollectionOperationStateError:
+            return CollectionHttpResult({"error": "合集操作状态已变化，请刷新后重试"}, 409)
+        except (CollectionRemoteRejected, CollectionRemoteIndeterminate):
+            return CollectionHttpResult({"error": "暂时无法完成权威回读"}, 503)
 
     def provider_metadata(self, tmdb_collection_id: str, host_url: str) -> CollectionHttpResult:
         value = str(tmdb_collection_id or "").strip()
@@ -196,10 +318,20 @@ class CollectionService:
         row = self._repository.get_native(value)
         if row is None or int(row.get("metadata_schema_version") or 0) < 1:
             try:
-                details = self._effects().collection_details(int(value))
+                details = self._queries().collection_details(int(value))
             except CollectionProviderNotFoundError:
-                self._effects().schedule_missing_collection_cleanup(value)
-                return CollectionHttpResult({"error": "tmdb collection no longer exists"}, 410)
+                submission = self._effects().stage_missing_cleanup(value)
+                return CollectionHttpResult(
+                    {
+                        "error": "tmdb collection no longer exists",
+                        "effect_id": str(submission.effect_id),
+                        "effect_status": submission.status,
+                        "status_url": f"/api/collection-operations/{submission.effect_id}/status",
+                    },
+                    410,
+                )
+            except (CollectionGatewayConfigurationError, CollectionProviderUnavailableError) as exc:
+                return CollectionHttpResult({"error": str(exc)}, 500)
             if details:
                 row = self._repository.upsert_native(
                     details,
@@ -208,7 +340,8 @@ class CollectionService:
         payload = _provider_payload(row)
         if payload is None:
             return CollectionHttpResult({"error": "collection metadata not found"}, 404)
-        self._effects().archive_metadata_images(payload, host_url)
+        del host_url
+        self._effects().stage_image_archives(payload)
         return CollectionHttpResult(payload, headers={"cache-control": "no-store"})
 
     def provider_search(self, query: str) -> CollectionHttpResult:
@@ -231,10 +364,14 @@ class CollectionService:
             payload = _provider_payload(row)
             if payload:
                 merged[payload["tmdb_id"]] = payload
-        for row in self._effects().search_collections(normalized):
-            payload = _provider_payload(row)
-            if payload:
-                merged.setdefault(payload["tmdb_id"], payload)
+        try:
+            provider_rows = self._queries().search_collections(normalized)
+        except (CollectionGatewayConfigurationError, CollectionProviderUnavailableError) as exc:
+            return CollectionHttpResult({"error": str(exc)}, 500)
+        for row in provider_rows:
+            provider_payload = _provider_payload(row)
+            if provider_payload:
+                merged.setdefault(provider_payload["tmdb_id"], provider_payload)
         return CollectionHttpResult(list(merged.values())[:20])
 
     def native_status(self) -> CollectionHttpResult:
@@ -244,14 +381,29 @@ class CollectionService:
         except Exception:
             return CollectionHttpResult({"error": "读取合集时发生服务器内部错误"}, 500)
 
-    def delete_native(self, emby_collection_id: str) -> CollectionHttpResult:
+    def delete_native(
+        self,
+        emby_collection_id: str,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> CollectionHttpResult:
         try:
-            if not self._effects().delete_native_collection(emby_collection_id):
-                return CollectionHttpResult({"error": "删除合集失败，请检查 Emby 日志"}, 500)
-            self._repository.deactivate_native(emby_collection_id)
-            return CollectionHttpResult({"message": "合集已成功从 Emby 删除"})
-        except CollectionGatewayConfigurationError as exc:
-            return CollectionHttpResult({"error": str(exc)}, 500)
+            submission = self._effects().stage_native_delete(
+                emby_collection_id,
+                principal_id=principal_id,
+                idempotency_key=idempotency_key,
+            )
+            status_url = f"/api/collection-operations/{submission.effect_id}/status"
+            return CollectionHttpResult(
+                _accepted_effect("合集删除请求已接受", submission),
+                202,
+                headers={"Location": status_url},
+            )
+        except CollectionOperationConflictError:
+            return CollectionHttpResult({"error": "Idempotency-Key 已用于其他合集删除请求"}, 409)
+        except CollectionOperationScopeBusyError:
+            return CollectionHttpResult({"error": "该合集已有未完成的操作"}, 409)
         except Exception as exc:
             return CollectionHttpResult({"error": f"服务器内部错误: {exc}"}, 500)
 
@@ -355,17 +507,31 @@ class CollectionService:
         except Exception:
             return CollectionHttpResult({"error": "服务器内部错误"}, 500)
 
-    def delete_custom(self, collection_id: int) -> CollectionHttpResult:
-        collection = self._repository.get_custom(collection_id)
-        if collection is None:
-            return CollectionHttpResult({"error": "未找到要删除的合集"}, 404)
+    def delete_custom(
+        self,
+        collection_id: int,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> CollectionHttpResult:
         try:
-            self._effects().delete_custom_collection_effect(collection)
-            deleted = self._repository.delete_custom(collection_id)
-            if deleted is None:
-                return CollectionHttpResult({"error": "数据库删除操作失败，请查看日志。"}, 500)
-            self._effects().cleanup_custom_placeholders(collection)
-            return CollectionHttpResult({"message": f"自定义合集 '{collection.get('name')}' 已成功联动删除。"})
+            submission = self._effects().stage_custom_delete(
+                collection_id,
+                principal_id=principal_id,
+                idempotency_key=idempotency_key,
+            )
+            if submission is None:
+                return CollectionHttpResult({"error": "未找到要删除的合集"}, 404)
+            status_url = f"/api/collection-operations/{submission.effect_id}/status"
+            return CollectionHttpResult(
+                _accepted_effect("自定义合集删除请求已接受", submission),
+                202,
+                headers={"Location": status_url},
+            )
+        except CollectionOperationConflictError:
+            return CollectionHttpResult({"error": "Idempotency-Key 已用于其他合集删除请求"}, 409)
+        except CollectionOperationScopeBusyError:
+            return CollectionHttpResult({"error": "该合集已有未完成的操作"}, 409)
         except Exception:
             return CollectionHttpResult({"error": "服务器内部错误"}, 500)
 
@@ -388,13 +554,46 @@ class CollectionService:
                 {"error": "请求无效: 必须提供 old_tmdb_id 或 old_title 以定位项目"},
                 400,
             )
+        new_tmdb_id = str(payload["new_tmdb_id"] or "").strip()
+        if not new_tmdb_id.isdigit() or int(new_tmdb_id) <= 0:
+            return CollectionHttpResult({"error": "请求无效: new_tmdb_id 必须为正整数"}, 400)
+        raw_season = payload.get("season_number")
+        if isinstance(raw_season, bool):
+            return CollectionHttpResult({"error": "请求无效: season_number 必须为非负整数"}, 400)
         try:
-            corrected = self._effects().fix_custom_match(collection_id, payload)
-            if corrected is None:
+            season_number = int(raw_season) if raw_season is not None else None
+        except (TypeError, ValueError):
+            return CollectionHttpResult({"error": "请求无效: season_number 必须为非负整数"}, 400)
+        if season_number is not None and season_number < 0:
+            return CollectionHttpResult({"error": "请求无效: season_number 必须为非负整数"}, 400)
+        old_tmdb_id = str(payload.get("old_tmdb_id") or "").strip() or None
+        old_title = str(payload.get("old_title") or "").strip() or None
+        try:
+            candidate = self._repository.inspect_custom_match(
+                collection_id,
+                old_tmdb_id=old_tmdb_id,
+                old_title=old_title,
+            )
+            if candidate is None:
                 return CollectionHttpResult({"error": "修正失败，未找到对应的媒体项"}, 404)
+            if season_number is not None and candidate.item_type != "Series":
+                return CollectionHttpResult({"error": "请求无效: 电影项目不能指定 season_number"}, 400)
+            snapshot = _collection_correction_snapshot(
+                self._queries(),
+                candidate,
+                new_tmdb_id,
+                season_number,
+            )
+            corrected = self._repository.apply_custom_match(candidate, snapshot)
             return CollectionHttpResult({"message": "修正成功！", "corrected_item": dict(corrected)})
-        except Exception as exc:
-            return CollectionHttpResult({"error": f"服务器内部错误: {exc}"}, 500)
+        except CollectionProviderNotFoundError:
+            return CollectionHttpResult({"error": "修正失败，TMDb 中未找到目标媒体"}, 404)
+        except CollectionMatchConflictError:
+            return CollectionHttpResult({"error": "合集项目已变化，请刷新后重试"}, 409)
+        except (CollectionGatewayConfigurationError, CollectionProviderUnavailableError):
+            return CollectionHttpResult({"error": "服务器内部错误"}, 500)
+        except Exception:
+            return CollectionHttpResult({"error": "服务器内部错误"}, 500)
 
     def mapping(self, key: str, default_key: str) -> CollectionHttpResult:
         value = self._settings.load(key)
@@ -485,7 +684,7 @@ class CollectionService:
 
     def tmdb_genres(self, media_type: str) -> CollectionHttpResult:
         try:
-            values = self._effects().tmdb_movie_genres() if media_type == "movie" else self._effects().tmdb_tv_genres()
+            values = self._queries().tmdb_movie_genres() if media_type == "movie" else self._queries().tmdb_tv_genres()
             if values is None:
                 return CollectionHttpResult(
                     {"error": f"从 TMDb 获取{'电影' if media_type == 'movie' else '电视剧'}类型失败"}, 500
@@ -501,7 +700,7 @@ class CollectionService:
 
     def custom_libraries(self) -> CollectionHttpResult:
         try:
-            values = self._effects().emby_libraries()
+            values = self._queries().emby_libraries()
             if values is None:
                 return CollectionHttpResult({"error": "无法从 Emby 获取媒体库列表"}, 500)
             return CollectionHttpResult(
@@ -521,7 +720,7 @@ class CollectionService:
         if not query:
             return CollectionHttpResult([])
         try:
-            return CollectionHttpResult(list(self._effects().search_tmdb_companies(query, search_type)))
+            return CollectionHttpResult(list(self._queries().search_tmdb_companies(query, search_type)))
         except Exception:
             return CollectionHttpResult({"error": "服务器内部错误"}, 500)
 
@@ -529,7 +728,7 @@ class CollectionService:
         if not query:
             return CollectionHttpResult([])
         try:
-            return CollectionHttpResult(list(self._effects().search_tmdb_people(query)))
+            return CollectionHttpResult(list(self._queries().search_tmdb_people(query)))
         except Exception:
             return CollectionHttpResult({"error": "服务器内部错误"}, 500)
 
@@ -550,7 +749,7 @@ class CollectionService:
 
     def cover_libraries(self) -> CollectionHttpResult:
         try:
-            values = self._effects().emby_libraries(cover=True)
+            values = self._queries().emby_libraries(cover=True)
             if not values:
                 return CollectionHttpResult([])
             return CollectionHttpResult(
@@ -579,6 +778,189 @@ def _image_url(value: Any) -> str | None:
     if path.startswith(("http://", "https://")):
         return path
     return f"https://image.tmdb.org/t/p/original/{path.lstrip('/')}"
+
+
+def _collection_correction_snapshot(
+    queries: CollectionQueryGateway,
+    candidate: CustomMatchCandidate,
+    new_tmdb_id: str,
+    season_number: int | None,
+) -> CollectionCorrectionSnapshot:
+    expected_id = str(int(new_tmdb_id))
+    if season_number is not None:
+        parent = queries.series_details(int(expected_id))
+        parent_id = _provider_identity(parent, "Series", expected=expected_id)
+        parent_title = _provider_title(parent, "name", "Series")
+        parent_release = _provider_date(parent.get("first_air_date"), "Series first_air_date")
+        season = queries.season_details(int(parent_id), season_number)
+        season_id = _provider_identity(season, "Season")
+        provider_season = season.get("season_number")
+        if provider_season is not None:
+            try:
+                normalized_provider_season = int(str(provider_season))
+            except ValueError as exc:
+                raise CollectionProviderUnavailableError("TMDb Season payload identity mismatch") from exc
+            if normalized_provider_season != season_number:
+                raise CollectionProviderUnavailableError("TMDb Season payload identity mismatch")
+        season_title = _provider_title(season, "name", "Season")
+        release = _provider_date(season.get("air_date"), "Season air_date")
+        parent_record = {
+            "title": parent_title,
+            "original_title": parent.get("original_name"),
+            "release_date": _date_text(parent_release),
+            "release_year": parent_release.year if parent_release is not None else None,
+            "poster_path": parent.get("poster_path"),
+            "backdrop_path": parent.get("backdrop_path"),
+            "overview": parent.get("overview"),
+            "season_number": None,
+            "parent_series_tmdb_id": None,
+        }
+        target_record = {
+            "title": season_title,
+            "original_title": season_title,
+            "release_date": _date_text(release),
+            "release_year": release.year if release is not None else None,
+            "poster_path": season.get("poster_path") or parent.get("poster_path"),
+            "backdrop_path": parent.get("backdrop_path"),
+            "overview": season.get("overview"),
+            "season_number": season_number,
+            "parent_series_tmdb_id": parent_id,
+        }
+        status, ui_status = _correction_status(release)
+        return CollectionCorrectionSnapshot(
+            collection_tmdb_id=parent_id,
+            season_number=season_number,
+            target_key=SubscriptionMediaKey(season_id, "Season"),
+            target_record=target_record,
+            target_status=status,
+            corrected_item={
+                "tmdb_id": parent_id,
+                "title": f"{parent_title} - 第 {season_number} 季",
+                "release_date": _date_text(release),
+                "poster_path": target_record["poster_path"],
+                "status": ui_status,
+                "media_type": "Series",
+                "season": season_number,
+            },
+            parent_key=SubscriptionMediaKey(parent_id, "Series"),
+            parent_record=parent_record,
+        )
+
+    if candidate.item_type == "Series":
+        details = queries.series_details(int(expected_id))
+        provider_id = _provider_identity(details, "Series", expected=expected_id)
+        title = _provider_title(details, "name", "Series")
+        original_title = details.get("original_name")
+        release = _provider_date(details.get("first_air_date"), "Series first_air_date")
+        item_type = "Series"
+    else:
+        details = queries.movie_details(int(expected_id))
+        provider_id = _provider_identity(details, "Movie", expected=expected_id)
+        title = _provider_title(details, "title", "Movie")
+        original_title = details.get("original_title")
+        release = _provider_date(details.get("release_date"), "Movie release_date")
+        item_type = "Movie"
+    record = {
+        "title": title,
+        "original_title": original_title,
+        "release_date": _date_text(release),
+        "release_year": release.year if release is not None else None,
+        "poster_path": details.get("poster_path"),
+        "backdrop_path": details.get("backdrop_path"),
+        "overview": details.get("overview"),
+        "season_number": None,
+        "parent_series_tmdb_id": None,
+    }
+    status, ui_status = _correction_status(release)
+    return CollectionCorrectionSnapshot(
+        collection_tmdb_id=provider_id,
+        season_number=None,
+        target_key=SubscriptionMediaKey(provider_id, item_type),
+        target_record=record,
+        target_status=status,
+        corrected_item={
+            "tmdb_id": provider_id,
+            "title": title,
+            "release_date": _date_text(release),
+            "poster_path": details.get("poster_path"),
+            "status": ui_status,
+            "media_type": item_type,
+        },
+    )
+
+
+def _provider_identity(
+    payload: Mapping[str, Any],
+    item_type: str,
+    *,
+    expected: str | None = None,
+) -> str:
+    raw_id = payload.get("id")
+    if isinstance(raw_id, bool):
+        raise CollectionProviderUnavailableError(f"TMDb {item_type} payload is missing its identity")
+    try:
+        normalized = str(int(str(raw_id)))
+    except (TypeError, ValueError) as exc:
+        raise CollectionProviderUnavailableError(f"TMDb {item_type} payload is missing its identity") from exc
+    if int(normalized) <= 0 or (expected is not None and normalized != expected):
+        raise CollectionProviderUnavailableError(f"TMDb {item_type} payload identity mismatch")
+    return normalized
+
+
+def _provider_title(payload: Mapping[str, Any], field: str, item_type: str) -> str:
+    title = str(payload.get(field) or "").strip()
+    if not title:
+        raise CollectionProviderUnavailableError(f"TMDb {item_type} payload is missing its title")
+    return title
+
+
+def _provider_date(value: Any, field: str) -> date | None:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return None
+    try:
+        return date.fromisoformat(normalized)
+    except ValueError as exc:
+        raise CollectionProviderUnavailableError(f"TMDb {field} is invalid") from exc
+
+
+def _date_text(value: date | None) -> str | None:
+    return value.isoformat() if value is not None else None
+
+
+def _correction_status(release: date | None) -> tuple[str, str]:
+    today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    if release is not None and release > today:
+        return "PENDING_RELEASE", "unreleased"
+    return "WANTED", "subscribed"
+
+
+def _accepted_effect(message: str, submission: CollectionEffectSubmission) -> dict[str, Any]:
+    return {
+        "message": message,
+        "effect_id": str(submission.effect_id),
+        "effect_status": submission.status,
+        "created": submission.created,
+        "related_effect_ids": [str(value) for value in submission.related_effect_ids],
+        "status_url": f"/api/collection-operations/{submission.effect_id}/status",
+    }
+
+
+def _collection_operation_payload(operation: CollectionOperation) -> dict[str, Any]:
+    return {
+        "operation_id": str(operation.id),
+        "operation_key": operation.operation_key,
+        "kind": operation.kind.value,
+        "status": operation.status.value,
+        "current_step": operation.current_step.value,
+        "state_revision": operation.state_revision,
+        "attempts": operation.attempts,
+        "available_at": operation.available_at.isoformat(),
+        "result": dict(operation.result) if operation.result is not None else None,
+        "error": dict(operation.error) if operation.error is not None else None,
+        "finished_at": operation.finished_at.isoformat() if operation.finished_at is not None else None,
+        "status_url": f"/api/collection-operations/{operation.id}/status",
+    }
 
 
 def _provider_payload(row: Mapping[str, Any] | None) -> dict[str, Any] | None:
@@ -715,12 +1097,14 @@ def _studio_option(item: Mapping[str, Any]) -> dict[str, Any]:
 
 
 __all__ = [
-    "CollectionEffectsGateway",
+    "CollectionEffectGateway",
     "CollectionGatewayConfigurationError",
     "CollectionHttpResult",
     "CollectionLocalGateway",
     "CollectionMediaProjection",
     "CollectionProviderNotFoundError",
+    "CollectionProviderUnavailableError",
+    "CollectionQueryGateway",
     "CollectionRepository",
     "CollectionService",
     "CollectionSettingsStore",

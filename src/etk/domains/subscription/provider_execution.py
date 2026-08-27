@@ -384,18 +384,34 @@ class SubscriptionOperationExecutor:
         try:
             readback = self._gateway.query_subscription(_required_plan_tmdb_id(plan), season=plan.season)
         except MoviePilotProviderError as exc:
+            error = {"type": "preflight_readback_failed", **_provider_error(exc)}
+            if operation.attempts >= self._max_attempts:
+                return self._repository.mark_rejected(
+                    operation.id,
+                    claim_token,
+                    error={**error, "attempts": operation.attempts},
+                    now=now,
+                )
             return self._repository.mark_retryable(
                 operation.id,
                 claim_token,
-                error={"type": "preflight_readback_failed", **_provider_error(exc)},
+                error=error,
                 retry_after_seconds=self._readback_delay_seconds,
                 now=now,
             )
         except Exception as exc:
+            error = {"type": "preflight_readback_failed", "error_class": type(exc).__name__}
+            if operation.attempts >= self._max_attempts:
+                return self._repository.mark_rejected(
+                    operation.id,
+                    claim_token,
+                    error={**error, "attempts": operation.attempts},
+                    now=now,
+                )
             return self._repository.mark_retryable(
                 operation.id,
                 claim_token,
-                error={"type": "preflight_readback_failed", "error_class": type(exc).__name__},
+                error=error,
                 retry_after_seconds=self._readback_delay_seconds,
                 now=now,
             )

@@ -1496,6 +1496,200 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/actions/cleanup-offline-media": {
+      "post": {
+        "operationId": "database_cleanup_offline_media_api_actions_cleanup_offline_media_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Cleanup Offline Media",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/actions/clear-vectors": {
+      "post": {
+        "operationId": "database_clear_vectors_api_actions_clear_vectors_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Clear Vectors",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/actions/clear_review_items": {
+      "post": {
+        "operationId": "clear_review_items_api_actions_clear_review_items_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clear Review Items",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/actions/clear_tables": {
+      "post": {
+        "operationId": "database_clear_tables_api_actions_clear_tables_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Clear Tables",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/actions/mark_item_processed/{item_id}": {
+      "post": {
+        "operationId": "mark_review_item_processed_api_actions_mark_item_processed__item_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Review Item Processed",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/actions/prepare-for-library-rebuild": {
+      "post": {
+        "operationId": "database_prepare_for_library_rebuild_api_actions_prepare_for_library_rebuild_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Prepare For Library Rebuild",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/actions/reprocess_all_review_items": {
+      "post": {
+        "operationId": "reprocess_all_review_items_api_actions_reprocess_all_review_items_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reprocess All Review Items",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/actions/reprocess_item/{item_id}": {
+      "post": {
+        "operationId": "reprocess_review_item_api_actions_reprocess_item__item_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reprocess Review Item",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
     "/api/actions/translate_cast_sa": {
       "post": {
         "operationId": "translate_cast_api_actions_translate_cast_sa_post",
@@ -1902,6 +2096,672 @@
         "tags": [
           "subscription",
           "actors"
+        ]
+      }
+    },
+    "/api/admin/invitations": {
+      "get": {
+        "operationId": "get_all_invitations_api_admin_invitations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Get All Invitations Api Admin Invitations Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Get All Invitations",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "operationId": "create_invitation_api_admin_invitations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Invitation Api Admin Invitations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Create Invitation",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/admin/invitations/{invitation_id}": {
+      "delete": {
+        "operationId": "delete_invitation_api_admin_invitations__invitation_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invitation_id",
+            "required": true,
+            "schema": {
+              "title": "Invitation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Invitation Api Admin Invitations  Invitation Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Delete Invitation",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/admin/user_templates": {
+      "get": {
+        "operationId": "get_all_templates_api_admin_user_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Get All Templates Api Admin User Templates Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Get All Templates",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "operationId": "create_template_api_admin_user_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Template Api Admin User Templates Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Create Template",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/admin/user_templates/{template_id}": {
+      "delete": {
+        "operationId": "delete_template_api_admin_user_templates__template_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Template Api Admin User Templates  Template Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Delete Template",
+        "tags": [
+          "users"
+        ]
+      },
+      "put": {
+        "operationId": "update_template_api_admin_user_templates__template_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "title": "Template Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Template Api Admin User Templates  Template Id  Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Update Template",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "operationId": "get_all_managed_users_api_admin_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Get All Managed Users Api Admin Users Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Get All Managed Users",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}": {
+      "delete": {
+        "operationId": "delete_user_api_admin_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete User Api Admin Users  User Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "503": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Delete User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/expiration": {
+      "post": {
+        "operationId": "set_user_expiration_api_admin_users__user_id__expiration_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set User Expiration Api Admin Users  User Id  Expiration Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Set User Expiration",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/status": {
+      "post": {
+        "operationId": "set_user_status_api_admin_users__user_id__status_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set User Status Api Admin Users  User Id  Status Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "503": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Set User Status",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/template": {
+      "post": {
+        "operationId": "change_user_template_api_admin_users__user_id__template_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Change User Template Api Admin Users  User Id  Template Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "503": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Change User Template",
+        "tags": [
+          "users"
         ]
       }
     },
@@ -2401,6 +3261,263 @@
         ]
       }
     },
+    "/api/auto_tagging/clear_now": {
+      "post": {
+        "operationId": "clear_auto_tagging_api_auto_tagging_clear_now_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Clear Auto Tagging Api Auto Tagging Clear Now Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "503": {
+            "description": "Legacy-compatible P8 secondary media response"
+          }
+        },
+        "summary": "Clear Auto Tagging",
+        "tags": [
+          "media-secondary"
+        ]
+      }
+    },
+    "/api/auto_tagging/rules": {
+      "get": {
+        "operationId": "get_auto_tagging_rules_api_auto_tagging_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Auto Tagging Rules Api Auto Tagging Rules Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 secondary media response"
+          }
+        },
+        "summary": "Get Auto Tagging Rules",
+        "tags": [
+          "media-secondary"
+        ]
+      },
+      "post": {
+        "operationId": "save_auto_tagging_rules_api_auto_tagging_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Save Auto Tagging Rules Api Auto Tagging Rules Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 secondary media response"
+          }
+        },
+        "summary": "Save Auto Tagging Rules",
+        "tags": [
+          "media-secondary"
+        ]
+      }
+    },
+    "/api/auto_tagging/run_now": {
+      "post": {
+        "operationId": "run_auto_tagging_api_auto_tagging_run_now_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Run Auto Tagging Api Auto Tagging Run Now Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "503": {
+            "description": "Legacy-compatible P8 secondary media response"
+          }
+        },
+        "summary": "Run Auto Tagging",
+        "tags": [
+          "media-secondary"
+        ]
+      }
+    },
     "/api/cleanup/clear_all": {
       "post": {
         "operationId": "clear_all_cleanup_tasks_api_cleanup_clear_all_post",
@@ -2832,6 +3949,400 @@
         ]
       }
     },
+    "/api/collection-operations/{operation_id}/reconcile": {
+      "post": {
+        "operationId": "api_reconcile_collection_operation_api_collection_operations__operation_id__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Reconcile Collection Operation Api Collection Operations  Operation Id  Reconcile Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "503": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Reconcile Collection Operation",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/collection-operations/{operation_id}/status": {
+      "get": {
+        "operationId": "api_get_collection_operation_status_api_collection_operations__operation_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Get Collection Operation Status Api Collection Operations  Operation Id  Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Collection Operation Status",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/collections/provider/metadata/{tmdb_collection_id}": {
+      "get": {
+        "operationId": "api_get_collection_provider_metadata_api_collections_provider_metadata__tmdb_collection_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tmdb_collection_id",
+            "required": true,
+            "schema": {
+              "title": "Tmdb Collection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Get Collection Provider Metadata Api Collections Provider Metadata  Tmdb Collection Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "410": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Collection Provider Metadata",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/collections/provider/search": {
+      "get": {
+        "operationId": "api_search_collection_provider_api_collections_provider_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "default": "",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Api Search Collection Provider Api Collections Provider Search Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Search Collection Provider",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/collections/settings": {
+      "get": {
+        "operationId": "api_get_collection_settings_api_collections_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Get Collection Settings Api Collections Settings Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Collection Settings",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_save_collection_settings_api_collections_settings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Save Collection Settings Api Collections Settings Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Save Collection Settings",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/collections/status": {
+      "get": {
+        "operationId": "api_get_collections_status_api_collections_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Collections Status Api Collections Status Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Collections Status",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/collections/{emby_collection_id}": {
+      "delete": {
+        "operationId": "api_delete_collection_api_collections__emby_collection_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "emby_collection_id",
+            "required": true,
+            "schema": {
+              "title": "Emby Collection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Delete Collection Api Collections  Emby Collection Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Delete Collection",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
     "/api/config": {
       "get": {
         "operationId": "read_config_api_config_get",
@@ -2884,6 +4395,164 @@
         ]
       }
     },
+    "/api/config/cover_generator": {
+      "get": {
+        "operationId": "get_cover_generator_config_api_config_cover_generator_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Get Cover Generator Config Api Config Cover Generator Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Get Cover Generator Config",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "save_cover_generator_config_api_config_cover_generator_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Cover Generator Config Api Config Cover Generator Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Save Cover Generator Config",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/config/cover_generator/libraries": {
+      "get": {
+        "operationId": "get_all_libraries_api_config_cover_generator_libraries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Get All Libraries Api Config Cover Generator Libraries Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Get All Libraries",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/config/cover_generator/preview": {
+      "post": {
+        "operationId": "api_generate_cover_preview_api_config_cover_generator_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Generate Cover Preview Api Config Cover Generator Preview Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Generate Cover Preview",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
     "/api/config/custom_theme": {
       "delete": {
         "operationId": "delete_custom_theme_api_config_custom_theme_delete",
@@ -2933,6 +4602,2061 @@
         "summary": "Save Custom Theme",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/api/custom_collections": {
+      "get": {
+        "operationId": "api_get_all_custom_collections_api_custom_collections_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get All Custom Collections Api Custom Collections Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get All Custom Collections",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_create_custom_collection_api_custom_collections_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Create Custom Collection Api Custom Collections Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Create Custom Collection",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/country_mapping": {
+      "get": {
+        "operationId": "api_get_country_mapping_api_custom_collections_config_country_mapping_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Country Mapping Api Custom Collections Config Country Mapping Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Get Country Mapping",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_save_country_mapping_api_custom_collections_config_country_mapping_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Save Country Mapping Api Custom Collections Config Country Mapping Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Save Country Mapping",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/country_mapping/defaults": {
+      "get": {
+        "operationId": "api_get_country_defaults_api_custom_collections_config_country_mapping_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Country Defaults Api Custom Collections Config Country Mapping Defaults Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Country Defaults",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/emby_libraries": {
+      "get": {
+        "operationId": "api_get_emby_libraries_for_filter_api_custom_collections_config_emby_libraries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Emby Libraries For Filter Api Custom Collections Config Emby Libraries Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Emby Libraries For Filter",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/emby_users": {
+      "get": {
+        "operationId": "api_get_emby_users_api_custom_collections_config_emby_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Emby Users Api Custom Collections Config Emby Users Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Emby Users",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/junk_file_patterns": {
+      "get": {
+        "operationId": "api_get_junk_file_patterns_api_custom_collections_config_junk_file_patterns_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Junk File Patterns Api Custom Collections Config Junk File Patterns Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Get Junk File Patterns",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_save_junk_file_patterns_api_custom_collections_config_junk_file_patterns_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {},
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Save Junk File Patterns Api Custom Collections Config Junk File Patterns Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Save Junk File Patterns",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/junk_file_patterns/defaults": {
+      "get": {
+        "operationId": "api_get_junk_file_pattern_defaults_api_custom_collections_config_junk_file_patterns_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Junk File Pattern Defaults Api Custom Collections Config Junk File Patterns Defaults Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Junk File Pattern Defaults",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/keyword_mapping": {
+      "get": {
+        "operationId": "api_get_keyword_mapping_api_custom_collections_config_keyword_mapping_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Keyword Mapping Api Custom Collections Config Keyword Mapping Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Get Keyword Mapping",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_save_keyword_mapping_api_custom_collections_config_keyword_mapping_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Save Keyword Mapping Api Custom Collections Config Keyword Mapping Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Save Keyword Mapping",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/keyword_mapping/defaults": {
+      "get": {
+        "operationId": "api_get_keyword_defaults_api_custom_collections_config_keyword_mapping_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Keyword Defaults Api Custom Collections Config Keyword Mapping Defaults Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Keyword Defaults",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/keywords": {
+      "get": {
+        "operationId": "api_get_keywords_for_filter_api_custom_collections_config_keywords_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Keywords For Filter Api Custom Collections Config Keywords Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Keywords For Filter",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/language_mapping": {
+      "get": {
+        "operationId": "api_get_language_mapping_api_custom_collections_config_language_mapping_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Language Mapping Api Custom Collections Config Language Mapping Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Get Language Mapping",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_save_language_mapping_api_custom_collections_config_language_mapping_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Save Language Mapping Api Custom Collections Config Language Mapping Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Save Language Mapping",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/language_mapping/defaults": {
+      "get": {
+        "operationId": "api_get_language_defaults_api_custom_collections_config_language_mapping_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Language Defaults Api Custom Collections Config Language Mapping Defaults Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Language Defaults",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/languages": {
+      "get": {
+        "operationId": "api_get_languages_for_filter_api_custom_collections_config_languages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Languages For Filter Api Custom Collections Config Languages Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Languages For Filter",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/movie_genres": {
+      "get": {
+        "operationId": "api_get_movie_genres_config_api_custom_collections_config_movie_genres_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Movie Genres Config Api Custom Collections Config Movie Genres Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Movie Genres Config",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/rating_mapping": {
+      "get": {
+        "operationId": "api_get_rating_mapping_api_custom_collections_config_rating_mapping_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Rating Mapping Api Custom Collections Config Rating Mapping Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Get Rating Mapping",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_save_rating_mapping_api_custom_collections_config_rating_mapping_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Save Rating Mapping Api Custom Collections Config Rating Mapping Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Save Rating Mapping",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/rating_mapping/defaults": {
+      "get": {
+        "operationId": "api_get_rating_mapping_defaults_api_custom_collections_config_rating_mapping_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Rating Mapping Defaults Api Custom Collections Config Rating Mapping Defaults Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Rating Mapping Defaults",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/rating_priority": {
+      "get": {
+        "operationId": "api_get_rating_priority_api_custom_collections_config_rating_priority_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Rating Priority Api Custom Collections Config Rating Priority Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Get Rating Priority",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_save_rating_priority_api_custom_collections_config_rating_priority_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {},
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Save Rating Priority Api Custom Collections Config Rating Priority Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Save Rating Priority",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/rating_priority/defaults": {
+      "get": {
+        "operationId": "api_get_rating_priority_defaults_api_custom_collections_config_rating_priority_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Rating Priority Defaults Api Custom Collections Config Rating Priority Defaults Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Rating Priority Defaults",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/release_group_mapping": {
+      "get": {
+        "operationId": "api_get_release_group_mapping_api_custom_collections_config_release_group_mapping_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Release Group Mapping Api Custom Collections Config Release Group Mapping Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Get Release Group Mapping",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_save_release_group_mapping_api_custom_collections_config_release_group_mapping_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {},
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Save Release Group Mapping Api Custom Collections Config Release Group Mapping Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Save Release Group Mapping",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/release_group_mapping/defaults": {
+      "get": {
+        "operationId": "api_get_release_group_defaults_api_custom_collections_config_release_group_mapping_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Release Group Defaults Api Custom Collections Config Release Group Mapping Defaults Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Release Group Defaults",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/studio_mapping": {
+      "get": {
+        "operationId": "api_get_studio_mapping_api_custom_collections_config_studio_mapping_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Studio Mapping Api Custom Collections Config Studio Mapping Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Get Studio Mapping",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_save_studio_mapping_api_custom_collections_config_studio_mapping_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Save Studio Mapping Api Custom Collections Config Studio Mapping Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Save Studio Mapping",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/studio_mapping/defaults": {
+      "get": {
+        "operationId": "api_get_studio_defaults_api_custom_collections_config_studio_mapping_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Studio Defaults Api Custom Collections Config Studio Mapping Defaults Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Studio Defaults",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/studios": {
+      "get": {
+        "operationId": "api_get_studios_for_filter_api_custom_collections_config_studios_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Studios For Filter Api Custom Collections Config Studios Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Studios For Filter",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/tags": {
+      "get": {
+        "operationId": "api_get_tags_for_filter_api_custom_collections_config_tags_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Tags For Filter Api Custom Collections Config Tags Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Tags For Filter",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/tmdb_countries": {
+      "get": {
+        "operationId": "api_get_tmdb_countries_api_custom_collections_config_tmdb_countries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Tmdb Countries Api Custom Collections Config Tmdb Countries Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Tmdb Countries",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/tmdb_movie_genres": {
+      "get": {
+        "operationId": "api_get_tmdb_movie_genres_api_custom_collections_config_tmdb_movie_genres_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Tmdb Movie Genres Api Custom Collections Config Tmdb Movie Genres Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Tmdb Movie Genres",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/tmdb_search_companies": {
+      "get": {
+        "operationId": "api_search_tmdb_companies_api_custom_collections_config_tmdb_search_companies_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "default": "company",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Search Tmdb Companies Api Custom Collections Config Tmdb Search Companies Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Search Tmdb Companies",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/tmdb_search_persons": {
+      "get": {
+        "operationId": "api_search_tmdb_persons_api_custom_collections_config_tmdb_search_persons_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Search Tmdb Persons Api Custom Collections Config Tmdb Search Persons Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Search Tmdb Persons",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/tmdb_tv_genres": {
+      "get": {
+        "operationId": "api_get_tmdb_tv_genres_api_custom_collections_config_tmdb_tv_genres_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Tmdb Tv Genres Api Custom Collections Config Tmdb Tv Genres Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Tmdb Tv Genres",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/tv_genres": {
+      "get": {
+        "operationId": "api_get_tv_genres_config_api_custom_collections_config_tv_genres_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Tv Genres Config Api Custom Collections Config Tv Genres Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Tv Genres Config",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/unified_ratings": {
+      "get": {
+        "operationId": "api_get_unified_ratings_api_custom_collections_config_unified_ratings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Unified Ratings Api Custom Collections Config Unified Ratings Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Get Unified Ratings",
+        "tags": [
+          "collections"
+        ]
+      },
+      "post": {
+        "operationId": "api_save_unified_ratings_api_custom_collections_config_unified_ratings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Save Unified Ratings Api Custom Collections Config Unified Ratings Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Save Unified Ratings",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/unified_ratings/defaults": {
+      "get": {
+        "operationId": "api_get_unified_ratings_defaults_api_custom_collections_config_unified_ratings_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Unified Ratings Defaults Api Custom Collections Config Unified Ratings Defaults Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Unified Ratings Defaults",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/config/unified_ratings_options": {
+      "get": {
+        "operationId": "api_get_unified_ratings_for_filter_api_custom_collections_config_unified_ratings_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Unified Ratings For Filter Api Custom Collections Config Unified Ratings Options Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Unified Ratings For Filter",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/update_order": {
+      "post": {
+        "operationId": "api_update_custom_collections_order_api_custom_collections_update_order_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Update Custom Collections Order Api Custom Collections Update Order Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Update Custom Collections Order",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/{collection_id}": {
+      "delete": {
+        "operationId": "api_delete_custom_collection_api_custom_collections__collection_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "title": "Collection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Delete Custom Collection Api Custom Collections  Collection Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Delete Custom Collection",
+        "tags": [
+          "collections"
+        ]
+      },
+      "put": {
+        "operationId": "api_update_custom_collection_api_custom_collections__collection_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "title": "Collection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Update Custom Collection Api Custom Collections  Collection Id  Put"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Update Custom Collection",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/{collection_id}/fix_match": {
+      "post": {
+        "operationId": "api_fix_media_match_in_custom_collection_api_custom_collections__collection_id__fix_match_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "title": "Collection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Fix Media Match In Custom Collection Api Custom Collections  Collection Id  Fix Match Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Fix Media Match In Custom Collection",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/custom_collections/{collection_id}/status": {
+      "get": {
+        "operationId": "api_get_custom_collection_status_api_custom_collections__collection_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collection_id",
+            "required": true,
+            "schema": {
+              "title": "Collection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Api Get Custom Collection Status Api Custom Collections  Collection Id  Status Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Get Custom Collection Status",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
+    "/api/database/correct-sequences": {
+      "post": {
+        "operationId": "database_correct_sequences_api_database_correct_sequences_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Correct Sequences",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/database/export": {
+      "post": {
+        "operationId": "database_export_api_database_export_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Export",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/database/import": {
+      "post": {
+        "operationId": "database_import_api_database_import_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Import",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/database/maintenance/operations/{operation_id}": {
+      "get": {
+        "operationId": "database_maintenance_status_api_database_maintenance_operations__operation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Database Maintenance Status",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
+    "/api/database/preview-backup": {
+      "post": {
+        "operationId": "database_preview_backup_api_database_preview_backup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Preview Backup",
+        "tags": [
+          "operations"
         ]
       }
     },
@@ -2999,6 +6723,27 @@
         ]
       }
     },
+    "/api/database/stats/subscription": {
+      "get": {
+        "operationId": "database_stats_subscription_api_database_stats_subscription_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Database Stats Subscription",
+        "tags": [
+          "operations"
+        ]
+      }
+    },
     "/api/database/stats/system": {
       "get": {
         "operationId": "database_stats_system_api_database_stats_system_get",
@@ -3038,6 +6783,484 @@
         "summary": "Database Tables",
         "tags": [
           "operations"
+        ]
+      }
+    },
+    "/api/discover/config/keywords": {
+      "get": {
+        "operationId": "discover_keywords_api_discover_config_keywords_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Discover Keywords Api Discover Config Keywords Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 discover response"
+          }
+        },
+        "summary": "Discover Keywords",
+        "tags": [
+          "discover"
+        ]
+      }
+    },
+    "/api/discover/config/languages": {
+      "get": {
+        "operationId": "discover_languages_api_discover_config_languages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Discover Languages Api Discover Config Languages Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 discover response"
+          }
+        },
+        "summary": "Discover Languages",
+        "tags": [
+          "discover"
+        ]
+      }
+    },
+    "/api/discover/config/studios": {
+      "get": {
+        "operationId": "discover_studios_api_discover_config_studios_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Discover Studios Api Discover Config Studios Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 discover response"
+          }
+        },
+        "summary": "Discover Studios",
+        "tags": [
+          "discover"
+        ]
+      }
+    },
+    "/api/discover/daily_recommendation": {
+      "get": {
+        "operationId": "daily_recommendation_api_discover_daily_recommendation_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Daily Recommendation Api Discover Daily Recommendation Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 discover response"
+          }
+        },
+        "summary": "Daily Recommendation",
+        "tags": [
+          "discover"
+        ]
+      }
+    },
+    "/api/discover/genres/{media_type}": {
+      "get": {
+        "operationId": "discover_genres_api_discover_genres__media_type__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "media_type",
+            "required": true,
+            "schema": {
+              "title": "Media Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Discover Genres Api Discover Genres  Media Type  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 discover response"
+          }
+        },
+        "summary": "Discover Genres",
+        "tags": [
+          "discover"
+        ]
+      }
+    },
+    "/api/discover/movie": {
+      "post": {
+        "operationId": "discover_movies_api_discover_movie_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Discover Movies Api Discover Movie Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "502": {
+            "description": "Legacy-compatible P8 discover response"
+          }
+        },
+        "summary": "Discover Movies",
+        "tags": [
+          "discover"
+        ]
+      }
+    },
+    "/api/discover/search": {
+      "post": {
+        "operationId": "search_discover_media_api_discover_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Search Discover Media Api Discover Search Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 discover response"
+          }
+        },
+        "summary": "Search Discover Media",
+        "tags": [
+          "discover"
+        ]
+      }
+    },
+    "/api/discover/tmdb/tv/{tv_id}": {
+      "get": {
+        "operationId": "get_tmdb_tv_details_api_discover_tmdb_tv__tv_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tv_id",
+            "required": true,
+            "schema": {
+              "title": "Tv Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Get Tmdb Tv Details Api Discover Tmdb Tv  Tv Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 discover response"
+          }
+        },
+        "summary": "Get Tmdb Tv Details",
+        "tags": [
+          "discover"
+        ]
+      }
+    },
+    "/api/discover/trigger_recommendation_update": {
+      "post": {
+        "operationId": "trigger_recommendation_update_api_discover_trigger_recommendation_update_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Trigger Recommendation Update Api Discover Trigger Recommendation Update Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 discover response"
+          }
+        },
+        "summary": "Trigger Recommendation Update",
+        "tags": [
+          "discover"
+        ]
+      }
+    },
+    "/api/discover/tv": {
+      "post": {
+        "operationId": "discover_tv_api_discover_tv_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    }
+                  ],
+                  "title": "Response Discover Tv Api Discover Tv Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 discover response"
+          },
+          "502": {
+            "description": "Legacy-compatible P8 discover response"
+          }
+        },
+        "summary": "Discover Tv",
+        "tags": [
+          "discover"
         ]
       }
     },
@@ -3881,6 +8104,199 @@
         "tags": [
           "media",
           "bridge"
+        ]
+      }
+    },
+    "/api/emby/user/{user_id}/views": {
+      "get": {
+        "operationId": "get_emby_user_views_api_emby_user__user_id__views_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Emby User Views Api Emby User  User Id  Views Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "502": {
+            "description": "Legacy-compatible P8 secondary media response"
+          }
+        },
+        "summary": "Get Emby User Views",
+        "tags": [
+          "media-secondary"
+        ]
+      }
+    },
+    "/api/emby_libraries": {
+      "get": {
+        "operationId": "get_emby_libraries_api_emby_libraries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Emby Libraries Api Emby Libraries Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 secondary media response"
+          }
+        },
+        "summary": "Get Emby Libraries",
+        "tags": [
+          "media-secondary"
+        ]
+      }
+    },
+    "/api/identity/operations/{operation_id}/status": {
+      "get": {
+        "operationId": "get_identity_operation_status_api_identity_operations__operation_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Identity Operation Status Api Identity Operations  Operation Id  Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Get Identity Operation Status",
+        "tags": [
+          "users"
         ]
       }
     },
@@ -9225,6 +13641,338 @@
         ]
       }
     },
+    "/api/portal/account-info": {
+      "get": {
+        "operationId": "get_account_info_api_portal_account_info_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Account Info Api Portal Account Info Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Get Account Info",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/portal/dashboard-stats": {
+      "get": {
+        "operationId": "get_dashboard_stats_api_portal_dashboard_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Dashboard Stats Api Portal Dashboard Stats Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Get Dashboard Stats",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/portal/playback-report": {
+      "get": {
+        "operationId": "get_playback_report_api_portal_playback_report_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Playback Report Api Portal Playback Report Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Get Playback Report",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/portal/subscribe": {
+      "post": {
+        "operationId": "request_portal_subscription_api_portal_subscribe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Portal Subscription Api Portal Subscribe Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Request Portal Subscription",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/portal/subscription-history": {
+      "get": {
+        "operationId": "get_subscription_history_api_portal_subscription_history_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Subscription History Api Portal Subscription History Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Get Subscription History",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/portal/subscription-stats": {
+      "get": {
+        "operationId": "get_subscription_stats_api_portal_subscription_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Subscription Stats Api Portal Subscription Stats Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Get Subscription Stats",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/portal/telegram-bot-info": {
+      "get": {
+        "operationId": "get_telegram_bot_info_api_portal_telegram_bot_info_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Telegram Bot Info Api Portal Telegram Bot Info Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Get Telegram Bot Info",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/portal/telegram-chat-id": {
+      "post": {
+        "operationId": "save_telegram_chat_id_api_portal_telegram_chat_id_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Telegram Chat Id Api Portal Telegram Chat Id Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Save Telegram Chat Id",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/portal/upload-avatar": {
+      "post": {
+        "operationId": "upload_avatar_api_portal_upload_avatar_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "avatar": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "avatar"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Upload Avatar Api Portal Upload Avatar Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "401": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "503": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Upload Avatar",
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/api/preview_processed_cast/{item_id}": {
       "post": {
         "operationId": "preview_processed_cast_api_preview_processed_cast__item_id__post",
@@ -9336,6 +14084,108 @@
         "summary": "Test Proxy",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/api/register/invite": {
+      "post": {
+        "operationId": "register_with_invite_api_register_invite_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register With Invite Api Register Invite Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "415": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "503": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Register With Invite",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/register/invite/validate/{token}": {
+      "get": {
+        "operationId": "validate_invite_token_api_register_invite_validate__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Validate Invite Token Api Register Invite Validate  Token  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "410": {
+            "description": "Legacy-compatible P8 users response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 users response"
+          }
+        },
+        "summary": "Validate Invite Token",
+        "tags": [
+          "users"
         ]
       }
     },
@@ -9780,6 +14630,113 @@
         "summary": "Review Reasons",
         "tags": [
           "operations"
+        ]
+      }
+    },
+    "/api/search_emby_library": {
+      "get": {
+        "operationId": "search_emby_library_api_search_emby_library_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Search Emby Library Api Search Emby Library Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "503": {
+            "description": "Legacy-compatible P8 secondary media response"
+          }
+        },
+        "summary": "Search Emby Library",
+        "tags": [
+          "media-secondary"
+        ]
+      }
+    },
+    "/api/search_studios": {
+      "get": {
+        "operationId": "search_studios_api_search_studios_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    {
+                      "items": {},
+                      "type": "array"
+                    },
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Search Studios Api Search Studios Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Legacy-compatible P8 secondary media response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 secondary media response"
+          }
+        },
+        "summary": "Search Studios",
+        "tags": [
+          "media-secondary"
         ]
       }
     },

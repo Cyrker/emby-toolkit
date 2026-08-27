@@ -35,6 +35,8 @@ GREENFIELD_TABLES = {
     "p115_strm_sync_plans",
     "ingestion_monitor_items",
     "ingestion_pending_bindings",
+    "identity_avatar_artifacts",
+    "identity_operations",
     "p115_upload_monitor_controls",
     "p115_upload_operations",
     "p115_playback_operations",

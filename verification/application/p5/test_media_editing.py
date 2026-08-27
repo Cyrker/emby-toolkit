@@ -37,6 +37,9 @@ class FakePermissions:
     def is_admin(self, user_id: str) -> bool:
         return user_id == "fixture-admin"
 
+    def is_active(self, user_id: str) -> bool:
+        return True
+
 
 class FakeRepository:
     def __init__(self) -> None:

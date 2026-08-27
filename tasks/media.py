@@ -458,19 +458,25 @@ def task_reprocess_single_item(processor, item_id: str, item_name_for_ui: str, f
             )
             if not success:
                 task_manager.update_status_from_thread(-1, f"媒体信息轻量修复失败: {item_name_for_ui}")
-                return
+                return False
         else:
             task_manager.update_status_from_thread(50, f"正在重新刮削元数据: {item_name_for_ui}")
-            processor.process_single_item(
+            success = processor.process_single_item(
                 item_id, 
                 force_full_update=True
             )
+            if not success:
+                task_manager.update_status_from_thread(-1, f"重新处理失败: {item_name_for_ui}")
+                return False
         
         logger.trace(f"  ➜ 后台任务完成 ({item_name_for_ui})")
+        task_manager.update_status_from_thread(100, f"处理完成: {item_name_for_ui}")
+        return True
 
     except Exception as e:
         logger.error(f"后台任务处理 '{item_name_for_ui}' 时发生严重错误: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, f"处理失败: {item_name_for_ui}")
+        return False
 
 # --- 重新处理所有待复核项 ---
 def task_reprocess_all_review_items(processor, reason_filter: Optional[str] = None):
@@ -496,9 +502,14 @@ def task_reprocess_all_review_items(processor, reason_filter: Optional[str] = No
 
         logger.info(f"共找到 {total} 个项目需要重新处理。")
 
+        failed_count = 0
+        processed_count = 0
+        cancelled = False
+
         for i, item in enumerate(all_items):
             if processor.is_stop_requested():
                 logger.info("  ➜ 任务被中止。")
+                cancelled = True
                 break
             
             item_id = item['id']
@@ -507,12 +518,26 @@ def task_reprocess_all_review_items(processor, reason_filter: Optional[str] = No
 
             task_manager.update_status_from_thread(int((i/total)*100), f"正在重新处理 {i+1}/{total}: {item_name}")
             
-            task_reprocess_single_item(processor, item_id, item_name, failure_reason=failure_reason)
+            if not task_reprocess_single_item(processor, item_id, item_name, failure_reason=failure_reason):
+                failed_count += 1
+            processed_count += 1
             time.sleep(2) 
+
+        if cancelled or failed_count:
+            return {
+                "status": "partial",
+                "message": "批量重新处理未完全成功。",
+                "processed": processed_count,
+                "failed": failed_count,
+                "cancelled": cancelled,
+            }
+        task_manager.update_status_from_thread(100, "批量重新处理完成")
+        return True
 
     except Exception as e:
         logger.error(f"重新处理待复核项时发生严重错误: {e}", exc_info=True)
         task_manager.update_status_from_thread(-1, "任务失败")
+        return False
 
 # --- 提取标签 ---
 def extract_tag_names(item_data):

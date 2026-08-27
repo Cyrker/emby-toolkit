@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "kind": "p8-effects-http-contract",
+  "provenance": {
+    "captured_live": false,
+    "external_providers": "fake-or-postgresql-only",
+    "stage": "P8-EFFECTS",
+    "sanitized": true
+  },
+  "boundaries": [
+    "P8 effect routes use typed Ports and Worker-owned durable operations",
+    "all provider calls in this fixture are Fake/Stub calls",
+    "real Emby, TMDb, Telegram and other external acceptance remains HUMAN_PENDING"
+  ],
+  "routes": [
+    {"method": "DELETE", "path": "/api/collections/{emby_collection_id}", "owner": "etk.domains.collection.router", "response_statuses": [202, 403, 409, 500]},
+    {"method": "GET", "path": "/api/collections/provider/metadata/{tmdb_collection_id}", "owner": "etk.domains.collection.router", "response_statuses": [200, 400, 404, 410, 500]},
+    {"method": "GET", "path": "/api/collections/provider/search", "owner": "etk.domains.collection.router", "response_statuses": [200, 500]},
+    {"method": "DELETE", "path": "/api/custom_collections/{collection_id}", "owner": "etk.domains.collection.router", "response_statuses": [202, 403, 404, 409, 500]},
+    {"method": "POST", "path": "/api/custom_collections/{collection_id}/fix_match", "owner": "etk.domains.collection.router", "response_statuses": [200, 400, 403, 404, 409, 415, 500]},
+    {"method": "GET", "path": "/api/custom_collections/config/emby_libraries", "owner": "etk.domains.collection.router", "response_statuses": [200, 403, 500]},
+    {"method": "GET", "path": "/api/custom_collections/config/tmdb_movie_genres", "owner": "etk.domains.collection.router", "response_statuses": [200, 401, 500]},
+    {"method": "GET", "path": "/api/custom_collections/config/tmdb_tv_genres", "owner": "etk.domains.collection.router", "response_statuses": [200, 401, 500]},
+    {"method": "GET", "path": "/api/custom_collections/config/tmdb_search_companies", "owner": "etk.domains.collection.router", "response_statuses": [200, 401, 500]},
+    {"method": "GET", "path": "/api/custom_collections/config/tmdb_search_persons", "owner": "etk.domains.collection.router", "response_statuses": [200, 401, 500]},
+    {"method": "POST", "path": "/api/actions/reprocess_item/{item_id}", "owner": "etk.domains.operations.database_router", "response_statuses": [200, 202, 400, 403, 404, 409, 415, 500]},
+    {"method": "POST", "path": "/api/actions/reprocess_all_review_items", "owner": "etk.domains.operations.database_router", "response_statuses": [200, 202, 400, 403, 409, 415, 500]},
+    {"method": "GET", "path": "/api/discover/genres/{media_type}", "owner": "etk.domains.media.discover_router", "response_statuses": [200, 400, 401, 500]},
+    {"method": "POST", "path": "/api/discover/movie", "owner": "etk.domains.media.discover_router", "response_statuses": [200, 400, 401, 415, 500, 502]},
+    {"method": "POST", "path": "/api/discover/tv", "owner": "etk.domains.media.discover_router", "response_statuses": [200, 400, 401, 415, 500, 502]},
+    {"method": "POST", "path": "/api/discover/search", "owner": "etk.domains.media.discover_router", "response_statuses": [200, 400, 401, 415, 500]},
+    {"method": "GET", "path": "/api/discover/tmdb/tv/{tv_id}", "owner": "etk.domains.media.discover_router", "response_statuses": [200, 400, 401, 500]},
+    {"method": "POST", "path": "/api/discover/trigger_recommendation_update", "owner": "etk.domains.media.discover_router", "response_statuses": [200, 401, 409, 500]},
+    {"method": "GET", "path": "/api/portal/dashboard-stats", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 403, 500]},
+    {"method": "GET", "path": "/api/portal/playback-report", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 401, 403, 500]},
+    {"method": "POST", "path": "/api/portal/subscribe", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 400, 401, 409, 500]},
+    {"method": "GET", "path": "/api/portal/telegram-bot-info", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 401, 500]},
+    {"method": "POST", "path": "/api/portal/upload-avatar", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 400, 401, 409, 413, 415, 500]},
+    {"method": "POST", "path": "/api/register/invite", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 400, 404, 409, 415, 500, 502, 503]},
+    {"method": "POST", "path": "/api/admin/user_templates", "owner": "etk.domains.identity.users_router", "response_statuses": [201, 400, 403, 409, 415, 500]},
+    {"method": "GET", "path": "/api/admin/users", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 403, 500]},
+    {"method": "DELETE", "path": "/api/admin/users/{user_id}", "owner": "etk.domains.identity.users_router", "response_statuses": [202, 403, 404, 409, 500]},
+    {"method": "POST", "path": "/api/admin/users/{user_id}/status", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 400, 403, 404, 409, 415, 500]},
+    {"method": "POST", "path": "/api/admin/users/{user_id}/template", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 400, 403, 404, 409, 415, 500]},
+    {"method": "POST", "path": "/api/auto_tagging/clear_now", "owner": "etk.domains.media.secondary_router", "response_statuses": [200, 403, 409, 500]},
+    {"method": "POST", "path": "/api/auto_tagging/run_now", "owner": "etk.domains.media.secondary_router", "response_statuses": [202, 400, 403, 409, 500]}
+  ]
+}
