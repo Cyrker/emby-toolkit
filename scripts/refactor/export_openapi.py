@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P8 surface.
-EXPECTED_PATHS = 245
-EXPECTED_OPERATIONS = 291
+EXPECTED_PATHS = 256
+EXPECTED_OPERATIONS = 303
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -224,6 +224,29 @@ EMPTY_RESPONSE_SCHEMA_ALLOWED = {
     ("get", "/api/database/maintenance/operations/{operation_id}"),
 }
 
+P9_SHARING_RESPONSES = {
+    ("get", "/api/shared/resources/credit/balance"): {"200", "403", "503"},
+    ("get", "/api/shared/resources/credit/ledger"): {"200", "403", "503"},
+    ("get", "/api/shared/resources/center/sources"): {"200", "403", "503"},
+    ("post", "/api/shared/resources/center/device/register"): {"200", "400", "403", "415", "503"},
+    ("get", "/api/shared/resources/center/device/status"): {"200", "403", "503"},
+    ("post", "/api/shared/resources/shares/manual-create"): {"200", "201", "400", "403", "415", "503"},
+    ("post", "/api/shared/resources/transfers/lease"): {"200", "202", "400", "403", "415", "503"},
+    ("post", "/api/shared/resources/transfers/report"): {"200", "400", "403", "415", "503"},
+    ("post", "/api/shared/resources/share-requests/quote"): {"200", "400", "403", "415", "503"},
+    ("get", "/api/shared/resources/share-requests"): {"200", "403", "503"},
+    ("post", "/api/shared/resources/share-requests"): {"200", "202", "400", "403", "415", "503"},
+    ("get", "/api/shared/resources/operations/{operation_id}/status"): {"200", "403", "404", "422", "503"},
+}
+P9_SHARING_BODY_OPERATIONS = {
+    ("post", "/api/shared/resources/center/device/register"),
+    ("post", "/api/shared/resources/shares/manual-create"),
+    ("post", "/api/shared/resources/transfers/lease"),
+    ("post", "/api/shared/resources/transfers/report"),
+    ("post", "/api/shared/resources/share-requests/quote"),
+    ("post", "/api/shared/resources/share-requests"),
+}
+
 
 def build_openapi() -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="etk-p4-openapi-") as temporary:
@@ -241,7 +264,32 @@ def _validate_schema(schema: dict[str, Any]) -> None:
     paths = schema.get("paths", {})
     operations = sum(len(methods) for methods in paths.values())
     if len(paths) != EXPECTED_PATHS or operations != EXPECTED_OPERATIONS:
-        raise RuntimeError(f"unexpected P4 OpenAPI surface: paths={len(paths)} operations={operations}")
+        raise RuntimeError(f"unexpected P9 OpenAPI surface: paths={len(paths)} operations={operations}")
+    operation_ids: dict[str, tuple[str, str]] = {}
+    for path, methods in paths.items():
+        for method, operation in methods.items():
+            operation_id = operation.get("operationId")
+            if operation_id:
+                previous = operation_ids.get(operation_id)
+                if previous is not None:
+                    duplicate = f"{previous[0]} {previous[1]} and {method} {path}"
+                    raise RuntimeError(f"duplicate OpenAPI operationId {operation_id!r}: {duplicate}")
+                operation_ids[operation_id] = (method, path)
+    for (method, path), expected_responses in P9_SHARING_RESPONSES.items():
+        operation = paths.get(path, {}).get(method)
+        if operation is None:
+            raise RuntimeError(f"P9 sharing operation missing: {method} {path}")
+        if set(operation.get("responses", {})) != expected_responses:
+            raise RuntimeError(f"P9 sharing response contract changed: {method} {path}")
+        if (method, path) in P9_SHARING_BODY_OPERATIONS:
+            request_body = operation.get("requestBody", {})
+            if request_body.get("required") is not True or set(request_body.get("content", {})) != {"application/json"}:
+                raise RuntimeError(f"P9 sharing JSON request-body contract changed: {method} {path}")
+        if "422" in operation.get("responses", {}) and (method, path) != (
+            "get",
+            "/api/shared/resources/operations/{operation_id}/status",
+        ):
+            raise RuntimeError(f"P9 sharing operation exposes automatic 422: {method} {path}")
     for method, path in BODY_METHODS:
         operation = paths.get(path, {}).get(method, {})
         if not operation.get("requestBody"):

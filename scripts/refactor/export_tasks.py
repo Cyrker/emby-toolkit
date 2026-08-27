@@ -98,6 +98,7 @@ P9_TASKS = {
     "share-all-library",
     "shared-share-status-sync",
 }
+P9_TASK_EXECUTION_OWNER = "etk.processes.p9_sharing.P9SharingTaskRouter"
 
 
 def _task_owner(task_key: str) -> tuple[str, list[str]]:
@@ -222,6 +223,20 @@ def export_tasks() -> dict[str, Any]:
                 ),
                 **({} if native_maintenance else {"retirement_stage": "P11"}),
             }
+        elif task_key in P9_TASKS:
+            entry.update(
+                {
+                    "status": "new",
+                    "new_owner": P9_TASK_EXECUTION_OWNER,
+                    "validation_owner": "sharing/task-envelope",
+                    "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+                    "ownership_layers": {
+                        "envelope_owner": P9_TASK_EXECUTION_OWNER,
+                        "execution_kind": "typed-provider-adapter",
+                        "execution_owner": P9_TASK_EXECUTION_OWNER,
+                    },
+                }
+            )
         entries.append(
             apply_contract_override(
                 entry,

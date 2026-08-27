@@ -511,19 +511,24 @@
       "function": "task_hdhive_auto_checkin",
       "help": "执行影巢自动签到，获取签到奖励或保持账号活跃。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
+      "new_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+      "notes": "P9 native Worker envelope validates durable sharing task payloads and invokes typed provider ports.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+        "execution_kind": "typed-provider-adapter",
+        "execution_owner": "etk.processes.p9_sharing.P9SharingTaskRouter"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:316",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
       "task_key": "hdhive-auto-checkin",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+      "validation_owner": "sharing/task-envelope",
       "visible_in": [
         "all",
         "chain",
@@ -1292,19 +1297,24 @@
       "function": "share_all_library",
       "help": "增量登记本地媒体库到共享中心。启动前会排除已有有效共享，只处理新增或需要修复的媒体。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
+      "new_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+      "notes": "P9 native Worker envelope validates durable sharing task payloads and invokes typed provider ports.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+        "execution_kind": "typed-provider-adapter",
+        "execution_owner": "etk.processes.p9_sharing.P9SharingTaskRouter"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:341",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
       "task_key": "share-all-library",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+      "validation_owner": "sharing/task-envelope",
       "visible_in": [
         "all"
       ]
@@ -1318,19 +1328,24 @@
       "function": "task_shared_resource_maintenance",
       "help": "维护共享资源池，包含登记缺口、自动分享、状态检查、清理失效分享和共享订阅消费等。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
+      "new_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+      "notes": "P9 native Worker envelope validates durable sharing task payloads and invokes typed provider ports.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+        "execution_kind": "typed-provider-adapter",
+        "execution_owner": "etk.processes.p9_sharing.P9SharingTaskRouter"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:319",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
       "task_key": "shared-resource-maintenance",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+      "validation_owner": "sharing/task-envelope",
       "visible_in": [
         "all",
         "chain",
@@ -1346,19 +1361,24 @@
       "function": "task_shared_share_status_sync_high_freq",
       "help": "高频同步共享分享状态，检查分享是否仍可用并更新中心状态。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
+      "new_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+      "notes": "P9 native Worker envelope validates durable sharing task payloads and invokes typed provider ports.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+        "execution_kind": "typed-provider-adapter",
+        "execution_owner": "etk.processes.p9_sharing.P9SharingTaskRouter"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:345",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
       "task_key": "shared-share-status-sync",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+      "validation_owner": "sharing/task-envelope",
       "visible_in": [
         "all"
       ]

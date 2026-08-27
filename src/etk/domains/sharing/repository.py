@@ -207,10 +207,11 @@ class PostgresSharingOperationRepository:
         return self._claimed_update(
             operation_id,
             claim_token,
-            "status = 'awaiting_readback', available_at = :available_at, step_started_at = NULL, "
+            "status = 'awaiting_readback', available_at = :available_at, step_started_at = COALESCE(:now, NOW()), "
             "error_json = CAST(:error_json AS jsonb), claimed_by = NULL, claim_token = NULL, "
             "claimed_at = NULL, lease_expires_at = NULL",
             {
+                "now": _aware(now),
                 "available_at": _aware(now) + timedelta(seconds=delay),
                 "error_json": canonical_json(
                     normalize_durable_json_object(dict(error), field="sharing readback error")
@@ -240,6 +241,7 @@ class PostgresSharingOperationRepository:
             "status = 'retryable', available_at = :available_at, error_json = CAST(:error_json AS jsonb), "
             "claimed_by = NULL, claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL, step_started_at = NULL",
             {
+                "now": _aware(now),
                 "available_at": _aware(now) + timedelta(seconds=delay),
                 "error_json": canonical_json(normalize_durable_json_object(dict(error), field="sharing retry error")),
             },

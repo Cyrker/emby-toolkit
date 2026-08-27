@@ -207,6 +207,12 @@ from etk.domains.p115.playback_router import router as p115_playback_router
 from etk.domains.p115.router import router as p115_router
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.sharing import (
+    PostgresContributionLedger,
+    PostgresSharingOperationRepository,
+    SharingService,
+)
+from etk.domains.sharing.router import router as sharing_router
 from etk.domains.subscription.actor import ActorSubscriptionService, SqlAlchemyActorSubscriptionRepository
 from etk.domains.subscription.actor_operations import ActorCancellationOperationStager
 from etk.domains.subscription.actor_router import router as actor_subscription_router
@@ -271,6 +277,12 @@ from etk.domains.system.integrations import SystemIntegrationService
 from etk.domains.system.repository import SqlAlchemyAppSettingsRepository
 from etk.domains.system.standalone import StandaloneSettingsService
 from etk.domains.system.standalone_router import router as standalone_settings_router
+from etk.integrations import (
+    DurableTelegramUserBotAdapter,
+    HttpxHDHiveAdapter,
+    HttpxSharedCenterAdapter,
+    HttpxTelegramBotAdapter,
+)
 from etk.platform import AppContainer, LegacyConfigAdapter, PostgresLegacyConfigStore, Settings
 from etk.platform.jobs import PostgresExecutionGuard, PostgresJobStore
 from etk.platform.observability import MetricsMiddleware, TraceIdMiddleware, get_metrics, metrics_response
@@ -314,6 +326,7 @@ def create_app(
         _register_collection_providers(app_container)
         _register_users_providers(app_container)
         _register_p115_providers(app_container)
+        _register_sharing_providers(app_container)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -457,6 +470,7 @@ def create_app(
     app.include_router(resubscribe_router)
     app.include_router(moviepilot_config_router)
     app.include_router(subscription_core_router)
+    app.include_router(sharing_router)
 
     @app.get("/api/health", include_in_schema=False)
     def health() -> Any:
@@ -827,6 +841,41 @@ def _register_users_providers(container: AppContainer) -> None:
             current.client("media.discover-defaults"),
             current.use_case("operations.jobs"),
             include_adult=lambda: bool(current.settings.tmdb_include_adult),
+        ),
+    )
+
+
+def _register_sharing_providers(container: AppContainer) -> None:
+    container.register_repository(
+        "sharing.operations",
+        lambda current: PostgresSharingOperationRepository(current.database.unit_of_work),
+    )
+    container.register_repository(
+        "sharing.ledger",
+        lambda current: PostgresContributionLedger(current.database.unit_of_work),
+    )
+    container.register_client(
+        "sharing.shared-center",
+        lambda current: HttpxSharedCenterAdapter(lambda: current.settings),
+    )
+    container.register_client(
+        "sharing.telegram-bot",
+        lambda current: HttpxTelegramBotAdapter(lambda: current.settings),
+    )
+    container.register_client(
+        "sharing.telegram-userbot",
+        lambda _: DurableTelegramUserBotAdapter(),
+    )
+    container.register_client(
+        "sharing.hdhive",
+        lambda current: HttpxHDHiveAdapter(lambda: current.settings),
+    )
+    container.register_use_case(
+        "sharing",
+        lambda current: SharingService(
+            current.repository("sharing.ledger"),
+            current.client("sharing.shared-center"),
+            current.repository("sharing.operations"),
         ),
     )
 

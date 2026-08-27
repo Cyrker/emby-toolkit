@@ -18,7 +18,8 @@ from .operations import (
     SharingOperationStatus,
 )
 from .repository import PostgresSharingOperationRepository
-from .service import SharingLedgerService
+from .router import router
+from .service import SharingLedgerService, SharingService
 
 __all__ = [
     "ContributionLedger",
@@ -32,8 +33,10 @@ __all__ = [
     "SHARING_OPERATION_AGGREGATE_TYPE",
     "SHARING_OPERATION_TOPIC",
     "SharingLedgerService",
+    "SharingService",
     "SharingOperation",
     "SharingOperationIntent",
     "SharingOperationKind",
     "SharingOperationStatus",
+    "router",
 ]

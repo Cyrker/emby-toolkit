@@ -14740,6 +14740,498 @@
         ]
       }
     },
+    "/api/shared/resources/center/device/register": {
+      "post": {
+        "operationId": "register_center_device_api_shared_resources_center_device_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "server_id_hash": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "server_id_hash"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Center Device Api Shared Resources Center Device Register Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Register Center Device",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/center/device/status": {
+      "get": {
+        "operationId": "center_device_status_api_shared_resources_center_device_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Center Device Status Api Shared Resources Center Device Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Center Device Status",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/center/sources": {
+      "get": {
+        "operationId": "list_center_sources_api_shared_resources_center_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Center Sources Api Shared Resources Center Sources Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "List Center Sources",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/credit/balance": {
+      "get": {
+        "operationId": "credit_balance_api_shared_resources_credit_balance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Credit Balance Api Shared Resources Credit Balance Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Credit Balance",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/credit/ledger": {
+      "get": {
+        "operationId": "credit_ledger_api_shared_resources_credit_ledger_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Credit Ledger Api Shared Resources Credit Ledger Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Credit Ledger",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/operations/{operation_id}/status": {
+      "get": {
+        "operationId": "sharing_operation_status_api_shared_resources_operations__operation_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sharing Operation Status Api Shared Resources Operations  Operation Id  Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "unavailable"
+          }
+        },
+        "summary": "Sharing Operation Status",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/share-requests": {
+      "get": {
+        "operationId": "list_share_requests_api_shared_resources_share_requests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Share Requests Api Shared Resources Share Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "List Share Requests",
+        "tags": [
+          "sharing"
+        ]
+      },
+      "post": {
+        "operationId": "create_share_request_api_shared_resources_share_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Share Request Api Shared Resources Share Requests Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "description": "request queued"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Create Share Request",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/share-requests/quote": {
+      "post": {
+        "operationId": "quote_share_request_api_shared_resources_share_requests_quote_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Quote Share Request Api Shared Resources Share Requests Quote Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Quote Share Request",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/shares/manual-create": {
+      "post": {
+        "operationId": "register_source_api_shared_resources_shares_manual_create_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Source Api Shared Resources Shares Manual Create Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "201": {
+            "description": "source registered"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Register Source",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/transfers/lease": {
+      "post": {
+        "operationId": "acquire_transfer_lease_api_shared_resources_transfers_lease_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Acquire Transfer Lease Api Shared Resources Transfers Lease Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "description": "transfer queued"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Acquire Transfer Lease",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/transfers/report": {
+      "post": {
+        "operationId": "report_transfer_api_shared_resources_transfers_report_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Report Transfer Api Shared Resources Transfers Report Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Report Transfer",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
     "/api/status": {
       "get": {
         "operationId": "get_runtime_status_api_status_get",

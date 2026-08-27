@@ -9,6 +9,7 @@ from .catalog import (
     P6_NATIVE_TASK_KEYS,
     P7_NATIVE_TASK_KEYS,
     P8_NATIVE_TASK_KEYS,
+    P9_NATIVE_TASK_KEYS,
 )
 from .models import (
     JsonValue,
@@ -32,6 +33,7 @@ __all__ = [
     "P6_NATIVE_TASK_KEYS",
     "P7_NATIVE_TASK_KEYS",
     "P8_NATIVE_TASK_KEYS",
+    "P9_NATIVE_TASK_KEYS",
     "JsonValue",
     "LegacyCompatibilityResolver",
     "LegacyTaskAdapter",

@@ -5714,40 +5714,42 @@
       "contract_id": "route-binding-c504d46a3f5d",
       "decorator_contract_id": "route-decorator-c00a1a78f576",
       "endpoint": "api_register_center_device",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native center-device registration keeps the legacy path, administrator guard and typed provider boundary; live center acceptance remains pending.",
       "path": "/api/shared/resources/center/device/register",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2192",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-7cdc180d4fd2",
       "decorator_contract_id": "route-decorator-bd6de96feebf",
       "endpoint": "api_center_device_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native center-device status reads through the typed Shared Center port without importing the legacy client.",
       "path": "/api/shared/resources/center/device/status",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2229",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -5794,20 +5796,21 @@
       "contract_id": "route-binding-f00403bd8e88",
       "decorator_contract_id": "route-decorator-3f9c74d01b1d",
       "endpoint": "api_center_sources",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native center-source listing preserves bounded pagination and administrator authorization over a typed read adapter.",
       "path": "/api/shared/resources/center/sources",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1740",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -5934,20 +5937,21 @@
       "contract_id": "route-binding-ba440dbc07a1",
       "decorator_contract_id": "route-decorator-3189e8242c82",
       "endpoint": "api_credit_ledger",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 credit ledger is backed by the append-only native contribution ledger; provider snapshots are not authoritative for local balance reads.",
       "path": "/api/shared/resources/credit/ledger",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2819",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-postgres18-ledger",
+      "validation_owner": "sharing/ledger"
     },
     {
       "application": "api",
@@ -6014,40 +6018,42 @@
       "contract_id": "route-binding-9a968bf661aa",
       "decorator_contract_id": "route-decorator-72c770ce306a",
       "endpoint": "api_share_requests",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native share-request listing preserves the legacy path and bounded query envelope over a typed Shared Center port.",
       "path": "/api/shared/resources/share-requests",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2999",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-15bfebbf7b93",
       "decorator_contract_id": "route-decorator-72c770ce306a",
       "endpoint": "api_share_requests",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native share-request creation validates a JSON object and surfaces indeterminate provider mutations as durable-looking 202 responses.",
       "path": "/api/shared/resources/share-requests",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2999",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -6114,20 +6120,21 @@
       "contract_id": "route-binding-3882942b02e0",
       "decorator_contract_id": "route-decorator-58a9a2990600",
       "endpoint": "api_share_request_quote",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native share-request quote uses a one-shot typed provider mutation boundary and never stores provider payloads in task records.",
       "path": "/api/shared/resources/share-requests/quote",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2966",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -6354,20 +6361,21 @@
       "contract_id": "route-binding-ad97c37b8707",
       "decorator_contract_id": "route-decorator-c23ec4dbdfde",
       "endpoint": "api_manual_create",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native manual source registration delegates once to the typed center adapter and keeps the legacy endpoint identity.",
       "path": "/api/shared/resources/shares/manual-create",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1326",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -13970,22 +13978,23 @@
       "contract_id": "route-decorator-c00a1a78f576",
       "declared_path": "/center/device/register",
       "endpoint": "api_register_center_device",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native center-device registration preserves the legacy route contract through a typed Shared Center boundary.",
       "path": "/api/shared/resources/center/device/register",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2192",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -13993,22 +14002,23 @@
       "contract_id": "route-decorator-bd6de96feebf",
       "declared_path": "/center/device/status",
       "endpoint": "api_center_device_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native center-device status preserves the legacy route contract without importing the legacy client.",
       "path": "/api/shared/resources/center/device/status",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2229",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -14062,22 +14072,23 @@
       "contract_id": "route-decorator-3f9c74d01b1d",
       "declared_path": "/center/sources",
       "endpoint": "api_center_sources",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native center-source listing owns the legacy route identity and bounds provider query parameters.",
       "path": "/api/shared/resources/center/sources",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1740",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -14201,22 +14212,23 @@
       "contract_id": "route-decorator-3189e8242c82",
       "declared_path": "/credit/ledger",
       "endpoint": "api_credit_ledger",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 credit ledger route reads the native append-only contribution ledger and keeps local balance authoritative.",
       "path": "/api/shared/resources/credit/ledger",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2819",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-postgres18-ledger",
+      "validation_owner": "sharing/ledger"
     },
     {
       "application": "api",
@@ -14293,23 +14305,24 @@
       "contract_id": "route-decorator-72c770ce306a",
       "declared_path": "/share-requests",
       "endpoint": "api_share_requests",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native share-request list/create route preserves path, authorization and bounded JSON payload semantics.",
       "path": "/api/shared/resources/share-requests",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2999",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -14386,22 +14399,23 @@
       "contract_id": "route-decorator-58a9a2990600",
       "declared_path": "/share-requests/quote",
       "endpoint": "api_share_request_quote",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native share-request quote delegates once to the typed provider adapter.",
       "path": "/api/shared/resources/share-requests/quote",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2966",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -14640,22 +14654,23 @@
       "contract_id": "route-decorator-c23ec4dbdfde",
       "declared_path": "/shares/manual-create",
       "endpoint": "api_manual_create",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P9 native manual source registration owns the legacy route and typed provider call boundary.",
       "path": "/api/shared/resources/shares/manual-create",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1326",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",

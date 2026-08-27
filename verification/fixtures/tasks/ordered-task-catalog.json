@@ -7,8 +7,8 @@
   },
   "metrics": {
     "task_key_count": 50,
-    "native_handler_count": 45,
-    "legacy_adapter_count": 5,
+    "native_handler_count": 49,
+    "legacy_adapter_count": 1,
     "chain_visible_count": 28,
     "manual_visible_count": 28
   },
@@ -625,7 +625,7 @@
       "legacy_definition": "tasks/hdhive.py:71",
       "registry_source": "tasks/core.py:316",
       "target_stage": "P9",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 25,
@@ -667,7 +667,7 @@
       "legacy_definition": "tasks/shared_resource_tasks.py:9106",
       "registry_source": "tasks/core.py:319",
       "target_stage": "P9",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 27,
@@ -1055,7 +1055,7 @@
       "legacy_definition": "tasks/shared_resource_tasks.py:6858",
       "registry_source": "tasks/core.py:341",
       "target_stage": "P9",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 47,
@@ -1112,7 +1112,7 @@
       "legacy_definition": "tasks/shared_resource_tasks.py:9181",
       "registry_source": "tasks/core.py:345",
       "target_stage": "P9",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 50,

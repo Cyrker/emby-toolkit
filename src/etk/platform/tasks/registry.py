@@ -30,7 +30,7 @@ class TaskRegistry:
             definition.key for definition in definitions if definition.handler_kind is TaskHandlerKind.NATIVE
         }
         if native_keys != NATIVE_TASK_KEYS:
-            raise ValueError("native task definitions must match the staged P4/P5 native task catalog")
+            raise ValueError("native task definitions must match the staged native task catalog")
         self._definitions = definitions
         self._by_key = {definition.key: definition for definition in definitions}
 

@@ -119,6 +119,20 @@ P8_NATIVE_TASK_KEYS = frozenset(
     }
 )
 
+P9_NATIVE_TASK_KEYS = frozenset(
+    {
+        "hdhive-auto-checkin",
+        "shared-resource-maintenance",
+        "share-all-library",
+        "shared-share-status-sync",
+    }
+)
+
 NATIVE_TASK_KEYS = (
-    P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS | P7_NATIVE_TASK_KEYS | P8_NATIVE_TASK_KEYS
+    P4_NATIVE_TASK_KEYS
+    | P5_NATIVE_TASK_KEYS
+    | P6_NATIVE_TASK_KEYS
+    | P7_NATIVE_TASK_KEYS
+    | P8_NATIVE_TASK_KEYS
+    | P9_NATIVE_TASK_KEYS
 )

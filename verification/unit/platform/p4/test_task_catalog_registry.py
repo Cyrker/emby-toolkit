@@ -15,6 +15,7 @@ from etk.platform.tasks import (
     P6_NATIVE_TASK_KEYS,
     P7_NATIVE_TASK_KEYS,
     P8_NATIVE_TASK_KEYS,
+    P9_NATIVE_TASK_KEYS,
     LegacyTaskAdapter,
     ProcessorIdentity,
     TaskHandlerKind,
@@ -43,11 +44,16 @@ def test_frozen_registry_preserves_all_50_legacy_definitions_and_context_orders(
     assert len(definitions) == 50
     assert {definition.processor for definition in definitions} == set(ProcessorIdentity)
     assert {definition.key for definition in definitions if definition.handler_kind is TaskHandlerKind.NATIVE} == (
-        P4_NATIVE_TASK_KEYS | P5_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS | P7_NATIVE_TASK_KEYS | P8_NATIVE_TASK_KEYS
+        P4_NATIVE_TASK_KEYS
+        | P5_NATIVE_TASK_KEYS
+        | P6_NATIVE_TASK_KEYS
+        | P7_NATIVE_TASK_KEYS
+        | P8_NATIVE_TASK_KEYS
+        | P9_NATIVE_TASK_KEYS
     )
-    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 5
-    assert fixture["metrics"]["native_handler_count"] == 45
-    assert fixture["metrics"]["legacy_adapter_count"] == 5
+    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 1
+    assert fixture["metrics"]["native_handler_count"] == 49
+    assert fixture["metrics"]["legacy_adapter_count"] == 1
     assert [definition.key for definition in registry.available(TaskVisibility.ALL)] == fixture["contexts"]["all"]
     assert [definition.key for definition in registry.available(TaskVisibility.CHAIN)] == fixture["contexts"]["chain"]
     assert [definition.key for definition in registry.available(TaskVisibility.MANUAL)] == fixture["contexts"]["manual"]
@@ -108,6 +114,9 @@ def test_ordered_fixture_matches_the_manifest_and_legacy_source_signatures() -> 
         assert manifest_entry["status"] == ("new" if item["handler_kind"] == "native" else "legacy")
         if item["key"] in P7_NATIVE_TASK_KEYS:
             assert manifest_entry["new_owner"] == ("etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter")
+            assert manifest_entry["ownership_layers"]["envelope_owner"] == manifest_entry["new_owner"]
+        if item["key"] in P9_NATIVE_TASK_KEYS:
+            assert manifest_entry["new_owner"] == "etk.processes.p9_sharing.P9SharingTaskRouter"
             assert manifest_entry["ownership_layers"]["envelope_owner"] == manifest_entry["new_owner"]
 
         source_path, source_line = item["legacy_definition"].rsplit(":", 1)

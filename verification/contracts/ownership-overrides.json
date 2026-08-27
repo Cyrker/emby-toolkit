@@ -404,6 +404,78 @@
     },
     "frontend_routes": {},
     "route_bindings": {
+      "route-binding-c504d46a3f5d": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native center-device registration keeps the legacy path, administrator guard and typed provider boundary; live center acceptance remains pending.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-binding-7cdc180d4fd2": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native center-device status reads through the typed Shared Center port without importing the legacy client.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-binding-f00403bd8e88": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native center-source listing preserves bounded pagination and administrator authorization over a typed read adapter.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-binding-ba440dbc07a1": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 credit ledger is backed by the append-only native contribution ledger; provider snapshots are not authoritative for local balance reads.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-postgres18-ledger",
+        "validation_owner": "sharing/ledger"
+      },
+      "route-binding-9a968bf661aa": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native share-request listing preserves the legacy path and bounded query envelope over a typed Shared Center port.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-binding-15bfebbf7b93": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native share-request creation validates a JSON object and surfaces indeterminate provider mutations as durable-looking 202 responses.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-binding-3882942b02e0": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native share-request quote uses a one-shot typed provider mutation boundary and never stores provider payloads in task records.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-binding-ad97c37b8707": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native manual source registration delegates once to the typed center adapter and keeps the legacy endpoint identity.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
       "route-binding-db961218ae8c": {
         "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
         "fixture_exception": null,
@@ -2683,6 +2755,69 @@
       }
     },
     "route_decorators": {
+      "route-decorator-c00a1a78f576": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native center-device registration preserves the legacy route contract through a typed Shared Center boundary.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-decorator-bd6de96feebf": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native center-device status preserves the legacy route contract without importing the legacy client.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-decorator-3f9c74d01b1d": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native center-source listing owns the legacy route identity and bounds provider query parameters.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-decorator-3189e8242c82": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 credit ledger route reads the native append-only contribution ledger and keeps local balance authoritative.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-postgres18-ledger",
+        "validation_owner": "sharing/ledger"
+      },
+      "route-decorator-72c770ce306a": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native share-request list/create route preserves path, authorization and bounded JSON payload semantics.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-decorator-58a9a2990600": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native share-request quote delegates once to the typed provider adapter.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
+      "route-decorator-c23ec4dbdfde": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P9 native manual source registration owns the legacy route and typed provider call boundary.",
+        "status": "new",
+        "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-fake-adapter",
+        "validation_owner": "sharing/http"
+      },
       "route-decorator-931f8e775a88": {
         "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
         "fixture_exception": null,
@@ -4733,20 +4868,20 @@
       "task-1460b33e904b": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+        "notes": "P9 native Worker envelope validates durable sharing task payloads and invokes typed provider ports.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+        "validation_owner": "sharing/task-envelope"
       },
       "task-1a6ac202aabd": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+        "notes": "P9 native Worker envelope validates durable sharing task payloads and invokes typed provider ports.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+        "validation_owner": "sharing/task-envelope"
       },
       "task-20d1333fbaef": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -5120,11 +5255,11 @@
       "task-e81a1883f064": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+        "notes": "P9 native Worker envelope validates durable sharing task payloads and invokes typed provider ports.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+        "validation_owner": "sharing/task-envelope"
       },
       "task-ee530b886a49": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -5138,11 +5273,11 @@
       "task-f5c43ac67585": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P9.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p9_sharing.P9SharingTaskRouter",
+        "notes": "P9 native Worker envelope validates durable sharing task payloads and invokes typed provider ports.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+        "validation_owner": "sharing/task-envelope"
       },
       "task-f890dbc651f2": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

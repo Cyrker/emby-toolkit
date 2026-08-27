@@ -178,6 +178,11 @@ from etk.domains.subscription.operation_repository import PostgresSubscriptionOp
 from etk.domains.subscription.operations import SubscriptionOperation
 from etk.domains.subscription.provider_execution import SubscriptionOperationExecutor
 from etk.domains.system import SqlAlchemyAppSettingsRepository
+from etk.integrations import (
+    HttpxHDHiveAdapter,
+    HttpxSharedCenterAdapter,
+    HttpxTelegramBotAdapter,
+)
 from etk.platform.jobs import (
     AttemptClaimResult,
     AttemptStatus,
@@ -203,6 +208,7 @@ from etk.platform.tasks.catalog import (
     P6_P115_NATIVE_TASK_KEYS,
     P7_NATIVE_TASK_KEYS,
     P8_NATIVE_TASK_KEYS,
+    P9_NATIVE_TASK_KEYS,
 )
 
 from .p5_media_tasks import LegacyP5MediaCompatibilityGateway, P5MediaTaskRouter
@@ -238,6 +244,7 @@ from .p8_identity import (
     IDENTITY_OPERATION_CLAIM_LEASE_SECONDS,
     identity_operation_claim_lease_seconds,
 )
+from .p9_sharing import LegacyP9SharingCompatibilityGateway, P9SharingTaskRouter
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -643,6 +650,7 @@ class WorkerRuntime:
         self._p6_ingestion_tasks: P6IngestionTaskRouter | None = None
         self._p7_subscription_tasks: P7SubscriptionTaskRouter | None = None
         self._p8_effect_tasks: P8EffectTaskRouter | None = None
+        self._p9_sharing_tasks: P9SharingTaskRouter | None = None
         self._p7_cleanup_executor: CleanupExecutionService | None = None
         self._p7_cleanup_repository: SqlAlchemyCleanupExecutionRepository | None = None
         self._ingestion_executor: IngestionMonitorExecutor | None = None
@@ -771,6 +779,12 @@ class WorkerRuntime:
                         HttpxEmbyUserSyncAdapter(settings_provider),
                         SqlAlchemyUserSyncRepository(database.unit_of_work),
                     ),
+                )
+                p9_sharing_tasks = P9SharingTaskRouter(
+                    shared_center=HttpxSharedCenterAdapter(settings_provider),
+                    hdhive=HttpxHDHiveAdapter(settings_provider),
+                    telegram=HttpxTelegramBotAdapter(settings_provider),
+                    compatibility=LegacyP9SharingCompatibilityGateway(),
                 )
                 ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
                 upload_repository = PostgresP115UploadMonitorRepository(database.unit_of_work)
@@ -1067,6 +1081,7 @@ class WorkerRuntime:
             self._p6_ingestion_tasks = p6_ingestion_tasks
             self._p7_subscription_tasks = p7_subscription_tasks
             self._p8_effect_tasks = p8_effect_tasks
+            self._p9_sharing_tasks = p9_sharing_tasks
             self._p7_cleanup_executor = cleanup_executor
             self._p7_cleanup_repository = cleanup_repository
             self._ingestion_executor = ingestion_executor
@@ -1186,6 +1201,7 @@ class WorkerRuntime:
             self._p6_ingestion_tasks = None
             self._p7_subscription_tasks = None
             self._p8_effect_tasks = None
+            self._p9_sharing_tasks = None
             self._p7_cleanup_executor = None
             self._p7_cleanup_repository = None
             self._ingestion_executor = None
@@ -1725,6 +1741,29 @@ class WorkerRuntime:
                     result = self._p8_effect_tasks.execute(message, processor, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P8 native task {definition.key!r} did not return TaskOutcome")
+            elif definition is not None and definition.key in P9_NATIVE_TASK_KEYS:
+                metadata = {
+                    "job_id": str(job.id),
+                    "attempt_id": str(attempt.id),
+                    "worker_id": self._worker_id,
+                }
+                requested_by_user_id = str(getattr(job, "requested_by_user_id", None) or "").strip()
+                if requested_by_user_id:
+                    metadata["requested_by_user_id"] = requested_by_user_id
+                message = registry.create_message(
+                    definition.key,
+                    envelope["parameters"],
+                    payload_version=int(envelope["payload_version"]),
+                    metadata=metadata,
+                )
+                if self._p9_sharing_tasks is None:
+                    raise RuntimeError("P9 sharing task router is unavailable")
+                from task_manager import persistent_execution
+
+                with persistent_execution(progress):
+                    result = self._p9_sharing_tasks.execute(message, processor, progress)
+                if not isinstance(result, TaskOutcome):
+                    raise TypeError(f"P9 native task {definition.key!r} did not return TaskOutcome")
             elif job.task_key in P8_REVIEW_TASK_KEYS:
                 if self._p8_effect_tasks is None:
                     raise RuntimeError("P8 effect task router is unavailable")
