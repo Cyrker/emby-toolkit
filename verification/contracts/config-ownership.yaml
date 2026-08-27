@@ -2880,15 +2880,16 @@
       "default_source": "no database default; read fallbacks are call-site-specific",
       "key": "auto_tagging_rules",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P8 auto-tagging rule round-trip through the P2 system settings store.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
+      "validation_owner": "media/secondary"
     },
     {
       "accesses": [
@@ -4315,15 +4316,16 @@
       "default_source": "no database default; read fallbacks are call-site-specific",
       "key": "recommendation_pool",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P8 Discover recommendation pool is read from one settings snapshot and updated atomically with its page/theme state.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
+      "validation_owner": "media/discover"
     },
     {
       "accesses": [
@@ -4352,15 +4354,16 @@
       "default_source": "no database default; read fallbacks are call-site-specific",
       "key": "recommendation_pool_page",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P8 Discover recommendation page participates in the atomic pool/page/theme settings snapshot.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
+      "validation_owner": "media/discover"
     },
     {
       "accesses": [
@@ -4389,15 +4392,16 @@
       "default_source": "no database default; read fallbacks are call-site-specific",
       "key": "recommendation_theme_index",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P8 Discover theme index participates in the atomic pool/page/theme settings snapshot.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
+      "validation_owner": "media/discover"
     },
     {
       "accesses": [

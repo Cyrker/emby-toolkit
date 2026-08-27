@@ -190,6 +190,71 @@ class SqlAlchemyMediaEffectRepository:
             )
         return ReserveMediaEffectResult(effect=_projection(row), created=created)
 
+    def record_confirmed(
+        self,
+        *,
+        effect_key: str,
+        effect_type: str,
+        aggregate_type: str,
+        aggregate_id: str,
+        payload: Mapping[str, Any],
+        result: Mapping[str, Any],
+    ) -> ReserveMediaEffectResult:
+        """Record a local effect receipt that completed in the surrounding UoW."""
+        values = _reservation_values(
+            effect_key=effect_key,
+            effect_type=effect_type,
+            aggregate_type=aggregate_type,
+            aggregate_id=aggregate_id,
+            payload=payload,
+            available_at=None,
+            max_publish_attempts=1,
+        )
+        normalized_result = normalize_json_object(dict(result), field="media effect result")
+        row = (
+            self.session.execute(
+                text(
+                    """
+                    INSERT INTO media_effects (
+                        id, effect_key, effect_type, aggregate_type, aggregate_id,
+                        payload_version, payload_json, request_hash, status,
+                        attempts, available_at, last_attempt_at,
+                        result_json, finished_at
+                    ) VALUES (
+                        :effect_id, :effect_key, :effect_type, :aggregate_type, :aggregate_id,
+                        1, CAST(:payload_json AS jsonb), :request_hash, 'confirmed',
+                        1, NOW(), NOW(), CAST(:result_json AS jsonb), NOW()
+                    )
+                    ON CONFLICT (effect_key) DO NOTHING
+                    RETURNING *
+                    """
+                ),
+                {
+                    **values,
+                    "result_json": canonical_json(normalized_result, field="media effect result"),
+                },
+            )
+            .mappings()
+            .one_or_none()
+        )
+        created = row is not None
+        if row is None:
+            row = (
+                self.session.execute(
+                    text("SELECT * FROM media_effects WHERE effect_key = :effect_key"),
+                    {"effect_key": values["effect_key"]},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None:
+                raise MediaEffectStateError("local receipt conflicted but was not visible")
+            if bytes(row["request_hash"]) != values["request_hash"]:
+                raise MediaEffectConflictError("effect_key was already reserved with a different request")
+            if MediaEffectStatus(row["status"]) is not MediaEffectStatus.CONFIRMED:
+                raise MediaEffectStateError("local receipt exists without a confirmed result")
+        return ReserveMediaEffectResult(effect=_projection(row), created=created)
+
 
 class MediaEffectDbApiCursor(Protocol):
     def execute(self, query: str, parameters: Mapping[str, Any]) -> Any: ...

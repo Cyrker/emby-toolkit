@@ -19,6 +19,7 @@ from .database import (
     DatabaseStatusResponse,
     DatabaseTableListResponse,
     ReviewItemsResponse,
+    ReviewTaskBusyError,
 )
 
 router = APIRouter(prefix="/api", tags=["operations"])
@@ -151,6 +152,18 @@ def database_stats_system(request: Request) -> Response:
         return _json_response({"status": "error", "data": {}}, status_code=500)
 
 
+@router.get("/database/stats/subscription", response_model=DatabaseStatusResponse)
+def database_stats_subscription(request: Request) -> Response:
+    denied = _login_denial(request)
+    if denied is not None:
+        return denied
+    try:
+        return _json_response({"status": "success", "data": _service(request).subscription_stats()})
+    except Exception as exc:
+        logger.error("获取订阅统计失败: %s", exc)
+        return _json_response({"status": "error", "data": {}}, status_code=500)
+
+
 @router.get("/database/stats/rankings", response_model=DatabaseStatusResponse)
 def database_stats_rankings(request: Request) -> Response:
     denied = _login_denial(request)
@@ -210,3 +223,36 @@ def review_reasons(request: Request) -> Response:
         return _json_response({"status": "success", "data": _service(request).review_reasons()})
     except Exception:
         return _json_response({"error": "获取原因列表失败"}, status_code=500)
+
+
+@router.post("/actions/mark_item_processed/{item_id}")
+def mark_review_item_processed(item_id: str, request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    try:
+        deleted = _service(request).mark_review_item_processed(item_id)
+    except ReviewTaskBusyError:
+        return _json_response({"error": "后台有任务正在运行，请稍后再试。"}, status_code=409)
+    except Exception:
+        return _json_response({"error": "服务器内部错误"}, status_code=500)
+    if not deleted:
+        return _json_response({"error": f"未在待复核列表中找到项目 {item_id}。"}, status_code=404)
+    return _json_response({"message": f"项目 {item_id} 已成功从待复核列表移除。"})
+
+
+@router.post("/actions/clear_review_items")
+def clear_review_items(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    try:
+        count = _service(request).clear_review_items()
+    except Exception:
+        logger.exception("API调用 clear_review_items 时发生错误")
+        return _json_response({"error": "服务器在处理时发生内部错误"}, status_code=500)
+    if count > 0:
+        message = f"操作成功！已从待复核列表移除 {count} 个项目。"
+    else:
+        message = "操作完成，待复核列表本就是空的。"
+    return _json_response({"message": message})

@@ -147,6 +147,17 @@ class PostgresSubscriptionRuntimeRepository:
             uow.commit()
         return availability
 
+    def quota_snapshot(
+        self,
+        quota_date: date,
+        *,
+        daily_cap: int,
+    ) -> SubscriptionQuotaAvailability:
+        """Read quota usage without expiring reservations or updating the legacy projection."""
+        cap = _non_negative_int(daily_cap, "daily_cap")
+        with self._unit_of_work() as uow:
+            return self._availability_in_uow(uow, quota_date, cap)
+
     def expire_quota_reservations(
         self,
         *,

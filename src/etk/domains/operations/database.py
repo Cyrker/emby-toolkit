@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from datetime import UTC, date, datetime
 from typing import Any, Protocol
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, RootModel
 from sqlalchemy import text
@@ -11,6 +13,10 @@ from etk.platform.db import SqlAlchemyUnitOfWork
 
 _MEDIA_TYPES = {"movie": "Movie", "series": "Series", "episode": "Episode"}
 _REVIEW_FILTER_FIELDS = frozenset({"query", "reason"})
+
+
+class ReviewTaskBusyError(RuntimeError):
+    pass
 
 
 class DatabaseStatusResponse(BaseModel):
@@ -66,6 +72,16 @@ class DatabaseReadRepository(Protocol):
     ) -> tuple[list[dict[str, Any]], int]: ...
 
     def review_reasons(self) -> list[str]: ...
+
+    def subscription_stats(self) -> Mapping[str, Any]: ...
+
+    def mark_review_item_processed(self, item_id: str) -> bool: ...
+
+    def clear_review_items(self) -> int: ...
+
+
+class SubscriptionQuotaReader(Protocol):
+    def quota_snapshot(self, quota_date: date, *, daily_cap: int) -> Any: ...
 
 
 class SqlAlchemyDatabaseReadRepository:
@@ -326,6 +342,138 @@ class SqlAlchemyDatabaseReadRepository:
                 reasons.add(reason)
         return sorted(reasons)
 
+    def subscription_stats(self) -> Mapping[str, Any]:
+        return self._single_row(
+            text(
+                """
+                WITH watchlist AS (
+                    SELECT
+                        COUNT(*) FILTER (
+                            WHERE BTRIM(watching_status) ILIKE ANY (ARRAY['Watching', 'Pending'])
+                        ) AS watching,
+                        COUNT(*) FILTER (
+                            WHERE BTRIM(watching_status) ILIKE 'Paused'
+                        ) AS paused,
+                        COUNT(*) FILTER (
+                            WHERE BTRIM(watching_status) ILIKE 'Completed'
+                        ) AS completed
+                    FROM media_metadata
+                    WHERE watching_status IS NOT NULL
+                      AND watching_status NOT ILIKE 'NONE'
+                      AND item_type = 'Series'
+                ),
+                native_expanded AS (
+                    SELECT collection.emby_collection_id, item.tmdb_id
+                    FROM collections_info AS collection
+                    CROSS JOIN LATERAL jsonb_array_elements_text(
+                        CASE
+                            WHEN jsonb_typeof(collection.all_tmdb_ids_json) = 'array'
+                                THEN collection.all_tmdb_ids_json
+                            ELSE '[]'::jsonb
+                        END
+                    ) AS item(tmdb_id)
+                    WHERE collection.is_active IS TRUE
+                ),
+                native_missing AS (
+                    SELECT expanded.emby_collection_id, expanded.tmdb_id
+                    FROM native_expanded AS expanded
+                    LEFT JOIN media_metadata AS metadata
+                      ON metadata.tmdb_id = expanded.tmdb_id
+                     AND metadata.item_type = 'Movie'
+                    WHERE metadata.in_library IS DISTINCT FROM TRUE
+                ),
+                custom_items AS (
+                    SELECT collection.id,
+                           CASE
+                               WHEN jsonb_typeof(item.value) = 'object'
+                                   THEN item.value ->> 'tmdb_id'
+                               WHEN jsonb_typeof(item.value) = 'string'
+                                   THEN item.value #>> '{}'
+                               ELSE NULL
+                           END AS tmdb_id,
+                           CASE
+                               WHEN jsonb_typeof(item.value) = 'object'
+                                   THEN COALESCE(NULLIF(item.value ->> 'media_type', ''), 'Movie')
+                               ELSE 'Movie'
+                           END AS media_type
+                    FROM custom_collections AS collection
+                    CROSS JOIN LATERAL jsonb_array_elements(
+                        CASE
+                            WHEN jsonb_typeof(collection.generated_media_info_json) = 'array'
+                                THEN collection.generated_media_info_json
+                            ELSE '[]'::jsonb
+                        END
+                    ) AS item(value)
+                    WHERE collection.status = 'active'
+                      AND collection.type IN ('list', 'ai_recommendation_global')
+                ),
+                custom_missing AS (
+                    SELECT item.id, item.tmdb_id, item.media_type
+                    FROM custom_items AS item
+                    LEFT JOIN media_metadata AS metadata
+                      ON metadata.tmdb_id = item.tmdb_id
+                     AND metadata.item_type = item.media_type
+                    WHERE item.tmdb_id IS NULL
+                       OR LOWER(item.tmdb_id) = 'none'
+                       OR metadata.in_library IS DISTINCT FROM TRUE
+                )
+                SELECT
+                    watchlist.watching AS watchlist_active,
+                    watchlist.paused AS watchlist_paused,
+                    watchlist.completed AS watchlist_completed,
+                    (
+                        SELECT COUNT(*) FROM actor_subscriptions WHERE status = 'active'
+                    ) AS actor_subscriptions_active,
+                    (
+                        SELECT COUNT(*) FROM media_metadata
+                        WHERE subscription_sources_json
+                            @> '[{"type":"actor_subscription"}]'::jsonb
+                          AND in_library IS TRUE
+                    ) AS actor_works_in_library,
+                    (
+                        SELECT COUNT(*) FROM resubscribe_index
+                        WHERE status IN ('needed', 'auto_subscribed')
+                    ) AS resubscribe_pending,
+                    (
+                        SELECT COUNT(*) FROM collections_info WHERE is_active IS TRUE
+                    ) AS native_collections_total,
+                    (
+                        SELECT COUNT(DISTINCT emby_collection_id) FROM native_missing
+                    ) AS native_collections_with_missing,
+                    (
+                        SELECT COUNT(DISTINCT tmdb_id) FROM native_missing
+                    ) AS native_collections_missing_items,
+                    (
+                        SELECT COUNT(*) FROM custom_collections WHERE status = 'active'
+                    ) AS custom_collections_total,
+                    (
+                        SELECT COUNT(DISTINCT id) FROM custom_missing
+                    ) AS custom_collections_with_missing,
+                    (
+                        SELECT COUNT(DISTINCT tmdb_id || '_' || media_type)
+                        FROM custom_missing
+                        WHERE tmdb_id IS NOT NULL AND LOWER(tmdb_id) != 'none'
+                    ) AS custom_collections_missing_items
+                FROM watchlist
+                """
+            )
+        )
+
+    def mark_review_item_processed(self, item_id: str) -> bool:
+        with self._unit_of_work() as uow:
+            result = uow.session.execute(
+                text("DELETE FROM failed_log WHERE item_id = :item_id"),
+                {"item_id": item_id},
+            )
+            uow.commit()
+            return bool(int(getattr(result, "rowcount", 0) or 0))
+
+    def clear_review_items(self) -> int:
+        with self._unit_of_work() as uow:
+            result = uow.session.execute(text("DELETE FROM failed_log"))
+            uow.commit()
+            return int(getattr(result, "rowcount", 0) or 0)
+
     def _weekly_library_additions(self, *, days: int) -> list[dict[str, Any]]:
         bounded_days = max(1, min(int(days or 7), 31))
         return self._all_rows(
@@ -419,8 +567,20 @@ class SqlAlchemyDatabaseReadRepository:
 class DatabaseReadService:
     """Stable response-facing read model over an injectable database repository."""
 
-    def __init__(self, repository: DatabaseReadRepository) -> None:
+    def __init__(
+        self,
+        repository: DatabaseReadRepository,
+        *,
+        quota: SubscriptionQuotaReader | None = None,
+        settings: Callable[[], Any] | None = None,
+        runtime_status: Callable[[], Mapping[str, Any]] | None = None,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
         self._repository = repository
+        self._quota = quota
+        self._settings = settings
+        self._runtime_status = runtime_status
+        self._clock = clock
 
     def core_stats(self) -> dict[str, Any]:
         return dict(self._repository.core_stats())
@@ -479,3 +639,60 @@ class DatabaseReadService:
 
     def review_reasons(self) -> list[str]:
         return self._repository.review_reasons()
+
+    def subscription_stats(self) -> dict[str, Any]:
+        raw = self._repository.subscription_stats()
+        daily_cap = self._subscription_daily_cap()
+        if self._quota is None:
+            available = daily_cap
+        else:
+            quota_date = self._clock().astimezone(ZoneInfo("Asia/Shanghai")).date()
+            available = int(self._quota.quota_snapshot(quota_date, daily_cap=daily_cap).available_units)
+        return {
+            "watchlist": {
+                "watching": raw.get("watchlist_active", 0),
+                "paused": raw.get("watchlist_paused", 0),
+                "completed": raw.get("watchlist_completed", 0),
+            },
+            "actors": {
+                "subscriptions": raw.get("actor_subscriptions_active", 0),
+                "tracked_in_library": raw.get("actor_works_in_library", 0),
+            },
+            "resubscribe": {"pending": raw.get("resubscribe_pending", 0)},
+            "native_collections": {
+                "total": raw.get("native_collections_total", 0),
+                "count": raw.get("native_collections_with_missing", 0),
+                "missing_items": raw.get("native_collections_missing_items", 0),
+            },
+            "custom_collections": {
+                "total": raw.get("custom_collections_total", 0),
+                "count": raw.get("custom_collections_with_missing", 0),
+                "missing_items": raw.get("custom_collections_missing_items", 0),
+            },
+            "quota": {
+                "mp": {
+                    "available": available,
+                    "consumed": max(0, daily_cap - available),
+                }
+            },
+        }
+
+    def mark_review_item_processed(self, item_id: str) -> bool:
+        if self._runtime_status is not None and bool(self._runtime_status().get("is_running")):
+            raise ReviewTaskBusyError("task is running")
+        return self._repository.mark_review_item_processed(item_id)
+
+    def clear_review_items(self) -> int:
+        return self._repository.clear_review_items()
+
+    def _subscription_daily_cap(self) -> int:
+        if self._settings is None:
+            return 200
+        settings = self._settings()
+        config = settings.get("mp_config") if callable(getattr(settings, "get", None)) else None
+        if not isinstance(config, Mapping):
+            return 200
+        try:
+            return max(0, int(config.get("resubscribe_daily_cap", 200)))
+        except (TypeError, ValueError):
+            return 200

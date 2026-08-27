@@ -110,6 +110,16 @@ class FakeDatabaseReadRepository:
         self._fail_if_requested("review_reasons")
         return self.reasons
 
+    def subscription_stats(self) -> Mapping[str, Any]:
+        return {}
+
+    def mark_review_item_processed(self, item_id: str) -> bool:
+        del item_id
+        return False
+
+    def clear_review_items(self) -> int:
+        return 0
+
 
 def _codec() -> LegacySessionCodec:
     flask_app = Flask("p3-database-read-cookie")
@@ -156,7 +166,7 @@ def _set_session(client: TestClient, codec: LegacySessionCodec, user_id: str) ->
     )
 
 
-def test_fixture_reconciles_seven_source_routes_and_excludes_subscription() -> None:
+def test_fixture_reconciles_seven_p3_routes_and_records_p8_subscription_owner() -> None:
     payload = json.loads(DATABASE_FIXTURE.read_text(encoding="utf-8"))
     assert {(item["method"], item["path"]) for item in payload["routes"]} == {
         ("GET", "/api/database/stats/core"),
@@ -175,8 +185,8 @@ def test_fixture_reconciles_seven_source_routes_and_excludes_subscription() -> N
             "method": "GET",
             "path": "/api/database/stats/subscription",
             "reason": (
-                "excluded-by-task: legacy GET may write subscription_quota_state during daily reset "
-                "or cap adjustment, and its SQL/result aliases do not match the route formatter"
+                "migrated-in-p8: native GET uses the P7 read-only quota snapshot and cannot update "
+                "subscription_quota_state"
             ),
         }
     ]
@@ -216,7 +226,9 @@ def test_stats_tables_and_rankings_success_and_ordering() -> None:
         _assert_fixture_response(client.get("/api/database/stats/system"), "system-empty-defaults")
         _assert_fixture_response(client.get("/api/database/stats/rankings"), "rankings-success")
         _assert_fixture_response(client.get("/api/database/tables"), "tables-success")
-        assert client.get("/api/database/stats/subscription").status_code == 404
+        subscription = client.get("/api/database/stats/subscription")
+        assert subscription.status_code == 200
+        assert subscription.json()["data"]["quota"] == {"mp": {"available": 200, "consumed": 0}}
 
     assert repository.ranking_limits == [5, 5]
 

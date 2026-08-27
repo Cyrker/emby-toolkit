@@ -877,6 +877,16 @@ uv run pyright src/etk/platform src/etk/bootstrap
 
 **目标：** 迁移与中心媒体模型相关但风险相对独立的功能。
 
+#### 当前实施状态
+
+- `P8-LOCAL` 已完成本地合集/自建合集、用户模板/邀请/Portal、Discover 本地配置、媒体搜索、
+  自动标签配置、复核/订阅统计、用户活动 projection 和纯内存确定性封面 renderer；对应
+  PostgreSQL 18、权限、并发、回滚、Outbox、像素 fixture 和 ownership targeted gate 已通过。
+- 用户活动事件的 native repository 与 durable receipt 已完成，但默认 DI 仍保留 legacy gateway；
+  只有 `P8-EFFECTS` 提供 Episode resolver、外部 Adapter 和 effect executor 后才切换，避免本地批次
+  提前接触真实 Emby。
+- P8 状态为 `DOING`；`P8-EFFECTS`、阶段完整门禁、聚焦 review 和阶段集成 review 仍待完成。
+
 #### 范围
 
 - TMDb 合集、自建合集和集合封面。

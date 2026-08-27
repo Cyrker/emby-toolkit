@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import AbstractContextManager
 from enum import StrEnum
 from types import TracebackType
+from typing import Literal
 
 from sqlalchemy.orm import Session
 
@@ -62,7 +63,7 @@ class SqlAlchemyUnitOfWork(AbstractContextManager["SqlAlchemyUnitOfWork"]):
         exc_type: type[BaseException] | None,
         exc_value: BaseException | None,
         traceback: TracebackType | None,
-    ) -> bool:
+    ) -> Literal[False]:
         session = self._session
         if session is None:
             return False

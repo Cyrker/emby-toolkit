@@ -1672,6 +1672,636 @@
         "status": "new",
         "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
         "validation_owner": "subscription/watchlist"
+      },
+      "route-binding-d4b625d93331": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-919aa57b7e43": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-ddeb63830c68": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-af59b5e36887": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-4ed4ac2d899b": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-35c0b32ef96d": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-63d205f7f987": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-ea6f1b9b908a": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-0be764d2f803": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-ec7914619a2b": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-e3311becf593": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-c6c4016dc0a7": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-9595cca20bb9": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-8582ce2af21a": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-ac7edd6e3b5c": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-0d8399340213": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-b473bf0ad379": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-bc60ffa85801": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-4fd8a50cca8b": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-9dc02fa4f088": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-152f247fd157": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-4728f993411a": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-f49325c76f81": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-8d34ce4e0f82": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-fb6f6b2f88dc": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-aa185fb3cde2": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-5c41eb6b71ed": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-856658c87f1c": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-289262bfda79": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-ca95f85de995": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-9f34df735252": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-dcb999c15c96": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-a9f3168e7e60": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-96cf7f795aa7": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-3f7e728e02d0": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-dcc90120e145": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-1c5a5d11f4f8": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-af7dfac44744": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-8e65c042f712": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-84039174962d": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-3000797b1018": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-dce2f57deda4": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-1ca3c986b12a": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-448fe24b3a5f": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-918fe3d53a7b": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-9be4b81a4d8d": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-ac58c97f7989": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-binding-d1b7f66a75db": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-df1d89141764": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-50ad9214808e": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-4d987ec26944": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-e6ed1c1de3b0": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-bc16b1206fc0": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-b50d7b5b0bcb": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-3a101b413eed": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-b66ef4f17062": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-7a095dc041af": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-beaab86d56a3": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-7a3ac31e16c7": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-binding-76a8b22bff59": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "operations/review-stats"
+      },
+      "route-binding-e3d1573fc830": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "operations/review-stats"
+      },
+      "route-binding-124d6f09883f": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/secondary"
+      },
+      "route-binding-15144763bd2e": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/secondary"
+      },
+      "route-binding-a149a865e59e": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "operations/review-stats"
+      },
+      "route-binding-1e84fa160fa4": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/discover"
+      },
+      "route-binding-6869673f1a51": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/discover"
+      },
+      "route-binding-b2e1888d1576": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/discover"
+      },
+      "route-binding-8235a307be0b": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/discover"
+      },
+      "route-binding-7dfca693b5cb": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/secondary"
+      },
+      "route-binding-d27e3b53bc5c": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/secondary"
       }
     },
     "route_decorators": {
@@ -2844,6 +3474,636 @@
         "status": "new",
         "validation_method": "pytest-http-fixture-openapi-and-postgres18-ownership",
         "validation_owner": "subscription/watchlist"
+      },
+      "route-decorator-19d3d6a7f7b6": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-bfb6b7f20b24": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-18aff8ca3470": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-592926ba3d22": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-1d2fb89d3de4": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-a481445f2778": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-1a6c16938118": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-408c3c5b8c25": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-a2f28d744750": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-e4297c1183a2": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-5a12229392fb": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-ee78e681de8d": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-f1a9f5f9ccde": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-1534e82b9de8": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-c1e563ce90e7": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-f0efd2c3332e": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-26097f1aabc8": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-f86273633173": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-2e4a7190daed": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-9ef62d442440": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-310e8b41a735": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-0fddd790694f": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-81b9921a78d0": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-df321f2ede4d": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-d9912c7d8b4b": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-a64fa00ce983": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-f8bde5a17164": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-500cfb4eee9f": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-18fb68722956": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-127c059bd88e": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-e25030160b99": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-c3fc803072de": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-fc28d9ae8912": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-b28195774a18": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-295374b76607": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-33289e87a3f7": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-81de9ef677a3": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-0b2e60b7cf53": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-f95ebd16c86e": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-9cec6524783e": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-b264a716d4c1": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-aac9d32d818f": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-c415eb128d79": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-b96d2058dc76": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-902cc7b9af8d": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-eaf1be31ff35": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-552acd2ff368": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "collection/local"
+      },
+      "route-decorator-14af95900eec": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-597f3eeb559d": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-ec5d3d356f8e": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-fed45e84adb5": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-b16d72ef8e3f": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-cd37301f7d7d": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-48d194c11adf": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-0f6a130f0b7e": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-a3bdf92a0318": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-389542edaf3b": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-dcc939c21517": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-12ed136405a8": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-fab08af13748": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "operations/review-stats"
+      },
+      "route-decorator-03bc1464e8b8": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "operations/review-stats"
+      },
+      "route-decorator-67cf14e3384c": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/secondary"
+      },
+      "route-decorator-00e6ac43f690": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/secondary"
+      },
+      "route-decorator-e03283bbbe47": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "operations/review-stats"
+      },
+      "route-decorator-9cde462710b4": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/discover"
+      },
+      "route-decorator-2aa199d4b264": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/discover"
+      },
+      "route-decorator-ae9ab4a2bf41": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/discover"
+      },
+      "route-decorator-6d5f81dc448e": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/discover"
+      },
+      "route-decorator-f07749bdaf4b": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/secondary"
+      },
+      "route-decorator-d182c6e95042": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+        "validation_owner": "media/secondary"
       }
     },
     "settings": {
@@ -2909,6 +4169,34 @@
         "status": "new",
         "validation_method": "pytest-http-fixture-postgres18-operation-and-config-cas",
         "validation_owner": "p115/playback"
+      },
+      "setting-e051fdb1e272": {
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P8 auto-tagging rule round-trip through the P2 system settings store.",
+        "status": "new",
+        "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
+        "validation_owner": "media/secondary"
+      },
+      "setting-e12f1ddd30da": {
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P8 Discover recommendation pool is read from one settings snapshot and updated atomically with its page/theme state.",
+        "status": "new",
+        "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
+        "validation_owner": "media/discover"
+      },
+      "setting-10e4f4bb6eef": {
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P8 Discover recommendation page participates in the atomic pool/page/theme settings snapshot.",
+        "status": "new",
+        "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
+        "validation_owner": "media/discover"
+      },
+      "setting-c27c8264cf43": {
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P8 Discover theme index participates in the atomic pool/page/theme settings snapshot.",
+        "status": "new",
+        "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
+        "validation_owner": "media/discover"
       }
     },
     "tables": {
@@ -2978,6 +4266,62 @@
         "status": "new",
         "validation_method": "postgres18-fingerprint-failure-diagnostic-contract",
         "validation_owner": "p115/intro-detection"
+      },
+      "table-4f82ae25f961": {
+        "new_owner": "etk.domains.collection.repository.SqlAlchemyCollectionRepository",
+        "notes": "P8 Collection owner; P5 and dashboard consumers use explicit read projections.",
+        "status": "new",
+        "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
+        "validation_owner": "collection"
+      },
+      "table-3567d1dedfe4": {
+        "new_owner": "etk.domains.collection.repository.SqlAlchemyCollectionRepository",
+        "notes": "P8 custom collection owner with PostgreSQL 18 CRUD, ordering, visibility, rollback, and concurrency gates.",
+        "status": "new",
+        "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
+        "validation_owner": "collection"
+      },
+      "table-35d52e3c0a77": {
+        "new_owner": "etk.domains.identity.user_activity.SqlAlchemyUserActivityRepository",
+        "notes": "P8 exact Emby favorite projection owner with durable event receipts and atomic effect intents.",
+        "status": "new",
+        "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
+        "validation_owner": "identity/user-activity"
+      },
+      "table-1b13870cddc1": {
+        "new_owner": "etk.domains.identity",
+        "notes": "P3 identity snapshot owner extended by P8 user lifecycle and activity projections within the same bounded context.",
+        "status": "new",
+        "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
+        "validation_owner": "identity/users"
+      },
+      "table-cdf1a1fd2964": {
+        "new_owner": "etk.domains.identity.users_repository.SqlAlchemyUsersRepository",
+        "notes": "P8 user profile, template, status, expiration, and Telegram identity metadata owner.",
+        "status": "new",
+        "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
+        "validation_owner": "identity/users"
+      },
+      "table-33cd5e40bb5f": {
+        "new_owner": "etk.domains.identity.users_repository.SqlAlchemyUsersRepository",
+        "notes": "P8 invitation local-state owner; external registration saga remains P8-EFFECTS.",
+        "status": "new",
+        "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
+        "validation_owner": "identity/users"
+      },
+      "table-34b266c39ef7": {
+        "new_owner": "etk.domains.identity.user_activity.SqlAlchemyUserActivityRepository",
+        "notes": "P8 aggregate playback and favorite projection owner with partial-patch and concurrency gates.",
+        "status": "new",
+        "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
+        "validation_owner": "identity/user-activity"
+      },
+      "table-04f87a082d38": {
+        "new_owner": "etk.domains.identity.users_repository.SqlAlchemyUsersRepository",
+        "notes": "P8 user template JSONB and lifecycle owner.",
+        "status": "new",
+        "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
+        "validation_owner": "identity/users"
       }
     },
     "tasks": {

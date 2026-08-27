@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from typing import Any
 
@@ -23,6 +23,24 @@ class SqlAlchemyAppSettingsRepository:
             )
         return deepcopy(value)
 
+    def load_many(self, keys: Sequence[str]) -> Mapping[str, Any]:
+        normalized = tuple(dict.fromkeys(str(key) for key in keys if str(key).strip()))
+        if not normalized:
+            return {}
+        with self._unit_of_work() as uow:
+            rows = uow.session.execute(
+                text(
+                    """
+                    SELECT setting_key, value_json
+                    FROM app_settings
+                    WHERE setting_key = ANY(:keys)
+                    """
+                ),
+                {"keys": list(normalized)},
+            ).mappings()
+            values = {str(row["setting_key"]): deepcopy(row["value_json"]) for row in rows}
+        return {key: values.get(key) for key in normalized}
+
     def save(self, key: str, value: Any) -> None:
         self.save_many({key: value})
 
@@ -42,6 +60,48 @@ class SqlAlchemyAppSettingsRepository:
                     {"key": key, "value": json.dumps(value, ensure_ascii=False)},
                 )
             uow.commit()
+
+    def merge_mapping(
+        self,
+        key: str,
+        updates: Mapping[str, Any],
+        *,
+        remove_keys: Sequence[str] = (),
+    ) -> Mapping[str, Any]:
+        with self._unit_of_work() as uow:
+            uow.session.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES (:key, '{}'::jsonb, NOW())
+                    ON CONFLICT (setting_key) DO NOTHING
+                    """
+                ),
+                {"key": key},
+            )
+            current = uow.session.scalar(
+                text("SELECT value_json FROM app_settings WHERE setting_key = :key FOR UPDATE"),
+                {"key": key},
+            )
+            merged = dict(current) if isinstance(current, Mapping) else {}
+            for removed in remove_keys:
+                merged.pop(removed, None)
+            merged.update(updates)
+            uow.session.execute(
+                text(
+                    """
+                    UPDATE app_settings
+                    SET value_json = CAST(:value AS jsonb), last_updated_at = NOW()
+                    WHERE setting_key = :key
+                    """
+                ),
+                {
+                    "key": key,
+                    "value": json.dumps(merged, ensure_ascii=False),
+                },
+            )
+            uow.commit()
+        return deepcopy(merged)
 
     def delete(self, key: str) -> bool:
         with self._unit_of_work() as uow:

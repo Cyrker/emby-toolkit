@@ -180,20 +180,21 @@
       "contract_id": "route-binding-76a8b22bff59",
       "decorator_contract_id": "route-decorator-fab08af13748",
       "endpoint": "api_clear_review_items",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/actions/clear_review_items",
       "retirement_approval": null,
       "source": "routes/database_admin.py:363",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "operations/review-stats"
     },
     {
       "application": "api",
@@ -220,20 +221,21 @@
       "contract_id": "route-binding-e3d1573fc830",
       "decorator_contract_id": "route-decorator-03bc1464e8b8",
       "endpoint": "api_mark_item_processed",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/actions/mark_item_processed/<item_id>",
       "retirement_approval": null,
       "source": "routes/database_admin.py:348",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "operations/review-stats"
     },
     {
       "application": "api",
@@ -521,84 +523,88 @@
       "contract_id": "route-binding-4d987ec26944",
       "decorator_contract_id": "route-decorator-fed45e84adb5",
       "endpoint": "get_all_invitations",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/invitations",
       "retirement_approval": null,
       "source": "routes/user_management.py:143",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
       "contract_id": "route-binding-e6ed1c1de3b0",
       "decorator_contract_id": "route-decorator-b16d72ef8e3f",
       "endpoint": "create_invitation",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/invitations",
       "retirement_approval": null,
       "source": "routes/user_management.py:104",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
       "contract_id": "route-binding-bc16b1206fc0",
       "decorator_contract_id": "route-decorator-cd37301f7d7d",
       "endpoint": "delete_invitation",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/invitations/<int:invitation_id>",
       "retirement_approval": null,
       "source": "routes/user_management.py:152",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d1b7f66a75db",
       "decorator_contract_id": "route-decorator-14af95900eec",
       "endpoint": "get_all_templates",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/user_templates",
       "retirement_approval": null,
       "source": "routes/user_management.py:22",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -626,42 +632,44 @@
       "contract_id": "route-binding-50ad9214808e",
       "decorator_contract_id": "route-decorator-ec5d3d356f8e",
       "endpoint": "delete_template",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/user_templates/<int:template_id>",
       "retirement_approval": null,
       "source": "routes/user_management.py:63",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
       "contract_id": "route-binding-df1d89141764",
       "decorator_contract_id": "route-decorator-597f3eeb559d",
       "endpoint": "update_template",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "PUT",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/user_templates/<int:template_id>",
       "retirement_approval": null,
       "source": "routes/user_management.py:79",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -710,21 +718,22 @@
       "contract_id": "route-binding-b50d7b5b0bcb",
       "decorator_contract_id": "route-decorator-48d194c11adf",
       "endpoint": "set_user_expiration",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/users/<string:user_id>/expiration",
       "retirement_approval": null,
       "source": "routes/user_management.py:246",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -1071,40 +1080,42 @@
       "contract_id": "route-binding-124d6f09883f",
       "decorator_contract_id": "route-decorator-67cf14e3384c",
       "endpoint": "get_tagging_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/auto_tagging/rules",
       "retirement_approval": null,
       "source": "routes/media.py:741",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/auto-tagging"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
       "contract_id": "route-binding-15144763bd2e",
       "decorator_contract_id": "route-decorator-00e6ac43f690",
       "endpoint": "save_tagging_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/auto_tagging/rules",
       "retirement_approval": null,
       "source": "routes/media.py:747",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/auto-tagging"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
@@ -1380,60 +1391,63 @@
       "contract_id": "route-binding-919aa57b7e43",
       "decorator_contract_id": "route-decorator-bfb6b7f20b24",
       "endpoint": "api_get_collection_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/collections/settings",
       "retirement_approval": null,
       "source": "routes/tmdb_collections.py:314",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-ddeb63830c68",
       "decorator_contract_id": "route-decorator-18aff8ca3470",
       "endpoint": "api_save_collection_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/collections/settings",
       "retirement_approval": null,
       "source": "routes/tmdb_collections.py:339",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d4b625d93331",
       "decorator_contract_id": "route-decorator-19d3d6a7f7b6",
       "endpoint": "api_get_collections_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/collections/status",
       "retirement_approval": null,
       "source": "routes/tmdb_collections.py:250",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -1484,40 +1498,42 @@
       "contract_id": "route-binding-918fe3d53a7b",
       "decorator_contract_id": "route-decorator-902cc7b9af8d",
       "endpoint": "get_cover_generator_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/config/cover_generator",
       "retirement_approval": null,
       "source": "routes/cover_generator_config.py:62",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-9be4b81a4d8d",
       "decorator_contract_id": "route-decorator-eaf1be31ff35",
       "endpoint": "save_cover_generator_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/config/cover_generator",
       "retirement_approval": null,
       "source": "routes/cover_generator_config.py:86",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -1544,20 +1560,21 @@
       "contract_id": "route-binding-ac58c97f7989",
       "decorator_contract_id": "route-decorator-552acd2ff368",
       "endpoint": "api_generate_cover_preview",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/config/cover_generator/preview",
       "retirement_approval": null,
       "source": "routes/cover_generator_config.py:134",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -1608,42 +1625,44 @@
       "contract_id": "route-binding-4ed4ac2d899b",
       "decorator_contract_id": "route-decorator-1d2fb89d3de4",
       "endpoint": "api_get_all_custom_collections",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:130",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-35c0b32ef96d",
       "decorator_contract_id": "route-decorator-a481445f2778",
       "endpoint": "api_create_custom_collection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:191",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -1671,21 +1690,22 @@
       "contract_id": "route-binding-63d205f7f987",
       "decorator_contract_id": "route-decorator-1a6c16938118",
       "endpoint": "api_update_custom_collection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "PUT",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/<int:collection_id>",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:221",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -1713,84 +1733,88 @@
       "contract_id": "route-binding-0be764d2f803",
       "decorator_contract_id": "route-decorator-a2f28d744750",
       "endpoint": "api_get_custom_collection_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/<int:collection_id>/status",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:331",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-5c41eb6b71ed",
       "decorator_contract_id": "route-decorator-f8bde5a17164",
       "endpoint": "api_get_country_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/country_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:910",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-856658c87f1c",
       "decorator_contract_id": "route-decorator-500cfb4eee9f",
       "endpoint": "api_save_country_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/country_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:917",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-289262bfda79",
       "decorator_contract_id": "route-decorator-18fb68722956",
       "endpoint": "api_get_country_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/country_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:928",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -1818,588 +1842,616 @@
       "contract_id": "route-binding-af59b5e36887",
       "decorator_contract_id": "route-decorator-592926ba3d22",
       "endpoint": "api_get_emby_users",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/emby_users",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:98",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-4fd8a50cca8b",
       "decorator_contract_id": "route-decorator-2e4a7190daed",
       "endpoint": "api_get_junk_file_patterns",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/junk_file_patterns",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:785",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-9dc02fa4f088",
       "decorator_contract_id": "route-decorator-9ef62d442440",
       "endpoint": "api_save_junk_file_patterns",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/junk_file_patterns",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:792",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-152f247fd157",
       "decorator_contract_id": "route-decorator-310e8b41a735",
       "endpoint": "api_get_junk_file_pattern_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/junk_file_patterns/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:814",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-9595cca20bb9",
       "decorator_contract_id": "route-decorator-f1a9f5f9ccde",
       "endpoint": "api_get_keyword_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/keyword_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:742",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-8582ce2af21a",
       "decorator_contract_id": "route-decorator-1534e82b9de8",
       "endpoint": "api_save_keyword_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/keyword_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:748",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-ac7edd6e3b5c",
       "decorator_contract_id": "route-decorator-c1e563ce90e7",
       "endpoint": "api_get_keyword_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/keyword_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:757",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-4728f993411a",
       "decorator_contract_id": "route-decorator-0fddd790694f",
       "endpoint": "api_get_keywords_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/keywords",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:820",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-9f34df735252",
       "decorator_contract_id": "route-decorator-e25030160b99",
       "endpoint": "api_get_language_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/language_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:958",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-dcb999c15c96",
       "decorator_contract_id": "route-decorator-c3fc803072de",
       "endpoint": "api_save_language_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/language_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:965",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-a9f3168e7e60",
       "decorator_contract_id": "route-decorator-fc28d9ae8912",
       "endpoint": "api_get_language_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/language_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:974",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-96cf7f795aa7",
       "decorator_contract_id": "route-decorator-b28195774a18",
       "endpoint": "api_get_languages_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/languages",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:980",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-e3311becf593",
       "decorator_contract_id": "route-decorator-5a12229392fb",
       "endpoint": "api_get_movie_genres_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/movie_genres",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:712",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-af7dfac44744",
       "decorator_contract_id": "route-decorator-0b2e60b7cf53",
       "endpoint": "api_get_rating_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1045",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-8e65c042f712",
       "decorator_contract_id": "route-decorator-f95ebd16c86e",
       "endpoint": "api_save_rating_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1054",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-84039174962d",
       "decorator_contract_id": "route-decorator-9cec6524783e",
       "endpoint": "api_get_rating_mapping_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1066",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-3000797b1018",
       "decorator_contract_id": "route-decorator-b264a716d4c1",
       "endpoint": "api_get_rating_priority",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_priority",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1079",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-dce2f57deda4",
       "decorator_contract_id": "route-decorator-aac9d32d818f",
       "endpoint": "api_save_rating_priority",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_priority",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1088",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-1ca3c986b12a",
       "decorator_contract_id": "route-decorator-c415eb128d79",
       "endpoint": "api_get_rating_priority_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_priority/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1100",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-0d8399340213",
       "decorator_contract_id": "route-decorator-f0efd2c3332e",
       "endpoint": "api_get_release_group_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/release_group_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:763",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-b473bf0ad379",
       "decorator_contract_id": "route-decorator-26097f1aabc8",
       "endpoint": "api_save_release_group_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/release_group_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:769",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-bc60ffa85801",
       "decorator_contract_id": "route-decorator-f86273633173",
       "endpoint": "api_get_release_group_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/release_group_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:779",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-f49325c76f81",
       "decorator_contract_id": "route-decorator-81b9921a78d0",
       "endpoint": "api_get_studio_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/studio_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:840",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-8d34ce4e0f82",
       "decorator_contract_id": "route-decorator-df321f2ede4d",
       "endpoint": "api_save_studio_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/studio_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:847",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-fb6f6b2f88dc",
       "decorator_contract_id": "route-decorator-d9912c7d8b4b",
       "endpoint": "api_get_studio_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/studio_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:856",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-aa185fb3cde2",
       "decorator_contract_id": "route-decorator-a64fa00ce983",
       "endpoint": "api_get_studios_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/studios",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:862",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-ec7914619a2b",
       "decorator_contract_id": "route-decorator-e4297c1183a2",
       "endpoint": "api_get_tags_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/tags",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:522",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-ca95f85de995",
       "decorator_contract_id": "route-decorator-127c059bd88e",
       "endpoint": "api_get_tmdb_countries",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/tmdb_countries",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:934",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -2490,126 +2542,132 @@
       "contract_id": "route-binding-c6c4016dc0a7",
       "decorator_contract_id": "route-decorator-ee78e681de8d",
       "endpoint": "api_get_tv_genres_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/tv_genres",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:726",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-3f7e728e02d0",
       "decorator_contract_id": "route-decorator-295374b76607",
       "endpoint": "api_get_unified_ratings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/unified_ratings",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1013",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-dcc90120e145",
       "decorator_contract_id": "route-decorator-33289e87a3f7",
       "endpoint": "api_save_unified_ratings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/unified_ratings",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1021",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-1c5a5d11f4f8",
       "decorator_contract_id": "route-decorator-81de9ef677a3",
       "endpoint": "api_get_unified_ratings_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/unified_ratings/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1030",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-448fe24b3a5f",
       "decorator_contract_id": "route-decorator-b96d2058dc76",
       "endpoint": "api_get_unified_ratings_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/unified_ratings_options",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1111",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
       "contract_id": "route-binding-ea6f1b9b908a",
       "decorator_contract_id": "route-decorator-408c3c5b8c25",
       "endpoint": "api_update_custom_collections_order",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/update_order",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:257",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -2759,20 +2817,21 @@
       "contract_id": "route-binding-a149a865e59e",
       "decorator_contract_id": "route-decorator-e03283bbbe47",
       "endpoint": "api_get_stats_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/database/stats/subscription",
       "retirement_approval": null,
       "source": "routes/database_admin.py:77",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "operations/review-stats"
     },
     {
       "application": "api",
@@ -2821,84 +2880,88 @@
       "contract_id": "route-binding-1e84fa160fa4",
       "decorator_contract_id": "route-decorator-9cde462710b4",
       "endpoint": "api_get_discover_keywords",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/discover/config/keywords",
       "retirement_approval": null,
       "source": "routes/discover.py:688",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
       "contract_id": "route-binding-6869673f1a51",
       "decorator_contract_id": "route-decorator-2aa199d4b264",
       "endpoint": "api_get_discover_languages",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/discover/config/languages",
       "retirement_approval": null,
       "source": "routes/discover.py:661",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
       "contract_id": "route-binding-b2e1888d1576",
       "decorator_contract_id": "route-decorator-ae9ab4a2bf41",
       "endpoint": "api_get_discover_studios",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/discover/config/studios",
       "retirement_approval": null,
       "source": "routes/discover.py:705",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
       "contract_id": "route-binding-8235a307be0b",
       "decorator_contract_id": "route-decorator-6d5f81dc448e",
       "endpoint": "get_recommendation_pool",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/discover/daily_recommendation",
       "retirement_approval": null,
       "source": "routes/discover.py:746",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -5055,20 +5118,21 @@
       "contract_id": "route-binding-b66ef4f17062",
       "decorator_contract_id": "route-decorator-a3bdf92a0318",
       "endpoint": "get_account_info",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/account-info",
       "retirement_approval": null,
       "source": "routes/user_portal.py:266",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -5135,40 +5199,42 @@
       "contract_id": "route-binding-7a095dc041af",
       "decorator_contract_id": "route-decorator-389542edaf3b",
       "endpoint": "get_subscription_history",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/subscription-history",
       "retirement_approval": null,
       "source": "routes/user_portal.py:289",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
       "contract_id": "route-binding-7a3ac31e16c7",
       "decorator_contract_id": "route-decorator-12ed136405a8",
       "endpoint": "get_subscription_stats",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/subscription-stats",
       "retirement_approval": null,
       "source": "routes/user_portal.py:359",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -5195,20 +5261,21 @@
       "contract_id": "route-binding-beaab86d56a3",
       "decorator_contract_id": "route-decorator-dcc939c21517",
       "endpoint": "save_telegram_chat_id",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/telegram-chat-id",
       "retirement_approval": null,
       "source": "routes/user_portal.py:311",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -5299,21 +5366,22 @@
       "contract_id": "route-binding-3a101b413eed",
       "decorator_contract_id": "route-decorator-0f6a130f0b7e",
       "endpoint": "validate_invite_token",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/register/invite/validate/<string:token>",
       "retirement_approval": null,
       "source": "routes/user_management.py:283",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -5562,40 +5630,42 @@
       "contract_id": "route-binding-7dfca693b5cb",
       "decorator_contract_id": "route-decorator-f07749bdaf4b",
       "endpoint": "api_search_emby_library",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/search_emby_library",
       "retirement_approval": null,
       "source": "routes/media.py:69",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations/review"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d27e3b53bc5c",
       "decorator_contract_id": "route-decorator-d182c6e95042",
       "endpoint": "api_search_studios",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/search_studios",
       "retirement_approval": null,
       "source": "routes/media.py:448",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/custom-collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
@@ -7886,22 +7956,23 @@
       "contract_id": "route-decorator-fab08af13748",
       "declared_path": "/actions/clear_review_items",
       "endpoint": "api_clear_review_items",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/actions/clear_review_items",
       "retirement_approval": null,
       "source": "routes/database_admin.py:363",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "operations/review-stats"
     },
     {
       "application": "api",
@@ -7932,22 +8003,23 @@
       "contract_id": "route-decorator-03bc1464e8b8",
       "declared_path": "/actions/mark_item_processed/<item_id>",
       "endpoint": "api_mark_item_processed",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/actions/mark_item_processed/<item_id>",
       "retirement_approval": null,
       "source": "routes/database_admin.py:348",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "operations/review-stats"
     },
     {
       "application": "api",
@@ -8179,23 +8251,24 @@
       "contract_id": "route-decorator-fed45e84adb5",
       "declared_path": "/api/admin/invitations",
       "endpoint": "get_all_invitations",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/invitations",
       "retirement_approval": null,
       "source": "routes/user_management.py:143",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8203,23 +8276,24 @@
       "contract_id": "route-decorator-b16d72ef8e3f",
       "declared_path": "/api/admin/invitations",
       "endpoint": "create_invitation",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/invitations",
       "retirement_approval": null,
       "source": "routes/user_management.py:104",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8227,23 +8301,24 @@
       "contract_id": "route-decorator-cd37301f7d7d",
       "declared_path": "/api/admin/invitations/<int:invitation_id>",
       "endpoint": "delete_invitation",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/invitations/<int:invitation_id>",
       "retirement_approval": null,
       "source": "routes/user_management.py:152",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8251,23 +8326,24 @@
       "contract_id": "route-decorator-14af95900eec",
       "declared_path": "/api/admin/user_templates",
       "endpoint": "get_all_templates",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/user_templates",
       "retirement_approval": null,
       "source": "routes/user_management.py:22",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8299,23 +8375,24 @@
       "contract_id": "route-decorator-ec5d3d356f8e",
       "declared_path": "/api/admin/user_templates/<int:template_id>",
       "endpoint": "delete_template",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/user_templates/<int:template_id>",
       "retirement_approval": null,
       "source": "routes/user_management.py:63",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8323,23 +8400,24 @@
       "contract_id": "route-decorator-597f3eeb559d",
       "declared_path": "/api/admin/user_templates/<int:template_id>",
       "endpoint": "update_template",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "PUT"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/user_templates/<int:template_id>",
       "retirement_approval": null,
       "source": "routes/user_management.py:79",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8395,23 +8473,24 @@
       "contract_id": "route-decorator-48d194c11adf",
       "declared_path": "/api/admin/users/<string:user_id>/expiration",
       "endpoint": "set_user_expiration",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/admin/users/<string:user_id>/expiration",
       "retirement_approval": null,
       "source": "routes/user_management.py:246",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8807,22 +8886,23 @@
       "contract_id": "route-decorator-67cf14e3384c",
       "declared_path": "/auto_tagging/rules",
       "endpoint": "get_tagging_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/auto_tagging/rules",
       "retirement_approval": null,
       "source": "routes/media.py:741",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/auto-tagging"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
@@ -8830,22 +8910,23 @@
       "contract_id": "route-decorator-00e6ac43f690",
       "declared_path": "/auto_tagging/rules",
       "endpoint": "save_tagging_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/auto_tagging/rules",
       "retirement_approval": null,
       "source": "routes/media.py:747",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/auto-tagging"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
@@ -9161,22 +9242,23 @@
       "contract_id": "route-decorator-bfb6b7f20b24",
       "declared_path": "/settings",
       "endpoint": "api_get_collection_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/collections/settings",
       "retirement_approval": null,
       "source": "routes/tmdb_collections.py:314",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9184,22 +9266,23 @@
       "contract_id": "route-decorator-18aff8ca3470",
       "declared_path": "/settings",
       "endpoint": "api_save_collection_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/collections/settings",
       "retirement_approval": null,
       "source": "routes/tmdb_collections.py:339",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9207,22 +9290,23 @@
       "contract_id": "route-decorator-19d3d6a7f7b6",
       "declared_path": "/status",
       "endpoint": "api_get_collections_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/collections/status",
       "retirement_approval": null,
       "source": "routes/tmdb_collections.py:250",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9280,22 +9364,23 @@
       "contract_id": "route-decorator-902cc7b9af8d",
       "declared_path": "",
       "endpoint": "get_cover_generator_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/config/cover_generator",
       "retirement_approval": null,
       "source": "routes/cover_generator_config.py:62",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9303,22 +9388,23 @@
       "contract_id": "route-decorator-eaf1be31ff35",
       "declared_path": "",
       "endpoint": "save_cover_generator_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/config/cover_generator",
       "retirement_approval": null,
       "source": "routes/cover_generator_config.py:86",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9349,22 +9435,23 @@
       "contract_id": "route-decorator-552acd2ff368",
       "declared_path": "/preview",
       "endpoint": "api_generate_cover_preview",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/config/cover_generator/preview",
       "retirement_approval": null,
       "source": "routes/cover_generator_config.py:134",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9422,23 +9509,24 @@
       "contract_id": "route-decorator-1d2fb89d3de4",
       "declared_path": "",
       "endpoint": "api_get_all_custom_collections",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:130",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9446,23 +9534,24 @@
       "contract_id": "route-decorator-a481445f2778",
       "declared_path": "",
       "endpoint": "api_create_custom_collection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:191",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9494,23 +9583,24 @@
       "contract_id": "route-decorator-1a6c16938118",
       "declared_path": "/<int:collection_id>",
       "endpoint": "api_update_custom_collection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "PUT"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/<int:collection_id>",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:221",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9542,23 +9632,24 @@
       "contract_id": "route-decorator-a2f28d744750",
       "declared_path": "/<int:collection_id>/status",
       "endpoint": "api_get_custom_collection_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/<int:collection_id>/status",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:331",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9566,23 +9657,24 @@
       "contract_id": "route-decorator-f8bde5a17164",
       "declared_path": "/config/country_mapping",
       "endpoint": "api_get_country_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/country_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:910",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9590,23 +9682,24 @@
       "contract_id": "route-decorator-500cfb4eee9f",
       "declared_path": "/config/country_mapping",
       "endpoint": "api_save_country_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/country_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:917",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9614,23 +9707,24 @@
       "contract_id": "route-decorator-18fb68722956",
       "declared_path": "/config/country_mapping/defaults",
       "endpoint": "api_get_country_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/country_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:928",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9662,23 +9756,24 @@
       "contract_id": "route-decorator-592926ba3d22",
       "declared_path": "/config/emby_users",
       "endpoint": "api_get_emby_users",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/emby_users",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:98",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9686,23 +9781,24 @@
       "contract_id": "route-decorator-2e4a7190daed",
       "declared_path": "/config/junk_file_patterns",
       "endpoint": "api_get_junk_file_patterns",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/junk_file_patterns",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:785",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9710,23 +9806,24 @@
       "contract_id": "route-decorator-9ef62d442440",
       "declared_path": "/config/junk_file_patterns",
       "endpoint": "api_save_junk_file_patterns",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/junk_file_patterns",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:792",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9734,23 +9831,24 @@
       "contract_id": "route-decorator-310e8b41a735",
       "declared_path": "/config/junk_file_patterns/defaults",
       "endpoint": "api_get_junk_file_pattern_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/junk_file_patterns/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:814",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9758,23 +9856,24 @@
       "contract_id": "route-decorator-f1a9f5f9ccde",
       "declared_path": "/config/keyword_mapping",
       "endpoint": "api_get_keyword_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/keyword_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:742",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9782,23 +9881,24 @@
       "contract_id": "route-decorator-1534e82b9de8",
       "declared_path": "/config/keyword_mapping",
       "endpoint": "api_save_keyword_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/keyword_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:748",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9806,23 +9906,24 @@
       "contract_id": "route-decorator-c1e563ce90e7",
       "declared_path": "/config/keyword_mapping/defaults",
       "endpoint": "api_get_keyword_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/keyword_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:757",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9830,23 +9931,24 @@
       "contract_id": "route-decorator-0fddd790694f",
       "declared_path": "/config/keywords",
       "endpoint": "api_get_keywords_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/keywords",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:820",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9854,23 +9956,24 @@
       "contract_id": "route-decorator-e25030160b99",
       "declared_path": "/config/language_mapping",
       "endpoint": "api_get_language_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/language_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:958",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9878,23 +9981,24 @@
       "contract_id": "route-decorator-c3fc803072de",
       "declared_path": "/config/language_mapping",
       "endpoint": "api_save_language_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/language_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:965",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9902,23 +10006,24 @@
       "contract_id": "route-decorator-fc28d9ae8912",
       "declared_path": "/config/language_mapping/defaults",
       "endpoint": "api_get_language_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/language_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:974",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9926,23 +10031,24 @@
       "contract_id": "route-decorator-b28195774a18",
       "declared_path": "/config/languages",
       "endpoint": "api_get_languages_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/languages",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:980",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9950,23 +10056,24 @@
       "contract_id": "route-decorator-5a12229392fb",
       "declared_path": "/config/movie_genres",
       "endpoint": "api_get_movie_genres_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/movie_genres",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:712",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9974,23 +10081,24 @@
       "contract_id": "route-decorator-0b2e60b7cf53",
       "declared_path": "/config/rating_mapping",
       "endpoint": "api_get_rating_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1045",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -9998,23 +10106,24 @@
       "contract_id": "route-decorator-f95ebd16c86e",
       "declared_path": "/config/rating_mapping",
       "endpoint": "api_save_rating_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1054",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10022,23 +10131,24 @@
       "contract_id": "route-decorator-9cec6524783e",
       "declared_path": "/config/rating_mapping/defaults",
       "endpoint": "api_get_rating_mapping_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1066",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10046,23 +10156,24 @@
       "contract_id": "route-decorator-b264a716d4c1",
       "declared_path": "/config/rating_priority",
       "endpoint": "api_get_rating_priority",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_priority",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1079",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10070,23 +10181,24 @@
       "contract_id": "route-decorator-aac9d32d818f",
       "declared_path": "/config/rating_priority",
       "endpoint": "api_save_rating_priority",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_priority",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1088",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10094,23 +10206,24 @@
       "contract_id": "route-decorator-c415eb128d79",
       "declared_path": "/config/rating_priority/defaults",
       "endpoint": "api_get_rating_priority_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/rating_priority/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1100",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10118,23 +10231,24 @@
       "contract_id": "route-decorator-f0efd2c3332e",
       "declared_path": "/config/release_group_mapping",
       "endpoint": "api_get_release_group_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/release_group_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:763",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10142,23 +10256,24 @@
       "contract_id": "route-decorator-26097f1aabc8",
       "declared_path": "/config/release_group_mapping",
       "endpoint": "api_save_release_group_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/release_group_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:769",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10166,23 +10281,24 @@
       "contract_id": "route-decorator-f86273633173",
       "declared_path": "/config/release_group_mapping/defaults",
       "endpoint": "api_get_release_group_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/release_group_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:779",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10190,23 +10306,24 @@
       "contract_id": "route-decorator-81b9921a78d0",
       "declared_path": "/config/studio_mapping",
       "endpoint": "api_get_studio_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/studio_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:840",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10214,23 +10331,24 @@
       "contract_id": "route-decorator-df321f2ede4d",
       "declared_path": "/config/studio_mapping",
       "endpoint": "api_save_studio_mapping",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/studio_mapping",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:847",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10238,23 +10356,24 @@
       "contract_id": "route-decorator-d9912c7d8b4b",
       "declared_path": "/config/studio_mapping/defaults",
       "endpoint": "api_get_studio_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/studio_mapping/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:856",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10262,23 +10381,24 @@
       "contract_id": "route-decorator-a64fa00ce983",
       "declared_path": "/config/studios",
       "endpoint": "api_get_studios_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/studios",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:862",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10286,23 +10406,24 @@
       "contract_id": "route-decorator-e4297c1183a2",
       "declared_path": "/config/tags",
       "endpoint": "api_get_tags_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/tags",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:522",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10310,23 +10431,24 @@
       "contract_id": "route-decorator-127c059bd88e",
       "declared_path": "/config/tmdb_countries",
       "endpoint": "api_get_tmdb_countries",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/tmdb_countries",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:934",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10430,23 +10552,24 @@
       "contract_id": "route-decorator-ee78e681de8d",
       "declared_path": "/config/tv_genres",
       "endpoint": "api_get_tv_genres_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/tv_genres",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:726",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10454,23 +10577,24 @@
       "contract_id": "route-decorator-295374b76607",
       "declared_path": "/config/unified_ratings",
       "endpoint": "api_get_unified_ratings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/unified_ratings",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1013",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10478,23 +10602,24 @@
       "contract_id": "route-decorator-33289e87a3f7",
       "declared_path": "/config/unified_ratings",
       "endpoint": "api_save_unified_ratings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/unified_ratings",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1021",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10502,23 +10627,24 @@
       "contract_id": "route-decorator-81de9ef677a3",
       "declared_path": "/config/unified_ratings/defaults",
       "endpoint": "api_get_unified_ratings_defaults",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/unified_ratings/defaults",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1030",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10526,23 +10652,24 @@
       "contract_id": "route-decorator-b96d2058dc76",
       "declared_path": "/config/unified_ratings_options",
       "endpoint": "api_get_unified_ratings_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/config/unified_ratings_options",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:1111",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10550,23 +10677,24 @@
       "contract_id": "route-decorator-408c3c5b8c25",
       "declared_path": "/update_order",
       "endpoint": "api_update_custom_collections_order",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P8-LOCAL native Collection/Cover route precedes the compatibility mount; eleven provider/effect routes remain legacy until P8-EFFECTS.",
       "path": "/api/custom_collections/update_order",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:257",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "collection/local"
     },
     {
       "application": "api",
@@ -10738,22 +10866,23 @@
       "contract_id": "route-decorator-e03283bbbe47",
       "declared_path": "/database/stats/subscription",
       "endpoint": "api_get_stats_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/database/stats/subscription",
       "retirement_approval": null,
       "source": "routes/database_admin.py:77",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "operations/review-stats"
     },
     {
       "application": "api",
@@ -10809,23 +10938,24 @@
       "contract_id": "route-decorator-9cde462710b4",
       "declared_path": "/config/keywords",
       "endpoint": "api_get_discover_keywords",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/discover/config/keywords",
       "retirement_approval": null,
       "source": "routes/discover.py:688",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -10833,23 +10963,24 @@
       "contract_id": "route-decorator-2aa199d4b264",
       "declared_path": "/config/languages",
       "endpoint": "api_get_discover_languages",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/discover/config/languages",
       "retirement_approval": null,
       "source": "routes/discover.py:661",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -10857,23 +10988,24 @@
       "contract_id": "route-decorator-ae9ab4a2bf41",
       "declared_path": "/config/studios",
       "endpoint": "api_get_discover_studios",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/discover/config/studios",
       "retirement_approval": null,
       "source": "routes/discover.py:705",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -10881,23 +11013,24 @@
       "contract_id": "route-decorator-6d5f81dc448e",
       "declared_path": "/daily_recommendation",
       "endpoint": "get_recommendation_pool",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/discover/daily_recommendation",
       "retirement_approval": null,
       "source": "routes/discover.py:746",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -13160,22 +13293,23 @@
       "contract_id": "route-decorator-a3bdf92a0318",
       "declared_path": "/account-info",
       "endpoint": "get_account_info",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/account-info",
       "retirement_approval": null,
       "source": "routes/user_portal.py:266",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13252,22 +13386,23 @@
       "contract_id": "route-decorator-389542edaf3b",
       "declared_path": "/subscription-history",
       "endpoint": "get_subscription_history",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/subscription-history",
       "retirement_approval": null,
       "source": "routes/user_portal.py:289",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13275,22 +13410,23 @@
       "contract_id": "route-decorator-12ed136405a8",
       "declared_path": "/subscription-stats",
       "endpoint": "get_subscription_stats",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/subscription-stats",
       "retirement_approval": null,
       "source": "routes/user_portal.py:359",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13321,22 +13457,23 @@
       "contract_id": "route-decorator-dcc939c21517",
       "declared_path": "/telegram-chat-id",
       "endpoint": "save_telegram_chat_id",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/telegram-chat-id",
       "retirement_approval": null,
       "source": "routes/user_portal.py:311",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13440,23 +13577,24 @@
       "contract_id": "route-decorator-0f6a130f0b7e",
       "declared_path": "/api/register/invite/validate/<string:token>",
       "endpoint": "validate_invite_token",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/register/invite/validate/<string:token>",
       "retirement_approval": null,
       "source": "routes/user_management.py:283",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13742,22 +13880,23 @@
       "contract_id": "route-decorator-f07749bdaf4b",
       "declared_path": "/search_emby_library",
       "endpoint": "api_search_emby_library",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/search_emby_library",
       "retirement_approval": null,
       "source": "routes/media.py:69",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations/review"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
@@ -13765,22 +13904,23 @@
       "contract_id": "route-decorator-d182c6e95042",
       "declared_path": "/search_studios",
       "endpoint": "api_search_studios",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "P8-LOCAL native secondary-domain route preserves local query, permission, settings snapshot, and PostgreSQL 18 contracts; provider effects remain P8-EFFECTS.",
       "path": "/api/search_studios",
       "retirement_approval": null,
       "source": "routes/media.py:448",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/custom-collection"
+      "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",

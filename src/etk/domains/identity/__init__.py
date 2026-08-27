@@ -1,5 +1,6 @@
 """Identity, setup authorization, and compatible session contracts."""
 
+from .collection_projection import SqlAlchemyCollectionUserProjection
 from .compatibility import LegacyEmbyIdentityGateway, RuntimeConfigurationWriter
 from .post_authorization import PersistentPostAuthorizationSubmitter
 from .repository import SqlAlchemyIdentityRepository
@@ -12,6 +13,7 @@ __all__ = [
     "PersistentPostAuthorizationSubmitter",
     "RecoveryTokenStore",
     "RuntimeConfigurationWriter",
+    "SqlAlchemyCollectionUserProjection",
     "SqlAlchemyIdentityRepository",
     "router",
 ]

@@ -245,15 +245,16 @@
       "create_sql": "CREATE TABLE IF NOT EXISTS collections_info ( tmdb_collection_id TEXT PRIMARY KEY, -- 主键改为 TMDb ID emby_collection_id TEXT UNIQUE, -- Emby ID 改为唯一约束，允许为空 name TEXT, overview TEXT, last_checked_at TIMESTAMP WITH TIME ZONE, poster_path TEXT, backdrop_path TEXT, metadata_schema_version INTEGER NOT NULL DEFAULT 0, is_active BOOLEAN NOT NULL DEFAULT FALSE, item_type TEXT DEFAULT 'Movie' NOT NULL, all_tmdb_ids_json JSONB );",
       "indexes_static": [],
       "name": "collections_info",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.repository.SqlAlchemyCollectionRepository",
+      "notes": "P8 Collection owner; P5 and dashboard consumers use explicit read projections.",
       "post_create_alters": [],
       "source": "database/connection.py:222",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "postgres-schema-contract",
+      "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
       "validation_owner": "collection"
     },
     {
@@ -317,15 +318,16 @@
       "create_sql": "CREATE TABLE IF NOT EXISTS custom_collections ( id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, type TEXT NOT NULL, definition_json JSONB NOT NULL, status TEXT DEFAULT 'active', emby_collection_id TEXT, allowed_user_ids JSONB, last_synced_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), item_type TEXT, in_library_count INTEGER DEFAULT 0, generated_media_info_json JSONB, sort_order INTEGER NOT NULL DEFAULT 0 )",
       "indexes_static": [],
       "name": "custom_collections",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.repository.SqlAlchemyCollectionRepository",
+      "notes": "P8 custom collection owner with PostgreSQL 18 CRUD, ordering, visibility, rollback, and concurrency gates.",
       "post_create_alters": [],
       "source": "database/connection.py:239",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "postgres-schema-contract",
+      "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
       "validation_owner": "collection"
     },
     {
@@ -359,17 +361,18 @@
         }
       ],
       "name": "emby_favorite_items",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.user_activity.SqlAlchemyUserActivityRepository",
+      "notes": "P8 exact Emby favorite projection owner with durable event receipts and atomic effect intents.",
       "post_create_alters": [],
       "source": "database/connection.py:208",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity",
         "users"
       ],
       "target_stage": "P3/P8",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "identity/users"
+      "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
+      "validation_owner": "identity/user-activity"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -522,16 +525,17 @@
       "create_sql": "CREATE TABLE IF NOT EXISTS emby_users ( id TEXT PRIMARY KEY, name TEXT NOT NULL, is_administrator BOOLEAN, last_seen_at TIMESTAMP WITH TIME ZONE, profile_image_tag TEXT, policy_json JSONB, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
       "indexes_static": [],
       "name": "emby_users",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity",
+      "notes": "P3 identity snapshot owner extended by P8 user lifecycle and activity projections within the same bounded context.",
       "post_create_alters": [],
       "source": "database/connection.py:181",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity",
         "users"
       ],
       "target_stage": "P3/P8",
-      "validation_method": "postgres-schema-contract",
+      "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
       "validation_owner": "identity/users"
     },
     {
@@ -567,16 +571,17 @@
       "create_sql": "CREATE TABLE IF NOT EXISTS emby_users_extended ( emby_user_id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'active', -- active(激活), expired(过期), disabled(禁用) registration_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(), expiration_date TIMESTAMP WITH TIME ZONE, -- 核心字段：用户的到期时间 notes TEXT, created_by TEXT DEFAULT 'self-registered', -- 'self-registered' 或 'admin' template_id INTEGER, FOREIGN KEY(emby_user_id) REFERENCES emby_users(id) ON DELETE CASCADE, FOREIGN KEY(template_id) REFERENCES user_templates(id) ON DELETE SET NULL )",
       "indexes_static": [],
       "name": "emby_users_extended",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_repository.SqlAlchemyUsersRepository",
+      "notes": "P8 user profile, template, status, expiration, and Telegram identity metadata owner.",
       "post_create_alters": [],
       "source": "database/connection.py:596",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity",
         "users"
       ],
       "target_stage": "P3/P8",
-      "validation_method": "postgres-schema-contract",
+      "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
       "validation_owner": "identity/users"
     },
     {
@@ -657,16 +662,17 @@
       "create_sql": "CREATE TABLE IF NOT EXISTS invitations ( id SERIAL PRIMARY KEY, -- 核心字段：独一无二的邀请码 token TEXT NOT NULL UNIQUE, -- 关联到使用的模板 template_id INTEGER NOT NULL, -- 本次邀请的有效期，可以覆盖模板的默认值 expiration_days INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'active', -- 状态: active(可用), used(已用), expired(过期) -- 邀请链接本身的有效期 expires_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- 记录被哪个新用户使用了 used_by_user_id TEXT, FOREIGN KEY(template_id) REFERENCES user_templates(id) ON DELETE CASCADE )",
       "indexes_static": [],
       "name": "invitations",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_repository.SqlAlchemyUsersRepository",
+      "notes": "P8 invitation local-state owner; external registration saga remains P8-EFFECTS.",
       "post_create_alters": [],
       "source": "database/connection.py:576",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity",
         "users"
       ],
       "target_stage": "P3/P8",
-      "validation_method": "postgres-schema-contract",
+      "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
       "validation_owner": "identity/users"
     },
     {
@@ -3067,17 +3073,18 @@
       "create_sql": "CREATE TABLE IF NOT EXISTS user_media_data ( user_id TEXT NOT NULL, item_id TEXT NOT NULL, is_favorite BOOLEAN DEFAULT FALSE, played BOOLEAN DEFAULT FALSE, playback_position_ticks BIGINT DEFAULT 0, play_count INTEGER DEFAULT 0, last_played_date TIMESTAMP WITH TIME ZONE, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), PRIMARY KEY (user_id, item_id) )",
       "indexes_static": [],
       "name": "user_media_data",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.user_activity.SqlAlchemyUserActivityRepository",
+      "notes": "P8 aggregate playback and favorite projection owner with partial-patch and concurrency gates.",
       "post_create_alters": [],
       "source": "database/connection.py:194",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity",
         "users"
       ],
       "target_stage": "P3/P8",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "identity/users"
+      "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
+      "validation_owner": "identity/user-activity"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -3119,16 +3126,17 @@
       "create_sql": "CREATE TABLE IF NOT EXISTS user_templates ( id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT, -- 核心字段：存储一个完整的 Emby 用户策略 JSON 对象 emby_policy_json JSONB NOT NULL, -- 模板默认的有效期（天数），0 表示永久 default_expiration_days INTEGER DEFAULT 30, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), allow_unrestricted_subscriptions BOOLEAN DEFAULT FALSE NOT NULL, personal_play_account_only BOOLEAN DEFAULT FALSE NOT NULL, max_concurrent_streams INTEGER DEFAULT 0 NOT NULL )",
       "indexes_static": [],
       "name": "user_templates",
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_repository.SqlAlchemyUsersRepository",
+      "notes": "P8 user template JSONB and lifecycle owner.",
       "post_create_alters": [],
       "source": "database/connection.py:559",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "identity",
         "users"
       ],
       "target_stage": "P3/P8",
-      "validation_method": "postgres-schema-contract",
+      "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
       "validation_owner": "identity/users"
     },
     {

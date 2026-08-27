@@ -1,0 +1,492 @@
+{
+  "schema_version": 1,
+  "kind": "p8-collection-cover-local-http-contract",
+  "provenance": {
+    "captured_live": false,
+    "local_legacy_source_verified": true,
+    "sanitized": true,
+    "external_validation": "pending",
+    "sources": [
+      "routes/tmdb_collections.py",
+      "routes/custom_collections.py",
+      "routes/cover_generator_config.py"
+    ]
+  },
+  "boundaries": [
+    "P8-LOCAL owns only local HTTP, session, repository, settings, projection, and deterministic rendering contracts",
+    "eleven TMDb, Emby, deletion, correction, and library routes remain on the compatibility host until P8-EFFECTS",
+    "422 is not a legacy runtime outcome and is excluded from the frozen response statuses"
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/collections/status",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/collections/settings",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/collections/settings",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        400,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/emby_users",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections",
+      "request_body": true,
+      "response_statuses": [
+        201,
+        400,
+        403,
+        409,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/custom_collections/{collection_id}",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        400,
+        403,
+        404,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections/update_order",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        400,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/{collection_id}/status",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403,
+        404,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/tags",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/movie_genres",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/tv_genres",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/keyword_mapping",
+      "request_body": false,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections/config/keyword_mapping",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/keyword_mapping/defaults",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/release_group_mapping",
+      "request_body": false,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections/config/release_group_mapping",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        400,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/release_group_mapping/defaults",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/junk_file_patterns",
+      "request_body": false,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections/config/junk_file_patterns",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        400,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/junk_file_patterns/defaults",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/keywords",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        401,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/studio_mapping",
+      "request_body": false,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections/config/studio_mapping",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/studio_mapping/defaults",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/studios",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        401,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/country_mapping",
+      "request_body": false,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections/config/country_mapping",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/country_mapping/defaults",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/tmdb_countries",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        401,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/language_mapping",
+      "request_body": false,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections/config/language_mapping",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/language_mapping/defaults",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/languages",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        401,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/unified_ratings",
+      "request_body": false,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections/config/unified_ratings",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/unified_ratings/defaults",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/rating_mapping",
+      "request_body": false,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections/config/rating_mapping",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        400,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/rating_mapping/defaults",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/rating_priority",
+      "request_body": false,
+      "response_statuses": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/custom_collections/config/rating_priority",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        400,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/rating_priority/defaults",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/custom_collections/config/unified_ratings_options",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/config/cover_generator",
+      "request_body": false,
+      "response_statuses": [
+        200,
+        403,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/config/cover_generator",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        403,
+        415,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/config/cover_generator/preview",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        400,
+        403,
+        415,
+        500
+      ]
+    }
+  ]
+}

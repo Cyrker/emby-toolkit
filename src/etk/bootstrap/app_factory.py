@@ -29,14 +29,25 @@ from etk.compatibility.playback import (
 from etk.compatibility.response_contract import fastapi_json_response
 from etk.compatibility.session_codec import LazyLegacySessionCodec
 from etk.compatibility.system_defaults import LegacyStandaloneSettingsDefaults
+from etk.domains.collection import (
+    CollectionService,
+    P8LocalCollectionGateway,
+    PillowCoverPreviewRenderer,
+    SqlAlchemyCollectionRepository,
+)
+from etk.domains.collection.router import router as collection_router
 from etk.domains.identity import (
     IdentityService,
     LegacyEmbyIdentityGateway,
     PersistentPostAuthorizationSubmitter,
     RuntimeConfigurationWriter,
+    SqlAlchemyCollectionUserProjection,
     SqlAlchemyIdentityRepository,
 )
 from etk.domains.identity.router import router as identity_router
+from etk.domains.identity.users import UsersService
+from etk.domains.identity.users_repository import SqlAlchemyUsersRepository
+from etk.domains.identity.users_router import router as users_router
 from etk.domains.ingestion import PostgresIngestionMonitorLedger
 from etk.domains.media.actor_subscription_projection import SqlAlchemyActorSubscriptionProjection
 from etk.domains.media.bridge_client import HttpxEmbyBridgeClient, HttpxPluginUpdateGateway
@@ -44,6 +55,7 @@ from etk.domains.media.cast_editor import MediaCastEditorService
 from etk.domains.media.cast_editor_compatibility import LegacyMediaCastEditorGateway
 from etk.domains.media.cast_editor_router import router as media_cast_editor_router
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
+from etk.domains.media.collection_projection import SqlAlchemyCollectionMediaProjection
 from etk.domains.media.compatibility import (
     LegacyFutureDomainEventGateway,
     LegacyMediaImageGateway,
@@ -51,6 +63,9 @@ from etk.domains.media.compatibility import (
     LegacyMediaRuntimeGateway,
     LegacyP5MediaEventGateway,
 )
+from etk.domains.media.discover import DiscoverService
+from etk.domains.media.discover_compatibility import LegacyDiscoverDefaults
+from etk.domains.media.discover_router import router as discover_router
 from etk.domains.media.editing import MediaEditingService
 from etk.domains.media.editing_effects import PersistentMediaInfoCommandGateway
 from etk.domains.media.editing_router import router as media_editing_router
@@ -65,8 +80,11 @@ from etk.domains.media.image_proxy_router import router as media_image_proxy_rou
 from etk.domains.media.repository import SqlAlchemyMediaRepository
 from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
 from etk.domains.media.router import router as media_router
+from etk.domains.media.secondary import SecondaryMediaService
+from etk.domains.media.secondary_router import router as secondary_media_router
 from etk.domains.media.service import MediaService
 from etk.domains.media.subscription_projection import SqlAlchemySubscriptionMediaProjection
+from etk.domains.media.user_projection import SqlAlchemyUserMediaProjection
 from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
 from etk.domains.operations.database import DatabaseReadService, SqlAlchemyDatabaseReadRepository
 from etk.domains.operations.database_router import router as database_read_router
@@ -183,6 +201,7 @@ from etk.domains.subscription.resubscribe import (
     SqlAlchemyResubscribeRepository,
 )
 from etk.domains.subscription.resubscribe_router import router as resubscribe_router
+from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
 from etk.domains.subscription.watchlist import WatchlistService
 from etk.domains.subscription.watchlist_router import router as watchlist_router
 from etk.domains.system.compatibility import LegacyConfigurationGateway
@@ -233,6 +252,8 @@ def create_app(
         _register_log_providers(app_container, data_dir)
         _register_database_read_providers(app_container)
         _register_system_providers(app_container, runtime)
+        _register_collection_providers(app_container)
+        _register_users_providers(app_container)
         _register_p115_providers(app_container)
 
     @asynccontextmanager
@@ -354,7 +375,11 @@ def create_app(
     app.include_router(configuration_router)
     app.include_router(standalone_settings_router)
     app.include_router(system_integration_router)
+    app.include_router(collection_router)
+    app.include_router(users_router)
     app.include_router(media_router)
+    app.include_router(secondary_media_router)
+    app.include_router(discover_router)
     app.include_router(media_editing_router)
     app.include_router(media_image_editing_router)
     app.include_router(media_cast_editor_router)
@@ -487,6 +512,9 @@ def _register_database_read_providers(container: AppContainer) -> None:
         "operations.database.read",
         lambda current: DatabaseReadService(
             current.repository("operations.database.read"),
+            quota=current.repository("subscription.runtime"),
+            settings=lambda: current.settings,
+            runtime_status=lambda: current.use_case("runtime-status").read_status(),
         ),
     )
 
@@ -529,6 +557,81 @@ def _register_system_providers(
             settings=lambda: current.settings,
             repository=current.repository("app-settings"),
             gateway=current.client("system-integrations"),
+        ),
+    )
+
+
+def _register_collection_providers(container: AppContainer) -> None:
+    container.register_repository(
+        "collection",
+        lambda current: SqlAlchemyCollectionRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_client(
+        "collection",
+        lambda current: P8LocalCollectionGateway(
+            renderer=PillowCoverPreviewRenderer(Path(__file__).resolve().parents[3] / "fonts" / "en_font.ttf"),
+        ),
+    )
+    container.register_repository(
+        "collection-user-projection",
+        lambda current: SqlAlchemyCollectionUserProjection(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_repository(
+        "collection-media-projection",
+        lambda current: SqlAlchemyCollectionMediaProjection(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_use_case(
+        "collection",
+        lambda current: CollectionService(
+            repository=current.repository("collection"),
+            settings=current.repository("app-settings"),
+            gateway=current.client("collection"),
+            user_projection=current.repository("collection-user-projection"),
+            media_projection=current.repository("collection-media-projection"),
+        ),
+    )
+
+
+def _register_users_providers(container: AppContainer) -> None:
+    container.register_repository(
+        "users",
+        lambda current: SqlAlchemyUsersRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_repository(
+        "users-media-projection",
+        lambda current: SqlAlchemyUserMediaProjection(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_use_case(
+        "users",
+        lambda current: UsersService(
+            repository=current.repository("users"),
+            media=current.repository("users-media-projection"),
+            settings=lambda: current.settings,
+        ),
+    )
+    container.register_use_case(
+        "media.secondary",
+        lambda current: SecondaryMediaService(
+            media=current.repository("users-media-projection"),
+            settings=current.repository("app-settings"),
+        ),
+    )
+    container.register_client("media.discover-defaults", lambda _: LegacyDiscoverDefaults())
+    container.register_use_case(
+        "media.discover",
+        lambda current: DiscoverService(
+            settings=current.repository("app-settings"),
+            defaults=current.client("media.discover-defaults"),
         ),
     )
 
@@ -969,6 +1072,10 @@ def _register_p115_providers(container: AppContainer) -> None:
 
 
 def _register_subscription_providers(container: AppContainer) -> None:
+    container.register_repository(
+        "subscription.runtime",
+        lambda current: PostgresSubscriptionRuntimeRepository(current.database.unit_of_work),
+    )
     container.register_repository(
         "subscription.operations",
         lambda current: PostgresSubscriptionOperationRepository(current.database.unit_of_work),

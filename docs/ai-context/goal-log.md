@@ -1222,6 +1222,74 @@ Safety boundary:
 - No real external system, production database, old `/config`, credential, external write, push,
   deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+## P8
+
+### P8-LOCAL
+
+Stage / Batch: P8 / P8-LOCAL
+
+HEAD / Commit:
+
+- Pre-batch HEAD: `b872ab5f` (`docs(p7): close subscription migration`).
+- P8-LOCAL checkpoint: the commit containing this entry; no amend, push, deploy, or release.
+
+Implemented:
+
+- Added 47 local Collection/Cover routes with `collections_info` / `custom_collections` ownership,
+  cross-domain projections, atomic settings merge, deadlock-safe ordering, and nine PostgreSQL 18
+  repository invariants. Eleven Collection provider/effect routes remain on compatibility for the next
+  batch.
+- Added 12 local Users routes for templates, invitations, expiration, Portal account/history/chat/stats;
+  fixed invitation cascade and non-FK user activity cleanup with JSONB, rollback, and projection gates.
+- Added four local Discover routes, four local media-search/auto-tag configuration routes, and three
+  local review/subscription-stat routes. Subscription stats use the P7 read-only quota snapshot and do
+  not mutate `subscription_quota_state`; review storage failures now surface as `500`.
+- Added native user-activity projection handling for nine activity events plus durable policy intents.
+  Exact favorite, aggregate playback state, confirmed receipt, and downstream Outbox intents share one
+  UoW; duplicate/conflicting EventId, concurrent partial patch, and injected rollback are covered. The
+  default future-event DI remains legacy until P8-EFFECTS supplies external resolvers/executors.
+- Added a deterministic in-memory renderer for `single_1`, `single_2`, `multi_1` gradient/blur, badge,
+  missing-poster and cache identity/result, with immutable font/source digests and strict RGBA fixtures.
+- Updated 70 Route bindings/decorators, eight Table contracts and four settings contracts through the
+  ownership override, then mechanically regenerated clean manifests. Updated the P3 subscription-stat
+  exclusion note to its P8 read-only owner.
+
+Targeted gate:
+
+- Scoped Ruff -> passed; Ruff format -> `51 files already formatted`; scoped Pyright ->
+  `0 errors, 0 warnings`; compileall and `git diff --check` -> passed.
+- P8 application/architecture/unit plus the updated P3 database contract -> `44 passed`, with one
+  existing Starlette WSGI deprecation warning. This includes strict RGBA equality for nine cover tests.
+- Digest-pinned disposable PostgreSQL 18 P8 suite with `ETK_TEST_DATABASE_URL` unset -> `21 passed`;
+  no PostgreSQL skip is counted as evidence.
+- Manifest currentness -> clean.
+- Detailed output: `/tmp/etk-refactor-artifacts/p8-local-20260827/`.
+
+Stage full gate:
+
+- Not run by batch cadence. Full repository Ruff/Pyright/pytest, cross-stage PostgreSQL 18,
+  Redis/Celery, Manifest/OpenAPI, secret scans, frontend build, focused transaction review and P8
+  integration review remain pending until P8 stage close.
+
+Pending:
+
+- `P8-EFFECTS`: resolve the invitation-registration and Telegram-token P0 findings; add external
+  Collection/Identity/Discover/Emby/Telegram/cover Ports and durable operations; migrate system update,
+  database maintenance, review reprocess, 14 task envelopes, Worker/Coordinator wiring and Redis/Celery
+  process paths using Fake/Stub only.
+- After P8-EFFECTS, run the single P8 stage-close full gate and reviews before changing P8 to `DONE`.
+
+Blocker: none for P8-LOCAL. The three media helper permission conflict remains an explicit P8-EFFECTS
+contract decision; no service credential fallback was introduced in this batch.
+
+Next: create the `P8-LOCAL` checkpoint, then execute `P8-EFFECTS`, starting with the registration P0
+and Telegram token redaction P0 before lower-severity adapters or task envelopes.
+
+Safety boundary:
+
+- No real Emby, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old `/config`,
+  external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -1241,4 +1309,5 @@ Read first:
 
 Next:
 
-- Continue with `P8-LOCAL`. Keep all Live Acceptance items pending.
+- Continue with `P8-EFFECTS`, starting with the registration and Telegram-token P0 findings. Keep all
+  Live Acceptance items pending.

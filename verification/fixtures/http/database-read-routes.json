@@ -17,12 +17,12 @@
   "scope_reconciliation": {
     "requested_endpoint_count": 9,
     "actual_source_endpoint_count": 7,
-    "resolution": "implemented-only-source-backed-routes",
+    "resolution": "p3-seven-routes-plus-p8-read-only-subscription-owner",
     "excluded_routes": [
       {
         "method": "GET",
         "path": "/api/database/stats/subscription",
-        "reason": "excluded-by-task: legacy GET may write subscription_quota_state during daily reset or cap adjustment, and its SQL/result aliases do not match the route formatter"
+        "reason": "migrated-in-p8: native GET uses the P7 read-only quota snapshot and cannot update subscription_quota_state"
       }
     ]
   },

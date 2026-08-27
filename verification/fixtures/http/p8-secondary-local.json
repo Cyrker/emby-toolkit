@@ -1,0 +1,64 @@
+{
+  "provenance": {
+    "captured_live": false,
+    "external_providers": "fake-or-postgresql-only",
+    "stage": "P8-LOCAL"
+  },
+  "routes": [
+    {
+      "method": "POST",
+      "owner": "etk.domains.operations.database_router",
+      "path": "/api/actions/clear_review_items"
+    },
+    {
+      "method": "POST",
+      "owner": "etk.domains.operations.database_router",
+      "path": "/api/actions/mark_item_processed/{item_id}"
+    },
+    {
+      "method": "GET",
+      "owner": "etk.domains.media.secondary_router",
+      "path": "/api/auto_tagging/rules"
+    },
+    {
+      "method": "POST",
+      "owner": "etk.domains.media.secondary_router",
+      "path": "/api/auto_tagging/rules"
+    },
+    {
+      "method": "GET",
+      "owner": "etk.domains.operations.database_router",
+      "path": "/api/database/stats/subscription"
+    },
+    {
+      "method": "GET",
+      "owner": "etk.domains.media.discover_router",
+      "path": "/api/discover/config/keywords"
+    },
+    {
+      "method": "GET",
+      "owner": "etk.domains.media.discover_router",
+      "path": "/api/discover/config/languages"
+    },
+    {
+      "method": "GET",
+      "owner": "etk.domains.media.discover_router",
+      "path": "/api/discover/config/studios"
+    },
+    {
+      "method": "GET",
+      "owner": "etk.domains.media.discover_router",
+      "path": "/api/discover/daily_recommendation"
+    },
+    {
+      "method": "GET",
+      "owner": "etk.domains.media.secondary_router",
+      "path": "/api/search_emby_library"
+    },
+    {
+      "method": "GET",
+      "owner": "etk.domains.media.secondary_router",
+      "path": "/api/search_studios"
+    }
+  ]
+}

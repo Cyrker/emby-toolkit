@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "kind": "p8-users-local-http-contract",
+  "provenance": {
+    "captured_live": false,
+    "local_legacy_source_verified": true,
+    "sanitized": true,
+    "external_validation": "pending",
+    "sources": [
+      "routes/user_management.py",
+      "routes/user_portal.py"
+    ]
+  },
+  "boundaries": [
+    "P8-LOCAL activates only database-backed users, invitation, and portal profile routes",
+    "Emby, Telegram, avatar, registration, playback reporting, and subscription effects remain on compatibility until P8-EFFECTS",
+    "template deletion follows the authoritative PostgreSQL ON DELETE CASCADE schema"
+  ],
+  "routes": [
+    {"method":"GET","path":"/api/admin/user_templates","request_body":false,"response_statuses":[200,403,500]},
+    {"method":"PUT","path":"/api/admin/user_templates/{template_id}","request_body":true,"response_statuses":[200,400,403,404,409,415,500]},
+    {"method":"DELETE","path":"/api/admin/user_templates/{template_id}","request_body":false,"response_statuses":[200,403,404,500]},
+    {"method":"GET","path":"/api/admin/invitations","request_body":false,"response_statuses":[200,403,500]},
+    {"method":"POST","path":"/api/admin/invitations","request_body":true,"response_statuses":[201,400,403,415,500]},
+    {"method":"DELETE","path":"/api/admin/invitations/{invitation_id}","request_body":false,"response_statuses":[200,403,404,500]},
+    {"method":"POST","path":"/api/admin/users/{user_id}/expiration","request_body":true,"response_statuses":[200,400,403,415,500]},
+    {"method":"GET","path":"/api/register/invite/validate/{token}","request_body":false,"response_statuses":[200,404,410,500]},
+    {"method":"GET","path":"/api/portal/account-info","request_body":false,"response_statuses":[200,401,500]},
+    {"method":"GET","path":"/api/portal/subscription-history","request_body":false,"response_statuses":[200,401,500]},
+    {"method":"POST","path":"/api/portal/telegram-chat-id","request_body":true,"response_statuses":[200,400,401,415,500]},
+    {"method":"GET","path":"/api/portal/subscription-stats","request_body":false,"response_statuses":[200,401]}
+  ]
+}
