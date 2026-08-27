@@ -95,19 +95,11 @@ import { Add as AddIcon, TrashOutline as DeleteIcon, CreateOutline as EditIcon }
 
 // --- API ---
 const api = {
-  getUserTemplates: () => apiClient.raw(apiPath('api_admin_user_templates_1e1e9c1e')),
-  getEmbyUsers: () => apiClient.raw(apiPath('api_admin_users_39683b2a')),
-  createTemplate: (data) => apiClient.raw(apiPath('api_admin_user_templates_1e1e9c1e'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }),
-  deleteTemplate: (templateId) => apiClient.raw(apiPath('api_admin_user_templates_param_e0e58b53', [templateId]), { method: 'DELETE' }),
-  updateTemplate: (id, data) => apiClient.raw(apiPath('api_admin_user_templates_param_e0e58b53', [id]), {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }),
+  getUserTemplates: () => apiClient.get(apiPath('api_admin_user_templates_1e1e9c1e')),
+  getEmbyUsers: () => apiClient.get(apiPath('api_admin_users_39683b2a')),
+  createTemplate: (data) => apiClient.post(apiPath('api_admin_user_templates_1e1e9c1e'), data),
+  deleteTemplate: (templateId) => apiClient.delete(apiPath('api_admin_user_templates_param_e0e58b53', [templateId])),
+  updateTemplate: (id, data) => apiClient.put(apiPath('api_admin_user_templates_param_e0e58b53', [id]), data),
 };
 
 // --- 状态和Hooks ---
@@ -155,10 +147,8 @@ const fetchData = async () => {
       throw new Error('Failed to fetch initial data.');
     }
     
-    const [templatesData, usersData] = await Promise.all([
-      templatesResponse.json(),
-      usersResponse.json(),
-    ]);
+    const templatesData = templatesResponse.data;
+    const usersData = usersResponse.data;
 
     templates.value = templatesData;
     embyUsers.value = usersData;
@@ -206,7 +196,7 @@ const handleOk = (e) => {
           : api.createTemplate(formModel.value);
         
         const response = await apiCall;
-        const data = await response.json();
+        const data = response.data || {};
 
         if (response.ok) {
           message.success(`模板${isEditMode.value ? '更新' : '创建'}成功！`);
@@ -227,7 +217,7 @@ const handleOk = (e) => {
 const handleDelete = async (templateId) => {
   try {
     const response = await api.deleteTemplate(templateId);
-    const data = await response.json();
+    const data = response.data || {};
     if (response.ok) {
       message.success('模板已删除');
       fetchData();

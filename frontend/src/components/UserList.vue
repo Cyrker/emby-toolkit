@@ -112,22 +112,19 @@ import dayjs from 'dayjs';
 
 // --- API ---
 const api = {
-  getUsers: () => apiClient.raw(apiPath('api_admin_users_39683b2a')).then(res => res.json()),
-  setUserStatus: (userId, disable) => apiClient.raw(apiPath('api_admin_users_param_status_8875ce29', [userId]), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ disable }) }),
-  setUserExpiration: (userId, expirationDate) => apiClient.raw(apiPath('api_admin_users_param_expiration_c445874b', [userId]), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expiration_date: expirationDate }) }),
-  deleteUser: (userId) => apiClient.raw(apiPath('api_admin_users_param_5f084c4f', [userId]), { method: 'DELETE' }),
-  getUserTemplates: () => apiClient.raw(apiPath('api_admin_user_templates_1e1e9c1e')).then(res => res.json()),
-  changeUserTemplate: (userId, templateId) => apiClient.raw(apiPath('api_admin_users_param_template_673428fc', [userId]), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ template_id: templateId }) }),
+  getUsers: () => apiClient.get(apiPath('api_admin_users_39683b2a')).then(res => res.data),
+  setUserStatus: (userId, disable) => apiClient.post(apiPath('api_admin_users_param_status_8875ce29', [userId]), { disable }),
+  setUserExpiration: (userId, expirationDate) => apiClient.post(apiPath('api_admin_users_param_expiration_c445874b', [userId]), { expiration_date: expirationDate }),
+  deleteUser: (userId) => apiClient.delete(apiPath('api_admin_users_param_5f084c4f', [userId])),
+  getUserTemplates: () => apiClient.get(apiPath('api_admin_user_templates_1e1e9c1e')).then(res => res.data),
+  changeUserTemplate: (userId, templateId) => apiClient.post(apiPath('api_admin_users_param_template_673428fc', [userId]), { template_id: templateId }),
   // ★★★ 新增批量API (前端封装) ★★★
   bulkDeleteUsers: async (userIds) => {
     const results = [];
     for (const id of userIds) {
       try {
         const response = await api.deleteUser(id);
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          throw new Error(data.message || `删除失败 (${response.status})`);
-        }
+        if (!response.ok) throw new Error(`删除失败 (${response.status})`);
         results.push({ status: 'fulfilled', value: response });
       } catch (reason) {
         results.push({ status: 'rejected', reason });
@@ -138,7 +135,7 @@ const api = {
   bulkChangeUserTemplate: (userIds, templateId) => Promise.allSettled(userIds.map(async (id) => {
     const response = await api.changeUserTemplate(id, templateId);
     if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
+      const data = response.data || {};
       const operation = data?.operation && typeof data.operation === 'object' ? data.operation : {};
       const error = new Error(data.message || `切换模板失败 (${response.status})`);
       error.status = response.status;
@@ -343,7 +340,7 @@ const handleChangeTemplateOk = async () => {
       isSubmittingTemplate.value = true;
       try {
         const response = await api.changeUserTemplate(currentUser.value.Id, templateFormModel.value.template_id);
-        const data = await response.json();
+        const data = response.data || {};
         if (response.ok) {
           message.success('用户模板已成功切换！');
           isTemplateModalVisible.value = false;

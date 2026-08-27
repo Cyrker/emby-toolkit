@@ -86,14 +86,10 @@ import dayjs from 'dayjs';
 
 // --- API ---
 const api = {
-  getInvitations: () => apiClient.raw(apiPath('api_admin_invitations_8d5b117e')).then(res => res.json()),
-  deleteInvitation: (id) => apiClient.raw(apiPath('api_admin_invitations_param_d1798d3f', [id]), { method: 'DELETE' }),
-  getUserTemplates: () => apiClient.raw(apiPath('api_admin_user_templates_1e1e9c1e')).then(res => res.json()),
-  createInvitation: (data) => apiClient.raw(apiPath('api_admin_invitations_8d5b117e'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }).then(res => res.json()),
+  getInvitations: () => apiClient.get(apiPath('api_admin_invitations_8d5b117e')).then(res => res.data),
+  deleteInvitation: (id) => apiClient.delete(apiPath('api_admin_invitations_param_d1798d3f', [id])),
+  getUserTemplates: () => apiClient.get(apiPath('api_admin_user_templates_1e1e9c1e')).then(res => res.data),
+  createInvitation: (data) => apiClient.post(apiPath('api_admin_invitations_8d5b117e'), data).then(res => res.data),
 };
 
 // --- 状态和Hooks ---

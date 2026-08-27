@@ -3440,7 +3440,7 @@ const handleQuickDeploy115 = () => {
     quickDeployEmbyLibraries.value = [];
     let finalEvent = null;
     try {
-      const response = await apiClient.raw(apiPath('api_p115_quick_deploy_stream_1_94ab0686'), {
+      const response = await apiClient.stream(apiPath('api_p115_quick_deploy_stream_1_94ab0686'), {
         method: 'POST',
         headers: { 'Idempotency-Key': getQuickDeployIntent() }
       });
