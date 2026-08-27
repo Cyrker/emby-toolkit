@@ -62,6 +62,7 @@ def p9_runtime(migrated_p9_runtime: DatabaseRuntime) -> Iterator[DatabaseRuntime
             text(
                 """
                 TRUNCATE TABLE
+                    proxy_playback_leases,
                     sharing_credit_ledger,
                     sharing_credit_accounts,
                     sharing_operations,
