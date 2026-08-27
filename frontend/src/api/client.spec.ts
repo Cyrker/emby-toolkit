@@ -49,4 +49,15 @@ describe('API adapter', () => {
     const init = fetchMock.mock.calls[0][1] as RequestInit
     expect(new Headers(init.headers).has('content-type')).toBe(false)
   })
+
+  it('retains status metadata when a successful response is not valid JSON', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{broken', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })))
+    await expect(apiClient.get('/api/status')).rejects.toMatchObject({
+      name: 'ApiError',
+      response: expect.objectContaining({ status: 200 }),
+    })
+  })
 })

@@ -35,6 +35,7 @@ export function useConfig() {
     configError.value = null
     try {
       const result = await configQuery.refetch()
+      if (result.error) throw result.error
       if (result.data !== undefined) {
         configModel.value = result.data
         lastFetchedConfig = cloneConfigSnapshot(result.data)

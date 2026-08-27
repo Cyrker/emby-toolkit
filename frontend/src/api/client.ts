@@ -116,7 +116,18 @@ async function request<T = unknown>(method: string, input: string | URL, config:
   } finally {
     if (timeoutId) clearTimeout(timeoutId)
   }
-  const data = await decode<T>(response, config.responseType)
+  let data: T
+  try {
+    data = await decode<T>(response, config.responseType)
+  } catch (error) {
+    throw new ApiError(error instanceof Error ? error.message : 'Unable to decode server response', {
+      data: undefined as T,
+      status: response.status,
+      headers: response.headers,
+      ok: response.ok,
+      response,
+    })
+  }
   const result: ApiResponse<T> = { data, status: response.status, headers: response.headers, ok: response.ok, response }
   if (!response.ok) {
     const message = typeof data === 'object' && data !== null && 'message' in data ? String((data as { message?: unknown }).message) : `Request failed with ${response.status}`

@@ -13,12 +13,12 @@
     "strictNullChecks": false,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["vite/client", "vitest/globals"] ,
+    "types": ["node", "vite/client", "vitest/globals"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "env.d.ts", "verification/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.vue", "env.d.ts", "e2e/**/*.ts", "*.config.ts", "verification/**/*.ts"],
   "exclude": ["node_modules", "dist", "playwright-report", "test-results"]
 }
