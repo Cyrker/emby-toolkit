@@ -5912,6 +5912,24 @@
       }
     },
     "settings": {
+      "setting-8b5d4b6e57d7": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 moves the exact AI prompt defaults into etk.policy_defaults; StandaloneSettingsService owns merge/save/reset semantics and SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Legacy routes and AI consumers remain explicit until the controlled removal wave.",
+        "status": "new",
+        "validation_method": "pytest-exact-default-hash-http-and-postgres18-app-settings-roundtrip",
+        "validation_owner": "system/standalone-settings"
+      },
+      "setting-53c2f1bca10f": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 moves the exact Telegram template defaults into etk.policy_defaults; StandaloneSettingsService owns allowlisted normalization/save semantics and SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Legacy routes and Telegram consumers remain explicit until the controlled removal wave.",
+        "status": "new",
+        "validation_method": "pytest-exact-default-hash-http-and-postgres18-app-settings-roundtrip",
+        "validation_owner": "system/standalone-settings"
+      },
       "setting-eb42ec4e7b38": {
         "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
         "fixture_exception": null,

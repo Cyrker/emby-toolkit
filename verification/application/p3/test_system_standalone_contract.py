@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 from collections.abc import Mapping
 from copy import deepcopy
@@ -11,6 +12,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import constants
+import utils
 from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.system.standalone import (
     AI_PROMPTS_SETTING,
@@ -19,20 +22,25 @@ from etk.domains.system.standalone import (
     STANDALONE_SETTINGS_REPOSITORY_PROVIDER,
     STANDALONE_SETTINGS_USE_CASE_PROVIDER,
     TELEGRAM_TEMPLATES_SETTING,
+    PlaintextStandaloneSettingsDefaults,
     StandaloneSettingsService,
 )
 from etk.domains.system.standalone_router import router
 from etk.platform import AppContainer, Settings
 from etk.platform.web import CookieSessionMiddleware
+from etk.policy_defaults import DEFAULT_AI_PROMPTS, DEFAULT_TELEGRAM_NOTIFICATION_TEMPLATES
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ROUTE_FIXTURE = REPO_ROOT / "verification" / "fixtures" / "http" / "system-standalone-routes.json"
 CONFIG_OWNERSHIP = REPO_ROOT / "verification" / "contracts" / "config-ownership.yaml"
+APP_FACTORY = REPO_ROOT / "src/etk/bootstrap/app_factory.py"
+COMPATIBILITY_DEFAULTS = REPO_ROOT / "src/etk/compatibility/system_defaults.py"
 SOURCE_FILES = (
     REPO_ROOT / "src" / "etk" / "domains" / "system" / "standalone.py",
     REPO_ROOT / "src" / "etk" / "domains" / "system" / "standalone_router.py",
 )
 SECRET_KEY = b"p3-system-standalone-session-key"
+STANDALONE_DEFAULTS_SHA256 = "37be319fab42af1b94539b70a1d0f9414dbd0fe99d0679c89d6a255bdf985951"
 ADMIN_ROUTES = (
     ("GET", "/api/telegram/templates", None),
     ("POST", "/api/telegram/templates", {"templates": {}}),
@@ -178,11 +186,56 @@ def test_static_fixture_covers_all_bindings_and_sources_have_no_legacy_dependenc
     assert imported.isdisjoint(forbidden)
 
 
-def test_theme_and_menu_settings_have_native_repository_ownership() -> None:
+def test_plaintext_defaults_preserve_exact_legacy_values_and_copy_boundaries() -> None:
+    encoded = json.dumps(
+        {
+            "DEFAULT_AI_PROMPTS": DEFAULT_AI_PROMPTS,
+            "DEFAULT_TELEGRAM_NOTIFICATION_TEMPLATES": DEFAULT_TELEGRAM_NOTIFICATION_TEMPLATES,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    assert hashlib.sha256(encoded).hexdigest() == STANDALONE_DEFAULTS_SHA256
+    assert constants.DEFAULT_TELEGRAM_NOTIFICATION_TEMPLATES is DEFAULT_TELEGRAM_NOTIFICATION_TEMPLATES
+    assert utils.DEFAULT_AI_PROMPTS is DEFAULT_AI_PROMPTS
+
+    defaults = PlaintextStandaloneSettingsDefaults()
+    telegram = dict(defaults.telegram_templates())
+    prompts = dict(defaults.ai_prompts())
+    telegram["library_new"] = "mutated"
+    prompts["fast_mode"] = "mutated"
+    assert DEFAULT_TELEGRAM_NOTIFICATION_TEMPLATES["library_new"] != "mutated"
+    assert DEFAULT_AI_PROMPTS["fast_mode"] != "mutated"
+
+    factory_source = APP_FACTORY.read_text(encoding="utf-8")
+    assert "PlaintextStandaloneSettingsDefaults" in factory_source
+    assert "LegacyStandaloneSettingsDefaults" not in factory_source
+    compatibility_tree = ast.parse(COMPATIBILITY_DEFAULTS.read_text(encoding="utf-8"))
+    compatibility_imports = {
+        alias.name.split(".")[0]
+        for node in ast.walk(compatibility_tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    compatibility_imports.update(
+        node.module.split(".")[0]
+        for node in ast.walk(compatibility_tree)
+        if isinstance(node, ast.ImportFrom) and node.module
+    )
+    assert compatibility_imports.isdisjoint({"constants", "utils"})
+
+
+def test_standalone_settings_have_native_repository_ownership() -> None:
     manifest = json.loads(CONFIG_OWNERSHIP.read_text(encoding="utf-8"))
     settings = {item["key"]: item for item in manifest["standalone_app_settings"]}
 
-    for key in (CUSTOM_THEME_SETTING, MENU_CONFIG_SETTING):
+    for key in (
+        AI_PROMPTS_SETTING,
+        CUSTOM_THEME_SETTING,
+        MENU_CONFIG_SETTING,
+        TELEGRAM_TEMPLATES_SETTING,
+    ):
         contract = settings[key]
         assert contract["status"] == "new"
         assert contract["new_owner"] == "etk.domains.system.repository.SqlAlchemyAppSettingsRepository"

@@ -2845,17 +2845,20 @@
       ],
       "contract_id": "setting-8b5d4b6e57d7",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "key": "ai_user_prompts",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 moves the exact AI prompt defaults into etk.policy_defaults; StandaloneSettingsService owns merge/save/reset semantics and SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Legacy routes and AI consumers remain explicit until the controlled removal wave.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-default-hash-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "system/standalone-settings"
     },
     {
       "accesses": [
@@ -4750,17 +4753,20 @@
       ],
       "contract_id": "setting-53c2f1bca10f",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/system-standalone-routes.json",
+      "fixture_exception": null,
       "key": "telegram_notification_templates",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 moves the exact Telegram template defaults into etk.policy_defaults; StandaloneSettingsService owns allowlisted normalization/save semantics and SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Legacy routes and Telegram consumers remain explicit until the controlled removal wave.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-default-hash-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "system/standalone-settings"
     },
     {
       "accesses": [

@@ -4,6 +4,8 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any, Protocol
 
+from etk.policy_defaults import DEFAULT_AI_PROMPTS, DEFAULT_TELEGRAM_NOTIFICATION_TEMPLATES
+
 TELEGRAM_TEMPLATES_SETTING = "telegram_notification_templates"
 CUSTOM_THEME_SETTING = "custom_theme"
 AI_PROMPTS_SETTING = "ai_user_prompts"
@@ -25,6 +27,14 @@ class StandaloneSettingsDefaults(Protocol):
     def telegram_templates(self) -> Mapping[str, Any]: ...
 
     def ai_prompts(self) -> Mapping[str, Any]: ...
+
+
+class PlaintextStandaloneSettingsDefaults:
+    def telegram_templates(self) -> Mapping[str, Any]:
+        return deepcopy(DEFAULT_TELEGRAM_NOTIFICATION_TEMPLATES)
+
+    def ai_prompts(self) -> Mapping[str, Any]:
+        return deepcopy(DEFAULT_AI_PROMPTS)
 
 
 class StandaloneSettingsService:

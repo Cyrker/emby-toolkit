@@ -1,29 +1,24 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from typing import Any
 
 from sqlalchemy import text
 
 from etk.domains.system.repository import SqlAlchemyAppSettingsRepository
 from etk.domains.system.standalone import (
+    AI_PROMPTS_SETTING,
     CUSTOM_THEME_SETTING,
     MENU_CONFIG_SETTING,
+    TELEGRAM_TEMPLATES_SETTING,
+    PlaintextStandaloneSettingsDefaults,
     StandaloneSettingsService,
 )
 from etk.platform.db import DatabaseRuntime, EngineConfig
+from etk.policy_defaults import DEFAULT_AI_PROMPTS, DEFAULT_TELEGRAM_NOTIFICATION_TEMPLATES
 
 
-class _UnusedDefaults:
-    def telegram_templates(self) -> Mapping[str, Any]:
-        raise AssertionError("theme/menu ownership must not load Telegram defaults")
-
-    def ai_prompts(self) -> Mapping[str, Any]:
-        raise AssertionError("theme/menu ownership must not load AI defaults")
-
-
-def test_theme_and_menu_round_trip_through_native_postgres18_repository(
+def test_standalone_settings_round_trip_through_native_postgres18_repository(
     migrated_postgres18_url: str,
 ) -> None:
     runtime = DatabaseRuntime.create(
@@ -32,7 +27,12 @@ def test_theme_and_menu_round_trip_through_native_postgres18_repository(
             application_name="etk-p11-system-standalone-settings",
         )
     )
-    keys = (CUSTOM_THEME_SETTING, MENU_CONFIG_SETTING)
+    keys = (
+        AI_PROMPTS_SETTING,
+        CUSTOM_THEME_SETTING,
+        MENU_CONFIG_SETTING,
+        TELEGRAM_TEMPLATES_SETTING,
+    )
     snapshots: list[dict[str, Any]] = []
     mutated = False
     try:
@@ -57,16 +57,22 @@ def test_theme_and_menu_round_trip_through_native_postgres18_repository(
             )
         mutated = True
         repository = SqlAlchemyAppSettingsRepository(runtime.unit_of_work)
-        service = StandaloneSettingsService(repository, _UnusedDefaults())
+        service = StandaloneSettingsService(repository, PlaintextStandaloneSettingsDefaults())
 
         service.save_custom_theme({"accent": "blue", "nested": {"enabled": True}})
         service.save_menu_config([{"key": "library", "visible": True}])
+        templates = service.save_telegram_templates({"templates": {"library_new": "fixture-template"}})
+        service.save_ai_prompts({"fast_mode": "fixture-fast"})
 
         assert repository.load(CUSTOM_THEME_SETTING) == {
             "accent": "blue",
             "nested": {"enabled": True},
         }
         assert service.get_menu_config() == [{"key": "library", "visible": True}]
+        assert templates["library_new"] == "fixture-template"
+        assert repository.load(TELEGRAM_TEMPLATES_SETTING) == templates
+        assert repository.load(AI_PROMPTS_SETTING) == {"fast_mode": "fixture-fast"}
+        assert service.get_ai_prompts()["fast_mode"] == "fixture-fast"
         with runtime.engine.connect() as connection:
             rows = {
                 str(row["setting_key"]): row["value_json"]
@@ -82,12 +88,18 @@ def test_theme_and_menu_round_trip_through_native_postgres18_repository(
                 ).mappings()
             }
         assert rows == {
+            AI_PROMPTS_SETTING: {"fast_mode": "fixture-fast"},
             CUSTOM_THEME_SETTING: {"accent": "blue", "nested": {"enabled": True}},
             MENU_CONFIG_SETTING: [{"key": "library", "visible": True}],
+            TELEGRAM_TEMPLATES_SETTING: templates,
         }
 
         assert service.delete_custom_theme() is True
         service.reset_menu_config()
+        service.reset_ai_prompts()
+        assert repository.delete(TELEGRAM_TEMPLATES_SETTING) is True
+        assert service.get_ai_prompts() == DEFAULT_AI_PROMPTS
+        assert service.get_telegram_templates() == DEFAULT_TELEGRAM_NOTIFICATION_TEMPLATES
         with runtime.engine.connect() as connection:
             assert (
                 connection.scalar(

@@ -29,7 +29,6 @@ from etk.compatibility.playback import (
     install_persistent_playback_gateway,
 )
 from etk.compatibility.response_contract import fastapi_json_response
-from etk.compatibility.system_defaults import LegacyStandaloneSettingsDefaults
 from etk.domains.collection import (
     CollectionService,
     P8LocalCollectionGateway,
@@ -278,7 +277,10 @@ from etk.domains.system.integration_compatibility import HttpxSystemIntegrationG
 from etk.domains.system.integration_router import router as system_integration_router
 from etk.domains.system.integrations import SystemIntegrationService
 from etk.domains.system.repository import SqlAlchemyAppSettingsRepository
-from etk.domains.system.standalone import StandaloneSettingsService
+from etk.domains.system.standalone import (
+    PlaintextStandaloneSettingsDefaults,
+    StandaloneSettingsService,
+)
 from etk.domains.system.standalone_router import router as standalone_settings_router
 from etk.integrations import (
     DurableTelegramUserBotAdapter,
@@ -680,7 +682,7 @@ def _register_system_providers(
             gateway=current.client("system-configuration"),
         ),
     )
-    defaults = LegacyStandaloneSettingsDefaults()
+    defaults = PlaintextStandaloneSettingsDefaults()
     container.register_use_case(
         "system-standalone-settings",
         lambda current: StandaloneSettingsService(

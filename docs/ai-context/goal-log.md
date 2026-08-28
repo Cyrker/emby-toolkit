@@ -2479,6 +2479,74 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Standalone-Plaintext-Defaults
+
+Stage / Batch: P11 / plaintext standalone defaults and settings ownership slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `1112f751` (`refactor(p11): assign moviepilot settings ownership`).
+- Checkpoint: this batch's `refactor(p11): migrate standalone settings defaults` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Moved the exact six Telegram notification templates and nine AI prompts from legacy
+  `constants.py` / `utils.py` into side-effect-free `etk.policy_defaults`. The legacy modules now
+  re-export the same objects, preserving object identity and existing callers.
+- Added `PlaintextStandaloneSettingsDefaults` with copy isolation and changed native app-factory
+  wiring to use it directly. `LegacyStandaloneSettingsDefaults` remains only as a compatibility
+  subclass and no longer imports `constants` or `utils`.
+- Assigned `ai_user_prompts` and `telegram_notification_templates` to
+  `StandaloneSettingsService` semantics and `SqlAlchemyAppSettingsRepository` persistence. Legacy
+  routes and consumers remain explicit until controlled removal.
+- Standalone settings ownership is now `30 new / 23 legacy`; route, table, dynamic/bootstrap config,
+  Worker and frontend counts are unchanged.
+
+Targeted gate:
+
+- Whole-scope Ruff -> clean; format check -> `600 files already formatted`; Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- App factory, standalone settings, exact policy defaults and required P5/P8 application
+  regressions -> `55 passed, 1` existing Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 standalone settings, Identity and Database Maintenance scope ->
+  `24 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Manifest/OpenAPI checks, fixture secret scan and `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-standalone-defaults-20260829/`.
+
+Focused review:
+
+- Verified exact moved literals with frozen SHA-256
+  `37be319fab42af1b94539b70a1d0f9414dbd0fe99d0679c89d6a255bdf985951`, legacy object identity,
+  copy isolation, native wiring, import direction, setting IDs and PostgreSQL snapshot/restore.
+- Review found P2 gaps in post-reset default proof, controlled-removal notes and accidental legacy
+  formatter churn. Post-reset default assertions and explicit legacy-consumer notes were added;
+  `constants.py` / `utils.py` were reconstructed from HEAD with only the intended literal relocation
+  and re-export changes. No P0/P1/P2 remains in this slice.
+
+Stage full gate:
+
+- Not run. P11 still has route/config/table/Worker execution and compatibility-runtime gaps; this
+  checkpoint does not authorize controlled removal or P12.
+
+Pending:
+
+- Sixty-one method bindings, 57 route decorators, 12 tables, 82 dynamic config keys, seven
+  bootstrap keys and 23 standalone settings remain legacy-owned. Thirty-nine catalog tasks remain
+  unavailable in the native-only Worker until their normal processed paths have native owners.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue an evidence-backed standalone setting, residual route or normal processed Worker
+slice. Keep Live Acceptance `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
