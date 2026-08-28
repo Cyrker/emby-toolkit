@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "isolated-legacy-static-source",
+    "captured_live": false,
+    "legacy_source": "routes/p115.py and database/settings_db.py",
+    "external_systems_used": false
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/p115/washing_priority_config"
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/washing_priority_config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/p115/washing_priority_groups"
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/washing_priority_groups"
+    }
+  ],
+  "config_get": {
+    "stored": {
+      "skip_scope": "all"
+    },
+    "legacy_rename": {
+      "conflict_mode": "keep"
+    },
+    "response": {
+      "status": 200,
+      "body": {
+        "success": true,
+        "data": {
+          "skip_scope": "library",
+          "conflict_mode": "keep_both",
+          "version_slots_enabled": false,
+          "version_slots": []
+        }
+      }
+    }
+  },
+  "config_post": {
+    "request": {
+      "conflict_mode": "skip_existing",
+      "skip_scope": "same_dir"
+    },
+    "saved": {
+      "conflict_mode": "skip",
+      "skip_scope": "directory",
+      "version_slots_enabled": false,
+      "version_slots": []
+    },
+    "response": {
+      "status": 200,
+      "body": {
+        "success": true,
+        "message": "洗版配置已保存",
+        "data": {
+          "conflict_mode": "skip",
+          "skip_scope": "directory",
+          "version_slots_enabled": false,
+          "version_slots": []
+        }
+      }
+    }
+  },
+  "groups_get": {
+    "rows": [
+      {
+        "id": 7,
+        "name": "电影规则",
+        "media_type": "Movie",
+        "target_cids": [
+          "100"
+        ],
+        "priorities": [
+          {
+            "resolution": [
+              "4k"
+            ]
+          }
+        ],
+        "sort_order": 0
+      }
+    ],
+    "response": {
+      "status": 200,
+      "body": {
+        "success": true,
+        "data": [
+          {
+            "id": 7,
+            "name": "电影规则",
+            "media_type": "Movie",
+            "target_cids": [
+              "100"
+            ],
+            "priorities": [
+              {
+                "resolution": [
+                  "4k"
+                ]
+              }
+            ],
+            "sort_order": 0
+          }
+        ]
+      }
+    }
+  },
+  "groups_post": {
+    "request": [
+      {
+        "name": "剧集规则",
+        "media_type": "Series",
+        "target_cids": [
+          "200"
+        ],
+        "priorities": [
+          {
+            "resolution": [
+              "1080p"
+            ]
+          }
+        ]
+      }
+    ],
+    "affected_scope": {
+      "Series": {
+        "all": false,
+        "target_cids": [
+          "200"
+        ]
+      }
+    },
+    "pending_scope": {
+      "Series": {
+        "all": false,
+        "target_cids": [
+          "200"
+        ]
+      }
+    },
+    "response": {
+      "status": 200,
+      "body": {
+        "success": true,
+        "message": "洗版优先级规则已保存",
+        "data": {
+          "affected_scope": {
+            "Series": {
+              "all": false,
+              "target_cids": [
+                "200"
+              ]
+            }
+          },
+          "pending_scope": {
+            "Series": {
+              "all": false,
+              "target_cids": [
+                "200"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

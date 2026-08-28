@@ -4108,17 +4108,20 @@
       ],
       "contract_id": "setting-76801fa87ade",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+      "fixture_exception": null,
       "key": "p115_washing_priority_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.washing_priority_repository.SqlAlchemyP115WashingPriorityRepository",
+      "notes": "P11 native service owns exact washing configuration normalization; the repository commits configuration and slot-change recalculation state atomically.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+      "validation_owner": "p115/washing-priority"
     },
     {
       "accesses": [
@@ -4141,17 +4144,20 @@
       ],
       "contract_id": "setting-9fd0793fc158",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p6/test_p115_washing_priority_postgres18.py",
+      "fixture_exception": null,
       "key": "p115_washing_priority_recalculate_state",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.washing_priority_repository.SqlAlchemyP115WashingPriorityRepository",
+      "notes": "P11 native repository owns revisioned recalculation-scope merge and compare-and-acknowledge state in PostgreSQL.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "postgres18-revision-merge-ack-and-rollback-contract",
+      "validation_owner": "p115/washing-priority"
     },
     {
       "accesses": [

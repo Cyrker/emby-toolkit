@@ -171,7 +171,6 @@ from etk.domains.p115 import (
     LegacyP115RenamePreviewGateway,
     LegacyP115RuleRecognitionGateway,
     LegacyP115SortingRuleDirectoryGateway,
-    LegacyP115WashingPriorityConfigGateway,
     NativeP115IntroDetectionGateway,
     P115AuthDirectoryService,
     P115DeepDeleteJobGateway,
@@ -191,6 +190,7 @@ from etk.domains.p115 import (
     P115RenameConfigService,
     P115SortingRulesService,
     P115StrmReplaceService,
+    P115WashingPriorityService,
     PostgresP115IntroDetectionRepository,
     PostgresP115PlaybackRepository,
     PostgresP115StrmSyncCoordinator,
@@ -202,6 +202,7 @@ from etk.domains.p115 import (
     SqlAlchemyP115OrganizeRecordsRepository,
     SqlAlchemyP115RenameConfigRepository,
     SqlAlchemyP115SortingRulesRepository,
+    SqlAlchemyP115WashingPriorityRepository,
 )
 from etk.domains.p115.playback_router import router as p115_playback_router
 from etk.domains.p115.router import router as p115_router
@@ -1110,6 +1111,12 @@ def _register_p115_providers(container: AppContainer) -> None:
         ),
     )
     container.register_repository(
+        "p115.washing-priority",
+        lambda current: SqlAlchemyP115WashingPriorityRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
+    container.register_repository(
         "p115.episode-regex",
         lambda current: SqlAlchemyP115EpisodeRegexRepository(
             lambda: current.database.unit_of_work(),
@@ -1179,7 +1186,7 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "p115.washing-priority-config",
-        lambda _: LegacyP115WashingPriorityConfigGateway(),
+        lambda current: current.use_case("p115.washing-priority"),
     )
     container.register_client(
         "p115.plan-recognition",
@@ -1265,6 +1272,13 @@ def _register_p115_providers(container: AppContainer) -> None:
             credentials=current.repository("p115.credentials"),
             repository=current.repository("p115.sorting-rules"),
             directories=current.client("p115.sorting-rule-directories"),
+        ),
+    )
+    container.register_use_case(
+        "p115.washing-priority",
+        lambda current: P115WashingPriorityService(
+            settings=current.repository("app-settings"),
+            repository=current.repository("p115.washing-priority"),
         ),
     )
     container.register_use_case(

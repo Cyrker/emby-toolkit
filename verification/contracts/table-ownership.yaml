@@ -3186,19 +3186,22 @@
       ],
       "contract_id": "table-0f5816c259d4",
       "create_sql": "CREATE TABLE IF NOT EXISTS washing_priority_groups ( id SERIAL PRIMARY KEY, name TEXT NOT NULL, media_type TEXT NOT NULL, -- 'Movie' 或 'Series' target_cids JSONB DEFAULT '[]'::jsonb, -- 适用的 115 目录 CID priorities JSONB DEFAULT '[]'::jsonb, -- 优先级规则数组 sort_order INTEGER DEFAULT 0 )",
+      "fixture": "verification/integration/p6/test_p115_washing_priority_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [],
       "name": "washing_priority_groups",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.washing_priority_repository.SqlAlchemyP115WashingPriorityRepository",
+      "notes": "P11 native repository owns ordered reads and atomic delete-insert replacement of washing-priority groups without TRUNCATE or external effects.",
       "post_create_alters": [],
       "source": "database/connection.py:463",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "people"
       ],
       "target_stage": "P7",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "subscription/people"
+      "validation_method": "postgres18-group-replace-state-merge-and-rollback-contract",
+      "validation_owner": "p115/washing-priority"
     }
   ],
   "unattached_alters": [],

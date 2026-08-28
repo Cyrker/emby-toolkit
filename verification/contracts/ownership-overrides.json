@@ -580,6 +580,42 @@
       }
     },
     "route_bindings": {
+      "route-binding-1ef0aaa109e4": {
+        "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native washing-priority service owns the normalized local configuration read contract and best-effort legacy conflict-mode migration.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+        "validation_owner": "p115/washing-priority"
+      },
+      "route-binding-d1ae38f99702": {
+        "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native washing-priority service preserves configuration normalization and commits slot-change recalculation state in the same PostgreSQL unit of work.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+        "validation_owner": "p115/washing-priority"
+      },
+      "route-binding-46c84ecff732": {
+        "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native washing-priority repository owns ordered local rule-group reads without a provider or external adapter.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+        "validation_owner": "p115/washing-priority"
+      },
+      "route-binding-99be52902613": {
+        "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native washing-priority repository atomically replaces groups and merges deterministic recalculation scope in one PostgreSQL unit of work.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+        "validation_owner": "p115/washing-priority"
+      },
       "route-binding-aadccd657fc9": {
         "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
         "fixture_exception": null,
@@ -3282,6 +3318,24 @@
       }
     },
     "route_decorators": {
+      "route-decorator-a7d784fe67f4": {
+        "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native FastAPI routes own both washing-priority configuration methods while the legacy Blueprint remains only until controlled removal.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+        "validation_owner": "p115/washing-priority"
+      },
+      "route-decorator-c3983f532e76": {
+        "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native FastAPI routes own both washing-priority group methods with local PostgreSQL transaction evidence.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+        "validation_owner": "p115/washing-priority"
+      },
       "route-decorator-8e2878a330a6": {
         "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
         "fixture_exception": null,
@@ -5822,6 +5876,24 @@
       }
     },
     "settings": {
+      "setting-76801fa87ade": {
+        "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.washing_priority_repository.SqlAlchemyP115WashingPriorityRepository",
+        "notes": "P11 native service owns exact washing configuration normalization; the repository commits configuration and slot-change recalculation state atomically.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+        "validation_owner": "p115/washing-priority"
+      },
+      "setting-9fd0793fc158": {
+        "fixture": "verification/integration/p6/test_p115_washing_priority_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.washing_priority_repository.SqlAlchemyP115WashingPriorityRepository",
+        "notes": "P11 native repository owns revisioned recalculation-scope merge and compare-and-acknowledge state in PostgreSQL.",
+        "status": "new",
+        "validation_method": "postgres18-revision-merge-ack-and-rollback-contract",
+        "validation_owner": "p115/washing-priority"
+      },
       "setting-c04d846dbf0c": {
         "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
         "fixture_exception": null,
@@ -6032,6 +6104,15 @@
       }
     },
     "tables": {
+      "table-0f5816c259d4": {
+        "fixture": "verification/integration/p6/test_p115_washing_priority_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.washing_priority_repository.SqlAlchemyP115WashingPriorityRepository",
+        "notes": "P11 native repository owns ordered reads and atomic delete-insert replacement of washing-priority groups without TRUNCATE or external effects.",
+        "status": "new",
+        "validation_method": "postgres18-group-replace-state-merge-and-rollback-contract",
+        "validation_owner": "p115/washing-priority"
+      },
       "table-08f5f06d8411": {
         "fixture": "verification/integration/p5/test_emby_search_index_postgres18.py",
         "fixture_exception": null,

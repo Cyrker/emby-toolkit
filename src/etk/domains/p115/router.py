@@ -45,6 +45,7 @@ from .rename_config import P115RenameConfigService
 from .sorting_rules import P115SortingRulesService
 from .strm_sync import P115StrmReplaceService
 from .upload_monitor import P115UploadMonitorConfigService
+from .washing_priority import P115WashingPriorityService
 
 router = APIRouter(prefix="/api/p115", tags=["p115"])
 
@@ -306,6 +307,16 @@ def _local_settings_service(request: Request) -> P115LocalSettingsService:
     return value
 
 
+def _washing_priority_service(request: Request) -> P115WashingPriorityService:
+    direct = getattr(request.app.state, "p115_washing_priority_service", None)
+    if isinstance(direct, P115WashingPriorityService):
+        return direct
+    value = request.app.state.container.use_case("p115.washing-priority")
+    if not isinstance(value, P115WashingPriorityService):
+        raise TypeError("p115.washing-priority provider returned an invalid service")
+    return value
+
+
 def _admin_denial(request: Request) -> JSONResponse | None:
     container = request.app.state.container
     decision = PermissionPolicy(
@@ -340,9 +351,15 @@ def _is_json_content_type(value: str) -> bool:
     return mimetype == "application/json" or (mimetype.startswith("application/") and mimetype.endswith("+json"))
 
 
+def _legacy_unsupported_media_type() -> UnsupportedMediaType:
+    return UnsupportedMediaType(
+        description=("Did not attempt to load JSON data because the request Content-Type was not 'application/json'.")
+    )
+
+
 async def _legacy_json_object(request: Request) -> tuple[dict[str, Any] | None, Response | None]:
     if not _is_json_content_type(request.headers.get("content-type", "")):
-        return None, _html_error(UnsupportedMediaType())
+        return None, _html_error(_legacy_unsupported_media_type())
     try:
         payload = await request.json()
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -354,7 +371,7 @@ async def _legacy_json_object(request: Request) -> tuple[dict[str, Any] | None, 
 
 async def _legacy_json_value(request: Request) -> tuple[object | None, Response | None]:
     if not _is_json_content_type(request.headers.get("content-type", "")):
-        return None, _html_error(UnsupportedMediaType())
+        return None, _html_error(_legacy_unsupported_media_type())
     try:
         return await request.json(), None
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -519,6 +536,92 @@ async def get_release_groups(request: Request) -> Response:
     if denied is not None:
         return denied
     return _response(await run_in_threadpool(_local_settings_service(request).get_release_groups))
+
+
+@router.get(
+    "/washing_priority_config",
+    response_model=ExternalObjectResponse,
+    responses={403: {"model": ExternalObjectResponse}, 500: {"model": ExternalObjectResponse}},
+)
+async def get_washing_priority_config(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    return _response(await run_in_threadpool(_washing_priority_service(request).get_config))
+
+
+@router.post(
+    "/washing_priority_config",
+    response_model=ExternalObjectResponse,
+    responses={403: {"model": ExternalObjectResponse}, 500: {"model": ExternalObjectResponse}},
+    openapi_extra=_JSON_VALUE_BODY,
+)
+async def save_washing_priority_config(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    try:
+        if not _is_json_content_type(request.headers.get("content-type", "")):
+            raise _legacy_unsupported_media_type()
+        try:
+            raw_payload = await request.json()
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise BadRequest() from exc
+    except (BadRequest, UnsupportedMediaType) as exc:
+        return fastapi_json_response(
+            {"success": False, "message": str(exc)},
+            status_code=500,
+        )
+    payload = dict(raw_payload) if isinstance(raw_payload, Mapping) else {}
+    return _response(
+        await run_in_threadpool(
+            _washing_priority_service(request).save_config,
+            payload,
+        )
+    )
+
+
+@router.get(
+    "/washing_priority_groups",
+    response_model=ExternalObjectResponse,
+    responses={403: {"model": ExternalObjectResponse}, 500: {"model": ExternalObjectResponse}},
+)
+async def get_washing_priority_groups(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    return _response(await run_in_threadpool(_washing_priority_service(request).list_groups))
+
+
+@router.post(
+    "/washing_priority_groups",
+    response_model=ExternalObjectResponse,
+    responses={
+        400: {
+            "content": {
+                "application/json": {"schema": {"$ref": "#/components/schemas/ExternalObjectResponse"}},
+                "text/html": {"schema": {"type": "string"}},
+            }
+        },
+        403: {"model": ExternalObjectResponse},
+        415: {"content": {"text/html": {"schema": {"type": "string"}}}},
+        500: {"model": ExternalObjectResponse},
+    },
+    openapi_extra=_JSON_VALUE_BODY,
+)
+async def save_washing_priority_groups(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    raw_payload, error = await _legacy_json_value(request)
+    if error is not None:
+        return error
+    return _response(
+        await run_in_threadpool(
+            _washing_priority_service(request).replace_groups,
+            raw_payload,
+        )
+    )
 
 
 def _query_parameters(*names: str) -> dict[str, Any]:

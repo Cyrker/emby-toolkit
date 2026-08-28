@@ -2207,6 +2207,74 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-P115-Washing-Priority
+
+Stage / Batch: P11 / native P115 washing-priority local ownership slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `41245c8a` (`refactor(p11): migrate local p115 settings`).
+- Checkpoint: this batch's `refactor(p11): migrate p115 washing priority state` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Replaced `GET/POST /api/p115/washing_priority_config` and
+  `GET/POST /api/p115/washing_priority_groups` with native FastAPI/service/repository owners while
+  preserving exact permission, normalization, migration, JSON and error transport behavior.
+- Added `SqlAlchemyP115WashingPriorityRepository` for ordered group reads and atomic group
+  replacement. Group mutation and revisioned recalculation-scope merge commit in one UoW, use
+  deterministic advisory serialization and do not use `TRUNCATE`.
+- Added native config/state save, deterministic affected-scope calculation and revision
+  compare-and-ack. Version-slot changes mark Movie and Series for full recalculation; an unchanged
+  group replacement does not create an empty state row.
+- Rewired rename-config conflict-mode writes to the native service. The active app factory no longer
+  constructs `LegacyP115WashingPriorityConfigGateway`.
+- Added isolated legacy golden fixtures and PostgreSQL 18 rollback/state/sequence restoration
+  evidence. Route ownership is now `284 new / 59 legacy` decorators and `304 new / 63 legacy`
+  bindings; standalone settings are `26 new / 27 legacy`; tables are `27 new / 12 legacy`.
+- Regenerated Route/Config/Table manifests and the compatibility OpenAPI snapshot at `262` paths /
+  `312` operations.
+
+Targeted gate:
+
+- Whole-scope Ruff -> clean; format check -> `592 files already formatted`; Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- Washing/P115/app-factory plus required P5/P8 application regressions -> `133 passed, 1` existing
+  Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 washing/local-settings, Identity and Database Maintenance scope ->
+  `25 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Manifest/OpenAPI checks, fixture secret scan and `git diff --check` -> clean.
+- Findings-first review repaired the migration persistence-shape and no-op state-row differences;
+  the final independent review found no remaining P0/P1/P2.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-p115-washing-priority-20260829/`.
+
+Stage full gate:
+
+- Not run. P11 still has route/config/table/Worker execution and compatibility-runtime gaps; this
+  checkpoint does not authorize controlled removal or P12.
+
+Pending:
+
+- Sixty-three method bindings, 59 route decorators, 12 tables, 82 dynamic config keys, seven
+  bootstrap keys and 27 standalone settings remain legacy-owned. Native-only Worker execution
+  remains `10 executable / 40 unavailable` catalog keys.
+- `POST /api/p115/washing_priority_recalculate` and its normal processed Worker path remain legacy;
+  they were not relabeled based only on native local state ownership.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: migrate the washing-priority recalculation API/Worker only after its normal processed path has
+native media-query, MediaInfo/policy and revision-ack ownership; otherwise continue another
+evidence-backed local P115/ownership slice. Keep Live Acceptance `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -2226,6 +2294,7 @@ Read first:
 
 Next:
 
-- Continue `P11-Pre-removal` with the local washing-priority config/groups and recalculation-state
-  slice. Keep provider mutations and every unmigrated task/binding explicit; do not start controlled
-  removal until execution and ownership reach 100%. Keep all Live Acceptance items pending.
+- Continue `P11-Pre-removal` with the washing-priority recalculation API/Worker if its normal path can
+  be made processor-free, otherwise take the next evidence-backed local P115 ownership slice. Keep
+  every unmigrated task/binding explicit; do not start controlled removal until execution and
+  ownership reach 100%. Keep all Live Acceptance items pending.

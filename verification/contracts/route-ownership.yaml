@@ -5069,80 +5069,84 @@
       "contract_id": "route-binding-1ef0aaa109e4",
       "decorator_contract_id": "route-decorator-a7d784fe67f4",
       "endpoint": "handle_washing_priority_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native washing-priority service owns the normalized local configuration read contract and best-effort legacy conflict-mode migration.",
       "path": "/api/p115/washing_priority_config",
       "retirement_approval": null,
       "source": "routes/p115.py:2069",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+      "validation_owner": "p115/washing-priority"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d1ae38f99702",
       "decorator_contract_id": "route-decorator-a7d784fe67f4",
       "endpoint": "handle_washing_priority_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native washing-priority service preserves configuration normalization and commits slot-change recalculation state in the same PostgreSQL unit of work.",
       "path": "/api/p115/washing_priority_config",
       "retirement_approval": null,
       "source": "routes/p115.py:2069",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+      "validation_owner": "p115/washing-priority"
     },
     {
       "application": "api",
       "contract_id": "route-binding-46c84ecff732",
       "decorator_contract_id": "route-decorator-c3983f532e76",
       "endpoint": "handle_washing_priority_groups",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native washing-priority repository owns ordered local rule-group reads without a provider or external adapter.",
       "path": "/api/p115/washing_priority_groups",
       "retirement_approval": null,
       "source": "routes/p115.py:2020",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+      "validation_owner": "p115/washing-priority"
     },
     {
       "application": "api",
       "contract_id": "route-binding-99be52902613",
       "decorator_contract_id": "route-decorator-c3983f532e76",
       "endpoint": "handle_washing_priority_groups",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native washing-priority repository atomically replaces groups and merges deterministic recalculation scope in one PostgreSQL unit of work.",
       "path": "/api/p115/washing_priority_groups",
       "retirement_approval": null,
       "source": "routes/p115.py:2020",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+      "validation_owner": "p115/washing-priority"
     },
     {
       "application": "api",
@@ -13363,23 +13367,24 @@
       "contract_id": "route-decorator-a7d784fe67f4",
       "declared_path": "/washing_priority_config",
       "endpoint": "handle_washing_priority_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native FastAPI routes own both washing-priority configuration methods while the legacy Blueprint remains only until controlled removal.",
       "path": "/api/p115/washing_priority_config",
       "retirement_approval": null,
       "source": "routes/p115.py:2069",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+      "validation_owner": "p115/washing-priority"
     },
     {
       "application": "api",
@@ -13387,23 +13392,24 @@
       "contract_id": "route-decorator-c3983f532e76",
       "declared_path": "/washing_priority_groups",
       "endpoint": "handle_washing_priority_groups",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native FastAPI routes own both washing-priority group methods with local PostgreSQL transaction evidence.",
       "path": "/api/p115/washing_priority_groups",
       "retirement_approval": null,
       "source": "routes/p115.py:2020",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-washing-uow",
+      "validation_owner": "p115/washing-priority"
     },
     {
       "application": "api",
