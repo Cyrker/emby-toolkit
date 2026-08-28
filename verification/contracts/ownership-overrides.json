@@ -580,6 +580,15 @@
       }
     },
     "route_bindings": {
+      "route-binding-7e5e933dd5f2": {
+        "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native washing-priority recalculation route submits a durable native Worker Job and preserves empty-scope, busy, and idempotency outcomes.",
+        "status": "new",
+        "validation_method": "pytest-p11-washing-recalculation-http-and-native-worker",
+        "validation_owner": "p115/washing-priority-recalculation"
+      },
       "route-binding-1ef0aaa109e4": {
         "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
         "fixture_exception": null,
@@ -3318,6 +3327,15 @@
       }
     },
     "route_decorators": {
+      "route-decorator-e35953f0f169": {
+        "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native FastAPI route owns washing-priority recalculation submission while the legacy Blueprint remains only until controlled removal.",
+        "status": "new",
+        "validation_method": "pytest-p11-washing-recalculation-http-and-native-worker",
+        "validation_owner": "p115/washing-priority-recalculation"
+      },
       "route-decorator-a7d784fe67f4": {
         "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
         "fixture_exception": null,
@@ -6332,10 +6350,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 native Worker envelope validates the processor-free washing recalculation payload and executes database-owned media evaluation, snapshot persistence, progress checkpoints, and revision CAS acknowledgement without the legacy callable.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "subscription/task-envelope"
+        "validation_method": "ordered-task-registry-native-router-worker-outcome-washing-evaluator-postgres18",
+        "validation_owner": "p115/washing-priority-recalculation"
       },
       "task-08589be5dc83": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

@@ -115,6 +115,18 @@ class P7ResubscribeCleanup(Protocol):
     def stage_version_deletion(self, emby_id: str) -> Mapping[str, Any]: ...
 
 
+class P7WashingRecalculation(Protocol):
+    def execute(
+        self,
+        progress: P7TaskProgress,
+        *,
+        item_type: object = "all",
+        limit: object = None,
+        affected_scope: object = None,
+        scope_revision: object = None,
+    ) -> Any: ...
+
+
 class LegacyP7SubscriptionCompatibilityGateway:
     """Worker-only P11 seam around the remaining established P7 task functions."""
 
@@ -214,15 +226,17 @@ class LegacySubscribeAssistantMaintenanceGateway:
 class P7SubscriptionTaskRouter:
     def __init__(
         self,
-        compatibility: P7SubscriptionCompatibilityGateway,
-        assistant: SubscribeAssistantMaintenanceService,
+        compatibility: P7SubscriptionCompatibilityGateway | None,
+        assistant: SubscribeAssistantMaintenanceService | None,
         moviepilot_effects: P7MoviePilotEffects | None = None,
         resubscribe_cleanup: P7ResubscribeCleanup | None = None,
+        washing_recalculation: P7WashingRecalculation | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._assistant = assistant
         self._moviepilot_effects = moviepilot_effects
         self._resubscribe_cleanup = resubscribe_cleanup
+        self._washing_recalculation = washing_recalculation
 
     def execute(
         self,
@@ -239,10 +253,23 @@ class P7SubscriptionTaskRouter:
             raise ValueError(f"task {message.task_key!r} requires the {expected.value} processor identity")
         if message.payload.version != 1:
             raise ValueError(f"task {message.task_key!r} payload version is not supported")
-        if processor is None:
-            raise RuntimeError(f"P7 task {message.task_key!r} processor is unavailable")
         payload = TaskPayload.create(message.payload.data, version=message.payload.version).data
         parameters = _normalize_parameters(message.task_key, payload)
+        if message.task_key == "recalculate_library_washing_priorities":
+            if self._washing_recalculation is None:
+                raise RuntimeError("P7 washing-priority recalculation use case is unavailable")
+            result = self._washing_recalculation.execute(progress, **parameters)
+            details = {
+                "task_key": message.task_key,
+                "native_handler": type(self).__name__,
+                "compatibility_fallback": False,
+                "stats": dict(result.stats),
+            }
+            if result.partial:
+                return TaskOutcome.partial("洗版优先级重算部分完成。", details)
+            return TaskOutcome.succeeded("洗版优先级重算完成。", details)
+        if processor is None:
+            raise RuntimeError(f"P7 task {message.task_key!r} processor is unavailable")
         if self._moviepilot_effects is None:
             effects_context = nullcontext()
         else:
@@ -256,6 +283,8 @@ class P7SubscriptionTaskRouter:
             cleanup_context = cleanup_module.persistent_resubscribe_cleanup(self._resubscribe_cleanup)
         with effects_context, cleanup_context:
             if message.task_key == "subscribe-assistant-maintenance":
+                if self._assistant is None:
+                    raise RuntimeError("P7 subscribe-assistant maintenance use case is unavailable")
                 run = self._assistant.execute(
                     job_id=_metadata_uuid(message.metadata, "job_id"),
                     attempt_id=_metadata_uuid(message.metadata, "attempt_id"),
@@ -274,6 +303,8 @@ class P7SubscriptionTaskRouter:
                         "stats": run.stats,
                     },
                 )
+            if self._compatibility is None:
+                raise RuntimeError(f"P7 task {message.task_key!r} compatibility owner is unavailable")
             result = self._compatibility.execute(message.task_key, processor, parameters)
             return _explicit_outcome(message.task_key, result)
 

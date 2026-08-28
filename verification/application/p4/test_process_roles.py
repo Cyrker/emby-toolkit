@@ -475,6 +475,11 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert state._p6_p115_tasks._directory_sync is None
     assert state._p6_p115_tasks._organize_execution is None
     assert type(state._p6_ingestion_tasks).__name__ == "P6IngestionTaskRouter"
+    assert type(state._p7_subscription_tasks).__name__ == "P7SubscriptionTaskRouter"
+    assert state._p7_subscription_tasks._compatibility is None
+    assert type(state._p7_subscription_tasks._washing_recalculation).__name__ == (
+        "P115WashingPriorityRecalculationService"
+    )
     assert type(state._p8_effect_tasks).__name__ == "P8EffectTaskRouter"
     assert state._p8_effect_tasks._compatibility is None
     assert type(state._p9_sharing_tasks).__name__ == "P9SharingTaskRouter"
@@ -489,6 +494,7 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert events == ["supervisor.start", "supervisor.stop", "container.close"]
     assert state._p6_p115_tasks is None
     assert state._p6_ingestion_tasks is None
+    assert state._p7_subscription_tasks is None
     assert state._p8_effect_tasks is None
     assert state._p9_sharing_tasks is None
     assert state._subscription_executor is None

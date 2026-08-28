@@ -99,6 +99,7 @@ from etk.domains.p115 import (
     EmbyAuthorizationRevisionAdapter,
     EmbyPathChangeEffectDelivery,
     HttpxEmbyPathChangeGateway,
+    HttpxP115EpisodeRuntimeGateway,
     IntroDetectionExecutionService,
     IntroDetectionOperation,
     IntroDetectionSubmissionService,
@@ -125,6 +126,7 @@ from etk.domains.p115 import (
     P115PlaybackService,
     P115StrmMediaInfoEnrichmentService,
     P115StrmSyncService,
+    P115WashingPriorityRecalculationService,
     PostgresP115IntroDetectionRepository,
     PostgresP115PlaybackRepository,
     PostgresP115StrmSyncCoordinator,
@@ -136,6 +138,8 @@ from etk.domains.p115 import (
     SqlAlchemyP115RenameConfigRepository,
     SqlAlchemyP115SortingRulesRepository,
     SqlAlchemyP115StrmSyncRepository,
+    SqlAlchemyP115WashingPriorityRepository,
+    SqlAlchemyP115WashingRecalculationRepository,
     legacy_account_bound_direct_urls,
 )
 from etk.domains.p115.iso_probe import NativeP115IsoProbeGateway
@@ -259,7 +263,12 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     P4_NATIVE_TASK_KEYS
     | P6_INGESTION_NATIVE_TASK_KEYS
     | P9_NATIVE_TASK_KEYS
-    | {"backfill-organize-record-tmdb-ids", "sync-all-user-data", "system-auto-update"}
+    | {
+        "backfill-organize-record-tmdb-ids",
+        "recalculate_library_washing_priorities",
+        "sync-all-user-data",
+        "system-auto-update",
+    }
 )
 
 
@@ -732,6 +741,13 @@ class WorkerRuntime:
                 registry = TaskRegistry.from_fixture(_task_fixture())
                 service = JobSubmissionService(store, registry)
                 app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
+                washing_priority_repository = SqlAlchemyP115WashingPriorityRepository(database.unit_of_work)
+                washing_recalculation = P115WashingPriorityRecalculationService(
+                    repository=SqlAlchemyP115WashingRecalculationRepository(database.unit_of_work),
+                    state=washing_priority_repository,
+                    settings=settings_provider,
+                    episode_runtime=HttpxP115EpisodeRuntimeGateway(settings_provider),
+                )
                 cleanup_executor = CleanupExecutionService(
                     cleanup_repository,
                     local=SafeLocalCleanupGateway(),
@@ -788,6 +804,7 @@ class WorkerRuntime:
                     ),
                     moviepilot_effects,
                     resubscribe_cleanup,
+                    washing_recalculation,
                 )
                 p8_effect_tasks = P8EffectTaskRouter(
                     LegacyP8EffectsCompatibilityGateway(),
@@ -1141,6 +1158,13 @@ class WorkerRuntime:
             registry = TaskRegistry.from_fixture(_task_fixture())
             service = JobSubmissionService(store, registry)
             app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
+            washing_priority_repository = SqlAlchemyP115WashingPriorityRepository(database.unit_of_work)
+            washing_recalculation = P115WashingPriorityRecalculationService(
+                repository=SqlAlchemyP115WashingRecalculationRepository(database.unit_of_work),
+                state=washing_priority_repository,
+                settings=settings_provider,
+                episode_runtime=HttpxP115EpisodeRuntimeGateway(settings_provider),
+            )
             subscription_operations = PostgresSubscriptionOperationRepository(database.unit_of_work)
             subscription_executor = SubscriptionOperationExecutor(
                 subscription_operations,
@@ -1177,6 +1201,11 @@ class WorkerRuntime:
                     SqlAlchemyP115OrganizeRecordsRepository(database.unit_of_work)
                 )
             )
+            p7_subscription_tasks = P7SubscriptionTaskRouter(
+                None,
+                None,
+                washing_recalculation=washing_recalculation,
+            )
             p8_effect_tasks = P8EffectTaskRouter(
                 None,
                 UserSyncService(
@@ -1210,6 +1239,7 @@ class WorkerRuntime:
         self._adapter = None
         self._p6_p115_tasks = p6_p115_tasks
         self._p6_ingestion_tasks = p6_ingestion_tasks
+        self._p7_subscription_tasks = p7_subscription_tasks
         self._p8_effect_tasks = p8_effect_tasks
         self._p9_sharing_tasks = p9_sharing_tasks
         self._ingestion_ingress = ingestion_ingress

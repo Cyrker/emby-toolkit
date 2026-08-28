@@ -5153,20 +5153,21 @@
       "contract_id": "route-binding-7e5e933dd5f2",
       "decorator_contract_id": "route-decorator-e35953f0f169",
       "endpoint": "trigger_washing_priority_recalculate",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native washing-priority recalculation route submits a durable native Worker Job and preserves empty-scope, busy, and idempotency outcomes.",
       "path": "/api/p115/washing_priority_recalculate",
       "retirement_approval": null,
       "source": "routes/p115.py:2090",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-washing-recalculation-http-and-native-worker",
+      "validation_owner": "p115/washing-priority-recalculation"
     },
     {
       "application": "api",
@@ -13417,22 +13418,23 @@
       "contract_id": "route-decorator-e35953f0f169",
       "declared_path": "/washing_priority_recalculate",
       "endpoint": "trigger_washing_priority_recalculate",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native FastAPI route owns washing-priority recalculation submission while the legacy Blueprint remains only until controlled removal.",
       "path": "/api/p115/washing_priority_recalculate",
       "retirement_approval": null,
       "source": "routes/p115.py:2090",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-washing-recalculation-http-and-native-worker",
+      "validation_owner": "p115/washing-priority-recalculation"
     },
     {
       "application": "api",

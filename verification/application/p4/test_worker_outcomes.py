@@ -484,6 +484,7 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
 @pytest.mark.parametrize(
     ("task_key", "router_field"),
     [
+        ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
         ("sync-all-user-data", "_p8_effect_tasks"),
         ("hdhive-auto-checkin", "_p9_sharing_tasks"),
     ],
@@ -783,6 +784,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
         P4_NATIVE_TASK_KEYS
         | {
             "backfill-organize-record-tmdb-ids",
+            "recalculate_library_washing_priorities",
             "scan-monitor-folders",
             "sync-all-user-data",
             "system-auto-update",

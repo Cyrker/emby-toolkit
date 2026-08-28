@@ -15,6 +15,8 @@ from werkzeug.exceptions import BadRequest, InternalServerError, UnsupportedMedi
 
 from etk.compatibility.response_contract import fastapi_json_response
 from etk.domains.media.models import MediaIdentity, MediaItemType, ServiceResult
+from etk.domains.operations.jobs import JobSubmissionService, TaskBusyError
+from etk.platform.jobs import IdempotencyConflictError, InvalidJsonPayloadError
 from etk.platform.web import PermissionPolicy, get_request_session
 
 from .auth_directory import P115AuthDirectoryService
@@ -317,6 +319,13 @@ def _washing_priority_service(request: Request) -> P115WashingPriorityService:
     return value
 
 
+def _job_submission_service(request: Request) -> JobSubmissionService:
+    value = request.app.state.container.use_case("operations.jobs")
+    if not isinstance(value, JobSubmissionService):
+        raise TypeError("operations.jobs provider returned an invalid service")
+    return value
+
+
 def _admin_denial(request: Request) -> JSONResponse | None:
     container = request.app.state.container
     decision = PermissionPolicy(
@@ -355,6 +364,11 @@ def _legacy_unsupported_media_type() -> UnsupportedMediaType:
     return UnsupportedMediaType(
         description=("Did not attempt to load JSON data because the request Content-Type was not 'application/json'.")
     )
+
+
+def _idempotency_key(request: Request) -> str | None:
+    value = str(request.headers.get("idempotency-key") or "").strip()
+    return value or None
 
 
 async def _legacy_json_object(request: Request) -> tuple[dict[str, Any] | None, Response | None]:
@@ -621,6 +635,166 @@ async def save_washing_priority_groups(request: Request) -> Response:
             _washing_priority_service(request).replace_groups,
             raw_payload,
         )
+    )
+
+
+@router.post(
+    "/washing_priority_recalculate",
+    response_model=ExternalObjectResponse,
+    responses={
+        200: {"model": ExternalObjectResponse},
+        202: {"model": ExternalObjectResponse},
+        400: {"content": {"text/html": {"schema": {"type": "string"}}}},
+        403: {"model": ExternalObjectResponse},
+        409: {"model": ExternalObjectResponse},
+        415: {"content": {"text/html": {"schema": {"type": "string"}}}},
+        500: {
+            "content": {
+                "application/json": {"schema": {"$ref": "#/components/schemas/ExternalObjectResponse"}},
+                "text/html": {"schema": {"type": "string"}},
+            }
+        },
+    },
+    openapi_extra=_JSON_VALUE_BODY,
+)
+async def recalculate_washing_priorities(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    raw_payload, error = await _legacy_json_value(request)
+    if error is not None:
+        return error
+    if raw_payload is None:
+        payload: dict[str, Any] = {}
+    elif isinstance(raw_payload, Mapping):
+        payload = dict(raw_payload)
+    else:
+        return _html_error(InternalServerError())
+
+    item_type = payload.get("item_type") or "all"
+    limit = payload.get("limit")
+    force_full = payload.get("full") is True
+    idempotency_key = _idempotency_key(request)
+    idempotency_scope = "api.p115.washing_priority_recalculate" if idempotency_key else None
+    affected_scope: object = None
+    scope_revision: object = None
+    if not force_full:
+        try:
+            pending_state = await run_in_threadpool(_washing_priority_service(request).load_recalculate_state)
+        except Exception as exc:
+            return fastapi_json_response(
+                {"success": False, "message": str(exc)},
+                status_code=500,
+            )
+        affected_scope = pending_state.get("media_types") or {}
+        scope_revision = pending_state.get("revision")
+        if not affected_scope:
+            if idempotency_key is not None and idempotency_scope is not None:
+                try:
+                    existing = await run_in_threadpool(
+                        partial(
+                            _job_submission_service(request).get_idempotent,
+                            scope=idempotency_scope,
+                            key=idempotency_key,
+                        )
+                    )
+                except Exception as exc:
+                    return fastapi_json_response(
+                        {"success": False, "message": str(exc)},
+                        status_code=500,
+                    )
+                if existing is not None:
+                    if not _same_washing_recalculation_intent(existing, item_type=item_type, limit=limit):
+                        return fastapi_json_response(
+                            {
+                                "success": False,
+                                "message": "幂等键已用于不同的洗版优先级重算请求。",
+                            },
+                            status_code=409,
+                        )
+                    job_id = str(existing.job.id)
+                    return _washing_recalculation_submission_response(job_id, reused=True)
+            return fastapi_json_response(
+                {
+                    "success": True,
+                    "message": "当前没有受规则变更影响的媒体项",
+                    "data": {"scanned_items": 0, "updated_items": 0},
+                }
+            )
+
+    user_id = str(get_request_session(request).get("emby_user_id") or "").strip() or None
+    try:
+        submitted = await run_in_threadpool(
+            partial(
+                _job_submission_service(request).submit_task,
+                "recalculate_library_washing_priorities",
+                {
+                    "item_type": item_type,
+                    "limit": limit,
+                    "affected_scope": affected_scope,
+                    "scope_revision": scope_revision,
+                },
+                trigger_type="manual",
+                requested_by_user_id=user_id,
+                idempotency_key=idempotency_key,
+                idempotency_scope=idempotency_scope,
+                trace_id=str(getattr(request.state, "trace_id", "") or "").strip() or None,
+                # The store resolves replay before its atomic serial-queue busy constraint.
+                reject_when_busy=False,
+            )
+        )
+    except (TaskBusyError, IdempotencyConflictError) as exc:
+        message = (
+            "幂等键已用于不同的洗版优先级重算请求。"
+            if isinstance(exc, IdempotencyConflictError)
+            else "后台有任务正在运行，请稍后再试。"
+        )
+        return fastapi_json_response({"success": False, "message": message}, status_code=409)
+    except (InvalidJsonPayloadError, TypeError, ValueError) as exc:
+        return fastapi_json_response({"success": False, "message": str(exc)}, status_code=500)
+    except Exception as exc:
+        return fastapi_json_response({"success": False, "message": str(exc)}, status_code=500)
+
+    job_id = str(submitted.projection.job.id)
+    return _washing_recalculation_submission_response(
+        job_id,
+        reused=submitted.reused,
+    )
+
+
+def _washing_recalculation_submission_response(job_id: str, *, reused: bool) -> Response:
+    return fastapi_json_response(
+        {
+            "success": True,
+            "message": "受影响媒体项的优先级重算任务已在后台启动",
+            "data": {"job_id": job_id, "reused": reused},
+        },
+        status_code=200 if reused else 202,
+        headers={"x-etk-job-id": job_id},
+    )
+
+
+def _same_washing_recalculation_intent(
+    projection: object,
+    *,
+    item_type: object,
+    limit: object,
+) -> bool:
+    job = getattr(projection, "job", None)
+    if str(getattr(job, "task_key", "") or "") != "recalculate_library_washing_priorities":
+        return False
+    request_payload = getattr(job, "request_payload", None)
+    if not isinstance(request_payload, Mapping):
+        return False
+    parameters = request_payload.get("parameters")
+    if not isinstance(parameters, Mapping):
+        return False
+    # affected_scope and scope_revision are derived from mutable pending state;
+    # compare only the caller-controlled intent when replaying after ack.
+    return (
+        parameters.get("affected_scope") is not None
+        and parameters.get("item_type") == item_type
+        and parameters.get("limit") == limit
     )
 
 

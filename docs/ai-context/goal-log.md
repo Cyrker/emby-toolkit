@@ -2275,6 +2275,80 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-P115-Washing-Recalculation
+
+Stage / Batch: P11 / native washing-priority recalculation API and Worker slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `d8128be7` (`refactor(p11): migrate p115 washing priority state`).
+- Checkpoint: this batch's `refactor(p11): execute native washing priority recalculation` commit
+  after the targeted gate below.
+
+Implemented:
+
+- Replaced `POST /api/p115/washing_priority_recalculate` with a native durable submission path:
+  empty pending scope remains immediate `200`, fresh jobs return `202`, idempotent replay returns
+  the original Job as `200`, and active/different-intent conflicts return `409`. Job payloads contain
+  only `item_type`, `limit`, `affected_scope`, and `scope_revision`.
+- Added a legacy-compatible plaintext evaluator for ordered normal/exclude rules, MediaInfo parsing,
+  language/source/effect/release-group matching, clean-version runtime fallback, version slots,
+  target-CID inference/backfill, and exact cache/media snapshot reduction. It does not import the
+  legacy handler/task/database/config runtime.
+- Added a SQLAlchemy repository with one policy snapshot read, scoped in-library candidate queries,
+  per-item UoWs, source-fingerprint and `in_library` drift rejection, cache/media snapshot mutation,
+  organize-record CID backfill, and revision compare-and-ack. The optional TMDb runtime read is a
+  narrow `httpx` port and all tests use Fake/Mock transports.
+- Wired the processor-free service into normal and native-only Workers. Native-only execution is now
+  `11 executable / 39 unavailable`; partial row failures map to `TaskOutcome.PARTIAL`.
+- Regenerated Route/Task manifests and OpenAPI. Ownership is now `285 new / 58 legacy` route
+  decorators and `305 new / 62 legacy` method bindings; OpenAPI is `263 paths / 313 operations`.
+
+Targeted gate:
+
+- Whole-scope Ruff -> clean; format check -> `598 files already formatted`; Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- Washing/Worker plus required P5/P7/P8 application regressions -> `192 passed, 1` existing
+  Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 washing state/recalculation, Identity and Database Maintenance scope ->
+  `25 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Manifest/OpenAPI checks, fixture secret scan and `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-p115-washing-recalculation-20260829/`.
+
+Focused review:
+
+- Fixed empty-scope idempotent replay, post-candidate `in_library` drift, missing Episode identity
+  runtime lookup, and PG18 setup cleanup-boundary findings. Evaluator parity, Job payload/busy
+  semantics, per-item UoW, source drift, revision ack, import sentinels and ownership were rereviewed;
+  no remaining P0/P1/P2 was found in this slice.
+- One read-only audit agent wrote four scoped files contrary to its instruction. Provenance was
+  confirmed, the agent was stopped, the generic Job-service expansion was removed, and every
+  retained line was independently reviewed and revalidated; no unexplained writer or file remains.
+
+Stage full gate:
+
+- Not run. P11 still has explicit route/config/table/Worker execution and compatibility-runtime
+  gaps; this checkpoint does not authorize controlled removal or P12.
+
+Pending:
+
+- Sixty-two method bindings, 58 route decorators, 12 tables, 82 dynamic config keys, seven bootstrap
+  keys and 27 standalone settings remain legacy-owned. Thirty-nine catalog tasks remain unavailable
+  in the native-only Worker until their normal processed paths have native owners.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue the next evidence-backed residual route/config/table or processed Worker execution
+slice. Do not start controlled removal until ownership and native execution reach 100%; keep Live
+Acceptance `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -2294,7 +2368,6 @@ Read first:
 
 Next:
 
-- Continue `P11-Pre-removal` with the washing-priority recalculation API/Worker if its normal path can
-  be made processor-free, otherwise take the next evidence-backed local P115 ownership slice. Keep
-  every unmigrated task/binding explicit; do not start controlled removal until execution and
-  ownership reach 100%. Keep all Live Acceptance items pending.
+- Continue `P11-Pre-removal` with the next evidence-backed residual route/config/table or processed
+  Worker execution slice. Keep every unmigrated task/binding explicit; do not start controlled
+  removal until execution and ownership reach 100%. Keep all Live Acceptance items pending.

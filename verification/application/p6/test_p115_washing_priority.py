@@ -402,6 +402,7 @@ def test_washing_source_ownership_and_openapi_are_native() -> None:
         ("POST", "/api/p115/washing_priority_config"),
         ("GET", "/api/p115/washing_priority_groups"),
         ("POST", "/api/p115/washing_priority_groups"),
+        ("POST", "/api/p115/washing_priority_recalculate"),
     }
     assert FIXTURE["provenance"]["captured_live"] is False
     assert FIXTURE["provenance"]["external_systems_used"] is False

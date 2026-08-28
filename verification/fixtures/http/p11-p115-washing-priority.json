@@ -22,6 +22,10 @@
     {
       "method": "POST",
       "path": "/api/p115/washing_priority_groups"
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/washing_priority_recalculate"
     }
   ],
   "config_get": {
@@ -170,6 +174,44 @@
           }
         }
       }
+    }
+  },
+  "recalculate": {
+    "empty_pending_response": {
+      "status": 200,
+      "body": {
+        "success": true,
+        "message": "当前没有受规则变更影响的媒体项",
+        "data": {
+          "scanned_items": 0,
+          "updated_items": 0
+        }
+      }
+    },
+    "submit_request": {
+      "background": false,
+      "item_type": "movie",
+      "limit": 5
+    },
+    "submit_parameters": {
+      "item_type": "movie",
+      "limit": 5,
+      "affected_scope": {
+        "Movie": {
+          "all": false,
+          "target_cids": [
+            "100"
+          ]
+        }
+      },
+      "scope_revision": 7
+    },
+    "submission": {
+      "status": 202,
+      "reused_status": 200,
+      "idempotency_scope": "api.p115.washing_priority_recalculate",
+      "busy_status": 409,
+      "conflict_status": 409
     }
   }
 }

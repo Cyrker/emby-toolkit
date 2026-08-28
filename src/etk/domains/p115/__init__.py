@@ -303,6 +303,9 @@ from .washing_priority import (
     normalize_washing_priority_recalculate_scope,
 )
 from .washing_priority_repository import SqlAlchemyP115WashingPriorityRepository
+from .washing_recalculation import P115WashingPriorityRecalculationService
+from .washing_recalculation_adapters import HttpxP115EpisodeRuntimeGateway
+from .washing_recalculation_repository import SqlAlchemyP115WashingRecalculationRepository
 
 __all__ = [
     "AccountBoundP115FingerprintClient",
@@ -318,6 +321,7 @@ __all__ = [
     "EmbyPathChangeEffectDelivery",
     "HttpxEmbyMediaInfoQueryGateway",
     "HttpxP115BridgeEmbyGateway",
+    "HttpxP115EpisodeRuntimeGateway",
     "HttpxP115AuthorizationGateway",
     "HttpxEmbyPathChangeGateway",
     "IntroDetectionExecutionService",
@@ -518,10 +522,12 @@ __all__ = [
     "SqlAlchemyP115SortingRulesRepository",
     "SqlAlchemyP115StrmSyncRepository",
     "SqlAlchemyP115WashingPriorityRepository",
+    "SqlAlchemyP115WashingRecalculationRepository",
     "PostgresP115StrmSyncCoordinator",
     "PostgresP115IntroDetectionRepository",
     "PostgresP115PlaybackRepository",
     "PostgresP115UploadMonitorRepository",
+    "P115WashingPriorityRecalculationService",
     "PreIdCandidates",
     "PreIdResolution",
     "PreIdSource",

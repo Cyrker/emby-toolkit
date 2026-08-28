@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 262
-EXPECTED_OPERATIONS = 312
+EXPECTED_PATHS = 263
+EXPECTED_OPERATIONS = 313
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -56,6 +56,7 @@ BODY_METHODS = {
     ("post", "/api/p115/sorting_rules"),
     ("post", "/api/p115/temp_dir_config"),
     ("post", "/api/p115/upload_monitor/config"),
+    ("post", "/api/p115/washing_priority_recalculate"),
     ("post", "/api/update_media_image/{item_id}"),
     ("post", "/api/update_media_cast_sa/{item_id}"),
     ("post", "/api/config/custom_theme"),

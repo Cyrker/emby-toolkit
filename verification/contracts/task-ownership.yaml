@@ -907,12 +907,11 @@
       "help": "重新计算媒体库中每个媒体的洗版优先级，适合调整洗版规则或新增优先级因素后使用。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-      "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+      "notes": "P11 native Worker envelope validates the processor-free washing recalculation payload and executes database-owned media evaluation, snapshot persistence, progress checkpoints, and revision CAS acknowledgement without the legacy callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.washing_recalculation.P115WashingPriorityRecalculationService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -924,8 +923,8 @@
       ],
       "target_stage": "P7",
       "task_key": "recalculate_library_washing_priorities",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "subscription/task-envelope",
+      "validation_method": "ordered-task-registry-native-router-worker-outcome-washing-evaluator-postgres18",
+      "validation_owner": "p115/washing-priority-recalculation",
       "visible_in": [
         "all"
       ]
