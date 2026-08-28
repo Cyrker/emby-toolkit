@@ -65,16 +65,23 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
         for node in ast.walk(tree)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "P6P115TaskRouter"
     ]
-    assert len(p6_router_calls) == 1
-    assert len(p6_router_calls[0].args) == 6
-    assert isinstance(p6_router_calls[0].args[2], ast.Call)
-    assert isinstance(p6_router_calls[0].args[2].func, ast.Name)
-    assert p6_router_calls[0].args[2].func.id == "P115StrmSyncService"
-    assert isinstance(p6_router_calls[0].args[4], ast.Name)
-    assert p6_router_calls[0].args[4].id == "playback_service"
-    assert isinstance(p6_router_calls[0].args[5], ast.Call)
-    assert isinstance(p6_router_calls[0].args[5].func, ast.Name)
-    assert p6_router_calls[0].args[5].func.id == "P115IntroBackfillTaskService"
+    full_router_calls = [call for call in p6_router_calls if len(call.args) == 6]
+    isolated_router_calls = [
+        call
+        for call in p6_router_calls
+        if not call.args and {keyword.arg for keyword in call.keywords} == {"organize_record_tmdb_backfill"}
+    ]
+    assert len(full_router_calls) == 1
+    assert len(isolated_router_calls) == 1
+    p6_router_call = full_router_calls[0]
+    assert isinstance(p6_router_call.args[2], ast.Call)
+    assert isinstance(p6_router_call.args[2].func, ast.Name)
+    assert p6_router_call.args[2].func.id == "P115StrmSyncService"
+    assert isinstance(p6_router_call.args[4], ast.Name)
+    assert p6_router_call.args[4].id == "playback_service"
+    assert isinstance(p6_router_call.args[5], ast.Call)
+    assert isinstance(p6_router_call.args[5].func, ast.Name)
+    assert p6_router_call.args[5].func.id == "P115IntroBackfillTaskService"
     strm_mediainfo_assignments = [
         node
         for node in ast.walk(tree)
@@ -88,9 +95,7 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
     assert len(strm_mediainfo_assignments) == 1
     strm_mediainfo_target = strm_mediainfo_assignments[0].targets[0]
     assert isinstance(strm_mediainfo_target, ast.Name)
-    strm_mediainfo_keyword = next(
-        keyword for keyword in p6_router_calls[0].args[2].keywords if keyword.arg == "mediainfo"
-    )
+    strm_mediainfo_keyword = next(keyword for keyword in p6_router_call.args[2].keywords if keyword.arg == "mediainfo")
     assert isinstance(strm_mediainfo_keyword.value, ast.Name)
     assert strm_mediainfo_keyword.value.id == strm_mediainfo_target.id
     fingerprint_assignments = [
@@ -107,8 +112,8 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
     fingerprint_target = fingerprint_assignments[0].targets[0]
     assert isinstance(fingerprint_target, ast.Name)
     fingerprint_variable = fingerprint_target.id
-    assert isinstance(p6_router_calls[0].args[3], ast.Name)
-    assert p6_router_calls[0].args[3].id == fingerprint_variable
+    assert isinstance(p6_router_call.args[3], ast.Name)
+    assert p6_router_call.args[3].id == fingerprint_variable
     restore_calls = [
         node
         for node in ast.walk(tree)

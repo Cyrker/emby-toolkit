@@ -468,6 +468,12 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     state = cast(Any, runtime)
     assert state._native_only is True
     assert state._adapter is None
+    assert type(state._p6_p115_tasks).__name__ == "P6P115TaskRouter"
+    assert type(state._p6_p115_tasks._organize_record_tmdb_backfill).__name__ == (
+        "P115OrganizeRecordTmdbBackfillService"
+    )
+    assert state._p6_p115_tasks._directory_sync is None
+    assert state._p6_p115_tasks._organize_execution is None
     assert type(state._p6_ingestion_tasks).__name__ == "P6IngestionTaskRouter"
     assert type(state._p8_effect_tasks).__name__ == "P8EffectTaskRouter"
     assert state._p8_effect_tasks._compatibility is None
@@ -481,6 +487,7 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     runtime.close()
 
     assert events == ["supervisor.start", "supervisor.stop", "container.close"]
+    assert state._p6_p115_tasks is None
     assert state._p6_ingestion_tasks is None
     assert state._p8_effect_tasks is None
     assert state._p9_sharing_tasks is None

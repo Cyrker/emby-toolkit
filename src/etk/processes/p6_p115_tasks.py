@@ -63,8 +63,8 @@ class P6P115TaskRouter:
 
     def __init__(
         self,
-        directory_sync: _DirectorySyncUseCase,
-        organize_execution: _OrganizeExecutionUseCase,
+        directory_sync: _DirectorySyncUseCase | None = None,
+        organize_execution: _OrganizeExecutionUseCase | None = None,
         strm_sync: _StrmSyncUseCase | None = None,
         fingerprint_repair: _FingerprintRepairUseCase | None = None,
         playback: _PlaybackMaintenanceUseCase | None = None,
@@ -113,6 +113,8 @@ class P6P115TaskRouter:
     def _execute_directory_sync(self, message: TaskMessage, progress: P115TaskProgress) -> TaskOutcome:
         if message.payload.data:
             raise ValueError(f"task {message.task_key!r} does not accept parameters")
+        if self._directory_sync is None:
+            raise RuntimeError("P6 directory-sync use case is unavailable")
 
         result = self._directory_sync.execute(progress)
         return TaskOutcome(
@@ -127,6 +129,8 @@ class P6P115TaskRouter:
         job_id = _uuid_field(message.metadata, "job_id", container="metadata")
         attempt_id = _uuid_field(message.metadata, "attempt_id", container="metadata")
         worker_id = _required_text_field(message.metadata, "worker_id", container="metadata", maximum=255)
+        if self._organize_execution is None:
+            raise RuntimeError("P6 organize-execution use case is unavailable")
 
         result = self._organize_execution.execute(
             execution_id,
@@ -165,6 +169,8 @@ class P6P115TaskRouter:
             container="metadata",
             maximum=255,
         )
+        if self._organize_execution is None:
+            raise RuntimeError("P6 organize-execution use case is unavailable")
         result = self._organize_execution.reconcile(execution_id, approved_intent_id, actor=actor)
         return TaskOutcome.succeeded(
             "115 整理对账完成",

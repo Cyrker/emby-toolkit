@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from etk.platform.tasks import ProcessorIdentity, TaskMessage, TaskOutcome
 from etk.processes.p6_p115_tasks import P6P115TaskRouter
@@ -30,8 +30,6 @@ class _Backfill:
 def test_p6_router_dispatches_organize_record_tmdb_backfill_without_payload() -> None:
     backfill = _Backfill()
     router = P6P115TaskRouter(
-        directory_sync=cast(Any, object()),
-        organize_execution=cast(Any, object()),
         organize_record_tmdb_backfill=backfill,
     )
     progress = _Progress()
@@ -63,7 +61,7 @@ def test_p6_router_rejects_backfill_payload_or_missing_use_case() -> None:
         processor=ProcessorIdentity.MEDIA,
         payload={"unexpected": True},
     )
-    router = P6P115TaskRouter(directory_sync=cast(Any, object()), organize_execution=cast(Any, object()))
+    router = P6P115TaskRouter()
 
     try:
         router.execute(message, _Progress())

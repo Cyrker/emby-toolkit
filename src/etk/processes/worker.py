@@ -259,7 +259,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     P4_NATIVE_TASK_KEYS
     | P6_INGESTION_NATIVE_TASK_KEYS
     | P9_NATIVE_TASK_KEYS
-    | {"sync-all-user-data", "system-auto-update"}
+    | {"backfill-organize-record-tmdb-ids", "sync-all-user-data", "system-auto-update"}
 )
 
 
@@ -1172,6 +1172,11 @@ class WorkerRuntime:
                     known_paths=ingestion_ledger,
                 )
             )
+            p6_p115_tasks = P6P115TaskRouter(
+                organize_record_tmdb_backfill=P115OrganizeRecordTmdbBackfillService(
+                    SqlAlchemyP115OrganizeRecordsRepository(database.unit_of_work)
+                )
+            )
             p8_effect_tasks = P8EffectTaskRouter(
                 None,
                 UserSyncService(
@@ -1203,6 +1208,7 @@ class WorkerRuntime:
         self._registry = registry
         self._service = service
         self._adapter = None
+        self._p6_p115_tasks = p6_p115_tasks
         self._p6_ingestion_tasks = p6_ingestion_tasks
         self._p8_effect_tasks = p8_effect_tasks
         self._p9_sharing_tasks = p9_sharing_tasks

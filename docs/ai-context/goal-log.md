@@ -1996,6 +1996,67 @@ Safety boundary:
 - No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Organize-Record-Backfill-Worker
+
+Stage / Batch: P11 / organize-record backfill Worker slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `99468a83` (`refactor(p11): migrate native emby search index`).
+- Checkpoint: this batch's `refactor(p11): execute native organize record backfill` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Added `backfill-organize-record-tmdb-ids` to the explicit native-only executable task set. The
+  Worker now constructs an isolated `P6P115TaskRouter` with only
+  `P115OrganizeRecordTmdbBackfillService` and `SqlAlchemyP115OrganizeRecordsRepository`; it does not
+  construct credentials, provider, directory-sync or organize-mutation adapters for this path.
+- Made the P6 router's per-use-case dependencies optional and added branch-local unavailable checks,
+  so one proven processor-free use case can be wired without falsely making the other eight P115
+  tasks executable.
+- Added a normal success-path import sentinel that rejects `task_manager`, `handler.*`, `routes.*`
+  and legacy `database.*` imports during execution, plus native startup graph and exhaustive
+  allowlist/negative evidence. Native-only execution is now `10 executable / 40 unavailable`
+  catalog keys; both P8 review tasks remain unavailable.
+- Preserved the existing local-only PostgreSQL identity backfill and progress/result contract. No
+  115 provider or other external side effect is part of the task.
+
+Targeted gate:
+
+- `uv run ruff check src verification scripts/refactor` -> clean; format check -> `582 files already
+  formatted`.
+- `uv run pyright` -> `0 errors, 0 warnings, 0 informations`.
+- Worker/router application scope -> `164 passed`, with the existing Starlette WSGI deprecation
+  warning only; required future-domain application regressions -> `29 passed`.
+- Disposable PostgreSQL 18 organize-record, Identity and Database Maintenance scope -> `26 passed`.
+- Architecture -> `73 passed`, with the existing Starlette WSGI deprecation warning only.
+- Manifest and OpenAPI checks plus `git diff --check` -> clean.
+- Focused review covered execution allowlisting, dependency isolation, import sentinels, local
+  mutation idempotency, progress-after-commit retry behavior and negative coverage. One stale
+  architecture assertion that assumed a single P6 router construction was repaired; no P0/P1/P2
+  remains in this slice.
+
+Stage full gate:
+
+- Not run. Forty catalog tasks, both P8 review tasks, residual ownership, compatibility runtime and
+  P11 NFR/security evidence remain pending.
+
+Pending:
+
+- The other eight P6 P115 tasks remain intentionally unavailable because their normal paths still
+  touch legacy credentials, provider transports, configuration or effect adapters. Empty, disabled,
+  cache-hit or skipped paths are not accepted as migration evidence.
+
+Next: continue with a real residual route/table/config owner. Do not expand the P6 P115 allowlist
+until a normal processed path has native provider/readback/effect ownership and legacy-import
+sentinels.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

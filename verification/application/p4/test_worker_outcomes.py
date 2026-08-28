@@ -780,6 +780,13 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
     assert len(definitions) == 50
     assert expected_legacy_keys == set()
     assert _NATIVE_ONLY_EXECUTABLE_TASK_KEYS == (
-        P4_NATIVE_TASK_KEYS | {"scan-monitor-folders", "sync-all-user-data", "system-auto-update"} | P9_NATIVE_TASK_KEYS
+        P4_NATIVE_TASK_KEYS
+        | {
+            "backfill-organize-record-tmdb-ids",
+            "scan-monitor-folders",
+            "sync-all-user-data",
+            "system-auto-update",
+        }
+        | P9_NATIVE_TASK_KEYS
     )
     assert _NATIVE_ONLY_EXECUTABLE_TASK_KEYS < native_keys
