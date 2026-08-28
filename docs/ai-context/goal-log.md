@@ -1807,6 +1807,73 @@ Safety boundary:
 - No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old `/config`,
   external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Native-Worker-Foundation
+
+Stage / Batch: P11 / native Worker execution foundation
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `7f445cf6` (`docs(p8): record maintenance and frontend verification`).
+- Checkpoint: this batch's `refactor(p11): wire processor-free worker execution` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Native-only Worker startup now wires the processor-free P6 ingestion scan, P8 user-sync and
+  native-disabled system update, and all four typed P9 sharing task paths without a legacy task
+  adapter or `task_manager` execution context.
+- Native-only Worker startup now wires the durable Subscription, Identity, and Database Maintenance
+  operation executors. Startup failure stops the partially started supervisor and closes the
+  container; shutdown clears the installed fields.
+- `_NATIVE_ONLY_EXECUTABLE_TASK_KEYS` is the explicit execution truth for this bounded slice.
+  Every registered task or P8 review task outside that set terminalizes as
+  `NativeTaskExecutionUnavailable`; a native envelope is no longer treated as proof of a native
+  execution owner.
+- Task chains now reject unknown or not-yet-migrated children and fail the parent after a failed
+  child instead of returning `completed`.
+- The stale one-legacy-task assertion was replaced with the current `50 native / 0 legacy` envelope
+  assertion plus exhaustive negative execution coverage for every catalog/review task outside the
+  native-only executable set. All routers, the legacy adapter, processor resolution, and
+  `task_manager` import are failure sentinels in that test.
+
+Targeted gate:
+
+- `uv run ruff check src verification scripts/refactor` -> clean; format check -> `578 files already
+  formatted`.
+- `uv run pyright` -> `0 errors, 0 warnings, 0 informations`.
+- Worker/router application scope -> `156 passed, 1` existing Starlette WSGI deprecation warning.
+- Required future-domain application regressions -> `29 passed`.
+- Identity PostgreSQL 18 -> `20 passed`; Database Maintenance PostgreSQL 18 -> `3 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Manifest and OpenAPI checks -> clean; `git diff --check` -> clean.
+- Findings-first Worker review initially found incomplete execution truth and task-chain false-success
+  paths. After the explicit allowlist, exhaustive negative tests, and chain fixes, focused rereview
+  found no remaining P0/P1/P2 in this slice.
+
+Stage full gate:
+
+- Not run. This checkpoint establishes an honest processor-free execution foundation; it is not the
+  P11 controlled removal or NFR checkpoint.
+
+Pending:
+
+- Native P6 115, P5 MediaInfo restore, P7 tasks, generic P8/review tasks, Media Effects, Collection,
+  Cleanup, and P115 upload/playback/intro executors still need real execution owners before they can
+  enter the native-only executable set.
+- Route decorators/method bindings, the remaining tables, dynamic config keys, standalone settings,
+  and compatibility-boundary imports remain explicit pre-removal work. No ownership count changed
+  in this slice.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory, and P12 remain pending.
+
+Next: continue with evidence-backed native execution and ownership slices. Do not start the removal
+wave until all ownership and execution entries have real owners or approved retirements.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -1826,6 +1893,7 @@ Read first:
 
 Next:
 
-- Resume `P11-Pre-removal` by supplying native owners or evidence-backed retirement approvals for
-  the remaining legacy contracts, then complete the native Worker execution graph. Keep all Live
-  Acceptance items pending.
+- Continue `P11-Pre-removal` from `_NATIVE_ONLY_EXECUTABLE_TASK_KEYS`: add the next real execution
+  owner or evidence-backed ownership slice, keep every unmigrated task explicitly unavailable, and
+  do not start controlled removal until execution and ownership reach 100%. Keep all Live Acceptance
+  items pending.

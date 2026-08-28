@@ -124,6 +124,20 @@ def test_user_sync_uses_native_service_without_media_processor() -> None:
     assert gateway.calls == []
 
 
+def test_processor_free_router_does_not_require_a_compatibility_gateway() -> None:
+    sync = FakeUserSync()
+    router = P8EffectTaskRouter(None, cast(UserSyncService, sync))
+
+    synced = router.execute(_message("sync-all-user-data"), None, FakeProgress())
+    disabled_update = router.execute(_message("system-auto-update"), None, FakeProgress())
+
+    assert synced.status is TaskOutcomeStatus.SUCCEEDED
+    assert disabled_update.status is TaskOutcomeStatus.SKIPPED
+    assert sync.calls == 1
+    with pytest.raises(RuntimeError, match="compatibility execution is unavailable"):
+        router.execute(_message("refresh-collections"), object(), FakeProgress())
+
+
 def test_manual_auto_tagging_payload_is_strict_and_server_selected() -> None:
     router, gateway, _sync = _router()
 

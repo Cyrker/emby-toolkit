@@ -98,7 +98,7 @@ class LegacyP8EffectsCompatibilityGateway:
 class P8EffectTaskRouter:
     def __init__(
         self,
-        compatibility: P8EffectsCompatibilityGateway,
+        compatibility: P8EffectsCompatibilityGateway | None,
         user_sync: UserSyncService,
     ) -> None:
         self._compatibility = compatibility
@@ -135,6 +135,8 @@ class P8EffectTaskRouter:
             )
         if processor is None:
             raise RuntimeError(f"P8 task {message.task_key!r} media processor is unavailable")
+        if self._compatibility is None:
+            raise RuntimeError(f"P8 task {message.task_key!r} compatibility execution is unavailable")
         result = self._compatibility.execute(message.task_key, processor, parameters)
         return _explicit_outcome(message.task_key, result, progress)
 
@@ -149,6 +151,8 @@ class P8EffectTaskRouter:
             raise LookupError(f"unknown P8 review task key: {task_key}")
         if processor is None:
             raise RuntimeError(f"P8 review task {task_key!r} media processor is unavailable")
+        if self._compatibility is None:
+            raise RuntimeError(f"P8 review task {task_key!r} compatibility execution is unavailable")
         normalized = _normalize_review_parameters(task_key, parameters)
         result = self._compatibility.execute(task_key, processor, normalized)
         return _explicit_outcome(task_key, result, progress)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+import builtins
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from threading import Event, Thread
 from types import SimpleNamespace
@@ -9,11 +10,12 @@ from uuid import UUID
 
 import pytest
 
-from etk.compatibility.legacy_jobs import LegacyTaskAdapter
+from etk.domains.operations.review_reprocess import P8_REVIEW_TASK_KEYS
 from etk.domains.subscription.cleanup_execution import CLEANUP_EXECUTION_TASK_KEY
 from etk.platform.jobs import AttemptStatus, InvalidStateTransitionError, JobStatus
-from etk.platform.tasks import ProcessorIdentity, TaskHandlerKind, TaskMessage, TaskOutcome, TaskRegistry
+from etk.platform.tasks import TaskHandlerKind, TaskMessage, TaskOutcome, TaskRegistry
 from etk.platform.tasks.catalog import (
+    NATIVE_TASK_KEYS,
     P4_NATIVE_TASK_KEYS,
     P5_NATIVE_TASK_KEYS,
     P6_NATIVE_TASK_KEYS,
@@ -23,6 +25,8 @@ from etk.platform.tasks.catalog import (
 )
 from etk.processes.runtime_config import TaskRuntimeConfig
 from etk.processes.worker import (
+    _NATIVE_ONLY_EXECUTABLE_TASK_KEYS,
+    NativeTaskExecutionUnavailable,
     WorkerRuntime,
     _ExecutionControl,
     _ExecutionProgress,
@@ -192,6 +196,15 @@ class StubP6Router:
         return self.outcome
 
 
+class StubProcessorFreeRouter:
+    def __init__(self) -> None:
+        self.calls: list[tuple[TaskMessage, object | None, object]] = []
+
+    def execute(self, message: TaskMessage, processor: object | None, progress: object) -> TaskOutcome:
+        self.calls.append((message, processor, progress))
+        return TaskOutcome.succeeded("fixture processor-free success")
+
+
 def _catalog_runtime(projection: object, router: StubP6Router) -> tuple[WorkerRuntime, ExecutionStore]:
     store = ExecutionStore(projection)
     runtime = WorkerRuntime(config=TaskRuntimeConfig(heartbeat_seconds=60, lease_seconds=120))
@@ -200,6 +213,17 @@ def _catalog_runtime(projection: object, router: StubP6Router) -> tuple[WorkerRu
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
     state._adapter = object()
     state._p6_p115_tasks = router
+    return runtime, store
+
+
+def _native_catalog_runtime(projection: object) -> tuple[WorkerRuntime, ExecutionStore]:
+    store = ExecutionStore(projection)
+    runtime = WorkerRuntime(config=TaskRuntimeConfig(heartbeat_seconds=60, lease_seconds=120))
+    state = cast(Any, runtime)
+    state._store = store
+    state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
+    state._adapter = None
+    state._native_only = True
     return runtime, store
 
 
@@ -458,6 +482,145 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
 
 
 @pytest.mark.parametrize(
+    ("task_key", "router_field"),
+    [
+        ("sync-all-user-data", "_p8_effect_tasks"),
+        ("hdhive-auto-checkin", "_p9_sharing_tasks"),
+    ],
+)
+def test_native_processor_free_tasks_do_not_import_task_manager(
+    monkeypatch: pytest.MonkeyPatch,
+    task_key: str,
+    router_field: str,
+) -> None:
+    projection = _catalog_projection(task_key, parameters={})
+    runtime, store = _native_catalog_runtime(projection)
+    router = StubProcessorFreeRouter()
+    setattr(cast(Any, runtime), router_field, router)
+    original_import = builtins.__import__
+
+    def guarded_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] | None = (),
+        level: int = 0,
+    ) -> Any:
+        if name == "task_manager":
+            raise AssertionError("native Worker imported task_manager")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == ["succeeded"]
+    assert len(router.calls) == 1
+    assert router.calls[0][1] is None
+
+
+@pytest.mark.parametrize(
+    "task_key",
+    sorted((NATIVE_TASK_KEYS - _NATIVE_ONLY_EXECUTABLE_TASK_KEYS) | P8_REVIEW_TASK_KEYS),
+)
+def test_native_worker_reports_unmigrated_task_without_importing_task_manager(
+    monkeypatch: pytest.MonkeyPatch,
+    task_key: str,
+) -> None:
+    projection = _catalog_projection(task_key, parameters={})
+    runtime, store = _native_catalog_runtime(projection)
+    state = cast(Any, runtime)
+
+    class FailingExecutionOwner:
+        def execute(self, *_args: object, **_kwargs: object) -> object:
+            raise AssertionError("unmigrated native-only task reached a task router or adapter")
+
+        def execute_review(self, *_args: object, **_kwargs: object) -> object:
+            raise AssertionError("unmigrated native-only review task reached a compatibility router")
+
+    failing_owner = FailingExecutionOwner()
+    state._adapter = failing_owner
+    state._p5_media_tasks = failing_owner
+    state._p6_p115_tasks = failing_owner
+    state._p6_ingestion_tasks = failing_owner
+    state._p7_subscription_tasks = failing_owner
+    state._p8_effect_tasks = failing_owner
+    state._p9_sharing_tasks = failing_owner
+    monkeypatch.setattr(
+        "etk.processes.worker._processor",
+        lambda _identity: (_ for _ in ()).throw(AssertionError("native-only task resolved a legacy processor")),
+    )
+    original_import = builtins.__import__
+
+    def guarded_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] | None = (),
+        level: int = 0,
+    ) -> Any:
+        if name == "task_manager":
+            raise AssertionError("native Worker imported task_manager")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == ["failed"]
+    assert store.terminals[0][1]["error_type"] == NativeTaskExecutionUnavailable.__name__
+    assert task_key in store.terminals[0][1]["error_message"]
+
+
+def test_native_chain_rejects_unknown_and_unmigrated_children() -> None:
+    parent = _catalog_projection("task-chain-high-freq", parameters={})
+    runtime, _store = _native_catalog_runtime(parent)
+    cast(Any, runtime)._service = object()
+
+    cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["unknown-task"]})
+    with pytest.raises(LookupError, match="unknown task 'unknown-task'"):
+        runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
+
+    cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["refresh-collections"]})
+    with pytest.raises(NativeTaskExecutionUnavailable, match="refresh-collections"):
+        runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
+
+
+def test_task_chain_does_not_report_completed_after_a_failed_child() -> None:
+    parent = _catalog_projection("task-chain-high-freq", parameters={})
+    child = _catalog_projection("sync-all-user-data", parameters={})
+    child.job.id = UUID("00000000-0000-0000-0000-000000000231")
+    child.current_attempt.id = UUID("00000000-0000-0000-0000-000000000232")
+    child.job.status = JobStatus.FAILED
+
+    class ChainStore:
+        def get_job(self, job_id: UUID) -> object | None:
+            if job_id == parent.job.id:
+                return parent
+            if job_id == child.job.id:
+                return child
+            return None
+
+        def heartbeat(self, **_values: object) -> None:
+            raise AssertionError("failed child must stop the chain before parent heartbeat")
+
+    class ChainService:
+        def submit_task(self, *_args: object, **_kwargs: object) -> object:
+            return SimpleNamespace(projection=child)
+
+    runtime = WorkerRuntime(config=TaskRuntimeConfig())
+    state = cast(Any, runtime)
+    state._store = ChainStore()
+    state._service = ChainService()
+    state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
+    state._supervisor = SimpleNamespace(config={"task_chain_sequence": ["sync-all-user-data"]})
+    state.execute = lambda **_values: None
+
+    with pytest.raises(RuntimeError, match="workflow child 'sync-all-user-data' failed"):
+        runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
     ("task_key", "outcome", "expected_terminal"),
     [
         (
@@ -598,9 +761,7 @@ def test_uncooperative_direct_timeout_is_fenced_before_injected_termination(
     assert failures == []
 
 
-def test_every_legacy_catalog_key_routes_negative_failure_evidence_to_worker_terminal_contract() -> None:
-    import task_manager
-
+def test_every_catalog_key_has_native_envelope_ownership() -> None:
     registry = TaskRegistry.from_fixture(TASK_FIXTURE)
     definitions = registry.definitions()
     expected_native_keys = (
@@ -617,39 +778,8 @@ def test_every_legacy_catalog_key_routes_negative_failure_evidence_to_worker_ter
     assert native_keys == expected_native_keys
     assert {"restore_mediainfo", "repair-p115-fingerprints"} <= native_keys
     assert len(definitions) == 50
-    assert len(expected_legacy_keys) == 1
-
-    class Resolver:
-        @staticmethod
-        def resolve(
-            task_key: str,
-            processor: ProcessorIdentity,
-        ) -> tuple[Callable[..., object], object]:
-            del task_key, processor
-
-            def fail(_runtime_processor, **_parameters):
-                task_manager.update_status_from_thread(-1, "fixture catalog failure")
-
-            return fail, object()
-
-    adapter = LegacyTaskAdapter(registry, Resolver())
-    checked = []
-    for index, definition in enumerate(definitions, start=1):
-        if definition.handler_kind is TaskHandlerKind.NATIVE:
-            continue
-        progress = _ExecutionProgress(
-            store=HeartbeatStore(),  # type: ignore[arg-type]
-            job_id=UUID(int=index),
-            attempt_id=UUID(int=1000 + index),
-            worker_id="fixture-worker",
-            lease_seconds=30,
-            control=_ExecutionControl(),
-        )
-        message = registry.create_message(definition.key, {})
-        with task_manager.persistent_execution(progress):
-            adapter.execute(message)
-        with pytest.raises(_TaskReportedFailure, match="fixture catalog failure"):
-            progress.raise_if_reported_failure()
-        checked.append(definition.key)
-
-    assert set(checked) == expected_legacy_keys
+    assert expected_legacy_keys == set()
+    assert _NATIVE_ONLY_EXECUTABLE_TASK_KEYS == (
+        P4_NATIVE_TASK_KEYS | {"scan-monitor-folders", "sync-all-user-data", "system-auto-update"} | P9_NATIVE_TASK_KEYS
+    )
+    assert _NATIVE_ONLY_EXECUTABLE_TASK_KEYS < native_keys

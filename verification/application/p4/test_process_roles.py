@@ -436,6 +436,92 @@ def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
     assert events == ["supervisor.start", "supervisor.stop", "container.close"]
 
 
+def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -> None:
+    events: list[str] = []
+    monkeypatch.delenv("ETK_ENABLE_LEGACY_COMPATIBILITY", raising=False)
+    database = SimpleNamespace(
+        unit_of_work=lambda: None,
+        raw_pool=SimpleNamespace(connection=lambda: None),
+    )
+    container = SimpleNamespace(
+        database=database,
+        settings=SimpleNamespace(to_runtime_dict=lambda: {"profile": "native"}),
+        close=lambda: events.append("container.close"),
+    )
+    config_adapter = SimpleNamespace(load=lambda: SimpleNamespace(emby_api_timeout=30))
+
+    class Supervisor:
+        def start(self, *, role: RuntimeRole, background: bool) -> None:
+            assert role is RuntimeRole.WORKER
+            assert background is False
+            events.append("supervisor.start")
+
+        def stop(self) -> None:
+            events.append("supervisor.stop")
+
+    monkeypatch.setattr(worker_module, "_create_default_container", lambda _settings: (container, config_adapter))
+    monkeypatch.setattr(worker_module, "RuntimeSupervisor", Supervisor)
+    runtime = WorkerRuntime(config=TaskRuntimeConfig())
+
+    runtime.start()
+
+    state = cast(Any, runtime)
+    assert state._native_only is True
+    assert state._adapter is None
+    assert type(state._p6_ingestion_tasks).__name__ == "P6IngestionTaskRouter"
+    assert type(state._p8_effect_tasks).__name__ == "P8EffectTaskRouter"
+    assert state._p8_effect_tasks._compatibility is None
+    assert type(state._p9_sharing_tasks).__name__ == "P9SharingTaskRouter"
+    assert state._p9_sharing_tasks._compatibility is None
+    assert type(state._subscription_executor).__name__ == "SubscriptionOperationExecutor"
+    assert type(state._identity_executor).__name__ == "IdentityOperationExecutor"
+    assert type(state._database_maintenance_executor).__name__ == "DatabaseMaintenanceExecutor"
+    assert events == ["supervisor.start"]
+
+    runtime.close()
+
+    assert events == ["supervisor.start", "supervisor.stop", "container.close"]
+    assert state._p6_ingestion_tasks is None
+    assert state._p8_effect_tasks is None
+    assert state._p9_sharing_tasks is None
+    assert state._subscription_executor is None
+    assert state._identity_executor is None
+    assert state._database_maintenance_executor is None
+
+
+def test_native_worker_start_failure_stops_supervisor_and_closes_container(monkeypatch) -> None:
+    events: list[str] = []
+    monkeypatch.delenv("ETK_ENABLE_LEGACY_COMPATIBILITY", raising=False)
+    database = SimpleNamespace(
+        unit_of_work=lambda: None,
+        raw_pool=SimpleNamespace(connection=lambda: None),
+    )
+    container = SimpleNamespace(
+        database=database,
+        settings=SimpleNamespace(to_runtime_dict=lambda: {}),
+        close=lambda: events.append("container.close"),
+    )
+    config_adapter = SimpleNamespace(load=lambda: SimpleNamespace(emby_api_timeout=30))
+
+    class Supervisor:
+        def start(self, *, role: RuntimeRole, background: bool) -> None:
+            assert role is RuntimeRole.WORKER
+            assert background is False
+            events.append("supervisor.start")
+            raise RuntimeError("fixture native supervisor start failed")
+
+        def stop(self) -> None:
+            events.append("supervisor.stop")
+
+    monkeypatch.setattr(worker_module, "_create_default_container", lambda _settings: (container, config_adapter))
+    monkeypatch.setattr(worker_module, "RuntimeSupervisor", Supervisor)
+
+    with pytest.raises(RuntimeError, match="fixture native supervisor start failed"):
+        WorkerRuntime(config=TaskRuntimeConfig()).start()
+
+    assert events == ["supervisor.start", "supervisor.stop", "container.close"]
+
+
 def test_celery_rejects_and_requeues_delivery_after_sticky_shutdown(monkeypatch) -> None:
     monkeypatch.setattr(worker_module, "_PROCESS_SHUTDOWN_REQUESTED", True)
     task = create_celery_app(TaskRuntimeConfig()).tasks[EXECUTE_JOB_TASK]

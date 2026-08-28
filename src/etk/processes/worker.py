@@ -255,6 +255,12 @@ _FORCE_INCREMENTAL_TASKS = frozenset({"role-translation", "enrich-aliases", "pop
 _HIGH_CHAIN = "task-chain-high-freq"
 _LOW_CHAIN = "task-chain-low-freq"
 _WORKFLOW_DEPTH_LIMIT = 8
+_NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
+    P4_NATIVE_TASK_KEYS
+    | P6_INGESTION_NATIVE_TASK_KEYS
+    | P9_NATIVE_TASK_KEYS
+    | {"sync-all-user-data", "system-auto-update"}
+)
 
 
 class _CooperativeTimeout(RuntimeError):
@@ -267,6 +273,10 @@ class _TaskReportedFailure(RuntimeError):
 
 class WorkerShutdownRequested(RuntimeError):
     """Reject a delivery that raced with process shutdown."""
+
+
+class NativeTaskExecutionUnavailable(RuntimeError):
+    """A native envelope has no processor-free execution owner yet."""
 
 
 class _ExecutionControl:
@@ -1115,10 +1125,12 @@ class WorkerRuntime:
             self._started = True
 
     def _start_native_only(self) -> None:
-        """Initialize the worker control plane without materializing legacy processors."""
+        """Initialize the current processor-free Worker execution slice."""
 
         container, config_adapter = _create_default_container(None)
+        supervisor: RuntimeSupervisor | None = None
         try:
+            settings_provider = config_adapter.load
             database = container.database
             cleanup_repository = SqlAlchemyCleanupExecutionRepository(database.unit_of_work)
             store = PostgresJobStore(
@@ -1128,9 +1140,59 @@ class WorkerRuntime:
             )
             registry = TaskRegistry.from_fixture(_task_fixture())
             service = JobSubmissionService(store, registry)
+            app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
+            subscription_operations = PostgresSubscriptionOperationRepository(database.unit_of_work)
+            subscription_executor = SubscriptionOperationExecutor(
+                subscription_operations,
+                ConfiguredMoviePilotGateway(app_settings),
+            )
+            identity_operations = PostgresIdentityOperationRepository(database.unit_of_work)
+            identity_effects = HttpxEmbyIdentityEffectsAdapter(settings_provider)
+            identity_executor = IdentityOperationExecutor(
+                RegistrationSagaCoordinator(identity_operations, identity_effects),
+                IdentityUserMutationCoordinator(identity_operations, identity_effects),
+                identity_operations,
+            )
+            database_maintenance_repository = PostgresDatabaseMaintenanceRepository(database.unit_of_work)
+            database_maintenance_executor = DatabaseMaintenanceExecutor(
+                database_maintenance_repository,
+                unit_of_work=database.unit_of_work,
+                worker_id=f"{self._worker_id}:database-maintenance",
+                lease_seconds=DATABASE_MAINTENANCE_CLAIM_LEASE_SECONDS,
+            )
+            ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
+            ingestion_ingress = PersistentIngestionIngressGateway(
+                settings=settings_provider,
+                ledger=ingestion_ledger,
+            )
+            p6_ingestion_tasks = P6IngestionTaskRouter(
+                P6IngestionScanService(
+                    settings=settings_provider,
+                    ingress=ingestion_ingress,
+                    known_paths=ingestion_ledger,
+                )
+            )
+            p8_effect_tasks = P8EffectTaskRouter(
+                None,
+                UserSyncService(
+                    HttpxEmbyUserSyncAdapter(settings_provider),
+                    SqlAlchemyUserSyncRepository(database.unit_of_work),
+                ),
+            )
+            p9_sharing_tasks = P9SharingTaskRouter(
+                shared_center=HttpxSharedCenterAdapter(settings_provider),
+                hdhive=HttpxHDHiveAdapter(settings_provider),
+                telegram=HttpxTelegramBotAdapter(settings_provider),
+                compatibility=None,
+            )
             supervisor = RuntimeSupervisor()
             supervisor.start(role=RuntimeRole.WORKER, background=False)
         except BaseException:
+            if supervisor is not None:
+                try:
+                    supervisor.stop()
+                except Exception:
+                    logger.exception("Unable to stop a partially started native Worker supervisor")
             container.close()
             raise
         self._container = container
@@ -1141,6 +1203,13 @@ class WorkerRuntime:
         self._registry = registry
         self._service = service
         self._adapter = None
+        self._p6_ingestion_tasks = p6_ingestion_tasks
+        self._p8_effect_tasks = p8_effect_tasks
+        self._p9_sharing_tasks = p9_sharing_tasks
+        self._ingestion_ingress = ingestion_ingress
+        self._subscription_executor = subscription_executor
+        self._identity_executor = identity_executor
+        self._database_maintenance_executor = database_maintenance_executor
         self._native_only = True
         self._started = True
 
@@ -1650,6 +1719,22 @@ class WorkerRuntime:
             worker_id=self._worker_id,
             lease_seconds=self.config.lease_seconds,
         )
+        if self._native_only and (
+            job.task_key in P8_REVIEW_TASK_KEYS
+            or (definition is not None and definition.key not in _NATIVE_ONLY_EXECUTABLE_TASK_KEYS)
+        ):
+            unavailable_key = definition.key if definition is not None else job.task_key
+            store.fail_attempt(
+                job_id=job.id,
+                attempt_id=attempt.id,
+                worker_id=self._worker_id,
+                error_type=NativeTaskExecutionUnavailable.__name__,
+                error_message=f"native Worker execution owner is unavailable for task {unavailable_key!r}",
+                error_details={"task_key": unavailable_key, "native_only": True},
+                retryable=False,
+                honor_cancel_request=False,
+            )
+            return
         envelope = _request_envelope(job.request_payload)
         processor_identity = ProcessorIdentity(envelope["processor_type"])
         processor = (
@@ -1728,10 +1813,13 @@ class WorkerRuntime:
                     payload_version=int(envelope["payload_version"]),
                     metadata={"job_id": str(job.id), "attempt_id": str(attempt.id)},
                 )
-                from task_manager import persistent_execution
-
-                with persistent_execution(progress):
+                if self._native_only:
                     result = self._p5_media_tasks.execute(message, processor, progress)
+                else:
+                    from task_manager import persistent_execution
+
+                    with persistent_execution(progress):
+                        result = self._p5_media_tasks.execute(message, processor, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P5 native task {definition.key!r} did not return TaskOutcome")
             elif definition is not None and definition.key in P6_NATIVE_TASK_KEYS:
@@ -1775,10 +1863,13 @@ class WorkerRuntime:
                 )
                 if self._p7_subscription_tasks is None:
                     raise RuntimeError("P7 subscription task router is unavailable")
-                from task_manager import persistent_execution
-
-                with persistent_execution(progress):
+                if self._native_only:
                     result = self._p7_subscription_tasks.execute(message, processor, progress)
+                else:
+                    from task_manager import persistent_execution
+
+                    with persistent_execution(progress):
+                        result = self._p7_subscription_tasks.execute(message, processor, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P7 native task {definition.key!r} did not return TaskOutcome")
             elif definition is not None and definition.key in P8_NATIVE_TASK_KEYS:
@@ -1795,10 +1886,13 @@ class WorkerRuntime:
                 )
                 if self._p8_effect_tasks is None:
                     raise RuntimeError("P8 effect task router is unavailable")
-                from task_manager import persistent_execution
-
-                with persistent_execution(progress):
+                if self._native_only:
                     result = self._p8_effect_tasks.execute(message, processor, progress)
+                else:
+                    from task_manager import persistent_execution
+
+                    with persistent_execution(progress):
+                        result = self._p8_effect_tasks.execute(message, processor, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P8 native task {definition.key!r} did not return TaskOutcome")
             elif definition is not None and definition.key in P9_NATIVE_TASK_KEYS:
@@ -1818,24 +1912,35 @@ class WorkerRuntime:
                 )
                 if self._p9_sharing_tasks is None:
                     raise RuntimeError("P9 sharing task router is unavailable")
-                from task_manager import persistent_execution
-
-                with persistent_execution(progress):
+                if self._native_only:
                     result = self._p9_sharing_tasks.execute(message, processor, progress)
+                else:
+                    from task_manager import persistent_execution
+
+                    with persistent_execution(progress):
+                        result = self._p9_sharing_tasks.execute(message, processor, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P9 native task {definition.key!r} did not return TaskOutcome")
             elif job.task_key in P8_REVIEW_TASK_KEYS:
                 if self._p8_effect_tasks is None:
                     raise RuntimeError("P8 effect task router is unavailable")
-                from task_manager import persistent_execution
-
-                with persistent_execution(progress):
+                if self._native_only:
                     result = self._p8_effect_tasks.execute_review(
                         job.task_key,
                         envelope["parameters"],
                         processor,
                         progress,
                     )
+                else:
+                    from task_manager import persistent_execution
+
+                    with persistent_execution(progress):
+                        result = self._p8_effect_tasks.execute_review(
+                            job.task_key,
+                            envelope["parameters"],
+                            processor,
+                            progress,
+                        )
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P8 review task {job.task_key!r} did not return TaskOutcome")
             elif definition is not None:
@@ -2128,14 +2233,17 @@ class WorkerRuntime:
             latest_parent = store.get_job(parent.job.id)
             if latest_parent is not None and latest_parent.job.status is JobStatus.CANCEL_REQUESTED:
                 return {"status": "cancel_requested", "children": outcomes}
+            registry = self._registry
+            if registry is None:
+                raise RuntimeError("Worker task registry is not initialized")
             try:
-                registry = self._registry
-                if registry is None:
-                    raise RuntimeError("Worker task registry is not initialized")
                 registry.require(task_key)
-            except KeyError:
-                outcomes.append({"task_key": task_key, "status": "skipped", "reason": "unknown task"})
-                continue
+            except KeyError as exc:
+                raise LookupError(f"task chain contains unknown task {task_key!r}") from exc
+            if self._native_only and task_key not in _NATIVE_ONLY_EXECUTABLE_TASK_KEYS:
+                raise NativeTaskExecutionUnavailable(
+                    f"task chain contains task without a native Worker execution owner: {task_key!r}"
+                )
             parameters = {"force_full_update": False} if task_key in _FORCE_INCREMENTAL_TASKS else {}
             submitted = service.submit_task(
                 task_key,
@@ -2175,6 +2283,8 @@ class WorkerRuntime:
                 if latest_parent is not None and latest_parent.job.status is JobStatus.CANCEL_REQUESTED:
                     return {"status": "cancel_requested", "children": outcomes}
                 raise RuntimeError(f"workflow child {task_key!r} was cancelled independently")
+            if completed.job.status is JobStatus.FAILED:
+                raise RuntimeError(f"workflow child {task_key!r} failed")
             store.heartbeat(
                 job_id=parent.job.id,
                 attempt_id=parent.current_attempt.id,
