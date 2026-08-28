@@ -1411,6 +1411,8 @@ Targeted gate:
 - Database Maintenance PostgreSQL 18 regression -> `3 passed`.
 - Ruff for the changed module and fixture -> clean; Pyright for the changed module -> `0 errors, 0 warnings,
   0 informations`; `git diff --check` -> clean.
+- `npm --prefix frontend run typecheck` and `npm --prefix frontend run build` -> passed; the build/typecheck
+  include `frontend/src/components/UserList.vue` (15,005 modules transformed, existing large-chunk warning).
 
 Stage full gate:
 
