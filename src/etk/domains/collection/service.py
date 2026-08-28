@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any, Protocol
@@ -735,8 +736,10 @@ class CollectionService:
     def cover_config(self) -> CollectionHttpResult:
         try:
             value = self._settings.load("cover_generator_config")
-            config = dict(value) if isinstance(value, Mapping) else {}
-            return CollectionHttpResult({**COVER_DEFAULTS, **config})
+            if value and not isinstance(value, Mapping):
+                raise TypeError("cover_generator_config must be an object")
+            config = deepcopy(dict(value)) if isinstance(value, Mapping) else {}
+            return CollectionHttpResult({**deepcopy(COVER_DEFAULTS), **config})
         except Exception:
             return CollectionHttpResult({"error": "读取配置失败"}, 500)
 

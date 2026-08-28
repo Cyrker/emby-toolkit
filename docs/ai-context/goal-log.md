@@ -2547,6 +2547,73 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Cover-Settings-Ownership
+
+Stage / Batch: P11 / native cover-generator settings ownership slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `e47a0d6f` (`refactor(p11): migrate standalone settings defaults`).
+- Checkpoint: this batch's `refactor(p11): assign cover settings ownership` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Assigned `cover_generator_config` to `CollectionService` default-merge/replacement semantics and
+  `SqlAlchemyAppSettingsRepository` persistence. Cover rendering, provider reads and effect
+  execution remain separate explicit boundaries.
+- Added cover-specific permission-first, default merge, opaque payload, non-object pass-through,
+  unsupported content type, malformed JSON and repository-failure HTTP evidence.
+- Repaired two legacy-compatibility gaps found by review: authorized malformed JSON now preserves
+  the legacy JSON `500` envelope, and a truthy corrupted non-object stored value returns the legacy
+  read failure while an empty value still falls back to defaults.
+- `COVER_DEFAULTS` and stored mappings are deep-copied on read so a service caller cannot mutate the
+  process-global default lists. PostgreSQL 18 evidence now covers raw JSONB replacement, failed
+  update rollback and exact snapshot/timestamp restoration.
+- Standalone settings ownership is now `31 new / 22 legacy`; route, table, dynamic/bootstrap config,
+  Worker and frontend counts are unchanged.
+
+Targeted gate:
+
+- Whole-scope Ruff -> clean; format check -> `601 files already formatted`; Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- App factory, cover/collection and required P5/P8 application regressions -> `41 passed, 1`
+  existing Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 cover settings, Identity and Database Maintenance scope -> `24 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Manifest/OpenAPI checks, fixture secret scan and `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-cover-settings-20260829/`.
+
+Focused review:
+
+- Confirmed the setting ID, service/repository boundary, permission/body order, fixture and
+  ownership metadata, raw JSONB replacement, rollback, cleanup and provider/effect isolation.
+- Review found one P1 malformed-JSON drift and P2 corrupted-value, non-object pass-through and
+  mutable-default gaps. The route/service and tests were repaired as described above; no P0/P1/P2
+  remains in this slice.
+
+Stage full gate:
+
+- Not run. P11 still has route/config/table/Worker execution and compatibility-runtime gaps; this
+  checkpoint does not authorize controlled removal or P12.
+
+Pending:
+
+- Sixty-one method bindings, 57 route decorators, 12 tables, 82 dynamic config keys, seven
+  bootstrap keys and 22 standalone settings remain legacy-owned. Thirty-nine catalog tasks remain
+  unavailable in the native-only Worker until their normal processed paths have native owners.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue canonical actor/watchlist/cleanup settings with explicit fallback ownership, or an
+equally evidence-backed residual route/Worker slice. Keep Live Acceptance `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

@@ -704,7 +704,12 @@ async def save_cover_generator_config(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
         return denied
-    return await _body_call(request, _service(request).save_cover_config)
+    payload, error = await _json_value(request)
+    if error is not None:
+        if error.status_code == 400:
+            return _response(CollectionHttpResult({"error": "保存配置失败"}, 500))
+        return error
+    return _response(await run_in_threadpool(_service(request).save_cover_config, payload))
 
 
 @effects_router.get(

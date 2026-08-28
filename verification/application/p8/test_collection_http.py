@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.collection.router import router
 from etk.domains.collection.service import (
+    COVER_DEFAULTS,
     CollectionLocalGateway,
     CollectionMediaProjection,
     CollectionProviderNotFoundError,
@@ -25,6 +26,7 @@ from etk.platform.web import CookieSessionMiddleware
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = json.loads((REPO_ROOT / "verification/fixtures/http/p8-collection-cover.json").read_text(encoding="utf-8"))
+CONFIG_OWNERSHIP = REPO_ROOT / "verification/contracts/config-ownership.yaml"
 SECRET_KEY = b"p8-collection-fixture-key"
 
 
@@ -39,12 +41,20 @@ class FakePermissions:
 class FakeSettings:
     def __init__(self) -> None:
         self.values: dict[str, Any] = {}
+        self.loads: list[str] = []
         self.saves: list[tuple[str, Any]] = []
+        self.fail_load_keys: set[str] = set()
+        self.fail_save_keys: set[str] = set()
 
     def load(self, key: str) -> Any:
+        self.loads.append(key)
+        if key in self.fail_load_keys:
+            raise RuntimeError("fixture settings load failure")
         return deepcopy(self.values.get(key))
 
     def save(self, key: str, value: Any) -> None:
+        if key in self.fail_save_keys:
+            raise RuntimeError("fixture settings save failure")
         copied = deepcopy(value)
         self.values[key] = copied
         self.saves.append((key, copied))
@@ -397,6 +407,105 @@ def test_public_login_and_admin_permission_boundaries_are_preserved() -> None:
     assert logged_in.json() == [{"label": "科幻", "value": "科幻"}]
     assert still_not_admin.status_code == 403
     assert admin.status_code == 200
+
+
+def test_cover_settings_preserve_defaults_pass_through_transport_and_ownership() -> None:
+    app, permissions, settings, *_ = _build_app()
+    settings.values["cover_generator_config"] = {
+        "enabled": True,
+        "cover_style": "fixture-style",
+        "opaque": {"preserved": True},
+    }
+    with TestClient(app) as client:
+        denied_get = client.get("/api/config/cover_generator")
+        denied_post = client.post(
+            "/api/config/cover_generator",
+            content=b"{",
+            headers={"Content-Type": "application/json"},
+        )
+        assert settings.loads == []
+        assert settings.saves == []
+
+        permissions.admins.add("admin")
+        _set_user(client, "admin")
+        loaded = client.get("/api/config/cover_generator")
+        first_defaults = app.state.collection_service.cover_config().payload
+        first_defaults["exclude_libraries"].append("mutated")
+        assert app.state.collection_service.cover_config().payload["exclude_libraries"] == []
+        saved = client.post(
+            "/api/config/cover_generator",
+            json={"enabled": False, "opaque": ["kept"]},
+        )
+        saved_list = client.post("/api/config/cover_generator", json=["list", 7])
+        malformed = client.post(
+            "/api/config/cover_generator",
+            content=b"{",
+            headers={"Content-Type": "application/json"},
+        )
+        unsupported = client.post(
+            "/api/config/cover_generator",
+            content=b"{}",
+            headers={"Content-Type": "text/plain"},
+        )
+
+    assert denied_get.status_code == 403
+    assert denied_post.status_code == 403
+    assert loaded.status_code == 200
+    assert loaded.json() == {
+        **COVER_DEFAULTS,
+        "enabled": True,
+        "cover_style": "fixture-style",
+        "opaque": {"preserved": True},
+    }
+    assert saved.json() == {"message": "配置已成功保存！"}
+    assert saved_list.json() == {"message": "配置已成功保存！"}
+    assert settings.saves == [
+        ("cover_generator_config", {"enabled": False, "opaque": ["kept"]}),
+        ("cover_generator_config", ["list", 7]),
+    ]
+    assert malformed.status_code == 500
+    assert malformed.json() == {"error": "保存配置失败"}
+    assert unsupported.status_code == 415
+
+    manifest = json.loads(CONFIG_OWNERSHIP.read_text(encoding="utf-8"))
+    contract = next(item for item in manifest["standalone_app_settings"] if item["key"] == "cover_generator_config")
+    assert contract["status"] == "new"
+    assert contract["new_owner"] == "etk.domains.system.repository.SqlAlchemyAppSettingsRepository"
+    assert contract["validation_owner"] == "collection/cover-settings"
+    assert contract["fixture"] == "verification/fixtures/http/p8-collection-cover.json"
+
+
+def test_cover_settings_repository_failures_preserve_500_envelopes() -> None:
+    app, permissions, settings, *_ = _build_app()
+    permissions.admins.add("admin")
+    with TestClient(app) as client:
+        _set_user(client, "admin")
+        settings.fail_load_keys.add("cover_generator_config")
+        read = client.get("/api/config/cover_generator")
+        settings.fail_load_keys.clear()
+        settings.fail_save_keys.add("cover_generator_config")
+        saved = client.post("/api/config/cover_generator", json={"enabled": True})
+
+    assert read.status_code == 500
+    assert read.json() == {"error": "读取配置失败"}
+    assert saved.status_code == 500
+    assert saved.json() == {"error": "保存配置失败"}
+
+
+def test_cover_settings_corrupted_truthy_non_object_preserves_legacy_read_failure() -> None:
+    app, permissions, settings, *_ = _build_app()
+    permissions.admins.add("admin")
+    with TestClient(app) as client:
+        _set_user(client, "admin")
+        settings.values["cover_generator_config"] = ["corrupt"]
+        corrupt = client.get("/api/config/cover_generator")
+        settings.values["cover_generator_config"] = []
+        empty = client.get("/api/config/cover_generator")
+
+    assert corrupt.status_code == 500
+    assert corrupt.json() == {"error": "读取配置失败"}
+    assert empty.status_code == 200
+    assert empty.json() == COVER_DEFAULTS
 
 
 def test_custom_create_does_not_expand_string_as_character_ids_and_serializes_datetime() -> None:

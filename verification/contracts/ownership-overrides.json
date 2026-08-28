@@ -5912,6 +5912,15 @@
       }
     },
     "settings": {
+      "setting-4640efe53366": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 confirms CollectionService owns cover-generator default merge and payload replacement semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Cover rendering, provider access and effect execution remain separate boundaries.",
+        "status": "new",
+        "validation_method": "pytest-cover-http-contract-and-postgres18-replacement-rollback",
+        "validation_owner": "collection/cover-settings"
+      },
       "setting-8b5d4b6e57d7": {
         "fixture": "verification/fixtures/http/system-standalone-routes.json",
         "fixture_exception": null,

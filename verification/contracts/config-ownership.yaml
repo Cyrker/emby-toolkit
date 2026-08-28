@@ -2963,17 +2963,20 @@
       ],
       "contract_id": "setting-4640efe53366",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "cover_generator_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CollectionService owns cover-generator default merge and payload replacement semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Cover rendering, provider access and effect execution remain separate boundaries.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-cover-http-contract-and-postgres18-replacement-rollback",
+      "validation_owner": "collection/cover-settings"
     },
     {
       "accesses": [
