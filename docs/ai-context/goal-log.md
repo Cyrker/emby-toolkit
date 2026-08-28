@@ -1572,8 +1572,9 @@ Stage / Batch: P11 / P11-Pre-removal
 
 HEAD / Commit:
 
-- Pre-removal work remains uncommitted on `cc1354a4` because the required 100% ownership
-  disposition is not complete. No removal checkpoint was created.
+- P11 pre-removal task slice checkpoint: `2f181fd6` (`refactor(p11): migrate organize record tmdb
+  backfill`). The controlled removal checkpoint was not created because the required 100% ownership
+  disposition and native Worker execution graph are still incomplete.
 
 Implemented:
 
@@ -1600,7 +1601,7 @@ Targeted gate:
   `git diff --check` -> passed.
 - Native `create_app(start_runtime=True)` smoke with an isolated in-memory container -> health
   `200`; forbidden modules loaded `[]`.
-- Latest verification artifact: `/tmp/etk-refactor-artifacts/p11-pre-removal-20260828/latest-verification-20260828.md`.
+- Latest verification artifact: `/tmp/etk-refactor-artifacts/p11-pre-removal-20260828/latest-verification-20260828-task-backfill.md`.
 - After the native-profile test updates, `verification/architecture` -> `73 passed, 1 warning`; P8
   application -> `135 passed`; Database Maintenance PostgreSQL 18 -> `3 passed`; manifests and
   OpenAPI checks are clean. Native-only Worker now terminalizes a non-native task as
