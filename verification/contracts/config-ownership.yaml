@@ -2912,17 +2912,20 @@
       ],
       "contract_id": "setting-0fb2a0d3b30f",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "country_mapping",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CollectionService owns country mapping normalization and exact plaintext defaults while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-defaults-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "collection/settings"
     },
     {
       "accesses": [
@@ -3120,17 +3123,20 @@
       ],
       "contract_id": "setting-d13014cf63c7",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "junk_file_patterns",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CollectionService owns junk-pattern validation and exact plaintext defaults while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-defaults-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "collection/settings"
     },
     {
       "accesses": [
@@ -3181,17 +3187,20 @@
       ],
       "contract_id": "setting-39010fa9f8bc",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "keyword_mapping",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CollectionService owns keyword mapping normalization and exact plaintext defaults while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-defaults-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "collection/settings"
     },
     {
       "accesses": [
@@ -3234,17 +3243,20 @@
       ],
       "contract_id": "setting-cb05995f9ed2",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "language_mapping",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CollectionService and native policy consumers share the exact plaintext language defaults while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-defaults-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "collection/settings"
     },
     {
       "accesses": [
@@ -3610,17 +3622,20 @@
       ],
       "contract_id": "setting-071d07c7913b",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "native_collections_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P8 CollectionService owns native collection settings normalization and merge semantics while SqlAlchemyAppSettingsRepository owns the atomic JSONB transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-http-and-postgres18-app-settings-merge-roundtrip",
+      "validation_owner": "collection/settings"
     },
     {
       "accesses": [
@@ -4246,17 +4261,20 @@
       ],
       "contract_id": "setting-209f458f6088",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "rating_mapping",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CollectionService owns rating mapping validation and exact plaintext defaults while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-defaults-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "collection/settings"
     },
     {
       "accesses": [
@@ -4283,17 +4301,20 @@
       ],
       "contract_id": "setting-84df55648a58",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "rating_priority",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CollectionService owns rating-priority validation and exact plaintext defaults while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-defaults-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "collection/settings"
     },
     {
       "accesses": [
@@ -4426,17 +4447,20 @@
       ],
       "contract_id": "setting-7f779664171a",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "release_group_mapping",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CollectionService and ConfiguredResubscribePolicy share exact plaintext release-group defaults while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-defaults-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "collection/settings"
     },
     {
       "accesses": [
@@ -4613,17 +4637,20 @@
       ],
       "contract_id": "setting-6bc8ebb39e01",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "studio_mapping",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CollectionService owns studio mapping normalization and exact plaintext defaults while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-defaults-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "collection/settings"
     },
     {
       "accesses": [
@@ -4778,17 +4805,20 @@
       ],
       "contract_id": "setting-b40c37628115",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "key": "unified_ratings",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CollectionService owns unified-rating normalization and exact plaintext defaults while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-exact-defaults-http-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "collection/settings"
     },
     {
       "accesses": [

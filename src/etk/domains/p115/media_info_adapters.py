@@ -18,6 +18,8 @@ from urllib.parse import unquote, urlsplit
 
 import httpx
 
+from etk.policy_defaults import DEFAULT_LANGUAGE_MAPPING
+
 from .fingerprints import (
     P115FileFingerprint,
     P115FingerprintAccountChanged,
@@ -842,7 +844,6 @@ class LegacyP115MediaInfoPolicyProvider:
 
     def snapshot(self) -> P115MediaInfoPolicySnapshot:
         from database import settings_db
-        from utils import DEFAULT_LANGUAGE_MAPPING
 
         raw_language = settings_db.get_setting("language_mapping")
         language_mapping = raw_language if isinstance(raw_language, list) else DEFAULT_LANGUAGE_MAPPING

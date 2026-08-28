@@ -133,8 +133,17 @@ def test_dry_run_service_has_only_read_provider_calls_and_no_effect_runtime_depe
     assert client_calls == {"list_page"}
 
 
-def test_dry_run_compatibility_gateways_import_only_pure_legacy_helpers_and_mapping_defaults() -> None:
+def test_dry_run_compatibility_gateways_import_only_pure_legacy_helpers_and_plaintext_defaults() -> None:
     tree = ast.parse(ADAPTER_MODULE.read_text(encoding="utf-8"))
+    module_imports = {
+        (str(node.module), alias.name) for node in tree.body if isinstance(node, ast.ImportFrom) for alias in node.names
+    }
+    assert {
+        ("etk.policy_defaults", "DEFAULT_COUNTRY_MAPPING"),
+        ("etk.policy_defaults", "DEFAULT_KEYWORD_MAPPING"),
+        ("etk.policy_defaults", "DEFAULT_LANGUAGE_MAPPING"),
+        ("etk.policy_defaults", "DEFAULT_STUDIO_MAPPING"),
+    } <= module_imports
     classes = {
         node.name: node
         for node in tree.body
@@ -173,7 +182,6 @@ def test_dry_run_compatibility_gateways_import_only_pure_legacy_helpers_and_mapp
 
     assert observed_imports == {
         "LegacyP115RuleRecognitionGateway": {
-            ("", "utils"),
             ("handler.p115_service", "_build_rule_parse_result"),
         },
         "LegacyP115PlanNamingGateway": {("handler.p115_rename", "P115RenameRenderer")},

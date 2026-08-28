@@ -12,6 +12,7 @@ import httpx
 from etk.domains.operations.jobs import JobSubmissionService
 from etk.domains.system.standalone import StandaloneSettingsRepository
 from etk.platform import Settings
+from etk.policy_defaults import DEFAULT_LANGUAGE_MAPPING, DEFAULT_RELEASE_GROUP_MAPPING
 
 from .actor import ActorRefreshIntent
 from .moviepilot import MoviePilotListResult, MoviePilotWriteResult
@@ -198,12 +199,8 @@ class ConfiguredResubscribePolicy:
         language_mapping = self._settings.load("language_mapping")
         release_mapping = self._settings.load("release_group_mapping")
         if not isinstance(language_mapping, list) or not language_mapping:
-            from utils import DEFAULT_LANGUAGE_MAPPING
-
             language_mapping = DEFAULT_LANGUAGE_MAPPING
         if not isinstance(release_mapping, Mapping) or not release_mapping:
-            from utils import DEFAULT_RELEASE_GROUP_MAPPING
-
             release_mapping = DEFAULT_RELEASE_GROUP_MAPPING
         return ResubscribePolicySnapshot(
             quota_date=datetime.now(ZoneInfo("Asia/Shanghai")).date(),

@@ -9,6 +9,18 @@ from typing import Any
 from PIL import Image
 
 from etk.platform import Settings
+from etk.policy_defaults import (
+    DEFAULT_COUNTRY_MAPPING,
+    DEFAULT_JUNK_FILE_PATTERNS,
+    DEFAULT_KEYWORD_MAPPING,
+    DEFAULT_LANGUAGE_MAPPING,
+    DEFAULT_RATING_MAPPING,
+    DEFAULT_RATING_PRIORITY,
+    DEFAULT_RELEASE_GROUP_MAPPING,
+    DEFAULT_STUDIO_MAPPING,
+    GENRE_TRANSLATION_PATCH,
+    UNIFIED_RATING_CATEGORIES,
+)
 
 from .service import CollectionGatewayConfigurationError, CollectionProviderNotFoundError
 
@@ -20,19 +32,6 @@ class LegacyCollectionGateway:
         self._settings = settings
 
     def defaults(self) -> Mapping[str, Any]:
-        from utils import (
-            DEFAULT_COUNTRY_MAPPING,
-            DEFAULT_JUNK_FILE_PATTERNS,
-            DEFAULT_KEYWORD_MAPPING,
-            DEFAULT_LANGUAGE_MAPPING,
-            DEFAULT_RATING_MAPPING,
-            DEFAULT_RATING_PRIORITY,
-            DEFAULT_RELEASE_GROUP_MAPPING,
-            DEFAULT_STUDIO_MAPPING,
-            GENRE_TRANSLATION_PATCH,
-            UNIFIED_RATING_CATEGORIES,
-        )
-
         return {
             "country_mapping": DEFAULT_COUNTRY_MAPPING,
             "junk_file_patterns": DEFAULT_JUNK_FILE_PATTERNS,

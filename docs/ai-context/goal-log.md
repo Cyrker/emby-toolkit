@@ -2057,6 +2057,86 @@ Safety boundary:
 - No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P8-Avatar-Artifact-Clock-Fix
+
+Status: DONE
+
+Checkpoint:
+
+- `5e1e1730 fix(p8): anchor avatar artifact creation to operation clock`
+
+Evidence:
+
+- The required PostgreSQL 18 regression exposed six late-day failures because avatar artifact
+  `expires_at` used the injected operation clock while database-default `created_at` used wall time.
+- `PostgresIdentityOperationRepository` now persists artifact `created_at` from the same operation
+  clock; the 24-hour expiry policy is unchanged.
+- Identity application scope -> `29 passed`; disposable PostgreSQL 18 Identity scope -> `20 passed`.
+
+### P11-Policy-Defaults-Ownership
+
+Stage / Batch: P11 / plaintext policy-defaults and app-settings ownership slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `b7893d45` (`refactor(p11): execute native organize record backfill`).
+- Checkpoint: this batch's `refactor(p11): assign collection policy defaults ownership` commit
+  after the targeted gate below.
+
+Implemented:
+
+- Moved the exact collection/media policy defaults from legacy `utils.py` into the side-effect-free
+  plaintext `etk.policy_defaults` module. `utils.py` now re-exports the same objects, preserving all
+  existing legacy imports and mutable-object identity.
+- Updated Collection, Discover/Media, Resubscribe and P115 native consumers to load those defaults
+  directly. Their normalized SHA-256 remains
+  `b783ca6ea379306d4b2b06f9b1e70ff1e9c77338320cf37d359d4ad6e828ae26`.
+- Assigned native ownership to ten `app_settings` keys: country, junk-file, keyword, language,
+  native-collection, rating mapping/priority, release-group, studio and unified-rating settings.
+  `CollectionService` retains HTTP/normalization semantics and
+  `SqlAlchemyAppSettingsRepository` owns JSONB load/save/merge transactions.
+- Standalone settings ownership is now `23 new / 30 legacy`, previously `13 new / 40 legacy`.
+  Route, table, dynamic/bootstrap config, Worker and frontend counts are unchanged.
+
+Targeted gate:
+
+- Whole-scope Ruff -> clean; format check -> `585 files already formatted`; Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- Policy-default, Collection, Resubscribe, P115 and required future-domain application scope ->
+  `91 passed`.
+- Disposable PostgreSQL 18 collection-settings, Identity and Database Maintenance scope ->
+  `24 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Contract/Manifest scope -> `13 passed`; Manifest, OpenAPI, fixture secret scan and
+  `git diff --check` -> clean.
+- Findings-first review repaired one stale P6 architecture assertion. Exact value drift, legacy
+  re-export identity, native import boundaries, JSONB round-trip/merge and cross-domain fallbacks
+  were reviewed; no P0/P1/P2 remains.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-policy-defaults-20260828/`.
+
+Stage full gate:
+
+- Not run. This slice reduces standalone-setting and compatibility-default debt; route/table,
+  dynamic/bootstrap config, native-only Worker execution, controlled removal and P11 NFR/security
+  gates remain.
+
+Process note:
+
+- A read-only P115 audit agent created one untracked, unintegrated `local_config.py` draft contrary
+  to its instruction. Provenance was confirmed, both agents were stopped, and only that
+  agent-created draft was removed before validation. No concurrent writer or unexplained file
+  remains.
+
+Next: migrate one evidence-backed local-only P115 config/read route slice without including provider
+mutations or external writes. Keep all unmigrated bindings explicit and do not start controlled
+removal until ownership and native execution reach 100%.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -2076,7 +2156,6 @@ Read first:
 
 Next:
 
-- Continue `P11-Pre-removal` from `_NATIVE_ONLY_EXECUTABLE_TASK_KEYS`: add the next real execution
-  owner or evidence-backed ownership slice, keep every unmigrated task explicitly unavailable, and
-  do not start controlled removal until execution and ownership reach 100%. Keep all Live Acceptance
-  items pending.
+- Continue `P11-Pre-removal` with an evidence-backed local-only P115 config/read route slice. Keep
+  provider mutations and every unmigrated task/binding explicit; do not start controlled removal
+  until execution and ownership reach 100%. Keep all Live Acceptance items pending.

@@ -4,6 +4,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from etk.platform import Settings
+from etk.policy_defaults import DEFAULT_KEYWORD_MAPPING, DEFAULT_STUDIO_MAPPING
 
 if TYPE_CHECKING:
     from etk.compatibility.flask_app import LazyCompatibilityApplication
@@ -15,14 +16,10 @@ from .service import ImageCollectionNotFound, ImagePolicyError, ImagePolicyUnava
 
 class LegacyMediaMappingDefaults:
     def keyword_mapping(self) -> Sequence[Mapping[str, Any]]:
-        import utils
-
-        return tuple(dict(value) for value in utils.DEFAULT_KEYWORD_MAPPING)
+        return tuple(dict(value) for value in DEFAULT_KEYWORD_MAPPING)
 
     def studio_mapping(self) -> Sequence[Mapping[str, Any]]:
-        import utils
-
-        return tuple(dict(value) for value in utils.DEFAULT_STUDIO_MAPPING)
+        return tuple(dict(value) for value in DEFAULT_STUDIO_MAPPING)
 
 
 class LegacyMediaImageGateway:

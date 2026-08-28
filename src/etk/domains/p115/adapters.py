@@ -13,6 +13,13 @@ from typing import Any, cast
 import httpx
 from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from etk.policy_defaults import (
+    DEFAULT_COUNTRY_MAPPING,
+    DEFAULT_KEYWORD_MAPPING,
+    DEFAULT_LANGUAGE_MAPPING,
+    DEFAULT_STUDIO_MAPPING,
+)
+
 from .directory_sync import P115DirectoryTreeClient
 from .episode_regex import match_episode_regex
 from .models import P115AuthorizationPoll, P115AuthorizationSession, P115CredentialSnapshot
@@ -594,7 +601,6 @@ class LegacyP115RuleRecognitionGateway(P115PlanRecognitionGateway):
         episode_rules: Sequence[Mapping[str, Any]],
         policy: Mapping[str, Any],
     ) -> Mapping[str, Any]:
-        import utils
         from handler.p115_service import _build_rule_parse_result
 
         parent_name = node.path.rsplit("/", 2)[-2] if "/" in node.path else ""
@@ -660,10 +666,10 @@ class LegacyP115RuleRecognitionGateway(P115PlanRecognitionGateway):
             result["video_info"] = deepcopy(dict(cast(Mapping[str, Any], hints["video_info"])))
         _enrich_rule_dimensions(
             result,
-            country_mapping=_policy_list(policy, "country_mapping", utils.DEFAULT_COUNTRY_MAPPING),
-            language_mapping=_policy_list(policy, "language_mapping", utils.DEFAULT_LANGUAGE_MAPPING),
-            studio_mapping=_policy_list(policy, "studio_mapping", utils.DEFAULT_STUDIO_MAPPING),
-            keyword_mapping=_policy_list(policy, "keyword_mapping", utils.DEFAULT_KEYWORD_MAPPING),
+            country_mapping=_policy_list(policy, "country_mapping", DEFAULT_COUNTRY_MAPPING),
+            language_mapping=_policy_list(policy, "language_mapping", DEFAULT_LANGUAGE_MAPPING),
+            studio_mapping=_policy_list(policy, "studio_mapping", DEFAULT_STUDIO_MAPPING),
+            keyword_mapping=_policy_list(policy, "keyword_mapping", DEFAULT_KEYWORD_MAPPING),
         )
         result["evidence"] = list(dict.fromkeys(evidence))
         return cast(Mapping[str, Any], result)
