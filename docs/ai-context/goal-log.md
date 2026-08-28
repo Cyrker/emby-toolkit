@@ -1391,6 +1391,45 @@ Safety boundary:
 - No real Emby, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old `/config`,
   external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P8-POST-CLOSE-FIX
+
+Stage / Batch: P8 / post-checkpoint evidence fix
+
+HEAD / Commit:
+
+- `29834f1f` (`fix(p8): align maintenance artifact timestamps`) is a post-checkpoint repair and does not
+  create a third P8 batch.
+
+Implemented:
+
+- Database Maintenance artifact insertion now persists `created_at` from the same UTC clock used to derive
+  the 24-hour `expires_at`. This preserves the immutable artifact contract and satisfies the PostgreSQL
+  `expires_at > created_at` constraint under deterministic test clocks.
+
+Targeted gate:
+
+- Database Maintenance PostgreSQL 18 regression -> `3 passed`.
+- Ruff for the changed module and fixture -> clean; Pyright for the changed module -> `0 errors, 0 warnings,
+  0 informations`; `git diff --check` -> clean.
+
+Stage full gate:
+
+- The single P8 stage-close full gate was already completed before this evidence-backed repair; it was not
+  rerun under the compressed cadence. No runtime contract outside artifact timestamp persistence changed.
+
+Pending:
+
+- None for P8 Local Code Complete. Live Acceptance remains `HUMAN_PENDING`.
+
+Blocker: none.
+
+Next: continue P11 pre-removal only after recording the current ownership and native Worker blockers.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old `/config`,
+  external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## P9
 
 ### P9-LEDGER
@@ -1705,6 +1744,61 @@ removal wave.
 
 Next: continue with evidence-backed ownership slices and the native-only Worker execution graph; do not mark
 P11 `DONE` or start P12 until all pre-removal blockers and P11 NFR gates pass.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old `/config`,
+  external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
+### P11-RESUME-20260828
+
+Stage / Batch: P11 / pre-removal resume verification
+
+HEAD / Commit:
+
+- Current implementation HEAD: `29834f1f82413e13f445be31cae1a41ee2a1a565`.
+- `5e28d662` aligned the media ownership fixture; `29834f1f` fixed the evidence-backed Database Maintenance
+  artifact timestamp regression. Neither change authorizes a removal wave or creates a new P11 stage.
+
+Implemented:
+
+- Refreshed the latest pre-removal evidence against the current manifests: route decorators `278 new / 65 legacy`,
+  method bindings `295 new / 72 legacy`, tasks `50 new / 0 legacy`, tables `24 new / 15 legacy`, config keys
+  `14 new / 89 legacy`, standalone settings `11 new / 42 legacy`, and frontend routes `25 new / 0 legacy`.
+- Kept all unresolved public routes, tables, configuration entries and settings explicit; no retirement approval
+  or replacement owner was inferred from path existence alone.
+
+Targeted gate:
+
+- Required P8 application regressions -> `29 passed`; Identity PostgreSQL 18 -> `20 passed`.
+- P8 application -> `135 passed`; Database Maintenance PostgreSQL 18 -> `3 passed` after the timestamp fix.
+- P11 architecture -> `73 passed, 1 warning`; P11 application scope -> `46 passed, 1 warning`.
+- Ruff, format, Pyright, Manifest, OpenAPI and `git diff --check` -> clean. Warnings are the existing Starlette
+  `WSGIMiddleware` deprecation.
+
+Stage full gate:
+
+- Not run. The single P11 removal/NFR gate remains unauthorized while ownership and native Worker blockers remain.
+
+Pending:
+
+- Native-only `WorkerRuntime._start_native_only()` still initializes only the durable control plane and sets
+  `_adapter=None`; the complete native P5/P7/P8 execution graph is not installed.
+- Native P5/P7/P8 routers still call compatibility task callables for part of the catalog, and native source
+  still contains compatibility-boundary imports (`task_manager`, `extensions`, `config_manager`, `requests`,
+  Flask/WSGI).
+- The remaining 65 route decorators, 72 method bindings, 15 tables, 89 config keys and 42 standalone settings
+  lack native owner or evidence-backed retirement approval.
+
+Blocker:
+
+- P11 remains blocked by the unresolved ownership contracts and missing native Worker graph. Removing the
+  compatibility runtime now would either drop existing URL/method behavior or leave durable jobs unable to
+  execute. P12 Greenfield destroy/rebuild is therefore not started.
+
+Next: retain P11 as `BLOCKED`; continue only with a concrete native owner/contract implementation or explicit
+retirement approval, then build the complete native Worker graph before the one controlled removal wave. Keep
+Live Acceptance `HUMAN_PENDING`.
 
 Safety boundary:
 
