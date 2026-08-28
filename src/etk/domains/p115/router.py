@@ -25,6 +25,7 @@ from .episode_regex import P115EpisodeRegexService
 from .intro_sync import P115IntroSyncNotFound, P115IntroSyncService
 from .item_ready import P115ItemReadyService
 from .local_config_service import P115LocalSettingsService
+from .local_directories import P115LocalDirectoryService
 from .media_info import (
     P115MediaInfoCacheService,
     P115MediaInfoIdentity,
@@ -306,6 +307,16 @@ def _local_settings_service(request: Request) -> P115LocalSettingsService:
     value = request.app.state.container.use_case("p115.local-settings")
     if not isinstance(value, P115LocalSettingsService):
         raise TypeError("p115.local-settings provider returned an invalid service")
+    return value
+
+
+def _local_directory_service(request: Request) -> P115LocalDirectoryService:
+    direct = getattr(request.app.state, "p115_local_directory_service", None)
+    if isinstance(direct, P115LocalDirectoryService):
+        return direct
+    value = request.app.state.container.use_case("p115.local-directories")
+    if not isinstance(value, P115LocalDirectoryService):
+        raise TypeError("p115.local-directories provider returned an invalid service")
     return value
 
 
@@ -832,6 +843,29 @@ def _path_and_query_parameters(path_name: str, *query_names: str) -> dict[str, A
             *_query_parameters(*query_names)["parameters"],
         ]
     }
+
+
+@router.get(
+    "/system/directories",
+    response_model=ExternalObjectResponse,
+    responses={
+        403: {"model": ExternalObjectResponse},
+        404: {"model": ExternalObjectResponse},
+        500: {"model": ExternalObjectResponse},
+    },
+    openapi_extra=_query_parameters("path"),
+)
+async def get_local_directories(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    path = str(request.query_params.get("path") or "").strip()
+    return _response(
+        await run_in_threadpool(
+            _local_directory_service(request).browse,
+            path,
+        )
+    )
 
 
 @router.post(

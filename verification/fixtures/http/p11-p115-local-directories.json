@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "captured_live": false,
+    "external_systems_used": false,
+    "source": "isolated legacy route with stubbed local filesystem operations",
+    "captured_at": "2026-08-29T00:00:00Z"
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/p115/system/directories"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "directory-list",
+      "request": {
+        "path": "/fixture/root"
+      },
+      "browser": "directory-list",
+      "response": {
+        "status": 200,
+        "body": {
+          "code": 200,
+          "data": [
+            {
+              "name": ".. [返回上一级]",
+              "path": "/fixture",
+              "is_parent": true
+            },
+            {
+              "name": "Beta",
+              "path": "/fixture/root/Beta",
+              "is_parent": false
+            },
+            {
+              "name": "alpha",
+              "path": "/fixture/root/alpha",
+              "is_parent": false
+            }
+          ],
+          "current_path": "/fixture/root"
+        }
+      }
+    },
+    {
+      "case_id": "not-found",
+      "request": {
+        "path": "/missing"
+      },
+      "browser": "not-found",
+      "response": {
+        "status": 404,
+        "body": {
+          "code": 404,
+          "message": "目录不存在或不是文件夹"
+        }
+      }
+    },
+    {
+      "case_id": "permission-denied",
+      "request": {
+        "path": "/denied"
+      },
+      "browser": "permission-denied",
+      "response": {
+        "status": 403,
+        "body": {
+          "code": 403,
+          "message": "没有权限访问该目录，请检查 Docker 映射或系统权限"
+        }
+      }
+    },
+    {
+      "case_id": "filesystem-failure",
+      "request": {
+        "path": "/failure"
+      },
+      "browser": "filesystem-failure",
+      "response": {
+        "status": 500,
+        "body": {
+          "code": 500,
+          "message": "fixture filesystem failure"
+        }
+      }
+    }
+  ]
+}

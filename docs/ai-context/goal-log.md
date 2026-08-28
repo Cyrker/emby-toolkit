@@ -2349,6 +2349,71 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-P115-Local-Directories
+
+Stage / Batch: P11 / native local-directory browsing slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `68e926c5` (`refactor(p11): execute native washing priority recalculation`).
+- Checkpoint: this batch's `refactor(p11): migrate local directory browsing` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Replaced `GET /api/p115/system/directories` with a native, local-only filesystem service and
+  FastAPI route. The normal path does not construct credentials or any Emby, 115, TMDb,
+  MoviePilot, Telegram, HDHive or shared-center adapter.
+- Preserved the legacy POSIX root, Windows drive, parent entry, sorted visible-directory filtering,
+  and `403`/`404`/`500` response contracts. Admin denial occurs before query processing or
+  filesystem access, and blocking filesystem calls run in the threadpool.
+- Added isolated legacy golden fixtures, real local-filesystem filtering coverage, explicit POSIX
+  and mocked Windows root coverage, permission-first assertions, import sentinels and ownership /
+  OpenAPI assertions.
+- Regenerated Route manifests and the compatibility OpenAPI snapshot. Ownership is now `286 new /
+  57 legacy` route decorators and `306 new / 61 legacy` method bindings; OpenAPI is `264 paths /
+  314 operations`.
+
+Targeted gate:
+
+- Whole-scope Ruff -> clean; format check -> `600 files already formatted`; Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- Local-directory application scope -> `9 passed`; app-factory/local-settings plus required P5/P8
+  regressions -> `51 passed, 1` existing Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 Identity and Database Maintenance regression scope -> `23 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Manifest/OpenAPI checks, fixture secret scan and `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-p115-local-directories-20260829/`.
+
+Focused review:
+
+- Reviewed POSIX root/parent handling, Windows drive enumeration, hidden/file filtering,
+  permission-first behavior, route precedence, fixture provenance, provider/import boundaries and
+  ownership/OpenAPI uniqueness. The only material coverage gap was the Windows branch; a mocked
+  drive-bitmask regression was added and passed. No P0/P1/P2 remains in this slice.
+
+Stage full gate:
+
+- Not run. P11 still has explicit route/config/table/Worker execution and compatibility-runtime
+  gaps; this checkpoint does not authorize controlled removal or P12.
+
+Pending:
+
+- Sixty-one method bindings, 57 route decorators, 12 tables, 82 dynamic config keys, seven
+  bootstrap keys and 27 standalone settings remain legacy-owned. Thirty-nine catalog tasks remain
+  unavailable in the native-only Worker until their normal processed paths have native owners.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue the next evidence-backed residual route/config/table or processed Worker execution
+slice. Keep every unmigrated task/binding explicit and Live Acceptance `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

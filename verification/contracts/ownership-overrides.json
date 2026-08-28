@@ -580,6 +580,15 @@
       }
     },
     "route_bindings": {
+      "route-binding-67ff0905738c": {
+        "fixture": "verification/fixtures/http/p11-p115-local-directories.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native local-directory route owns read-only filesystem browsing with permission-first transport and no provider dependency.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-local-directories",
+        "validation_owner": "p115/local-directories"
+      },
       "route-binding-7e5e933dd5f2": {
         "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
         "fixture_exception": null,
@@ -3327,6 +3336,15 @@
       }
     },
     "route_decorators": {
+      "route-decorator-d6df5321c835": {
+        "fixture": "verification/fixtures/http/p11-p115-local-directories.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native FastAPI route owns local-directory browsing while the legacy Blueprint remains only until controlled removal.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-local-directories",
+        "validation_owner": "p115/local-directories"
+      },
       "route-decorator-e35953f0f169": {
         "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
         "fixture_exception": null,

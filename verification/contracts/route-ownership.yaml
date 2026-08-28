@@ -4945,20 +4945,21 @@
       "contract_id": "route-binding-67ff0905738c",
       "decorator_contract_id": "route-decorator-d6df5321c835",
       "endpoint": "get_local_directories",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-local-directories.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native local-directory route owns read-only filesystem browsing with permission-first transport and no provider dependency.",
       "path": "/api/p115/system/directories",
       "retirement_approval": null,
       "source": "routes/p115.py:3388",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-local-directories",
+      "validation_owner": "p115/local-directories"
     },
     {
       "application": "api",
@@ -13249,22 +13250,23 @@
       "contract_id": "route-decorator-d6df5321c835",
       "declared_path": "/system/directories",
       "endpoint": "get_local_directories",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-local-directories.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native FastAPI route owns local-directory browsing while the legacy Blueprint remains only until controlled removal.",
       "path": "/api/p115/system/directories",
       "retirement_approval": null,
       "source": "routes/p115.py:3388",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-local-directories",
+      "validation_owner": "p115/local-directories"
     },
     {
       "application": "api",

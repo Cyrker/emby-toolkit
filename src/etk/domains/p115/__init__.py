@@ -102,6 +102,13 @@ from .local_config_service import (
     coerce_release_group_mapping,
     normalize_default_stream_config,
 )
+from .local_directories import (
+    OsP115LocalDirectoryBrowser,
+    P115LocalDirectoryBrowser,
+    P115LocalDirectoryListing,
+    P115LocalDirectoryNotFound,
+    P115LocalDirectoryService,
+)
 from .media_info import (
     P115MediaInfoCacheRecord,
     P115MediaInfoCacheRepository,
@@ -470,6 +477,10 @@ __all__ = [
     "P115IntroSyncService",
     "P115ItemReadyService",
     "P115LanguageMappingRule",
+    "P115LocalDirectoryBrowser",
+    "P115LocalDirectoryListing",
+    "P115LocalDirectoryNotFound",
+    "P115LocalDirectoryService",
     "P115LocalSettingsService",
     "P115MediaProbeItemStatus",
     "P115MediaProbeRequest",
@@ -528,6 +539,7 @@ __all__ = [
     "PostgresP115PlaybackRepository",
     "PostgresP115UploadMonitorRepository",
     "P115WashingPriorityRecalculationService",
+    "OsP115LocalDirectoryBrowser",
     "PreIdCandidates",
     "PreIdResolution",
     "PreIdSource",

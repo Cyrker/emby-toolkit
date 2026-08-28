@@ -172,6 +172,7 @@ from etk.domains.p115 import (
     LegacyP115RuleRecognitionGateway,
     LegacyP115SortingRuleDirectoryGateway,
     NativeP115IntroDetectionGateway,
+    OsP115LocalDirectoryBrowser,
     P115AuthDirectoryService,
     P115DeepDeleteJobGateway,
     P115DeepDeleteService,
@@ -179,6 +180,7 @@ from etk.domains.p115 import (
     P115IntroBackfillTaskService,
     P115IntroSyncService,
     P115ItemReadyService,
+    P115LocalDirectoryService,
     P115LocalSettingsService,
     P115MediaInfoCacheService,
     P115OrganizeExecutionService,
@@ -1292,6 +1294,10 @@ def _register_p115_providers(container: AppContainer) -> None:
     container.register_use_case(
         "p115.local-settings",
         lambda current: P115LocalSettingsService(current.repository("app-settings")),
+    )
+    container.register_use_case(
+        "p115.local-directories",
+        lambda _current: P115LocalDirectoryService(OsP115LocalDirectoryBrowser()),
     )
     container.register_use_case(
         "p115.episode-regex",
