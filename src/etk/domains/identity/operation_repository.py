@@ -411,10 +411,10 @@ class PostgresIdentityOperationRepository:
                         """
                         INSERT INTO identity_avatar_artifacts (
                             id, operation_id, owner_user_id, sha256, size_bytes, content_type,
-                            content_bytes, status, expires_at
+                            content_bytes, status, expires_at, created_at
                         ) VALUES (
                             :id, :operation_id, :owner_user_id, :sha256, :size_bytes, :content_type,
-                            :content_bytes, 'staged', :expires_at
+                            :content_bytes, 'staged', :expires_at, :created_at
                         )
                         """
                     ),
@@ -427,6 +427,7 @@ class PostgresIdentityOperationRepository:
                         "content_type": normalized_content_type,
                         "content_bytes": payload,
                         "expires_at": timestamp + timedelta(hours=24),
+                        "created_at": timestamp,
                     },
                 )
             uow.commit()
