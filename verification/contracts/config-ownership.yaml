@@ -3585,17 +3585,20 @@
       ],
       "contract_id": "setting-eb42ec4e7b38",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+      "fixture_exception": null,
       "key": "mp_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms MoviePilotConfigService owns mp_config normalization and replacement semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Assistant defaults, the watchlist_config fallback, and MoviePilot execution adapters remain explicit compatibility boundaries.",
       "restart_level": "call-site-specific",
-      "secret": false,
-      "status": "legacy",
+      "secret": true,
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-http-contract-and-postgres18-app-settings-replacement",
+      "validation_owner": "subscription/moviepilot-config"
     },
     {
       "accesses": [
@@ -4715,17 +4718,20 @@
       ],
       "contract_id": "setting-db208fbe932e",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+      "fixture_exception": null,
       "key": "subscription_strategy_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms SubscriptionStrategyService owns source filtering and atomic assistant-disable intent. When disabling the MoviePilot assistant is required, SqlAlchemyAppSettingsRepository commits the strategy and mp_config changes in one transaction.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-http-contract-and-postgres18-atomic-strategy-rollback",
+      "validation_owner": "subscription/moviepilot-config"
     },
     {
       "accesses": [

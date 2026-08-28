@@ -5912,6 +5912,24 @@
       }
     },
     "settings": {
+      "setting-eb42ec4e7b38": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 confirms MoviePilotConfigService owns mp_config normalization and replacement semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Assistant defaults, the watchlist_config fallback, and MoviePilot execution adapters remain explicit compatibility boundaries.",
+        "status": "new",
+        "validation_method": "pytest-http-contract-and-postgres18-app-settings-replacement",
+        "validation_owner": "subscription/moviepilot-config"
+      },
+      "setting-db208fbe932e": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 confirms SubscriptionStrategyService owns source filtering and atomic assistant-disable intent. When disabling the MoviePilot assistant is required, SqlAlchemyAppSettingsRepository commits the strategy and mp_config changes in one transaction.",
+        "status": "new",
+        "validation_method": "pytest-http-contract-and-postgres18-atomic-strategy-rollback",
+        "validation_owner": "subscription/moviepilot-config"
+      },
       "setting-76801fa87ade": {
         "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
         "fixture_exception": null,

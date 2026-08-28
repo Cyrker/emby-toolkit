@@ -11,7 +11,9 @@ from fastapi.testclient import TestClient
 
 from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.subscription.moviepilot_config import (
+    MOVIEPILOT_CONFIG_SETTING,
     MOVIEPILOT_CONFIG_USE_CASE_PROVIDER,
+    SUBSCRIPTION_STRATEGY_SETTING,
     SUBSCRIPTION_STRATEGY_USE_CASE_PROVIDER,
     MoviePilotConfigService,
     SubscriptionStrategyService,
@@ -22,6 +24,7 @@ from etk.platform.web import CookieSessionMiddleware
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = json.loads((REPO_ROOT / "verification/fixtures/http/p7-moviepilot-config.json").read_text(encoding="utf-8"))
+CONFIG_OWNERSHIP = REPO_ROOT / "verification/contracts/config-ownership.yaml"
 SECRET_KEY = b"p7-moviepilot-config-fixture-key"
 
 
@@ -117,6 +120,20 @@ def test_fixture_freezes_four_routes_without_fastapi_422() -> None:
         assert "422" not in operation["responses"]
         assert set(operation["responses"]) == {str(value) for value in route["response_statuses"]}
         assert ("requestBody" in operation) is route["request_body"]
+
+
+def test_moviepilot_settings_have_native_repository_ownership() -> None:
+    manifest = json.loads(CONFIG_OWNERSHIP.read_text(encoding="utf-8"))
+    settings = {item["key"]: item for item in manifest["standalone_app_settings"]}
+
+    for key in (MOVIEPILOT_CONFIG_SETTING, SUBSCRIPTION_STRATEGY_SETTING):
+        contract = settings[key]
+        assert contract["status"] == "new"
+        assert contract["new_owner"] == "etk.domains.system.repository.SqlAlchemyAppSettingsRepository"
+        assert contract["validation_owner"] == "subscription/moviepilot-config"
+        assert contract["fixture"] == "verification/fixtures/http/p7-moviepilot-config.json"
+    assert settings[MOVIEPILOT_CONFIG_SETTING]["secret"] is True
+    assert settings[SUBSCRIPTION_STRATEGY_SETTING]["secret"] is False
 
 
 def test_admin_contract_defaults_watchlist_fallback_and_retired_keys() -> None:

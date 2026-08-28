@@ -50,6 +50,7 @@ def test_moviepilot_config_is_canonicalized_and_persisted_as_one_replacement(
         "moviepilot_url": "https://mp.invalid",
         "subscribe_assistant": {"enabled": False, "guard_mode": "balanced"},
     }
+    assert _settings(p7_runtime).load("mp_config") == saved
     assert service.get()["subscribe_assistant"] == {"enabled": False, "guard_mode": "balanced"}
 
 
@@ -84,7 +85,9 @@ def test_strategy_without_moviepilot_config_does_not_create_one(p7_runtime: Data
 def test_strategy_write_failure_rolls_back_assistant_disable(p7_runtime: DatabaseRuntime) -> None:
     settings = _settings(p7_runtime)
     original = {"moviepilot_url": "https://mp.invalid", "subscribe_assistant": {"enabled": True}}
+    original_strategy = {"subscription_sources": ["mp"], "revision": "before"}
     settings.save("mp_config", original)
+    settings.save("subscription_strategy_config", original_strategy)
     service = SubscriptionStrategyService(settings, _Availability(("shared_pool",)))
     constraint = "verification_p7_strategy_atomic"
     with p7_runtime.engine.begin() as connection:
@@ -93,15 +96,18 @@ def test_strategy_write_failure_rolls_back_assistant_disable(p7_runtime: Databas
             text(
                 f"""
                 ALTER TABLE app_settings ADD CONSTRAINT {constraint}
-                CHECK (setting_key <> 'subscription_strategy_config')
+                CHECK (
+                    setting_key <> 'subscription_strategy_config'
+                    OR value_json ->> 'reject' IS DISTINCT FROM 'true'
+                )
                 """
             )
         )
     try:
         with pytest.raises(IntegrityError):
-            service.save({"subscription_sources": ["shared_pool"]})
+            service.save({"subscription_sources": ["shared_pool"], "reject": True})
         assert settings.load("mp_config") == original
-        assert settings.load("subscription_strategy_config") is None
+        assert settings.load("subscription_strategy_config") == original_strategy
     finally:
         with p7_runtime.engine.begin() as connection:
             connection.execute(text(f"ALTER TABLE app_settings DROP CONSTRAINT IF EXISTS {constraint}"))

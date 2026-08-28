@@ -2414,6 +2414,71 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-MoviePilot-Settings-Ownership
+
+Stage / Batch: P11 / native MoviePilot and subscription-strategy settings ownership slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `965884f7` (`refactor(p11): migrate local directory browsing`).
+- Checkpoint: this batch's `refactor(p11): assign moviepilot settings ownership` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Assigned `mp_config` to `MoviePilotConfigService` semantics and
+  `SqlAlchemyAppSettingsRepository` persistence. Replacement removes retired/stale keys and stores
+  one canonical JSONB value; the key is now explicitly classified as secret-bearing.
+- Assigned `subscription_strategy_config` to `SubscriptionStrategyService` semantics and the same
+  repository. Source filtering and the conditional MoviePilot-assistant disable commit through one
+  `save_many()` UoW when both rows must change.
+- Kept `LegacyAssistantDefaultsAdapter`, `watchlist_config` fallback, availability/provider probes,
+  MoviePilot execution adapters and legacy consumers explicit. Settings ownership does not claim
+  native MoviePilot task/external execution ownership.
+- Standalone settings ownership is now `28 new / 25 legacy`; route, table, dynamic/bootstrap config,
+  Worker and frontend counts are unchanged.
+
+Targeted gate:
+
+- Whole-scope Ruff -> clean; format check -> `600 files already formatted`; Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- MoviePilot/strategy, subscription-core and required P5/P8 application regressions -> `43 passed`.
+- Disposable PostgreSQL 18 MoviePilot settings, Identity and Database Maintenance scope ->
+  `27 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Manifest/OpenAPI checks, fixture secret scan and `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-moviepilot-settings-20260829/`.
+
+Focused review:
+
+- Confirmed the two contract IDs, service/repository split, conditional `save_many()` transaction,
+  rollback behavior, route fixture provenance and compatibility boundaries. Review found P2 gaps
+  in raw replacement proof, existing-row rollback and overly broad notes; direct repository
+  readback, an `ON CONFLICT DO UPDATE` rollback case and precise fallback/conditional notes were
+  added. No P0/P1/P2 remains in this slice.
+
+Stage full gate:
+
+- Not run. P11 still has route/config/table/Worker execution and compatibility-runtime gaps; this
+  checkpoint does not authorize controlled removal or P12.
+
+Pending:
+
+- Sixty-one method bindings, 57 route decorators, 12 tables, 82 dynamic config keys, seven
+  bootstrap keys and 25 standalone settings remain legacy-owned. Thirty-nine catalog tasks remain
+  unavailable in the native-only Worker until their normal processed paths have native owners.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: remove the legacy default provider for the native standalone settings service, or continue an
+equally evidence-backed residual setting/route slice. Keep Live Acceptance `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

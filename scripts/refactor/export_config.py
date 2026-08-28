@@ -21,7 +21,7 @@ from manifest_common import (
 )
 
 SECRET_FRAGMENTS = ("password", "secret", "token", "cookie", "api_key", "license_key")
-EXPLICIT_SECRET_KEYS = frozenset({"p115_play_pool_config"})
+EXPLICIT_SECRET_KEYS = frozenset({"mp_config", "p115_play_pool_config"})
 
 
 def _is_secret_key(key: str) -> bool:
