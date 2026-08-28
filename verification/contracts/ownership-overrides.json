@@ -5741,6 +5741,24 @@
       }
     },
     "settings": {
+      "setting-7ec712db14dc": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 confirms that StandaloneSettingsService owns custom menu semantics and SqlAlchemyAppSettingsRepository owns the JSONB load/save/delete transaction boundary without legacy defaults.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-and-postgres18-app-settings-roundtrip",
+        "validation_owner": "system/standalone-settings"
+      },
+      "setting-edf9539d7423": {
+        "fixture": "verification/fixtures/http/system-standalone-routes.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 confirms that StandaloneSettingsService owns custom theme save/delete semantics and SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary without a legacy default provider.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-and-postgres18-app-settings-roundtrip",
+        "validation_owner": "system/standalone-settings"
+      },
       "setting-9c5e65b39ae5": {
         "fixture": "verification/fixtures/http/p6-p115-upload-monitor.json",
         "fixture_exception": null,

@@ -1874,6 +1874,64 @@ Safety boundary:
 - No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Standalone-Settings-Ownership
+
+Stage / Batch: P11 / standalone settings ownership
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `9a72f2e9` (`refactor(p11): wire processor-free worker execution`).
+- Checkpoint: this batch's `refactor(p11): assign standalone settings ownership` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Assigned `custom_theme` and `custom_menu_config` to
+  `SqlAlchemyAppSettingsRepository`, with `StandaloneSettingsService` retained as the explicit
+  semantic owner for save/delete/read/reset behavior.
+- Regenerated `config-ownership.yaml` from `ownership-overrides.json`; standalone settings moved
+  from `11 new / 42 legacy` to `13 new / 40 legacy`. Dynamic config remains `14 new / 82 legacy`
+  plus seven legacy bootstrap keys.
+- Added explicit manifest assertions and a PostgreSQL 18 JSONB round-trip/delete test. The PG18 test
+  snapshots and restores any pre-existing rows, including `last_updated_at`, and always shuts down
+  its runtime; an injected test database is not left mutated.
+
+Targeted gate:
+
+- `uv run ruff check src verification scripts/refactor` -> clean; format check -> `579 files already
+  formatted`.
+- `uv run pyright` -> `0 errors, 0 warnings, 0 informations`.
+- System standalone plus required future-domain application scope -> `47 passed`.
+- New standalone settings PostgreSQL 18 plus Identity PostgreSQL 18 -> `21 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Manifest and OpenAPI checks -> clean; `git diff --check` -> clean.
+- Focused review found one P2 in the first PG18 cleanup: it deleted possible pre-existing settings.
+  The test now snapshots/restores exact JSONB and timestamps under nested cleanup/shutdown `finally`;
+  rereview found no remaining P0/P1/P2.
+
+Stage full gate:
+
+- Not run. This is an evidence-backed pre-removal ownership slice, not the controlled removal/NFR
+  checkpoint.
+
+Pending:
+
+- Forty standalone settings remain legacy-owned. Settings whose defaults or consumers still import
+  compatibility code were not mechanically promoted.
+- Route/method ownership did not change. The largest residual group, `routes/shared_resource.py`
+  (`29` decorators / `31` bindings), has no one-to-one native HTTP/service/PG18 replacement and
+  therefore remains explicit rather than being retired or relabeled.
+- The remaining Worker graph, tables, config keys, route contracts, compatibility imports,
+  controlled removal, NFR reports, and P12 remain pending.
+
+Next: implement real owners for one residual route or execution group; do not infer ownership from a
+similar native path or a typed settings declaration alone.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

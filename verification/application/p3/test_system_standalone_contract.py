@@ -27,6 +27,7 @@ from etk.platform.web import CookieSessionMiddleware
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ROUTE_FIXTURE = REPO_ROOT / "verification" / "fixtures" / "http" / "system-standalone-routes.json"
+CONFIG_OWNERSHIP = REPO_ROOT / "verification" / "contracts" / "config-ownership.yaml"
 SOURCE_FILES = (
     REPO_ROOT / "src" / "etk" / "domains" / "system" / "standalone.py",
     REPO_ROOT / "src" / "etk" / "domains" / "system" / "standalone_router.py",
@@ -175,6 +176,18 @@ def test_static_fixture_covers_all_bindings_and_sources_have_no_legacy_dependenc
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imported.add(node.module.split(".")[0])
     assert imported.isdisjoint(forbidden)
+
+
+def test_theme_and_menu_settings_have_native_repository_ownership() -> None:
+    manifest = json.loads(CONFIG_OWNERSHIP.read_text(encoding="utf-8"))
+    settings = {item["key"]: item for item in manifest["standalone_app_settings"]}
+
+    for key in (CUSTOM_THEME_SETTING, MENU_CONFIG_SETTING):
+        contract = settings[key]
+        assert contract["status"] == "new"
+        assert contract["new_owner"] == "etk.domains.system.repository.SqlAlchemyAppSettingsRepository"
+        assert contract["validation_owner"] == "system/standalone-settings"
+        assert contract["fixture"] == "verification/fixtures/http/system-standalone-routes.json"
 
 
 def test_success_contracts_defaults_normalization_delete_reset_and_public_menu() -> None:
