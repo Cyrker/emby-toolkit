@@ -5956,6 +5956,78 @@
         "status": "new",
         "validation_method": "postgres18-transaction-concurrency-and-ownership-contract",
         "validation_owner": "identity/users"
+      },
+      "table-8f330f3b52c9": {
+        "fixture": "verification/integration/p7/test_actor_subscription_projection_postgres18.py",
+        "new_owner": "etk.domains.subscription.actor.SqlAlchemyActorSubscriptionRepository",
+        "notes": "P7 native actor subscription repository owns the legacy actor_subscriptions projection, including transactional create/update/delete and cancellation staging.",
+        "status": "new",
+        "validation_method": "postgres18-actor-subscription-repository-and-cancellation-contract",
+        "validation_owner": "subscription/actor"
+      },
+      "table-9b7b3844d336": {
+        "fixture": "verification/integration/p7/test_moviepilot_config_postgres18.py",
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "Native SQLAlchemy app-settings repository owns the app_settings key/value projection used by configuration and P7 integration settings; compatibility callers are separate boundary seams.",
+        "status": "new",
+        "validation_method": "postgres18-app-settings-atomic-jsonb-contract",
+        "validation_owner": "system/configuration"
+      },
+      "table-06cdc8ae8bf4": {
+        "fixture": "verification/integration/p7/test_cleanup_execution_postgres18.py",
+        "new_owner": "etk.domains.subscription.cleanup_repository.SqlAlchemyCleanupRepository",
+        "notes": "P7 cleanup repository owns cleanup_index locking, snapshot staging, status transitions, and durable cleanup execution claims.",
+        "status": "new",
+        "validation_method": "postgres18-cleanup-index-claim-and-snapshot-contract",
+        "validation_owner": "subscription/cleanup"
+      },
+      "table-755a9eeffbf9": {
+        "fixture": "verification/integration/p8/test_review_reprocess_postgres18.py",
+        "new_owner": "etk.domains.operations.review_reprocess.SqlAlchemyReviewReprocessRepository",
+        "notes": "Native review reprocess repository owns failed_log reads used for single-item reprocess validation; destructive clearing remains guarded by the P8 review service contract.",
+        "status": "new",
+        "validation_method": "postgres18-review-reprocess-read-and-clear-guard-contract",
+        "validation_owner": "operations/review-reprocess"
+      },
+      "table-3779f4166204": {
+        "fixture": "verification/integration/p5/test_media_image_effects_postgres18.py",
+        "new_owner": "etk.domains.media.repository.SqlAlchemyMediaRepository",
+        "notes": "P5 media repository owns the revisioned media_image_policy_cache projection and its compare-and-swap image policy updates.",
+        "status": "new",
+        "validation_method": "postgres18-media-image-policy-revision-and-reference-contract",
+        "validation_owner": "media/image-policy"
+      },
+      "table-95a5b9ee8f66": {
+        "fixture": "verification/integration/p5/test_media_repository_postgres18.py",
+        "new_owner": "etk.domains.media.repository.SqlAlchemyMediaRepository",
+        "notes": "P5 media repository owns media_metadata identity, metadata aggregate, and Emby/P115 binding projections used by later native domains.",
+        "status": "new",
+        "validation_method": "postgres18-media-identity-metadata-and-binding-contract",
+        "validation_owner": "media/metadata"
+      },
+      "table-ed24903c198b": {
+        "fixture": "verification/integration/p7/test_resubscribe_postgres18.py",
+        "new_owner": "etk.domains.subscription.resubscribe.SqlAlchemyResubscribeRepository",
+        "notes": "P7 resubscribe repository owns the resubscribe_index projection, status updates, and replacement operation snapshots.",
+        "status": "new",
+        "validation_method": "postgres18-resubscribe-index-and-operation-staging-contract",
+        "validation_owner": "subscription/resubscribe"
+      },
+      "table-22e6821d3d3e": {
+        "fixture": "verification/integration/p7/test_resubscribe_postgres18.py",
+        "new_owner": "etk.domains.subscription.resubscribe.SqlAlchemyResubscribeRepository",
+        "notes": "P7 resubscribe repository owns rule CRUD and deterministic ordering for resubscribe_rules under a PostgreSQL lock.",
+        "status": "new",
+        "validation_method": "postgres18-resubscribe-rule-crud-ordering-contract",
+        "validation_owner": "subscription/resubscribe"
+      },
+      "table-72274586be13": {
+        "fixture": "verification/integration/p7/test_subscribe_assistant_runtime_postgres18.py",
+        "new_owner": "etk.domains.subscription.assistant.SqlAlchemyAssistantMaintenanceRepository",
+        "notes": "P7 assistant maintenance repository owns lease-fenced subscribe_assistant_state checkpoints and recovery state.",
+        "status": "new",
+        "validation_method": "postgres18-assistant-state-claim-checkpoint-and-recovery-contract",
+        "validation_owner": "subscription/assistant"
       }
     },
     "tasks": {

@@ -103,19 +103,21 @@
       "constraints_static": [],
       "contract_id": "table-8f330f3b52c9",
       "create_sql": "CREATE TABLE IF NOT EXISTS actor_subscriptions ( id SERIAL PRIMARY KEY, tmdb_person_id INTEGER NOT NULL UNIQUE, actor_name TEXT NOT NULL, profile_path TEXT, config_start_year INTEGER DEFAULT 1900, config_media_types TEXT DEFAULT 'Movie,TV', config_genres_include_json JSONB, config_genres_exclude_json JSONB, status TEXT DEFAULT 'active', last_scanned_tmdb_ids_json JSONB, last_checked_at TIMESTAMP WITH TIME ZONE, added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), config_min_rating REAL DEFAULT 6.0, config_main_role_only BOOLEAN NOT NULL DEFAULT FALSE, config_min_vote_count INTEGER NOT NULL DEFAULT 10 )",
+      "fixture": "verification/integration/p7/test_actor_subscription_projection_postgres18.py",
       "indexes_static": [],
       "name": "actor_subscriptions",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.actor.SqlAlchemyActorSubscriptionRepository",
+      "notes": "P7 native actor subscription repository owns the legacy actor_subscriptions projection, including transactional create/update/delete and cancellation staging.",
       "post_create_alters": [],
       "source": "database/connection.py:442",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "people"
       ],
       "target_stage": "P7",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "subscription/people"
+      "validation_method": "postgres18-actor-subscription-repository-and-cancellation-contract",
+      "validation_owner": "subscription/actor"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -136,18 +138,20 @@
       "constraints_static": [],
       "contract_id": "table-9b7b3844d336",
       "create_sql": "CREATE TABLE IF NOT EXISTS app_settings ( setting_key TEXT PRIMARY KEY, value_json JSONB, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p7/test_moviepilot_config_postgres18.py",
       "indexes_static": [],
       "name": "app_settings",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "Native SQLAlchemy app-settings repository owns the app_settings key/value projection used by configuration and P7 integration settings; compatibility callers are separate boundary seams.",
       "post_create_alters": [],
       "source": "database/connection.py:138",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "system"
       ],
       "target_stage": "P2",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "system"
+      "validation_method": "postgres18-app-settings-atomic-jsonb-contract",
+      "validation_owner": "system/configuration"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -183,19 +187,21 @@
       ],
       "contract_id": "table-06cdc8ae8bf4",
       "create_sql": "CREATE TABLE IF NOT EXISTS cleanup_index ( id SERIAL PRIMARY KEY, -- 核心指针：指向 media_metadata 表的复合主键 tmdb_id TEXT NOT NULL, item_type TEXT NOT NULL, -- 任务元数据 status TEXT DEFAULT 'pending', -- 'pending', 'processed', 'ignored' -- 决策结果 versions_info_json JSONB, best_version_json JSONB, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- 复合唯一约束，确保每个媒体项只有一个待办任务 UNIQUE (tmdb_id, item_type) )",
+      "fixture": "verification/integration/p7/test_cleanup_execution_postgres18.py",
       "indexes_static": [],
       "name": "cleanup_index",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_repository.SqlAlchemyCleanupRepository",
+      "notes": "P7 cleanup repository owns cleanup_index locking, snapshot staging, status transitions, and durable cleanup execution claims.",
       "post_create_alters": [],
       "source": "database/connection.py:535",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "people"
       ],
       "target_stage": "P7",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "subscription/people"
+      "validation_method": "postgres18-cleanup-index-claim-and-snapshot-contract",
+      "validation_owner": "subscription/cleanup"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -619,18 +625,20 @@
       "constraints_static": [],
       "contract_id": "table-755a9eeffbf9",
       "create_sql": "CREATE TABLE IF NOT EXISTS failed_log ( item_id TEXT PRIMARY KEY, item_name TEXT, reason TEXT, failed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), error_message TEXT, item_type TEXT, score REAL )",
+      "fixture": "verification/integration/p8/test_review_reprocess_postgres18.py",
       "indexes_static": [],
       "name": "failed_log",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.review_reprocess.SqlAlchemyReviewReprocessRepository",
+      "notes": "Native review reprocess repository owns failed_log reads used for single-item reprocess validation; destructive clearing remains guarded by the P8 review service contract.",
       "post_create_alters": [],
       "source": "database/connection.py:118",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "operations"
+      "validation_method": "postgres18-review-reprocess-read-and-clear-guard-contract",
+      "validation_owner": "operations/review-reprocess"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -768,18 +776,20 @@
       ],
       "contract_id": "table-3779f4166204",
       "create_sql": "CREATE TABLE IF NOT EXISTS media_image_policy_cache ( item_type TEXT NOT NULL, tmdb_id TEXT NOT NULL, season_number INTEGER NOT NULL DEFAULT -1, episode_number INTEGER NOT NULL DEFAULT -1, policy_json JSONB NOT NULL DEFAULT '[]'::jsonb, images_json JSONB NOT NULL DEFAULT '[]'::jsonb, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), PRIMARY KEY ( item_type, tmdb_id, season_number, episode_number ) )",
+      "fixture": "verification/integration/p5/test_media_image_effects_postgres18.py",
       "indexes_static": [],
       "name": "media_image_policy_cache",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.repository.SqlAlchemyMediaRepository",
+      "notes": "P5 media repository owns the revisioned media_image_policy_cache projection and its compare-and-swap image policy updates.",
       "post_create_alters": [],
       "source": "database/connection.py:364",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "media"
+      "validation_method": "postgres18-media-image-policy-revision-and-reference-contract",
+      "validation_owner": "media/image-policy"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -1033,6 +1043,7 @@
       ],
       "contract_id": "table-95a5b9ee8f66",
       "create_sql": "CREATE TABLE IF NOT EXISTS media_metadata ( -- 核心标识符 tmdb_id TEXT NOT NULL, item_type TEXT NOT NULL, -- 'Movie', 'Series', 'Season', 'Episode' -- 媒体库状态 in_library BOOLEAN DEFAULT FALSE NOT NULL, emby_item_ids_json JSONB NOT NULL DEFAULT '[]'::jsonb, file_sha1_json JSONB NOT NULL DEFAULT '[]'::jsonb, file_pickcode_json JSONB NOT NULL DEFAULT '[]'::jsonb, date_added TIMESTAMP WITH TIME ZONE, asset_details_json JSONB, -- 订阅与状态管理 subscription_status TEXT NOT NULL DEFAULT 'NONE', -- 'NONE', 'WANTED', 'SUBSCRIBED', 'IGNORED', 'PENDING_RELEASE', 'REQUESTED', 'PAUSED' subscription_sources_json JSONB NOT NULL DEFAULT '[]'::jsonb, first_requested_at TIMESTAMP WITH TIME ZONE, last_subscribed_at TIMESTAMP WITH TIME ZONE, -- 核心与扩展元数据 imdb_id TEXT, title TEXT, original_title TEXT, original_language TEXT, overview TEXT, tagline TEXT, overview_embedding JSONB, release_date DATE, release_year INTEGER, last_air_date DATE, poster_path TEXT, screenshot_hash CHAR(64), backdrop_path TEXT, logo_path TEXT, thumb_path TEXT, homepage TEXT, runtime_minutes INTEGER, rating REAL, official_rating_json JSONB, custom_rating TEXT, genres_json JSONB, actors_json JSONB, directors_json JSONB, production_companies_json JSONB, networks_json JSONB, countries_json JSONB, keywords_json JSONB, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), ignore_reason TEXT, tags_json JSONB, metadata_ready BOOLEAN NOT NULL DEFAULT FALSE, actors_ready BOOLEAN NOT NULL DEFAULT FALSE, metadata_schema_version INTEGER NOT NULL DEFAULT 0, -- 剧集专属与层级数据 parent_series_tmdb_id TEXT, season_number INTEGER, episode_number INTEGER, -- 追剧专属字段 watching_status TEXT DEFAULT 'NONE', -- 'NONE', 'Watching', 'Paused', 'Completed', 'Pending' paused_until DATE, force_ended BOOLEAN DEFAULT FALSE, watchlist_last_checked_at TIMESTAMP WITH TIME ZONE, watchlist_tmdb_status TEXT, watchlist_next_episode_json JSONB, watchlist_missing_info_json JSONB, last_episode_to_air_json JSONB, total_episodes INTEGER DEFAULT 0, total_episodes_locked BOOLEAN DEFAULT FALSE, waiting_for_completed_pack BOOLEAN DEFAULT FALSE, active_washing BOOLEAN DEFAULT FALSE, watchlist_version_lock_json JSONB DEFAULT '{}'::jsonb, -- 洗版优先级快照（主动洗版门禁用） washing_level INTEGER, washing_snapshot_json JSONB DEFAULT '{}'::jsonb, -- 内部管理字段 last_synced_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- 主键 PRIMARY KEY (tmdb_id, item_type) )",
+      "fixture": "verification/integration/p5/test_media_repository_postgres18.py",
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_mm_in_library ON media_metadata (in_library)",
@@ -1246,7 +1257,8 @@
         }
       ],
       "name": "media_metadata",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.repository.SqlAlchemyMediaRepository",
+      "notes": "P5 media repository owns media_metadata identity, metadata aggregate, and Emby/P115 binding projections used by later native domains.",
       "post_create_alters": [
         {
           "operation": "DROP COLUMN IF EXISTS watchlist_is_airing",
@@ -1255,13 +1267,13 @@
         }
       ],
       "source": "database/connection.py:258",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "media"
+      "validation_method": "postgres18-media-identity-metadata-and-binding-contract",
+      "validation_owner": "media/metadata"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -1883,6 +1895,7 @@
       ],
       "contract_id": "table-ed24903c198b",
       "create_sql": "CREATE TABLE IF NOT EXISTS resubscribe_index ( tmdb_id TEXT NOT NULL, item_type TEXT NOT NULL, season_number INTEGER NOT NULL DEFAULT -1, -- 对于电影，我们将使用-1作为占位符 status TEXT NOT NULL, reason TEXT, matched_rule_id INTEGER, last_checked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), -- 主键保持不变，但现在 season_number 有了默认值，不会再插入 NULL PRIMARY KEY (tmdb_id, item_type, season_number) )",
+      "fixture": "verification/integration/p7/test_resubscribe_postgres18.py",
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_ri_tmdb_type ON resubscribe_index (tmdb_id, item_type)",
@@ -1893,17 +1906,18 @@
         }
       ],
       "name": "resubscribe_index",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe.SqlAlchemyResubscribeRepository",
+      "notes": "P7 resubscribe repository owns the resubscribe_index projection, status updates, and replacement operation snapshots.",
       "post_create_alters": [],
       "source": "database/connection.py:518",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "people"
       ],
       "target_stage": "P7",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "subscription/people"
+      "validation_method": "postgres18-resubscribe-index-and-operation-staging-contract",
+      "validation_owner": "subscription/resubscribe"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -2060,19 +2074,21 @@
       "constraints_static": [],
       "contract_id": "table-22e6821d3d3e",
       "create_sql": "CREATE TABLE IF NOT EXISTS resubscribe_rules ( id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE, enabled BOOLEAN DEFAULT TRUE, scope_rules JSONB DEFAULT '[]'::jsonb, sort_order INTEGER DEFAULT 0, resubscribe_resolution_enabled BOOLEAN DEFAULT FALSE, resubscribe_resolution_threshold INT DEFAULT 1920, resubscribe_audio_enabled BOOLEAN DEFAULT FALSE, resubscribe_audio_missing_languages JSONB, resubscribe_subtitle_enabled BOOLEAN DEFAULT FALSE, resubscribe_subtitle_missing_languages JSONB, resubscribe_quality_enabled BOOLEAN DEFAULT FALSE, resubscribe_quality_include JSONB, resubscribe_effect_enabled BOOLEAN DEFAULT FALSE, resubscribe_effect_include JSONB, resubscribe_subtitle_effect_only BOOLEAN DEFAULT FALSE, resubscribe_filesize_enabled BOOLEAN DEFAULT FALSE, resubscribe_filesize_operator TEXT DEFAULT 'lt', resubscribe_filesize_threshold_gb REAL DEFAULT 10.0, resubscribe_codec_enabled BOOLEAN DEFAULT FALSE, resubscribe_codec_include JSONB, resubscribe_subtitle_skip_if_audio_exists BOOLEAN DEFAULT FALSE, custom_resubscribe_enabled BOOLEAN DEFAULT FALSE, consistency_check_enabled BOOLEAN DEFAULT FALSE, consistency_must_match_resolution BOOLEAN DEFAULT FALSE, consistency_must_match_group BOOLEAN DEFAULT FALSE, consistency_must_match_code BOOLEAN DEFAULT FALSE, consistency_must_match_codec BOOLEAN DEFAULT FALSE, rule_type TEXT DEFAULT 'resubscribe', filter_rating_enabled BOOLEAN DEFAULT FALSE, filter_rating_min REAL DEFAULT 0, delete_mode TEXT DEFAULT 'episode', delete_delay_seconds INTEGER DEFAULT 0, filter_rating_ignore_zero BOOLEAN DEFAULT FALSE, filter_missing_episodes_enabled BOOLEAN DEFAULT FALSE, resubscribe_source TEXT DEFAULT 'moviepilot', resubscribe_entire_season BOOLEAN DEFAULT FALSE )",
+      "fixture": "verification/integration/p7/test_resubscribe_postgres18.py",
       "indexes_static": [],
       "name": "resubscribe_rules",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe.SqlAlchemyResubscribeRepository",
+      "notes": "P7 resubscribe repository owns rule CRUD and deterministic ordering for resubscribe_rules under a PostgreSQL lock.",
       "post_create_alters": [],
       "source": "database/connection.py:475",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "people"
       ],
       "target_stage": "P7",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "subscription/people"
+      "validation_method": "postgres18-resubscribe-rule-crud-ordering-contract",
+      "validation_owner": "subscription/resubscribe"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -2980,19 +2996,21 @@
       "constraints_static": [],
       "contract_id": "table-72274586be13",
       "create_sql": "CREATE TABLE IF NOT EXISTS subscribe_assistant_state ( state_key TEXT PRIMARY KEY, state_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p7/test_subscribe_assistant_runtime_postgres18.py",
       "indexes_static": [],
       "name": "subscribe_assistant_state",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.assistant.SqlAlchemyAssistantMaintenanceRepository",
+      "notes": "P7 assistant maintenance repository owns lease-fenced subscribe_assistant_state checkpoints and recovery state.",
       "post_create_alters": [],
       "source": "database/connection.py:380",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "people"
       ],
       "target_stage": "P7",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "subscription/people"
+      "validation_method": "postgres18-assistant-state-claim-checkpoint-and-recovery-contract",
+      "validation_owner": "subscription/assistant"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",

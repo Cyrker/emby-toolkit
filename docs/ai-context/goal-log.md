@@ -1626,7 +1626,8 @@ Pending:
 - Route ownership is `343` decorators (`278 new / 65 legacy`) and `367` method bindings
   (`295 new / 72 legacy`); all 72 remaining legacy method bindings have no matching operation in the current
   native OpenAPI surface (`256 paths / 303 operations`).
-- Task ownership is now `50 new / 0 legacy`; table ownership is `15 new / 24 legacy`;
+- Task ownership is now `50 new / 0 legacy`; table ownership before the table slice below was
+  `15 new / 24 legacy`;
   config ownership is `14 new / 89 legacy` plus `11 new / 42 legacy` standalone settings;
   frontend route ownership is now `25 new / 0 legacy`, with each route explicitly owned by the
   TypeScript router and validated by the P10 frontend gate.
@@ -1641,7 +1642,7 @@ Pending:
 Blocker:
 
 - P11 remains blocked by unresolved native owner/approved-retirement decisions for 65 route
-  decorators, 72 method bindings, 24 tables, 89 config keys, and 42 standalone settings, plus the
+  decorators, 72 method bindings, 15 tables, 89 config keys, and 42 standalone settings, plus the
   missing native Worker task execution graph and compatibility-boundary imports. The former task
   blocker is closed. Removing compatibility code now would either drop existing URL/method behavior
   or make durable jobs fail before execution.
@@ -1657,6 +1658,58 @@ Safety boundary:
 
 - No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
+### P11-Table-Ownership
+
+Stage / Batch: P11 / table-ownership slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `3992337b` (`docs(p11): record pre-removal task blocker`).
+- Checkpoint is created only after the targeted gate below; this slice does not authorize removal or
+  create a second P11 stage.
+
+Implemented:
+
+- Assigned native owners and evidence-backed PostgreSQL 18 fixtures to nine previously unowned tables:
+  `actor_subscriptions`, `app_settings`, `cleanup_index`, `failed_log`, `media_image_policy_cache`,
+  `media_metadata`, `resubscribe_index`, `resubscribe_rules`, and `subscribe_assistant_state`.
+- Regenerated the table manifest from the ownership overlay. The inventory now reports `24 new / 15 legacy`
+  tables; no table was marked `new` without an existing repository and integration fixture.
+
+Targeted gate:
+
+- `uv run ruff check src verification scripts/refactor` -> clean; format check -> `578 files already formatted`.
+- `uv run pyright` -> `0 errors, 0 warnings, 0 informations`.
+- Required future-domain application regressions -> `29 passed`; Identity PostgreSQL 18 regression ->
+  `20 passed`.
+- `uv run python scripts/refactor/export_manifests.py` and `check_manifests.py` -> clean; `git diff --check`
+  -> clean.
+- Findings-first P8 review found no new actionable P0/P1/P2; the collection suppression-marker read/receipt
+  race remains the documented non-blocking residual.
+
+Stage full gate:
+
+- Not run. This is a bounded ownership slice; P11 removal and NFR/security/SBOM/license gates remain blocked
+  by unresolved route/config/setting ownership and the native Worker graph.
+
+Pending:
+
+- Fifteen legacy tables remain without native owners, alongside `65` route decorators, `72` method bindings,
+  `89` config keys, `42` standalone settings, and compatibility-boundary imports.
+- Native-only Worker still has no complete router/executor graph; P5/P7/P8 paths retain compatibility
+  callable fallbacks for part of the catalog.
+
+Blocker: P11 remains blocked; this slice only reduces the table inventory and does not permit the controlled
+removal wave.
+
+Next: continue with evidence-backed ownership slices and the native-only Worker execution graph; do not mark
+P11 `DONE` or start P12 until all pre-removal blockers and P11 NFR gates pass.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old `/config`,
+  external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
 ## LIVE
 
