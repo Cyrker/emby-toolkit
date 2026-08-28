@@ -10,6 +10,11 @@ from starlette.routing import Mount
 
 from etk.bootstrap.app_factory import create_app
 from etk.bootstrap.runtime_supervisor import RuntimeAdapter, RuntimeRole, RuntimeSupervisor
+from etk.compatibility.p115_credentials import (
+    LazyPersistentP115CredentialGateway,
+    clear_persistent_p115_credential_gateway,
+    persistent_p115_credential_gateway,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 API_BASELINE = REPO_ROOT / "verification" / "contracts" / "http" / "legacy-runtime-url-map.json"
@@ -167,6 +172,7 @@ def test_p4_api_startup_keeps_compatibility_app_lazy_and_owns_no_background_serv
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    clear_persistent_p115_credential_gateway()
     data_dir = tmp_path / "data"
     static_dir = tmp_path / "static"
     static_dir.mkdir()
@@ -188,5 +194,7 @@ def test_p4_api_startup_keeps_compatibility_app_lazy_and_owns_no_background_serv
         assert client.get("/api/health").json() == {"status": "ok"}
         assert app.state.compatibility_app.flask_app is None
         assert events == [("start", RuntimeRole.API, False)]
+        assert isinstance(persistent_p115_credential_gateway(), LazyPersistentP115CredentialGateway)
 
     assert events == [("start", RuntimeRole.API, False), ("stop",)]
+    assert persistent_p115_credential_gateway() is None

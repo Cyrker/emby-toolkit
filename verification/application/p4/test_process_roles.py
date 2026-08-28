@@ -16,6 +16,10 @@ from apscheduler.jobstores.base import JobLookupError
 from celery.exceptions import Reject
 
 from etk.bootstrap.runtime_supervisor import RuntimeRole
+from etk.compatibility.p115_credentials import (
+    clear_persistent_p115_credential_gateway,
+    persistent_p115_credential_gateway,
+)
 from etk.domains.operations.jobs import JobSubmissionService
 from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus, PublishBatchResult
 from etk.processes import coordinator
@@ -393,6 +397,7 @@ def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
     from etk.compatibility import background
 
     events: list[str] = []
+    clear_persistent_p115_credential_gateway()
     monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     database = SimpleNamespace(
         unit_of_work=lambda: None,
@@ -433,11 +438,13 @@ def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
         runtime.start()
 
     assert task_manager._persistent_gateway is None
+    assert persistent_p115_credential_gateway() is None
     assert events == ["supervisor.start", "supervisor.stop", "container.close"]
 
 
 def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -> None:
     events: list[str] = []
+    clear_persistent_p115_credential_gateway()
     monkeypatch.delenv("ETK_ENABLE_LEGACY_COMPATIBILITY", raising=False)
     database = SimpleNamespace(
         unit_of_work=lambda: None,
@@ -468,6 +475,7 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     state = cast(Any, runtime)
     assert state._native_only is True
     assert state._adapter is None
+    assert persistent_p115_credential_gateway() is state._p115_credentials
     assert type(state._p6_p115_tasks).__name__ == "P6P115TaskRouter"
     assert type(state._p6_p115_tasks._organize_record_tmdb_backfill).__name__ == (
         "P115OrganizeRecordTmdbBackfillService"
@@ -500,10 +508,12 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert state._subscription_executor is None
     assert state._identity_executor is None
     assert state._database_maintenance_executor is None
+    assert persistent_p115_credential_gateway() is None
 
 
 def test_native_worker_start_failure_stops_supervisor_and_closes_container(monkeypatch) -> None:
     events: list[str] = []
+    clear_persistent_p115_credential_gateway()
     monkeypatch.delenv("ETK_ENABLE_LEGACY_COMPATIBILITY", raising=False)
     database = SimpleNamespace(
         unit_of_work=lambda: None,
@@ -533,6 +543,7 @@ def test_native_worker_start_failure_stops_supervisor_and_closes_container(monke
         WorkerRuntime(config=TaskRuntimeConfig()).start()
 
     assert events == ["supervisor.start", "supervisor.stop", "container.close"]
+    assert persistent_p115_credential_gateway() is None
 
 
 def test_celery_rejects_and_requeues_delivery_after_sticky_shutdown(monkeypatch) -> None:

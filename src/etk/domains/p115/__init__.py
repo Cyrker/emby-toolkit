@@ -23,6 +23,10 @@ from .bridge_compatibility import (
     LegacyP115DeepDeleteScopeGateway,
     P115DeepDeleteJobGateway,
 )
+from .credential_repository import (
+    P115_AUTH_TOKENS_SETTING,
+    SqlAlchemyP115CredentialRepository,
+)
 from .deep_delete import (
     P115DeepDeleteService,
     SqlAlchemyP115DeepDeleteSnapshotRepository,
@@ -367,6 +371,7 @@ __all__ = [
     "NativeP115IntroDetectionGateway",
     "NativeP115UploadSourceCleanupGateway",
     "P115AuthDirectoryService",
+    "P115_AUTH_TOKENS_SETTING",
     "P115AuthorizationGateway",
     "P115AuthorizationPoll",
     "P115AuthorizationSession",
@@ -523,6 +528,7 @@ __all__ = [
     "RELEASE_GROUP_MAPPING_SETTING",
     "DEFAULT_STREAM_CONFIG",
     "SqlAlchemyP115DirectoryCacheRepository",
+    "SqlAlchemyP115CredentialRepository",
     "SqlAlchemyP115DeepDeleteSnapshotRepository",
     "SqlAlchemyP115EpisodeRegexRepository",
     "SqlAlchemyP115MediaInfoRepository",

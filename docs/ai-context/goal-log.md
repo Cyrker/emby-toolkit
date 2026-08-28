@@ -2733,6 +2733,75 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-P115-Credential-Ownership
+
+Stage / Batch: P11 / native account-bound P115 credential ownership slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `364690ab` (`refactor(p11): assign subscription settings ownership`).
+- Checkpoint: this batch's `refactor(p11): migrate p115 credential ownership` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Added `SqlAlchemyP115CredentialRepository` as the `p115_auth_tokens` PostgreSQL owner. It preserves
+  stable-account Token/Cookie replacement, access/refresh CAS, same-account coexistence, no-op
+  timestamps, malformed truthy JSON fail-closed behavior and exact rollback.
+- Unified native and legacy writers on the existing P115 advisory-lock identity before row locking.
+  A PostgreSQL 18 race proves that a native writer blocks behind a legacy session lock, rereads the
+  newer row and refuses a stale CAS instead of overwriting it.
+- API startup installs a lazy native compatibility gateway; compatibility and native-only Workers
+  install the repository directly and clear it on failure/close. Active legacy provider reads and
+  refresh writes delegate through this owner while the no-gateway fallback remains explicit until
+  controlled removal.
+- Invalidated OpenAPI, token and Cookie/app-type caches only after committed credential changes.
+  Restored legacy OpenAPI QR parity: an access-only success clears the QR session but does not
+  overwrite the stored refreshable credential.
+- Regenerated config ownership. Standalone settings are now `35 new / 18 legacy`; Route, Task,
+  Table, dynamic/bootstrap config, frontend and native-only Worker counts are unchanged.
+
+Targeted gate:
+
+- Whole-scope Ruff -> clean; format check -> `606 files already formatted`; Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- App factory, Worker lifecycle, compatibility bridge and P115 auth/directory/fingerprint/
+  MediaInfo/organize/STRM application scope -> `231 passed, 1` existing Starlette WSGI warning.
+- P115 credential and dependent architecture scope -> `22 passed`.
+- Disposable PostgreSQL 18 credential, legacy persistence, directory-cache, organize-plan and
+  MediaInfo scope -> `35 passed`.
+- Manifest check, fixture secret scan and `git diff --check` -> clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-p115-credentials-20260829/`.
+
+Focused review:
+
+- Initial review found one P1 cross-writer lock race and P2 cache, access-only QR and malformed-JSON
+  parity gaps. The shared advisory lock, committed-change callback and explicit parity checks close
+  all four findings. Re-review found no remaining P0/P1/P2 in this slice.
+
+Stage full gate:
+
+- Not run. P11 still has route/config/table/Worker execution and compatibility-runtime gaps; this
+  checkpoint does not authorize controlled removal or P12.
+
+Pending:
+
+- Sixty-one method bindings, 57 route decorators, 12 tables, 82 dynamic config keys, seven
+  bootstrap keys and 18 standalone settings remain legacy-owned. Thirty-nine catalog tasks remain
+  unavailable in the native-only Worker.
+- `subscribe-assistant-maintenance` has a declared native service/manifest owner but is still blocked
+  by the native-only Worker precheck; its actual dependency graph must be verified before allowlist
+  promotion. Controlled removal and all P11 NFR/security/SBOM/License gates remain pending.
+
+Next: close the `subscribe-assistant-maintenance` manifest/runtime inconsistency only if its normal
+processed path is fully native; otherwise correct the ownership claim. Keep Live Acceptance
+`HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

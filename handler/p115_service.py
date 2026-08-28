@@ -821,7 +821,8 @@ _SPECIAL_FLAG_PATTERNS = [
 
 def get_115_tokens():
     """唯一真理：只从独立数据库获取 Token 和 Cookie"""
-    auth_data = settings_db.get_setting('p115_auth_tokens')
+    gateway = _persistent_p115_credential_gateway()
+    auth_data = gateway.load_record() if gateway is not None else settings_db.get_setting('p115_auth_tokens')
     if auth_data:
         cookie = auth_data.get('cookie')
         # ★ 新增：读取 app_type，老用户默认兼容为 web
@@ -848,7 +849,12 @@ def extract_115_account_id(user_info=None, cookie=None):
 
 
 def get_115_account_id():
-    auth_data = settings_db.get_setting('p115_auth_tokens') or {}
+    gateway = _persistent_p115_credential_gateway()
+    auth_data = (
+        gateway.load_record()
+        if gateway is not None
+        else settings_db.get_setting('p115_auth_tokens') or {}
+    )
     metadata_account_id = _normalize_115_account_id(auth_data.get('account_id'))
     has_openapi = bool(auth_data.get('access_token') or auth_data.get('refresh_token'))
     has_cookie = bool(str(auth_data.get('cookie') or '').strip())
@@ -892,6 +898,20 @@ def save_115_tokens(
     expected_refresh_token=None,
 ):
     """Atomically keep the Token/Cookie credential bundle on one stable account."""
+
+    gateway = _persistent_p115_credential_gateway()
+    if gateway is not None:
+        gateway.save_bundle(
+            access_token,
+            refresh_token,
+            cookie=cookie,
+            app_type=app_type,
+            account_id=account_id,
+            credential_type=credential_type,
+            expected_access_token=expected_access_token,
+            expected_refresh_token=expected_refresh_token,
+        )
+        return
 
     source = str(credential_type or '').strip().lower()
     if not source:
@@ -1013,7 +1033,12 @@ def refresh_115_token(failed_token=None, expected_account_id=None):
     with _refresh_lock:
         try:
             with settings_db.p115_auth_write_lock():
-                auth_data = settings_db.get_setting('p115_auth_tokens') or {}
+                gateway = _persistent_p115_credential_gateway()
+                auth_data = (
+                    gateway.load_record()
+                    if gateway is not None
+                    else settings_db.get_setting('p115_auth_tokens') or {}
+                )
                 current_access = auth_data.get('access_token')
                 current_refresh = auth_data.get('refresh_token')
                 current_account_id = _normalize_115_account_id(auth_data.get('openapi_account_id'))
@@ -1060,6 +1085,12 @@ def refresh_115_token(failed_token=None, expected_account_id=None):
         except Exception as e:
             logger.error(f"  ➜ Token 续期请求异常: {e}")
             return False
+
+
+def _persistent_p115_credential_gateway():
+    from etk.compatibility.p115_credentials import persistent_p115_credential_gateway
+
+    return persistent_p115_credential_gateway()
 
 # ======================================================================
 # ★★★ 115 OpenAPI 客户端 (仅管理操作：扫描/创建目录/移动文件) ★★★

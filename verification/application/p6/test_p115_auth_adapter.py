@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 from urllib.parse import parse_qs
 
 import httpx
 import pytest
 
+from etk.compatibility.p115_credentials import (
+    clear_persistent_p115_credential_gateway,
+    install_persistent_p115_credential_gateway,
+    invalidate_legacy_p115_credential_clients,
+)
 from etk.domains.p115 import (
     HttpxP115AuthorizationGateway,
     LegacyP115CredentialStore,
@@ -175,6 +180,95 @@ def test_legacy_credential_adapter_delegates_to_atomic_account_bound_store(
         ),
         ((None, None, "UID=115001_fixture", "web"), {"credential_type": "cookie"}),
     ]
+
+
+def test_active_legacy_credential_calls_use_installed_native_repository(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Gateway:
+        def __init__(self) -> None:
+            self.record = {
+                "access_token": "fixture-access",
+                "refresh_token": "fixture-refresh",
+                "cookie": "UID=115001_fixture",
+                "app_type": "web",
+                "account_id": "115001",
+                "openapi_account_id": "115001",
+                "cookie_account_id": "115001",
+            }
+            self.saves: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+        def load_record(self) -> Mapping[str, Any]:
+            return dict(self.record)
+
+        def save_bundle(self, *args: Any, **kwargs: Any) -> bool:
+            self.saves.append((args, kwargs))
+            return True
+
+    gateway = Gateway()
+    monkeypatch.setattr(
+        p115_service.settings_db,
+        "get_setting",
+        lambda _key: (_ for _ in ()).throw(AssertionError("legacy settings reader used")),
+    )
+    monkeypatch.setattr(
+        p115_service.settings_db,
+        "save_setting",
+        lambda _key, _value: (_ for _ in ()).throw(AssertionError("legacy settings writer used")),
+    )
+    clear_persistent_p115_credential_gateway()
+    install_persistent_p115_credential_gateway(gateway)
+    try:
+        assert p115_service.get_115_tokens() == (
+            "fixture-access",
+            "fixture-refresh",
+            "UID=115001_fixture",
+            "web",
+        )
+        assert p115_service.get_115_account_id() == "115001"
+        p115_service.save_115_tokens(
+            "fixture-access-2",
+            "fixture-refresh-2",
+            account_id="115001",
+            credential_type="openapi",
+            expected_access_token="fixture-access",
+            expected_refresh_token="fixture-refresh",
+        )
+    finally:
+        clear_persistent_p115_credential_gateway(gateway)
+
+    assert gateway.saves == [
+        (
+            ("fixture-access-2", "fixture-refresh-2"),
+            {
+                "cookie": None,
+                "app_type": None,
+                "account_id": "115001",
+                "credential_type": "openapi",
+                "expected_access_token": "fixture-access",
+                "expected_refresh_token": "fixture-refresh",
+            },
+        )
+    ]
+
+
+def test_native_credential_change_invalidates_token_cookie_and_app_type_caches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resets: list[str] = []
+    monkeypatch.setattr(p115_service.P115Service, "_openapi_client", object())
+    monkeypatch.setattr(p115_service.P115Service, "_token_cache", ("fixture-token", "115001"))
+    monkeypatch.setattr(
+        p115_service.P115Service,
+        "reset_cookie_client",
+        staticmethod(lambda: resets.append("cookie")),
+    )
+
+    invalidate_legacy_p115_credential_clients()
+
+    assert p115_service.P115Service._openapi_client is None
+    assert p115_service.P115Service._token_cache is None
+    assert resets == ["cookie"]
 
 
 def test_legacy_directory_adapter_pins_the_expected_account_and_selects_search(

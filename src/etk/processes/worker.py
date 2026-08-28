@@ -29,6 +29,11 @@ from etk.compatibility.intro_detection import (
 )
 from etk.compatibility.legacy_jobs import LegacyTaskAdapter
 from etk.compatibility.media_effects import clear_persistent_media_effect_gateway
+from etk.compatibility.p115_credentials import (
+    clear_persistent_p115_credential_gateway,
+    install_persistent_p115_credential_gateway,
+    invalidate_legacy_p115_credential_clients,
+)
 from etk.compatibility.persistent_runtime_state import (
     PersistentRuntimeStateStore,
     PostgresRuntimeStateBackend,
@@ -106,7 +111,6 @@ from etk.domains.p115 import (
     LegacyP7IntroPolicyAdapter,
     LegacyP7IntroRuntimeSource,
     LegacyP9IntroChaptersChangedHook,
-    LegacyP115CredentialStore,
     LegacyP115DirectLinkGateway,
     LegacyP115DirectoryTreeGateway,
     LegacyP115OrganizeMutationGateway,
@@ -130,6 +134,7 @@ from etk.domains.p115 import (
     PostgresP115IntroDetectionRepository,
     PostgresP115PlaybackRepository,
     PostgresP115StrmSyncCoordinator,
+    SqlAlchemyP115CredentialRepository,
     SqlAlchemyP115DirectoryCacheRepository,
     SqlAlchemyP115MediaInfoRepository,
     SqlAlchemyP115OrganizeExecutionRepository,
@@ -666,6 +671,7 @@ class WorkerRuntime:
         self._service: JobSubmissionService | None = None
         self._adapter: LegacyTaskAdapter | None = None
         self._native_only = False
+        self._p115_credentials: SqlAlchemyP115CredentialRepository | None = None
         self._media_effects: PersistentMediaEffectExecutor | None = None
         self._p5_media_tasks = P5MediaTaskRouter(LegacyP5MediaCompatibilityGateway())
         self._p6_p115_tasks: P6P115TaskRouter | None = None
@@ -726,6 +732,7 @@ class WorkerRuntime:
             playback_gateway_installed = False
             intro_detection_gateway_installed = False
             cleanup_executor_installed = False
+            p115_credential_gateway_installed = False
             ingestion_binding: PersistentPendingBindingGateway | None = None
             upload_source_cleanup: NativeP115UploadSourceCleanupGateway | None = None
             intro_detection_gateway: NativeP115IntroDetectionGateway | None = None
@@ -741,6 +748,12 @@ class WorkerRuntime:
                 registry = TaskRegistry.from_fixture(_task_fixture())
                 service = JobSubmissionService(store, registry)
                 app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
+                p115_credentials = SqlAlchemyP115CredentialRepository(
+                    database.unit_of_work,
+                    on_change=invalidate_legacy_p115_credential_clients,
+                )
+                install_persistent_p115_credential_gateway(p115_credentials)
+                p115_credential_gateway_installed = True
                 washing_priority_repository = SqlAlchemyP115WashingPriorityRepository(database.unit_of_work)
                 washing_recalculation = P115WashingPriorityRecalculationService(
                     repository=SqlAlchemyP115WashingRecalculationRepository(database.unit_of_work),
@@ -752,7 +765,7 @@ class WorkerRuntime:
                     cleanup_repository,
                     local=SafeLocalCleanupGateway(),
                     media=LegacyCleanupMediaGateway(),
-                    p115=LegacyCleanupP115Gateway(),
+                    p115=LegacyCleanupP115Gateway(p115_credentials),
                     emby=ConfiguredCleanupEmbyGateway(settings_provider),
                     lease_seconds=max(self.config.lease_seconds, 60),
                 )
@@ -840,7 +853,6 @@ class WorkerRuntime:
                         known_paths=ingestion_ledger,
                     )
                 )
-                p115_credentials = LegacyP115CredentialStore()
                 playback_repository = PostgresP115PlaybackRepository(database.unit_of_work)
                 playback_config = P115PlaybackConfigService(
                     PostgresRuntimeStateBackend(database.raw_pool.connection),
@@ -1079,6 +1091,8 @@ class WorkerRuntime:
                 try:
                     if cleanup_executor_installed:
                         clear_cleanup_executor(cleanup_executor)
+                    if p115_credential_gateway_installed:
+                        clear_persistent_p115_credential_gateway(p115_credentials)
                     if intro_detection_gateway_installed and intro_detection_gateway is not None:
                         clear_persistent_intro_detection_gateway(intro_detection_gateway)
                     if playback_gateway_installed:
@@ -1139,6 +1153,7 @@ class WorkerRuntime:
             self._background_gateway = background_gateway
             self._final_refresh_settings_provider = settings_provider
             self._native_only = False
+            self._p115_credentials = p115_credentials
             self._started = True
 
     def _start_native_only(self) -> None:
@@ -1146,6 +1161,7 @@ class WorkerRuntime:
 
         container, config_adapter = _create_default_container(None)
         supervisor: RuntimeSupervisor | None = None
+        p115_credentials: SqlAlchemyP115CredentialRepository | None = None
         try:
             settings_provider = config_adapter.load
             database = container.database
@@ -1158,6 +1174,11 @@ class WorkerRuntime:
             registry = TaskRegistry.from_fixture(_task_fixture())
             service = JobSubmissionService(store, registry)
             app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
+            p115_credentials = SqlAlchemyP115CredentialRepository(
+                database.unit_of_work,
+                on_change=invalidate_legacy_p115_credential_clients,
+            )
+            install_persistent_p115_credential_gateway(p115_credentials)
             washing_priority_repository = SqlAlchemyP115WashingPriorityRepository(database.unit_of_work)
             washing_recalculation = P115WashingPriorityRecalculationService(
                 repository=SqlAlchemyP115WashingRecalculationRepository(database.unit_of_work),
@@ -1222,6 +1243,7 @@ class WorkerRuntime:
             supervisor = RuntimeSupervisor()
             supervisor.start(role=RuntimeRole.WORKER, background=False)
         except BaseException:
+            clear_persistent_p115_credential_gateway(p115_credentials)
             if supervisor is not None:
                 try:
                     supervisor.stop()
@@ -1229,6 +1251,7 @@ class WorkerRuntime:
                     logger.exception("Unable to stop a partially started native Worker supervisor")
             container.close()
             raise
+        assert p115_credentials is not None
         self._container = container
         self._config_adapter = config_adapter
         self._last_settings = container.settings.to_runtime_dict()
@@ -1246,6 +1269,7 @@ class WorkerRuntime:
         self._subscription_executor = subscription_executor
         self._identity_executor = identity_executor
         self._database_maintenance_executor = database_maintenance_executor
+        self._p115_credentials = p115_credentials
         self._native_only = True
         self._started = True
 
@@ -1274,6 +1298,11 @@ class WorkerRuntime:
             if self._p7_cleanup_executor is not None:
                 try:
                     clear_cleanup_executor(self._p7_cleanup_executor)
+                except Exception as exc:
+                    errors.append(exc)
+            if self._p115_credentials is not None:
+                try:
+                    clear_persistent_p115_credential_gateway(self._p115_credentials)
                 except Exception as exc:
                     errors.append(exc)
             if self._intro_detection_gateway is not None:
@@ -1344,6 +1373,7 @@ class WorkerRuntime:
             self._service = None
             self._adapter = None
             self._native_only = False
+            self._p115_credentials = None
             self._media_effects = None
             self._p6_p115_tasks = None
             self._p6_ingestion_tasks = None

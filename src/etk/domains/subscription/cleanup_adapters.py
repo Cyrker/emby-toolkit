@@ -12,6 +12,7 @@ import httpx
 
 from etk.domains.media.bridge_client import emby_authorization_revision
 from etk.domains.p115.adapters import LegacyP115CredentialStore
+from etk.domains.p115.auth_directory import P115CredentialStore
 from etk.domains.p115.bridge_compatibility import (
     LegacyP115MediaCleanupReceiptGateway,
 )
@@ -174,7 +175,7 @@ class LegacyCleanupMediaGateway:
 class LegacyCleanupP115Gateway:
     def __init__(
         self,
-        credentials: LegacyP115CredentialStore | None = None,
+        credentials: P115CredentialStore | None = None,
     ) -> None:
         self._credentials = credentials or LegacyP115CredentialStore()
 

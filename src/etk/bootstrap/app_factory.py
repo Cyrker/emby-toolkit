@@ -19,6 +19,12 @@ from etk.compatibility.intro_detection import (
     clear_persistent_intro_detection_gateway,
     install_persistent_intro_detection_gateway,
 )
+from etk.compatibility.p115_credentials import (
+    LazyPersistentP115CredentialGateway,
+    clear_persistent_p115_credential_gateway,
+    install_persistent_p115_credential_gateway,
+    invalidate_legacy_p115_credential_clients,
+)
 from etk.compatibility.persistent_runtime_state import (
     PersistentRuntimeStateStore,
     PostgresRuntimeStateBackend,
@@ -155,7 +161,6 @@ from etk.domains.p115 import (
     HttpxP115BridgeEmbyGateway,
     IntroDetectionSubmissionService,
     LegacyP7IntroRuntimeSource,
-    LegacyP115CredentialStore,
     LegacyP115DeepDeleteScopeGateway,
     LegacyP115DirectLinkGateway,
     LegacyP115DirectoryGateway,
@@ -195,6 +200,7 @@ from etk.domains.p115 import (
     PostgresP115IntroDetectionRepository,
     PostgresP115PlaybackRepository,
     PostgresP115StrmSyncCoordinator,
+    SqlAlchemyP115CredentialRepository,
     SqlAlchemyP115DeepDeleteSnapshotRepository,
     SqlAlchemyP115EpisodeRegexRepository,
     SqlAlchemyP115MediaInfoRepository,
@@ -340,6 +346,7 @@ def create_app(
         background_gateway = None
         playback_gateway = None
         intro_detection_gateway = None
+        p115_credential_gateway = None
         try:
             if start_runtime:
                 if compatibility_enabled:
@@ -360,6 +367,10 @@ def create_app(
                 intro_detection_gateway = LazyPersistentIntroDetectionGateway(
                     lambda: app_container.use_case("p115.intro-detection-gateway")
                 )
+                p115_credential_gateway = LazyPersistentP115CredentialGateway(
+                    lambda: app_container.repository("p115.credentials")
+                )
+                install_persistent_p115_credential_gateway(p115_credential_gateway)
                 install_persistent_playback_gateway(playback_gateway)
                 install_persistent_intro_detection_gateway(intro_detection_gateway)
                 runtime.start(role=RuntimeRole.API, background=False)
@@ -375,6 +386,8 @@ def create_app(
                         clear_persistent_playback_gateway(playback_gateway)
                     if intro_detection_gateway is not None:
                         clear_persistent_intro_detection_gateway(intro_detection_gateway)
+                    if p115_credential_gateway is not None:
+                        clear_persistent_p115_credential_gateway(p115_credential_gateway)
                     if persistent_gateway is not None:
                         if compatibility_enabled:
                             from task_manager import clear_persistent_submission_gateway
@@ -1076,7 +1089,10 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_repository(
         "p115.credentials",
-        lambda _: LegacyP115CredentialStore(),
+        lambda current: SqlAlchemyP115CredentialRepository(
+            current.database.unit_of_work,
+            on_change=invalidate_legacy_p115_credential_clients,
+        ),
     )
     container.register_client(
         "p115.authorization",

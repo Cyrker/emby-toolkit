@@ -2901,7 +2901,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6468"
+          "source": "handler/p115_service.py:6499"
         },
         {
           "operation": "get_setting",
@@ -3119,7 +3119,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:7958"
+          "source": "handler/p115_service.py:7989"
         },
         {
           "operation": "get_setting",
@@ -3159,7 +3159,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6465"
+          "source": "handler/p115_service.py:6496"
         },
         {
           "operation": "get_setting",
@@ -3223,7 +3223,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6469"
+          "source": "handler/p115_service.py:6500"
         },
         {
           "operation": "get_setting",
@@ -3520,7 +3520,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:11106"
+          "source": "handler/p115_service.py:11137"
         },
         {
           "operation": "get_setting",
@@ -3660,38 +3660,41 @@
         },
         {
           "operation": "save_setting",
-          "source": "handler/p115_service.py:1002"
+          "source": "handler/p115_service.py:1022"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:1016"
+          "source": "handler/p115_service.py:1040"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:824"
+          "source": "handler/p115_service.py:825"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:851"
+          "source": "handler/p115_service.py:856"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:909"
+          "source": "handler/p115_service.py:929"
         }
       ],
       "contract_id": "setting-70ed8338395f",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+      "fixture_exception": null,
       "key": "p115_auth_tokens",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.credential_repository.SqlAlchemyP115CredentialRepository",
+      "notes": "P11 moves account-bound 115 token/cookie persistence to a native PostgreSQL repository with stable-account replacement, dual-token CAS, the shared P115 advisory lock, malformed-record fail-closed behavior, exact JSONB rollback and cache invalidation after committed changes. The API installs a lazy native compatibility gateway and the Worker installs the repository directly, so active legacy provider reads and refresh writes use this transaction owner; the no-gateway legacy fallback remains only until controlled removal.",
       "restart_level": "call-site-specific",
       "secret": true,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-auth-directory-wiring-and-postgres18-account-cas-advisory-race-rollback",
+      "validation_owner": "p115/credentials"
     },
     {
       "accesses": [
@@ -3783,7 +3786,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:7325"
+          "source": "handler/p115_service.py:7356"
         },
         {
           "operation": "get_setting",
@@ -3897,7 +3900,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6487"
+          "source": "handler/p115_service.py:6518"
         },
         {
           "operation": "get_setting",
@@ -3953,15 +3956,15 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6231"
+          "source": "handler/p115_service.py:6262"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6501"
+          "source": "handler/p115_service.py:6532"
         },
         {
           "operation": "save_setting",
-          "source": "handler/p115_service.py:7847"
+          "source": "handler/p115_service.py:7878"
         },
         {
           "operation": "get_setting",
@@ -4252,7 +4255,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6466"
+          "source": "handler/p115_service.py:6497"
         },
         {
           "operation": "get_setting",
@@ -4304,7 +4307,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6467"
+          "source": "handler/p115_service.py:6498"
         },
         {
           "operation": "get_setting",
@@ -4632,7 +4635,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6464"
+          "source": "handler/p115_service.py:6495"
         },
         {
           "operation": "get_setting",

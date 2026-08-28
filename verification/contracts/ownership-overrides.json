@@ -6128,6 +6128,15 @@
         "validation_method": "pytest-http-fixture-and-postgres18-config-revision-cas",
         "validation_owner": "p115/upload-monitor"
       },
+      "setting-70ed8338395f": {
+        "fixture": "verification/fixtures/http/p6-p115-auth-directory.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.credential_repository.SqlAlchemyP115CredentialRepository",
+        "notes": "P11 moves account-bound 115 token/cookie persistence to a native PostgreSQL repository with stable-account replacement, dual-token CAS, the shared P115 advisory lock, malformed-record fail-closed behavior, exact JSONB rollback and cache invalidation after committed changes. The API installs a lazy native compatibility gateway and the Worker installs the repository directly, so active legacy provider reads and refresh writes use this transaction owner; the no-gateway legacy fallback remains only until controlled removal.",
+        "status": "new",
+        "validation_method": "pytest-auth-directory-wiring-and-postgres18-account-cas-advisory-race-rollback",
+        "validation_owner": "p115/credentials"
+      },
       "setting-8c289bfe520d": {
         "fixture": "verification/integration/p6/test_p115_directory_cache_postgres.py",
         "fixture_exception": null,

@@ -136,22 +136,23 @@ class P115AuthDirectoryService:
                 500,
             )
         if outcome.status == "success":
-            account_id = _account_id(outcome.user_info)
-            try:
-                self._credentials.save_openapi(
-                    outcome.access_token,
-                    outcome.refresh_token,
-                    account_id=account_id,
-                )
-            except Exception as exc:
-                return P115Result(
-                    {
-                        "success": False,
-                        "status": "error",
-                        "message": f"授权信息无法绑定到稳定的 115 账号: {exc}",
-                    },
-                    500,
-                )
+            if outcome.access_token and outcome.refresh_token:
+                account_id = _account_id(outcome.user_info)
+                try:
+                    self._credentials.save_openapi(
+                        outcome.access_token,
+                        outcome.refresh_token,
+                        account_id=account_id,
+                    )
+                except Exception as exc:
+                    return P115Result(
+                        {
+                            "success": False,
+                            "status": "error",
+                            "message": f"授权信息无法绑定到稳定的 115 账号: {exc}",
+                        },
+                        500,
+                    )
             self._sessions.discard("openapi", session)
             return P115Result({"success": True, "status": "success", "message": "授权成功！"})
         if outcome.status == "expired":

@@ -4,6 +4,7 @@ import base64
 import json
 from collections.abc import Mapping
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -12,6 +13,7 @@ from fastapi.testclient import TestClient
 from flask import Flask
 
 import config_manager
+from etk.bootstrap.app_factory import create_app
 from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.p115 import (
     P115AuthDirectoryService,
@@ -19,6 +21,7 @@ from etk.domains.p115 import (
     P115AuthorizationSession,
     P115AuthorizationSessionStore,
     P115CredentialSnapshot,
+    SqlAlchemyP115CredentialRepository,
 )
 from etk.domains.p115.router import router
 from etk.platform import AppContainer, Settings
@@ -275,6 +278,28 @@ def test_openapi_qrcode_success_then_poll_persists_stable_account_identity() -> 
     assert "fixture-access" not in str(polled.json())
 
 
+def test_openapi_poll_success_without_refresh_token_preserves_legacy_no_write_contract() -> None:
+    client, authorization, credentials, _directories, sessions, _permissions = _build_native()
+    sessions.put(
+        "openapi",
+        P115AuthorizationSession(uid="uid", time_value="1", sign="s", code_verifier="v", created_at=100),
+    )
+    authorization.openapi_poll = P115AuthorizationPoll(
+        "success",
+        user_info={"user_id": "115001"},
+        access_token="fixture-access-only",
+        refresh_token="",
+    )
+
+    with client:
+        response = client.get("/api/p115/qrcode/status")
+
+    assert response.status_code == 200
+    assert response.json() == {"success": True, "status": "success", "message": "授权成功！"}
+    assert credentials.openapi_saves == []
+    assert sessions.get("openapi") is None
+
+
 def test_openapi_poll_rejects_unbound_token_without_persisting_secrets() -> None:
     client, authorization, credentials, _directories, sessions, _permissions = _build_native()
     sessions.put(
@@ -401,6 +426,25 @@ def test_openapi_declares_exact_native_slice_without_automatic_422() -> None:
     assert actual == expected
     for method, path in expected:
         assert "422" not in schema["paths"][path][method]["responses"], (method, path)
+
+
+def test_app_factory_wires_native_p115_credential_repository(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = SimpleNamespace(unit_of_work=lambda: None)
+    monkeypatch.setattr("etk.bootstrap.app_factory._create_database_runtime", lambda _container: database)
+    app = create_app(
+        start_runtime=False,
+        data_dir=tmp_path,
+        secret_key=b"fixture-p115-credential-wiring-key",
+    )
+
+    credentials = app.state.container.repository("p115.credentials")
+    service = app.state.container.use_case("p115.auth-directory")
+
+    assert isinstance(credentials, SqlAlchemyP115CredentialRepository)
+    assert service._credentials is credentials
 
 
 def test_fixture_routes_are_exact_legacy_bindings() -> None:
