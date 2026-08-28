@@ -2812,17 +2812,20 @@
       ],
       "contract_id": "setting-5ba80aa585a1",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+      "fixture_exception": null,
       "key": "actor_subscriptions_default_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms ActorSubscriptionService owns actor default-config read, opaque replacement and create-time fallback semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Actor search, refresh and runtime ports remain separate boundaries.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-http-contract-and-postgres18-canonical-fallback-rollback",
+      "validation_owner": "subscription/settings"
     },
     {
       "accesses": [
@@ -3310,17 +3313,20 @@
       ],
       "contract_id": "setting-29dc7244e442",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "key": "media_cleanup_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms CleanupService owns canonical HTTP cleanup normalization and save semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. The four media_cleanup_* keys remain explicit legacy fallbacks; legacy task and maintenance readers retain their field-level fallback behavior until cleanup execution migration.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-http-contract-and-postgres18-canonical-fallback-rollback",
+      "validation_owner": "subscription/settings"
     },
     {
       "accesses": [
@@ -4921,17 +4927,20 @@
       ],
       "contract_id": "setting-d1dd5a22454a",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p7-watchlist.json",
+      "fixture_exception": null,
       "key": "watchlist_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 confirms WatchlistService owns canonical watchlist normalization, migration and save semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. shared_resource_config remains an explicit legacy migration fallback and external execution remains separate.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-http-contract-and-postgres18-canonical-fallback-rollback",
+      "validation_owner": "subscription/settings"
     }
   ],
   "unresolved_dynamic_setting_calls": []

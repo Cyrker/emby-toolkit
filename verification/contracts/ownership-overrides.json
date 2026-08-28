@@ -5912,6 +5912,33 @@
       }
     },
     "settings": {
+      "setting-5ba80aa585a1": {
+        "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 confirms ActorSubscriptionService owns actor default-config read, opaque replacement and create-time fallback semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Actor search, refresh and runtime ports remain separate boundaries.",
+        "status": "new",
+        "validation_method": "pytest-http-contract-and-postgres18-canonical-fallback-rollback",
+        "validation_owner": "subscription/settings"
+      },
+      "setting-d1dd5a22454a": {
+        "fixture": "verification/fixtures/http/p7-watchlist.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 confirms WatchlistService owns canonical watchlist normalization, migration and save semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. shared_resource_config remains an explicit legacy migration fallback and external execution remains separate.",
+        "status": "new",
+        "validation_method": "pytest-http-contract-and-postgres18-canonical-fallback-rollback",
+        "validation_owner": "subscription/settings"
+      },
+      "setting-29dc7244e442": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 confirms CleanupService owns canonical HTTP cleanup normalization and save semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. The four media_cleanup_* keys remain explicit legacy fallbacks; legacy task and maintenance readers retain their field-level fallback behavior until cleanup execution migration.",
+        "status": "new",
+        "validation_method": "pytest-http-contract-and-postgres18-canonical-fallback-rollback",
+        "validation_owner": "subscription/settings"
+      },
       "setting-4640efe53366": {
         "fixture": "verification/fixtures/http/p8-collection-cover.json",
         "fixture_exception": null,

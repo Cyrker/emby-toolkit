@@ -2662,6 +2662,77 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Subscription-Settings-Ownership
+
+Stage / Batch: P11 / canonical subscription settings ownership slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `90a06baa` (`fix(p11): preserve washing evaluator parity`).
+- Checkpoint: this batch's `refactor(p11): assign subscription settings ownership` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Assigned `actor_subscriptions_default_config`, `watchlist_config` and `media_cleanup_config` to
+  their native Actor/Watchlist/Cleanup service semantics and
+  `SqlAlchemyAppSettingsRepository` JSONB persistence.
+- Preserved Actor opaque replacement and create-time default fallback, Watchlist's canonical
+  migration from `shared_resource_config`, and Cleanup's whole-canonical-object precedence and
+  exact rule normalization.
+- Kept `shared_resource_config` plus the four legacy Cleanup keys explicitly legacy-owned. Cleanup
+  task/maintenance readers retain their field-level fallbacks until the later cleanup execution
+  migration; this settings slice does not claim Worker execution ownership.
+- Added per-domain manifest assertions and one exact PostgreSQL 18 snapshot/restore test covering
+  canonical raw JSONB, Actor create fallback, Watchlist migration without legacy mutation, Cleanup
+  canonical precedence, retained legacy rows and failed-update rollback.
+- Standalone settings ownership is now `34 new / 19 legacy`; route, table, dynamic/bootstrap config,
+  Worker and frontend counts are unchanged.
+
+Targeted gate:
+
+- Whole-scope Ruff -> clean; format check -> `602 files already formatted`; Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- Actor/Watchlist/Cleanup plus required P5/P8 application regressions -> `84 passed`.
+- Disposable PostgreSQL 18 subscription settings, Identity and Database Maintenance scope ->
+  `24 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Manifest/OpenAPI checks, fixture secret scan and `git diff --check` -> clean.
+- Post-review scoped Ruff/Pyright and PostgreSQL 18 rules-precedence rerun -> clean, `1 passed`.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-subscription-settings-20260829/`.
+
+Focused review:
+
+- Confirmed all three setting IDs, service/repository wiring, Actor opaque payload behavior,
+  Watchlist fallback mutation boundary, Cleanup canonical/legacy precedence, raw replacement,
+  rollback and exact timestamp restoration. The initial review's Cleanup execution ambiguity and
+  PostgreSQL rules-precedence gap were closed by explicit ownership notes and direct assertions.
+  No P0/P1/P2 remains in this settings slice.
+- Cleanup legacy Worker/maintenance field-level fallback remains a conditional P1 for the future
+  cleanup execution migration and cannot be treated as resolved by settings ownership alone.
+
+Stage full gate:
+
+- Not run. P11 still has route/config/table/Worker execution and compatibility-runtime gaps; this
+  checkpoint does not authorize controlled removal or P12.
+
+Pending:
+
+- Sixty-one method bindings, 57 route decorators, 12 tables, 82 dynamic config keys, seven
+  bootstrap keys and 19 standalone settings remain legacy-owned. Thirty-nine catalog tasks remain
+  unavailable in the native-only Worker until their normal processed paths have native owners.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue an evidence-backed residual route, standalone setting or normal processed Worker
+slice. Keep cleanup execution fallbacks explicit and Live Acceptance `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

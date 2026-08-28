@@ -26,6 +26,7 @@ from etk.platform.web import CookieSessionMiddleware
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_PATH = REPO_ROOT / "verification/fixtures/http/p7-watchlist.json"
 FIXTURE: Mapping[str, Any] = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+CONFIG_OWNERSHIP = REPO_ROOT / "verification/contracts/config-ownership.yaml"
 SECRET_KEY = b"p7-watchlist-fixture-session-key"
 
 
@@ -619,6 +620,22 @@ def test_settings_defaults_legacy_migration_and_pure_normalized_persistence() ->
     }
     assert reread.json() == settings.values[WATCHLIST_CONFIG_SETTING]
     assert [key for key, _value in settings.saved] == [WATCHLIST_CONFIG_SETTING, WATCHLIST_CONFIG_SETTING]
+
+
+def test_watchlist_config_has_canonical_ownership_without_absorbing_legacy_fallback() -> None:
+    manifest = json.loads(CONFIG_OWNERSHIP.read_text(encoding="utf-8"))
+    settings = {item["key"]: item for item in manifest["standalone_app_settings"]}
+
+    canonical = settings[WATCHLIST_CONFIG_SETTING]
+    assert canonical["contract_id"] == "setting-d1dd5a22454a"
+    assert canonical["status"] == "new"
+    assert canonical["new_owner"] == "etk.domains.system.repository.SqlAlchemyAppSettingsRepository"
+    assert canonical["fixture"] == "verification/fixtures/http/p7-watchlist.json"
+    assert canonical["validation_owner"] == "subscription/settings"
+
+    fallback = settings[SHARED_RESOURCE_CONFIG_SETTING]
+    assert fallback["status"] == "legacy"
+    assert fallback["new_owner"] is None
 
 
 def test_settings_preserve_existing_unknown_keys_but_ignore_new_unknown_keys() -> None:

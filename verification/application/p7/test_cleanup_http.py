@@ -15,6 +15,10 @@ from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.subscription.cleanup import (
     CLEANUP_CONFIG_SETTING,
     CLEANUP_USE_CASE_PROVIDER,
+    LEGACY_CLEANUP_DELETE_DELAY_SETTING,
+    LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING,
+    LEGACY_CLEANUP_LIBRARY_IDS_SETTING,
+    LEGACY_CLEANUP_RULES_SETTING,
     SCAN_CLEANUP_TASK_KEY,
     CleanupService,
     CleanupVersionNotFoundError,
@@ -27,6 +31,7 @@ from etk.platform.web import CookieSessionMiddleware
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_PATH = REPO_ROOT / "verification/fixtures/http/p7-cleanup.json"
 FIXTURE: Mapping[str, Any] = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+CONFIG_OWNERSHIP = REPO_ROOT / "verification/contracts/config-ownership.yaml"
 SECRET_KEY = b"p7-cleanup-fixture-session-key"
 
 
@@ -432,6 +437,35 @@ def test_settings_legacy_fallback_and_rule_normalization_match_source() -> None:
     assert len(body["rules"]) == 12
 
 
+def test_cleanup_canonical_object_wins_as_a_whole_over_legacy_fallback_rows() -> None:
+    app, _permissions, _repository, _settings, *_ = _build_app(
+        setting_values={
+            CLEANUP_CONFIG_SETTING: {
+                "rules": [],
+                "library_ids": [],
+                "keep_one_per_res": False,
+                "delete_delay": 0,
+            },
+            LEGACY_CLEANUP_RULES_SETTING: [{"id": "runtime", "enabled": False}],
+            LEGACY_CLEANUP_LIBRARY_IDS_SETTING: ["legacy-library"],
+            LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING: True,
+            LEGACY_CLEANUP_DELETE_DELAY_SETTING: 12,
+        }
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/api/cleanup/settings")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["rules"]) == 11
+    assert body["rules"][0]["id"] == "runtime"
+    assert body["rules"][0]["enabled"] is True
+    assert body["library_ids"] == []
+    assert body["keep_one_per_res"] is False
+    assert body["delete_delay"] == 0
+
+
 def test_settings_central_read_save_and_manual_validation_contracts() -> None:
     app, _permissions, _repository, settings, *_ = _build_app(
         setting_values={
@@ -492,6 +526,27 @@ def test_settings_central_read_save_and_manual_validation_contracts() -> None:
     assert invalid_delay.json() == {"error": "删除延迟必须是非负整数。"}
     assert malformed.status_code == 400 and malformed.headers["content-type"].startswith("text/html")
     assert unsupported.status_code == 415 and unsupported.headers["content-type"].startswith("text/html")
+
+
+def test_cleanup_config_has_canonical_ownership_without_absorbing_legacy_fallbacks() -> None:
+    manifest = json.loads(CONFIG_OWNERSHIP.read_text(encoding="utf-8"))
+    settings = {item["key"]: item for item in manifest["standalone_app_settings"]}
+
+    canonical = settings[CLEANUP_CONFIG_SETTING]
+    assert canonical["contract_id"] == "setting-29dc7244e442"
+    assert canonical["status"] == "new"
+    assert canonical["new_owner"] == "etk.domains.system.repository.SqlAlchemyAppSettingsRepository"
+    assert canonical["fixture"] == "verification/fixtures/http/p7-cleanup.json"
+    assert canonical["validation_owner"] == "subscription/settings"
+
+    for key in (
+        LEGACY_CLEANUP_RULES_SETTING,
+        LEGACY_CLEANUP_LIBRARY_IDS_SETTING,
+        LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING,
+        LEGACY_CLEANUP_DELETE_DELAY_SETTING,
+    ):
+        assert settings[key]["status"] == "legacy"
+        assert settings[key]["new_owner"] is None
 
 
 def test_settings_repository_failure_keeps_legacy_json_500() -> None:

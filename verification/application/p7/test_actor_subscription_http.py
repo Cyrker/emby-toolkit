@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CONTRACT = json.loads(
     (REPO_ROOT / "verification/fixtures/http/p7-actor-subscriptions.json").read_text(encoding="utf-8")
 )
+CONFIG_OWNERSHIP = REPO_ROOT / "verification/contracts/config-ownership.yaml"
 
 
 class FakePermissions:
@@ -260,6 +261,18 @@ def test_default_config_get_save_and_create_fallback_preserve_legacy_schema() ->
     assert repository.create_calls[0]["config"] == CONTRACT["saved_default_config"]
 
 
+def test_actor_default_config_has_native_repository_ownership() -> None:
+    manifest = json.loads(CONFIG_OWNERSHIP.read_text(encoding="utf-8"))
+    settings = {item["key"]: item for item in manifest["standalone_app_settings"]}
+
+    contract = settings[ACTOR_DEFAULT_CONFIG_KEY]
+    assert contract["contract_id"] == "setting-5ba80aa585a1"
+    assert contract["status"] == "new"
+    assert contract["new_owner"] == "etk.domains.system.repository.SqlAlchemyAppSettingsRepository"
+    assert contract["fixture"] == "verification/fixtures/http/p7-actor-subscriptions.json"
+    assert contract["validation_owner"] == "subscription/settings"
+
+
 def test_crud_responses_and_detail_runtime_context_match_frozen_contract() -> None:
     service, repository, settings, _search, _runtime, _refresh = _service(
         settings=FakeSettings(CONTRACT["saved_default_config"])
@@ -368,6 +381,21 @@ def test_default_config_malformed_json_uses_legacy_json_500_envelope() -> None:
     expected = {"status": 500, "body": CONTRACT["messages"]["default_save_failed"]}
     assert {"status": malformed.status_code, "body": malformed.json()} == expected
     assert {"status": failed.status_code, "body": failed.json()} == expected
+
+
+def test_default_config_preserves_legacy_opaque_json_replacement() -> None:
+    service, _repository, settings, *_ = _service()
+    client, _codec = _client(service)
+
+    with client:
+        saved = client.post("/api/actor-subscriptions/default-config", json=["opaque", 7])
+        reread = client.get("/api/actor-subscriptions/default-config")
+
+    assert saved.status_code == 200
+    assert saved.json() == CONTRACT["messages"]["default_saved"]
+    assert settings.saves == [(ACTOR_DEFAULT_CONFIG_KEY, ["opaque", 7])]
+    assert reread.status_code == 500
+    assert reread.json() == {"error": "获取默认配置时发生服务器内部错误"}
 
 
 def test_search_readiness_validation_configuration_and_formatting_semantics() -> None:
