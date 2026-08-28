@@ -4,6 +4,8 @@ import ast
 import json
 from pathlib import Path
 
+import pytest
+
 from etk.bootstrap.app_factory import create_app
 from etk.domains.subscription.cleanup_router import router as cleanup_router
 from etk.domains.subscription.core_router import router as core_router
@@ -52,7 +54,10 @@ def test_subscription_core_keeps_media_metadata_sql_behind_p5_projection() -> No
     assert not any(module.split(".")[0] in {"database", "handler", "routes", "tasks"} for module in _imports(ROUTER))
 
 
-def test_p7_http_fixtures_are_all_native_and_precede_compatibility_mount() -> None:
+def test_p7_http_fixtures_are_all_native_and_precede_compatibility_mount(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     expected = {
         (route["method"], route["path"])
         for fixture in FIXTURES

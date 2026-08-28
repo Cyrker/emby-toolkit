@@ -4,7 +4,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 
 def _port(value: str) -> int:
@@ -61,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     coordinator_health.add_argument("--max-age", type=float, default=10.0)
     coordinator_health.set_defaults(handler=_run_coordinator_health)
 
-    proxy = commands.add_parser("proxy", help="run the gevent HTTP/WebSocket proxy host")
+    proxy = commands.add_parser("proxy", help="run the native ASGI HTTP/WebSocket proxy host")
     proxy.add_argument("--host", default="0.0.0.0")
     proxy.add_argument("--port", type=_port, default=7758)
     proxy.set_defaults(handler=_run_proxy)
@@ -110,89 +110,23 @@ def _run_api(args: argparse.Namespace) -> int:
 
 
 def _run_proxy(args: argparse.Namespace) -> int:
-    # Proxy compatibility requires patching before importing requests/socket-using legacy modules.
-    from gevent import monkey
+    import os
 
-    monkey.patch_all()
+    import uvicorn
 
-    import signal
+    from etk.platform.config import LegacyConfigAdapter
+    from etk.processes.proxy import create_proxy_app
 
-    from gevent import signal_handler, wait
-    from gevent.event import Event
-    from gevent.pywsgi import WSGIServer
-    from geventwebsocket.handler import WebSocketHandler
-
-    import constants
-
-    from .runtime_supervisor import RuntimeRole, get_runtime_supervisor
-
-    runtime = get_runtime_supervisor()
-    runtime.start(role=RuntimeRole.PROXY, background=False)
-    playback_container = None
-    playback_gateway = None
-    try:
-        config = runtime.config
-        if not bool(config.get(constants.CONFIG_OPTION_PROXY_ENABLED, False)):
-            print("Proxy is disabled; no listener was started.")
-            return 0
-        if not bool(config.get("is_pro_active", False)):
-            print("Proxy requires an active Pro license; no listener was started.")
-            return 0
-
-        from etk.compatibility.playback import (
-            NativePlaybackCompatibilityGateway,
-            install_persistent_playback_gateway,
-        )
-
-        from .app_factory import _create_default_container, _register_p115_providers
-
-        playback_container, _config_adapter = _create_default_container(None)
-        _register_p115_providers(playback_container)
-        playback_gateway = NativePlaybackCompatibilityGateway(lambda: playback_container.use_case("p115.playback"))
-        install_persistent_playback_gateway(playback_gateway)
-
-        from reverse_proxy import proxy_app
-
-        server = WSGIServer(
-            (args.host, args.port),
-            proxy_app,
-            handler_class=WebSocketHandler,
-        )
-        received_signal: int | None = None
-        shutdown_requested = Event()
-
-        def stop_for_signal(signum: int) -> None:
-            nonlocal received_signal
-            if received_signal is None:
-                received_signal = signum
-            shutdown_requested.set()
-
-        signal_watchers = (
-            signal_handler(signal.SIGTERM, stop_for_signal, signal.SIGTERM),
-            signal_handler(signal.SIGINT, stop_for_signal, signal.SIGINT),
-        )
-        try:
-            server.start()
-            # Stopping inside the signal callback can race with serve_forever's socket setup.
-            stop_event = cast(Any, server)._stop_event
-            wait((shutdown_requested, stop_event), count=1)
-        finally:
-            for watcher in signal_watchers:
-                watcher.cancel()
-            server.stop(timeout=5)
-        return 128 + received_signal if received_signal is not None else 0
-    finally:
-        try:
-            if playback_gateway is not None:
-                from etk.compatibility.playback import clear_persistent_playback_gateway
-
-                clear_persistent_playback_gateway(playback_gateway)
-        finally:
-            try:
-                if playback_container is not None:
-                    playback_container.close()
-            finally:
-                runtime.stop()
+    configured = os.environ.get("APP_DATA_DIR") or os.environ.get("CONFIG_DIR")
+    config_path = Path(configured) / "config.ini" if configured else None
+    settings = LegacyConfigAdapter(config_path, environ=os.environ).load()
+    app = create_proxy_app(
+        license_active=bool(settings.proxy_enabled and settings.get("is_pro_active", False)),
+        allow_transcoding=settings.proxy_allow_transcoding,
+        static_dir=os.environ.get("ETK_STATIC_DIR"),
+    )
+    uvicorn.run(app, host=args.host, port=args.port, log_level="info", log_config=None)
+    return 0
 
 
 def _run_worker(args: argparse.Namespace) -> int:

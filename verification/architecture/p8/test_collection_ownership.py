@@ -4,6 +4,8 @@ import ast
 import json
 from pathlib import Path
 
+import pytest
+
 from etk.bootstrap.app_factory import create_app
 from etk.domains.collection.router import router as collection_router
 
@@ -86,7 +88,8 @@ def test_collection_repository_keeps_cross_domain_tables_behind_owner_projection
     assert "collections_info" not in user_source
 
 
-def test_collection_routes_and_effects_precede_compatibility_mount() -> None:
+def test_collection_routes_and_effects_precede_compatibility_mount(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     expected = {(route["method"], route["path"]) for route in fixture["routes"]}
     app = create_app(start_runtime=False)

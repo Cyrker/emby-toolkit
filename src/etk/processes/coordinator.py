@@ -488,6 +488,9 @@ class CoordinatorRuntime:
 
     def run(self) -> None:
         os.environ["ETK_PROCESS_ROLE"] = "coordinator"
+        if not _legacy_compatibility_enabled():
+            self._run_native_only()
+            return
         container, config_adapter = _create_default_container(None)
         database = container.database
         cleanup_execution_repository = SqlAlchemyCleanupExecutionRepository(database.unit_of_work)
@@ -621,6 +624,18 @@ class CoordinatorRuntime:
                 errors.append(exc)
             if errors:
                 raise ExceptionGroup("Coordinator shutdown failed", errors)
+
+    def _run_native_only(self) -> None:
+        """Keep a native heartbeat without starting legacy scheduler/daemon code."""
+
+        if self.config.schedules_enabled:
+            logger.warning("Coordinator schedules are disabled in the native runtime")
+        try:
+            while not self._stop.is_set():
+                self._write_health("standby")
+                self._stop.wait(self.config.coordinator_interval_seconds)
+        finally:
+            self._write_health("stopped")
 
     def _become_leader(self) -> None:
         if (
@@ -967,6 +982,10 @@ def coordinator_health(path: Path, *, max_age_seconds: float = 10) -> bool:
         return payload.get("state") in {"leader", "standby"} and 0 <= age <= max_age_seconds
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         return False
+
+
+def _legacy_compatibility_enabled() -> bool:
+    return os.environ.get("ETK_ENABLE_LEGACY_COMPATIBILITY", "").strip().casefold() in {"1", "true", "yes", "on"}
 
 
 def _task_fixture() -> Path:

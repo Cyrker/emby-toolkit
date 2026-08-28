@@ -17,7 +17,6 @@ from uuid import UUID
 from etk.bootstrap.app_factory import _create_default_container
 from etk.bootstrap.runtime_supervisor import RuntimeRole, RuntimeSupervisor
 from etk.compatibility.background import PersistentBackgroundGateway
-from etk.compatibility.flask_app import LazyCompatibilityApplication, create_flask_app
 from etk.compatibility.ingestion_monitor import (
     clear_persistent_ingestion_binding,
     clear_persistent_ingestion_ingress,
@@ -121,6 +120,7 @@ from etk.domains.p115 import (
     P115IntroBackfillTaskService,
     P115IntroFingerprintAdapter,
     P115OrganizeExecutionService,
+    P115OrganizeRecordTmdbBackfillService,
     P115PlaybackConfigService,
     P115PlaybackService,
     P115StrmMediaInfoEnrichmentService,
@@ -132,6 +132,7 @@ from etk.domains.p115 import (
     SqlAlchemyP115MediaInfoRepository,
     SqlAlchemyP115OrganizeExecutionRepository,
     SqlAlchemyP115OrganizePlanRepository,
+    SqlAlchemyP115OrganizeRecordsRepository,
     SqlAlchemyP115RenameConfigRepository,
     SqlAlchemyP115SortingRulesRepository,
     SqlAlchemyP115StrmSyncRepository,
@@ -201,6 +202,7 @@ from etk.platform.jobs import (
 from etk.platform.observability.redaction import redact_sensitive
 from etk.platform.tasks import ProcessorIdentity, TaskOutcome, TaskOutcomeStatus, TaskRegistry
 from etk.platform.tasks.catalog import (
+    NATIVE_TASK_KEYS,
     P4_NATIVE_TASK_KEYS,
     P5_NATIVE_TASK_KEYS,
     P6_INGESTION_NATIVE_TASK_KEYS,
@@ -644,6 +646,7 @@ class WorkerRuntime:
         self._registry: TaskRegistry | None = None
         self._service: JobSubmissionService | None = None
         self._adapter: LegacyTaskAdapter | None = None
+        self._native_only = False
         self._media_effects: PersistentMediaEffectExecutor | None = None
         self._p5_media_tasks = P5MediaTaskRouter(LegacyP5MediaCompatibilityGateway())
         self._p6_p115_tasks: P6P115TaskRouter | None = None
@@ -689,6 +692,9 @@ class WorkerRuntime:
             if self._started:
                 return
             os.environ["ETK_PROCESS_ROLE"] = "worker"
+            if not _legacy_compatibility_enabled():
+                self._start_native_only()
+                return
             container, config_adapter = _create_default_container(None)
             supervisor = RuntimeSupervisor()
             background_gateway: PersistentBackgroundGateway | None = None
@@ -903,7 +909,12 @@ class WorkerRuntime:
                     p115_fingerprint_repair,
                     playback_service,
                     P115IntroBackfillTaskService(intro_detection_gateway),
+                    organize_record_tmdb_backfill=P115OrganizeRecordTmdbBackfillService(
+                        SqlAlchemyP115OrganizeRecordsRepository(database.unit_of_work)
+                    ),
                 )
+                from etk.compatibility.flask_app import LazyCompatibilityApplication, create_flask_app
+
                 event_compatibility = LazyCompatibilityApplication(
                     partial(
                         create_flask_app,
@@ -1100,7 +1111,38 @@ class WorkerRuntime:
             self._gateway = gateway
             self._background_gateway = background_gateway
             self._final_refresh_settings_provider = settings_provider
+            self._native_only = False
             self._started = True
+
+    def _start_native_only(self) -> None:
+        """Initialize the worker control plane without materializing legacy processors."""
+
+        container, config_adapter = _create_default_container(None)
+        try:
+            database = container.database
+            cleanup_repository = SqlAlchemyCleanupExecutionRepository(database.unit_of_work)
+            store = PostgresJobStore(
+                lambda: database.unit_of_work(),
+                execution_guard=PostgresExecutionGuard(database.raw_pool),
+                cancellation_policy=cleanup_repository,
+            )
+            registry = TaskRegistry.from_fixture(_task_fixture())
+            service = JobSubmissionService(store, registry)
+            supervisor = RuntimeSupervisor()
+            supervisor.start(role=RuntimeRole.WORKER, background=False)
+        except BaseException:
+            container.close()
+            raise
+        self._container = container
+        self._config_adapter = config_adapter
+        self._last_settings = container.settings.to_runtime_dict()
+        self._supervisor = supervisor
+        self._store = store
+        self._registry = registry
+        self._service = service
+        self._adapter = None
+        self._native_only = True
+        self._started = True
 
     def request_shutdown(self) -> None:
         self._shutdown_requested.set()
@@ -1196,6 +1238,7 @@ class WorkerRuntime:
             self._registry = None
             self._service = None
             self._adapter = None
+            self._native_only = False
             self._media_effects = None
             self._p6_p115_tasks = None
             self._p6_ingestion_tasks = None
@@ -1595,7 +1638,7 @@ class WorkerRuntime:
         attempt = projection.current_attempt
         registry = self._registry
         adapter = self._adapter
-        if registry is None or adapter is None:
+        if registry is None:
             raise RuntimeError("Worker task registry is not initialized")
         try:
             definition = registry.require(job.task_key)
@@ -1612,15 +1655,32 @@ class WorkerRuntime:
         processor = (
             None
             if (
-                definition is not None
-                and (
-                    definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
-                    or definition.key in {"restore_mediainfo", "sync-all-user-data", "system-auto-update"}
+                self._native_only
+                or (
+                    definition is not None
+                    and (
+                        definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
+                        or definition.key in {"restore_mediainfo", "sync-all-user-data", "system-auto-update"}
+                    )
                 )
             )
             or envelope.get("call_style") == "direct"
             else _processor(processor_identity)
         )
+        if adapter is None and (
+            definition is None or (definition.key not in NATIVE_TASK_KEYS and job.task_key not in P8_REVIEW_TASK_KEYS)
+        ):
+            store.fail_attempt(
+                job_id=job.id,
+                attempt_id=attempt.id,
+                worker_id=self._worker_id,
+                error_type="LegacyTaskAdapterUnavailable",
+                error_message="native Worker cannot execute a legacy task without compatibility mode",
+                error_details={"task_key": job.task_key, "native_only": self._native_only},
+                retryable=False,
+                honor_cancel_request=False,
+            )
+            return
         is_direct = envelope.get("call_style") == "direct"
         control = _ExecutionControl()
         _clear_stop(processor)
@@ -1779,6 +1839,8 @@ class WorkerRuntime:
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P8 review task {job.task_key!r} did not return TaskOutcome")
             elif definition is not None:
+                if adapter is None:
+                    raise RuntimeError("Worker legacy task adapter is not initialized")
                 message = registry.create_message(
                     definition.key,
                     envelope["parameters"],
@@ -2341,6 +2403,10 @@ def _reported_failure_is_retryable(result: Any) -> bool:
         return True
     legacy = result.details.get("legacy_result")
     return not (isinstance(legacy, Mapping) and legacy.get("retryable") is False)
+
+
+def _legacy_compatibility_enabled() -> bool:
+    return os.environ.get("ETK_ENABLE_LEGACY_COMPATIBILITY", "").strip().casefold() in {"1", "true", "yes", "on"}
 
 
 __all__ = [

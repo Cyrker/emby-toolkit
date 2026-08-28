@@ -209,20 +209,25 @@
       "function": "task_backfill_organize_record_tmdb_ids",
       "help": "按 PickCode 或 SHA1 从媒体元数据补齐整理记录缺失的 TMDb ID，不覆盖已有身份。",
       "help_source": "TASK_HELP_TEXTS",
-      "new_owner": "etk.platform.tasks.TaskRegistry",
-      "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
+      "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+      "notes": "P6 native Worker envelope resolves missing organize-record TMDb identities from the local media metadata index by PickCode/SHA1; no remote provider mutation is performed.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.p115.organize_records.P115OrganizeRecordTmdbBackfillService"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:311",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115",
         "ingestion"
       ],
       "target_stage": "P6",
       "task_key": "backfill-organize-record-tmdb-ids",
-      "validation_method": "ordered-task-registry-and-persistent-job-contract",
-      "validation_owner": "operations/jobs",
+      "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+      "validation_owner": "p115/organize-records",
       "visible_in": [
         "all",
         "chain",

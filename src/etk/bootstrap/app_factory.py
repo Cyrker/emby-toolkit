@@ -10,11 +10,10 @@ from typing import Any
 from fastapi import FastAPI
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
+from starlette.responses import FileResponse, Response
+from starlette.staticfiles import StaticFiles
 
-from etk.compatibility.flask_app import (
-    LazyCompatibilityApplication,
-    create_flask_app,
-)
+from etk.compatibility.disabled import DisabledCompatibilityApplication
 from etk.compatibility.intro_detection import (
     LazyPersistentIntroDetectionGateway,
     clear_persistent_intro_detection_gateway,
@@ -30,7 +29,6 @@ from etk.compatibility.playback import (
     install_persistent_playback_gateway,
 )
 from etk.compatibility.response_contract import fastapi_json_response
-from etk.compatibility.session_codec import LazyLegacySessionCodec
 from etk.compatibility.system_defaults import LegacyStandaloneSettingsDefaults
 from etk.domains.collection import (
     CollectionService,
@@ -288,6 +286,7 @@ from etk.platform.jobs import PostgresExecutionGuard, PostgresJobStore
 from etk.platform.observability import MetricsMiddleware, TraceIdMiddleware, get_metrics, metrics_response
 from etk.platform.tasks import TaskRegistry
 from etk.platform.web import CookieSessionMiddleware
+from etk.platform.web.session_codec import LazyNativeSessionCodec
 from etk.processes.p6_ingestion import LegacyIngestionBindingDelivery, PersistentPendingBindingGateway
 from etk.processes.p6_playback import P115PlaybackOperationExecutor
 from etk.processes.p8_identity import identity_operation_claim_lease_seconds
@@ -336,21 +335,24 @@ def create_app(
         intro_detection_gateway = None
         try:
             if start_runtime:
-                from etk.compatibility.background import (
-                    PersistentBackgroundGateway,
-                    install_persistent_background_gateway,
-                )
-                from etk.compatibility.persistent_tasks import LazyPersistentTaskManagerGateway
-                from task_manager import install_persistent_submission_gateway
+                if compatibility_enabled:
+                    from etk.compatibility.background import (
+                        PersistentBackgroundGateway,
+                        install_persistent_background_gateway,
+                    )
+                    from etk.compatibility.persistent_tasks import LazyPersistentTaskManagerGateway
+                    from task_manager import install_persistent_submission_gateway
 
-                persistent_gateway = LazyPersistentTaskManagerGateway(lambda: app_container.use_case("operations.jobs"))
-                background_gateway = PersistentBackgroundGateway(lambda: app_container.use_case("operations.jobs"))
+                    persistent_gateway = LazyPersistentTaskManagerGateway(
+                        lambda: app_container.use_case("operations.jobs")
+                    )
+                    background_gateway = PersistentBackgroundGateway(lambda: app_container.use_case("operations.jobs"))
+                    install_persistent_submission_gateway(persistent_gateway)
+                    install_persistent_background_gateway(background_gateway)
                 playback_gateway = NativePlaybackCompatibilityGateway(lambda: app_container.use_case("p115.playback"))
                 intro_detection_gateway = LazyPersistentIntroDetectionGateway(
                     lambda: app_container.use_case("p115.intro-detection-gateway")
                 )
-                install_persistent_submission_gateway(persistent_gateway)
-                install_persistent_background_gateway(background_gateway)
                 install_persistent_playback_gateway(playback_gateway)
                 install_persistent_intro_detection_gateway(intro_detection_gateway)
                 runtime.start(role=RuntimeRole.API, background=False)
@@ -367,9 +369,10 @@ def create_app(
                     if intro_detection_gateway is not None:
                         clear_persistent_intro_detection_gateway(intro_detection_gateway)
                     if persistent_gateway is not None:
-                        from task_manager import clear_persistent_submission_gateway
+                        if compatibility_enabled:
+                            from task_manager import clear_persistent_submission_gateway
 
-                        clear_persistent_submission_gateway(persistent_gateway)
+                            clear_persistent_submission_gateway(persistent_gateway)
                 finally:
                     if start_runtime:
                         runtime.stop()
@@ -396,16 +399,21 @@ def create_app(
             runtime=runtime,
         )
 
-    compatibility_app = LazyCompatibilityApplication(
-        partial(
-            create_flask_app,
-            static_dir=static_dir,
-            data_dir=data_dir,
-            secret_key=secret_key,
-            supervisor=runtime,
-            configuration_synchronizer=configuration_synchronizer,
+    compatibility_enabled = _legacy_compatibility_enabled()
+    compatibility_app: Any = DisabledCompatibilityApplication()
+    if compatibility_enabled:
+        from etk.compatibility.flask_app import LazyCompatibilityApplication, create_flask_app
+
+        compatibility_app = LazyCompatibilityApplication(
+            partial(
+                create_flask_app,
+                static_dir=static_dir,
+                data_dir=data_dir,
+                secret_key=secret_key,
+                supervisor=runtime,
+                configuration_synchronizer=configuration_synchronizer,
+            )
         )
-    )
     if owns_container:
         _register_media_providers(app_container, compatibility_app)
         _register_subscription_providers(app_container)
@@ -435,7 +443,7 @@ def create_app(
     platform_metrics = get_metrics()
     app.add_middleware(MetricsMiddleware, metrics=platform_metrics)
     app.add_middleware(TraceIdMiddleware)
-    session_codec = LazyLegacySessionCodec(_resolve_data_dir(data_dir), secret_key=secret_key)
+    session_codec = LazyNativeSessionCodec(_resolve_data_dir(data_dir), secret_key=secret_key)
     app.add_middleware(CookieSessionMiddleware, codec_provider=lambda: session_codec)
 
     app.include_router(identity_router)
@@ -487,9 +495,32 @@ def create_app(
 
     app.state.compatibility_app = compatibility_app
 
-    # The compatibility mount must remain the final route so new FastAPI routes win.
-    app.mount("/", compatibility_app, name="legacy-compatibility")
+    if compatibility_enabled:
+        # Explicit migration-only opt-in; the native profile has no WSGI fallback.
+        app.mount("/", compatibility_app, name="legacy-compatibility")
+    else:
+        resolved_static = (static_dir or _default_static_dir()).resolve()
+        assets_dir = resolved_static / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        if resolved_static.is_dir():
+            app.mount("/static", StaticFiles(directory=resolved_static), name="static")
+
+        @app.get("/{path:path}", include_in_schema=False)
+        async def spa_fallback(path: str) -> Response:
+            candidate = resolved_static / path
+            if path and candidate.is_file() and resolved_static in candidate.parents:
+                return FileResponse(candidate)
+            index = resolved_static / "index.html"
+            if index.is_file():
+                return FileResponse(index)
+            return Response(status_code=404)
+
     return app
+
+
+def _legacy_compatibility_enabled() -> bool:
+    return os.environ.get("ETK_ENABLE_LEGACY_COMPATIBILITY", "").strip().casefold() in {"1", "true", "yes", "on"}
 
 
 def _create_default_container(data_dir: Path | None) -> tuple[AppContainer, LegacyConfigAdapter]:
@@ -882,7 +913,7 @@ def _register_sharing_providers(container: AppContainer) -> None:
 
 def _register_media_providers(
     container: AppContainer,
-    compatibility_app: LazyCompatibilityApplication,
+    compatibility_app: Any,
 ) -> None:
     container.register_repository(
         "media",
@@ -1534,6 +1565,17 @@ def _resolve_data_dir(data_dir: Path | None) -> Path:
     if configured:
         return Path(configured).resolve()
     return Path(__file__).resolve().parents[3] / "local_data"
+
+
+def _default_static_dir() -> Path:
+    configured = os.environ.get("ETK_STATIC_DIR")
+    if configured:
+        return Path(configured)
+    repository_root = Path(__file__).resolve().parents[3]
+    container_static = repository_root / "static"
+    if (container_static / "index.html").is_file():
+        return container_static
+    return repository_root / "frontend" / "dist"
 
 
 def _has_legacy_database_configuration(settings: Settings) -> bool:

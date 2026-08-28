@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from etk.bootstrap.app_factory import create_app
 from etk.domains.subscription.actor_router import router as actor_router
 from etk.domains.subscription.watchlist_router import router as watchlist_router
@@ -40,7 +42,8 @@ def test_actor_and_watchlist_bindings_have_native_manifest_owners() -> None:
         assert all(binding["fixture_exception"] is None for binding in owned)
 
 
-def test_actor_and_watchlist_native_routes_precede_compatibility_mount() -> None:
+def test_actor_and_watchlist_native_routes_precede_compatibility_mount(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     manifest = json.loads(ROUTE_MANIFEST.read_text(encoding="utf-8"))["method_bindings"]
     owned = [binding for binding in manifest if binding.get("new_owner") in OWNERS]
     app = create_app(start_runtime=False)

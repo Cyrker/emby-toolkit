@@ -91,6 +91,7 @@ def _projection(task_key: str = "sync-115-directory-tree") -> Any:
 @pytest.mark.parametrize(
     "task_key",
     [
+        "backfill-organize-record-tmdb-ids",
         "sync-115-directory-tree",
         "full-sync-strm",
         "monitor-115-life-events",
@@ -113,7 +114,7 @@ def test_worker_executes_p6_sync_without_resolving_legacy_processor(
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = FailingLegacyAdapter()
+    state._adapter = None
     state._p6_p115_tasks = router
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
@@ -145,7 +146,7 @@ def test_worker_persists_partial_directory_sync_details_on_failed_attempt(
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = FailingLegacyAdapter()
+    state._adapter = None
     state._p6_p115_tasks = router
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]

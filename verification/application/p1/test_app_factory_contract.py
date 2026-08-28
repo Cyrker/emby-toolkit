@@ -86,7 +86,7 @@ def _baseline_bindings() -> set[tuple[str, str]]:
     return {(method, rule["path"]) for rule in payload["rules"] for method in rule["methods_contract"]}
 
 
-def test_fastapi_health_precedes_lazy_fallback(tmp_path: Path) -> None:
+def test_fastapi_health_uses_native_static_fallback_without_legacy_runtime(tmp_path: Path) -> None:
     static_dir = tmp_path / "static"
     static_dir.mkdir()
     (static_dir / "index.html").write_text("<html>fixture SPA</html>", encoding="utf-8")
@@ -100,8 +100,8 @@ def test_fastapi_health_precedes_lazy_fallback(tmp_path: Path) -> None:
     )
     compatibility = app.state.compatibility_app
 
-    assert isinstance(app.routes[-1], Mount)
-    assert app.routes[-1].name == "legacy-compatibility"
+    assert not any(isinstance(route, Mount) and route.name == "legacy-compatibility" for route in app.routes)
+    assert getattr(app.routes[-1], "name", None) == "spa_fallback"
     assert (
         next(index for index, route in enumerate(app.routes) if getattr(route, "path", None) == "/api/health")
         < len(app.routes) - 1
@@ -123,6 +123,7 @@ def test_flask_compatibility_routes_spa_static_and_setup_contract(tmp_path: Path
     (static_dir / "index.html").write_text("<html>fixture SPA</html>", encoding="utf-8")
     (static_dir / "fixture.txt").write_text("fixture static", encoding="utf-8")
     monkeypatch.setenv("APP_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
 
     runtime = RuntimeSupervisor(lambda: NoopAdapter())
     app = create_app(
@@ -171,6 +172,7 @@ def test_p4_api_startup_keeps_compatibility_app_lazy_and_owns_no_background_serv
     static_dir.mkdir()
     (static_dir / "index.html").write_text("<html>fixture SPA</html>", encoding="utf-8")
     monkeypatch.setenv("APP_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     events: list[Any] = []
     runtime = RuntimeSupervisor(lambda: RecordingAdapter(events))
     app = create_app(

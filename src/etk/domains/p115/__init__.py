@@ -206,6 +206,9 @@ from .organize_records import (
     P115OrganizeRecordsPage,
     P115OrganizeRecordsRepository,
     P115OrganizeRecordsService,
+    P115OrganizeRecordTmdbBackfillProgress,
+    P115OrganizeRecordTmdbBackfillRepository,
+    P115OrganizeRecordTmdbBackfillService,
 )
 from .organize_records_repository import SqlAlchemyP115OrganizeRecordsRepository
 from .playback import P115PlaybackConfigService, P115PlaybackQrService
@@ -381,6 +384,9 @@ __all__ = [
     "P115OrganizeExecution",
     "P115OrganizeExecutionRepository",
     "P115OrganizeExecutionService",
+    "P115OrganizeRecordTmdbBackfillProgress",
+    "P115OrganizeRecordTmdbBackfillRepository",
+    "P115OrganizeRecordTmdbBackfillService",
     "P115OrganizePlan",
     "P115OrganizePlanRepository",
     "P115OrganizePlanService",

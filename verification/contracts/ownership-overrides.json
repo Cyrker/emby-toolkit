@@ -402,7 +402,183 @@
         "validation_owner": "ingestion/monitor"
       }
     },
-    "frontend_routes": {},
+    "frontend_routes": {
+      "frontend-route-0bafeafd1e1b": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the Discover page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-0d38c8cdf5fe": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the review page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-144a6d00d0c6": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the public invitation registration route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-146f6475fcac": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the cover generator settings route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-30d6a91c61c3": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the typed DatabaseStats page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-64a4511cc8b4": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the user center page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-711c5699b516": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the resubscribe page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-7b916d9fb08f": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the user management page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-7e93fba0bc7a": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the public login route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-867250c7e7b2": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the auto-tagging page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-8a5edab28263": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the redirect route and preserves the legacy entry point.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-9135603ba426": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the unified subscriptions page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-95799bc57a34": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the releases page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-9905e2cb5928": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the general settings route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-aa7dbdaec508": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the collections page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-ad048adfa5a6": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the shared resources page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-c6ce8dd5028b": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the scheduler settings route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-eb2d68c44b19": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the media cleanup page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-f0ded3af00c8": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the media edit route and its typed item prop.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-f25e38ad7515": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the statistics page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-fa2e4cfdfbcc": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the organize records page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-fbce5c89f76a": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the custom collections page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-fc7e5616902b": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the watchlist page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-fd7b2f806f50": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the actor subscriptions page route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      },
+      "frontend-route-ffd42e51b0ce": {
+        "new_owner": "frontend/src/router/index.ts",
+        "notes": "P10 TypeScript router owns the setup route.",
+        "status": "new",
+        "validation_method": "frontend-router-typecheck-build-and-route-guard",
+        "validation_owner": "frontend/router"
+      }
+    },
     "route_bindings": {
       "route-binding-c504d46a3f5d": {
         "fixture": "verification/fixtures/http/p9-sharing.json",
@@ -2752,6 +2928,312 @@
         "status": "new",
         "validation_method": "pytest-http-fixture-openapi-and-postgres18-effect-contract",
         "validation_owner": "media/secondary-effects"
+      },
+      "route-binding-772509528767": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves the existing endpoint and durable submission contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-17b7f7fae86b": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves the existing endpoint and durable mutation contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-7a18984b6797": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves version deletion and durable operation semantics.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-168aafaaea14": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves admin authorization, conflict handling, and durable execution.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-8f5ffb2bfbe4": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves the ignore mutation and execution conflict contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-63c06209d18d": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves durable scan submission and busy-state handling.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-6021ffff2146": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router owns the read-only cleanup settings contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-45ec8f339add": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router owns the validated cleanup settings mutation contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-6f076be5a04d": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router owns the admin cleanup projection contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-1a357b551c2f": {
+        "fixture": "verification/fixtures/http/p7-subscription-core.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.core_router",
+        "notes": "P7 native subscription core router preserves the batch-delete contract and authorization boundary.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-0d3b591c620d": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router preserves batch action validation and operation submission.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-47570f440f91": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router owns the library selection read contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-456f61755a1b": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router owns the library status projection contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-91516777d45e": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router preserves durable refresh-status submission.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-b983b19ff60c": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router preserves durable resubscribe-all submission.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-4d67c9aa8458": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router owns the rules read contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-164c3b9c6797": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router owns validated rule creation.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-2c0c42248f56": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router owns deterministic rule ordering.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-f39f2fffdc04": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.moviepilot_config_router",
+        "notes": "P7 native MoviePilot configuration router owns the read contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-a878fdaa7b28": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.moviepilot_config_router",
+        "notes": "P7 native MoviePilot configuration router owns validated configuration writes.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-ad161139a8aa": {
+        "fixture": "verification/fixtures/http/p7-subscription-core.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.core_router",
+        "notes": "P7 native subscription core router owns the public status projection.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-28ebc5f91698": {
+        "fixture": "verification/fixtures/http/p7-subscription-core.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.core_router",
+        "notes": "P7 native subscription core router owns the admin status mutation.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-2de19b5b2671": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.moviepilot_config_router",
+        "notes": "P7 native strategy router owns the read contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-e6404bbfe4b4": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.moviepilot_config_router",
+        "notes": "P7 native strategy router owns validated strategy writes.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-261c9f500fd4": {
+        "fixture": "verification/fixtures/http/p7-subscription-core.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.core_router",
+        "notes": "P7 native subscription core router owns the admin subscription management projection.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-13c97ad8c9de": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-a1d22df42dca": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-binding-02de26f6408c": {
+        "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.proxy.create_proxy_app",
+        "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+        "validation_owner": "sharing/proxy"
+      },
+      "route-binding-ac3557a96ff4": {
+        "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.proxy.create_proxy_app",
+        "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+        "validation_owner": "sharing/proxy"
+      },
+      "route-binding-5df57646835e": {
+        "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.proxy.create_proxy_app",
+        "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+        "validation_owner": "sharing/proxy"
+      },
+      "route-binding-f370017b7ded": {
+        "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.proxy.create_proxy_app",
+        "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+        "validation_owner": "sharing/proxy"
+      },
+      "route-binding-d60608d7dc56": {
+        "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.proxy.create_proxy_app",
+        "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+        "validation_owner": "sharing/proxy"
+      },
+      "route-binding-5490becd50f8": {
+        "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.proxy.create_proxy_app",
+        "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+        "validation_owner": "sharing/proxy"
+      },
+      "route-binding-5ec4d552d0e3": {
+        "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.proxy.create_proxy_app",
+        "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+        "validation_owner": "sharing/proxy"
       }
     },
     "route_decorators": {
@@ -4617,6 +5099,645 @@
         "status": "new",
         "validation_method": "pytest-http-fixture-openapi-and-postgres18-contract",
         "validation_owner": "media/secondary"
+      },
+      "route-decorator-6d3b410c8000": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves the existing endpoint and durable submission contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-3142e489d37c": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves the existing endpoint and durable mutation contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-64920f359989": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves version deletion and durable operation semantics.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-60521d54c8da": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves admin authorization, conflict handling, and durable execution.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-49c311061c5e": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves the ignore mutation and execution conflict contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-bdeb0a958b5c": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router preserves durable scan submission and busy-state handling.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-61900c653cd6": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router owns the read-only cleanup settings contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-4eee18f8bb76": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router owns the validated cleanup settings mutation contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-ffa26ae05c8a": {
+        "fixture": "verification/fixtures/http/p7-cleanup.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.cleanup_router",
+        "notes": "P7 native cleanup router owns the admin cleanup projection contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-f0329e7eadb2": {
+        "fixture": "verification/fixtures/http/p7-subscription-core.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.core_router",
+        "notes": "P7 native subscription core router preserves the batch-delete contract and authorization boundary.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-7850fc598043": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router preserves batch action validation and operation submission.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-f49162f616a9": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router owns the library selection read contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-d88082dbfba8": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router owns the library status projection contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-150180ff0123": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router preserves durable refresh-status submission.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-c1c75d7e09c4": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router preserves durable resubscribe-all submission.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-dbe7d546830c": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router owns the rules read contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-d15885853db3": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router owns validated rule creation.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-3f7811491df1": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "P7 native resubscribe router owns deterministic rule ordering.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-f9a92c130f4c": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.moviepilot_config_router",
+        "notes": "P7 native MoviePilot configuration router owns the read contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-08a9974a64d6": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.moviepilot_config_router",
+        "notes": "P7 native MoviePilot configuration router owns validated configuration writes.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-38385bde8886": {
+        "fixture": "verification/fixtures/http/p7-subscription-core.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.core_router",
+        "notes": "P7 native subscription core router owns the public status projection.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-d877f4f5dc79": {
+        "fixture": "verification/fixtures/http/p7-subscription-core.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.core_router",
+        "notes": "P7 native subscription core router owns the admin status mutation.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-62fad7fd0861": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.moviepilot_config_router",
+        "notes": "P7 native strategy router owns the read contract.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-9d9a0f92e1b8": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.moviepilot_config_router",
+        "notes": "P7 native strategy router owns validated strategy writes.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-5cf61d983b37": {
+        "fixture": "verification/fixtures/http/p7-subscription-core.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.core_router",
+        "notes": "P7 native subscription core router owns the admin subscription management projection.",
+        "status": "new",
+        "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-6d87bf69bf03": {
+        "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "operations/database-maintenance"
+      },
+      "route-decorator-11fc06b71c7c": {
+        "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "operations/database-maintenance"
+      },
+      "route-decorator-ac439c82ff85": {
+        "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "operations/database-maintenance"
+      },
+      "route-decorator-c51ba2642df6": {
+        "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "operations/database-maintenance"
+      },
+      "route-decorator-c0907e3c03ea": {
+        "fixture": "verification/fixtures/http/p8-effects.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "operations/review-reprocess"
+      },
+      "route-decorator-c4b6c030ff4e": {
+        "fixture": "verification/fixtures/http/p8-effects.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "operations/review-reprocess"
+      },
+      "route-decorator-2e2c6802a5d0": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-4bff1bf0ee3e": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-839cf6fa614e": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-f8a7354c89fb": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-12ec3c5bc473": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-2a1ec5030a61": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "media/secondary"
+      },
+      "route-decorator-92c5f7ac59eb": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "media/secondary"
+      },
+      "route-decorator-2f152fda1b61": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-90347b660275": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-dea31b46c424": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-2bc9829dddf5": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-a831047d3cc1": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-61afd7df1f4d": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-56fffc18be4d": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-054b0b5ab4d3": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-d15075f773bf": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-405fd4697ee2": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-5f7ec8ebe2a6": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "collection"
+      },
+      "route-decorator-a00f83b53c0d": {
+        "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "operations/database-maintenance"
+      },
+      "route-decorator-f90285917294": {
+        "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "operations/database-maintenance"
+      },
+      "route-decorator-7a4762d6d5e2": {
+        "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "operations/database-maintenance"
+      },
+      "route-decorator-d26771f78b54": {
+        "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.operations.database_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "operations/database-maintenance"
+      },
+      "route-decorator-57526d27d550": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "media/discover"
+      },
+      "route-decorator-3e13e5e4dc0d": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "media/discover"
+      },
+      "route-decorator-595fa2de28a7": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "media/discover"
+      },
+      "route-decorator-56758d0a412e": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "media/discover"
+      },
+      "route-decorator-afd478e50290": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "media/discover"
+      },
+      "route-decorator-158b4b659b39": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.discover_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "media/discover"
+      },
+      "route-decorator-61fecf8450cd": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "media/secondary"
+      },
+      "route-decorator-02e488a44f29": {
+        "fixture": "verification/fixtures/http/p8-secondary-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.secondary_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "media/secondary"
+      },
+      "route-decorator-d44c3923144f": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-bdf78d88b21a": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-6f64fb37ece6": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-fbd01ed9f6c9": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-9c14ba72a297": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-54b9b46e7983": {
+        "fixture": "verification/fixtures/http/p8-users-local.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.identity.users_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "identity/users"
+      },
+      "route-decorator-9711c8222ec2": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-a7002afec3b7": {
+        "fixture": "verification/fixtures/http/p7-resubscribe.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.resubscribe_router",
+        "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-openapi-and-native-router",
+        "validation_owner": "subscription/http"
+      },
+      "route-decorator-274d9276def9": {
+        "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.proxy.create_proxy_app",
+        "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+        "validation_owner": "sharing/proxy"
+      },
+      "route-decorator-fa1eba4d9ac1": {
+        "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
+        "fixture_exception": null,
+        "new_owner": "etk.processes.proxy.create_proxy_app",
+        "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
+        "status": "new",
+        "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+        "validation_owner": "sharing/proxy"
       }
     },
     "settings": {
@@ -5129,11 +6250,11 @@
       "task-b9dff80c1641": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
-        "new_owner": "etk.platform.tasks.TaskRegistry",
-        "notes": "P4 persistent orchestration owner; the Worker-only legacy handler adapter remains until P6.",
-        "status": "legacy",
-        "validation_method": "ordered-task-registry-and-persistent-job-contract",
-        "validation_owner": "operations/jobs"
+        "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
+        "notes": "P6 native Worker envelope resolves missing organize-record TMDb identities from the local media metadata index by PickCode/SHA1; no remote provider mutation is performed.",
+        "status": "new",
+        "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18",
+        "validation_owner": "p115/organize-records"
       },
       "task-bee1b1a1970f": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

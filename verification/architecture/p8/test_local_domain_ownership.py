@@ -4,6 +4,8 @@ import ast
 import json
 from pathlib import Path
 
+import pytest
+
 from etk.bootstrap.app_factory import create_app
 from etk.domains.media.discover_router import router as discover_router
 from etk.domains.media.secondary_router import router as secondary_router
@@ -79,7 +81,8 @@ def test_p8_local_sources_do_not_reverse_import_legacy_runtime() -> None:
         assert not any(module.split(".")[0] in LEGACY_IMPORT_ROOTS for module in imports), path
 
 
-def test_secondary_local_and_effect_routes_precede_compatibility() -> None:
+def test_secondary_local_and_effect_routes_precede_compatibility(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     expected = {(route["method"], route["path"]) for route in fixture["routes"]}
     assert len(expected) == 11

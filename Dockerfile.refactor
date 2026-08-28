@@ -36,19 +36,11 @@ RUN --mount=type=cache,id=etk-refactor-uv-cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
 COPY main.py \
-     core_processor.py \
      utils.py \
      logger_setup.py \
      ai_translator.py \
-     watchlist_processor.py \
      actor_utils.py \
-     actor_subscription_processor.py \
      config_manager.py \
-     task_manager.py \
-     extensions.py \
-     scheduler_manager.py \
-     reverse_proxy.py \
-     monitor_service.py \
      ./
 COPY src/ ./src/
 COPY verification/contracts/task-ownership.yaml ./verification/contracts/task-ownership.yaml
@@ -56,11 +48,7 @@ COPY verification/fixtures/tasks/ordered-task-catalog.json ./verification/fixtur
 COPY alembic.ini ./alembic.ini
 COPY migrations/ ./migrations/
 COPY handler/ ./handler/
-COPY database/ ./database/
-COPY tasks/ ./tasks/
 COPY fonts/ ./fonts/
-COPY services/ ./services/
-COPY routes/ ./routes/
 COPY templates/ ./templates/
 COPY docker/entrypoint.refactor.sh /entrypoint.refactor.sh
 COPY --from=frontend-build /app/frontend/dist/. /app/static/

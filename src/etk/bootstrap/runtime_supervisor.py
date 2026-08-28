@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import sys
 import threading
 from collections.abc import Callable, Mapping
 from enum import StrEnum
@@ -46,9 +48,34 @@ class RuntimeAdapter(Protocol):
 
 
 def _default_adapter_factory() -> RuntimeAdapter:
-    from .legacy_runtime import LegacyRuntimeAdapter
+    if os.environ.get("ETK_ENABLE_LEGACY_COMPATIBILITY", "").strip().casefold() in {"1", "true", "yes", "on"}:
+        from .legacy_runtime import LegacyRuntimeAdapter
 
-    return LegacyRuntimeAdapter()
+        return LegacyRuntimeAdapter()
+    return NativeRuntimeAdapter()
+
+
+class NativeRuntimeAdapter:
+    """Process-local runtime lifecycle with no legacy processor side effects."""
+
+    def __init__(self) -> None:
+        self._config: dict[str, Any] = {}
+
+    @property
+    def config(self) -> Mapping[str, Any]:
+        return self._config
+
+    def start(self, *, role: RuntimeRole, background: bool) -> None:
+        del role, background
+
+    def save_config_and_reload(self, new_config: Mapping[str, Any]) -> None:
+        self._config = dict(new_config)
+
+    def apply_persisted_config_snapshot(self, new_config: Mapping[str, Any]) -> None:
+        self._config = dict(new_config)
+
+    def stop(self) -> None:
+        self._config.clear()
 
 
 class RuntimeSupervisor:
@@ -223,17 +250,21 @@ _SUPERVISOR: RuntimeSupervisor | None = None
 
 
 def get_runtime_supervisor() -> RuntimeSupervisor:
-    """Return the Flask-injected supervisor when available, otherwise the process singleton."""
-    try:
-        from flask import current_app
-
-        injected = current_app.extensions.get("etk_runtime_supervisor")
-        if isinstance(injected, RuntimeSupervisor):
-            return injected
-        if injected is not None:
-            return injected
-    except RuntimeError:
-        pass
+    """Return a context-injected supervisor without importing Flask in native mode."""
+    # Flask is a development-only dependency in the native profile.  When a
+    # compatibility application is already active (or a legacy unit test has
+    # imported Flask), inspect the loaded module instead of importing it here.
+    flask_module = sys.modules.get("flask")
+    if flask_module is not None:
+        try:
+            current_app = flask_module.current_app
+            injected = current_app.extensions.get("etk_runtime_supervisor")
+            if isinstance(injected, RuntimeSupervisor):
+                return injected
+            if injected is not None:
+                return injected
+        except RuntimeError:
+            pass
 
     global _SUPERVISOR
     with _SUPERVISOR_LOCK:

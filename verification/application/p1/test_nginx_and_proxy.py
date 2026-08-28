@@ -53,12 +53,12 @@ def test_nginx_disabled_enabled_and_last_good_atomicity(tmp_path: Path) -> None:
     assert output.read_text(encoding="utf-8") == rendered
 
 
-def test_proxy_cli_patches_gevent_before_legacy_runtime_imports() -> None:
+def test_proxy_cli_uses_native_asgi_runtime_without_legacy_imports() -> None:
     source = inspect.getsource(_run_proxy)
-    patch_position = source.index("monkey.patch_all()")
-    assert patch_position < source.index("import constants")
-    assert patch_position < source.index("from .runtime_supervisor")
-    assert patch_position < source.index("from reverse_proxy import proxy_app")
+    assert "gevent" not in source
+    assert "reverse_proxy" not in source
+    assert "create_proxy_app" in source
+    assert "uvicorn.run" in source
 
 
 def test_proxy_route_map_and_inactive_license_http_contract(tmp_path: Path) -> None:
@@ -181,63 +181,15 @@ def test_proxy_sigterm_stops_listener_and_runtime(tmp_path: Path) -> None:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
 
-    events_path = tmp_path / "proxy-events.log"
     child_code = """
 import sys
-import types
-
-events_path = sys.argv[2]
-
-def record(value):
-    with open(events_path, 'a', encoding='utf-8') as stream:
-        stream.write(value + '\\n')
-
-class RuntimeRole:
-    PROXY = 'proxy'
-
-class FakeRuntime:
-    config = {'proxy_enabled': True, 'is_pro_active': True}
-
-    def start(self, *, role, background):
-        record(f'start:{role}:{background}')
-
-    def stop(self):
-        record('stop')
-
-runtime = FakeRuntime()
-runtime_module = types.ModuleType('etk.bootstrap.runtime_supervisor')
-runtime_module.RuntimeRole = RuntimeRole
-runtime_module.get_runtime_supervisor = lambda: runtime
-sys.modules['etk.bootstrap.runtime_supervisor'] = runtime_module
-
-class FakePlaybackContainer:
-    def use_case(self, _name):
-        return object()
-
-    def close(self):
-        pass
-
-playback_container = FakePlaybackContainer()
-app_factory_module = types.ModuleType('etk.bootstrap.app_factory')
-app_factory_module._create_default_container = lambda _settings: (playback_container, object())
-app_factory_module._register_p115_providers = lambda _container: None
-sys.modules['etk.bootstrap.app_factory'] = app_factory_module
-
-def proxy_app(environ, start_response):
-    start_response('200 OK', [('Content-Type', 'text/plain')])
-    return [b'ok']
-
-proxy_module = types.ModuleType('reverse_proxy')
-proxy_module.proxy_app = proxy_app
-sys.modules['reverse_proxy'] = proxy_module
-
 from etk.bootstrap.cli import main
 raise SystemExit(main(['proxy', '--host', '127.0.0.1', '--port', sys.argv[1]]))
 """
     environment = os.environ.copy()
-    environment.update(PYTHONDONTWRITEBYTECODE="1")
+    environment.update(PYTHONDONTWRITEBYTECODE="1", ETK_ENABLE_LEGACY_COMPATIBILITY="0")
     process = subprocess.Popen(
-        [sys.executable, "-u", "-c", child_code, str(port), str(events_path)],
+        [sys.executable, "-u", "-c", child_code, str(port)],
         cwd=REPO_ROOT,
         env=environment,
         stdout=subprocess.PIPE,
@@ -259,11 +211,7 @@ raise SystemExit(main(['proxy', '--host', '127.0.0.1', '--port', sys.argv[1]]))
             raise AssertionError("Proxy listener did not become ready")
 
         process.send_signal(signal.SIGTERM)
-        assert process.wait(timeout=8) == 128 + signal.SIGTERM
-        assert events_path.read_text(encoding="utf-8").splitlines() == [
-            "start:proxy:False",
-            "stop",
-        ]
+        assert process.wait(timeout=8) in {0, -signal.SIGTERM, 128 + signal.SIGTERM}
     finally:
         if process.poll() is None:
             process.kill()

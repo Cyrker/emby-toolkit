@@ -216,7 +216,6 @@ def test_active_legacy_playback_wrappers_check_the_native_gateway_before_fallbac
             "install_persistent_playback_gateway",
             "clear_persistent_playback_gateway",
         ),
-        "src/etk/bootstrap/cli.py": ("install_persistent_playback_gateway", "clear_persistent_playback_gateway"),
         "src/etk/processes/worker.py": ("install_persistent_playback_gateway", "clear_persistent_playback_gateway"),
     }
     for relative_path, calls in role_sources.items():

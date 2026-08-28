@@ -13,6 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def test_p6_native_tasks_have_native_catalog_and_execution_ownership() -> None:
     assert P6_NATIVE_TASK_KEYS == {
+        "backfill-organize-record-tmdb-ids",
         "full-sync-strm",
         "intro-fingerprint-backfill",
         "monitor-115-life-events",
@@ -40,6 +41,9 @@ def test_p6_native_tasks_have_native_catalog_and_execution_ownership() -> None:
     tasks = json.loads((REPO_ROOT / "verification/contracts/task-ownership.yaml").read_text(encoding="utf-8"))
     tasks_by_key = {item["task_key"]: item for item in tasks["tasks"]}
     expected_execution_owners = {
+        "backfill-organize-record-tmdb-ids": (
+            "etk.domains.p115.organize_records.P115OrganizeRecordTmdbBackfillService"
+        ),
         "full-sync-strm": "etk.domains.p115.strm_sync.P115StrmSyncService",
         "intro-fingerprint-backfill": ("etk.domains.p115.intro_detection_compatibility.P115IntroBackfillTaskService"),
         "monitor-115-life-events": "etk.domains.p115.strm_sync.P115StrmSyncService",

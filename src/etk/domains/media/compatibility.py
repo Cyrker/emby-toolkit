@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from etk.compatibility.flask_app import LazyCompatibilityApplication
 from etk.platform import Settings
+
+if TYPE_CHECKING:
+    from etk.compatibility.flask_app import LazyCompatibilityApplication
 
 from .event_dispatch import EmbyEventOwner, classify_emby_event
 from .models import MediaIdentity, MediaItemType, ServiceResult

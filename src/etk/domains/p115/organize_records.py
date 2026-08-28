@@ -4,6 +4,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from etk.platform.tasks import TaskOutcome
+
 from .models import P115Result
 
 
@@ -28,6 +30,14 @@ class P115OrganizeRecordsRepository(Protocol):
     ) -> P115OrganizeRecordsPage: ...
 
     def delete_record(self, record_id: int) -> None: ...
+
+
+class P115OrganizeRecordTmdbBackfillRepository(Protocol):
+    def backfill_missing_tmdb_ids(self) -> int: ...
+
+
+class P115OrganizeRecordTmdbBackfillProgress(Protocol):
+    def update(self, progress: int, message: str) -> None: ...
 
 
 class P115OrganizeRecordsService:
@@ -70,6 +80,20 @@ class P115OrganizeRecordsService:
         )
 
 
+class P115OrganizeRecordTmdbBackfillService:
+    """补齐整理记录身份，而不重新执行任何远端整理副作用。"""
+
+    def __init__(self, repository: P115OrganizeRecordTmdbBackfillRepository) -> None:
+        self._repository = repository
+
+    def execute(self, progress: P115OrganizeRecordTmdbBackfillProgress) -> TaskOutcome:
+        progress.update(10, "正在从媒体元数据匹配缺失 TMDb ID 的整理记录...")
+        updated_count = self._repository.backfill_missing_tmdb_ids()
+        message = f"整理记录 TMDb ID 补齐完成，共更新 {updated_count} 条记录。"
+        progress.update(100, message)
+        return TaskOutcome.succeeded(message, {"updated_count": updated_count})
+
+
 def normalize_record_rows(rows: Sequence[Mapping[Any, Any]]) -> tuple[dict[str, Any], ...]:
     return tuple({str(key): value for key, value in row.items()} for row in rows)
 
@@ -78,5 +102,8 @@ __all__ = [
     "P115OrganizeRecordsPage",
     "P115OrganizeRecordsRepository",
     "P115OrganizeRecordsService",
+    "P115OrganizeRecordTmdbBackfillProgress",
+    "P115OrganizeRecordTmdbBackfillRepository",
+    "P115OrganizeRecordTmdbBackfillService",
     "normalize_record_rows",
 ]

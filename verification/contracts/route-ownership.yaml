@@ -1155,189 +1155,198 @@
       "contract_id": "route-binding-772509528767",
       "decorator_contract_id": "route-decorator-6d3b410c8000",
       "endpoint": "clear_all_cleanup_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves the existing endpoint and durable submission contract.",
       "path": "/api/cleanup/clear_all",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:97",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-17b7f7fae86b",
       "decorator_contract_id": "route-decorator-3142e489d37c",
       "endpoint": "delete_cleanup_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves the existing endpoint and durable mutation contract.",
       "path": "/api/cleanup/delete",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:83",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-7a18984b6797",
       "decorator_contract_id": "route-decorator-64920f359989",
       "endpoint": "delete_single_version",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves version deletion and durable operation semantics.",
       "path": "/api/cleanup/delete_version",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:288",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-168aafaaea14",
       "decorator_contract_id": "route-decorator-60521d54c8da",
       "endpoint": "execute_cleanup_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves admin authorization, conflict handling, and durable execution.",
       "path": "/api/cleanup/execute",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:52",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-8f5ffb2bfbe4",
       "decorator_contract_id": "route-decorator-49c311061c5e",
       "endpoint": "ignore_cleanup_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves the ignore mutation and execution conflict contract.",
       "path": "/api/cleanup/ignore",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:69",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-63c06209d18d",
       "decorator_contract_id": "route-decorator-bdeb0a958b5c",
       "endpoint": "trigger_cleanup_scan",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves durable scan submission and busy-state handling.",
       "path": "/api/cleanup/scan",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:271",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-6021ffff2146",
       "decorator_contract_id": "route-decorator-61900c653cd6",
       "endpoint": "get_cleanup_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router owns the read-only cleanup settings contract.",
       "path": "/api/cleanup/settings",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:118",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-45ec8f339add",
       "decorator_contract_id": "route-decorator-4eee18f8bb76",
       "endpoint": "save_cleanup_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router owns the validated cleanup settings mutation contract.",
       "path": "/api/cleanup/settings",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:235",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-6f076be5a04d",
       "decorator_contract_id": "route-decorator-ffa26ae05c8a",
       "endpoint": "get_cleanup_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router owns the admin cleanup projection contract.",
       "path": "/api/cleanup/tasks",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:16",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -3575,20 +3584,21 @@
       "contract_id": "route-binding-1a357b551c2f",
       "decorator_contract_id": "route-decorator-f0329e7eadb2",
       "endpoint": "api_batch_delete_media",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-subscription-core.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.core_router",
+      "notes": "P7 native subscription core router preserves the batch-delete contract and authorization boundary.",
       "path": "/api/media/batch_delete",
       "retirement_approval": null,
       "source": "routes/media.py:665",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/management"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -5430,200 +5440,210 @@
       "contract_id": "route-binding-0d3b591c620d",
       "decorator_contract_id": "route-decorator-7850fc598043",
       "endpoint": "batch_action",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router preserves batch action validation and operation submission.",
       "path": "/api/resubscribe/batch_action",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:168",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-47570f440f91",
       "decorator_contract_id": "route-decorator-f49162f616a9",
       "endpoint": "get_emby_libraries_for_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router owns the library selection read contract.",
       "path": "/api/resubscribe/libraries",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:141",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-456f61755a1b",
       "decorator_contract_id": "route-decorator-d88082dbfba8",
       "endpoint": "get_library_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router owns the library status projection contract.",
       "path": "/api/resubscribe/library_status",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:100",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-91516777d45e",
       "decorator_contract_id": "route-decorator-150180ff0123",
       "endpoint": "trigger_refresh_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router preserves durable refresh-status submission.",
       "path": "/api/resubscribe/refresh_status",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:111",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-b983b19ff60c",
       "decorator_contract_id": "route-decorator-c1c75d7e09c4",
       "endpoint": "trigger_resubscribe_all",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router preserves durable resubscribe-all submission.",
       "path": "/api/resubscribe/resubscribe_all",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:126",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-4d67c9aa8458",
       "decorator_contract_id": "route-decorator-dbe7d546830c",
       "endpoint": "get_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router owns the rules read contract.",
       "path": "/api/resubscribe/rules",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:19",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-164c3b9c6797",
       "decorator_contract_id": "route-decorator-d15885853db3",
       "endpoint": "create_rule",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router owns validated rule creation.",
       "path": "/api/resubscribe/rules",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:30",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-13c97ad8c9de",
       "decorator_contract_id": "route-decorator-9711c8222ec2",
       "endpoint": "delete_rule",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/resubscribe/rules/<int:rule_id>",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:65",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-a1d22df42dca",
       "decorator_contract_id": "route-decorator-a7002afec3b7",
       "endpoint": "update_rule",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "method": "PUT",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/resubscribe/rules/<int:rule_id>",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:48",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-2c0c42248f56",
       "decorator_contract_id": "route-decorator-3f7811491df1",
       "endpoint": "update_rules_order",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router owns deterministic rule ordering.",
       "path": "/api/resubscribe/rules/order",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:81",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -6797,123 +6817,129 @@
       "contract_id": "route-binding-f39f2fffdc04",
       "decorator_contract_id": "route-decorator-f9a92c130f4c",
       "endpoint": "get_mp_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.moviepilot_config_router",
+      "notes": "P7 native MoviePilot configuration router owns the read contract.",
       "path": "/api/subscription/mp/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:53",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-a878fdaa7b28",
       "decorator_contract_id": "route-decorator-08a9974a64d6",
       "endpoint": "save_mp_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.moviepilot_config_router",
+      "notes": "P7 native MoviePilot configuration router owns validated configuration writes.",
       "path": "/api/subscription/mp/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:89",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-ad161139a8aa",
       "decorator_contract_id": "route-decorator-38385bde8886",
       "endpoint": "get_subscription_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-subscription-core.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.core_router",
+      "notes": "P7 native subscription core router owns the public status projection.",
       "path": "/api/subscription/status",
       "retirement_approval": null,
       "source": "routes/subscription.py:23",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-28ebc5f91698",
       "decorator_contract_id": "route-decorator-d877f4f5dc79",
       "endpoint": "api_unified_subscription_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-subscription-core.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.core_router",
+      "notes": "P7 native subscription core router owns the admin status mutation.",
       "path": "/api/subscription/status",
       "retirement_approval": null,
       "source": "routes/media.py:470",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/state"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-2de19b5b2671",
       "decorator_contract_id": "route-decorator-62fad7fd0861",
       "endpoint": "api_get_subscription_strategy",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.moviepilot_config_router",
+      "notes": "P7 native strategy router owns the read contract.",
       "path": "/api/subscription/strategy",
       "retirement_approval": null,
       "source": "routes/media.py:688",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/strategy"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
       "contract_id": "route-binding-e6404bbfe4b4",
       "decorator_contract_id": "route-decorator-9d9a0f92e1b8",
       "endpoint": "api_save_subscription_strategy",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.moviepilot_config_router",
+      "notes": "P7 native strategy router owns validated strategy writes.",
       "path": "/api/subscription/strategy",
       "retirement_approval": null,
       "source": "routes/media.py:714",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/strategy"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -7067,20 +7093,21 @@
       "contract_id": "route-binding-261c9f500fd4",
       "decorator_contract_id": "route-decorator-5cf61d983b37",
       "endpoint": "api_get_all_subscriptions_for_management",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-subscription-core.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.core_router",
+      "notes": "P7 native subscription core router owns the admin subscription management projection.",
       "path": "/api/subscriptions/all",
       "retirement_approval": null,
       "source": "routes/media.py:638",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/management"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -7755,18 +7782,19 @@
       "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.processes.proxy.create_proxy_app",
+      "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
       "path": "/",
       "retirement_approval": null,
       "source": "reverse_proxy.py:1759",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing",
         "users"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing/users"
+      "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+      "validation_owner": "sharing/proxy"
     },
     {
       "application": "proxy",
@@ -7776,18 +7804,19 @@
       "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
       "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.processes.proxy.create_proxy_app",
+      "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
       "path": "/<path:path>",
       "retirement_approval": null,
       "source": "reverse_proxy.py:1760",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing",
         "users"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing/users"
+      "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+      "validation_owner": "sharing/proxy"
     },
     {
       "application": "proxy",
@@ -7797,18 +7826,19 @@
       "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.processes.proxy.create_proxy_app",
+      "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
       "path": "/<path:path>",
       "retirement_approval": null,
       "source": "reverse_proxy.py:1760",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing",
         "users"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing/users"
+      "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+      "validation_owner": "sharing/proxy"
     },
     {
       "application": "proxy",
@@ -7818,18 +7848,19 @@
       "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
       "fixture_exception": null,
       "method": "HEAD",
-      "new_owner": null,
+      "new_owner": "etk.processes.proxy.create_proxy_app",
+      "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
       "path": "/<path:path>",
       "retirement_approval": null,
       "source": "reverse_proxy.py:1760",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing",
         "users"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing/users"
+      "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+      "validation_owner": "sharing/proxy"
     },
     {
       "application": "proxy",
@@ -7839,18 +7870,19 @@
       "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
       "fixture_exception": null,
       "method": "OPTIONS",
-      "new_owner": null,
+      "new_owner": "etk.processes.proxy.create_proxy_app",
+      "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
       "path": "/<path:path>",
       "retirement_approval": null,
       "source": "reverse_proxy.py:1760",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing",
         "users"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing/users"
+      "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+      "validation_owner": "sharing/proxy"
     },
     {
       "application": "proxy",
@@ -7860,18 +7892,19 @@
       "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.processes.proxy.create_proxy_app",
+      "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
       "path": "/<path:path>",
       "retirement_approval": null,
       "source": "reverse_proxy.py:1760",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing",
         "users"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing/users"
+      "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+      "validation_owner": "sharing/proxy"
     },
     {
       "application": "proxy",
@@ -7881,18 +7914,19 @@
       "fixture": "verification/fixtures/http/reverse-proxy-scenarios.json",
       "fixture_exception": null,
       "method": "PUT",
-      "new_owner": null,
+      "new_owner": "etk.processes.proxy.create_proxy_app",
+      "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
       "path": "/<path:path>",
       "retirement_approval": null,
       "source": "reverse_proxy.py:1760",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing",
         "users"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing/users"
+      "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+      "validation_owner": "sharing/proxy"
     }
   ],
   "metrics": {
@@ -7912,18 +7946,19 @@
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.processes.proxy.create_proxy_app",
+      "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
       "path": "/",
       "retirement_approval": null,
       "source": "reverse_proxy.py:1759",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing",
         "users"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing/users"
+      "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+      "validation_owner": "sharing/proxy"
     },
     {
       "application": "proxy",
@@ -7941,18 +7976,19 @@
         "HEAD",
         "OPTIONS"
       ],
-      "new_owner": null,
+      "new_owner": "etk.processes.proxy.create_proxy_app",
+      "notes": "P9 native ASGI proxy owns virtual-library, playback lease, and WebSocket behavior; legacy Flask proxy remains only until the controlled P11 removal wave.",
       "path": "/<path:path>",
       "retirement_approval": null,
       "source": "reverse_proxy.py:1760",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing",
         "users"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing/users"
+      "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
+      "validation_owner": "sharing/proxy"
     },
     {
       "application": "api",
@@ -7960,22 +7996,23 @@
       "contract_id": "route-decorator-6d87bf69bf03",
       "declared_path": "/actions/cleanup-offline-media",
       "endpoint": "api_cleanup_offline_media",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/actions/cleanup-offline-media",
       "retirement_approval": null,
       "source": "routes/database_admin.py:455",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "operations/database-maintenance"
     },
     {
       "application": "api",
@@ -7983,22 +8020,23 @@
       "contract_id": "route-decorator-11fc06b71c7c",
       "declared_path": "/actions/clear-vectors",
       "endpoint": "api_clear_vectors",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/actions/clear-vectors",
       "retirement_approval": null,
       "source": "routes/database_admin.py:483",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "operations/database-maintenance"
     },
     {
       "application": "api",
@@ -8030,22 +8068,23 @@
       "contract_id": "route-decorator-ac439c82ff85",
       "declared_path": "/actions/clear_tables",
       "endpoint": "api_clear_tables",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/actions/clear_tables",
       "retirement_approval": null,
       "source": "routes/database_admin.py:380",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "operations/database-maintenance"
     },
     {
       "application": "api",
@@ -8077,22 +8116,23 @@
       "contract_id": "route-decorator-c51ba2642df6",
       "declared_path": "/actions/prepare-for-library-rebuild",
       "endpoint": "api_prepare_for_library_rebuild",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/actions/prepare-for-library-rebuild",
       "retirement_approval": null,
       "source": "routes/database_admin.py:438",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "operations/database-maintenance"
     },
     {
       "application": "api",
@@ -8100,23 +8140,24 @@
       "contract_id": "route-decorator-c0907e3c03ea",
       "declared_path": "/actions/reprocess_all_review_items",
       "endpoint": "api_reprocess_all_review_items",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-effects.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/actions/reprocess_all_review_items",
       "retirement_approval": null,
       "source": "routes/actions.py:50",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "operations"
       ],
       "target_stage": "P5/P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/operations"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "operations/review-reprocess"
     },
     {
       "application": "api",
@@ -8124,23 +8165,24 @@
       "contract_id": "route-decorator-c4b6c030ff4e",
       "declared_path": "/actions/reprocess_item/<item_id>",
       "endpoint": "api_reprocess_item",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-effects.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/actions/reprocess_item/<item_id>",
       "retirement_approval": null,
       "source": "routes/actions.py:18",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "operations"
       ],
       "target_stage": "P5/P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/operations"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "operations/review-reprocess"
     },
     {
       "application": "api",
@@ -8401,23 +8443,24 @@
       "contract_id": "route-decorator-2e2c6802a5d0",
       "declared_path": "/api/admin/user_templates",
       "endpoint": "create_template",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/admin/user_templates",
       "retirement_approval": null,
       "source": "routes/user_management.py:31",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8475,23 +8518,24 @@
       "contract_id": "route-decorator-4bff1bf0ee3e",
       "declared_path": "/api/admin/users",
       "endpoint": "get_all_managed_users",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/admin/users",
       "retirement_approval": null,
       "source": "routes/user_management.py:166",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8499,23 +8543,24 @@
       "contract_id": "route-decorator-839cf6fa614e",
       "declared_path": "/api/admin/users/<string:user_id>",
       "endpoint": "delete_user",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/admin/users/<string:user_id>",
       "retirement_approval": null,
       "source": "routes/user_management.py:263",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8548,23 +8593,24 @@
       "contract_id": "route-decorator-f8a7354c89fb",
       "declared_path": "/api/admin/users/<string:user_id>/status",
       "endpoint": "set_user_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/admin/users/<string:user_id>/status",
       "retirement_approval": null,
       "source": "routes/user_management.py:223",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8572,23 +8618,24 @@
       "contract_id": "route-decorator-12ec3c5bc473",
       "declared_path": "/api/admin/users/<string:user_id>/template",
       "endpoint": "change_user_template",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/admin/users/<string:user_id>/template",
       "retirement_approval": null,
       "source": "routes/user_management.py:197",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -8913,22 +8960,23 @@
       "contract_id": "route-decorator-2a1ec5030a61",
       "declared_path": "/auto_tagging/clear_now",
       "endpoint": "clear_tagging_now",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/auto_tagging/clear_now",
       "retirement_approval": null,
       "source": "routes/media.py:781",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/auto-tagging"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
@@ -8984,22 +9032,23 @@
       "contract_id": "route-decorator-92c5f7ac59eb",
       "declared_path": "/auto_tagging/run_now",
       "endpoint": "run_tagging_now",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/auto_tagging/run_now",
       "retirement_approval": null,
       "source": "routes/media.py:754",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/auto-tagging"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
@@ -9007,23 +9056,24 @@
       "contract_id": "route-decorator-6d3b410c8000",
       "declared_path": "/api/cleanup/clear_all",
       "endpoint": "clear_all_cleanup_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves the existing endpoint and durable submission contract.",
       "path": "/api/cleanup/clear_all",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:97",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -9031,23 +9081,24 @@
       "contract_id": "route-decorator-3142e489d37c",
       "declared_path": "/api/cleanup/delete",
       "endpoint": "delete_cleanup_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves the existing endpoint and durable mutation contract.",
       "path": "/api/cleanup/delete",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:83",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -9055,23 +9106,24 @@
       "contract_id": "route-decorator-64920f359989",
       "declared_path": "/api/cleanup/delete_version",
       "endpoint": "delete_single_version",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves version deletion and durable operation semantics.",
       "path": "/api/cleanup/delete_version",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:288",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -9079,23 +9131,24 @@
       "contract_id": "route-decorator-60521d54c8da",
       "declared_path": "/api/cleanup/execute",
       "endpoint": "execute_cleanup_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves admin authorization, conflict handling, and durable execution.",
       "path": "/api/cleanup/execute",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:52",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -9103,23 +9156,24 @@
       "contract_id": "route-decorator-49c311061c5e",
       "declared_path": "/api/cleanup/ignore",
       "endpoint": "ignore_cleanup_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves the ignore mutation and execution conflict contract.",
       "path": "/api/cleanup/ignore",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:69",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -9127,23 +9181,24 @@
       "contract_id": "route-decorator-bdeb0a958b5c",
       "declared_path": "/api/cleanup/scan",
       "endpoint": "trigger_cleanup_scan",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router preserves durable scan submission and busy-state handling.",
       "path": "/api/cleanup/scan",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:271",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -9151,23 +9206,24 @@
       "contract_id": "route-decorator-61900c653cd6",
       "declared_path": "/api/cleanup/settings",
       "endpoint": "get_cleanup_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router owns the read-only cleanup settings contract.",
       "path": "/api/cleanup/settings",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:118",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -9175,23 +9231,24 @@
       "contract_id": "route-decorator-4eee18f8bb76",
       "declared_path": "/api/cleanup/settings",
       "endpoint": "save_cleanup_settings",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router owns the validated cleanup settings mutation contract.",
       "path": "/api/cleanup/settings",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:235",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -9199,23 +9256,24 @@
       "contract_id": "route-decorator-ffa26ae05c8a",
       "declared_path": "/api/cleanup/tasks",
       "endpoint": "get_cleanup_tasks",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-cleanup.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.cleanup_router",
+      "notes": "P7 native cleanup router owns the admin cleanup projection contract.",
       "path": "/api/cleanup/tasks",
       "retirement_approval": null,
       "source": "routes/media_cleanup.py:16",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "operations"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/operations"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -9223,21 +9281,22 @@
       "contract_id": "route-decorator-2f152fda1b61",
       "declared_path": "/<emby_collection_id>",
       "endpoint": "api_delete_collection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/collections/<emby_collection_id>",
       "retirement_approval": null,
       "source": "routes/tmdb_collections.py:269",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
       "validation_owner": "collection"
     },
     {
@@ -9246,21 +9305,22 @@
       "contract_id": "route-decorator-90347b660275",
       "declared_path": "/provider/metadata/<tmdb_collection_id>",
       "endpoint": "api_get_collection_provider_metadata",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/collections/provider/metadata/<tmdb_collection_id>",
       "retirement_approval": null,
       "source": "routes/tmdb_collections.py:183",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
       "validation_owner": "collection"
     },
     {
@@ -9269,21 +9329,22 @@
       "contract_id": "route-decorator-dea31b46c424",
       "declared_path": "/provider/search",
       "endpoint": "api_search_collection_provider",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/collections/provider/search",
       "retirement_approval": null,
       "source": "routes/tmdb_collections.py:217",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
       "validation_owner": "collection"
     },
     {
@@ -9462,21 +9523,22 @@
       "contract_id": "route-decorator-2bc9829dddf5",
       "declared_path": "/libraries",
       "endpoint": "get_all_libraries",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/config/cover_generator/libraries",
       "retirement_approval": null,
       "source": "routes/cover_generator_config.py:102",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
       "validation_owner": "collection"
     },
     {
@@ -9609,23 +9671,24 @@
       "contract_id": "route-decorator-a831047d3cc1",
       "declared_path": "/<int:collection_id>",
       "endpoint": "api_delete_custom_collection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/custom_collections/<int:collection_id>",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:278",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "collection"
     },
     {
       "application": "api",
@@ -9658,23 +9721,24 @@
       "contract_id": "route-decorator-61afd7df1f4d",
       "declared_path": "/<int:collection_id>/fix_match",
       "endpoint": "api_fix_media_match_in_custom_collection",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/custom_collections/<int:collection_id>/fix_match",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:479",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "collection"
     },
     {
       "application": "api",
@@ -9782,23 +9846,24 @@
       "contract_id": "route-decorator-56fffc18be4d",
       "declared_path": "/config/emby_libraries",
       "endpoint": "api_get_emby_libraries_for_filter",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/custom_collections/config/emby_libraries",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:534",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "collection"
     },
     {
       "application": "api",
@@ -10506,23 +10571,24 @@
       "contract_id": "route-decorator-054b0b5ab4d3",
       "declared_path": "/config/tmdb_movie_genres",
       "endpoint": "api_get_tmdb_movie_genres",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/custom_collections/config/tmdb_movie_genres",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:569",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "collection"
     },
     {
       "application": "api",
@@ -10530,23 +10596,24 @@
       "contract_id": "route-decorator-d15075f773bf",
       "declared_path": "/config/tmdb_search_companies",
       "endpoint": "api_search_tmdb_companies",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/custom_collections/config/tmdb_search_companies",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:615",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "collection"
     },
     {
       "application": "api",
@@ -10554,23 +10621,24 @@
       "contract_id": "route-decorator-405fd4697ee2",
       "declared_path": "/config/tmdb_search_persons",
       "endpoint": "api_search_tmdb_persons",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/custom_collections/config/tmdb_search_persons",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:672",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "collection"
     },
     {
       "application": "api",
@@ -10578,23 +10646,24 @@
       "contract_id": "route-decorator-5f7ec8ebe2a6",
       "declared_path": "/config/tmdb_tv_genres",
       "endpoint": "api_get_tmdb_tv_genres",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/custom_collections/config/tmdb_tv_genres",
       "retirement_approval": null,
       "source": "routes/custom_collections.py:592",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "collection",
         "sharing"
       ],
       "target_stage": "P8/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "collection/sharing"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "collection"
     },
     {
       "application": "api",
@@ -10752,22 +10821,23 @@
       "contract_id": "route-decorator-a00f83b53c0d",
       "declared_path": "/database/correct-sequences",
       "endpoint": "api_correct_all_sequences",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/database/correct-sequences",
       "retirement_approval": null,
       "source": "routes/database_admin.py:416",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "operations/database-maintenance"
     },
     {
       "application": "api",
@@ -10775,22 +10845,23 @@
       "contract_id": "route-decorator-f90285917294",
       "declared_path": "/database/export",
       "endpoint": "api_export_database",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/database/export",
       "retirement_approval": null,
       "source": "routes/database_admin.py:145",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "operations/database-maintenance"
     },
     {
       "application": "api",
@@ -10798,22 +10869,23 @@
       "contract_id": "route-decorator-7a4762d6d5e2",
       "declared_path": "/database/import",
       "endpoint": "api_import_database",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/database/import",
       "retirement_approval": null,
       "source": "routes/database_admin.py:241",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "operations/database-maintenance"
     },
     {
       "application": "api",
@@ -10821,22 +10893,23 @@
       "contract_id": "route-decorator-d26771f78b54",
       "declared_path": "/database/preview-backup",
       "endpoint": "api_preview_backup_file",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-database-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/database/preview-backup",
       "retirement_approval": null,
       "source": "routes/database_admin.py:184",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3/P11",
-      "validation_method": "static-route-contract",
-      "validation_owner": "operations"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "operations/database-maintenance"
     },
     {
       "application": "api",
@@ -11088,23 +11161,24 @@
       "contract_id": "route-decorator-57526d27d550",
       "declared_path": "/genres/<string:media_type>",
       "endpoint": "get_genres",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/discover/genres/<string:media_type>",
       "retirement_approval": null,
       "source": "routes/discover.py:611",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -11112,23 +11186,24 @@
       "contract_id": "route-decorator-3e13e5e4dc0d",
       "declared_path": "/movie",
       "endpoint": "discover_movies",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/discover/movie",
       "retirement_approval": null,
       "source": "routes/discover.py:261",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -11136,23 +11211,24 @@
       "contract_id": "route-decorator-595fa2de28a7",
       "declared_path": "/search",
       "endpoint": "search_media_handler",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/discover/search",
       "retirement_approval": null,
       "source": "routes/discover.py:629",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -11160,23 +11236,24 @@
       "contract_id": "route-decorator-56758d0a412e",
       "declared_path": "/tmdb/tv/<int:tv_id>",
       "endpoint": "get_tmdb_tv_details_proxy",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/discover/tmdb/tv/<int:tv_id>",
       "retirement_approval": null,
       "source": "routes/discover.py:812",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -11184,23 +11261,24 @@
       "contract_id": "route-decorator-afd478e50290",
       "declared_path": "/trigger_recommendation_update",
       "endpoint": "trigger_recommendation_update",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/discover/trigger_recommendation_update",
       "retirement_approval": null,
       "source": "routes/discover.py:792",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -11208,23 +11286,24 @@
       "contract_id": "route-decorator-158b4b659b39",
       "declared_path": "/tv",
       "endpoint": "discover_tv_shows",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.discover_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/discover/tv",
       "retirement_approval": null,
       "source": "routes/discover.py:416",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media",
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "media/discover"
     },
     {
       "application": "api",
@@ -11574,22 +11653,23 @@
       "contract_id": "route-decorator-61fecf8450cd",
       "declared_path": "/emby/user/<user_id>/views",
       "endpoint": "api_get_emby_user_views",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
       "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/emby/user/<user_id>/views",
       "retirement_approval": null,
       "source": "routes/media.py:397",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/integration-settings"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
@@ -11597,22 +11677,23 @@
       "contract_id": "route-decorator-02e488a44f29",
       "declared_path": "/emby_libraries",
       "endpoint": "api_get_emby_libraries",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-secondary-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.secondary_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/emby_libraries",
       "retirement_approval": null,
       "source": "routes/media.py:370",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "media/library-query"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "media/secondary"
     },
     {
       "application": "api",
@@ -11740,22 +11821,23 @@
       "contract_id": "route-decorator-f0329e7eadb2",
       "declared_path": "/media/batch_delete",
       "endpoint": "api_batch_delete_media",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-subscription-core.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.core_router",
+      "notes": "P7 native subscription core router preserves the batch-delete contract and authorization boundary.",
       "path": "/api/media/batch_delete",
       "retirement_approval": null,
       "source": "routes/media.py:665",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/management"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -13367,22 +13449,23 @@
       "contract_id": "route-decorator-d44c3923144f",
       "declared_path": "/dashboard-stats",
       "endpoint": "get_dashboard_stats",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/portal/dashboard-stats",
       "retirement_approval": null,
       "source": "routes/user_portal.py:564",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13390,22 +13473,23 @@
       "contract_id": "route-decorator-bdf78d88b21a",
       "declared_path": "/playback-report",
       "endpoint": "get_playback_report",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/portal/playback-report",
       "retirement_approval": null,
       "source": "routes/user_portal.py:418",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13413,22 +13497,23 @@
       "contract_id": "route-decorator-6f64fb37ece6",
       "declared_path": "/subscribe",
       "endpoint": "request_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/portal/subscribe",
       "retirement_approval": null,
       "source": "routes/user_portal.py:27",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13484,22 +13569,23 @@
       "contract_id": "route-decorator-fbd01ed9f6c9",
       "declared_path": "/telegram-bot-info",
       "endpoint": "get_telegram_bot_info",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/portal/telegram-bot-info",
       "retirement_approval": null,
       "source": "routes/user_portal.py:325",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13531,22 +13617,23 @@
       "contract_id": "route-decorator-9c14ba72a297",
       "declared_path": "/upload-avatar",
       "endpoint": "upload_avatar",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/portal/upload-avatar",
       "retirement_approval": null,
       "source": "routes/user_portal.py:367",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13603,23 +13690,24 @@
       "contract_id": "route-decorator-54b9b46e7983",
       "declared_path": "/api/register/invite",
       "endpoint": "register_with_invite",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p8-users-local.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.identity.users_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/register/invite",
       "retirement_approval": null,
       "source": "routes/user_management.py:306",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "users",
         "identity"
       ],
       "target_stage": "P8",
-      "validation_method": "static-route-contract",
-      "validation_owner": "users/identity"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "identity/users"
     },
     {
       "application": "api",
@@ -13652,22 +13740,23 @@
       "contract_id": "route-decorator-7850fc598043",
       "declared_path": "/batch_action",
       "endpoint": "batch_action",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router preserves batch action validation and operation submission.",
       "path": "/api/resubscribe/batch_action",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:168",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -13675,22 +13764,23 @@
       "contract_id": "route-decorator-f49162f616a9",
       "declared_path": "/libraries",
       "endpoint": "get_emby_libraries_for_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router owns the library selection read contract.",
       "path": "/api/resubscribe/libraries",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:141",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -13698,22 +13788,23 @@
       "contract_id": "route-decorator-d88082dbfba8",
       "declared_path": "/library_status",
       "endpoint": "get_library_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router owns the library status projection contract.",
       "path": "/api/resubscribe/library_status",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:100",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -13721,22 +13812,23 @@
       "contract_id": "route-decorator-150180ff0123",
       "declared_path": "/refresh_status",
       "endpoint": "trigger_refresh_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router preserves durable refresh-status submission.",
       "path": "/api/resubscribe/refresh_status",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:111",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -13744,22 +13836,23 @@
       "contract_id": "route-decorator-c1c75d7e09c4",
       "declared_path": "/resubscribe_all",
       "endpoint": "trigger_resubscribe_all",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router preserves durable resubscribe-all submission.",
       "path": "/api/resubscribe/resubscribe_all",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:126",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -13767,22 +13860,23 @@
       "contract_id": "route-decorator-dbe7d546830c",
       "declared_path": "/rules",
       "endpoint": "get_rules",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router owns the rules read contract.",
       "path": "/api/resubscribe/rules",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:19",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -13790,22 +13884,23 @@
       "contract_id": "route-decorator-d15885853db3",
       "declared_path": "/rules",
       "endpoint": "create_rule",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router owns validated rule creation.",
       "path": "/api/resubscribe/rules",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:30",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -13813,22 +13908,23 @@
       "contract_id": "route-decorator-9711c8222ec2",
       "declared_path": "/rules/<int:rule_id>",
       "endpoint": "delete_rule",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/resubscribe/rules/<int:rule_id>",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:65",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -13836,22 +13932,23 @@
       "contract_id": "route-decorator-a7002afec3b7",
       "declared_path": "/rules/<int:rule_id>",
       "endpoint": "update_rule",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "methods": [
         "PUT"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/resubscribe/rules/<int:rule_id>",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:48",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -13859,22 +13956,23 @@
       "contract_id": "route-decorator-3f7811491df1",
       "declared_path": "/rules/order",
       "endpoint": "update_rules_order",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-resubscribe.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.resubscribe_router",
+      "notes": "P7 native resubscribe router owns deterministic rule ordering.",
       "path": "/api/resubscribe/rules/order",
       "retirement_approval": null,
       "source": "routes/resubscribe.py:81",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -15107,23 +15205,24 @@
       "contract_id": "route-decorator-f9a92c130f4c",
       "declared_path": "/mp/config",
       "endpoint": "get_mp_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.moviepilot_config_router",
+      "notes": "P7 native MoviePilot configuration router owns the read contract.",
       "path": "/api/subscription/mp/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:53",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -15131,23 +15230,24 @@
       "contract_id": "route-decorator-08a9974a64d6",
       "declared_path": "/mp/config",
       "endpoint": "save_mp_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.moviepilot_config_router",
+      "notes": "P7 native MoviePilot configuration router owns validated configuration writes.",
       "path": "/api/subscription/mp/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:89",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -15155,23 +15255,24 @@
       "contract_id": "route-decorator-38385bde8886",
       "declared_path": "/status",
       "endpoint": "get_subscription_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-subscription-core.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.core_router",
+      "notes": "P7 native subscription core router owns the public status projection.",
       "path": "/api/subscription/status",
       "retirement_approval": null,
       "source": "routes/subscription.py:23",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -15179,22 +15280,23 @@
       "contract_id": "route-decorator-d877f4f5dc79",
       "declared_path": "/subscription/status",
       "endpoint": "api_unified_subscription_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-subscription-core.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.core_router",
+      "notes": "P7 native subscription core router owns the admin status mutation.",
       "path": "/api/subscription/status",
       "retirement_approval": null,
       "source": "routes/media.py:470",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/state"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -15202,22 +15304,23 @@
       "contract_id": "route-decorator-62fad7fd0861",
       "declared_path": "/subscription/strategy",
       "endpoint": "api_get_subscription_strategy",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.moviepilot_config_router",
+      "notes": "P7 native strategy router owns the read contract.",
       "path": "/api/subscription/strategy",
       "retirement_approval": null,
       "source": "routes/media.py:688",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/strategy"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -15225,22 +15328,23 @@
       "contract_id": "route-decorator-9d9a0f92e1b8",
       "declared_path": "/subscription/strategy",
       "endpoint": "api_save_subscription_strategy",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-moviepilot-config.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.moviepilot_config_router",
+      "notes": "P7 native strategy router owns validated strategy writes.",
       "path": "/api/subscription/strategy",
       "retirement_approval": null,
       "source": "routes/media.py:714",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/strategy"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",
@@ -15416,22 +15520,23 @@
       "contract_id": "route-decorator-5cf61d983b37",
       "declared_path": "/subscriptions/all",
       "endpoint": "api_get_all_subscriptions_for_management",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-subscription-core.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.core_router",
+      "notes": "P7 native subscription core router owns the admin subscription management projection.",
       "path": "/api/subscriptions/all",
       "retirement_approval": null,
       "source": "routes/media.py:638",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription"
       ],
       "target_stage": "P7",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/management"
+      "validation_method": "pytest-p7-http-fixture-openapi-and-native-router",
+      "validation_owner": "subscription/http"
     },
     {
       "application": "api",

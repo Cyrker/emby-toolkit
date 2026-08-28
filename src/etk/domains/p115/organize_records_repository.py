@@ -149,5 +149,62 @@ class SqlAlchemyP115OrganizeRecordsRepository:
                     )
             uow.commit()
 
+    def backfill_missing_tmdb_ids(self) -> int:
+        """Resolve missing identities from the authoritative media metadata index."""
+        with self._unit_of_work() as uow:
+            result = uow.session.execute(
+                text(
+                    """
+                    WITH matched AS (
+                        SELECT DISTINCT ON (record.id)
+                            record.id,
+                            CASE
+                                WHEN LOWER(metadata.item_type) = 'movie' THEN metadata.tmdb_id
+                                WHEN LOWER(metadata.item_type) IN ('series', 'season', 'episode')
+                                    THEN COALESCE(metadata.parent_series_tmdb_id, metadata.tmdb_id)
+                                ELSE NULL
+                            END AS tmdb_id
+                        FROM p115_organize_records record
+                        LEFT JOIN p115_filesystem_cache cache ON cache.id = record.file_id
+                        JOIN media_metadata metadata ON (
+                            NULLIF(record.pick_code, '') IS NOT NULL
+                            AND metadata.file_pickcode_json ? record.pick_code
+                        ) OR (
+                            NULLIF(cache.sha1, '') IS NOT NULL
+                            AND (
+                                metadata.file_sha1_json ? UPPER(cache.sha1)
+                                OR metadata.file_sha1_json ? LOWER(cache.sha1)
+                            )
+                        )
+                        WHERE LOWER(BTRIM(COALESCE(record.tmdb_id, '')))
+                            IN ('', 'null', 'none', 'undefined')
+                        ORDER BY
+                            record.id,
+                            CASE WHEN NULLIF(record.pick_code, '') IS NOT NULL
+                                AND metadata.file_pickcode_json ? record.pick_code THEN 0 ELSE 1 END,
+                            CASE metadata.item_type
+                                WHEN 'Movie' THEN 1
+                                WHEN 'Episode' THEN 2
+                                WHEN 'Season' THEN 3
+                                WHEN 'Series' THEN 4
+                                ELSE 9
+                            END,
+                            metadata.in_library DESC,
+                            metadata.last_updated_at DESC NULLS LAST
+                    )
+                    UPDATE p115_organize_records record
+                    SET tmdb_id = matched.tmdb_id
+                    FROM matched
+                    WHERE record.id = matched.id
+                      AND LOWER(BTRIM(COALESCE(matched.tmdb_id, '')))
+                          NOT IN ('', 'null', 'none', 'undefined')
+                    RETURNING record.id
+                    """
+                )
+            )
+            updated_count = len(result.fetchall())
+            uow.commit()
+            return updated_count
+
 
 __all__ = ["SqlAlchemyP115OrganizeRecordsRepository"]

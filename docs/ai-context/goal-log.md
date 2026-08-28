@@ -1564,6 +1564,99 @@ Safety boundary:
 - No real Emby, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
   `/config`, external write, push, deployment or release was used.
 
+## P11
+
+### P11-Pre-removal
+
+Stage / Batch: P11 / P11-Pre-removal
+
+HEAD / Commit:
+
+- Pre-removal work remains uncommitted on `cc1354a4` because the required 100% ownership
+  disposition is not complete. No removal checkpoint was created.
+
+Implemented:
+
+- Native API startup now omits the WSGI fallback by default, uses the Flask-compatible signed
+  session format without importing Flask, and keeps compatibility opt-in behind
+  `ETK_ENABLE_LEGACY_COMPATIBILITY=1`.
+- Native Proxy uses the ASGI implementation; Coordinator and Worker have explicit native-profile
+  branches; the refactor image excludes the legacy Processor, TaskManager, SchedulerManager,
+  extensions, routes, database, tasks, services, `web_app.py`, and PyArmor runtime sources.
+- Generated the full pre-removal inventory at
+  `/tmp/etk-refactor-artifacts/p11-pre-removal-20260828/` with route/task/table/config/frontend
+  counts, per-entry disposition, dependency/import scan, image content list, removal waves,
+  rollback notes, and the explicit `web_app.py`/PyArmor read boundary.
+
+Targeted gate:
+
+- `uv lock --check` -> passed.
+- P11 scoped Application gate (`test_app_factory_contract.py`, `test_nginx_and_proxy.py`,
+  `test_import_and_cli.py`, `test_process_roles.py`) -> `46 passed, 1 warning`.
+- Required future-domain regressions (`test_media_effect_process.py`, `test_identity_process.py`,
+  `test_collection_operation_process.py`) -> `29 passed`.
+- Required Identity PostgreSQL 18 regression -> `20 passed`.
+- Scoped Ruff check/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`);
+  `git diff --check` -> passed.
+- Native `create_app(start_runtime=True)` smoke with an isolated in-memory container -> health
+  `200`; forbidden modules loaded `[]`.
+- Latest verification artifact: `/tmp/etk-refactor-artifacts/p11-pre-removal-20260828/latest-verification-20260828.md`.
+- After the native-profile test updates, `verification/architecture` -> `73 passed, 1 warning`; P8
+  application -> `135 passed`; Database Maintenance PostgreSQL 18 -> `3 passed`; manifests and
+  OpenAPI checks are clean. Native-only Worker now terminalizes a non-native task as
+  `LegacyTaskAdapterUnavailable` instead of leaving a claimed attempt running.
+- Resume verification on 2026-08-28 reran the repository suite: `1706 passed, 474 skipped, 1
+  warning`. The first rerun exposed the existing Flask-context supervisor injection contract when
+  the native flag was unset; `get_runtime_supervisor()` now inspects an already-loaded Flask module
+  through `sys.modules` without importing Flask in native mode, and the focused test plus full suite
+  pass.
+- The former sole legacy task, `backfill-organize-record-tmdb-ids`, now has a native P6
+  `P115OrganizeRecordTmdbBackfillService`, account-local PostgreSQL PickCode/SHA1 resolution, a
+  strict `P6P115TaskRouter` envelope, Worker wiring, and ownership/ordered-task catalog evidence.
+  The generated task manifest now reports `50 new / 0 legacy`.
+
+Stage full gate:
+
+- Not run. The removal wave is not authorized while the pre-removal ownership and native Worker
+  execution blockers remain.
+
+Pending:
+
+- Route ownership is `343` decorators (`278 new / 65 legacy`) and `367` method bindings
+  (`295 new / 72 legacy`); all 72 remaining legacy method bindings have no matching operation in the current
+  native OpenAPI surface (`256 paths / 303 operations`).
+- Task ownership is now `50 new / 0 legacy`; table ownership is `15 new / 24 legacy`;
+  config ownership is `14 new / 89 legacy` plus `11 new / 42 legacy` standalone settings;
+  frontend route ownership is now `25 new / 0 legacy`, with each route explicitly owned by the
+  TypeScript router and validated by the P10 frontend gate.
+- The native-only `WorkerRuntime._start_native_only()` still initializes only the durable control
+  plane and sets `_adapter=None`; native task routers/executors are not yet installed for a full
+  execution graph. P5/P7/P8 routers also still use compatibility task callables for part of the
+  50-key catalog.
+- The complete per-entry list and import evidence are in the pre-removal JSON/Markdown artifacts;
+  no legacy endpoint was silently marked `retired-approved` because the existing plan preserves
+  public URL/method contracts and contains no retirement approval for these entries.
+
+Blocker:
+
+- P11 remains blocked by unresolved native owner/approved-retirement decisions for 65 route
+  decorators, 72 method bindings, 24 tables, 89 config keys, and 42 standalone settings, plus the
+  missing native Worker task execution graph and compatibility-boundary imports. The former task
+  blocker is closed. Removing compatibility code now would either drop existing URL/method behavior
+  or make durable jobs fail before execution.
+
+Next:
+
+- Add native implementations or explicit, evidence-backed retirement approvals for every remaining
+  listed entry; the frontend route inventory and task catalog are already resolved. Then build and
+  test the complete native Worker execution graph before starting the single controlled removal
+  wave. P12 remains TODO until P11 removal and NFR gates pass.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -1583,4 +1676,6 @@ Read first:
 
 Next:
 
-- Start `P11-Pre-removal` after the P10 close checkpoint. Keep all Live Acceptance items pending.
+- Resume `P11-Pre-removal` by supplying native owners or evidence-backed retirement approvals for
+  the remaining legacy contracts, then complete the native Worker execution graph. Keep all Live
+  Acceptance items pending.

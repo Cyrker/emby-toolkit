@@ -83,3 +83,73 @@ def test_delete_record_removes_only_local_record_source_target_and_direct_child_
         remaining_cache = set(connection.scalars(text("SELECT id FROM p115_filesystem_cache")))
     assert remaining_records == {"file-2"}
     assert remaining_cache == {"target-grandchild", "sibling"}
+
+
+def test_postgres18_backfill_resolves_pickcode_and_sha1_without_overwriting_identity(
+    p6_runtime: DatabaseRuntime,
+) -> None:
+    with p6_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_organize_records (
+                    file_id, pick_code, original_name, status, tmdb_id
+                ) VALUES
+                    ('backfill-movie', 'pc-movie', 'Movie.mkv', 'success', NULL),
+                    ('backfill-episode', NULL, 'Episode.mkv', 'success', NULL),
+                    ('backfill-existing', 'pc-existing', 'Existing.mkv', 'success', 'keep-me'),
+                    ('backfill-unmatched', 'pc-unmatched', 'Unknown.mkv', 'success', NULL)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_filesystem_cache (
+                    id, parent_id, name, sha1, account_id, entry_kind
+                ) VALUES
+                    ('backfill-movie', 'root', 'Movie.mkv', NULL, '115001', 'file'),
+                    ('backfill-episode', 'root', 'Episode.mkv', 'ABCDEF', '115001', 'file'),
+                    ('backfill-existing', 'root', 'Existing.mkv', NULL, '115001', 'file'),
+                    ('backfill-unmatched', 'root', 'Unknown.mkv', NULL, '115001', 'file')
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, file_pickcode_json, file_sha1_json,
+                    parent_series_tmdb_id, in_library, last_updated_at
+                ) VALUES
+                    ('movie-100', 'Movie', '["pc-movie"]'::jsonb, '[]'::jsonb,
+                     NULL, TRUE, NOW()),
+                    ('episode-1', 'Episode', '[]'::jsonb, '["abcdef"]'::jsonb,
+                     'series-200', TRUE, NOW()),
+                    ('existing-300', 'Movie', '["pc-existing"]'::jsonb, '[]'::jsonb,
+                     NULL, TRUE, NOW())
+                """
+            )
+        )
+
+    repository = SqlAlchemyP115OrganizeRecordsRepository(p6_runtime.unit_of_work)
+
+    assert repository.backfill_missing_tmdb_ids() == 2
+
+    with p6_runtime.engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                """
+                SELECT file_id, tmdb_id
+                FROM p115_organize_records
+                WHERE file_id LIKE 'backfill-%'
+                ORDER BY file_id
+                """
+            )
+        ).all()
+    assert rows == [
+        ("backfill-episode", "series-200"),
+        ("backfill-existing", "keep-me"),
+        ("backfill-movie", "movie-100"),
+        ("backfill-unmatched", None),
+    ]

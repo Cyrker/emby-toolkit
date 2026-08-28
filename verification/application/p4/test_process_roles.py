@@ -393,6 +393,7 @@ def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
     from etk.compatibility import background
 
     events: list[str] = []
+    monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     database = SimpleNamespace(
         unit_of_work=lambda: None,
         raw_pool=SimpleNamespace(connection=lambda: None),

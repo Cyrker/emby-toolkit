@@ -18,6 +18,7 @@ from etk.platform.tasks import (
     P9_NATIVE_TASK_KEYS,
     LegacyTaskAdapter,
     ProcessorIdentity,
+    TaskDefinition,
     TaskHandlerKind,
     TaskMessage,
     TaskPayload,
@@ -33,6 +34,37 @@ TASK_MANIFEST = REPO_ROOT / "verification" / "contracts" / "task-ownership.yaml"
 
 def _registry() -> TaskRegistry:
     return TaskRegistry.from_fixture(ORDERED_TASK_FIXTURE)
+
+
+class _LegacyTestRegistry:
+    def require(self, task_key: str) -> TaskDefinition:
+        if task_key != "legacy-test-task":
+            raise KeyError(task_key)
+        return TaskDefinition(
+            key=task_key,
+            name="Legacy test",
+            help="Legacy test",
+            help_source="test",
+            processor=ProcessorIdentity.MEDIA,
+            visible_in=(TaskVisibility.ALL,),
+            chain_eligible=False,
+            payload_version=1,
+            legacy_function="legacy_test",
+            legacy_signature="legacy_test(processor=None)",
+            legacy_definition="test:1",
+            registry_source="test:1",
+            target_stage="P4",
+            handler_kind=TaskHandlerKind.LEGACY,
+        )
+
+
+class _NoopLegacyResolver:
+    def resolve(
+        self,
+        task_key: str,
+        processor: ProcessorIdentity,
+    ) -> tuple[Callable[..., object], object]:
+        raise AssertionError(f"resolver must not run for {task_key}/{processor}")
 
 
 def test_frozen_registry_preserves_all_50_legacy_definitions_and_context_orders() -> None:
@@ -51,9 +83,9 @@ def test_frozen_registry_preserves_all_50_legacy_definitions_and_context_orders(
         | P8_NATIVE_TASK_KEYS
         | P9_NATIVE_TASK_KEYS
     )
-    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 1
-    assert fixture["metrics"]["native_handler_count"] == 49
-    assert fixture["metrics"]["legacy_adapter_count"] == 1
+    assert sum(definition.handler_kind is TaskHandlerKind.LEGACY for definition in definitions) == 0
+    assert fixture["metrics"]["native_handler_count"] == 50
+    assert fixture["metrics"]["legacy_adapter_count"] == 0
     assert [definition.key for definition in registry.available(TaskVisibility.ALL)] == fixture["contexts"]["all"]
     assert [definition.key for definition in registry.available(TaskVisibility.CHAIN)] == fixture["contexts"]["chain"]
     assert [definition.key for definition in registry.available(TaskVisibility.MANUAL)] == fixture["contexts"]["manual"]
@@ -208,7 +240,6 @@ def test_message_rejects_non_object_payloads_and_unknown_transport_fields() -> N
 
 
 def test_legacy_adapter_resolves_callable_and_processor_only_during_execute() -> None:
-    registry = _registry()
     calls: list[tuple[object, ...]] = []
     resolved_processor = object()
 
@@ -226,15 +257,19 @@ def test_legacy_adapter_resolves_callable_and_processor_only_during_execute() ->
 
             return handler, resolved_processor
 
-    adapter = LegacyTaskAdapter(registry, Resolver())
+    adapter = LegacyTaskAdapter(cast(TaskRegistry, _LegacyTestRegistry()), Resolver())
     assert calls == []
 
-    message = registry.create_message("backfill-organize-record-tmdb-ids", {"custom_collection_id": 42})
+    message = TaskMessage.create(
+        task_key="legacy-test-task",
+        payload={"custom_collection_id": 42},
+        processor=ProcessorIdentity.MEDIA,
+    )
     result = adapter.execute(message)
 
     assert result == "completed"
     assert calls == [
-        ("resolve", "backfill-organize-record-tmdb-ids", ProcessorIdentity.MEDIA),
+        ("resolve", "legacy-test-task", ProcessorIdentity.MEDIA),
         ("handler", resolved_processor, {"custom_collection_id": 42}),
     ]
 
@@ -242,44 +277,32 @@ def test_legacy_adapter_resolves_callable_and_processor_only_during_execute() ->
 def test_legacy_adapter_rejects_native_keys_and_registry_mismatches_before_resolution() -> None:
     registry = _registry()
 
-    class Resolver:
-        def resolve(self, task_key: str, processor: ProcessorIdentity):
-            raise AssertionError(f"resolver must not run for {task_key}/{processor}")
-
-    adapter = LegacyTaskAdapter(registry, Resolver())
+    adapter = LegacyTaskAdapter(registry, _NoopLegacyResolver())
 
     with pytest.raises(ValueError, match="native task handler"):
         adapter.execute(registry.create_message("task-chain-high-freq"))
 
-    wrong_processor = TaskMessage.create(
-        task_key="backfill-organize-record-tmdb-ids",
-        processor=ProcessorIdentity.ACTOR,
-    )
-    with pytest.raises(ValueError, match="processor identity"):
-        adapter.execute(wrong_processor)
+    legacy = _LegacyTestRegistry()
 
-    wrong_version = TaskMessage.create(
-        task_key="backfill-organize-record-tmdb-ids",
-        processor=ProcessorIdentity.MEDIA,
-        payload_version=2,
-    )
+    with pytest.raises(ValueError, match="processor identity"):
+        LegacyTaskAdapter(cast(TaskRegistry, legacy), _NoopLegacyResolver()).execute(
+            TaskMessage.create(task_key="legacy-test-task", processor=ProcessorIdentity.ACTOR)
+        )  # type: ignore[arg-type]
+
     with pytest.raises(ValueError, match="payload version"):
-        adapter.execute(wrong_version)
+        LegacyTaskAdapter(cast(TaskRegistry, legacy), _NoopLegacyResolver()).execute(
+            TaskMessage.create(task_key="legacy-test-task", processor=ProcessorIdentity.MEDIA, payload_version=2)
+        )  # type: ignore[arg-type]
 
 
 def test_transport_and_adapter_revalidate_mutated_payloads_before_resolution() -> None:
-    registry = _registry()
-    message = registry.create_message("backfill-organize-record-tmdb-ids", {"custom_collection_id": 42})
+    message = TaskMessage.create(task_key="legacy-test-task", processor=ProcessorIdentity.MEDIA)
     cast(dict[str, object], message.payload.data)["callable"] = lambda: None
-
-    class Resolver:
-        def resolve(self, task_key: str, processor: ProcessorIdentity):
-            raise AssertionError(f"resolver must not run for {task_key}/{processor}")
 
     with pytest.raises(TypeError, match="finite JSON"):
         message.to_dict()
     with pytest.raises(TypeError, match="finite JSON"):
-        LegacyTaskAdapter(registry, Resolver()).execute(message)
+        LegacyTaskAdapter(cast(TaskRegistry, _LegacyTestRegistry()), _NoopLegacyResolver()).execute(message)
 
 
 def test_registry_rejects_unknown_keys_without_resolving_executable_state() -> None:

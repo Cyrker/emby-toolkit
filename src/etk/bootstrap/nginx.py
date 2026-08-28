@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import os
 import tempfile
 from collections.abc import Mapping
@@ -18,11 +17,11 @@ class NginxConfigError(RuntimeError):
 
 
 def load_legacy_config() -> dict[str, Any]:
-    importlib.import_module("logger_setup")  # Installs legacy TRACE before config loading.
-    import config_manager
+    from etk.platform.config import LegacyConfigAdapter
 
-    config, _ = config_manager.load_config()
-    return dict(config)
+    configured = os.environ.get("APP_DATA_DIR") or os.environ.get("CONFIG_DIR")
+    config_path = Path(configured) / "config.ini" if configured else None
+    return LegacyConfigAdapter(config_path, environ=os.environ).load().to_runtime_dict()
 
 
 def generate_nginx_config(

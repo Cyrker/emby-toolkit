@@ -32,16 +32,17 @@
         "requires_auth": null
       },
       "name": null,
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the redirect route and preserves the legacy entry point.",
       "path": "/",
       "props": null,
       "redirect": "/DatabaseStats",
       "source": "frontend/src/router/index.ts:57",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "DatabaseStats",
@@ -58,16 +59,17 @@
         "requires_auth": true
       },
       "name": "DatabaseStats",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the typed DatabaseStats page route.",
       "path": "/DatabaseStats",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:62",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "ActorSubscriptionPage",
@@ -84,16 +86,17 @@
         "requires_auth": true
       },
       "name": "ActorSubscriptions",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the actor subscriptions page route.",
       "path": "/actor-subscriptions",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:123",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": null,
@@ -110,16 +113,17 @@
         "requires_auth": true
       },
       "name": "AutoTaggingPage",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the auto-tagging page route.",
       "path": "/auto-tagging",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:92",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "TmdbCollectionsPage",
@@ -136,16 +140,17 @@
         "requires_auth": true
       },
       "name": "Collections",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the collections page route.",
       "path": "/collections",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:104",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": null,
@@ -162,16 +167,17 @@
         "requires_auth": true
       },
       "name": "CustomCollectionsManager",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the custom collections page route.",
       "path": "/custom-collections",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:110",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "DiscoverPage",
@@ -188,16 +194,17 @@
         "requires_auth": true
       },
       "name": "Discover",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the Discover page route.",
       "path": "/discover",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:186",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": null,
@@ -214,16 +221,17 @@
         "requires_auth": true
       },
       "name": "MediaEditPage",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the media edit route and its typed item prop.",
       "path": "/edit-media/:itemId",
       "props": true,
       "redirect": null,
       "source": "frontend/src/router/index.ts:116",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "Login",
@@ -240,16 +248,17 @@
         "requires_auth": false
       },
       "name": "Login",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the public login route.",
       "path": "/login",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:29",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": null,
@@ -266,16 +275,17 @@
         "requires_auth": true
       },
       "name": "MediaCleanupPage",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the media cleanup page route.",
       "path": "/media-cleanup",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:154",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "OrganizeRecordsPage",
@@ -292,16 +302,17 @@
         "requires_auth": true
       },
       "name": "OrganizeRecords",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the organize records page route.",
       "path": "/organize-records",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:68",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "RegisterPage",
@@ -318,16 +329,17 @@
         "requires_auth": false
       },
       "name": "Register",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the public invitation registration route.",
       "path": "/register/invite/:token",
       "props": true,
       "redirect": null,
       "source": "frontend/src/router/index.ts:47",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "ReleasesPage",
@@ -344,16 +356,17 @@
         "requires_auth": true
       },
       "name": "Releases",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the releases page route.",
       "path": "/releases",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:129",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": null,
@@ -370,16 +383,17 @@
         "requires_auth": true
       },
       "name": "ResubscribePage",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the resubscribe page route.",
       "path": "/resubscribe",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:141",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "ReviewList",
@@ -396,16 +410,17 @@
         "requires_auth": true
       },
       "name": "ReviewList",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the review page route.",
       "path": "/review",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:74",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "CoverGeneratorConfig",
@@ -422,16 +437,17 @@
         "requires_auth": true
       },
       "name": "CoverGeneratorConfig",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the cover generator settings route.",
       "path": "/settings/cover-generator",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:135",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "GeneralSettingsPage",
@@ -448,16 +464,17 @@
         "requires_auth": true
       },
       "name": "settings-general",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the general settings route.",
       "path": "/settings/general",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:86",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "SchedulerSettingsPage",
@@ -474,16 +491,17 @@
         "requires_auth": true
       },
       "name": "settings-scheduler",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the scheduler settings route.",
       "path": "/settings/scheduler",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:80",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "SetupPage",
@@ -500,16 +518,17 @@
         "requires_auth": false
       },
       "name": "Setup",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the setup route.",
       "path": "/setup",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:38",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "SharedResourceManagerPage",
@@ -526,16 +545,17 @@
         "requires_auth": true
       },
       "name": "SharedResourceManager",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the shared resources page route.",
       "path": "/shared-resources",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:148",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "EmbyStatsPage",
@@ -552,16 +572,17 @@
         "requires_auth": true
       },
       "name": "EmbyStats",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the statistics page route.",
       "path": "/stats",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:180",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": null,
@@ -578,16 +599,17 @@
         "requires_auth": true
       },
       "name": "UnifiedSubscriptions",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the unified subscriptions page route.",
       "path": "/unified-subscriptions",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:166",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "UserCenterPage",
@@ -604,16 +626,17 @@
         "requires_auth": true
       },
       "name": "UserCenter",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the user center page route.",
       "path": "/user-center",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:172",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "UserManagementPage",
@@ -630,16 +653,17 @@
         "requires_auth": true
       },
       "name": "UserManagement",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the user management page route.",
       "path": "/user-management",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:160",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     },
     {
       "component": "WatchlistPage",
@@ -656,16 +680,17 @@
         "requires_auth": true
       },
       "name": "Watchlist",
-      "new_owner": null,
+      "new_owner": "frontend/src/router/index.ts",
+      "notes": "P10 TypeScript router owns the watchlist page route.",
       "path": "/watchlist",
       "props": null,
       "redirect": null,
       "source": "frontend/src/router/index.ts:98",
-      "status": "legacy",
+      "status": "new",
       "target_domain": "frontend",
       "target_stage": "P10",
-      "validation_method": "frontend-route-contract",
-      "validation_owner": "frontend"
+      "validation_method": "frontend-router-typecheck-build-and-route-guard",
+      "validation_owner": "frontend/router"
     }
   ],
   "schema_version": 1,

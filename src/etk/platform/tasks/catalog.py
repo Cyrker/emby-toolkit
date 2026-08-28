@@ -68,6 +68,7 @@ P5_NATIVE_TASK_KEYS = frozenset(
 
 P6_P115_NATIVE_TASK_KEYS = frozenset(
     {
+        "backfill-organize-record-tmdb-ids",
         "full-sync-strm",
         "intro-fingerprint-backfill",
         "manual-correct-organize-records",

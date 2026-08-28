@@ -7,8 +7,8 @@
   },
   "metrics": {
     "task_key_count": 50,
-    "native_handler_count": 49,
-    "legacy_adapter_count": 1,
+    "native_handler_count": 50,
+    "legacy_adapter_count": 0,
     "chain_visible_count": 28,
     "manual_visible_count": 28
   },
@@ -541,7 +541,7 @@
       "legacy_definition": "tasks/p115.py:175",
       "registry_source": "tasks/core.py:311",
       "target_stage": "P6",
-      "handler_kind": "legacy"
+      "handler_kind": "native"
     },
     {
       "order": 21,

@@ -34,6 +34,10 @@ class _IntroBackfillUseCase(Protocol):
     def execute(self, progress: P115TaskProgress) -> TaskOutcome: ...
 
 
+class _OrganizeRecordTmdbBackfillUseCase(Protocol):
+    def execute(self, progress: P115TaskProgress) -> TaskOutcome: ...
+
+
 class _OrganizeExecutionUseCase(Protocol):
     def execute(
         self,
@@ -65,6 +69,7 @@ class P6P115TaskRouter:
         fingerprint_repair: _FingerprintRepairUseCase | None = None,
         playback: _PlaybackMaintenanceUseCase | None = None,
         intro_backfill: _IntroBackfillUseCase | None = None,
+        organize_record_tmdb_backfill: _OrganizeRecordTmdbBackfillUseCase | None = None,
     ) -> None:
         self._directory_sync = directory_sync
         self._organize_execution = organize_execution
@@ -72,6 +77,7 @@ class P6P115TaskRouter:
         self._fingerprint_repair = fingerprint_repair
         self._playback = playback
         self._intro_backfill = intro_backfill
+        self._organize_record_tmdb_backfill = organize_record_tmdb_backfill
 
     def execute(self, message: TaskMessage, progress: P115TaskProgress) -> TaskOutcome:
         if not isinstance(message, TaskMessage):
@@ -90,6 +96,8 @@ class P6P115TaskRouter:
             return self._execute_directory_sync(message, progress)
         if message.task_key == "scan-organize-115":
             return self._execute_organize(message, progress)
+        if message.task_key == "backfill-organize-record-tmdb-ids":
+            return self._execute_organize_record_tmdb_backfill(message, progress)
         if message.task_key == "manual-correct-organize-records":
             return self._execute_reconciliation(message)
         if message.task_key in {"full-sync-strm", "monitor-115-life-events"}:
@@ -143,6 +151,7 @@ class P6P115TaskRouter:
             message.payload.data,
             {"execution_id", "approved_reconciliation_intent_id"},
         )
+
         execution_id = _uuid_field(message.payload.data, "execution_id", container="payload")
         approved_intent_id = _required_text_field(
             message.payload.data,
@@ -166,6 +175,22 @@ class P6P115TaskRouter:
                     "p4_terminalized": False,
                 },
             ),
+        )
+
+    def _execute_organize_record_tmdb_backfill(
+        self,
+        message: TaskMessage,
+        progress: P115TaskProgress,
+    ) -> TaskOutcome:
+        if message.payload.data:
+            raise ValueError(f"task {message.task_key!r} does not accept parameters")
+        if self._organize_record_tmdb_backfill is None:
+            raise RuntimeError("P6 organize-record TMDb backfill use case is unavailable")
+        result = self._organize_record_tmdb_backfill.execute(progress)
+        return TaskOutcome(
+            result.status,
+            result.message,
+            self._details(message.task_key, result.details),
         )
 
     def _execute_strm_sync(self, message: TaskMessage, progress: P115TaskProgress) -> TaskOutcome:
