@@ -481,11 +481,11 @@ class PostgresDatabaseMaintenanceRepository:
                         INSERT INTO database_backup_artifacts (
                             id, format_version, schema_fingerprint, source_filename,
                             compressed_bytes, status, compressed_size, expanded_size,
-                            compression_ratio, compressed_sha256, expanded_sha256, expires_at
+                            compression_ratio, compressed_sha256, expanded_sha256, expires_at, created_at
                         ) VALUES (
                             :id, :format_version, :schema_fingerprint, :source_filename,
                             :compressed_bytes, 'available', :compressed_size, :expanded_size,
-                            :compression_ratio, :compressed_sha256, :expanded_sha256, :expires_at
+                            :compression_ratio, :compressed_sha256, :expanded_sha256, :expires_at, :created_at
                         ) ON CONFLICT (compressed_sha256) WHERE status = 'available' DO NOTHING RETURNING *
                         """
                     ),
@@ -501,6 +501,7 @@ class PostgresDatabaseMaintenanceRepository:
                         "compressed_sha256": compressed_hash,
                         "expanded_sha256": expanded_hash,
                         "expires_at": timestamp + ARTIFACT_TTL,
+                        "created_at": timestamp,
                     },
                 )
                 .mappings()
