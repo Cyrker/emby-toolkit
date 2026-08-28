@@ -30,6 +30,7 @@ from etk.domains.p115.washing_evaluator import (
     evaluate_washing_item,
     load_washing_priorities,
     match_washing_priority,
+    normalize_language,
     normalize_washing_info,
     resolve_washing_version_slot,
     safe_parse_jsonish,
@@ -449,6 +450,30 @@ def test_evaluator_normalizes_legacy_mediainfo_shapes(raw_info: object) -> None:
     assert normalized["sub_langs"] == {"chi"}
     assert normalized["has_effect_subtitle"] is True
     assert normalized["size_gb"] == 10
+
+
+def test_evaluator_preserves_zero_numeric_fallbacks_and_fixed_taiwan_aliases() -> None:
+    policy = _policy([])
+    normalized = normalize_washing_info(
+        {
+            "MediaSourceInfo": {
+                "Width": 1920,
+                "Height": 1080,
+                "Size": 0,
+                "MediaStreams": [{"Type": "Video", "Width": 0, "Height": 0}],
+            },
+            "_file_size": 2 * 1024**3,
+        },
+        language_mapping=policy.language_mapping,
+        release_group_mapping={},
+        item=_item(),
+        remote_episode_runtime_minutes=None,
+    )
+
+    assert normalized["resolution"] == "1080p"
+    assert normalized["size_gb"] == 2
+    assert normalize_language("台灣", ()) == "chi"
+    assert normalize_language("臺灣", ()) == "chi"
 
 
 def test_evaluator_preserves_json_ast_and_nonempty_malformed_raw_semantics() -> None:

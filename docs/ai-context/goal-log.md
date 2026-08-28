@@ -2614,6 +2614,54 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-P115-Washing-Parity-Fix
+
+Stage / Batch: P11 / post-checkpoint washing evaluator parity fix
+
+HEAD / Commit:
+
+- Pre-fix HEAD: `10a57a33` (`refactor(p11): assign cover settings ownership`).
+- Checkpoint: this batch's `fix(p11): preserve washing evaluator parity` commit after the targeted
+  gate below.
+
+Implemented:
+
+- Restored the legacy truthy fallback order for video width, height and size. A stream/source value
+  of numeric zero no longer blocks the next valid MediaSource or injected file-size candidate.
+- Added the legacy fixed `台灣 -> chi` alias while retaining the native `臺灣` compatibility alias.
+- Added a focused regression using a zero-valued video stream and MediaSource size with valid
+  fallback dimensions/bytes plus custom-empty language mapping evidence.
+
+Targeted gate:
+
+- Scoped Ruff check and format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`.
+- Washing recalculation application scope -> `39 passed`.
+- Disposable PostgreSQL 18 washing recalculation regression -> `1 passed`.
+- `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-washing-parity-fix-20260829/`.
+
+Focused review:
+
+- A read-only legacy/native audit found no P0/P1 and two P2 behavior drifts: numeric-zero fallback
+  and the fixed traditional-Chinese Taiwan alias. Both were repaired with the minimal evaluator
+  changes above; the rerun is clean. Broader differential and multi-version PostgreSQL coverage
+  remain validation-strength opportunities, not evidence of another current behavior defect.
+
+Stage full gate:
+
+- Not run. This is a bounded post-checkpoint compatibility fix; P11 ownership, native Worker,
+  controlled removal and NFR/security gates remain pending.
+
+Next: continue the canonical Actor/Watchlist/Cleanup settings ownership slice, keeping shared and
+cleanup legacy fallback keys and cleanup execution readers explicit. Keep Live Acceptance
+`HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

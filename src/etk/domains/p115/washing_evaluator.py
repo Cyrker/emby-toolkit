@@ -421,19 +421,19 @@ def normalize_washing_info(
     raw_etk = parsed.get("_etk") if isinstance(parsed, Mapping) else None
     etk: Mapping[str, Any] = raw_etk if isinstance(raw_etk, Mapping) else {}
 
-    width = _first_non_empty(
-        video.get("Width"),
-        media_source.get("Width"),
-        parsed.get("width") if isinstance(parsed, Mapping) else 0,
-        parsed.get("Width") if isinstance(parsed, Mapping) else 0,
-        0,
+    width = (
+        video.get("Width")
+        or media_source.get("Width")
+        or (parsed.get("width") if isinstance(parsed, Mapping) else 0)
+        or (parsed.get("Width") if isinstance(parsed, Mapping) else 0)
+        or 0
     )
-    height = _first_non_empty(
-        video.get("Height"),
-        media_source.get("Height"),
-        parsed.get("height") if isinstance(parsed, Mapping) else 0,
-        parsed.get("Height") if isinstance(parsed, Mapping) else 0,
-        0,
+    height = (
+        video.get("Height")
+        or media_source.get("Height")
+        or (parsed.get("height") if isinstance(parsed, Mapping) else 0)
+        or (parsed.get("Height") if isinstance(parsed, Mapping) else 0)
+        or 0
     )
     width_int, height_int = _integer(width), _integer(height)
     if width_int > 0 or height_int > 0:
@@ -529,12 +529,12 @@ def normalize_washing_info(
     normalized["sub_langs"] = {normalize_language(value, language_mapping) for value in subtitle_languages if value}
     normalized["has_effect_subtitle"] = _has_effect_subtitle(parsed, streams)
 
-    size_bytes = _first_non_empty(
-        media_source.get("Size"),
-        parsed.get("size_bytes") if isinstance(parsed, Mapping) else 0,
-        parsed.get("_file_size") if isinstance(parsed, Mapping) else 0,
-        parsed.get("Size") if isinstance(parsed, Mapping) else 0,
-        0,
+    size_bytes = (
+        media_source.get("Size")
+        or (parsed.get("size_bytes") if isinstance(parsed, Mapping) else 0)
+        or (parsed.get("_file_size") if isinstance(parsed, Mapping) else 0)
+        or (parsed.get("Size") if isinstance(parsed, Mapping) else 0)
+        or 0
     )
     normalized["size_gb"] = _integer(size_bytes) / (1024**3)
     raw_original = ""
@@ -1055,6 +1055,7 @@ def normalize_language(value: object, mapping: Sequence[Mapping[str, Any]]) -> s
         "mandarin",
         "taiwan",
         "台湾",
+        "台灣",
         "臺灣",
         "国语",
         "普通话",
