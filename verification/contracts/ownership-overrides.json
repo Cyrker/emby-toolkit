@@ -580,6 +580,24 @@
       }
     },
     "route_bindings": {
+      "route-binding-2d564b02ac04": {
+        "fixture": "verification/fixtures/http/p11-emby-search.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P11 native Emby search index service owns the legacy search-index transport and keeps rebuild, batch, incremental, delete, and readiness semantics behind the media boundary.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-and-postgres18-search-index-contract",
+        "validation_owner": "media/search-index"
+      },
+      "route-binding-cc84574e6f72": {
+        "fixture": "verification/fixtures/http/p11-emby-search.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P11 native Emby search index service owns the legacy search query transport and keeps type, limit, readiness, and no-store semantics behind the media boundary.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-and-postgres18-search-index-contract",
+        "validation_owner": "media/search-index"
+      },
       "route-binding-c504d46a3f5d": {
         "fixture": "verification/fixtures/http/p9-sharing.json",
         "fixture_exception": null,
@@ -3237,6 +3255,24 @@
       }
     },
     "route_decorators": {
+      "route-decorator-4448a5c3718f": {
+        "fixture": "verification/fixtures/http/p11-emby-search.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P11 native Emby search index service owns the legacy search query route while preserving its exact URL and response envelope.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-and-postgres18-search-index-contract",
+        "validation_owner": "media/search-index"
+      },
+      "route-decorator-fdd30bfc510b": {
+        "fixture": "verification/fixtures/http/p11-emby-search.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.router",
+        "notes": "P11 native Emby search index service owns the legacy search-index update route while preserving its exact URL and response envelope.",
+        "status": "new",
+        "validation_method": "pytest-http-fixture-and-postgres18-search-index-contract",
+        "validation_owner": "media/search-index"
+      },
       "route-decorator-c00a1a78f576": {
         "fixture": "verification/fixtures/http/p9-sharing.json",
         "fixture_exception": null,
@@ -5852,6 +5888,24 @@
       }
     },
     "tables": {
+      "table-08f5f06d8411": {
+        "fixture": "verification/integration/p5/test_emby_search_index_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.search_index.SqlAlchemyEmbySearchRepository",
+        "notes": "P11 native search repository owns rebuild tokens and their expiry cleanup in the existing emby_search_rebuild_state table.",
+        "status": "new",
+        "validation_method": "postgres18-search-index-rebuild-contract",
+        "validation_owner": "media/search-index"
+      },
+      "table-90370b358a77": {
+        "fixture": "verification/integration/p5/test_emby_search_index_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.search_index.SqlAlchemyEmbySearchRepository",
+        "notes": "P11 native search repository owns indexed Emby item projections, pinyin/ngram lookup, type filtering, and deletion in the existing emby_search_index table.",
+        "status": "new",
+        "validation_method": "postgres18-search-index-rebuild-contract",
+        "validation_owner": "media/search-index"
+      },
       "table-0661d1e5c85d": {
         "fixture": "verification/integration/p6/test_p115_upload_monitor_postgres18.py",
         "fixture_exception": null,

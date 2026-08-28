@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "static-source",
+    "captured_live": false,
+    "legacy_source": "routes/webhook.py and database/emby_search_db.py",
+    "external_systems_used": false
+  },
+  "routes": [
+    {"method": "GET", "path": "/api/emby/search"},
+    {"method": "POST", "path": "/api/emby/search/index"}
+  ],
+  "cases": [
+    {
+      "case_id": "empty-query",
+      "request": {
+        "method": "GET",
+        "path": "/api/emby/search",
+        "query": {}
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ready": true,
+          "items": []
+        }
+      }
+    },
+    {
+      "case_id": "search-error",
+      "request": {
+        "method": "GET",
+        "path": "/api/emby/search",
+        "query": {
+          "query": "fixture"
+        }
+      },
+      "repository": {
+        "fail": true
+      },
+      "response": {
+        "status": 503,
+        "body": {
+          "ready": false,
+          "items": []
+        }
+      }
+    },
+    {
+      "case_id": "rebuild-start",
+      "request": {
+        "method": "POST",
+        "path": "/api/emby/search/index",
+        "body": {
+          "mode": "start",
+          "token": "fixture-rebuild"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "case_id": "rebuild-complete",
+      "request": {
+        "method": "POST",
+        "path": "/api/emby/search/index",
+        "body": {
+          "mode": "complete",
+          "token": "fixture-rebuild"
+        }
+      },
+      "repository": {
+        "complete_deleted": 1
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "deleted": 1
+        }
+      }
+    },
+    {
+      "case_id": "invalid-token",
+      "request": {
+        "method": "POST",
+        "path": "/api/emby/search/index",
+        "body": {
+          "mode": "start"
+        },
+        "token_repeat": 101
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "ok": false,
+          "error": "invalid token"
+        }
+      }
+    },
+    {
+      "case_id": "invalid-items",
+      "request": {
+        "method": "POST",
+        "path": "/api/emby/search/index",
+        "body": {
+          "mode": "batch",
+          "items": "not-a-list"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": {
+          "ok": false,
+          "error": "invalid items"
+        }
+      }
+    }
+  ]
+}

@@ -11,6 +11,7 @@ from etk.compatibility.response_contract import fastapi_json_response
 
 from .bridge_client import HttpxPluginUpdateGateway, PluginUpdateError
 from .models import MediaItemType, ServiceResult
+from .search_index import EmbySearchIndexService
 from .service import MediaService
 
 router = APIRouter(prefix="/api/emby", tags=["media", "bridge"])
@@ -43,6 +44,10 @@ class ImageSyncRequest(BaseModel):
 
 
 class EmbyEventRequest(RootModel[dict[str, Any]]):
+    pass
+
+
+class SearchIndexRequest(RootModel[dict[str, Any]]):
     pass
 
 
@@ -88,6 +93,13 @@ def _plugin_updates(request: Request) -> HttpxPluginUpdateGateway:
     value = request.app.state.container.client("media-plugin-updates")
     if not isinstance(value, HttpxPluginUpdateGateway):
         raise TypeError("plugin update provider returned an invalid gateway")
+    return value
+
+
+def _search_index(request: Request) -> EmbySearchIndexService:
+    value = request.app.state.container.use_case("media.search-index")
+    if not isinstance(value, EmbySearchIndexService):
+        raise TypeError("media search-index provider returned an invalid service")
     return value
 
 
@@ -331,6 +343,38 @@ async def sync_images(request: Request) -> JSONResponse:
             base_url=str(request.base_url),
         )
     )
+
+
+@router.get(
+    "/search",
+    response_model=ExternalObjectResponse,
+    responses=_json_responses(503),
+    openapi_extra=_query_parameters("query", "types", "limit"),
+)
+def search_index(request: Request) -> JSONResponse:
+    raw_types = str(request.query_params.get("types") or "")
+    item_types = [value.strip() for value in raw_types.split(",") if value.strip()]
+    try:
+        limit = int(request.query_params.get("limit") or 300)
+    except (TypeError, ValueError):
+        limit = 300
+    return _response(
+        _search_index(request).search(
+            str(request.query_params.get("query") or "").strip(),
+            item_types,
+            limit,
+        )
+    )
+
+
+@router.post(
+    "/search/index",
+    response_model=ExternalObjectResponse,
+    responses=_json_responses(400, 503),
+    openapi_extra=_request_body(SearchIndexRequest),
+)
+async def update_search_index(request: Request) -> JSONResponse:
+    return _response(_search_index(request).update(await _json_object(request)))
 
 
 @router.post(

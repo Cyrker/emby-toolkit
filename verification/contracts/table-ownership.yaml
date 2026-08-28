@@ -431,6 +431,8 @@
       "constraints_static": [],
       "contract_id": "table-90370b358a77",
       "create_sql": "CREATE TABLE IF NOT EXISTS emby_search_index ( emby_item_id BIGINT PRIMARY KEY, item_type TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', original_title TEXT NOT NULL DEFAULT '', series_name TEXT NOT NULL DEFAULT '', search_compact TEXT NOT NULL DEFAULT '', pinyin_full TEXT NOT NULL DEFAULT '', pinyin_initials TEXT NOT NULL DEFAULT '', search_ngrams TEXT[] NOT NULL DEFAULT '{}', pinyin_ngrams TEXT[] NOT NULL DEFAULT '{}', updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW() )",
+      "fixture": "verification/integration/p5/test_emby_search_index_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_emby_search_ngrams ON emby_search_index USING GIN(search_ngrams)",
@@ -455,16 +457,17 @@
         }
       ],
       "name": "emby_search_index",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.search_index.SqlAlchemyEmbySearchRepository",
+      "notes": "P11 native search repository owns indexed Emby item projections, pinyin/ngram lookup, type filtering, and deletion in the existing emby_search_index table.",
       "post_create_alters": [],
       "source": "database/connection.py:146",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "media"
+      "validation_method": "postgres18-search-index-rebuild-contract",
+      "validation_owner": "media/search-index"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -481,18 +484,21 @@
       "constraints_static": [],
       "contract_id": "table-08f5f06d8411",
       "create_sql": "CREATE TABLE IF NOT EXISTS emby_search_rebuild_state ( token TEXT PRIMARY KEY, started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW() )",
+      "fixture": "verification/integration/p5/test_emby_search_index_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [],
       "name": "emby_search_rebuild_state",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.search_index.SqlAlchemyEmbySearchRepository",
+      "notes": "P11 native search repository owns rebuild tokens and their expiry cleanup in the existing emby_search_rebuild_state table.",
       "post_create_alters": [],
       "source": "database/connection.py:161",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "media"
+      "validation_method": "postgres18-search-index-rebuild-contract",
+      "validation_owner": "media/search-index"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",

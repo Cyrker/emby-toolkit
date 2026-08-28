@@ -3393,44 +3393,46 @@
       "contract_id": "route-binding-cc84574e6f72",
       "decorator_contract_id": "route-decorator-4448a5c3718f",
       "endpoint": "search_emby_index",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p11-emby-search.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P11 native Emby search index service owns the legacy search query transport and keeps type, limit, readiness, and no-store semantics behind the media boundary.",
       "path": "/api/emby/search",
       "retirement_approval": null,
       "source": "routes/webhook.py:135",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "ingestion",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-http-fixture-and-postgres18-search-index-contract",
+      "validation_owner": "media/search-index"
     },
     {
       "application": "api",
       "contract_id": "route-binding-2d564b02ac04",
       "decorator_contract_id": "route-decorator-fdd30bfc510b",
       "endpoint": "update_emby_search_index",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p11-emby-search.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P11 native Emby search index service owns the legacy search-index transport and keeps rebuild, batch, incremental, delete, and readiness semantics behind the media boundary.",
       "path": "/api/emby/search/index",
       "retirement_approval": null,
       "source": "routes/webhook.py:156",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "ingestion",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-http-fixture-and-postgres18-search-index-contract",
+      "validation_owner": "media/search-index"
     },
     {
       "application": "api",
@@ -11603,24 +11605,25 @@
       "contract_id": "route-decorator-4448a5c3718f",
       "declared_path": "/api/emby/search",
       "endpoint": "search_emby_index",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p11-emby-search.json",
       "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P11 native Emby search index service owns the legacy search query route while preserving its exact URL and response envelope.",
       "path": "/api/emby/search",
       "retirement_approval": null,
       "source": "routes/webhook.py:135",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "ingestion",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-http-fixture-and-postgres18-search-index-contract",
+      "validation_owner": "media/search-index"
     },
     {
       "application": "api",
@@ -11628,24 +11631,25 @@
       "contract_id": "route-decorator-fdd30bfc510b",
       "declared_path": "/api/emby/search/index",
       "endpoint": "update_emby_search_index",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p11-emby-search.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.media.router",
+      "notes": "P11 native Emby search index service owns the legacy search-index update route while preserving its exact URL and response envelope.",
       "path": "/api/emby/search/index",
       "retirement_approval": null,
       "source": "routes/webhook.py:156",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "ingestion",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-http-fixture-and-postgres18-search-index-contract",
+      "validation_owner": "media/search-index"
     },
     {
       "application": "api",

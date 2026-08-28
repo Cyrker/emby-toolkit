@@ -116,6 +116,7 @@ from etk.domains.media.image_proxy_router import router as media_image_proxy_rou
 from etk.domains.media.repository import SqlAlchemyMediaRepository
 from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
 from etk.domains.media.router import router as media_router
+from etk.domains.media.search_index import EmbySearchIndexService, SqlAlchemyEmbySearchRepository
 from etk.domains.media.secondary import SecondaryMediaService
 from etk.domains.media.secondary_effect_adapters import HttpxSecondaryEmbyAdapter
 from etk.domains.media.secondary_effects import SecondaryEffectsService
@@ -921,6 +922,12 @@ def _register_media_providers(
             lambda: current.database.unit_of_work(),
         ),
     )
+    container.register_repository(
+        "media.search-index",
+        lambda current: SqlAlchemyEmbySearchRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
     container.register_client(
         "media-images",
         lambda current: LegacyMediaImageGateway(lambda: current.settings),
@@ -1002,6 +1009,10 @@ def _register_media_providers(
             future_events=current.client("media-future-events"),
             defaults=current.client("media-mapping-defaults"),
         ),
+    )
+    container.register_use_case(
+        "media.search-index",
+        lambda current: EmbySearchIndexService(current.repository("media.search-index")),
     )
     container.register_use_case(
         "media.editing",

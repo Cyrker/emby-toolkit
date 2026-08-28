@@ -16,9 +16,9 @@ from etk.bootstrap.app_factory import create_app  # noqa: E402
 DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi.json"
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
-# current P8 surface.
-EXPECTED_PATHS = 256
-EXPECTED_OPERATIONS = 303
+# current P11 surface.
+EXPECTED_PATHS = 258
+EXPECTED_OPERATIONS = 305
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -30,6 +30,7 @@ BODY_METHODS = {
     ("post", "/api/auth/verify_recovery"),
     ("post", "/api/config"),
     ("post", "/api/emby/events"),
+    ("post", "/api/emby/search/index"),
     ("post", "/api/emby/metadata/backfill/item"),
     ("post", "/api/emby/metadata/backfill/items"),
     ("post", "/api/emby/metadata/backfill/library"),

@@ -77,6 +77,8 @@ def _clear_p5_state(runtime: DatabaseRuntime) -> None:
             text(
                 """
                 TRUNCATE TABLE
+                    emby_search_rebuild_state,
+                    emby_search_index,
                     media_effects,
                     p115_media_probe_items,
                     p115_mediainfo_cache,

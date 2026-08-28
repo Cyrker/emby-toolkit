@@ -1932,6 +1932,70 @@ Safety boundary:
 - No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Emby-Search-Index
+
+Stage / Batch: P11 / native Emby search-index ownership slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `3a69e287` (`refactor(p11): assign standalone settings ownership`).
+- Checkpoint: this batch's `refactor(p11): migrate native emby search index` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Replaced the active legacy owners for `GET /api/emby/search` and
+  `POST /api/emby/search/index` with `EmbySearchIndexService` and
+  `SqlAlchemyEmbySearchRepository`, while retaining the exact empty-query, no-store, readiness,
+  rebuild, batch, incremental, delete and error envelopes.
+- Preserved the existing Chinese, pinyin full/initial, ngram, type-priority and Series-child
+  suppression ranking semantics. A punctuation-only query now follows the legacy compact-empty
+  fast path instead of evaluating an empty PostgreSQL substring.
+- Assigned `emby_search_index` and `emby_search_rebuild_state` to the native repository. Rebuild
+  start cleanup, item upsert/delete, and rebuild completion cleanup each use explicit SQLAlchemy
+  units of work; stale-index deletion and terminal rebuild-state deletion commit together.
+- Unified the overlapping handoff tests into the P5 media application/integration layout and added
+  native-before-compatibility, import-sentinel, ownership-manifest, sanitized HTTP fixture and
+  PostgreSQL 18 evidence. Route ownership is now `280 new / 63 legacy`, method bindings
+  `297 new / 70 legacy`, and tables `26 new / 13 legacy`.
+- Regenerated Route/Table manifests and the compatibility OpenAPI snapshot; the current surface is
+  `258` paths / `305` operations.
+
+Targeted gate:
+
+- `uv run ruff check src verification scripts/refactor` -> clean; format check -> `582 files already
+  formatted`.
+- `uv run pyright` -> `0 errors, 0 warnings, 0 informations`.
+- Search plus required future-domain application regressions -> `35 passed`, with the existing
+  Starlette WSGI deprecation warning only.
+- Disposable PostgreSQL 18 search, Identity and Database Maintenance regression scope ->
+  `25 passed`.
+- Architecture -> `73 passed`, with the existing Starlette WSGI deprecation warning only.
+- Manifest and OpenAPI checks, fixture secret scan and `git diff --check` -> clean.
+- Findings-first review covered ranking and child suppression, rebuild readiness/concurrency,
+  mutation UoWs, route precedence, fixture provenance and ownership IDs. Initial fixture-schema,
+  compact-empty and fixture-secret findings were fixed; no P0/P1/P2 remains in this slice.
+
+Stage full gate:
+
+- Not run. P11 still has explicit route, table, config, Worker and compatibility-runtime ownership
+  gaps; this checkpoint does not authorize controlled removal or P12.
+
+Pending:
+
+- Seventy method bindings, 63 route decorators and 13 tables remain legacy-owned. The remaining
+  configuration ownership, native Worker execution graph, compatibility imports, controlled
+  removal, NFR reports, SBOM, vulnerability and License evidence remain pending.
+
+Next: wire the already migrated `backfill-organize-record-tmdb-ids` service into the native-only
+Worker, then continue residual webhook/P115/subscription/shared-resource ownership without treating
+typed or skipped legacy adapters as native execution evidence.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
