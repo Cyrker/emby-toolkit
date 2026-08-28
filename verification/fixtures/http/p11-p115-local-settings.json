@@ -1,0 +1,398 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "isolated-legacy-static-source",
+    "captured_live": false,
+    "legacy_source": "routes/p115.py and tasks/helpers.py",
+    "external_systems_used": false
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/p115/default_stream_config"
+    },
+    {
+      "method": "POST",
+      "path": "/api/p115/default_stream_config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/p115/release_groups"
+    }
+  ],
+  "stream_cases": [
+    {
+      "case_id": "get-defaults",
+      "stored": {},
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/default_stream_config"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "audio_features": [
+              "公映",
+              "上译",
+              "京译",
+              "央视",
+              "长译",
+              "八一",
+              "国配",
+              "台配",
+              "国语",
+              "粤语"
+            ],
+            "audio_lang": "",
+            "audio_lang_priority": [],
+            "audio_param_priority": [
+              "atmos",
+              "dts_x",
+              "truehd",
+              "dts_hd_ma",
+              "dts_hd_hra",
+              "ddp",
+              "dts",
+              "flac",
+              "ac3",
+              "aac",
+              "7_1",
+              "5_1",
+              "2_0"
+            ],
+            "audio_priority_order": [
+              "param",
+              "feature"
+            ],
+            "realtime_sub_detect": false,
+            "sub_priority": [
+              "effect",
+              "chs",
+              "cht",
+              "chs_eng",
+              "cht_eng",
+              "chs_jpn",
+              "cht_jpn",
+              "chs_kor",
+              "cht_kor"
+            ],
+            "subtitle_lang": "",
+            "subtitle_lang_priority": []
+          },
+          "success": true
+        }
+      }
+    },
+    {
+      "case_id": "get-normalized-custom",
+      "stored": {
+        "audio_lang": "ENG",
+        "audio_lang_priority": [
+          "JPN",
+          "eng",
+          "JPN",
+          "bad",
+          ""
+        ],
+        "subtitle_lang": "cht",
+        "subtitle_lang_priority": "ENG",
+        "audio_priority_order": [
+          "feature",
+          "BAD",
+          "feature"
+        ],
+        "audio_features": [
+          "粤语",
+          "粤语",
+          null,
+          7
+        ],
+        "audio_param_priority": "bad",
+        "sub_priority": [],
+        "realtime_sub_detect": 1,
+        "unknown": {
+          "x": 1
+        }
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/default_stream_config"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": {
+            "audio_features": [
+              "粤语",
+              "7"
+            ],
+            "audio_lang": "jpn",
+            "audio_lang_priority": [
+              "jpn",
+              "eng"
+            ],
+            "audio_param_priority": [
+              "atmos",
+              "dts_x",
+              "truehd",
+              "dts_hd_ma",
+              "dts_hd_hra",
+              "ddp",
+              "dts",
+              "flac",
+              "ac3",
+              "aac",
+              "7_1",
+              "5_1",
+              "2_0"
+            ],
+            "audio_priority_order": [
+              "feature",
+              "param"
+            ],
+            "realtime_sub_detect": true,
+            "sub_priority": [],
+            "subtitle_lang": "eng",
+            "subtitle_lang_priority": [
+              "eng"
+            ],
+            "unknown": {
+              "x": 1
+            }
+          },
+          "success": true
+        }
+      }
+    },
+    {
+      "case_id": "post-normalized-custom",
+      "stored": {},
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/default_stream_config",
+        "body": {
+          "audio_lang": "kor",
+          "audio_lang_priority": [],
+          "subtitle_lang_priority": [
+            "CHT",
+            "bad",
+            "cht"
+          ],
+          "audio_priority_order": [
+            "feature"
+          ],
+          "audio_features": [
+            "国语",
+            "国语"
+          ],
+          "realtime_sub_detect": "false",
+          "custom_key": "kept"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "message": "默认音轨与字幕配置已保存",
+          "success": true
+        }
+      },
+      "expected_saves": [
+        [
+          "p115_default_stream_config",
+          {
+            "audio_lang": "kor",
+            "subtitle_lang": "cht",
+            "audio_lang_priority": [
+              "kor"
+            ],
+            "subtitle_lang_priority": [
+              "cht"
+            ],
+            "audio_priority_order": [
+              "feature",
+              "param"
+            ],
+            "audio_features": [
+              "国语"
+            ],
+            "audio_param_priority": [
+              "atmos",
+              "dts_x",
+              "truehd",
+              "dts_hd_ma",
+              "dts_hd_hra",
+              "ddp",
+              "dts",
+              "flac",
+              "ac3",
+              "aac",
+              "7_1",
+              "5_1",
+              "2_0"
+            ],
+            "sub_priority": [
+              "effect",
+              "chs",
+              "cht",
+              "chs_eng",
+              "cht_eng",
+              "chs_jpn",
+              "cht_jpn",
+              "chs_kor",
+              "cht_kor"
+            ],
+            "realtime_sub_detect": true,
+            "custom_key": "kept"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "post-non-object-defaults",
+      "stored": {},
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/default_stream_config",
+        "body": []
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "message": "默认音轨与字幕配置已保存",
+          "success": true
+        }
+      },
+      "expected_saves": [
+        [
+          "p115_default_stream_config",
+          {
+            "audio_lang": "",
+            "subtitle_lang": "",
+            "audio_lang_priority": [],
+            "subtitle_lang_priority": [],
+            "audio_priority_order": [
+              "param",
+              "feature"
+            ],
+            "audio_features": [
+              "公映",
+              "上译",
+              "京译",
+              "央视",
+              "长译",
+              "八一",
+              "国配",
+              "台配",
+              "国语",
+              "粤语"
+            ],
+            "audio_param_priority": [
+              "atmos",
+              "dts_x",
+              "truehd",
+              "dts_hd_ma",
+              "dts_hd_hra",
+              "ddp",
+              "dts",
+              "flac",
+              "ac3",
+              "aac",
+              "7_1",
+              "5_1",
+              "2_0"
+            ],
+            "sub_priority": [
+              "effect",
+              "chs",
+              "cht",
+              "chs_eng",
+              "cht_eng",
+              "chs_jpn",
+              "cht_jpn",
+              "chs_kor",
+              "cht_kor"
+            ],
+            "realtime_sub_detect": false
+          }
+        ]
+      ]
+    }
+  ],
+  "release_group_cases": [
+    {
+      "case_id": "release-groups-mapping",
+      "stored": {
+        "": [
+          "drop"
+        ],
+        "Zulu": [
+          "Z"
+        ],
+        "alpha": [
+          "A"
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/release_groups"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": [
+            {
+              "label": "alpha",
+              "value": "alpha"
+            },
+            {
+              "label": "Zulu",
+              "value": "Zulu"
+            }
+          ],
+          "success": true
+        }
+      }
+    },
+    {
+      "case_id": "release-groups-list",
+      "stored": [
+        {
+          "label": "Beta",
+          "aliases": [
+            "B"
+          ]
+        },
+        "Gamma",
+        {
+          "name": "alpha",
+          "en": "A, A2"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/api/p115/release_groups"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "data": [
+            {
+              "label": "alpha",
+              "value": "alpha"
+            },
+            {
+              "label": "Beta",
+              "value": "Beta"
+            },
+            {
+              "label": "Gamma",
+              "value": "Gamma"
+            }
+          ],
+          "success": true
+        }
+      }
+    }
+  ]
+}

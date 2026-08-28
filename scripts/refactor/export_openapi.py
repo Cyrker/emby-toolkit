@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 258
-EXPECTED_OPERATIONS = 305
+EXPECTED_PATHS = 260
+EXPECTED_OPERATIONS = 308
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -265,7 +265,7 @@ def _validate_schema(schema: dict[str, Any]) -> None:
     paths = schema.get("paths", {})
     operations = sum(len(methods) for methods in paths.values())
     if len(paths) != EXPECTED_PATHS or operations != EXPECTED_OPERATIONS:
-        raise RuntimeError(f"unexpected P9 OpenAPI surface: paths={len(paths)} operations={operations}")
+        raise RuntimeError(f"unexpected P11 OpenAPI surface: paths={len(paths)} operations={operations}")
     operation_ids: dict[str, tuple[str, str]] = {}
     for path, methods in paths.items():
         for method, operation in methods.items():

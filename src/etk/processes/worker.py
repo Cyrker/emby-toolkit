@@ -143,8 +143,8 @@ from etk.domains.p115.media_info_adapters import (
     ControlledProcessRunner,
     LegacyP115DirectUrlGateway,
     LegacyP115FingerprintRemoteGateway,
-    LegacyP115MediaInfoPolicyProvider,
     LocalP115FingerprintHintGateway,
+    PersistentP115MediaInfoPolicyProvider,
 )
 from etk.domains.p115.media_info_restore import HttpxEmbyMediaInfoQueryGateway, P115MediaInfoRestoreService
 from etk.domains.p115.media_probe import P115MediaProbeService
@@ -880,7 +880,7 @@ class WorkerRuntime:
                     ),
                     worker_id=f"{self._worker_id}:p115-intro",
                 )
-                mediainfo_policies = LegacyP115MediaInfoPolicyProvider()
+                mediainfo_policies = PersistentP115MediaInfoPolicyProvider(app_settings)
                 media_probe = P115MediaProbeService(
                     direct_urls=LegacyP115DirectUrlGateway(),
                     processes=processes,

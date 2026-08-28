@@ -839,15 +839,21 @@ class LegacyP115DirectUrlGateway:
         )
 
 
-class LegacyP115MediaInfoPolicyProvider:
-    """Freeze legacy dynamic policy values before pure formatter execution."""
+class P115MediaInfoSettingsRepository(Protocol):
+    def load_many(self, keys: Sequence[str]) -> Mapping[str, Any]: ...
+
+
+class PersistentP115MediaInfoPolicyProvider:
+    """Freeze native app-settings values before pure formatter execution."""
+
+    def __init__(self, settings: P115MediaInfoSettingsRepository) -> None:
+        self._settings = settings
 
     def snapshot(self) -> P115MediaInfoPolicySnapshot:
-        from database import settings_db
-
-        raw_language = settings_db.get_setting("language_mapping")
+        values = self._settings.load_many(("language_mapping", "p115_default_stream_config"))
+        raw_language = values.get("language_mapping")
         language_mapping = raw_language if isinstance(raw_language, list) else DEFAULT_LANGUAGE_MAPPING
-        raw_streams = settings_db.get_setting("p115_default_stream_config")
+        raw_streams = values.get("p115_default_stream_config")
         stream_config = dict(raw_streams) if isinstance(raw_streams, Mapping) else {}
         language_revision = _json_revision(language_mapping)
         stream_revision = _json_revision(stream_config)
@@ -970,7 +976,7 @@ __all__ = [
     "AccountBoundP115FingerprintClient",
     "LegacyP115FingerprintRemoteGateway",
     "LegacyP115DirectUrlGateway",
-    "LegacyP115MediaInfoPolicyProvider",
+    "PersistentP115MediaInfoPolicyProvider",
     "LocalP115FingerprintHintGateway",
     "PREID_PREFIX_BYTES",
     "P115DirectUrl",

@@ -3817,40 +3817,42 @@
       "contract_id": "route-binding-aadccd657fc9",
       "decorator_contract_id": "route-decorator-8e2878a330a6",
       "endpoint": "handle_default_stream_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native local-settings service owns default stream configuration reads through the shared SQLAlchemy app-settings repository without constructing a 115 provider.",
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
       "source": "routes/p115.py:3491",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "p115/local-settings"
     },
     {
       "application": "api",
       "contract_id": "route-binding-f70c38c28fa0",
       "decorator_contract_id": "route-decorator-8e2878a330a6",
       "endpoint": "handle_default_stream_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native local-settings service preserves default stream normalization and local JSONB persistence without any provider or external write.",
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
       "source": "routes/p115.py:3491",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "p115/local-settings"
     },
     {
       "application": "api",
@@ -4715,20 +4717,21 @@
       "contract_id": "route-binding-15bb5175513f",
       "decorator_contract_id": "route-decorator-d17636bca1b5",
       "endpoint": "handle_release_groups",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native local-settings service derives sorted release-group options from the already native release-group app setting and plaintext defaults.",
       "path": "/api/p115/release_groups",
       "retirement_approval": null,
       "source": "routes/p115.py:2052",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "p115/local-settings"
     },
     {
       "application": "api",
@@ -12089,23 +12092,24 @@
       "contract_id": "route-decorator-8e2878a330a6",
       "declared_path": "/default_stream_config",
       "endpoint": "handle_default_stream_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native FastAPI route owns both default-stream GET and POST contracts while the legacy Blueprint remains only until controlled removal.",
       "path": "/api/p115/default_stream_config",
       "retirement_approval": null,
       "source": "routes/p115.py:3491",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "p115/local-settings"
     },
     {
       "application": "api",
@@ -13025,22 +13029,23 @@
       "contract_id": "route-decorator-d17636bca1b5",
       "declared_path": "/release_groups",
       "endpoint": "handle_release_groups",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native FastAPI route owns the local release-group option contract without importing tasks.helpers at runtime.",
       "path": "/api/p115/release_groups",
       "retirement_approval": null,
       "source": "routes/p115.py:2052",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "p115/local-settings"
     },
     {
       "application": "api",

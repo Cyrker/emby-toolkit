@@ -580,6 +580,33 @@
       }
     },
     "route_bindings": {
+      "route-binding-aadccd657fc9": {
+        "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native local-settings service owns default stream configuration reads through the shared SQLAlchemy app-settings repository without constructing a 115 provider.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+        "validation_owner": "p115/local-settings"
+      },
+      "route-binding-f70c38c28fa0": {
+        "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native local-settings service preserves default stream normalization and local JSONB persistence without any provider or external write.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+        "validation_owner": "p115/local-settings"
+      },
+      "route-binding-15bb5175513f": {
+        "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native local-settings service derives sorted release-group options from the already native release-group app setting and plaintext defaults.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+        "validation_owner": "p115/local-settings"
+      },
       "route-binding-2d564b02ac04": {
         "fixture": "verification/fixtures/http/p11-emby-search.json",
         "fixture_exception": null,
@@ -3255,6 +3282,24 @@
       }
     },
     "route_decorators": {
+      "route-decorator-8e2878a330a6": {
+        "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native FastAPI route owns both default-stream GET and POST contracts while the legacy Blueprint remains only until controlled removal.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+        "validation_owner": "p115/local-settings"
+      },
+      "route-decorator-d17636bca1b5": {
+        "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native FastAPI route owns the local release-group option contract without importing tasks.helpers at runtime.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+        "validation_owner": "p115/local-settings"
+      },
       "route-decorator-4448a5c3718f": {
         "fixture": "verification/fixtures/http/p11-emby-search.json",
         "fixture_exception": null,
@@ -5777,6 +5822,15 @@
       }
     },
     "settings": {
+      "setting-c04d846dbf0c": {
+        "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 P115LocalSettingsService owns exact stream-policy normalization and SqlAlchemyAppSettingsRepository owns the JSONB load/save transaction boundary.",
+        "status": "new",
+        "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+        "validation_owner": "p115/local-settings"
+      },
       "setting-0fb2a0d3b30f": {
         "fixture": "verification/fixtures/http/p8-collection-cover.json",
         "fixture_exception": null,

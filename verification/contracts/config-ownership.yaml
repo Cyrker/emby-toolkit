@@ -3749,17 +3749,20 @@
       ],
       "contract_id": "setting-c04d846dbf0c",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p11-p115-local-settings.json",
+      "fixture_exception": null,
       "key": "p115_default_stream_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 P115LocalSettingsService owns exact stream-policy normalization and SqlAlchemyAppSettingsRepository owns the JSONB load/save transaction boundary.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-isolated-legacy-golden-and-postgres18-app-settings-roundtrip",
+      "validation_owner": "p115/local-settings"
     },
     {
       "accesses": [

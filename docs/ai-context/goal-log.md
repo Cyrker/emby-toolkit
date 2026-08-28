@@ -2137,6 +2137,76 @@ Safety boundary:
 - No real Emby, 115, TMDb, Telegram, MoviePilot, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-P115-Local-Settings
+
+Stage / Batch: P11 / native P115 local-settings ownership slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `dd100e53` (`refactor(p11): assign collection policy defaults ownership`).
+- Checkpoint: this batch's `refactor(p11): migrate local p115 settings` commit after the targeted
+  gate below.
+
+Implemented:
+
+- Replaced the active owners for `GET/POST /api/p115/default_stream_config` and
+  `GET /api/p115/release_groups` with `P115LocalSettingsService` and the existing
+  `SqlAlchemyAppSettingsRepository`; the normal route path does not construct credentials, a 115
+  provider or any external adapter.
+- Preserved the exact default-stream defaults and normalization, including legacy scalar/non-object
+  JSON handling, malformed JSON `400`, unsupported content type `415`, Werkzeug-compatible HTML
+  `500`, release-group read-failure fallback and admin denial before body parsing.
+- Replaced the MediaInfo Worker's `database.settings_db` policy provider with
+  `PersistentP115MediaInfoPolicyProvider(app_settings)`. Language mapping and default-stream policy
+  are now captured by one `load_many()` SQLAlchemy snapshot transaction.
+- Added isolated legacy golden fixtures, native HTTP/DI/import-boundary assertions and a PostgreSQL
+  18 snapshot/restore round-trip. Route ownership is now `282 new / 61 legacy` decorators and
+  `300 new / 67 legacy` method bindings; standalone settings are `24 new / 29 legacy`.
+- Regenerated the Route/Config manifests and compatibility OpenAPI snapshot. The current surface is
+  `260` paths / `308` operations.
+
+Targeted gate:
+
+- Scoped P115 local-settings/MediaInfo/Worker validation -> `66 passed`; scoped Ruff and Pyright ->
+  clean (`0 errors, 0 warnings, 0 informations`). A fresh-process normal provider snapshot confirmed
+  that `database.settings_db` is not imported.
+- Whole-scope Ruff -> clean; format check -> `588 files already formatted`; Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- P115/local plus required P1/P5/P8 application regressions -> `138 passed, 1` existing Starlette
+  WSGI deprecation warning.
+- Disposable PostgreSQL 18 local-settings, Identity and Database Maintenance scope -> `24 passed`.
+- Architecture -> `73 passed, 1` existing Starlette WSGI deprecation warning.
+- Manifest/OpenAPI checks, fixture secret scan and `git diff --check` -> clean.
+- Findings-first review covered normalization, JSON/error transport, permission precedence,
+  release-group fallback, snapshot atomicity, Worker import boundaries, route precedence and fixture
+  provenance; no P0/P1/P2 remains.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-p115-local-settings-20260829/`.
+
+Stage full gate:
+
+- Not run. P11 still has explicit route, table, dynamic/bootstrap config, Worker execution and
+  compatibility-runtime gaps; this checkpoint does not authorize controlled removal or P12.
+
+Pending:
+
+- Sixty-seven method bindings, 61 route decorators, 13 tables, 82 dynamic config keys, seven
+  bootstrap keys and 29 standalone settings remain legacy-owned. Native-only Worker execution
+  remains `10 executable / 40 unavailable` catalog keys.
+- Washing-priority config/groups/recalculation state and other P115 provider/write routes remain
+  explicit. Shared-resource, subscription and webhook ownership also remains.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: migrate the local washing-priority config/groups and recalculation-state slice with native
+PostgreSQL ownership before considering provider/write P115 routes. Keep Live Acceptance
+`HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -2156,6 +2226,6 @@ Read first:
 
 Next:
 
-- Continue `P11-Pre-removal` with an evidence-backed local-only P115 config/read route slice. Keep
-  provider mutations and every unmigrated task/binding explicit; do not start controlled removal
-  until execution and ownership reach 100%. Keep all Live Acceptance items pending.
+- Continue `P11-Pre-removal` with the local washing-priority config/groups and recalculation-state
+  slice. Keep provider mutations and every unmigrated task/binding explicit; do not start controlled
+  removal until execution and ownership reach 100%. Keep all Live Acceptance items pending.

@@ -22,6 +22,7 @@ from .deep_delete import P115DeepDeleteService
 from .episode_regex import P115EpisodeRegexService
 from .intro_sync import P115IntroSyncNotFound, P115IntroSyncService
 from .item_ready import P115ItemReadyService
+from .local_config_service import P115LocalSettingsService
 from .media_info import (
     P115MediaInfoCacheService,
     P115MediaInfoIdentity,
@@ -295,6 +296,16 @@ def _upload_monitor_service(request: Request) -> P115UploadMonitorConfigService:
     return value
 
 
+def _local_settings_service(request: Request) -> P115LocalSettingsService:
+    direct = getattr(request.app.state, "p115_local_settings_service", None)
+    if isinstance(direct, P115LocalSettingsService):
+        return direct
+    value = request.app.state.container.use_case("p115.local-settings")
+    if not isinstance(value, P115LocalSettingsService):
+        raise TypeError("p115.local-settings provider returned an invalid service")
+    return value
+
+
 def _admin_denial(request: Request) -> JSONResponse | None:
     container = request.app.state.container
     decision = PermissionPolicy(
@@ -457,6 +468,57 @@ _DEEP_DELETE_COMMIT_BODY = {
         },
     }
 }
+
+
+@router.get(
+    "/default_stream_config",
+    response_model=ExternalObjectResponse,
+    responses={
+        403: {"model": ExternalObjectResponse},
+        500: {"content": {"text/html": {"schema": {"type": "string"}}}},
+    },
+)
+async def get_default_stream_config(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    result = await run_in_threadpool(_local_settings_service(request).get_default_stream_config)
+    return _html_error(InternalServerError()) if result.status_code == 500 else _response(result)
+
+
+@router.post(
+    "/default_stream_config",
+    response_model=ExternalObjectResponse,
+    responses={
+        400: {"content": {"text/html": {"schema": {"type": "string"}}}},
+        403: {"model": ExternalObjectResponse},
+        415: {"content": {"text/html": {"schema": {"type": "string"}}}},
+        500: {"content": {"text/html": {"schema": {"type": "string"}}}},
+    },
+    openapi_extra=_JSON_VALUE_BODY,
+)
+async def save_default_stream_config(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    raw_payload, error = await _legacy_json_value(request)
+    if error is not None:
+        return error
+    payload = dict(raw_payload) if isinstance(raw_payload, Mapping) else {}
+    result = await run_in_threadpool(_local_settings_service(request).save_default_stream_config, payload)
+    return _html_error(InternalServerError()) if result.status_code == 500 else _response(result)
+
+
+@router.get(
+    "/release_groups",
+    response_model=ExternalObjectResponse,
+    responses={403: {"model": ExternalObjectResponse}, 500: {"model": ExternalObjectResponse}},
+)
+async def get_release_groups(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    return _response(await run_in_threadpool(_local_settings_service(request).get_release_groups))
 
 
 def _query_parameters(*names: str) -> dict[str, Any]:

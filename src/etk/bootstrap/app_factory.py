@@ -180,6 +180,7 @@ from etk.domains.p115 import (
     P115IntroBackfillTaskService,
     P115IntroSyncService,
     P115ItemReadyService,
+    P115LocalSettingsService,
     P115MediaInfoCacheService,
     P115OrganizeExecutionService,
     P115OrganizePlanService,
@@ -1273,6 +1274,10 @@ def _register_p115_providers(container: AppContainer) -> None:
             preview=current.client("p115.rename-preview"),
             washing_priority=current.client("p115.washing-priority-config"),
         ),
+    )
+    container.register_use_case(
+        "p115.local-settings",
+        lambda current: P115LocalSettingsService(current.repository("app-settings")),
     )
     container.register_use_case(
         "p115.episode-regex",
