@@ -4015,6 +4015,65 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Organize-Execution
+
+Stage / Batch: P11 / approved immutable organize execution cutover
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `da6fb81d` (`refactor(p11): execute native intro backfill`).
+- Target checkpoint message: `refactor(p11): execute native organize plans`.
+
+Implemented:
+
+- Replaced API and both Worker profiles' legacy organize mutation client with an account-bound,
+  backend-pinned native HTTP transport. OpenAPI and Cookie mkdir/move/rename use fixed endpoints and
+  form contracts, no POST retry, credential refresh, redirect or backend fallback.
+- Fenced account, access token or Cookie, and Cookie app type before and after every mutation. Only
+  pre-request drift is retryable as proved no-effect; any post-request/transport/5xx/invalid response
+  is resolved only by same-backend authoritative readback and otherwise becomes indeterminate.
+- Added the real mutation-capable execution service to native-only Worker wiring and promoted
+  `scan-organize-115` only after that graph was executable. Durable Jobs still carry only the frozen
+  `execution_id`; the Plan remains the authority for target CID and actions.
+- Removed the task from generic manual, chain and TG menus. Generic Job submission, stale configured
+  chains, direct TG commands, legacy task-manager calls and old automatic triggers now fail closed;
+  only `POST /api/p115/organize/plans/{plan_id}/execute` can reserve a new execution Job.
+- Corrected the review-discovered Telegram/HDHive follow-up: an already successful P115 transfer no
+  longer submits the retired organizer and therefore no longer converts success into a failed Job.
+  Success and replay now return `organize_submitted=false`, require an approved Plan, and still
+  destroy the operation secret.
+
+Targeted gate:
+
+- Scoped Ruff and format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`;
+  compileall and `git diff --check` -> clean.
+- Organize/P4/P6/TG application, architecture and task-contract scope -> `225 passed` after review.
+- Disposable PostgreSQL 18 organize execution/plan/records scope -> `17 passed`.
+- Disposable PostgreSQL 18 + Redis/Celery native-only and compatibility-enabled organize
+  reconciliation profiles -> `2 passed, 27 deselected`.
+- Frontend `typecheck` and production build -> passed; Manifest/OpenAPI currentness and all three
+  fixture/contract secret scans -> clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-organize-execution-20260830/`.
+
+Focused review:
+
+- Initial entrypoint and transport audits identified the destructive legacy transport, empty-payload
+  bypasses and non-executable native-only graph; all were closed before promotion.
+- Delta review then found one P1 in the Telegram/HDHive post-transfer organizer follow-up. It was
+  removed and covered for both share-import and offline-add success/replay. Final delta rereview found
+  no remaining deterministic P0/P1/P2 in this slice.
+
+Pending:
+
+- Continue the approved `update-daily-theme` and `subscription_quota_state` cutovers, then reach
+  ownership 100%, perform controlled legacy removal and run all P11 NFR/security/SBOM/License gates.
+  P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -4034,6 +4093,6 @@ Read first:
 
 Next:
 
-- Continue the approved `intro-fingerprint-backfill` contract, followed by `scan-organize-115`,
-  `update-daily-theme` and `subscription_quota_state`. Do not start controlled removal or P12 until
-  P11 execution and ownership reach 100%. Keep all Live Acceptance items pending.
+- Continue the approved `update-daily-theme` and `subscription_quota_state` contracts. Do not start
+  controlled removal or P12 until P11 execution and ownership reach 100%. Keep all Live Acceptance
+  items pending.

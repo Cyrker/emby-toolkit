@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from etk.bootstrap.app_factory import create_app
 from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.p115 import (
-    LegacyP115OrganizeMutationGateway,
+    HttpxP115OrganizeMutationGateway,
     P115ExecutionConflict,
     P115ExecutionNotFound,
     P115ExecutionPreflightError,
@@ -537,7 +537,7 @@ def test_default_bootstrap_registers_the_p64_repositories_client_and_services(tm
         )
         assert isinstance(
             container.client("p115.organize-mutations"),
-            LegacyP115OrganizeMutationGateway,
+            HttpxP115OrganizeMutationGateway,
         )
         assert isinstance(
             container.use_case("p115.organize-executions"),

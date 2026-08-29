@@ -218,6 +218,7 @@ from .organize_execution import (
     P115OrganizeExecution,
     P115OrganizeExecutionRepository,
     P115OrganizeExecutionService,
+    P115ProviderNoEffectError,
     P115ReconciliationResult,
 )
 from .organize_execution_repository import SqlAlchemyP115OrganizeExecutionRepository
@@ -252,6 +253,10 @@ from .organize_records import (
     P115OrganizeRecordTmdbBackfillService,
 )
 from .organize_records_repository import SqlAlchemyP115OrganizeRecordsRepository
+from .organize_transport import (
+    HttpxP115OrganizeMutationGateway,
+    P115OrganizeTransportError,
+)
 from .playback import P115PlaybackConfigService, P115PlaybackQrService
 from .playback_adapters import (
     LegacyP115DirectLinkGateway,
@@ -358,6 +363,7 @@ __all__ = [
     "HttpxP115FingerprintRemoteGateway",
     "HttpxP115AuthorizationGateway",
     "HttpxP115DirectoryTreeGateway",
+    "HttpxP115OrganizeMutationGateway",
     "HttpxP115OrganizeReadbackGateway",
     "HttpxEmbyIntroFavoriteGateway",
     "HttpxEmbyPathChangeGateway",
@@ -418,6 +424,8 @@ __all__ = [
     "P115DirectoryTreeGateway",
     "P115DirectoryTransportError",
     "P115OrganizeReadbackMutationForbidden",
+    "P115OrganizeTransportError",
+    "P115ProviderNoEffectError",
     "P115DeepDeleteJobGateway",
     "P115DeepDeleteService",
     "P115DirectUrl",

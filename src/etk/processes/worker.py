@@ -110,12 +110,12 @@ from etk.domains.p115 import (
     HttpxP115DirectoryTreeGateway,
     HttpxP115EpisodeRuntimeGateway,
     HttpxP115FingerprintRemoteGateway,
+    HttpxP115OrganizeMutationGateway,
     HttpxP115OrganizeReadbackGateway,
     IntroDetectionExecutionService,
     IntroDetectionOperation,
     IntroDetectionSubmissionService,
     LegacyP115DirectLinkGateway,
-    LegacyP115OrganizeMutationGateway,
     LegacyP115PlaybackProvider,
     LegacyP115PlaybackSourceGateway,
     LegacyP115PlaybackUserGateway,
@@ -286,6 +286,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "recalculate_library_washing_priorities",
         "restore_mediainfo",
         "scan-cleanup-issues",
+        "scan-organize-115",
         "scan_old_seasons_backfill",
         "sync-115-directory-tree",
         "sync-all-user-data",
@@ -990,7 +991,10 @@ class WorkerRuntime:
                     P115OrganizeExecutionService(
                         plans=organize_plans,
                         repository=organize_executions,
-                        mutations=LegacyP115OrganizeMutationGateway(),
+                        mutations=HttpxP115OrganizeMutationGateway(
+                            credentials=p115_credentials,
+                            priority=lambda: str(settings_provider().p115_api_priority),
+                        ),
                     ),
                     P115StrmSyncService(
                         settings=config_adapter.load,
@@ -1392,6 +1396,14 @@ class WorkerRuntime:
                         priority=lambda: str(settings_provider().p115_api_priority),
                     ),
                     repository=SqlAlchemyP115DirectoryCacheRepository(database.unit_of_work),
+                ),
+                organize_execution=P115OrganizeExecutionService(
+                    plans=organize_plans,
+                    repository=organize_executions,
+                    mutations=HttpxP115OrganizeMutationGateway(
+                        credentials=p115_credentials,
+                        priority=lambda: str(settings_provider().p115_api_priority),
+                    ),
                 ),
                 organize_record_tmdb_backfill=P115OrganizeRecordTmdbBackfillService(
                     SqlAlchemyP115OrganizeRecordsRepository(database.unit_of_work)
@@ -2544,9 +2556,11 @@ class WorkerRuntime:
             if registry is None:
                 raise RuntimeError("Worker task registry is not initialized")
             try:
-                registry.require(task_key)
+                definition = registry.require(task_key)
             except KeyError as exc:
                 raise LookupError(f"task chain contains unknown task {task_key!r}") from exc
+            if not definition.chain_eligible:
+                raise ValueError(f"task chain contains a task that requires a dedicated entrypoint: {task_key!r}")
             if self._native_only and task_key not in _NATIVE_ONLY_EXECUTABLE_TASK_KEYS:
                 raise NativeTaskExecutionUnavailable(
                     f"task chain contains task without a native Worker execution owner: {task_key!r}"

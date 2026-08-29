@@ -338,6 +338,19 @@ def test_run_task_submits_202_with_job_header_and_idempotency_contract() -> None
     assert submitted["idempotency_scope"] == "api.tasks.run"
 
 
+def test_run_task_rejects_organize_without_immutable_plan_execution() -> None:
+    app, permissions, _, store, codec = _build_app()
+    permissions.admins.add("fixture-admin")
+
+    with TestClient(app) as client:
+        _set_user(client, codec, "fixture-admin")
+        response = client.post("/api/tasks/run", json={"task_name": "scan-organize-115"})
+
+    assert response.status_code == 409
+    assert response.json() == {"error": "115 网盘整理必须先创建并批准 immutable Plan，再从 Plan 执行入口提交。"}
+    assert store.create_calls == []
+
+
 def test_run_task_submit_race_retains_legacy_500_envelope() -> None:
     app, permissions, _, store, codec = _build_app()
     permissions.admins.add("fixture-admin")

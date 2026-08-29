@@ -40,6 +40,10 @@ class UnsupportedLegacyOperationError(ValueError):
     pass
 
 
+class ApprovedExecutionRequiredError(ValueError):
+    pass
+
+
 class JobSubmissionService:
     """Application boundary for every API, schedule, and compatibility submission."""
 
@@ -82,6 +86,8 @@ class JobSubmissionService:
             definition = self._registry.require(task_key)
         except (KeyError, LookupError) as exc:
             raise UnknownTaskError(task_key) from exc
+        if definition.key == "scan-organize-115":
+            raise ApprovedExecutionRequiredError("scan-organize-115 必须通过 immutable Plan 审批执行，禁止普通任务提交")
         if reject_when_busy and self._store.has_active_job():
             raise TaskBusyError("another job is active")
         payload = _task_payload(definition, parameters, silent=silent)
@@ -424,6 +430,7 @@ def _iso(value: datetime | None) -> str | None:
 
 
 __all__ = [
+    "ApprovedExecutionRequiredError",
     "IdempotencyConflictError",
     "JobSubmissionService",
     "LegacyProcessorReadiness",

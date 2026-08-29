@@ -370,7 +370,6 @@ const DUAL_MODE_TASKS = [
 const DEFAULT_TG_TASKS = [
   'task-chain-high-freq',
   'task-chain-low-freq',
-  'scan-organize-115',
   'populate-metadata',
   'process-watchlist',
   'scan-cleanup-issues',

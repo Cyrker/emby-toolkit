@@ -446,6 +446,12 @@ def submit_task(task_function: Callable, task_name: str, processor_type: Process
     注意：task_lock 同时被工人线程持有。这里必须非阻塞获取锁，
     否则任务内部再次 submit_task 时会在同一线程内死等自己释放锁。
     """
+    if (
+        str(getattr(task_function, "__module__", "")) == "tasks.p115"
+        and str(getattr(task_function, "__name__", "")) == "task_scan_and_organize_115"
+    ):
+        logger.warning("已拒绝旧 115 整理 callable；必须通过 immutable Plan 审批入口提交 execution_id。")
+        return False
     with _persistent_gateway_lock:
         gateway = _persistent_gateway
     if gateway is not None:
@@ -524,28 +530,12 @@ def trigger_115_organize_task(reason: str = ''):
     【公共接口】触发 115 网盘整理任务。
     reason 用于标记触发整理任务的上游来源。
     """
-    try:
-        # 延迟导入避免循环依赖
-        from tasks.core import task_scan_and_organize_115
-        source_label = _get_organize_source_label(reason)
-        task_name = f"115网盘整理({source_label})"
-        
-        # 使用 submit_task 提交任务，processor_type 为 'media'
-        result = submit_task(
-            task_scan_and_organize_115, 
-            task_name,
-            processor_type='media'
-        )
-        
-        if result:
-            logger.info(f"  ➜ [115整理] {source_label}触发的整理任务已成功提交到后台队列。")
-        else:
-            _mark_pending_organize(source_label)
-        
-        return result
-    except Exception as e:
-        logger.error(f"  ➜ [115整理] 触发整理任务时发生错误: {e}", exc_info=True)
-        return False
+    source_label = _get_organize_source_label(reason)
+    logger.warning(
+        "  ➜ [115整理] 已拒绝 %s 的旧空参数触发；必须通过 immutable Plan 审批入口提交 execution_id。",
+        source_label,
+    )
+    return False
 def trigger_shared_resource_maintenance_task():
     """【公共接口】触发共享资源自动维护任务。"""
     try:

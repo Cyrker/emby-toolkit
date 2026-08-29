@@ -141,7 +141,6 @@ class Settings(BaseSettings):
         default_factory=lambda: [
             "task-chain-high-freq",
             "task-chain-low-freq",
-            "scan-organize-115",
             "populate-metadata",
             "process-watchlist",
             "scan-cleanup-issues",

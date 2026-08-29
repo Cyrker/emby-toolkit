@@ -235,6 +235,33 @@ def test_worker_executes_p6_sync_without_resolving_legacy_processor(
     assert router.calls[0][0].task_key == task_key
 
 
+def test_native_only_worker_dispatches_approved_organize_execution_without_legacy_processor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    projection = _projection("scan-organize-115")
+    projection.job.request_payload["parameters"] = {"execution_id": "00000000-0000-0000-0000-000000000603"}
+    store = ExecutionStore(projection)
+    router = FakeP6Router(TaskOutcome.succeeded("organize confirmed", {"p4_terminalized": False}))
+    runtime = WorkerRuntime(config=TaskRuntimeConfig(heartbeat_seconds=60, lease_seconds=120))
+    state = cast(Any, runtime)
+    state._store = store
+    state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
+    state._adapter = None
+    state._native_only = True
+    state._p6_p115_tasks = router
+    monkeypatch.setattr(
+        worker_module,
+        "_processor",
+        lambda _identity: (_ for _ in ()).throw(AssertionError("native organize resolved a legacy processor")),
+    )
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == ["succeeded"]
+    assert len(router.calls) == 1
+    assert router.calls[0][0].payload.data == {"execution_id": "00000000-0000-0000-0000-000000000603"}
+
+
 def test_native_worker_executes_organize_record_backfill_without_legacy_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

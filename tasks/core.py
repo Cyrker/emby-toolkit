@@ -51,7 +51,7 @@ TASK_HELP_TEXTS = {
     'check-expired-users': '检查会员或体验卡到期用户，并执行到期后的权限处理。',
     'refresh_completed_series': '刷新完结剧集状态和季集信息，补充图片和元数据，以及订阅新季。',
     'scan-monitor-folders': '扫描配置的监控目录，发现新增媒体文件后进入识别、整理或入库流程，适合查漏补缺。',
-    'scan-organize-115': '扫描 115 网盘待整理目录，并按规则识别、整理、生成记录，适合新增资源后手动触发。',
+    'scan-organize-115': '只执行已批准的 immutable Plan；必须从 115 整理计划页面提交，不支持临时任务、任务链或 TG 直接触发。',
     'full-sync-strm': '全量重建 STRM 与字幕文件，保持网盘和本地一致，适合媒体库重建或迁移时使用。',
     'backfill-organize-record-tmdb-ids': '按 PickCode 或 SHA1 从媒体元数据补齐整理记录缺失的 TMDb ID，不覆盖已有身份。',
     'monitor-115-life-events': '全量对账家庭视频分类的 STRM、字幕和 MediaInfo；不消费已停用的 115 生活事件，截图请单独运行“补齐视频截图”。',
@@ -306,7 +306,7 @@ def get_task_registry(context: str = 'all'):
         'generate-custom-collection-covers': (task_generate_all_custom_collection_covers, "生成合集封面", 'media', True),
         'refresh_completed_series': (task_refresh_completed_series, "全量刷新剧集", 'watchlist', True),
         'scan-monitor-folders': (task_scan_monitor_folders, "扫描监控目录", 'media', True),
-        'scan-organize-115': (task_scan_and_organize_115, "网盘文件整理", 'media', True),
+        'scan-organize-115': (task_scan_and_organize_115, "网盘文件整理", 'media', False),
         'full-sync-strm': (task_full_sync_strm_and_subs, "全量生成STRM", 'media', True),
         'backfill-organize-record-tmdb-ids': (task_backfill_organize_record_tmdb_ids, "补齐整理记录", 'media', True),
         # 保留旧任务 key，兼容用户现有任务链配置。

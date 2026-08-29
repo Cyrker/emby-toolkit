@@ -114,7 +114,6 @@ def _install_client(monkeypatch, client: FakeP115Client, current: dict[str, str]
         return client, state["target_cid"]
 
     monkeypatch.setattr(operations, "_p115_client_and_target", resolve)
-    monkeypatch.setattr(operations, "_submit_organize", lambda *_args: None)
 
 
 def test_effect_binding_is_semantic_and_secret_store_is_owner_bound_and_expiring(monkeypatch) -> None:
@@ -186,7 +185,38 @@ def test_share_crash_before_success_receipt_reconciles_without_replay(monkeypatc
     result = operations.task_execute_telegram_resource_action(action=action)
 
     assert result["result"]["reconciled"] is True
+    assert result["result"]["organize_submitted"] is False
+    assert result["result"]["organize_plan_required"] is True
     assert client.import_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("action_name", "payload", "call_attribute"),
+    [
+        ("p115_share_import", {"share_code": "abc123", "receive_code": "a1b2"}, "import_calls"),
+        ("p115_offline_add", {"url": "magnet:?xt=urn:btih:" + "C" * 40}, "offline_calls"),
+    ],
+)
+def test_success_and_replay_require_an_approved_plan_without_legacy_organize_submission(
+    monkeypatch,
+    action_name: str,
+    payload: dict[str, Any],
+    call_attribute: str,
+) -> None:
+    _effect_store, _binding_store, _secret_store, backend = _install_stores(monkeypatch)
+    client = FakeP115Client()
+    _install_client(monkeypatch, client)
+    action = _safe_action(action_name, payload)
+
+    first = operations.task_execute_telegram_resource_action(action=action)
+    replay = operations.task_execute_telegram_resource_action(action=action)
+
+    for result in (first, replay):
+        assert result["ok"] is True
+        assert result["result"]["organize_submitted"] is False
+        assert result["result"]["organize_plan_required"] is True
+    assert getattr(client, call_attribute) == 1
+    assert not any(key.startswith("runtime.secret.telegram-resource.") for key in backend.states)
 
 
 def test_share_list_miss_remains_unknown_and_never_replays(monkeypatch) -> None:

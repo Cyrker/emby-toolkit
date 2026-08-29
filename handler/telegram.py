@@ -2528,6 +2528,13 @@ def _execute_task_from_tg(chat_id: str, task_key: str):
     import task_manager
     from tasks.core import get_task_registry
 
+    if task_key == 'scan-organize-115':
+        send_telegram_message(
+            chat_id,
+            escape_markdown("❌ 115 网盘整理必须先创建并批准 immutable Plan，不能从 TG 直接触发。"),
+        )
+        return
+
     registry = get_task_registry(context='all')
     task_info = registry.get(task_key)
 
@@ -2685,6 +2692,8 @@ def _handle_incoming_message(message: dict, update_id=None):
             keyboard = []
             row = []
             for key, info in registry.items():
+                if key == 'scan-organize-115':
+                    continue
                 desc = info[1]
                 row.append({"text": desc, "callback_data": f"run_task_{key}"})
                 if len(row) == 2:
@@ -2772,6 +2781,8 @@ def _setup_bot_commands(bot_token: str):
 
     commands = []
     for key in allowed_tasks:
+        if key == 'scan-organize-115':
+            continue
         if key in registry:
             desc = registry[key][1]
             # Telegram 命令只允许小写字母、数字和下划线，所以把横杠替换为下划线

@@ -160,6 +160,7 @@ from etk.domains.p115 import (
     HttpxEmbyIntroFavoriteGateway,
     HttpxP115AuthorizationGateway,
     HttpxP115BridgeEmbyGateway,
+    HttpxP115OrganizeMutationGateway,
     IntroDetectionSubmissionService,
     LegacyP115DeepDeleteScopeGateway,
     LegacyP115DirectLinkGateway,
@@ -167,7 +168,6 @@ from etk.domains.p115 import (
     LegacyP115DirectoryTreeGateway,
     LegacyP115IntroSnapshotExporter,
     LegacyP115IntroSyncFeature,
-    LegacyP115OrganizeMutationGateway,
     LegacyP115PlanNamingGateway,
     LegacyP115PlaybackProvider,
     LegacyP115PlaybackSourceGateway,
@@ -1225,7 +1225,10 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "p115.organize-mutations",
-        lambda _: LegacyP115OrganizeMutationGateway(),
+        lambda current: HttpxP115OrganizeMutationGateway(
+            credentials=lambda: current.repository("p115.credentials"),
+            priority=lambda: current.settings.p115_api_priority,
+        ),
     )
     container.register_client(
         "p115.local-strm-library",

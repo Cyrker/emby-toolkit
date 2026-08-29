@@ -16,6 +16,7 @@ from etk.platform.jobs import IdempotencyConflictError, InvalidJsonPayloadError,
 from etk.platform.web import PermissionPolicy, get_request_session
 
 from .jobs import (
+    ApprovedExecutionRequiredError,
     JobSubmissionService,
     TaskBusyError,
     UnknownTaskError,
@@ -109,6 +110,11 @@ async def run_task(request: Request) -> Any:
         return fastapi_json_response({"error": f"未知的任务名称: {task_name}"}, status_code=404)
     except IdempotencyConflictError:
         return fastapi_json_response({"error": "幂等键已用于不同的任务请求。"}, status_code=409)
+    except ApprovedExecutionRequiredError:
+        return fastapi_json_response(
+            {"error": "115 网盘整理必须先创建并批准 immutable Plan，再从 Plan 执行入口提交。"},
+            status_code=409,
+        )
     except TaskBusyError:
         # Preserve the legacy submit-race behavior: the decorator-style busy
         # check already passed, but the final submit lost the race.

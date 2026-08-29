@@ -11,7 +11,6 @@ from typing import Any
 from etk.compatibility import tg_resource_effects
 from etk.compatibility.tg_control_bridge import (
     normalize_telegram_resource_action,
-    submit_persistent_legacy_task,
     telegram_resource_action_key,
 )
 from etk.platform.jobs import normalize_json_object
@@ -371,6 +370,7 @@ def _execute_p115_secret_effect(
     secret_owner_key: str | None = None,
     destroy_secret_on_complete: bool = True,
 ) -> dict[str, Any]:
+    del organize_reason
     delivery_key = str(payload.get("delivery_key") or "").strip().casefold()
     if not delivery_key and action is not None:
         delivery_key = telegram_resource_action_key(action)
@@ -391,12 +391,12 @@ def _execute_p115_secret_effect(
     effect_key = binding.effect_key
     existing = tg_resource_effects.read_effect(effect_key)
     if existing is not None and existing.status == "succeeded":
-        _submit_organize(organize_reason, effect_key, binding.account_id, binding.target_cid)
         if destroy_secret_on_complete:
             tg_resource_effects.destroy_secret(secret_ref, secret_owner_key or delivery_key)
         return {
             "message": "115 外部操作已完成对账",
-            "organize_submitted": True,
+            "organize_submitted": False,
+            "organize_plan_required": True,
             "reconciled": True,
             "effect_key": effect_key,
         }
@@ -465,12 +465,12 @@ def _execute_p115_secret_effect(
         reconcile_status = reconcile(effect.evidence)
         if reconcile_status == "confirmed":
             tg_resource_effects.mark_effect_succeeded(effect_key, action_name, {"reconciled": True})
-            _submit_organize(organize_reason, effect_key, binding.account_id, binding.target_cid)
             if destroy_secret_on_complete:
                 tg_resource_effects.destroy_secret(secret_ref, secret_owner_key or delivery_key)
             return {
                 "message": "115 外部操作已完成对账",
-                "organize_submitted": True,
+                "organize_submitted": False,
+                "organize_plan_required": True,
                 "reconciled": True,
                 "effect_key": effect_key,
             }
@@ -492,12 +492,12 @@ def _execute_p115_secret_effect(
 
     success_evidence = _safe_provider_evidence(result)
     tg_resource_effects.mark_effect_succeeded(effect_key, action_name, success_evidence)
-    _submit_organize(organize_reason, effect_key, binding.account_id, binding.target_cid)
     if destroy_secret_on_complete:
         tg_resource_effects.destroy_secret(secret_ref, secret_owner_key or delivery_key)
     return {
         "message": "115 分享链接转存完成" if action_name == "p115_share_import" else "115 离线下载已提交",
-        "organize_submitted": True,
+        "organize_submitted": False,
+        "organize_plan_required": True,
         "effect_key": effect_key,
         **({"receive_title": success_evidence["receive_title"]} if success_evidence.get("receive_title") else {}),
     }
@@ -544,19 +544,6 @@ def _p115_client_and_target(
     if expected_target_cid is not None and target_cid != str(expected_target_cid):
         raise RuntimeError(f"115 目标目录在任务开始后发生变化：expected={expected_target_cid}, current={target_cid}")
     return client, target_cid
-
-
-def _submit_organize(reason: str, effect_key: str, account_id: str, target_cid: str) -> None:
-    from tasks.core import task_scan_and_organize_115
-
-    submit_persistent_legacy_task(
-        task_scan_and_organize_115,
-        task_name=f"115网盘整理({reason})",
-        kwargs={"expected_account_id": account_id, "expected_target_cid": target_cid},
-        max_attempts=3,
-        idempotency_key=effect_key,
-        idempotency_scope="telegram-resource-organize:v1",
-    )
 
 
 def _prepare_resource_effect(

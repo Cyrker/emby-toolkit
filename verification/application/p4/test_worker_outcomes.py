@@ -674,8 +674,12 @@ def test_native_chain_rejects_unknown_and_unmigrated_children() -> None:
     with pytest.raises(LookupError, match="unknown task 'unknown-task'"):
         runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
 
-    cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["refresh-collections"]})
-    with pytest.raises(NativeTaskExecutionUnavailable, match="refresh-collections"):
+    cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["process-watchlist"]})
+    with pytest.raises(NativeTaskExecutionUnavailable, match="process-watchlist"):
+        runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
+
+    cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["scan-organize-115"]})
+    with pytest.raises(ValueError, match="dedicated entrypoint"):
         runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
 
 
@@ -884,6 +888,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "restore_mediainfo",
             "scan-cleanup-issues",
             "scan-monitor-folders",
+            "scan-organize-115",
             "scan_old_seasons_backfill",
             "sync-115-directory-tree",
             "sync-all-user-data",

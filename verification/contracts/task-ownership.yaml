@@ -13,9 +13,9 @@
   },
   "generator": "scripts/refactor/export_tasks.py",
   "metrics": {
-    "chain_eligible_count": 28,
+    "chain_eligible_count": 27,
     "display_name_help_fallback_count": 1,
-    "manual_visible_count": 28,
+    "manual_visible_count": 27,
     "orphan_help_text_count": 1,
     "task_key_count": 50
   },
@@ -1290,13 +1290,13 @@
       ]
     },
     {
-      "chain_eligible": true,
+      "chain_eligible": false,
       "contract_id": "task-a6eeb309e50b",
       "display_name": "网盘文件整理",
       "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
       "fixture_exception": null,
       "function": "task_scan_and_organize_115",
-      "help": "扫描 115 网盘待整理目录，并按规则识别、整理、生成记录，适合新增资源后手动触发。",
+      "help": "只执行已批准的 immutable Plan；必须从 115 整理计划页面提交，不支持临时任务、任务链或 TG 直接触发。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
       "notes": "P6 native Worker envelope dispatches durable organize execution directly to the native service; the execution repository atomically terminalizes the owning P4 attempt and Job after authoritative readback, without legacy organizer fallback.",
@@ -1318,9 +1318,7 @@
       "validation_method": "ordered-task-registry-native-durable-effect-readback-and-postgres18",
       "validation_owner": "p115/organize-execution",
       "visible_in": [
-        "all",
-        "chain",
-        "manual"
+        "all"
       ]
     },
     {

@@ -369,31 +369,6 @@ def test_worker_manual_p115_actions_dispatch_only_opaque_secret_payloads(
     assert calls[0]["organize_reason"] == organize_reason
 
 
-def test_worker_organize_followup_is_a_persistent_child_job(monkeypatch) -> None:
-    from tasks.core import task_scan_and_organize_115
-
-    gateway = CaptureGateway()
-    monkeypatch.setenv("ETK_PROCESS_ROLE", "worker")
-    task_manager.install_persistent_submission_gateway(gateway)
-    try:
-        resource_operations._submit_organize("tg_share_import", "a" * 64, "115001", "target-1")
-    finally:
-        task_manager.clear_persistent_submission_gateway(gateway)
-
-    assert len(gateway.calls) == 1
-    call = gateway.calls[0]
-    assert call["task_function"] is task_scan_and_organize_115
-    assert call["task_name"] == "115网盘整理(tg_share_import)"
-    assert call["args"] == ()
-    assert call["kwargs"] == {
-        "expected_account_id": "115001",
-        "expected_target_cid": "target-1",
-    }
-    assert call["max_attempts"] == 3
-    assert call["idempotency_key"] == "a" * 64
-    assert call["idempotency_scope"] == "telegram-resource-organize:v1"
-
-
 @pytest.mark.parametrize("action_name", ["p115_share_import", "p115_offline_add"])
 def test_worker_manual_p115_reported_failure_raises_without_organize(monkeypatch, action_name: str) -> None:
     monkeypatch.setattr(

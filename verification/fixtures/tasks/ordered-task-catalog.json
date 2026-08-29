@@ -9,8 +9,8 @@
     "task_key_count": 50,
     "native_handler_count": 50,
     "legacy_adapter_count": 0,
-    "chain_visible_count": 28,
-    "manual_visible_count": 28
+    "chain_visible_count": 27,
+    "manual_visible_count": 27
   },
   "contexts": {
     "all": [
@@ -81,7 +81,6 @@
       "generate-custom-collection-covers",
       "refresh_completed_series",
       "scan-monitor-folders",
-      "scan-organize-115",
       "full-sync-strm",
       "backfill-organize-record-tmdb-ids",
       "monitor-115-life-events",
@@ -111,7 +110,6 @@
       "generate-custom-collection-covers",
       "refresh_completed_series",
       "scan-monitor-folders",
-      "scan-organize-115",
       "full-sync-strm",
       "backfill-organize-record-tmdb-ids",
       "monitor-115-life-events",
@@ -484,15 +482,13 @@
       "order": 18,
       "key": "scan-organize-115",
       "name": "网盘文件整理",
-      "help": "扫描 115 网盘待整理目录，并按规则识别、整理、生成记录，适合新增资源后手动触发。",
+      "help": "只执行已批准的 immutable Plan；必须从 115 整理计划页面提交，不支持临时任务、任务链或 TG 直接触发。",
       "help_source": "TASK_HELP_TEXTS",
       "processor": "media",
       "visible_in": [
-        "all",
-        "chain",
-        "manual"
+        "all"
       ],
-      "chain_eligible": true,
+      "chain_eligible": false,
       "payload_version": 1,
       "legacy_function": "task_scan_and_organize_115",
       "legacy_signature": "task_scan_and_organize_115(processor=None, expected_account_id=None, expected_target_cid=None)",
@@ -824,7 +820,7 @@
       "payload_version": 1,
       "legacy_function": "task_scan_for_cleanup_issues",
       "legacy_signature": "task_scan_for_cleanup_issues(processor)",
-      "legacy_definition": "tasks/cleanup.py:298",
+      "legacy_definition": "tasks/cleanup.py:299",
       "registry_source": "tasks/core.py:329",
       "target_stage": "P8",
       "handler_kind": "native"
