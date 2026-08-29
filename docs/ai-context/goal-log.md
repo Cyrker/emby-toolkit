@@ -3136,6 +3136,46 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Washing-Processor-Free-Fix
+
+Stage / Batch: P11 / compatibility Worker processor-boundary fix
+
+HEAD / Commit:
+
+- Pre-fix HEAD: `19cdc512` (`refactor(p11): execute native p115 directory sync`).
+- Checkpoint: this batch's `fix(p11): keep washing recalculation processor-free` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Added `recalculate_library_washing_priorities` to the compatibility Worker's processor-free
+  execution set. Both Worker profiles now enter the already-native
+  `P115WashingPriorityRecalculationService` without resolving `extensions.media_processor_instance`.
+- Kept the evaluator, repository, task payload and ownership unchanged; current review found no
+  new evaluator/repository P0/P1/P2.
+
+Targeted gate:
+
+- Scoped Ruff and format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`.
+- Worker outcome plus washing recalculation application scope -> `114 passed`.
+- A separate read-only evaluator audit ran the washing priority/recalculation scope -> `47 passed`.
+- `git diff --check` -> clean. Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-washing-processor-free-fix-20260829/`.
+
+Stage full gate:
+
+- Not run. This is a bounded P2 process-boundary fix; the P11 ownership, controlled-removal and NFR
+  gates remain pending.
+
+Next: execute the processor-free `scan-cleanup-issues` slice with native user-scope projection,
+fail-closed Emby readback, atomic cleanup-index replacement and Worker replay evidence. Keep Live
+Acceptance `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

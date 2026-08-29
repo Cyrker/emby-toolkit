@@ -1833,6 +1833,7 @@ class WorkerRuntime:
                         definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
                         or definition.key
                         in {
+                            "recalculate_library_washing_priorities",
                             "restore_mediainfo",
                             "scan_old_seasons_backfill",
                             "sync-all-user-data",

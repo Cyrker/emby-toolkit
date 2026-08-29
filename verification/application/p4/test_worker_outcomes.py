@@ -521,16 +521,21 @@ def test_native_processor_free_tasks_do_not_import_task_manager(
     assert router.calls[0][1] is None
 
 
-def test_compatibility_worker_does_not_resolve_processor_for_native_old_season_backfill(
+@pytest.mark.parametrize(
+    "task_key",
+    ["recalculate_library_washing_priorities", "scan_old_seasons_backfill"],
+)
+def test_compatibility_worker_does_not_resolve_processor_for_native_p7_tasks(
     monkeypatch: pytest.MonkeyPatch,
+    task_key: str,
 ) -> None:
-    projection = _catalog_projection("scan_old_seasons_backfill", parameters={})
+    projection = _catalog_projection(task_key, parameters={})
     runtime, store = _catalog_runtime(projection, StubP6Router())
     router = StubProcessorFreeRouter()
     cast(Any, runtime)._p7_subscription_tasks = router
     monkeypatch.setattr(
         "etk.processes.worker._processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError("old-season backfill resolved a processor")),
+        lambda _identity: (_ for _ in ()).throw(AssertionError(f"{task_key} resolved a processor")),
     )
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
