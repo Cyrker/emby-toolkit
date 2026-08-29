@@ -2864,6 +2864,62 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Washing-Parity-Edge-Evidence
+
+Stage / Batch: P11 / supplemental washing-evaluator parity evidence
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `07d38fe4` (`fix(p11): report assistant compatibility execution`).
+- Checkpoint: this batch's `test(p11): lock washing parity edges` commit after the targeted gate
+  below.
+
+Implemented:
+
+- Added direct regressions for legacy normal-rule truthiness: a list containing an empty rule is a
+  normal rule, while truthy `is_exclude` is not; no scalar-rule parity claim was added.
+- Locked the no-filename normalized source as Chinese `未知` through the full
+  `normalize_washing_info()` path.
+- Exercised a real `SqlAlchemyP115WashingRecalculationRepository.load_item()` projection with an
+  invalid cache size. Conversion fails at row load, the service counts one row error, performs no
+  persistence and does not acknowledge the pending revision.
+
+Targeted gate:
+
+- Scoped Ruff -> clean; format check -> `1 file already formatted`; scoped Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- Washing recalculation/priority application scope -> `47 passed`.
+- Disposable PostgreSQL 18 washing recalculation/priority scope -> `2 passed`.
+- `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-washing-parity-edges-20260829/`.
+
+Focused review:
+
+- Initial review found one P2 because the invalid-size test separately exercised a private helper
+  and a fake repository exception. It now traverses the real SQLAlchemy repository mapping before
+  the service row-error boundary; rereview found no remaining P0/P1/P2.
+
+Stage full gate:
+
+- Not run. This test-only evidence slice does not change ownership counts, authorize controlled
+  removal or start P12.
+
+Pending:
+
+- Native-only Worker execution remains `11 executable / 39 unavailable`; all residual route,
+  table, config and compatibility-runtime work remains explicit.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: migrate `scan_old_seasons_backfill` only after its normal database mutation and request-stage
+path has a processor-free SQLAlchemy service, progress/cancellation and import-sentinel evidence.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -2883,7 +2939,7 @@ Read first:
 
 Next:
 
-- Add direct regression evidence for the supplemental washing-evaluator parity audit, then continue
-  `P11-Pre-removal` with the smallest processor-free Worker candidate. Keep every unmigrated
-  task/binding explicit; do not start controlled removal until execution and ownership reach 100%.
-  Keep all Live Acceptance items pending.
+- Continue `P11-Pre-removal` with `scan_old_seasons_backfill`, but only promote it after the normal
+  database mutation and request-stage path is processor-free and verified. Keep every other
+  unmigrated task/binding explicit; do not start controlled removal until execution and ownership
+  reach 100%. Keep all Live Acceptance items pending.

@@ -28,6 +28,7 @@ from etk.domains.p115.washing_evaluator import (
     build_washing_policy_snapshot,
     clean_version_result,
     evaluate_washing_item,
+    has_normal_washing_priorities,
     load_washing_priorities,
     match_washing_priority,
     normalize_language,
@@ -42,6 +43,7 @@ from etk.domains.p115.washing_recalculation import (
     normalize_washing_limit,
 )
 from etk.domains.p115.washing_recalculation_adapters import HttpxP115EpisodeRuntimeGateway
+from etk.domains.p115.washing_recalculation_repository import SqlAlchemyP115WashingRecalculationRepository
 from etk.platform import AppContainer, Settings
 from etk.platform.jobs import IdempotencyConflictError
 from etk.platform.tasks import ProcessorIdentity, TaskMessage, TaskOutcomeStatus
@@ -474,6 +476,23 @@ def test_evaluator_preserves_zero_numeric_fallbacks_and_fixed_taiwan_aliases() -
     assert normalized["size_gb"] == 2
     assert normalize_language("台灣", ()) == "chi"
     assert normalize_language("臺灣", ()) == "chi"
+
+
+def test_evaluator_preserves_normal_rule_truthiness_and_empty_filename_source() -> None:
+    assert has_normal_washing_priorities({}) is False
+    assert has_normal_washing_priorities([{}]) is True
+    assert has_normal_washing_priorities([{"is_exclude": "truthy"}]) is False
+    assert has_normal_washing_priorities([{"is_exclude": False}]) is True
+
+    policy = _policy([])
+    normalized = normalize_washing_info(
+        {"MediaSourceInfo": {"MediaStreams": []}},
+        language_mapping=policy.language_mapping,
+        release_group_mapping={},
+        item=_item(),
+        remote_episode_runtime_minutes=None,
+    )
+    assert normalized["source"] == "未知"
 
 
 def test_evaluator_preserves_json_ast_and_nonempty_malformed_raw_semantics() -> None:
@@ -989,6 +1008,100 @@ def test_recalculation_service_rejects_target_or_source_drift_without_ack() -> N
     )
     assert source_result.partial is True
     assert source_result.stats["scope_acknowledged"] is False
+    assert state.acknowledgements == []
+
+
+def test_invalid_cache_size_conversion_is_reported_as_a_row_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    row = {
+        "tmdb_id": "711",
+        "item_type": "Movie",
+        "parent_series_tmdb_id": None,
+        "season_number": None,
+        "episode_number": None,
+        "title": "Fixture",
+        "original_language": "eng",
+        "runtime_minutes": 0,
+        "file_sha1_json": ["A" * 40],
+        "file_pickcode_json": ["pc-file-1"],
+        "asset_details_json": [],
+        "washing_snapshot_json": {"target_cid": "100"},
+        "parent_genres_json": None,
+        "average_episode_runtime": None,
+    }
+
+    class Result:
+        def mappings(self) -> Result:
+            return self
+
+        def one_or_none(self) -> dict[str, Any]:
+            return row
+
+    class Session:
+        def execute(self, *_args: object, **_kwargs: object) -> Result:
+            return Result()
+
+    class UnitOfWork:
+        session = Session()
+
+        def __enter__(self) -> UnitOfWork:
+            return self
+
+        def __exit__(self, *_args: object) -> bool:
+            return False
+
+    repository = SqlAlchemyP115WashingRecalculationRepository(lambda: cast(Any, UnitOfWork()))
+    monkeypatch.setattr(
+        repository,
+        "load_policy_source",
+        lambda: (
+            {"p115_washing_priority_config": {"version_slots_enabled": False, "version_slots": []}},
+            [
+                {
+                    "name": "fixture",
+                    "media_type": "Movie",
+                    "target_cids": [],
+                    "priorities": [{"resolution": ["1080p"]}],
+                }
+            ],
+        ),
+    )
+    monkeypatch.setattr(repository, "list_candidates", lambda **_kwargs: [("711", "Movie")])
+    monkeypatch.setattr(
+        repository,
+        "_load_cache",
+        lambda *_args, **_kwargs: {
+            "id": "file-1",
+            "name": "Fixture.mkv",
+            "sha1": "A" * 40,
+            "pick_code": "pc-file-1",
+            "size": "not-an-integer",
+        },
+    )
+    monkeypatch.setattr(
+        repository,
+        "persist_item",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("invalid row must not persist")),
+    )
+    state = FakeWashingState()
+    service = P115WashingPriorityRecalculationService(
+        repository=repository,
+        state=state,
+        settings=lambda: Settings(local_strm_root="/mnt/media", p115_media_root_name="媒体库"),
+        episode_runtime=FakeRuntime(),
+        clock=lambda: NOW,
+    )
+
+    result = service.execute(
+        FakeProgress(),
+        affected_scope=state.pending["media_types"],
+        scope_revision=7,
+    )
+
+    assert result.partial is True
+    assert result.stats["scanned_items"] == 1
+    assert result.stats["updated_items"] == 0
+    assert result.stats["errors"] == 1
+    assert result.stats["scope_acknowledged"] is False
     assert state.acknowledgements == []
 
 
