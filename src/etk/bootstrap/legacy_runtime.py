@@ -466,17 +466,16 @@ class LegacyRuntimeAdapter:
         import config_manager
         from database import settings_db
 
-        for key in ("pro_license_key", "license_key"):
-            try:
-                value = str(settings_db.get_setting(key) or "").strip().upper()
-            except Exception:
-                continue
-            match = re.search(r"ETK[-_]?([MYL])(?:[-_]|$)", value)
-            if match:
-                return match.group(1)
-            normalized = self._normalize_pro_tier(value)
-            if normalized:
-                return normalized
+        try:
+            value = str(settings_db.get_setting("pro_license_key") or "").strip().upper()
+        except Exception:
+            value = ""
+        match = re.search(r"ETK[-_]?([MYL])(?:[-_]|$)", value)
+        if match:
+            return match.group(1)
+        normalized = self._normalize_pro_tier(value)
+        if normalized:
+            return normalized
         return self._normalize_pro_tier((config_manager.APP_CONFIG or {}).get("pro_license_key"))
 
     def _start_background_services(self) -> None:

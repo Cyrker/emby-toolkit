@@ -5975,6 +5975,15 @@
         "validation_method": "postgres18-cutover-and-operational-reader-sentinel",
         "validation_owner": "subscription/settings"
       },
+      "setting-ab3540f4bf93": {
+        "fixture": "verification/integration/p3/test_license_alias_cutover_postgres18.py",
+        "fixture_exception": null,
+        "notes": "P11 migration 0021 copies a non-empty historical license_key string into canonical pro_license_key only when the canonical value is absent or empty. The alias row is preserved for rollback inspection, while operational readers use only the canonical setting; the request field named license_key remains part of the Pro activation API and is not this retired storage contract.",
+        "retirement_approval": "P11 Pro license alias cutover 0021; historical source row preserved",
+        "status": "retired-approved",
+        "validation_method": "postgres18-cutover-operational-reader-sentinel-and-openapi-request-contract",
+        "validation_owner": "system/integrations"
+      },
       "setting-4640efe53366": {
         "fixture": "verification/fixtures/http/p8-collection-cover.json",
         "fixture_exception": null,

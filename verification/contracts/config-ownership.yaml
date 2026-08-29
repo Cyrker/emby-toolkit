@@ -3268,25 +3268,24 @@
       "validation_owner": "collection/settings"
     },
     {
-      "accesses": [
-        {
-          "operation": "get_setting",
-          "source": "handler/shared_center_client.py:111"
-        }
-      ],
+      "accesses": [],
       "contract_id": "setting-ab3540f4bf93",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p3/test_license_alias_cutover_postgres18.py",
+      "fixture_exception": null,
       "key": "license_key",
       "mutability": "runtime_dynamic",
       "new_owner": null,
+      "notes": "P11 migration 0021 copies a non-empty historical license_key string into canonical pro_license_key only when the canonical value is absent or empty. The alias row is preserved for rollback inspection, while operational readers use only the canonical setting; the request field named license_key remains part of the Pro activation API and is not this retired storage contract.",
       "restart_level": "call-site-specific",
+      "retirement_approval": "P11 Pro license alias cutover 0021; historical source row preserved",
       "secret": true,
-      "status": "legacy",
+      "status": "retired-approved",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "postgres18-cutover-operational-reader-sentinel-and-openapi-request-contract",
+      "validation_owner": "system/integrations"
     },
     {
       "accesses": [
@@ -4160,6 +4159,10 @@
     {
       "accesses": [
         {
+          "operation": "get_setting",
+          "source": "handler/shared_center_client.py:121"
+        },
+        {
           "operation": "save_setting",
           "source": "routes/system.py:930"
         },
@@ -4190,7 +4193,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/shared_center_client.py:111"
+          "source": "handler/shared_center_client.py:114"
         },
         {
           "operation": "get_setting",
@@ -4497,7 +4500,7 @@
         },
         {
           "operation": "get_shared_resource_config",
-          "source": "handler/shared_center_client.py:194"
+          "source": "handler/shared_center_client.py:191"
         },
         {
           "operation": "get_shared_resource_config",

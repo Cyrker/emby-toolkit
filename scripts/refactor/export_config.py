@@ -24,12 +24,14 @@ SECRET_FRAGMENTS = ("password", "secret", "token", "cookie", "api_key", "license
 EXPLICIT_SECRET_KEYS = frozenset({"mp_config", "p115_play_pool_config"})
 RETIRED_STANDALONE_SETTING_KEYS = frozenset(
     {
+        "license_key",
         "media_cleanup_delete_delay",
         "media_cleanup_keep_one_per_res",
         "media_cleanup_library_ids",
         "media_cleanup_rules",
     }
 )
+RETIRED_STANDALONE_SETTING_SENTINEL_PATHS = ("src/etk/bootstrap/legacy_runtime.py",)
 
 
 def _is_secret_key(key: str) -> bool:
@@ -163,6 +165,51 @@ def _static_string_values(node: ast.AST, constant_symbols: dict[str, Any]) -> se
     return set()
 
 
+def _local_string_symbols(tree: ast.Module, constant_symbols: dict[str, Any]) -> dict[str, set[str]]:
+    local_symbols: dict[str, set[str]] = defaultdict(set)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            values = _static_string_values(node.value, constant_symbols)
+            for target in node.targets:
+                if isinstance(target, ast.Name) and values:
+                    local_symbols[target.id].update(values)
+        if isinstance(node, ast.For) and isinstance(node.target, ast.Name):
+            values = _static_string_values(node.iter, constant_symbols)
+            if values:
+                local_symbols[node.target.id].update(values)
+    return local_symbols
+
+
+def _retired_setting_sentinel_accesses(constant_symbols: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    resolved: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    call_names = {"get_setting", "save_setting", "delete_setting", "_save_setting_with_cursor"}
+    for relative in RETIRED_STANDALONE_SETTING_SENTINEL_PATHS:
+        path = REPO_ROOT / relative
+        _, tree = parse_python(path)
+        local_symbols = _local_string_symbols(tree, constant_symbols)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            operation = (
+                node.func.attr
+                if isinstance(node.func, ast.Attribute)
+                else node.func.id
+                if isinstance(node.func, ast.Name)
+                else None
+            )
+            if operation not in call_names:
+                continue
+            keys = _static_setting_keys(
+                node,
+                local_symbols,
+                constant_symbols,
+                argument_index=1 if operation == "_save_setting_with_cursor" else 0,
+            )
+            for key in RETIRED_STANDALONE_SETTING_KEYS.intersection(keys):
+                resolved[key].append({"operation": operation, "source": source_ref(path, node.lineno)})
+    return resolved
+
+
 def _scan_setting_calls() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     resolved: dict[str, list[dict[str, Any]]] = defaultdict(list)
     unresolved: list[dict[str, Any]] = []
@@ -182,17 +229,7 @@ def _scan_setting_calls() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             _, tree = parse_python(path)
         except (SyntaxError, UnicodeDecodeError):
             continue
-        local_symbols: dict[str, set[str]] = defaultdict(set)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Assign):
-                values = _static_string_values(node.value, constant_symbols)
-                for target in node.targets:
-                    if isinstance(target, ast.Name) and values:
-                        local_symbols[target.id].update(values)
-            if isinstance(node, ast.For) and isinstance(node.target, ast.Name):
-                values = _static_string_values(node.iter, constant_symbols)
-                if values:
-                    local_symbols[node.target.id].update(values)
+        local_symbols = _local_string_symbols(tree, constant_symbols)
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -231,6 +268,8 @@ def _scan_setting_calls() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 continue
             else:
                 unresolved.append(item)
+    for key, accesses in _retired_setting_sentinel_accesses(constant_symbols).items():
+        resolved[key].extend(accesses)
     retired_with_active_access = sorted(RETIRED_STANDALONE_SETTING_KEYS & resolved.keys())
     if retired_with_active_access:
         raise ManifestError(f"retired standalone settings still have operational readers: {retired_with_active_access}")

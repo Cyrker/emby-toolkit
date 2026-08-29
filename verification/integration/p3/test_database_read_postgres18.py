@@ -62,7 +62,7 @@ GREENFIELD_TABLES = {
     "proxy_playback_leases",
 }
 EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(GREENFIELD_TABLES)
-EXPECTED_MIGRATION_HEAD = "0020_p11_cleanup_config_cutover"
+EXPECTED_MIGRATION_HEAD = "0021_p11_license_alias_cutover"
 _FIXTURE_TABLES = (
     "failed_log",
     "processed_log",

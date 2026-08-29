@@ -3726,6 +3726,80 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-License-Alias-Cutover
+
+Stage / Batch: P11 / Pro license historical alias cutover
+
+HEAD / Commit:
+
+- Pre-cutover HEAD: `d67cbc2f` (`refactor(p11): retire cleanup config fallbacks`).
+- Checkpoint: this batch's `refactor(p11): retire license key alias` commit after the targeted gate
+  below.
+
+Implemented:
+
+- Added migration `0021_p11_license_alias_cutover`. It copies only a non-empty JSON string from the
+  historical `license_key` row into canonical `pro_license_key` when the canonical row is absent,
+  SQL/JSON null, empty or whitespace-only. Non-empty and malformed canonical values are never
+  overwritten; the historical row remains for audit and downgrade is intentionally non-destructive.
+- Removed the two operational storage fallbacks from shared-center quota reporting and the retained
+  compatibility runtime tier hint. Pro activation/transfer still accepts the API request field named
+  `license_key` and saves only canonical `pro_license_key` / `pro_expire_time`.
+- Marked the storage alias `retired-approved`, added an AST sentinel for the excluded compatibility
+  runtime source and regenerated Manifest/source-digest evidence. Standalone settings are now
+  `35 new / 13 legacy / 5 retired-approved`; the single Alembic head is
+  `0021_p11_license_alias_cutover`.
+
+Targeted gate:
+
+- `uv lock --check`, scoped Ruff check/format, scoped Pyright, compileall and `git diff --check` ->
+  clean. The modified legacy shared-center module is covered by compile/application evidence rather
+  than whole-file Ruff/Pyright because that preserved compatibility file remains outside the scoped
+  native quality baseline and contains unrelated pre-existing findings.
+- System/license/cleanup application plus migration-head architecture scope -> `63 passed`; static
+  Manifest/OpenAPI contract scope -> `16 passed`.
+- Disposable PostgreSQL 18 cross-stage scope -> `33 passed`; the post-review focused rerun ->
+  `3 passed`. Evidence covers string-only alias acceptance, SQL/JSON null and whitespace handling,
+  canonical precedence, preserved malformed canonical data, transaction rollback, real Alembic
+  failure/retry, one-way downgrade/re-upgrade and a blocked concurrent canonical writer.
+- Manifest/OpenAPI currentness, Alembic single-head check, retired-alias operational-reader sentinel
+  and all three fixture/contract secret scans -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-license-alias-cutover-20260829/`.
+
+Focused review:
+
+- SQL cutover, concurrent `ON CONFLICT` precedence, rollback/downgrade, secret handling, storage/API
+  name separation, Manifest sentinel and evidence quality were rereviewed. Final result: no
+  P0/P1/P2 finding in this slice.
+
+Stage full gate:
+
+- Not run. This slice retires one historical storage alias but does not close the remaining task,
+  route, table, dynamic/bootstrap config or standalone-setting ownership gaps; controlled removal
+  and P11 NFR/security/SBOM/License gates remain unauthorized.
+
+Pending:
+
+- Native-only Worker execution remains `17 executable / 33 unavailable`; route, table,
+  dynamic/bootstrap config and compatibility-runtime counts are unchanged from the previous slice.
+- `intro-fingerprint-backfill` remains blocked on the four recorded favorite/provider/shared-export/
+  historical-source contracts. Read-only audits also found that `scan-organize-115` needs decisions
+  on empty-payload versus approved-plan execution, unrecognized-item side effects and target-CID
+  binding; `update-daily-theme` needs explicit provider-failure, concurrent pool publication and
+  trigger/result contracts. No allowlist-only promotion was made.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue another evidence-backed P11 execution or ownership slice that does not depend on the
+recorded contract decisions. Do not start controlled removal or P12 until ownership and execution
+reach 100%.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -3745,6 +3819,7 @@ Read first:
 
 Next:
 
-- Continue an independent P11 execution or ownership slice. Keep `intro-fingerprint-backfill`
-  unavailable until its four contract decisions are confirmed; do not start controlled removal until
-  execution and ownership reach 100%. Keep all Live Acceptance items pending.
+- Continue an independent P11 execution or ownership slice. Keep `intro-fingerprint-backfill`,
+  `scan-organize-115` and `update-daily-theme` unavailable until their recorded contract decisions
+  are confirmed; do not start controlled removal until execution and ownership reach 100%. Keep all
+  Live Acceptance items pending.

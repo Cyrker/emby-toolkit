@@ -106,25 +106,22 @@ def _pro_expire_state(expire_time: str = '') -> str:
     return 'active' if parsed > datetime.now(timezone.utc) else 'expired'
 
 
-def _setting_text(key: str) -> str:
-    try:
-        return str(settings_db.get_setting(key) or '').strip()
-    except Exception:
-        return ''
-
-
 def build_current_pro_quota_report_payload() -> Dict[str, Any]:
     """把客户端当前 Pro 认证状态整理成上报中心的 payload；只上报 hash，不传卡密/ServerID 明文。"""
     app_cfg = config_manager.APP_CONFIG or {}
-    cfg = _shared_cfg()
-    license_key = ''
-    for key in ('pro_license_key', 'license_key'):
-        license_key = _setting_text(key)
-        if license_key:
-            break
-    tier = _normalize_pro_tier(app_cfg.get('pro_tier') or app_cfg.get('pro_level') or app_cfg.get('pro_card_type')) or _infer_pro_tier_from_license(license_key)
+    _shared_cfg()
+    try:
+        license_key = str(settings_db.get_setting('pro_license_key') or '').strip()
+    except Exception:
+        license_key = ''
+    tier_value = app_cfg.get('pro_tier') or app_cfg.get('pro_level') or app_cfg.get('pro_card_type')
+    tier = _normalize_pro_tier(str(tier_value or '')) or _infer_pro_tier_from_license(license_key)
     app_is_pro_active = bool(app_cfg.get('is_pro_active', False))
-    pro_expire_time = str(app_cfg.get('pro_expire_time') or '').strip() or _setting_text('pro_expire_time')
+    try:
+        stored_expire_time = str(settings_db.get_setting('pro_expire_time') or '').strip()
+    except Exception:
+        stored_expire_time = ''
+    pro_expire_time = str(app_cfg.get('pro_expire_time') or '').strip() or stored_expire_time
     expire_state = _pro_expire_state(pro_expire_time)
     effective_is_pro_active = app_is_pro_active
     auth_state = 'active' if app_is_pro_active else 'inactive'
