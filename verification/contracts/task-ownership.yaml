@@ -1530,12 +1530,11 @@
       "help": "同步全部用户数据，例如播放记录、收藏、观看状态等用户维度信息。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P8 router and UserSyncService own the processor-free normal path, authoritative Emby user and user-media readback, fenced PostgreSQL projection publication, and TaskOutcome mapping without the legacy callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.identity.user_sync.UserSyncService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -1566,12 +1565,11 @@
       "help": "检查并执行系统容器自动更新，适合需要保持 ETK 最新版本时使用。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P8 router owns the processor-free native SKIPPED contract. It never calls Docker, update, restart, the legacy updater, or a compatibility callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter"
       },
       "processor_type": "media",
       "retirement_approval": null,

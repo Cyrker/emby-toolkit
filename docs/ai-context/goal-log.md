@@ -3383,6 +3383,56 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-P8-Effect-Task-Ownership
+
+Stage / Batch: P11 / existing processor-free P8 task ownership correction
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `9449c53e` (`refactor(p11): execute native organize reconciliation`).
+- Checkpoint: this batch's `refactor(p11): record native p8 effect task owners` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Corrected `sync-all-user-data` execution ownership from the compatibility gateway to the already
+  active `UserSyncService`. Both Worker profiles already inject the same native adapter/repository
+  graph and the native-only Worker already executes this key without a Processor.
+- Corrected `system-auto-update` to its frozen native `SKIPPED` owner. The router does not call
+  Docker, update, restart, the legacy updater or the compatibility gateway.
+- Added generator-level owner mappings and an architecture regression for both contracts. No
+  runtime path or allowlist changed; native-only execution remains `15 executable / 35 unavailable`.
+
+Targeted gate:
+
+- Scoped Ruff -> clean; format -> one new architecture file formatted; scoped Pyright -> `0 errors,
+  0 warnings, 0 informations`.
+- P8 router, Worker outcome/process-role and ownership scope -> `121 passed, 1` existing Starlette
+  WSGI deprecation warning.
+- Disposable PostgreSQL 18 user-sync concurrency/projection scope -> `7 passed`.
+- Task export reported `task_keys=50`; Manifest currentness and contract tests -> clean / `8 passed`;
+  fixture secret scan and `git diff --check` -> clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-effect-task-ownership-20260829/`.
+
+Focused review:
+
+- No P0/P1/P2. This slice changes only truthful ownership metadata and its regression; the normal
+  processed runtime was already native and remains unchanged. Redis/Celery was not rerun because no
+  Worker wiring, routing, persistence or replay behavior changed.
+
+Pending:
+
+- Thirty-five catalog tasks remain unavailable in the native-only Worker. Route, table,
+  dynamic/bootstrap config, standalone-setting and active compatibility-runtime gaps remain.
+- Next candidate is `repair-p115-fingerprints`; it must add a native account/credential-fenced 115
+  read provider and pass application, PostgreSQL 18, Redis/Celery and import-sentinel gates before
+  allowlist promotion.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -3402,6 +3452,6 @@ Read first:
 
 Next:
 
-- Continue the smallest evidence-backed `P11-Pre-removal` ownership slice. Keep every other
+- Implement the bounded `repair-p115-fingerprints` native provider/Worker slice. Keep every other
   unmigrated task/binding explicit; do not start controlled removal until execution and ownership
   reach 100%. Keep all Live Acceptance items pending.

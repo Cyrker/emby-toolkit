@@ -106,6 +106,8 @@ P8_TASKS = {
 }
 P8_NATIVE_EXECUTION_OWNERS = {
     "scan-cleanup-issues": "etk.domains.subscription.cleanup_scan.CleanupScanService",
+    "sync-all-user-data": "etk.domains.identity.user_sync.UserSyncService",
+    "system-auto-update": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
 }
 P9_TASKS = {
     "hdhive-auto-checkin",
