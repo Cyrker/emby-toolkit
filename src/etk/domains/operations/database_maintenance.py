@@ -1692,11 +1692,6 @@ def _conflict_clause(table: str, *, share: bool) -> str:
 
 def _prepare_for_library_rebuild(session: Any) -> dict[str, Any]:
     truncated: list[str] = []
-    for table in ("user_media_data", "resubscribe_index", "cleanup_index"):
-        if _table_exists(session, table):
-            _preflight_foreign_keys(session, [table])
-            session.execute(text(f"DELETE FROM {_quote_identifier(table)}"))
-            truncated.append(table)
     updated: dict[str, int] = {}
     if _table_exists(session, "media_metadata"):
         result = session.execute(
@@ -1711,6 +1706,11 @@ def _prepare_for_library_rebuild(session: Any) -> dict[str, Any]:
             )
         )
         updated["media_metadata"] = int(getattr(result, "rowcount", 0) or 0)
+    for table in ("user_media_data", "resubscribe_index", "cleanup_index"):
+        if _table_exists(session, table):
+            _preflight_foreign_keys(session, [table])
+            session.execute(text(f"DELETE FROM {_quote_identifier(table)}"))
+            truncated.append(table)
     if _table_exists(session, "collections_info"):
         result = session.execute(
             text(

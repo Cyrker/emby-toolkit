@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -10,6 +12,9 @@ from etk.platform.db import SqlAlchemyUnitOfWork
 
 class SqlAlchemyCleanupMediaProjection:
     """P5-owned read projection for pending cleanup rows and media metadata."""
+
+    def lock_cleanup_scan_source(self, uow: SqlAlchemyUnitOfWork) -> None:
+        uow.session.execute(text("LOCK TABLE emby_users, media_metadata IN SHARE MODE"))
 
     def list_pending_tasks(self, uow: SqlAlchemyUnitOfWork) -> tuple[Mapping[str, Any], ...]:
         rows = (
@@ -47,6 +52,108 @@ class SqlAlchemyCleanupMediaProjection:
             .all()
         )
         return tuple(dict(row) for row in rows)
+
+    def cleanup_scan_source(
+        self,
+        uow: SqlAlchemyUnitOfWork,
+        *,
+        user_id: str | None,
+        library_ids: Sequence[str],
+        rating_mapping: Mapping[str, Sequence[Mapping[str, Any]]],
+    ) -> Mapping[str, Any]:
+        user_policy: Mapping[str, Any] | None = None
+        if user_id:
+            value = uow.session.scalar(
+                text("SELECT policy_json FROM emby_users WHERE id = :user_id"),
+                {"user_id": user_id},
+            )
+            if value is None:
+                return {
+                    "user_policy": None,
+                    "user_exists": False,
+                    "visible_movie_ids": (),
+                    "visible_series_ids": (),
+                    "items": (),
+                }
+            if not isinstance(value, Mapping):
+                raise TypeError("cleanup scan Emby user policy must be an object")
+            user_policy = dict(value)
+
+        root_rows = (
+            uow.session.execute(
+                text(
+                    """
+                    SELECT tmdb_id, item_type, asset_details_json, tags_json,
+                           custom_rating, official_rating_json
+                    FROM media_metadata
+                    WHERE in_library IS TRUE
+                      AND item_type IN ('Movie', 'Series')
+                    ORDER BY item_type, tmdb_id
+                    """
+                )
+            )
+            .mappings()
+            .all()
+        )
+        visible_movie_ids: list[str] = []
+        visible_series_ids: list[str] = []
+        for row in root_rows:
+            if not _cleanup_scan_row_visible(
+                dict(row),
+                user_policy=user_policy,
+                library_ids=library_ids,
+                rating_mapping=rating_mapping,
+            ):
+                continue
+            tmdb_id = str(row["tmdb_id"] or "").strip()
+            if not tmdb_id:
+                continue
+            if str(row["item_type"]) == "Movie":
+                visible_movie_ids.append(tmdb_id)
+            else:
+                visible_series_ids.append(tmdb_id)
+
+        if not visible_movie_ids and not visible_series_ids:
+            return {
+                "user_policy": dict(user_policy) if user_policy is not None else None,
+                "user_exists": True,
+                "visible_movie_ids": (),
+                "visible_series_ids": (),
+                "items": (),
+            }
+        items = (
+            uow.session.execute(
+                text(
+                    """
+                    SELECT tmdb_id, item_type, title, original_language,
+                           countries_json, asset_details_json
+                    FROM media_metadata
+                    WHERE in_library IS TRUE
+                      AND jsonb_typeof(asset_details_json) = 'array'
+                      AND jsonb_array_length(asset_details_json) > 1
+                      AND (
+                            (item_type = 'Movie' AND tmdb_id = ANY(CAST(:movie_ids AS text[])))
+                         OR (item_type = 'Episode'
+                             AND parent_series_tmdb_id = ANY(CAST(:series_ids AS text[])))
+                      )
+                    ORDER BY item_type, COALESCE(title, ''), tmdb_id
+                    """
+                ),
+                {
+                    "movie_ids": visible_movie_ids,
+                    "series_ids": visible_series_ids,
+                },
+            )
+            .mappings()
+            .all()
+        )
+        return {
+            "user_policy": dict(user_policy) if user_policy is not None else None,
+            "user_exists": True,
+            "visible_movie_ids": tuple(visible_movie_ids),
+            "visible_series_ids": tuple(visible_series_ids),
+            "items": tuple(dict(row) for row in items),
+        }
 
     def version_deletion_snapshot(
         self,
@@ -245,6 +352,136 @@ def _string_values(value: object) -> tuple[str, ...]:
     if not isinstance(value, Sequence) or isinstance(value, str | bytes):
         return ()
     return tuple(str(item or "").strip() for item in value)
+
+
+def _cleanup_scan_row_visible(
+    row: Mapping[str, Any],
+    *,
+    user_policy: Mapping[str, Any] | None,
+    library_ids: Sequence[str],
+    rating_mapping: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> bool:
+    assets = _mapping_values(row.get("asset_details_json"))
+    selected_libraries = {str(value) for value in library_ids}
+    if selected_libraries and not any(
+        str(asset.get("source_library_id") or "") in selected_libraries for asset in assets
+    ):
+        return False
+    if user_policy is None:
+        return True
+
+    raw_limit = user_policy.get("MaxParentalRating")
+    if raw_limit is not None:
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("cleanup scan user MaxParentalRating must be an integer") from exc
+        if _cleanup_rating_value(row, rating_mapping) > limit:
+            return False
+
+    enabled_folders = _policy_json_string_set(user_policy, "EnabledFolders")
+    excluded_folders = _policy_json_string_set(user_policy, "ExcludedSubFolders")
+    all_folders = user_policy.get("EnableAllFolders") is True
+    folder_visible = False
+    for asset in assets:
+        ancestors = _json_string_set(asset.get("ancestor_ids"))
+        allowed = (
+            all_folders
+            or bool(ancestors & enabled_folders)
+            or str(asset.get("source_library_id") or "") in enabled_folders
+        )
+        if allowed and not ancestors & excluded_folders:
+            folder_visible = True
+            break
+    if not folder_visible:
+        return False
+
+    blocked_tags = _policy_json_string_set(user_policy, "BlockedTags")
+    if blocked_tags & _json_string_set(row.get("tags_json")):
+        return False
+
+    blocked_unrated_types = _policy_json_string_set(user_policy, "BlockUnratedItems")
+    if str(row.get("item_type") or "") in blocked_unrated_types and _cleanup_unrated(_cleanup_rating_text(row)):
+        return False
+    return True
+
+
+def _cleanup_rating_value(
+    row: Mapping[str, Any],
+    rating_mapping: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> int:
+    rating = _cleanup_rating_text(row)
+    for rules in rating_mapping.values():
+        for rule in rules:
+            if str(rule.get("code") or "") != rating:
+                continue
+            value = rule.get("emby_value")
+            if value is not None:
+                try:
+                    return int(value)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError("cleanup rating mapping emby_value must be an integer") from exc
+    digits = re.sub(r"[^0-9]", "", rating)
+    return int(digits) if digits else 0
+
+
+def _cleanup_rating_text(row: Mapping[str, Any]) -> str:
+    custom = row.get("custom_rating")
+    if custom is not None and str(custom) != "":
+        return str(custom)
+    official = row.get("official_rating_json")
+    return str(official.get("US") or "") if isinstance(official, Mapping) else ""
+
+
+def _cleanup_unrated(value: object) -> bool:
+    text_value = str(value or "")
+    if not text_value or text_value in {"NR", "UR", "Unrated", "Not Rated"}:
+        return True
+    known = {
+        "G",
+        "PG",
+        "PG-13",
+        "R",
+        "NC-17",
+        "X",
+        "XXX",
+        "AO",
+        "TV-Y",
+        "TV-Y7",
+        "TV-G",
+        "TV-PG",
+        "TV-14",
+        "TV-MA",
+    }
+    return text_value not in known and not re.sub(r"[^0-9]", "", text_value)
+
+
+def _json_string_set(value: object) -> set[str]:
+    if not isinstance(value, list):
+        return set()
+    return {str(item) for item in value if isinstance(item, str)}
+
+
+def _policy_json_string_set(policy: Mapping[str, Any], field: str) -> set[str]:
+    value = policy.get(field)
+    if value is None:
+        return set()
+    if not isinstance(value, list):
+        raise TypeError(f"cleanup scan user {field} must be an array")
+    result: set[str] = set()
+    for item in value:
+        if item is None:
+            continue
+        if isinstance(item, Mapping | list):
+            raise TypeError(f"cleanup scan user {field} entries must be scalar values")
+        if isinstance(item, str):
+            result.add(item)
+            continue
+        if isinstance(item, bool | int | float):
+            result.add(json.dumps(item, ensure_ascii=False, separators=(",", ":")))
+            continue
+        raise TypeError(f"cleanup scan user {field} entries must be JSON scalar values")
+    return result
 
 
 __all__ = ["SqlAlchemyCleanupMediaProjection"]

@@ -172,6 +172,7 @@ from etk.domains.subscription.assistant import (
 )
 from etk.domains.subscription.cleanup_adapters import (
     ConfiguredCleanupEmbyGateway,
+    HttpxCleanupEmbyInventoryGateway,
     LegacyCleanupMediaGateway,
     LegacyCleanupP115Gateway,
     SafeLocalCleanupGateway,
@@ -184,6 +185,8 @@ from etk.domains.subscription.cleanup_execution import (
 )
 from etk.domains.subscription.cleanup_repository import SqlAlchemyCleanupRepository
 from etk.domains.subscription.cleanup_runtime_repository import SqlAlchemyCleanupExecutionRepository
+from etk.domains.subscription.cleanup_scan import CleanupScanService
+from etk.domains.subscription.cleanup_scan_repository import SqlAlchemyCleanupScanRepository
 from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotGateway
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.operations import SubscriptionOperation
@@ -273,6 +276,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     | {
         "backfill-organize-record-tmdb-ids",
         "recalculate_library_washing_priorities",
+        "scan-cleanup-issues",
         "scan_old_seasons_backfill",
         "sync-115-directory-tree",
         "sync-all-user-data",
@@ -765,6 +769,14 @@ class WorkerRuntime:
                     settings=settings_provider,
                     episode_runtime=HttpxP115EpisodeRuntimeGateway(settings_provider),
                 )
+                cleanup_scan = CleanupScanService(
+                    SqlAlchemyCleanupScanRepository(
+                        database.unit_of_work,
+                        SqlAlchemyCleanupMediaProjection(),
+                    ),
+                    HttpxCleanupEmbyInventoryGateway(settings_provider),
+                    settings_provider,
+                )
                 cleanup_executor = CleanupExecutionService(
                     cleanup_repository,
                     local=SafeLocalCleanupGateway(),
@@ -830,6 +842,7 @@ class WorkerRuntime:
                         HttpxEmbyUserSyncAdapter(settings_provider),
                         SqlAlchemyUserSyncRepository(database.unit_of_work),
                     ),
+                    cleanup_scan,
                 )
                 p9_sharing_tasks = P9SharingTaskRouter(
                     shared_center=HttpxSharedCenterAdapter(settings_provider),
@@ -1194,6 +1207,14 @@ class WorkerRuntime:
                 settings=settings_provider,
                 episode_runtime=HttpxP115EpisodeRuntimeGateway(settings_provider),
             )
+            cleanup_scan = CleanupScanService(
+                SqlAlchemyCleanupScanRepository(
+                    database.unit_of_work,
+                    SqlAlchemyCleanupMediaProjection(),
+                ),
+                HttpxCleanupEmbyInventoryGateway(settings_provider),
+                settings_provider,
+            )
             subscription_operations = PostgresSubscriptionOperationRepository(database.unit_of_work)
             subscription_executor = SubscriptionOperationExecutor(
                 subscription_operations,
@@ -1253,6 +1274,7 @@ class WorkerRuntime:
                     HttpxEmbyUserSyncAdapter(settings_provider),
                     SqlAlchemyUserSyncRepository(database.unit_of_work),
                 ),
+                cleanup_scan,
             )
             p9_sharing_tasks = P9SharingTaskRouter(
                 shared_center=HttpxSharedCenterAdapter(settings_provider),
@@ -1835,6 +1857,7 @@ class WorkerRuntime:
                         in {
                             "recalculate_library_washing_priorities",
                             "restore_mediainfo",
+                            "scan-cleanup-issues",
                             "scan_old_seasons_backfill",
                             "sync-all-user-data",
                             "system-auto-update",
@@ -1971,6 +1994,9 @@ class WorkerRuntime:
                     "attempt_id": str(attempt.id),
                     "worker_id": self._worker_id,
                 }
+                requested_by_user_id = str(getattr(job, "requested_by_user_id", None) or "").strip()
+                if requested_by_user_id:
+                    metadata["requested_by_user_id"] = requested_by_user_id
                 message = registry.create_message(
                     definition.key,
                     envelope["parameters"],

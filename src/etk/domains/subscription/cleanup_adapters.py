@@ -96,6 +96,92 @@ class SettingsCleanupExecutionPolicy:
         }
 
 
+class CleanupEmbyInventoryUnavailable(RuntimeError):
+    pass
+
+
+class CleanupEmbyInventoryCredentialChanged(RuntimeError):
+    pass
+
+
+class HttpxCleanupEmbyInventoryGateway:
+    """Authoritative, read-only Emby ItemID inventory for duplicate scanning."""
+
+    def __init__(
+        self,
+        settings: Callable[[], Settings],
+        *,
+        client_factory: Callable[[], httpx.Client] | None = None,
+        batch_size: int = 100,
+    ) -> None:
+        if batch_size < 1:
+            raise ValueError("cleanup Emby inventory batch_size must be positive")
+        self._settings = settings
+        self._client_factory = client_factory or self._default_client
+        self._batch_size = batch_size
+
+    def existing_item_ids(self, item_ids: Sequence[str]) -> frozenset[str]:
+        normalized = tuple(dict.fromkeys(str(value).strip() for value in item_ids if str(value).strip()))
+        if not normalized:
+            return frozenset()
+        settings = self._settings()
+        base_url = settings.emby_server_url.strip().rstrip("/")
+        token = settings.emby_api_key.get_secret_value().strip()
+        if not base_url or not token:
+            raise CleanupEmbyInventoryUnavailable("cleanup scan requires configured Emby authorization")
+        revision = emby_authorization_revision(settings)
+        requested = set(normalized)
+        existing: set[str] = set()
+        try:
+            with self._client_factory() as client:
+                for offset in range(0, len(normalized), self._batch_size):
+                    self._assert_revision(revision)
+                    batch = normalized[offset : offset + self._batch_size]
+                    response = client.get(
+                        f"{base_url}/Items",
+                        params={
+                            "Ids": ",".join(batch),
+                            "Limit": len(batch),
+                            "Fields": "Id",
+                        },
+                        headers={"X-Emby-Token": token},
+                    )
+                    response.raise_for_status()
+                    try:
+                        payload = response.json()
+                    except ValueError as exc:
+                        raise CleanupEmbyInventoryUnavailable("cleanup Emby inventory returned invalid JSON") from exc
+                    if not isinstance(payload, Mapping) or not isinstance(payload.get("Items"), list):
+                        raise CleanupEmbyInventoryUnavailable(
+                            "cleanup Emby inventory returned an invalid response object"
+                        )
+                    for raw_item in payload["Items"]:
+                        if not isinstance(raw_item, Mapping):
+                            raise CleanupEmbyInventoryUnavailable("cleanup Emby inventory returned a non-object item")
+                        item_id = str(raw_item.get("Id") or "").strip()
+                        if not item_id or item_id not in requested:
+                            raise CleanupEmbyInventoryUnavailable(
+                                "cleanup Emby inventory returned an unexpected item identity"
+                            )
+                        existing.add(item_id)
+        except CleanupEmbyInventoryCredentialChanged:
+            raise
+        except CleanupEmbyInventoryUnavailable:
+            raise
+        except (httpx.HTTPError, httpx.TimeoutException, httpx.TransportError) as exc:
+            raise CleanupEmbyInventoryUnavailable("cleanup Emby inventory request failed") from exc
+        finally:
+            self._assert_revision(revision)
+        return frozenset(existing)
+
+    def _assert_revision(self, expected: str) -> None:
+        if emby_authorization_revision(self._settings()) != expected:
+            raise CleanupEmbyInventoryCredentialChanged("Emby authorization changed during cleanup inventory read")
+
+    def _default_client(self) -> httpx.Client:
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+
+
 class SafeLocalCleanupGateway:
     def reconcile(self, target: Mapping[str, Any]) -> CleanupEffectResult:
         local = _mapping(target.get("local"), "cleanup local snapshot")
@@ -613,7 +699,10 @@ def _p115_snapshot(target: Mapping[str, Any]) -> dict[str, Any]:
 
 
 __all__ = [
+    "CleanupEmbyInventoryCredentialChanged",
+    "CleanupEmbyInventoryUnavailable",
     "ConfiguredCleanupEmbyGateway",
+    "HttpxCleanupEmbyInventoryGateway",
     "LegacyCleanupMediaGateway",
     "LegacyCleanupP115Gateway",
     "SafeLocalCleanupGateway",

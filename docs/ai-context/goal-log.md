@@ -3176,6 +3176,85 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Cleanup-Scan-Worker
+
+Stage / Batch: P11 / processor-free cleanup-scan Worker slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `48f8b566` (`fix(p11): keep washing recalculation processor-free`).
+- Checkpoint: this batch's `refactor(p11): execute native cleanup scan` commit after the targeted
+  gate below.
+
+Implemented:
+
+- Replaced the normal processed `scan-cleanup-issues` compatibility call with
+  `CleanupScanService`, `SqlAlchemyCleanupScanRepository`, the P5-owned cleanup media projection
+  and a read-only `HttpxCleanupEmbyInventoryGateway`. Native-only and compatibility-enabled Workers
+  use the same processor-free service and propagate the requesting user and durable Job identity.
+- Preserved legacy version ordering, Chinese-subtitle bypass, per-resolution retention and
+  canonical/legacy cleanup-policy fallback. Malformed canonical config or user permission arrays
+  now fail closed before Emby inventory or publication.
+- Added user-visible Movie/Series scope, Movie/Episode version projection and authoritative batched
+  Emby identity readback. Transport, invalid payload/object/identity and credential drift all abort
+  without replacing the pending index.
+- Replaced pending cleanup rows in one PostgreSQL UoW while preserving ignored rows, rejecting active
+  cleanup execution, revalidating the source fingerprint and fencing current/parent cancellation.
+  Source tables remain locked through commit; commit-time cancellation rolls back, while effect
+  markers prevent a committed publication from being reported as cancelled.
+- Standardized Database Maintenance rebuild ordering to `media_metadata -> cleanup_index`, matching
+  cleanup scan and offline cleanup. This removes the two previously opposing lock orders without
+  changing the final single-UoW rebuild result.
+- Promoted only `scan-cleanup-issues` to the native-only executable set. Execution is now `14
+  executable / 36 unavailable`; every other unmigrated task remains explicit.
+
+Targeted gate:
+
+- Scoped Ruff -> clean; format check -> `15 files already formatted`; scoped Pyright -> `0 errors,
+  0 warnings, 0 informations`.
+- Application/Worker/architecture scope -> `146 passed, 1` existing Starlette WSGI deprecation
+  warning.
+- Disposable PostgreSQL 18 cleanup scan plus Database Maintenance -> `15 passed`, including source
+  writer locks, cancellation rollback/linearization, malformed policy preservation and the
+  maintenance cross-lock ordering regression.
+- Existing disposable PostgreSQL 18 cleanup execution regression -> `46 passed`.
+- Redis-Celery native-only crash/replacement replay and compatibility-enabled normal profile -> `2
+  passed, 15 deselected`; only a loopback Emby Stub was used.
+- Task export reported `task_keys=50`; Manifest and OpenAPI currentness plus `git diff --check` were
+  clean. Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-cleanup-scan-20260829/targeted-gate-final.md`.
+
+Focused review:
+
+- Initial reviews found source-fingerprint publication drift, malformed-policy widening,
+  cancellation publication, and two opposing Database Maintenance lock orders. A suspected
+  `claim_next()` race was withdrawn because claim cannot create an active item outside the exact
+  state set already checked by scan.
+- Final independent rereviews found no remaining P0/P1/P2 after source-first locking, Job/effect
+  fencing, fail-closed validation and the maintenance lock-order correction.
+
+Stage full gate:
+
+- Not run. P11 still has explicit route, task, table, dynamic/bootstrap config and standalone
+  settings ownership gaps, so controlled removal and the stage NFR/security gates are not yet
+  authorized.
+
+Pending:
+
+- Native-only Worker execution is `14 executable / 36 unavailable`. Fifty-seven route decorators,
+  61 method bindings, 12 tables, 82 dynamic config keys, seven bootstrap keys and 18 standalone
+  settings remain legacy-owned.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue the smallest evidence-backed P11 ownership or normal processed Worker slice. Do not
+start controlled removal or P12 until execution and ownership reach 100%.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

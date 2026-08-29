@@ -485,6 +485,7 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
     ("task_key", "router_field"),
     [
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
+        ("scan-cleanup-issues", "_p8_effect_tasks"),
         ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
         ("sync-all-user-data", "_p8_effect_tasks"),
         ("hdhive-auto-checkin", "_p9_sharing_tasks"),
@@ -522,17 +523,22 @@ def test_native_processor_free_tasks_do_not_import_task_manager(
 
 
 @pytest.mark.parametrize(
-    "task_key",
-    ["recalculate_library_washing_priorities", "scan_old_seasons_backfill"],
+    ("task_key", "router_field"),
+    [
+        ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
+        ("scan-cleanup-issues", "_p8_effect_tasks"),
+        ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
+    ],
 )
-def test_compatibility_worker_does_not_resolve_processor_for_native_p7_tasks(
+def test_compatibility_worker_does_not_resolve_processor_for_native_tasks(
     monkeypatch: pytest.MonkeyPatch,
     task_key: str,
+    router_field: str,
 ) -> None:
     projection = _catalog_projection(task_key, parameters={})
     runtime, store = _catalog_runtime(projection, StubP6Router())
     router = StubProcessorFreeRouter()
-    cast(Any, runtime)._p7_subscription_tasks = router
+    setattr(cast(Any, runtime), router_field, router)
     monkeypatch.setattr(
         "etk.processes.worker._processor",
         lambda _identity: (_ for _ in ()).throw(AssertionError(f"{task_key} resolved a processor")),
@@ -810,6 +816,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
         | {
             "backfill-organize-record-tmdb-ids",
             "recalculate_library_washing_priorities",
+            "scan-cleanup-issues",
             "scan-monitor-folders",
             "scan_old_seasons_backfill",
             "sync-115-directory-tree",

@@ -9,6 +9,19 @@ import pytest
 import etk.domains.operations.database_maintenance as maintenance
 
 
+class _MutationResult:
+    rowcount = 1
+
+
+class _RecordingSession:
+    def __init__(self) -> None:
+        self.statements: list[str] = []
+
+    def execute(self, statement: object) -> _MutationResult:
+        self.statements.append(str(statement))
+        return _MutationResult()
+
+
 def _backup(*, format_version: int = 1, fingerprint: str | None = None) -> bytes:
     payload = {
         "format_version": format_version,
@@ -70,3 +83,22 @@ def test_share_allowlist_and_overwrite_denylist_are_exact() -> None:
     with pytest.raises(maintenance.DatabaseMaintenanceValidationError, match="control-plane"):
         maintenance._validate_mutation_tables(["database_backup_artifacts"], allow_share=False)
     assert maintenance.OVERWRITE_DENYLIST == frozenset({"emby_users", "cleanup_index", "invitations"})
+
+
+def test_prepare_library_rebuild_mutates_media_before_cleanup_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = _RecordingSession()
+    monkeypatch.setattr(maintenance, "_table_exists", lambda _session, _table: True)
+    monkeypatch.setattr(maintenance, "_preflight_foreign_keys", lambda _session, _tables: None)
+
+    result = maintenance._prepare_for_library_rebuild(session)
+
+    media_update = next(
+        index for index, statement in enumerate(session.statements) if "UPDATE media_metadata" in statement
+    )
+    cleanup_delete = next(
+        index for index, statement in enumerate(session.statements) if 'DELETE FROM "cleanup_index"' in statement
+    )
+    assert media_update < cleanup_delete
+    assert result["truncated_tables"] == ["user_media_data", "resubscribe_index", "cleanup_index"]

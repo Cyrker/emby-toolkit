@@ -6710,7 +6710,7 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+        "notes": "P8 router and CleanupScanService own the processor-free normal path, authoritative read-only Emby inventory, user-scoped media projection, atomic cleanup-index publication, replay, and TaskOutcome mapping without the legacy callable.",
         "status": "new",
         "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
         "validation_owner": "operations/p8-effects"

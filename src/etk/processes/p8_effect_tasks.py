@@ -10,6 +10,7 @@ from etk.domains.operations.review_reprocess import (
     REVIEW_REPROCESS_ALL_TASK_KEY,
     REVIEW_REPROCESS_ONE_TASK_KEY,
 )
+from etk.domains.subscription.cleanup_scan import CleanupScanResult
 from etk.platform.jobs import normalize_json_object
 from etk.platform.tasks import ProcessorIdentity, TaskMessage, TaskOutcome, TaskOutcomeStatus, TaskPayload
 from etk.platform.tasks.catalog import P8_NATIVE_TASK_KEYS
@@ -70,6 +71,16 @@ class P8EffectsCompatibilityGateway(Protocol):
     ) -> object: ...
 
 
+class P8CleanupScan(Protocol):
+    def execute(
+        self,
+        progress: P8TaskProgress,
+        *,
+        requested_by_user_id: object = None,
+        execution_job_id: object = None,
+    ) -> CleanupScanResult: ...
+
+
 class LegacyP8EffectsCompatibilityGateway:
     """Worker-only allowlist around established P8 task implementations."""
 
@@ -100,9 +111,11 @@ class P8EffectTaskRouter:
         self,
         compatibility: P8EffectsCompatibilityGateway | None,
         user_sync: UserSyncService,
+        cleanup_scan: P8CleanupScan | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._user_sync = user_sync
+        self._cleanup_scan = cleanup_scan
 
     def execute(
         self,
@@ -132,6 +145,18 @@ class P8EffectTaskRouter:
                 outcome.status,
                 outcome.message,
                 {**outcome.details, **_details(message.task_key, compatibility=False)},
+            )
+        if message.task_key == "scan-cleanup-issues":
+            if self._cleanup_scan is None:
+                raise RuntimeError("P8 cleanup scan execution is unavailable")
+            result = self._cleanup_scan.execute(
+                progress,
+                requested_by_user_id=message.metadata.get("requested_by_user_id"),
+                execution_job_id=message.metadata.get("job_id"),
+            )
+            return TaskOutcome.succeeded(
+                result.message,
+                {**dict(result.stats), **_details(message.task_key, compatibility=False)},
             )
         if processor is None:
             raise RuntimeError(f"P8 task {message.task_key!r} media processor is unavailable")
@@ -278,6 +303,7 @@ def _details(task_key: str, *, compatibility: bool) -> dict[str, str | bool]:
 __all__ = [
     "LegacyP8EffectsCompatibilityGateway",
     "P8_COMPATIBILITY_FALLBACK_UNTIL",
+    "P8CleanupScan",
     "P8EffectTaskRouter",
     "P8EffectsCompatibilityGateway",
     "P8TaskProgress",

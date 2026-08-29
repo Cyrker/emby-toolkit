@@ -245,6 +245,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:340",
@@ -273,6 +279,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:303",
@@ -338,6 +350,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:338",
@@ -366,6 +384,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:339",
@@ -428,6 +452,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:305",
@@ -458,6 +488,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:306",
@@ -488,6 +524,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:321",
@@ -784,6 +826,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:328",
@@ -847,6 +895,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:327",
@@ -940,6 +994,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:334",
@@ -1173,7 +1233,12 @@
       "help": "扫描重复媒体、异常文件和可清理项目，帮助发现占空间或重复入库的问题。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P8 router and CleanupScanService own the processor-free normal path, authoritative read-only Emby inventory, user-scoped media projection, atomic cleanup-index publication, replay, and TaskOutcome mapping without the legacy callable.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.subscription.cleanup_scan.CleanupScanService"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:329",
@@ -1466,6 +1531,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:320",
@@ -1496,6 +1567,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:323",
@@ -1578,6 +1655,12 @@
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "ownership_layers": {
+        "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
+        "retirement_stage": "P11"
+      },
       "processor_type": "media",
       "retirement_approval": null,
       "source": "tasks/core.py:331",

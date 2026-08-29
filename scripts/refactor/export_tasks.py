@@ -104,6 +104,9 @@ P8_TASKS = {
     "fill-studio-images",
     "check-expired-users",
 }
+P8_NATIVE_EXECUTION_OWNERS = {
+    "scan-cleanup-issues": "etk.domains.subscription.cleanup_scan.CleanupScanService",
+}
 P9_TASKS = {
     "hdhive-auto-checkin",
     "shared-resource-maintenance",
@@ -233,6 +236,15 @@ def export_tasks() -> dict[str, Any]:
                 "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
                 "execution_kind": "native-use-case" if execution_owner else "legacy-compatibility-callable",
                 "execution_owner": execution_owner or compatibility_owner,
+                **({} if execution_owner else {"retirement_stage": "P11"}),
+            }
+        elif task_key in P8_TASKS:
+            execution_owner = P8_NATIVE_EXECUTION_OWNERS.get(task_key)
+            entry["ownership_layers"] = {
+                "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+                "execution_kind": "native-use-case" if execution_owner else "legacy-compatibility-callable",
+                "execution_owner": execution_owner
+                or "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
                 **({} if execution_owner else {"retirement_stage": "P11"}),
             }
         elif task_key in P9_TASKS:
