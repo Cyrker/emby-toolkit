@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Protocol
 
 from etk.domains.system.standalone import StandaloneSettingsRepository
+
+from .models import SubscriptionSourceType
 
 WATCHLIST_USE_CASE_PROVIDER = "subscription.watchlist"
 WATCHLIST_MEDIA_PROJECTION_PROVIDER = "media.watchlist-projection"
@@ -105,6 +107,62 @@ class WatchlistRefreshPort(Protocol):
     def ready(self) -> bool: ...
 
     def submit(self, *, tmdb_id: str, item_name: str) -> Any: ...
+
+
+class OldSeasonBackfillRepository(Protocol):
+    def list_missing_old_seasons(self) -> Sequence[Mapping[str, Any]]: ...
+
+    def mark_old_seasons_wanted(
+        self,
+        seasons: Sequence[Mapping[str, Any]],
+        *,
+        source: Mapping[str, Any],
+        checkpoint: Callable[[], None],
+    ) -> int: ...
+
+
+class OldSeasonBackfillProgress(Protocol):
+    def update(self, progress: int, message: str) -> None: ...
+
+    def checkpoint(self) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class OldSeasonBackfillResult:
+    candidate_count: int
+    affected_count: int
+    message: str
+
+
+class OldSeasonBackfillService:
+    """Processor-free local database task for missing historical seasons."""
+
+    def __init__(self, repository: OldSeasonBackfillRepository) -> None:
+        self._repository = repository
+
+    def execute(self, progress: OldSeasonBackfillProgress) -> OldSeasonBackfillResult:
+        progress.checkpoint()
+        progress.update(10, "正在分析数据库中的缺失旧季...")
+        candidates = tuple(dict(candidate) for candidate in self._repository.list_missing_old_seasons())
+        if not candidates:
+            message = "扫描完成：没有发现缺失的旧季。"
+            progress.update(100, message)
+            return OldSeasonBackfillResult(0, 0, message)
+
+        progress.update(50, f"发现 {len(candidates)} 个缺失旧季，正在提交请求...")
+        progress.checkpoint()
+        requests = tuple(_old_season_request(candidate) for candidate in candidates)
+        affected = self._repository.mark_old_seasons_wanted(
+            requests,
+            source={
+                "type": SubscriptionSourceType.SCAN_OLD_SEASONS_BACKFILL.value,
+                "reason": "backfill_old_season",
+            },
+            checkpoint=progress.checkpoint,
+        )
+        message = f"任务完成！已为 {len(candidates)} 个旧季提交了订阅请求。"
+        progress.update(100, message)
+        return OldSeasonBackfillResult(len(candidates), affected, message)
 
 
 class WatchlistService:
@@ -265,6 +323,22 @@ def _normalize_intro_trigger_mode(value: Any) -> str:
     return mode if mode in _INTRO_DETECTION_TRIGGER_MODES else "off"
 
 
+def _old_season_request(candidate: Mapping[str, Any]) -> dict[str, Any]:
+    season_number = candidate["season_number"]
+    return {
+        "tmdb_id": candidate["tmdb_id"],
+        "item_type": "Season",
+        "title": candidate.get("title") or f"{candidate.get('series_title', '未知剧集')} - 第 {season_number} 季",
+        "original_title": candidate.get("original_title"),
+        "release_date": candidate.get("release_date"),
+        "poster_path": candidate.get("poster_path"),
+        "season_number": season_number,
+        "parent_series_tmdb_id": candidate["parent_series_tmdb_id"],
+        "overview": candidate.get("overview"),
+        "reason": f"backfill_old_season: S{season_number} Missing",
+    }
+
+
 def _normalize_library_ids(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -295,6 +369,10 @@ def _legacy_bool(value: Any) -> bool:
 
 __all__ = [
     "BATCH_WATCHLIST_STATUSES",
+    "OldSeasonBackfillProgress",
+    "OldSeasonBackfillRepository",
+    "OldSeasonBackfillResult",
+    "OldSeasonBackfillService",
     "SHARED_RESOURCE_CONFIG_SETTING",
     "WATCHLIST_CONFIG_SETTING",
     "WATCHLIST_EXTERNAL_DELETE_PROVIDER",

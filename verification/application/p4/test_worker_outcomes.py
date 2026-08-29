@@ -485,6 +485,7 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
     ("task_key", "router_field"),
     [
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
+        ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
         ("sync-all-user-data", "_p8_effect_tasks"),
         ("hdhive-auto-checkin", "_p9_sharing_tasks"),
     ],
@@ -512,6 +513,25 @@ def test_native_processor_free_tasks_do_not_import_task_manager(
         return original_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == ["succeeded"]
+    assert len(router.calls) == 1
+    assert router.calls[0][1] is None
+
+
+def test_compatibility_worker_does_not_resolve_processor_for_native_old_season_backfill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    projection = _catalog_projection("scan_old_seasons_backfill", parameters={})
+    runtime, store = _catalog_runtime(projection, StubP6Router())
+    router = StubProcessorFreeRouter()
+    cast(Any, runtime)._p7_subscription_tasks = router
+    monkeypatch.setattr(
+        "etk.processes.worker._processor",
+        lambda _identity: (_ for _ in ()).throw(AssertionError("old-season backfill resolved a processor")),
+    )
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
 
@@ -786,6 +806,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "backfill-organize-record-tmdb-ids",
             "recalculate_library_washing_priorities",
             "scan-monitor-folders",
+            "scan_old_seasons_backfill",
             "sync-all-user-data",
             "system-auto-update",
         }

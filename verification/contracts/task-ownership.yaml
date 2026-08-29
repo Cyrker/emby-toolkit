@@ -1269,12 +1269,11 @@
       "help": "扫描缺季老剧并尝试补齐缺失季度，适合老剧季信息不完整时使用。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-      "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+      "notes": "P11 processor-free OldSeasonBackfillService owns the normal PostgreSQL candidate and WANTED mutation path with cancellation-before-commit and source replay idempotency. The use case itself does not use a Watchlist processor, legacy database module, task_manager, or external adapter; compatibility Worker lifecycle wrappers remain outside this execution owner.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.subscription.watchlist.OldSeasonBackfillService"
       },
       "processor_type": "watchlist",
       "retirement_approval": null,
@@ -1286,7 +1285,7 @@
       ],
       "target_stage": "P7",
       "task_key": "scan_old_seasons_backfill",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
+      "validation_method": "ordered-task-registry-processor-free-router-worker-outcome-postgres18-and-redis-celery",
       "validation_owner": "subscription/task-envelope",
       "visible_in": [
         "all"

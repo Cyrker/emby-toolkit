@@ -375,6 +375,150 @@ def test_duplicate_celery_delivery_for_same_attempt_executes_once(
         assert worker.stop() == 0
 
 
+@pytest.mark.parametrize(
+    "compatibility_enabled",
+    [False, True],
+    ids=["native-only", "compatibility-enabled"],
+)
+def test_old_season_backfill_executes_once_through_real_worker_profiles(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+) -> None:
+    series_id = f"old-season-worker-{uuid4().hex}"
+    missing_id = f"{series_id}-s1"
+    latest_id = f"{series_id}-s2"
+    with p4_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, title, watching_status, in_library
+                ) VALUES (
+                    :series_id, 'Series', 'Fixture Series', 'Watching', FALSE
+                ), (
+                    :missing_id, 'Season', 'Fixture S1', 'NONE', FALSE
+                ), (
+                    :latest_id, 'Season', 'Fixture S2', 'NONE', TRUE
+                )
+                """
+            ),
+            {
+                "series_id": series_id,
+                "missing_id": missing_id,
+                "latest_id": latest_id,
+            },
+        )
+        connection.execute(
+            text(
+                """
+                UPDATE media_metadata
+                SET parent_series_tmdb_id = :series_id,
+                    season_number = CASE tmdb_id
+                        WHEN :missing_id THEN 1
+                        WHEN :latest_id THEN 2
+                    END
+                WHERE tmdb_id IN (:missing_id, :latest_id)
+                  AND item_type = 'Season'
+                """
+            ),
+            {
+                "series_id": series_id,
+                "missing_id": missing_id,
+                "latest_id": latest_id,
+            },
+        )
+    created = p4_store.create_job(
+        task_key="scan_old_seasons_backfill",
+        queue_name=p4_runtime_environment.queue_name,
+        max_attempts=1,
+        payload={
+            "payload_version": 1,
+            "parameters": {},
+            "processor_type": "watchlist",
+            "display_name": "P11 old-season backfill fixture",
+            "silent": True,
+        },
+    ).projection
+    worker_environment_values = dict(p4_runtime_environment.environment)
+    if compatibility_enabled:
+        worker_environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+    else:
+        worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+    worker_environment = RuntimeEnvironment(
+        environment=worker_environment_values,
+        config=p4_runtime_environment.config,
+        data_dir=p4_runtime_environment.data_dir,
+        queue_name=p4_runtime_environment.queue_name,
+    )
+    worker = _start_worker(worker_environment, tmp_path / "old-season-worker")
+    try:
+        _wait_for_worker(worker, worker_environment.config)
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+            count=2,
+        )
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=30)
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert completed.job.result is not None
+        assert completed.job.result["status"] == "succeeded"
+        assert completed.job.result["details"] == {
+            "task_key": "scan_old_seasons_backfill",
+            "native_handler": "P7SubscriptionTaskRouter",
+            "compatibility_fallback": False,
+            "candidate_count": 1,
+            "affected_count": 1,
+        }
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in worker.read_log(),
+            description="duplicate old-season delivery to be skipped",
+            timeout=15,
+        )
+        with p4_runtime.engine.connect() as connection:
+            row = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT subscription_status, subscription_sources_json
+                        FROM media_metadata
+                        WHERE tmdb_id = :tmdb_id AND item_type = 'Season'
+                        """
+                    ),
+                    {"tmdb_id": missing_id},
+                )
+                .mappings()
+                .one()
+            )
+        assert row["subscription_status"] == "WANTED"
+        assert row["subscription_sources_json"] == [
+            {
+                "type": "scan_old_seasons_backfill",
+                "reason": "backfill_old_season",
+            }
+        ]
+    finally:
+        if worker.process.poll() is None:
+            assert worker.stop() == 0
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM media_metadata
+                    WHERE tmdb_id IN (:series_id, :missing_id, :latest_id)
+                    """
+                ),
+                {
+                    "series_id": series_id,
+                    "missing_id": missing_id,
+                    "latest_id": latest_id,
+                },
+            )
+
+
 def test_p7_cleanup_worker_restart_uses_readback_only_after_duplicate_delivery(
     p4_store: PostgresJobStore,
     p4_runtime: DatabaseRuntime,

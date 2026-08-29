@@ -7,12 +7,91 @@ from sqlalchemy import text
 
 from etk.platform.db import SqlAlchemyUnitOfWork
 
+from .subscription_projection import SqlAlchemySubscriptionMediaProjection, SubscriptionMediaKey
+
 
 class SqlAlchemyWatchlistMediaProjectionRepository:
     """P5-owned PostgreSQL projection used by the watchlist use case."""
 
-    def __init__(self, unit_of_work: Callable[[], SqlAlchemyUnitOfWork]) -> None:
+    def __init__(
+        self,
+        unit_of_work: Callable[[], SqlAlchemyUnitOfWork],
+        subscription_projection: SqlAlchemySubscriptionMediaProjection | None = None,
+    ) -> None:
         self._unit_of_work = unit_of_work
+        self._subscription_projection = subscription_projection or SqlAlchemySubscriptionMediaProjection()
+
+    def list_missing_old_seasons(self) -> tuple[Mapping[str, Any], ...]:
+        with self._unit_of_work() as uow:
+            rows = (
+                uow.session.execute(
+                    text(
+                        """
+                        WITH series_max_season AS (
+                            SELECT parent_series_tmdb_id, MAX(season_number) AS max_seq
+                            FROM media_metadata
+                            WHERE item_type = 'Season'
+                              AND season_number > 0
+                              AND in_library = TRUE
+                            GROUP BY parent_series_tmdb_id
+                        )
+                        SELECT
+                            season.tmdb_id,
+                            season.item_type,
+                            season.title,
+                            season.original_title,
+                            season.season_number,
+                            season.parent_series_tmdb_id,
+                            season.release_date,
+                            season.poster_path,
+                            season.overview,
+                            parent.title AS series_title
+                        FROM media_metadata AS season
+                        JOIN series_max_season AS maximum
+                          ON season.parent_series_tmdb_id = maximum.parent_series_tmdb_id
+                        LEFT JOIN media_metadata AS parent
+                          ON season.parent_series_tmdb_id = parent.tmdb_id
+                         AND parent.item_type = 'Series'
+                        WHERE season.item_type = 'Season'
+                          AND season.season_number > 0
+                          AND season.in_library = FALSE
+                          AND season.season_number < maximum.max_seq
+                          AND season.subscription_status != 'IGNORED'
+                          AND parent.watching_status IS NOT NULL
+                          AND parent.watching_status != 'NONE'
+                        """
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        return tuple(dict(row) for row in rows)
+
+    def mark_old_seasons_wanted(
+        self,
+        seasons: Sequence[Mapping[str, Any]],
+        *,
+        source: Mapping[str, Any],
+        checkpoint: Callable[[], None],
+    ) -> int:
+        if not seasons:
+            return 0
+        with self._unit_of_work() as uow:
+            affected = 0
+            for index, season in enumerate(seasons):
+                if index % 50 == 0:
+                    checkpoint()
+                affected += self._subscription_projection.set_status(
+                    uow,
+                    SubscriptionMediaKey(str(season["tmdb_id"]), "Season"),
+                    "WANTED",
+                    season,
+                    source,
+                    None,
+                )
+            checkpoint()
+            uow.commit()
+        return affected
 
     def list_watchlist_items(self) -> tuple[Mapping[str, Any], ...]:
         with self._unit_of_work() as uow:

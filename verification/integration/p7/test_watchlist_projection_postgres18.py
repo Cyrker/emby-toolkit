@@ -2,14 +2,21 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime
+from threading import Barrier
 from typing import Any
 
 import pytest
 from sqlalchemy import text
 
+from etk.domains.media.subscription_projection import (
+    SqlAlchemySubscriptionMediaProjection,
+    SubscriptionMediaKey,
+)
 from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
-from etk.platform.db import DatabaseRuntime
+from etk.domains.subscription.watchlist import OldSeasonBackfillService
+from etk.platform.db import DatabaseRuntime, SqlAlchemyUnitOfWork
 
 PREFIX = "p7-watchlist-"
 
@@ -201,6 +208,306 @@ def _assert_watchlist_reset(row: Mapping[str, Any]) -> None:
     assert row["subscription_status"] == "NONE"
     assert row["subscription_sources_json"] == []
     assert row["ignore_reason"] is None
+
+
+class _BackfillProgress:
+    def __init__(self, *, cancel_at: int | None = None) -> None:
+        self.cancel_at = cancel_at
+        self.checkpoints = 0
+        self.updates: list[tuple[int, str]] = []
+
+    def checkpoint(self) -> None:
+        self.checkpoints += 1
+        if self.checkpoints == self.cancel_at:
+            raise RuntimeError("fixture cancellation")
+
+    def update(self, progress: int, message: str) -> None:
+        self.updates.append((progress, message))
+
+
+class _FailOnSecondStatusProjection(SqlAlchemySubscriptionMediaProjection):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def set_status(
+        self,
+        uow: SqlAlchemyUnitOfWork,
+        key: SubscriptionMediaKey,
+        status: str,
+        request: Mapping[str, Any],
+        source: Mapping[str, Any] | None,
+        ignore_reason: str | None,
+    ) -> int:
+        self.calls += 1
+        if self.calls == 2:
+            raise RuntimeError("fixture write failure")
+        return super().set_status(uow, key, status, request, source, ignore_reason)
+
+
+def test_pg18_old_season_backfill_filters_guards_and_replays_idempotently(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    active = f"{PREFIX}backfill-active"
+    inactive = f"{PREFIX}backfill-inactive"
+    type_conflict = f"{PREFIX}backfill-type-conflict"
+    _insert_media(p7_runtime, tmdb_id=active, title="Active", watching_status="Watching")
+    _insert_media(p7_runtime, tmdb_id=inactive, title="Inactive", watching_status="NONE")
+    _insert_media(p7_runtime, tmdb_id=type_conflict, title="Inactive Series", watching_status="NONE")
+    _insert_media(
+        p7_runtime,
+        tmdb_id=type_conflict,
+        item_type="Movie",
+        title="Active Movie With Same TMDb ID",
+        watching_status="Watching",
+    )
+
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{active}-s0",
+        item_type="Season",
+        parent_series_tmdb_id=active,
+        season_number=0,
+        in_library=False,
+        subscription_status="NONE",
+    )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{active}-s1",
+        item_type="Season",
+        parent_series_tmdb_id=active,
+        season_number=1,
+        title=None,
+        in_library=False,
+        subscription_status="NONE",
+    )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{active}-s1-ignored",
+        item_type="Season",
+        parent_series_tmdb_id=active,
+        season_number=1,
+        in_library=False,
+        subscription_status="IGNORED",
+    )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{active}-s1-subscribed",
+        item_type="Season",
+        parent_series_tmdb_id=active,
+        season_number=1,
+        in_library=False,
+        subscription_status="SUBSCRIBED",
+    )
+    source = {"type": "scan_old_seasons_backfill", "reason": "backfill_old_season"}
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{active}-s2-replay",
+        item_type="Season",
+        parent_series_tmdb_id=active,
+        season_number=2,
+        in_library=False,
+        subscription_status="WANTED",
+        subscription_sources_json=[source],
+    )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{active}-s3",
+        item_type="Season",
+        parent_series_tmdb_id=active,
+        season_number=3,
+        in_library=True,
+        subscription_status="NONE",
+    )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{inactive}-s1",
+        item_type="Season",
+        parent_series_tmdb_id=inactive,
+        season_number=1,
+        in_library=False,
+        subscription_status="NONE",
+    )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{inactive}-s2",
+        item_type="Season",
+        parent_series_tmdb_id=inactive,
+        season_number=2,
+        in_library=True,
+        subscription_status="NONE",
+    )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{type_conflict}-s1",
+        item_type="Season",
+        parent_series_tmdb_id=type_conflict,
+        season_number=1,
+        in_library=False,
+        subscription_status="NONE",
+    )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{type_conflict}-s2",
+        item_type="Season",
+        parent_series_tmdb_id=type_conflict,
+        season_number=2,
+        in_library=True,
+        subscription_status="NONE",
+    )
+
+    repository = _repository(p7_runtime)
+    candidates = repository.list_missing_old_seasons()
+    assert {candidate["tmdb_id"] for candidate in candidates} == {
+        f"{active}-s1",
+        f"{active}-s1-subscribed",
+        f"{active}-s2-replay",
+    }
+
+    service = OldSeasonBackfillService(repository)
+    first = service.execute(_BackfillProgress())
+    second = service.execute(_BackfillProgress())
+
+    assert (first.candidate_count, first.affected_count) == (3, 1)
+    assert (second.candidate_count, second.affected_count) == (3, 0)
+    rows = _projection_rows(p7_runtime)
+    wanted = rows[(f"{active}-s1", "Season")]
+    assert wanted["subscription_status"] == "WANTED"
+    assert wanted["subscription_sources_json"] == [source]
+    assert wanted["first_requested_at"] is not None
+    assert rows[(f"{active}-s1-subscribed", "Season")]["subscription_status"] == "SUBSCRIBED"
+    assert rows[(f"{active}-s2-replay", "Season")]["subscription_sources_json"] == [source]
+    assert rows[(f"{active}-s1-ignored", "Season")]["subscription_status"] == "IGNORED"
+    assert rows[(f"{inactive}-s1", "Season")]["subscription_status"] == "NONE"
+    assert rows[(f"{type_conflict}-s1", "Season")]["subscription_status"] == "NONE"
+
+
+def test_pg18_old_season_backfill_concurrent_same_source_has_one_effect(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    series_id = f"{PREFIX}backfill-concurrent"
+    missing_id = f"{series_id}-s1"
+    _insert_media(p7_runtime, tmdb_id=series_id, title="Concurrent", watching_status="Watching")
+    _insert_media(
+        p7_runtime,
+        tmdb_id=missing_id,
+        item_type="Season",
+        parent_series_tmdb_id=series_id,
+        season_number=1,
+        in_library=False,
+        subscription_status="NONE",
+    )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{series_id}-s2",
+        item_type="Season",
+        parent_series_tmdb_id=series_id,
+        season_number=2,
+        in_library=True,
+        subscription_status="NONE",
+    )
+    candidates = _repository(p7_runtime).list_missing_old_seasons()
+    assert [candidate["tmdb_id"] for candidate in candidates] == [missing_id]
+    source = {"type": "scan_old_seasons_backfill", "reason": "backfill_old_season"}
+    barrier = Barrier(2, timeout=5)
+
+    def write() -> int:
+        first_checkpoint = True
+
+        def checkpoint() -> None:
+            nonlocal first_checkpoint
+            if first_checkpoint:
+                first_checkpoint = False
+                barrier.wait()
+
+        return _repository(p7_runtime).mark_old_seasons_wanted(
+            candidates,
+            source=source,
+            checkpoint=checkpoint,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        affected = sorted(future.result(timeout=10) for future in (executor.submit(write), executor.submit(write)))
+
+    assert affected == [0, 1]
+    row = _projection_rows(p7_runtime)[(missing_id, "Season")]
+    assert row["subscription_status"] == "WANTED"
+    assert row["subscription_sources_json"] == [source]
+
+
+def test_pg18_old_season_backfill_cancellation_before_commit_rolls_back_batch(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    series_id = f"{PREFIX}backfill-cancel"
+    _insert_media(p7_runtime, tmdb_id=series_id, title="Cancel", watching_status="Watching")
+    for number in (1, 2):
+        _insert_media(
+            p7_runtime,
+            tmdb_id=f"{series_id}-s{number}",
+            item_type="Season",
+            parent_series_tmdb_id=series_id,
+            season_number=number,
+            in_library=False,
+            subscription_status="NONE",
+        )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{series_id}-s3",
+        item_type="Season",
+        parent_series_tmdb_id=series_id,
+        season_number=3,
+        in_library=True,
+        subscription_status="NONE",
+    )
+
+    with pytest.raises(RuntimeError, match="fixture cancellation"):
+        OldSeasonBackfillService(_repository(p7_runtime)).execute(_BackfillProgress(cancel_at=4))
+
+    rows = _projection_rows(p7_runtime)
+    for number in (1, 2):
+        row = rows[(f"{series_id}-s{number}", "Season")]
+        assert row["subscription_status"] == "NONE"
+        assert row["subscription_sources_json"] == []
+        assert row["first_requested_at"] is None
+
+
+def test_pg18_old_season_backfill_write_failure_rolls_back_batch(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    series_id = f"{PREFIX}backfill-write-failure"
+    _insert_media(p7_runtime, tmdb_id=series_id, title="Write Failure", watching_status="Watching")
+    for number in (1, 2):
+        _insert_media(
+            p7_runtime,
+            tmdb_id=f"{series_id}-s{number}",
+            item_type="Season",
+            parent_series_tmdb_id=series_id,
+            season_number=number,
+            in_library=False,
+            subscription_status="NONE",
+        )
+    _insert_media(
+        p7_runtime,
+        tmdb_id=f"{series_id}-s3",
+        item_type="Season",
+        parent_series_tmdb_id=series_id,
+        season_number=3,
+        in_library=True,
+        subscription_status="NONE",
+    )
+    repository = SqlAlchemyWatchlistMediaProjectionRepository(
+        p7_runtime.unit_of_work,
+        _FailOnSecondStatusProjection(),
+    )
+
+    with pytest.raises(RuntimeError, match="fixture write failure"):
+        OldSeasonBackfillService(repository).execute(_BackfillProgress())
+
+    rows = _projection_rows(p7_runtime)
+    for number in (1, 2):
+        row = rows[(f"{series_id}-s{number}", "Season")]
+        assert row["subscription_status"] == "NONE"
+        assert row["subscription_sources_json"] == []
+        assert row["first_requested_at"] is None
 
 
 def test_pg18_list_projects_legacy_seasons_filters_counts_and_order(

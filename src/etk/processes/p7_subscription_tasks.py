@@ -44,7 +44,6 @@ _LEGACY_HANDLERS = {
     "add-all-series-to-watchlist": ("tasks.watchlist", "task_add_all_series_to_watchlist"),
     "resubscribe-library": ("tasks.resubscribe", "task_resubscribe_library"),
     "manual_subscribe_batch": ("tasks.subscriptions", "task_manual_subscribe_batch"),
-    "scan_old_seasons_backfill": ("tasks.watchlist", "task_scan_old_seasons_backfill"),
     "update-resubscribe-cache": ("tasks.resubscribe", "task_update_resubscribe_cache"),
     "merge-duplicate-actors": ("tasks.actors", "task_merge_duplicate_actors"),
     "purge-ghost-actors": ("tasks.actors", "task_purge_ghost_actors"),
@@ -125,6 +124,10 @@ class P7WashingRecalculation(Protocol):
         affected_scope: object = None,
         scope_revision: object = None,
     ) -> Any: ...
+
+
+class P7OldSeasonBackfill(Protocol):
+    def execute(self, progress: P7TaskProgress) -> Any: ...
 
 
 class LegacyP7SubscriptionCompatibilityGateway:
@@ -231,12 +234,14 @@ class P7SubscriptionTaskRouter:
         moviepilot_effects: P7MoviePilotEffects | None = None,
         resubscribe_cleanup: P7ResubscribeCleanup | None = None,
         washing_recalculation: P7WashingRecalculation | None = None,
+        old_season_backfill: P7OldSeasonBackfill | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._assistant = assistant
         self._moviepilot_effects = moviepilot_effects
         self._resubscribe_cleanup = resubscribe_cleanup
         self._washing_recalculation = washing_recalculation
+        self._old_season_backfill = old_season_backfill
 
     def execute(
         self,
@@ -268,6 +273,20 @@ class P7SubscriptionTaskRouter:
             if result.partial:
                 return TaskOutcome.partial("洗版优先级重算部分完成。", details)
             return TaskOutcome.succeeded("洗版优先级重算完成。", details)
+        if message.task_key == "scan_old_seasons_backfill":
+            if self._old_season_backfill is None:
+                raise RuntimeError("P7 old-season backfill use case is unavailable")
+            result = self._old_season_backfill.execute(progress)
+            return TaskOutcome.succeeded(
+                result.message,
+                {
+                    "task_key": message.task_key,
+                    "native_handler": type(self).__name__,
+                    "compatibility_fallback": False,
+                    "candidate_count": result.candidate_count,
+                    "affected_count": result.affected_count,
+                },
+            )
         if processor is None:
             raise RuntimeError(f"P7 task {message.task_key!r} processor is unavailable")
         if self._moviepilot_effects is None:

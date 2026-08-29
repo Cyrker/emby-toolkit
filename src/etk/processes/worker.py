@@ -89,6 +89,7 @@ from etk.domains.media.final_refresh_effects import (
 )
 from etk.domains.media.image_editing_compatibility import LegacyMediaImageEditingGateway
 from etk.domains.media.image_editing_effects import ManualImageEffectDelivery
+from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
 from etk.domains.operations.database_maintenance import (
     DatabaseMaintenanceExecutor,
     PostgresDatabaseMaintenanceRepository,
@@ -187,6 +188,7 @@ from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotG
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.operations import SubscriptionOperation
 from etk.domains.subscription.provider_execution import SubscriptionOperationExecutor
+from etk.domains.subscription.watchlist import OldSeasonBackfillService
 from etk.domains.system import SqlAlchemyAppSettingsRepository
 from etk.integrations import (
     HttpxHDHiveAdapter,
@@ -271,6 +273,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     | {
         "backfill-organize-record-tmdb-ids",
         "recalculate_library_washing_priorities",
+        "scan_old_seasons_backfill",
         "sync-all-user-data",
         "system-auto-update",
     }
@@ -818,6 +821,7 @@ class WorkerRuntime:
                     moviepilot_effects,
                     resubscribe_cleanup,
                     washing_recalculation,
+                    OldSeasonBackfillService(SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)),
                 )
                 p8_effect_tasks = P8EffectTaskRouter(
                     LegacyP8EffectsCompatibilityGateway(),
@@ -1226,6 +1230,9 @@ class WorkerRuntime:
                 None,
                 None,
                 washing_recalculation=washing_recalculation,
+                old_season_backfill=OldSeasonBackfillService(
+                    SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
+                ),
             )
             p8_effect_tasks = P8EffectTaskRouter(
                 None,
@@ -1811,7 +1818,13 @@ class WorkerRuntime:
                     definition is not None
                     and (
                         definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
-                        or definition.key in {"restore_mediainfo", "sync-all-user-data", "system-auto-update"}
+                        or definition.key
+                        in {
+                            "restore_mediainfo",
+                            "scan_old_seasons_backfill",
+                            "sync-all-user-data",
+                            "system-auto-update",
+                        }
                     )
                 )
             )

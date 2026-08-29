@@ -488,6 +488,7 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert type(state._p7_subscription_tasks._washing_recalculation).__name__ == (
         "P115WashingPriorityRecalculationService"
     )
+    assert type(state._p7_subscription_tasks._old_season_backfill).__name__ == "OldSeasonBackfillService"
     assert type(state._p8_effect_tasks).__name__ == "P8EffectTaskRouter"
     assert state._p8_effect_tasks._compatibility is None
     assert type(state._p9_sharing_tasks).__name__ == "P9SharingTaskRouter"

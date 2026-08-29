@@ -6890,9 +6890,9 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 processor-free OldSeasonBackfillService owns the normal PostgreSQL candidate and WANTED mutation path with cancellation-before-commit and source replay idempotency. The use case itself does not use a Watchlist processor, legacy database module, task_manager, or external adapter; compatibility Worker lifecycle wrappers remain outside this execution owner.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
+        "validation_method": "ordered-task-registry-processor-free-router-worker-outcome-postgres18-and-redis-celery",
         "validation_owner": "subscription/task-envelope"
       }
     }

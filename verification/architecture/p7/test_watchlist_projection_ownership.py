@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -16,6 +17,7 @@ MUTATION_METHODS = {
     "force_end_watchlist_seasons",
     "batch_update_watchlist_status",
     "batch_remove_watchlist_items",
+    "mark_old_seasons_wanted",
     "update_watchlist_total_episodes",
 }
 LEGACY_IMPORTS = {
@@ -102,6 +104,22 @@ def test_p5_media_owner_contains_projection_sql_without_p7_reverse_dependency() 
         isinstance(node, ast.ClassDef) and node.name == "SqlAlchemyWatchlistMediaProjectionRepository"
         for node in tree.body
     )
+    assert "list_missing_old_seasons" in source
+    assert "series_max_season" in source
+
+
+def test_old_season_backfill_task_has_native_processed_execution_ownership() -> None:
+    manifest = json.loads((REPO_ROOT / "verification/contracts/task-ownership.yaml").read_text(encoding="utf-8"))
+    task = next(entry for entry in manifest["tasks"] if entry["task_key"] == "scan_old_seasons_backfill")
+
+    assert task["status"] == "new"
+    assert task["new_owner"] == "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter"
+    assert task["ownership_layers"] == {
+        "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.subscription.watchlist.OldSeasonBackfillService",
+    }
+    assert "processor-free" in task["notes"]
 
 
 def test_all_projection_mutations_use_one_explicit_unit_of_work() -> None:
@@ -125,8 +143,18 @@ def test_all_projection_mutations_use_one_explicit_unit_of_work() -> None:
         uow_nodes = set(ast.walk(uow_blocks[0]))
         execute_calls = [node for node in ast.walk(method) if _is_uow_execute(node)]
         commit_calls = [node for node in ast.walk(method) if _is_uow_commit(node)]
-        assert execute_calls, method_name
-        assert all(node in uow_nodes for node in execute_calls), method_name
+        if method_name == "mark_old_seasons_wanted":
+            delegated_calls = [
+                node
+                for node in ast.walk(method)
+                if isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "set_status"
+            ]
+            assert len(delegated_calls) == 1 and delegated_calls[0] in uow_nodes
+        else:
+            assert execute_calls, method_name
+            assert all(node in uow_nodes for node in execute_calls), method_name
         assert len(commit_calls) == 1 and commit_calls[0] in uow_nodes, method_name
 
     for method_name in {"remove_watchlist_item", "batch_remove_watchlist_items"}:

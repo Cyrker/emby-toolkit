@@ -2920,6 +2920,82 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Old-Season-Backfill-Worker
+
+Stage / Batch: P11 / processor-free old-season backfill Worker slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `5c146ce7` (`test(p11): lock washing parity edges`).
+- Checkpoint: this batch's `refactor(p11): execute native old-season backfill` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Replaced the normal processed `scan_old_seasons_backfill` compatibility call with
+  `OldSeasonBackfillService` and `SqlAlchemyWatchlistMediaProjectionRepository`. Both native-only
+  and compatibility-enabled Workers inject the processor-free service; neither resolves a
+  Watchlist Processor for this task.
+- Preserved the full-library, empty-payload task contract and the deterministic
+  `scan_old_seasons_backfill` / `backfill_old_season` source. Candidate and affected counts remain
+  distinct, and the persisted Worker result reports `compatibility_fallback=false`.
+- Restricted parent activation to `media_metadata.item_type='Series'`, preventing an active Movie
+  with the same TMDb ID from activating an inactive Series' old seasons.
+- Kept each write batch in one PostgreSQL UoW with cancellation checkpoints every 50 items and
+  immediately before commit. Source replay is atomic and idempotent; cancellation or an exception
+  after the first write rolls back the complete batch.
+- Promoted only this task's execution owner to
+  `etk.domains.subscription.watchlist.OldSeasonBackfillService`; all other unavailable task owners
+  remain explicit.
+
+Targeted gate:
+
+- Scoped Ruff -> clean; format check -> `11 files already formatted`; scoped Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- Application/Worker/architecture scope -> `117 passed, 1` existing Starlette WSGI deprecation
+  warning.
+- Disposable PostgreSQL 18 watchlist projection scope -> `13 passed`, including Series parent
+  identity, two-session same-source convergence, cancellation rollback and mid-batch write-error
+  rollback.
+- Redis-Celery native-only and compatibility-enabled profiles -> `2 passed, 11 deselected`; both
+  persisted the expected candidate/affected counts and native execution details, and duplicate
+  delivery remained suppressed.
+- Task manifest generation reported `task_keys=50`; manifest currentness and `git diff --check`
+  were clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-old-season-backfill-20260829/`.
+
+Focused review:
+
+- Initial review found one P1 (parent join not restricted to Series) and three P2 evidence gaps
+  (concurrent same-source write, mid-batch exception rollback and persisted Worker result). A final
+  profile audit added compatibility-enabled Redis-Celery evidence and clarified the manifest note's
+  service boundary.
+- Final findings-first rereview found no remaining P0/P1/P2. The contract is intentionally a
+  non-locking candidate scan followed by an atomic idempotent write batch; it does not claim
+  exactly-once scanning or a cross-UoW snapshot.
+
+Stage full gate:
+
+- Not run. P11 still has explicit route, task, table, dynamic/bootstrap config and standalone
+  settings ownership gaps, so controlled removal and the stage NFR/security gates are not yet
+  authorized.
+
+Pending:
+
+- Native-only Worker execution is now `12 executable / 38 unavailable`. Route, table, config and
+  standalone-settings counts are otherwise unchanged.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue the smallest evidence-backed P11 pre-removal ownership slice. Do not begin controlled
+removal or P12 until all route/task/table/config/frontend ownership reaches 100%.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -2939,7 +3015,6 @@ Read first:
 
 Next:
 
-- Continue `P11-Pre-removal` with `scan_old_seasons_backfill`, but only promote it after the normal
-  database mutation and request-stage path is processor-free and verified. Keep every other
+- Continue the smallest evidence-backed `P11-Pre-removal` ownership slice. Keep every other
   unmigrated task/binding explicit; do not start controlled removal until execution and ownership
   reach 100%. Keep all Live Acceptance items pending.
