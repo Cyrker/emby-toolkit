@@ -40,6 +40,10 @@ class MediaEffectDeliveryRetryable(RuntimeError):
         self.retry_after_seconds = max(0.0, float(retry_after_seconds))
 
 
+class MediaEffectExecutionUnavailable(RuntimeError):
+    pass
+
+
 class MediaEffectDelivery(Protocol):
     @property
     def effect_types(self) -> frozenset[str]: ...
@@ -100,6 +104,10 @@ class PersistentMediaEffectExecutor:
             raise MediaEffectNotFoundError(f"media effect {effect_id} was not found")
         if current.status.terminal:
             return current
+        if current.effect_type not in self._delivery.effect_types:
+            raise MediaEffectExecutionUnavailable(
+                f"media effect type {current.effect_type!r} is unavailable in this Worker profile"
+            )
         lease_seconds = float(self._lease_seconds())
         if lease_seconds <= 0:
             raise ValueError("media effect lease must be positive")
@@ -183,6 +191,7 @@ __all__ = [
     "MediaEffectDeliveryIndeterminate",
     "MediaEffectDeliveryRejected",
     "MediaEffectDeliveryRetryable",
+    "MediaEffectExecutionUnavailable",
     "PersistentMediaEffectExecutor",
     "RoutedMediaEffectDelivery",
 ]

@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+import threading
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID, uuid4
 
 import pytest
 
-from etk.domains.media.effects import MEDIA_EFFECT_TOPIC
+from etk.domains.media.effect_execution import (
+    MediaEffectExecutionUnavailable,
+    PersistentMediaEffectExecutor,
+)
+from etk.domains.media.effects import (
+    MEDIA_EFFECT_TOPIC,
+    MediaEffectProjection,
+    MediaEffectStatus,
+)
 from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus, PublishBatchResult
 from etk.processes import worker as worker_module
 from etk.processes.celery_app import (
@@ -69,6 +79,28 @@ class FakeExecutor:
         return object()
 
 
+class FakeExecutionLedger:
+    def __init__(self, projection: MediaEffectProjection) -> None:
+        self.projection = projection
+        self.claims: list[UUID] = []
+
+    def read_by_id(self, effect_id: UUID) -> MediaEffectProjection | None:
+        assert effect_id == self.projection.id
+        return self.projection
+
+    def claim_by_id(self, effect_id: UUID, **_kwargs: Any) -> MediaEffectProjection | None:
+        self.claims.append(effect_id)
+        return self.projection
+
+
+class NarrowDelivery:
+    effect_types = frozenset({"emby.mediainfo.apply"})
+
+    def deliver(self, effect: MediaEffectProjection) -> dict[str, object]:
+        del effect
+        raise AssertionError("unsupported effect must be rejected before delivery")
+
+
 def _config() -> TaskRuntimeConfig:
     return TaskRuntimeConfig(
         broker_url="redis://fixture.invalid:6379/0",
@@ -112,6 +144,37 @@ def _claim(*, topic: str = MEDIA_EFFECT_TOPIC) -> OutboxClaim:
         updated_at=now,
     )
     return OutboxClaim(event=event, claim_token=event.claim_token or uuid4())
+
+
+def _effect_projection(
+    *,
+    status: MediaEffectStatus = MediaEffectStatus.PENDING,
+    effect_type: str = "emby.metadata.refresh",
+) -> MediaEffectProjection:
+    now = datetime.now(UTC)
+    return MediaEffectProjection(
+        id=EFFECT_ID,
+        effect_key="fixture-effect",
+        effect_type=effect_type,
+        aggregate_type="media_asset",
+        aggregate_id="fixture-item:fixture-sha1",
+        payload_version=1,
+        payload={"item_id": "fixture-item"},
+        request_hash=b"a" * 32,
+        status=status,
+        attempts=0,
+        available_at=now,
+        claimed_by=None,
+        claim_token=None,
+        claimed_at=None,
+        lease_expires_at=None,
+        last_attempt_at=None,
+        result=None,
+        error=None,
+        finished_at=now if status.terminal else None,
+        created_at=now,
+        updated_at=now,
+    )
 
 
 def test_media_effect_publisher_validates_envelope_and_uses_deterministic_task_id() -> None:
@@ -175,6 +238,68 @@ def test_media_effect_dispatcher_recovers_before_publish_and_finalizes_new_dead_
     assert result.publish.dead == 1
 
 
+def test_narrow_executor_rejects_unsupported_pending_effect_before_claim() -> None:
+    ledger = FakeExecutionLedger(_effect_projection())
+    executor = PersistentMediaEffectExecutor(
+        cast(Any, ledger),
+        NarrowDelivery(),
+        worker_id="fixture-worker:media",
+    )
+
+    with pytest.raises(MediaEffectExecutionUnavailable, match="unavailable in this Worker profile"):
+        executor.execute(EFFECT_ID)
+
+    assert ledger.claims == []
+    assert ledger.projection.status is MediaEffectStatus.PENDING
+
+
+@pytest.mark.parametrize("status", [MediaEffectStatus.RETRYABLE, MediaEffectStatus.CLAIMED])
+def test_narrow_executor_rejects_unsupported_replayable_effect_without_changing_claim_state(
+    status: MediaEffectStatus,
+) -> None:
+    projection = _effect_projection(status=status)
+    if status is MediaEffectStatus.RETRYABLE:
+        projection = replace(projection, attempts=2)
+    else:
+        projection = replace(
+            projection,
+            attempts=2,
+            claimed_by="fixture-worker",
+            claim_token=UUID("33333333-3333-4333-8333-333333333333"),
+            claimed_at=datetime.now(UTC),
+            lease_expires_at=datetime.now(UTC),
+        )
+    ledger = FakeExecutionLedger(projection)
+    executor = PersistentMediaEffectExecutor(
+        cast(Any, ledger),
+        NarrowDelivery(),
+        worker_id="fixture-worker:media",
+    )
+
+    with pytest.raises(MediaEffectExecutionUnavailable, match="unavailable in this Worker profile"):
+        executor.execute(EFFECT_ID)
+
+    assert ledger.claims == []
+    assert ledger.projection == projection
+
+
+@pytest.mark.parametrize(
+    "status",
+    [MediaEffectStatus.CONFIRMED, MediaEffectStatus.REJECTED, MediaEffectStatus.INDETERMINATE],
+)
+def test_narrow_executor_returns_terminal_unsupported_effect_without_claim(status: MediaEffectStatus) -> None:
+    projection = replace(_effect_projection(), status=status, finished_at=datetime.now(UTC))
+    ledger = FakeExecutionLedger(projection)
+    executor = PersistentMediaEffectExecutor(
+        cast(Any, ledger),
+        NarrowDelivery(),
+        worker_id="fixture-worker:media",
+    )
+
+    assert executor.execute(EFFECT_ID) is projection
+    assert ledger.claims == []
+
+
 def test_celery_app_registers_job_and_media_effect_tasks_on_the_serial_queue() -> None:
     app = create_celery_app(_config())
 
@@ -201,3 +326,62 @@ def test_worker_runtime_routes_media_effect_id_and_honors_sticky_shutdown(
     runtime._shutdown_requested.set()
     with pytest.raises(WorkerShutdownRequested, match="shutdown"):
         runtime.execute_media_effect(effect_id=str(EFFECT_ID))
+
+    runtime._shutdown_requested.clear()
+
+    def start_and_request_shutdown() -> None:
+        runtime._shutdown_requested.set()
+
+    monkeypatch.setattr(runtime, "start", start_and_request_shutdown)
+    with pytest.raises(WorkerShutdownRequested, match="shutdown started"):
+        runtime.execute_media_effect(effect_id=str(EFFECT_ID))
+    assert executor.ids == [EFFECT_ID]
+
+
+class BlockingMediaEffectExecutor(FakeExecutor):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def execute(self, effect_id: UUID) -> object:
+        result = super().execute(effect_id)
+        self.started.set()
+        assert self.release.wait(2)
+        return result
+
+
+def test_worker_runtime_close_waits_for_media_effect_execution() -> None:
+    runtime = WorkerRuntime(config=replace(_config(), worker_shutdown_timeout_seconds=1))
+    executor = BlockingMediaEffectExecutor()
+    runtime._started = True
+    runtime._media_effects = cast(Any, executor)
+
+    execution = threading.Thread(
+        target=runtime.execute_media_effect,
+        kwargs={"effect_id": str(EFFECT_ID)},
+        daemon=True,
+    )
+    execution.start()
+    assert executor.started.wait(1)
+    assert not runtime._idle.is_set()
+
+    closed = threading.Event()
+
+    def close_runtime() -> None:
+        runtime.close()
+        closed.set()
+
+    closer = threading.Thread(target=close_runtime, daemon=True)
+    closer.start()
+    assert runtime._shutdown_requested.wait(1)
+    assert not closed.wait(0.05)
+
+    executor.release.set()
+    execution.join(1)
+    closer.join(1)
+
+    assert not execution.is_alive()
+    assert not closer.is_alive()
+    assert closed.is_set()
+    assert runtime._active_media_effect_executions == 0

@@ -142,6 +142,11 @@ def test_p6_6_task_and_table_ownership_are_native_and_fixture_backed() -> None:
         "execution_kind": "native-use-case",
         "execution_owner": "etk.domains.p115.media_info_restore.P115MediaInfoRestoreService",
     }
+    assert restore["validation_method"] == (
+        "ordered-task-registry-native-sdk-direct-url-native-only-worker-postgres18-effect-redis-celery-and-"
+        "import-sentinel"
+    )
+    assert "low-level p115client direct-URL reads" in restore["notes"]
 
     tables = _contract("verification/contracts/table-ownership.yaml")
     cache = next(entry for entry in tables["tables"] if entry["name"] == "p115_mediainfo_cache")  # type: ignore[index]
@@ -222,6 +227,7 @@ def test_p6_6_migration_owns_revisioned_cache_and_internal_probe_worklist() -> N
 
 def test_p6_6_native_business_services_do_not_import_legacy_task_or_cache_owners() -> None:
     for relative_path in (
+        "src/etk/domains/p115/direct_url_transport.py",
         "src/etk/domains/p115/fingerprints.py",
         "src/etk/domains/p115/fingerprint_transport.py",
         "src/etk/domains/p115/media_info.py",
@@ -245,6 +251,29 @@ def test_fingerprint_worker_uses_native_http_provider_without_legacy_runtime_fal
     assert "handler.p115_service" not in transport
     assert "LegacyP115FingerprintRemoteGateway" not in worker
     assert worker.count("HttpxP115FingerprintRemoteGateway(") == 2
+
+
+def test_mediainfo_restore_uses_native_sdk_direct_urls_in_both_worker_profiles() -> None:
+    transport = _source("src/etk/domains/p115/direct_url_transport.py")
+    worker = _source("src/etk/processes/worker.py")
+
+    tree = ast.parse(transport)
+    imported_roots = {
+        alias.name.split(".", 1)[0] for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names
+    } | {
+        str(node.module or "").split(".", 1)[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.level == 0
+    }
+    assert imported_roots.isdisjoint({"database", "extensions", "handler", "routes", "task_manager", "tasks"})
+    assert "from p115client import P115Client, P115OpenClient" in transport
+    assert 'refresh_token=""' in transport
+    assert 'app="os_windows"' in transport
+    assert ".download_url_info_open(" in transport
+    assert ".download_url_app(" in transport
+    assert ".download_url_open(" not in transport
+    assert ".download_url(" not in transport
+    assert worker.count("P115SdkDirectUrlGateway(") == 2
 
 
 def test_legacy_webhook_and_consistency_seams_only_submit_the_p6_native_repair_task() -> None:

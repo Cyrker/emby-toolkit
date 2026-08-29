@@ -125,6 +125,26 @@ def test_restore_mediainfo_keeps_p5_envelope_but_executes_native_business_use_ca
     assert compatibility.calls == []
 
 
+def test_restore_mediainfo_executes_with_no_compatibility_gateway() -> None:
+    restore = FakeRestore()
+    progress = FakeProgress()
+    outcome = P5MediaTaskRouter(None, restore).execute(
+        _message("restore_mediainfo", {"force_full_update": False}),
+        None,
+        progress,
+    )
+
+    assert outcome.status is TaskOutcomeStatus.SUCCEEDED
+    assert outcome.details["compatibility_fallback"] is False
+    assert restore.calls == [
+        (
+            progress,
+            "restore_mediainfo:00000000-0000-0000-0000-000000000501",
+            False,
+        )
+    ]
+
+
 def test_targeted_backfill_normalizes_and_deduplicates_json_targets() -> None:
     processor = object()
     compatibility = FakeCompatibility()
@@ -169,6 +189,20 @@ def test_explicit_empty_backfill_targets_skip_without_running_the_full_scan() ->
     assert outcome.status is TaskOutcomeStatus.SKIPPED
     assert outcome.message == "没有缺失元数据需要补齐。"
     assert compatibility.calls == []
+
+    native_only_outcome = P5MediaTaskRouter(None).execute(
+        _message("backfill-media-metadata", {"targets": []}),
+        object(),
+    )
+    assert native_only_outcome.status is TaskOutcomeStatus.SKIPPED
+
+
+def test_non_restore_p5_task_fails_closed_without_compatibility_gateway() -> None:
+    with pytest.raises(RuntimeError, match="compatibility execution is unavailable"):
+        P5MediaTaskRouter(None).execute(
+            _message("populate-metadata", {"batch_size": 5}),
+            object(),
+        )
 
 
 def test_router_preserves_typed_outcomes_and_never_returns_legacy_none() -> None:

@@ -6593,9 +6593,9 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "notes": "P5 retains the strict persistent task envelope while P6.6 executes native MediaInfo restore, fingerprint repair, RAW reformat, bounded probe, and durable Bridge effects without the legacy callable or Processor.",
+        "notes": "P5 retains the strict persistent task envelope while both Worker profiles execute processor-free MediaInfo restore with account- and credential-fenced low-level p115client direct-URL reads, fingerprint repair, RAW reformat, bounded probe, PostgreSQL effect/UoW fencing, and confirmed Bridge replay without the legacy callable or Processor.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-and-postgres18-effect",
+        "validation_method": "ordered-task-registry-native-sdk-direct-url-native-only-worker-postgres18-effect-redis-celery-and-import-sentinel",
         "validation_owner": "media/task-envelope-and-p115/mediainfo"
       },
       "task-62c236c3a38a": {

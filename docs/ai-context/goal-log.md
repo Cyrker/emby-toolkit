@@ -3505,6 +3505,80 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-MediaInfo-Restore
+
+Stage / Batch: P11 / processor-free MediaInfo restore Worker slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `b9d345ff` (`refactor(p11): execute native fingerprint repair`).
+- Checkpoint: this batch's `refactor(p11): execute native mediainfo restore` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Promoted only `restore_mediainfo` to native-only execution. Both Worker profiles now inject the
+  processor-free `P115MediaInfoRestoreService`; native-only execution is `17 executable / 33
+  unavailable` and every other unproven task remains explicit.
+- Added account- and credential-fenced `P115SdkDirectUrlGateway`. It uses the locked SDK's low-level
+  `download_url_info_open` and `download_url_app(app="os_windows")` paths, passes finite timeouts,
+  disables OpenAPI refresh, never saves credentials, and avoids the high-level stable-PickCode path
+  that can read or mutate an empty provider root.
+- Native-only MediaInfo effects use only the Bridge delivery graph. Unsupported non-terminal effects
+  fail before claim and preserve pending/retryable/claimed state; terminal projections remain
+  idempotent. Worker shutdown now tracks active media-effect execution and waits before closing the
+  database/runtime graph.
+- Added actual locked-SDK fake-request evidence, P5 router fail-closed coverage, Worker startup/import
+  sentinels, PostgreSQL effect/UoW state coverage, and loopback Redis/Celery crash after confirmed
+  Bridge write but before Job result persistence. Attempt 2 reuses the confirmed effect and performs
+  no second Bridge write.
+
+Targeted gate:
+
+- `uv lock --check` -> clean; scoped Ruff -> clean; format -> `13 files already formatted`; scoped
+  Pyright -> `0 errors, 0 warnings, 0 informations`; scoped compileall -> clean.
+- P5/P6 task, direct-URL, MediaInfo, effect, Worker and architecture scope -> `314 passed, 1` existing
+  Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 MediaInfo/effect/UoW scope -> `34 passed`.
+- Disposable PostgreSQL 18 + Redis/Celery native-only crash/replay and compatibility-enabled normal
+  profiles -> `2 passed, 22 deselected`; all Emby reads and Bridge writes used one loopback Stub.
+- Manifest currentness and OpenAPI currentness -> clean; contract tests -> `16 passed`; `uv lock
+  --check`, three fixture secret scans and `git diff --check` -> clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-mediainfo-restore-20260829/`.
+
+Focused review:
+
+- Initial review found one P1: high-level `p115client.download_url*` helpers implicitly resolve a
+  stable PickCode and may upload/delete when the provider root is empty. The low-level read-only SDK
+  calls and actual fake-request regression close that path.
+- Final rereview found no P0/P1. A provider-contract P2 remains: `P115DirectUrl` does not propagate a
+  temporary Cookie/header required by a possible `f=3` URL. The legacy gateway had the same contract,
+  no real provider payload proves it is reachable, and Live Acceptance remains `HUMAN_PENDING`.
+
+Stage full gate:
+
+- Not run. P11 still has explicit route, task, table, dynamic/bootstrap config and standalone-setting
+  ownership gaps, so controlled removal and stage NFR/security gates remain unauthorized.
+
+Pending:
+
+- Native-only Worker execution is `17 executable / 33 unavailable`. Fifty-seven route decorators,
+  61 method bindings, 12 tables, 82 dynamic config keys, seven bootstrap keys and 18 standalone
+  settings remain legacy-owned.
+- The latest washing-recalculation parity audit must be reconciled against the current evaluator and
+  repository before relying on its normal processed path; only confirmed current deltas may be fixed.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: reconcile the supplied washing evaluator/legacy parity evidence against the current native
+implementation, then continue the smallest evidence-backed P11 execution or ownership slice. Do not
+start controlled removal or P12 until execution and ownership reach 100%.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -3524,6 +3598,6 @@ Read first:
 
 Next:
 
-- Implement the bounded `repair-p115-fingerprints` native provider/Worker slice. Keep every other
-  unmigrated task/binding explicit; do not start controlled removal until execution and ownership
-  reach 100%. Keep all Live Acceptance items pending.
+- Reconcile the supplied washing-recalculation parity audit against the current native implementation.
+  Keep every other unmigrated task/binding explicit; do not start controlled removal until execution
+  and ownership reach 100%. Keep all Live Acceptance items pending.

@@ -92,7 +92,7 @@ class P5MediaTaskRouter:
 
     def __init__(
         self,
-        compatibility: P5MediaCompatibilityGateway,
+        compatibility: P5MediaCompatibilityGateway | None,
         restore_mediainfo: P5MediaInfoRestoreUseCase | None = None,
     ) -> None:
         self._compatibility = compatibility
@@ -143,6 +143,8 @@ class P5MediaTaskRouter:
                 "没有缺失元数据需要补齐。",
                 _outcome_details(message.task_key),
             )
+        if self._compatibility is None:
+            raise RuntimeError(f"P5 task {message.task_key!r} compatibility execution is unavailable")
         result = self._compatibility.execute(message.task_key, processor, parameters)
         return _explicit_outcome(message.task_key, result)
 

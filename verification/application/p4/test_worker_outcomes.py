@@ -861,6 +861,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "manual-correct-organize-records",
             "recalculate_library_washing_priorities",
             "repair-p115-fingerprints",
+            "restore_mediainfo",
             "scan-cleanup-issues",
             "scan-monitor-folders",
             "scan_old_seasons_backfill",

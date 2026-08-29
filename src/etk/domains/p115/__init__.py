@@ -31,6 +31,7 @@ from .deep_delete import (
     P115DeepDeleteService,
     SqlAlchemyP115DeepDeleteSnapshotRepository,
 )
+from .direct_url_transport import P115SdkDirectUrlGateway
 from .directory_sync import (
     P115DirectoryCacheEntry,
     P115DirectoryCacheRepository,
@@ -464,6 +465,7 @@ __all__ = [
     "P115RenameConfigSnapshot",
     "P115RenamePreviewGateway",
     "P115Result",
+    "P115SdkDirectUrlGateway",
     "P115SettingsReader",
     "P115SortingRuleDirectoryGateway",
     "P115SortingRulesRepository",

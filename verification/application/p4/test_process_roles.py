@@ -476,6 +476,15 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert state._native_only is True
     assert state._adapter is None
     assert persistent_p115_credential_gateway() is state._p115_credentials
+    assert type(state._media_effects).__name__ == "PersistentMediaEffectExecutor"
+    assert state._media_effects._delivery.effect_types == {
+        "emby.chapters.update",
+        "emby.mediainfo.apply",
+    }
+    assert type(state._p5_media_tasks).__name__ == "P5MediaTaskRouter"
+    assert state._p5_media_tasks._compatibility is None
+    assert type(state._p5_media_tasks._restore_mediainfo).__name__ == "P115MediaInfoRestoreService"
+    assert type(state._p5_media_tasks._restore_mediainfo._probe._direct_urls).__name__ == ("P115SdkDirectUrlGateway")
     assert type(state._p6_p115_tasks).__name__ == "P6P115TaskRouter"
     assert type(state._p6_p115_tasks._organize_record_tmdb_backfill).__name__ == (
         "P115OrganizeRecordTmdbBackfillService"
@@ -509,6 +518,9 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     runtime.close()
 
     assert events == ["supervisor.start", "supervisor.stop", "container.close"]
+    assert state._media_effects is None
+    assert state._p5_media_tasks._compatibility is None
+    assert state._p5_media_tasks._restore_mediainfo is None
     assert state._p6_p115_tasks is None
     assert state._p6_ingestion_tasks is None
     assert state._p7_subscription_tasks is None

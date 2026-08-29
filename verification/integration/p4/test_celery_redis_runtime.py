@@ -87,6 +87,12 @@ class P115FingerprintStubState:
 
 
 @dataclass(slots=True)
+class MediaInfoRestoreEmbyStubState:
+    item_readbacks: list[dict[str, Any]]
+    bridge_writes: list[dict[str, Any]]
+
+
+@dataclass(slots=True)
 class CleanupScanEmbyStubState:
     requests: list[dict[str, Any]]
 
@@ -203,6 +209,93 @@ def _start_p115_fingerprint_stub(
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, name="etk-p115-fingerprint-stub", daemon=True)
+    thread.start()
+    return server, thread, state
+
+
+def _start_mediainfo_restore_emby_stub(
+    *,
+    item_id: str,
+    api_key: str,
+) -> tuple[ThreadingHTTPServer, threading.Thread, MediaInfoRestoreEmbyStubState]:
+    state = MediaInfoRestoreEmbyStubState(item_readbacks=[], bridge_writes=[])
+    lock = threading.Lock()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            parsed = urlsplit(self.path)
+            if parsed.path == "/System/Info":
+                payload = b'{"Id":"mediainfo-restore-stub"}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            query = parse_qs(parsed.query)
+            token = self.headers.get("X-Emby-Token")
+            requested = tuple(value for value in query.get("Ids", [""])[0].split(",") if value)
+            with lock:
+                state.item_readbacks.append(
+                    {
+                        "path": parsed.path,
+                        "ids": requested,
+                        "token": token,
+                    }
+                )
+            if parsed.path != "/Items" or token != api_key or requested != (item_id,):
+                self.send_response(403)
+                self.end_headers()
+                return
+            payload = json.dumps(
+                {
+                    "Items": [
+                        {
+                            "Id": item_id,
+                            "MediaSources": [{"MediaStreams": [{"Type": "Audio", "Codec": "aac"}]}],
+                        }
+                    ]
+                }
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def do_POST(self) -> None:  # noqa: N802
+            parsed = urlsplit(self.path)
+            token = self.headers.get("X-Emby-Token")
+            expected_path = f"/Items/{item_id}/ETKMediaInfo"
+            content_length = int(self.headers.get("Content-Length") or 0)
+            try:
+                body = json.loads(self.rfile.read(content_length))
+            except (TypeError, ValueError):
+                body = None
+            with lock:
+                state.bridge_writes.append(
+                    {
+                        "path": parsed.path,
+                        "token": token,
+                        "body": body,
+                    }
+                )
+            if parsed.path != expected_path or token != api_key or not isinstance(body, Mapping):
+                self.send_response(403)
+                self.end_headers()
+                return
+            payload = b'{"Applied":true}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: object) -> None:
+            del format, args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, name="etk-mediainfo-restore-stub", daemon=True)
     thread.start()
     return server, thread, state
 
@@ -813,6 +906,71 @@ def _restore_p115_fingerprint_fixture(
             {"tmdb_id": tmdb_id},
         )
         connection.execute(text("DELETE FROM app_settings WHERE setting_key = 'p115_auth_tokens'"))
+        for setting_key, (value_json, last_updated_at) in prior_settings.items():
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES (:setting_key, CAST(:value_json AS jsonb), :last_updated_at)
+                    """
+                ),
+                {
+                    "setting_key": setting_key,
+                    "value_json": json.dumps(value_json, separators=(",", ":")),
+                    "last_updated_at": last_updated_at,
+                },
+            )
+
+
+def _restore_mediainfo_restore_fixture(
+    runtime: DatabaseRuntime,
+    *,
+    prior_settings: Mapping[str, tuple[Any, datetime]],
+    setting_keys: tuple[str, ...],
+    tmdb_id: str,
+    file_id: str,
+    sha1: str,
+    aggregate_id: str,
+) -> None:
+    with runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                DELETE FROM outbox_events
+                WHERE aggregate_type = 'media_effect'
+                  AND aggregate_id IN (
+                      SELECT id::text
+                      FROM media_effects
+                      WHERE aggregate_id = :aggregate_id
+                  )
+                """
+            ),
+            {"aggregate_id": aggregate_id},
+        )
+        connection.execute(
+            text("DELETE FROM media_effects WHERE aggregate_id = :aggregate_id"),
+            {"aggregate_id": aggregate_id},
+        )
+        connection.execute(
+            text("DELETE FROM p115_media_probe_items WHERE upper(sha1) = :sha1"),
+            {"sha1": sha1},
+        )
+        connection.execute(
+            text("DELETE FROM p115_mediainfo_cache WHERE upper(sha1) = :sha1"),
+            {"sha1": sha1},
+        )
+        connection.execute(
+            text("DELETE FROM p115_filesystem_cache WHERE id = :file_id"),
+            {"file_id": file_id},
+        )
+        connection.execute(
+            text("DELETE FROM media_metadata WHERE tmdb_id = :tmdb_id AND item_type = 'Movie'"),
+            {"tmdb_id": tmdb_id},
+        )
+        connection.execute(
+            text("DELETE FROM app_settings WHERE setting_key = ANY(CAST(:keys AS text[]))"),
+            {"keys": list(setting_keys)},
+        )
         for setting_key, (value_json, last_updated_at) in prior_settings.items():
             connection.execute(
                 text(
@@ -1629,6 +1787,380 @@ if checkpoint_file and checkpoint_job_id and release_file:
                 }
             ]
         assert stub.requests == expected_requests
+
+        if not compatibility_enabled:
+            with p4_runtime.engine.connect() as connection:
+                attempts = connection.execute(
+                    text(
+                        """
+                        SELECT attempt_no, status, error_type
+                        FROM job_attempts
+                        WHERE job_id = :job_id
+                        ORDER BY attempt_no
+                        """
+                    ),
+                    {"job_id": created.job.id},
+                ).all()
+            assert attempts == [(1, "lost", "worker_lost"), (2, "succeeded", None)]
+
+
+@pytest.mark.parametrize(
+    "compatibility_enabled",
+    [False, True],
+    ids=["native-only", "compatibility-enabled"],
+)
+def test_mediainfo_restore_replays_confirmed_bridge_effect_through_real_worker_profiles(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+) -> None:
+    fixture_id = uuid4().hex
+    numeric_suffix = int(fixture_id[:7], 16)
+    file_id = str(7_000_000_000 + numeric_suffix)
+    pick_code = str(to_pickcode(int(file_id)))
+    sha1 = fixture_id.upper().ljust(40, "A")[:40]
+    tmdb_id = f"mediainfo-restore-{fixture_id}"
+    item_id = f"emby-mediainfo-{fixture_id}"
+    aggregate_id = f"{item_id}:{sha1}"
+    api_key = f"fixture-mediainfo-token-{fixture_id}"
+    replay_checkpoint = tmp_path / "mediainfo-restore-before-job-result.checkpoint"
+    replay_release = tmp_path / "mediainfo-restore-before-job-result.release"
+    setting_keys = ("dynamic_app_config", "p115_auth_tokens")
+
+    with ExitStack() as cleanup:
+        server, server_thread, stub = _start_mediainfo_restore_emby_stub(
+            item_id=item_id,
+            api_key=api_key,
+        )
+        cleanup.callback(_shutdown_http_stub, server, server_thread)
+        emby_url = f"http://127.0.0.1:{server.server_address[1]}"
+        prior_settings = _snapshot_app_settings(p4_runtime, setting_keys)
+        cleanup.callback(
+            _restore_mediainfo_restore_fixture,
+            p4_runtime,
+            prior_settings=prior_settings,
+            setting_keys=setting_keys,
+            tmdb_id=tmdb_id,
+            file_id=file_id,
+            sha1=sha1,
+            aggregate_id=aggregate_id,
+        )
+        formatted = [
+            {
+                "MediaSourceInfo": {
+                    "Name": "Fixture.mkv",
+                    "MediaStreams": [{"Type": "Video", "Width": 1920, "Height": 1080}],
+                },
+                "Chapters": [],
+            }
+        ]
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES
+                        ('dynamic_app_config', CAST(:dynamic AS jsonb), NOW()),
+                        ('p115_auth_tokens', CAST(:credentials AS jsonb), NOW())
+                    ON CONFLICT (setting_key) DO UPDATE SET
+                        value_json = EXCLUDED.value_json,
+                        last_updated_at = NOW()
+                    """
+                ),
+                {
+                    "dynamic": json.dumps(
+                        {
+                            "emby_server_url": emby_url,
+                            "emby_api_key": api_key,
+                            "emby_user_id": f"emby-user-{fixture_id}",
+                            "emby_auth_mode": "user_token",
+                            "emby_api_timeout": 5,
+                        },
+                        separators=(",", ":"),
+                    ),
+                    "credentials": json.dumps(
+                        {
+                            "access_token": "fixture-openapi-token",
+                            "refresh_token": "fixture-refresh-token",
+                            "account_id": "115001",
+                            "openapi_account_id": "115001",
+                        },
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO media_metadata (
+                        tmdb_id, item_type, title, original_language, in_library,
+                        emby_item_ids_json, asset_details_json,
+                        file_sha1_json, file_pickcode_json
+                    ) VALUES (
+                        :tmdb_id, 'Movie', 'MediaInfo restore fixture', 'en', TRUE,
+                        CAST(:emby_ids AS jsonb), CAST(:assets AS jsonb),
+                        CAST(:sha1s AS jsonb), CAST(:pick_codes AS jsonb)
+                    )
+                    """
+                ),
+                {
+                    "tmdb_id": tmdb_id,
+                    "emby_ids": json.dumps([item_id]),
+                    "assets": json.dumps([{"path": f"/fixture/{fixture_id}.mkv", "size_bytes": 4096}]),
+                    "sha1s": json.dumps([sha1]),
+                    "pick_codes": json.dumps([pick_code]),
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO p115_filesystem_cache (
+                        id, parent_id, name, sha1, pick_code,
+                        size, account_id, entry_kind
+                    ) VALUES (
+                        :file_id, :parent_id, 'Fixture.mkv', :sha1, :pick_code,
+                        4096, '115001', 'file'
+                    )
+                    """
+                ),
+                {
+                    "file_id": file_id,
+                    "parent_id": str(int(file_id) - 1),
+                    "sha1": sha1,
+                    "pick_code": pick_code,
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO p115_mediainfo_cache (sha1, mediainfo_json)
+                    VALUES (:sha1, CAST(:mediainfo AS jsonb))
+                    """
+                ),
+                {
+                    "sha1": sha1,
+                    "mediainfo": json.dumps(formatted, separators=(",", ":")),
+                },
+            )
+
+        created = p4_store.create_job(
+            task_key="restore_mediainfo",
+            queue_name=p4_runtime_environment.queue_name,
+            max_attempts=1 if compatibility_enabled else 2,
+            payload={
+                "payload_version": 1,
+                "parameters": {"force_full_update": False},
+                "processor_type": "media",
+                "display_name": "P11 native MediaInfo restore fixture",
+                "silent": True,
+            },
+        ).projection
+        site_directory = tmp_path / f"mediainfo-restore-site-{compatibility_enabled}"
+        site_directory.mkdir()
+        (site_directory / "sitecustomize.py").write_text(
+            """
+import builtins
+import os
+import time
+
+guard_file = os.environ.get("ETK_TEST_MEDIAINFO_RESTORE_IMPORT_GUARD")
+if guard_file:
+    original_import = builtins.__import__
+    forbidden = ("database", "extensions", "handler", "routes", "task_manager", "tasks")
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if level == 0 and os.path.exists(guard_file) and any(
+            name == prefix or name.startswith(prefix + ".") for prefix in forbidden
+        ):
+            raise AssertionError(f"native MediaInfo restore Worker imported legacy runtime {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    builtins.__import__ = guarded_import
+
+checkpoint_file = os.environ.get("ETK_TEST_MEDIAINFO_RESTORE_RESULT_CHECKPOINT")
+checkpoint_job_id = os.environ.get("ETK_TEST_MEDIAINFO_RESTORE_RESULT_JOB_ID")
+release_file = os.environ.get("ETK_TEST_MEDIAINFO_RESTORE_RESULT_RELEASE")
+if checkpoint_file and checkpoint_job_id and release_file:
+    from etk.platform.jobs import PostgresJobStore
+
+    original_succeed_attempt = PostgresJobStore.succeed_attempt
+
+    def succeed_attempt_after_test_checkpoint(self, **kwargs):
+        if str(kwargs.get("job_id")) == checkpoint_job_id and not os.path.exists(checkpoint_file):
+            try:
+                descriptor = os.open(checkpoint_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError:
+                pass
+            else:
+                os.write(descriptor, str(os.getpid()).encode())
+                os.close(descriptor)
+                deadline = time.monotonic() + 60
+                while time.monotonic() < deadline and not os.path.exists(release_file):
+                    time.sleep(0.05)
+                if not os.path.exists(release_file):
+                    raise TimeoutError("MediaInfo restore result checkpoint was not released")
+        return original_succeed_attempt(self, **kwargs)
+
+    PostgresJobStore.succeed_attempt = succeed_attempt_after_test_checkpoint
+""".lstrip(),
+            encoding="utf-8",
+        )
+
+        worker_environment_values = dict(p4_runtime_environment.environment)
+        existing_python_path = worker_environment_values.get("PYTHONPATH", "")
+        worker_environment_values["PYTHONPATH"] = os.pathsep.join(
+            filter(
+                None,
+                (
+                    str(site_directory),
+                    str(REPO_ROOT / "src"),
+                    str(REPO_ROOT),
+                    existing_python_path,
+                ),
+            )
+        )
+        import_guard = tmp_path / "mediainfo-restore-legacy-import.guard"
+        if compatibility_enabled:
+            worker_environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+            worker_environment_values.pop("ETK_TEST_MEDIAINFO_RESTORE_IMPORT_GUARD", None)
+        else:
+            worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+            worker_environment_values["ETK_TEST_MEDIAINFO_RESTORE_IMPORT_GUARD"] = str(import_guard)
+            worker_environment_values["ETK_TEST_MEDIAINFO_RESTORE_RESULT_CHECKPOINT"] = str(replay_checkpoint)
+            worker_environment_values["ETK_TEST_MEDIAINFO_RESTORE_RESULT_JOB_ID"] = str(created.job.id)
+            worker_environment_values["ETK_TEST_MEDIAINFO_RESTORE_RESULT_RELEASE"] = str(replay_release)
+        worker_environment = RuntimeEnvironment(
+            environment=worker_environment_values,
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        worker = _start_worker(worker_environment, tmp_path / "mediainfo-restore-worker")
+        cleanup.callback(
+            _stop_managed_process,
+            worker,
+            expected_code=0,
+            allow_sigkill=not compatibility_enabled,
+        )
+        if not compatibility_enabled:
+            cleanup.callback(replay_release.touch)
+        _wait_for_worker(worker, worker_environment.config)
+        if not compatibility_enabled:
+            import_guard.write_text("active", encoding="utf-8")
+            coordinator_environment = RuntimeEnvironment(
+                environment={
+                    **p4_runtime_environment.environment,
+                    "ETK_ENABLE_LEGACY_COMPATIBILITY": "true",
+                },
+                config=p4_runtime_environment.config,
+                data_dir=p4_runtime_environment.data_dir,
+                queue_name=p4_runtime_environment.queue_name,
+            )
+            coordinator = _start_coordinator(
+                coordinator_environment,
+                tmp_path / "mediainfo-restore-coordinator",
+            )
+            cleanup.callback(
+                _stop_managed_process,
+                coordinator,
+                expected_code=128 + signal.SIGTERM,
+            )
+            _wait_until(
+                lambda: _health_state(coordinator.log_path.with_suffix(".health.json")) == "leader",
+                description="compatibility Coordinator to acquire MediaInfo recovery leadership",
+                timeout=30,
+            )
+
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+            count=2,
+        )
+        active_worker = worker
+        if not compatibility_enabled:
+            _wait_until(
+                replay_checkpoint.exists,
+                description="confirmed Bridge effect before Job result persistence",
+                timeout=30,
+            )
+            running = p4_store.get_job(created.job.id)
+            assert running is not None and running.job.status is JobStatus.RUNNING
+            with p4_runtime.engine.connect() as connection:
+                effect_status = connection.scalar(
+                    text(
+                        """
+                        SELECT status
+                        FROM media_effects
+                        WHERE aggregate_id = :aggregate_id
+                        """
+                    ),
+                    {"aggregate_id": aggregate_id},
+                )
+            assert effect_status == "confirmed"
+            assert len(stub.bridge_writes) == 1
+            worker.kill()
+            replacement = _start_worker(
+                worker_environment,
+                tmp_path / "mediainfo-restore-replacement-worker",
+            )
+            cleanup.callback(_stop_managed_process, replacement, expected_code=0)
+            _wait_for_worker(replacement, worker_environment.config)
+            active_worker = replacement
+
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert completed.current_attempt.attempt_no == (1 if compatibility_enabled else 2)
+        assert completed.job.result is not None
+        assert completed.job.result["status"] == "succeeded"
+        details = completed.job.result["details"]
+        assert details["task_key"] == "restore_mediainfo"
+        assert details["native_handler"] == "P115MediaInfoRestoreService"
+        assert details["compatibility_fallback"] is False
+        assert details["restored"] == 1
+        assert details["cache_hits"] == 1
+        assert details["online_probe_attempts"] == 0
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in active_worker.read_log(),
+            description="duplicate MediaInfo restore delivery to be skipped",
+            timeout=15,
+        )
+
+        with p4_runtime.engine.connect() as connection:
+            effect = connection.execute(
+                text(
+                    """
+                    SELECT id, effect_type, status, attempts
+                    FROM media_effects
+                    WHERE aggregate_id = :aggregate_id
+                    """
+                ),
+                {"aggregate_id": aggregate_id},
+            ).one()
+            outbox_status = connection.scalar(
+                text(
+                    """
+                    SELECT status
+                    FROM outbox_events
+                    WHERE aggregate_type = 'media_effect'
+                      AND aggregate_id = :effect_id
+                    """
+                ),
+                {"effect_id": str(effect.id)},
+            )
+        assert (effect.effect_type, effect.status, effect.attempts) == (
+            "emby.mediainfo.apply",
+            "confirmed",
+            1,
+        )
+        assert outbox_status == "processed"
+        assert len(stub.bridge_writes) == 1
+        assert stub.bridge_writes[0]["path"] == f"/Items/{item_id}/ETKMediaInfo"
+        assert stub.bridge_writes[0]["token"] == api_key
+        assert isinstance(stub.bridge_writes[0]["body"], Mapping)
+        assert len(stub.item_readbacks) == (1 if compatibility_enabled else 2)
 
         if not compatibility_enabled:
             with p4_runtime.engine.connect() as connection:

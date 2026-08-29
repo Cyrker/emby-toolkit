@@ -131,6 +131,7 @@ from etk.domains.p115 import (
     P115OrganizeRecordTmdbBackfillService,
     P115PlaybackConfigService,
     P115PlaybackService,
+    P115SdkDirectUrlGateway,
     P115StrmMediaInfoEnrichmentService,
     P115StrmSyncService,
     P115WashingPriorityRecalculationService,
@@ -279,6 +280,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "manual-correct-organize-records",
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
+        "restore_mediainfo",
         "scan-cleanup-issues",
         "scan_old_seasons_backfill",
         "sync-115-directory-tree",
@@ -684,7 +686,7 @@ class WorkerRuntime:
         self._native_only = False
         self._p115_credentials: SqlAlchemyP115CredentialRepository | None = None
         self._media_effects: PersistentMediaEffectExecutor | None = None
-        self._p5_media_tasks = P5MediaTaskRouter(LegacyP5MediaCompatibilityGateway())
+        self._p5_media_tasks = P5MediaTaskRouter(compatibility=None)
         self._p6_p115_tasks: P6P115TaskRouter | None = None
         self._p6_ingestion_tasks: P6IngestionTaskRouter | None = None
         self._p7_subscription_tasks: P7SubscriptionTaskRouter | None = None
@@ -719,6 +721,7 @@ class WorkerRuntime:
         self._active_collection_operation_executions = 0
         self._active_identity_executions = 0
         self._active_database_maintenance_executions = 0
+        self._active_media_effect_executions = 0
         self._idle = threading.Event()
         self._idle.set()
         self._shutdown_requested = threading.Event()
@@ -935,7 +938,10 @@ class WorkerRuntime:
                 )
                 mediainfo_policies = PersistentP115MediaInfoPolicyProvider(app_settings)
                 media_probe = P115MediaProbeService(
-                    direct_urls=LegacyP115DirectUrlGateway(),
+                    direct_urls=P115SdkDirectUrlGateway(
+                        credentials=p115_credentials,
+                        priority=lambda: str(settings_provider().p115_api_priority),
+                    ),
                     processes=processes,
                     iso=NativeP115IsoProbeGateway(processes),
                     policies=mediainfo_policies,
@@ -1082,8 +1088,8 @@ class WorkerRuntime:
                     worker_id=f"{self._worker_id}:p115-upload",
                 )
                 p5_media_tasks = P5MediaTaskRouter(
-                    LegacyP5MediaCompatibilityGateway(),
-                    P115MediaInfoRestoreService(
+                    compatibility=LegacyP5MediaCompatibilityGateway(),
+                    restore_mediainfo=P115MediaInfoRestoreService(
                         credentials=p115_credentials,
                         repository=p115_mediainfo_repository,
                         fingerprints=p115_fingerprint_repair,
@@ -1264,15 +1270,49 @@ class WorkerRuntime:
             )
             organize_plans = SqlAlchemyP115OrganizePlanRepository(database.unit_of_work)
             organize_executions = SqlAlchemyP115OrganizeExecutionRepository(database.unit_of_work)
+            p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
+            bridge_client = HttpxEmbyBridgeClient(settings_provider)
+            media_effects = PersistentMediaEffectExecutor(
+                PostgresMediaEffectLedger(database.unit_of_work),
+                RoutedMediaEffectDelivery([BridgeMediaEffectDelivery(bridge_client)]),
+                worker_id=f"{self._worker_id}:media-effect",
+                lease_seconds=lambda: max(float(config_adapter.load().emby_api_timeout) + 30, 90),
+            )
             p115_fingerprint_repair = P115FingerprintRepairService(
                 credentials=p115_credentials,
-                repository=SqlAlchemyP115MediaInfoRepository(database.unit_of_work),
+                repository=p115_mediainfo_repository,
                 hints=LocalP115FingerprintHintGateway(),
                 remote=HttpxP115FingerprintRemoteGateway(
                     credentials=p115_credentials,
                     priority=lambda: str(settings_provider().p115_api_priority),
                 ),
                 local_root=lambda: str(config_adapter.load().local_strm_root or ""),
+            )
+            mediainfo_policies = PersistentP115MediaInfoPolicyProvider(app_settings)
+            processes = ControlledProcessRunner()
+            p5_media_tasks = P5MediaTaskRouter(
+                compatibility=None,
+                restore_mediainfo=P115MediaInfoRestoreService(
+                    credentials=p115_credentials,
+                    repository=p115_mediainfo_repository,
+                    fingerprints=p115_fingerprint_repair,
+                    emby=HttpxEmbyMediaInfoQueryGateway(settings_provider),
+                    probe=P115MediaProbeService(
+                        direct_urls=P115SdkDirectUrlGateway(
+                            credentials=p115_credentials,
+                            priority=lambda: str(settings_provider().p115_api_priority),
+                        ),
+                        processes=processes,
+                        iso=NativeP115IsoProbeGateway(processes),
+                        policies=mediainfo_policies,
+                    ),
+                    policies=mediainfo_policies,
+                    commands=PersistentMediaInfoCommandGateway(
+                        database.unit_of_work,
+                        bridge_client,
+                        executor=media_effects,
+                    ),
+                ),
             )
             p6_p115_tasks = P6P115TaskRouter(
                 directory_sync=P115DirectorySyncService(
@@ -1339,6 +1379,8 @@ class WorkerRuntime:
         self._registry = registry
         self._service = service
         self._adapter = None
+        self._media_effects = media_effects
+        self._p5_media_tasks = p5_media_tasks
         self._p6_p115_tasks = p6_p115_tasks
         self._p6_ingestion_tasks = p6_ingestion_tasks
         self._p7_subscription_tasks = p7_subscription_tasks
@@ -1454,6 +1496,7 @@ class WorkerRuntime:
             self._native_only = False
             self._p115_credentials = None
             self._media_effects = None
+            self._p5_media_tasks = P5MediaTaskRouter(compatibility=None)
             self._p6_p115_tasks = None
             self._p6_ingestion_tasks = None
             self._p7_subscription_tasks = None
@@ -1486,6 +1529,7 @@ class WorkerRuntime:
             self._active_collection_operation_executions = 0
             self._active_identity_executions = 0
             self._active_database_maintenance_executions = 0
+            self._active_media_effect_executions = 0
             self._idle.set()
             self._started = False
             if errors:
@@ -1494,16 +1538,37 @@ class WorkerRuntime:
     def execute_media_effect(self, *, effect_id: str) -> MediaEffectProjection:
         if self._shutdown_requested.is_set() or worker_shutdown_requested():
             raise WorkerShutdownRequested("Worker shutdown is in progress")
-        self.start()
         try:
             parsed_effect_id = UUID(str(effect_id))
         except ValueError as exc:
             raise ValueError("media effect id must be a UUID") from exc
+        self.start()
         with self._lock:
+            if self._shutdown_requested.is_set() or worker_shutdown_requested():
+                raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
             executor = self._media_effects
-        if executor is None:
-            raise RuntimeError("Worker media effect executor is not initialized")
-        return executor.execute(parsed_effect_id)
+            if executor is None:
+                raise RuntimeError("Worker media effect executor is not initialized")
+            self._active_media_effect_executions += 1
+            self._idle.clear()
+        try:
+            return executor.execute(parsed_effect_id)
+        finally:
+            with self._lock:
+                self._active_media_effect_executions -= 1
+                if (
+                    not self._active_executions
+                    and self._active_ingestion_executions == 0
+                    and self._active_p115_upload_executions == 0
+                    and self._active_p115_playback_executions == 0
+                    and self._active_p115_intro_executions == 0
+                    and self._active_subscription_executions == 0
+                    and self._active_collection_operation_executions == 0
+                    and self._active_identity_executions == 0
+                    and self._active_database_maintenance_executions == 0
+                    and self._active_media_effect_executions == 0
+                ):
+                    self._idle.set()
 
     def execute_ingestion_monitor(self, *, item_id: str) -> MonitorItemProjection | None:
         if self._shutdown_requested.is_set() or worker_shutdown_requested():
@@ -1536,6 +1601,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
 
@@ -1570,6 +1636,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
 
@@ -1604,6 +1671,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
 
@@ -1642,6 +1710,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
 
@@ -1681,6 +1750,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
 
@@ -1715,6 +1785,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
 
@@ -1758,6 +1829,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
 
@@ -1804,6 +1876,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
 
@@ -2484,6 +2557,7 @@ class WorkerRuntime:
                 and self._active_collection_operation_executions == 0
                 and self._active_identity_executions == 0
                 and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                and self._active_media_effect_executions == 0
             ):
                 self._idle.set()
 
