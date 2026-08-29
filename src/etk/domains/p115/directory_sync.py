@@ -237,6 +237,8 @@ class P115DirectorySyncService:
                     seen_item_ids.add(item_id)
                 entry = _cache_entry(root, item)
                 if entry is None:
+                    if _is_directory_item(item):
+                        raise RuntimeError("115 目录树分页包含缺少有效 ID 或名称的目录项")
                     continue
                 entries[entry.id] = entry
                 page_count += 1
@@ -295,6 +297,11 @@ def _cache_entry(root: P115DirectoryRoot, item: Mapping[str, Any]) -> P115Direct
         name=name,
         local_path=posixpath.join(root.name, name),
     )
+
+
+def _is_directory_item(item: Mapping[str, Any]) -> bool:
+    category = item.get("fc") if item.get("fc") is not None else item.get("type")
+    return str(category) == "0"
 
 
 def _provider_item_id(item: Mapping[str, Any]) -> str:

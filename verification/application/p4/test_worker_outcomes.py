@@ -807,6 +807,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "recalculate_library_washing_priorities",
             "scan-monitor-folders",
             "scan_old_seasons_backfill",
+            "sync-115-directory-tree",
             "sync-all-user-data",
             "system-auto-update",
         }

@@ -83,11 +83,18 @@ def test_native_directory_sync_import_does_not_load_legacy_task_or_provider_modu
     program = """
 import json
 import sys
+from etk.domains.p115 import HttpxP115DirectoryTreeGateway, P115DirectorySyncService
 from etk.processes.p6_p115_tasks import P6P115TaskRouter
-forbidden = {'tasks.p115', 'handler.p115_service', 'database.connection', 'extensions'}
+forbidden_prefixes = ('database', 'extensions', 'handler', 'routes', 'task_manager', 'tasks')
+loaded = sorted(
+    name for name in sys.modules
+    if any(name == prefix or name.startswith(prefix + '.') for prefix in forbidden_prefixes)
+)
 print(json.dumps({
-    'loaded': sorted(forbidden.intersection(sys.modules)),
+    'loaded': loaded,
+    'gateway': HttpxP115DirectoryTreeGateway.__name__,
     'router': P6P115TaskRouter.__name__,
+    'service': P115DirectorySyncService.__name__,
 }))
 """
     environment = os.environ.copy()
@@ -107,5 +114,7 @@ print(json.dumps({
 
     assert json.loads(completed.stdout) == {
         "loaded": [],
+        "gateway": "HttpxP115DirectoryTreeGateway",
         "router": "P6P115TaskRouter",
+        "service": "P115DirectorySyncService",
     }

@@ -3055,6 +3055,87 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-P115-Directory-Sync-Worker
+
+Stage / Batch: P11 / processor-free P115 directory-sync Worker slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `16b9957d` (`fix(p11): refresh quota projection on replay`).
+- Checkpoint: this batch's `refactor(p11): execute native p115 directory sync` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Replaced the compatibility directory provider in both Worker profiles with an account-bound
+  `HttpxP115DirectoryTreeGateway`; native-only execution now wires the real
+  `P115DirectorySyncService` and SQLAlchemy cache repository without resolving a Processor or
+  importing legacy `handler/routes/database/tasks/task_manager/extensions` modules.
+- Added OpenAPI/Cookie request contracts, configured backend preference with first-page fallback
+  and backend pinning, finite transport retries, legacy list/field normalization and authoritative
+  empty-page fencing. The transport never refreshes or writes credentials.
+- Added request-before/after account, credential and app-type fencing. Credential drift is a
+  dedicated fail-closed error that cannot be swallowed by backend fallback, including HTTP failure
+  paths; explicit provider failure cannot be overwritten by `errno=0` or `code=200`.
+- Malformed directory aliases now abort that root instead of reconciling a partial set. PostgreSQL
+  18 failures for HTTP 401/503, contradictory provider state and malformed raw aliases preserve
+  both credentials and stale cache rows.
+- Added native-only and compatibility-enabled Redis/Celery execution through a loopback HTTP Stub.
+  The native-only profile kills the Worker after cache commit but before Job result persistence;
+  a replacement Worker replays through attempt 2, converges to one cache row, persists the result,
+  and leaves the retry dispatch Outbox processed.
+- Hardened the P4 integration harness so setup failures still close database/Redis/process/HTTP
+  resources and restore pre-existing P115 settings exactly. Native-only Worker execution is now
+  `13 executable / 37 unavailable`.
+
+Targeted gate:
+
+- Scoped Ruff -> clean; format check -> `13 files already formatted`; scoped Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- P115 auth/directory, real Worker, process-role and architecture scope -> `232 passed, 1` existing
+  Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 directory-cache/credential scope -> `16 passed`.
+- Redis-Celery native-only crash/replay and compatibility-enabled normal profile -> `2 passed, 13
+  deselected`; only loopback Stub HTTP was used.
+- Manifest generation/check reported `task_keys=50`; OpenAPI currentness and `git diff --check`
+  were clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-p115-directory-sync-20260829/`.
+
+Focused review:
+
+- Initial reviews found two transport P1s (credential drift swallowed by fallback and explicit
+  provider failure overwritten by compatibility success fields), failure-path PG18 gaps, malformed
+  alias cleanup risk, incomplete Redis fixture cleanup and missing P115-specific Worker replay
+  evidence. All were repaired with focused regressions.
+- Final findings-first rereview found no remaining P0/P1/P2 in this slice. The replay recovery
+  Coordinator is explicitly compatibility-enabled; migrating native-only Coordinator recovery is
+  still part of the later controlled-removal boundary, not claimed by this Worker checkpoint.
+
+Stage full gate:
+
+- Not run. P11 still has explicit route, task, table, dynamic/bootstrap config and standalone
+  settings ownership gaps, so controlled removal and the stage NFR/security gates are not yet
+  authorized.
+
+Pending:
+
+- Native-only Worker execution is `13 executable / 37 unavailable`. Fifty-seven route decorators,
+  61 method bindings, 12 tables, 82 dynamic config keys, seven bootstrap keys and 18 standalone
+  settings remain legacy-owned.
+- `repair-p115-fingerprints` is explicitly NO-GO until its native HTTP provider, local-path/SHA1
+  parity, complete credential fencing and processed execution evidence are closed. Controlled
+  removal, security/performance/reliability/resource gates, SBOM, vulnerability report, License
+  inventory and P12 remain pending.
+
+Next: select the smallest evidence-backed remaining normal processed Worker/ownership slice; do not
+promote `repair-p115-fingerprints` by allowlist alone and do not start controlled removal or P12.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

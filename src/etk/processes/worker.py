@@ -105,6 +105,7 @@ from etk.domains.p115 import (
     EmbyAuthorizationRevisionAdapter,
     EmbyPathChangeEffectDelivery,
     HttpxEmbyPathChangeGateway,
+    HttpxP115DirectoryTreeGateway,
     HttpxP115EpisodeRuntimeGateway,
     IntroDetectionExecutionService,
     IntroDetectionOperation,
@@ -113,7 +114,6 @@ from etk.domains.p115 import (
     LegacyP7IntroRuntimeSource,
     LegacyP9IntroChaptersChangedHook,
     LegacyP115DirectLinkGateway,
-    LegacyP115DirectoryTreeGateway,
     LegacyP115OrganizeMutationGateway,
     LegacyP115PlaybackProvider,
     LegacyP115PlaybackSourceGateway,
@@ -274,6 +274,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "backfill-organize-record-tmdb-ids",
         "recalculate_library_washing_priorities",
         "scan_old_seasons_backfill",
+        "sync-115-directory-tree",
         "sync-all-user-data",
         "system-auto-update",
     }
@@ -930,7 +931,10 @@ class WorkerRuntime:
                     P115DirectorySyncService(
                         settings=app_settings,
                         credentials=p115_credentials,
-                        directories=LegacyP115DirectoryTreeGateway(),
+                        directories=HttpxP115DirectoryTreeGateway(
+                            credentials=p115_credentials,
+                            priority=lambda: str(settings_provider().p115_api_priority),
+                        ),
                         repository=SqlAlchemyP115DirectoryCacheRepository(database.unit_of_work),
                     ),
                     P115OrganizeExecutionService(
@@ -1222,9 +1226,18 @@ class WorkerRuntime:
                 )
             )
             p6_p115_tasks = P6P115TaskRouter(
+                directory_sync=P115DirectorySyncService(
+                    settings=app_settings,
+                    credentials=p115_credentials,
+                    directories=HttpxP115DirectoryTreeGateway(
+                        credentials=p115_credentials,
+                        priority=lambda: str(settings_provider().p115_api_priority),
+                    ),
+                    repository=SqlAlchemyP115DirectoryCacheRepository(database.unit_of_work),
+                ),
                 organize_record_tmdb_backfill=P115OrganizeRecordTmdbBackfillService(
                     SqlAlchemyP115OrganizeRecordsRepository(database.unit_of_work)
-                )
+                ),
             )
             p7_subscription_tasks = P7SubscriptionTaskRouter(
                 None,

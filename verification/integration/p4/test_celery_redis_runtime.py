@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable, Iterator, Mapping
+from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -71,6 +72,84 @@ def _safe_point_operation(processor: Any, *, marker: str, mode: str) -> dict[str
 class CleanupEmbyStubState:
     notifications: int = 0
     item_readbacks: int = 0
+
+
+@dataclass(slots=True)
+class P115DirectoryStubState:
+    requests: list[dict[str, Any]]
+
+
+def _start_p115_directory_stub(
+    *,
+    directory_id: str = "dir-worker-native",
+) -> tuple[ThreadingHTTPServer, threading.Thread, P115DirectoryStubState]:
+    state = P115DirectoryStubState(requests=[])
+    lock = threading.Lock()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            parsed = urlsplit(self.path)
+            query = dict(item.split("=", 1) for item in parsed.query.split("&") if "=" in item)
+            authorization = self.headers.get("Authorization")
+            with lock:
+                state.requests.append(
+                    {
+                        "path": parsed.path,
+                        "query": query,
+                        "authorization": authorization,
+                    }
+                )
+            if parsed.path != "/open/ufile/files" or authorization != "Bearer fixture-openapi-token":
+                self.send_response(403)
+                self.end_headers()
+                return
+            offset = int(query.get("offset") or 0)
+            data = (
+                [
+                    {"file_id": directory_id, "file_name": "Native", "type": 0},
+                    {"file_id": "movie-worker-native", "file_name": "movie.mkv", "type": 1},
+                ]
+                if offset == 0
+                else []
+            )
+            payload = json.dumps({"state": True, "count": 2, "data": data}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: object) -> None:
+            del format, args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, name="etk-p115-directory-stub", daemon=True)
+    thread.start()
+    return server, thread, state
+
+
+def _shutdown_http_stub(server: ThreadingHTTPServer, thread: threading.Thread) -> None:
+    server.shutdown()
+    server.server_close()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+
+
+def _stop_managed_process(
+    process: ManagedProcess,
+    *,
+    expected_code: int,
+    allow_sigkill: bool = False,
+) -> None:
+    code = process.process.poll()
+    if code is None:
+        code = process.stop()
+    elif not process.stream.closed:
+        process.stream.close()
+    allowed_codes = {expected_code}
+    if allow_sigkill:
+        allowed_codes.add(-signal.SIGKILL)
+    assert code in allowed_codes, process.read_log()
 
 
 def _start_cleanup_emby_stub() -> tuple[ThreadingHTTPServer, threading.Thread, CleanupEmbyStubState]:
@@ -250,56 +329,68 @@ def p4_runtime_environment(
     migrated_p4_postgres_url: str,
     tmp_path: Path,
 ) -> Iterator[RuntimeEnvironment]:
-    p4_redis_container.start()
-    p4_redis_container.flush()
-    database = urlsplit(migrated_p4_postgres_url.replace("postgresql+psycopg://", "postgresql://", 1))
-    data_dir = tmp_path / "config"
-    home_dir = tmp_path / "home"
-    data_dir.mkdir()
-    home_dir.mkdir()
-    queue_name = f"p4.integration.{uuid4().hex}"
-    environment = os.environ.copy()
-    environment.update(
-        {
-            "APP_DATA_DIR": str(data_dir),
-            "CONFIG_DIR": str(data_dir),
-            "DB_HOST": database.hostname or "127.0.0.1",
-            "DB_PORT": str(database.port or 5432),
-            "DB_USER": database.username or "",
-            "DB_PASSWORD": database.password or "",
-            "DB_NAME": database.path.lstrip("/"),
-            "ETK_DATABASE_URL": migrated_p4_postgres_url,
-            "ETK_REDIS_URL": p4_redis_container.url,
-            "ETK_TASK_QUEUE": queue_name,
-            "ETK_JOB_HEARTBEAT_SECONDS": "1",
-            "ETK_JOB_LEASE_SECONDS": "4",
-            "ETK_COORDINATOR_INTERVAL_SECONDS": "0.2",
-            "ETK_OUTBOX_BATCH_SIZE": "10",
-            "ETK_OUTBOX_CLAIM_TIMEOUT_SECONDS": "2",
-            "ETK_WORKER_CONCURRENCY": "1",
-            "ETK_WORKER_SHUTDOWN_TIMEOUT_SECONDS": "5",
-            "ETK_COORDINATOR_SCHEDULES_ENABLED": "false",
-            "HOME": str(home_dir),
-            "PYTHONDONTWRITEBYTECODE": "1",
-        }
-    )
-    config = TaskRuntimeConfig(
-        broker_url=p4_redis_container.url,
-        queue_name=queue_name,
-        heartbeat_seconds=1,
-        lease_seconds=4,
-        coordinator_interval_seconds=0.2,
-        outbox_batch_size=10,
-        outbox_claim_timeout_seconds=2,
-        worker_concurrency=1,
-        worker_shutdown_timeout_seconds=5,
-        schedules_enabled=False,
-    )
     try:
-        yield RuntimeEnvironment(environment, config, data_dir, queue_name)
-    finally:
         p4_redis_container.start()
         p4_redis_container.flush()
+        database = urlsplit(migrated_p4_postgres_url.replace("postgresql+psycopg://", "postgresql://", 1))
+        data_dir = tmp_path / "config"
+        home_dir = tmp_path / "home"
+        data_dir.mkdir()
+        home_dir.mkdir()
+        queue_name = f"p4.integration.{uuid4().hex}"
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "APP_DATA_DIR": str(data_dir),
+                "CONFIG_DIR": str(data_dir),
+                "DB_HOST": database.hostname or "127.0.0.1",
+                "DB_PORT": str(database.port or 5432),
+                "DB_USER": database.username or "",
+                "DB_PASSWORD": database.password or "",
+                "DB_NAME": database.path.lstrip("/"),
+                "ETK_DATABASE_URL": migrated_p4_postgres_url,
+                "ETK_REDIS_URL": p4_redis_container.url,
+                "ETK_TASK_QUEUE": queue_name,
+                "ETK_JOB_HEARTBEAT_SECONDS": "1",
+                "ETK_JOB_LEASE_SECONDS": "4",
+                "ETK_COORDINATOR_INTERVAL_SECONDS": "0.2",
+                "ETK_OUTBOX_BATCH_SIZE": "10",
+                "ETK_OUTBOX_CLAIM_TIMEOUT_SECONDS": "2",
+                "ETK_WORKER_CONCURRENCY": "1",
+                "ETK_WORKER_SHUTDOWN_TIMEOUT_SECONDS": "5",
+                "ETK_COORDINATOR_SCHEDULES_ENABLED": "false",
+                "HOME": str(home_dir),
+                "PYTHONDONTWRITEBYTECODE": "1",
+            }
+        )
+        config = TaskRuntimeConfig(
+            broker_url=p4_redis_container.url,
+            queue_name=queue_name,
+            heartbeat_seconds=1,
+            lease_seconds=4,
+            coordinator_interval_seconds=0.2,
+            outbox_batch_size=10,
+            outbox_claim_timeout_seconds=2,
+            worker_concurrency=1,
+            worker_shutdown_timeout_seconds=5,
+            schedules_enabled=False,
+        )
+        yield RuntimeEnvironment(environment, config, data_dir, queue_name)
+    finally:
+        active_error = sys.exception()
+        cleanup_errors: list[Exception] = []
+        for cleanup_action in (p4_redis_container.start, p4_redis_container.flush):
+            try:
+                cleanup_action()
+            except Exception as exc:
+                cleanup_errors.append(exc)
+        if cleanup_errors:
+            if active_error is None:
+                raise ExceptionGroup("P4 Redis fixture cleanup failed", cleanup_errors)
+            active_error.add_note(
+                "P4 Redis fixture cleanup also failed: "
+                + "; ".join(f"{type(exc).__name__}: {exc}" for exc in cleanup_errors)
+            )
 
 
 def test_redis_outage_preserves_job_and_outbox_then_recovers_delivery(
@@ -517,6 +608,392 @@ def test_old_season_backfill_executes_once_through_real_worker_profiles(
                     "latest_id": latest_id,
                 },
             )
+
+
+def _snapshot_p115_directory_settings(runtime: DatabaseRuntime) -> dict[str, tuple[Any, datetime]]:
+    with runtime.engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                """
+                SELECT setting_key, value_json, last_updated_at
+                FROM app_settings
+                WHERE setting_key IN (
+                    'p115_auth_tokens',
+                    'p115_sorting_rules',
+                    'p115_sorting_rules_account_id'
+                )
+                """
+            )
+        ).mappings()
+        return {str(row["setting_key"]): (row["value_json"], row["last_updated_at"]) for row in rows}
+
+
+def _restore_p115_directory_fixture(
+    runtime: DatabaseRuntime,
+    *,
+    prior_settings: Mapping[str, tuple[Any, datetime]],
+    cache_ids: tuple[str, ...],
+) -> None:
+    with runtime.engine.begin() as connection:
+        connection.execute(
+            text("DELETE FROM p115_filesystem_cache WHERE id = ANY(CAST(:ids AS text[]))"),
+            {"ids": list(cache_ids)},
+        )
+        connection.execute(
+            text(
+                """
+                DELETE FROM app_settings
+                WHERE setting_key IN (
+                    'p115_auth_tokens',
+                    'p115_sorting_rules',
+                    'p115_sorting_rules_account_id'
+                )
+                """
+            )
+        )
+        for setting_key, (value_json, last_updated_at) in prior_settings.items():
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES (:setting_key, CAST(:value_json AS jsonb), :last_updated_at)
+                    """
+                ),
+                {
+                    "setting_key": setting_key,
+                    "value_json": json.dumps(value_json, separators=(",", ":")),
+                    "last_updated_at": last_updated_at,
+                },
+            )
+
+
+def _p115_directory_cache_rows(runtime: DatabaseRuntime, *, root_id: str) -> list[dict[str, Any]]:
+    with runtime.engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                """
+                SELECT id, parent_id, name, local_path, account_id, entry_kind
+                FROM p115_filesystem_cache
+                WHERE parent_id = :root_id
+                ORDER BY id
+                """
+            ),
+            {"root_id": root_id},
+        ).mappings()
+        return [dict(row) for row in rows]
+
+
+@pytest.mark.parametrize(
+    "compatibility_enabled",
+    [False, True],
+    ids=["native-only", "compatibility-enabled"],
+)
+def test_p115_directory_sync_uses_local_stub_through_real_worker_profiles_and_replay(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+) -> None:
+    fixture_id = uuid4().hex
+    root_id = f"root-worker-{fixture_id}"
+    directory_id = f"dir-worker-{fixture_id}"
+    stale_id = f"stale-worker-{fixture_id}"
+    replay_checkpoint = tmp_path / "p115-directory-before-job-result.checkpoint"
+    replay_release = tmp_path / "p115-directory-before-job-result.release"
+
+    with ExitStack() as cleanup:
+        server, server_thread, stub = _start_p115_directory_stub(directory_id=directory_id)
+        cleanup.callback(_shutdown_http_stub, server, server_thread)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+        prior_settings = _snapshot_p115_directory_settings(p4_runtime)
+        cleanup.callback(
+            _restore_p115_directory_fixture,
+            p4_runtime,
+            prior_settings=prior_settings,
+            cache_ids=(directory_id, stale_id),
+        )
+
+        site_directory = tmp_path / f"p115-directory-site-{compatibility_enabled}"
+        site_directory.mkdir()
+        (site_directory / "sitecustomize.py").write_text(
+            """
+import builtins
+import os
+import time
+
+import etk.domains.p115.directory_transport as directory_transport
+
+base_url = os.environ["ETK_TEST_P115_DIRECTORY_BASE_URL"].rstrip("/")
+directory_transport._OPENAPI_FILES_URL = base_url + "/open/ufile/files"
+directory_transport._COOKIE_FILES_URL = base_url + "/files"
+
+guard_file = os.environ.get("ETK_TEST_LEGACY_IMPORT_GUARD_FILE")
+if guard_file:
+    original_import = builtins.__import__
+    forbidden = ("database", "extensions", "handler", "routes", "task_manager", "tasks")
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if level == 0 and os.path.exists(guard_file) and any(
+            name == prefix or name.startswith(prefix + ".") for prefix in forbidden
+        ):
+            raise AssertionError(f"native P115 directory Worker imported legacy runtime {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    builtins.__import__ = guarded_import
+
+checkpoint_file = os.environ.get("ETK_TEST_P115_DIRECTORY_RESULT_CHECKPOINT")
+checkpoint_job_id = os.environ.get("ETK_TEST_P115_DIRECTORY_RESULT_JOB_ID")
+release_file = os.environ.get("ETK_TEST_P115_DIRECTORY_RESULT_RELEASE")
+if checkpoint_file and checkpoint_job_id and release_file:
+    from etk.platform.jobs import PostgresJobStore
+
+    original_succeed_attempt = PostgresJobStore.succeed_attempt
+
+    def succeed_attempt_after_test_checkpoint(self, **kwargs):
+        if str(kwargs.get("job_id")) == checkpoint_job_id and not os.path.exists(checkpoint_file):
+            try:
+                descriptor = os.open(checkpoint_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError:
+                pass
+            else:
+                os.write(descriptor, str(os.getpid()).encode())
+                os.close(descriptor)
+                deadline = time.monotonic() + 60
+                while time.monotonic() < deadline and not os.path.exists(release_file):
+                    time.sleep(0.05)
+                if not os.path.exists(release_file):
+                    raise TimeoutError("P115 directory result checkpoint was not released")
+        return original_succeed_attempt(self, **kwargs)
+
+    PostgresJobStore.succeed_attempt = succeed_attempt_after_test_checkpoint
+""".lstrip(),
+            encoding="utf-8",
+        )
+
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES
+                        ('p115_auth_tokens', CAST(:credentials AS jsonb), NOW()),
+                        ('p115_sorting_rules', CAST(:rules AS jsonb), NOW()),
+                        ('p115_sorting_rules_account_id', '"115001"'::jsonb, NOW())
+                    ON CONFLICT (setting_key) DO UPDATE SET
+                        value_json = EXCLUDED.value_json,
+                        last_updated_at = NOW()
+                    """
+                ),
+                {
+                    "credentials": json.dumps(
+                        {
+                            "access_token": "fixture-openapi-token",
+                            "refresh_token": "fixture-refresh-token",
+                            "cookie": None,
+                            "app_type": "web",
+                            "account_id": "115001",
+                            "openapi_account_id": "115001",
+                            "cookie_account_id": None,
+                        }
+                    ),
+                    "rules": json.dumps([{"cid": root_id, "category_path": "Movies"}]),
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO p115_filesystem_cache (
+                        id, parent_id, name, local_path, account_id, entry_kind
+                    ) VALUES (
+                        :stale_id, :root_id, 'Stale', 'Movies/Stale', '115001', 'directory'
+                    )
+                    """
+                ),
+                {"stale_id": stale_id, "root_id": root_id},
+            )
+
+        created = p4_store.create_job(
+            task_key="sync-115-directory-tree",
+            queue_name=p4_runtime_environment.queue_name,
+            max_attempts=1 if compatibility_enabled else 2,
+            payload={
+                "payload_version": 1,
+                "parameters": {},
+                "processor_type": "media",
+                "display_name": "P11 native P115 directory fixture",
+                "silent": True,
+            },
+        ).projection
+        worker_environment_values = dict(p4_runtime_environment.environment)
+        worker_environment_values["ETK_TEST_P115_DIRECTORY_BASE_URL"] = base_url
+        legacy_import_guard = tmp_path / "p115-directory-legacy-import.guard"
+        existing_python_path = worker_environment_values.get("PYTHONPATH", "")
+        worker_environment_values["PYTHONPATH"] = os.pathsep.join(
+            filter(
+                None,
+                (
+                    str(site_directory),
+                    str(REPO_ROOT / "src"),
+                    str(REPO_ROOT),
+                    existing_python_path,
+                ),
+            )
+        )
+        if compatibility_enabled:
+            worker_environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+            worker_environment_values.pop("ETK_TEST_LEGACY_IMPORT_GUARD_FILE", None)
+        else:
+            worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+            worker_environment_values["ETK_TEST_LEGACY_IMPORT_GUARD_FILE"] = str(legacy_import_guard)
+            worker_environment_values["ETK_TEST_P115_DIRECTORY_RESULT_CHECKPOINT"] = str(replay_checkpoint)
+            worker_environment_values["ETK_TEST_P115_DIRECTORY_RESULT_JOB_ID"] = str(created.job.id)
+            worker_environment_values["ETK_TEST_P115_DIRECTORY_RESULT_RELEASE"] = str(replay_release)
+        worker_environment = RuntimeEnvironment(
+            environment=worker_environment_values,
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        worker = _start_worker(worker_environment, tmp_path / "p115-directory-worker")
+        cleanup.callback(
+            _stop_managed_process,
+            worker,
+            expected_code=0,
+            allow_sigkill=not compatibility_enabled,
+        )
+        if not compatibility_enabled:
+            cleanup.callback(replay_release.touch)
+        _wait_for_worker(worker, worker_environment.config)
+        if not compatibility_enabled:
+            legacy_import_guard.write_text("active", encoding="utf-8")
+            coordinator_environment = RuntimeEnvironment(
+                environment={
+                    **p4_runtime_environment.environment,
+                    "ETK_ENABLE_LEGACY_COMPATIBILITY": "true",
+                },
+                config=p4_runtime_environment.config,
+                data_dir=p4_runtime_environment.data_dir,
+                queue_name=p4_runtime_environment.queue_name,
+            )
+            coordinator = _start_coordinator(
+                coordinator_environment,
+                tmp_path / "p115-directory-coordinator",
+            )
+            cleanup.callback(
+                _stop_managed_process,
+                coordinator,
+                expected_code=128 + signal.SIGTERM,
+            )
+            _wait_until(
+                lambda: _health_state(coordinator.log_path.with_suffix(".health.json")) == "leader",
+                description="compatibility Coordinator to acquire recovery leadership",
+                timeout=30,
+            )
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+            count=2,
+        )
+
+        active_worker = worker
+        expected_cleaned = 1
+        expected_offsets = ["0", "2"]
+        if not compatibility_enabled:
+            _wait_until(
+                replay_checkpoint.exists,
+                description="P115 directory cache commit before Job result persistence",
+                timeout=30,
+            )
+            running = p4_store.get_job(created.job.id)
+            assert running is not None
+            assert running.job.status is JobStatus.RUNNING
+            assert _p115_directory_cache_rows(p4_runtime, root_id=root_id) == [
+                {
+                    "id": directory_id,
+                    "parent_id": root_id,
+                    "name": "Native",
+                    "local_path": "Movies/Native",
+                    "account_id": "115001",
+                    "entry_kind": "directory",
+                }
+            ]
+            worker.kill()
+            replacement = _start_worker(
+                worker_environment,
+                tmp_path / "p115-directory-replacement-worker",
+            )
+            cleanup.callback(_stop_managed_process, replacement, expected_code=0)
+            _wait_for_worker(replacement, worker_environment.config)
+            active_worker = replacement
+            expected_cleaned = 0
+            expected_offsets = ["0", "2", "0", "2"]
+
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert completed.current_attempt.attempt_no == (1 if compatibility_enabled else 2)
+        assert completed.job.result == {
+            "ok": True,
+            "status": "succeeded",
+            "message": f"同步结束：共更新 1 个目录，清理 {expected_cleaned} 个失效缓存",
+            "details": {
+                "roots_total": 1,
+                "roots_completed": 1,
+                "roots_failed": 0,
+                "cached": 1,
+                "cleaned": expected_cleaned,
+                "errors": [],
+                "account_bound": True,
+                "authoritative_cleanup_only": True,
+                "task_key": "sync-115-directory-tree",
+                "native_handler": "P6P115TaskRouter",
+                "compatibility_fallback": False,
+            },
+        }
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in active_worker.read_log(),
+            description="duplicate P115 directory delivery to be skipped",
+            timeout=15,
+        )
+        assert _p115_directory_cache_rows(p4_runtime, root_id=root_id) == [
+            {
+                "id": directory_id,
+                "parent_id": root_id,
+                "name": "Native",
+                "local_path": "Movies/Native",
+                "account_id": "115001",
+                "entry_kind": "directory",
+            }
+        ]
+        assert [request["query"]["offset"] for request in stub.requests] == expected_offsets
+        if not compatibility_enabled:
+            with p4_runtime.engine.connect() as connection:
+                attempts = connection.execute(
+                    text(
+                        """
+                        SELECT attempt_no, status, error_type
+                        FROM job_attempts
+                        WHERE job_id = :job_id
+                        ORDER BY attempt_no
+                        """
+                    ),
+                    {"job_id": created.job.id},
+                ).all()
+                retry_dispatch_status = connection.scalar(
+                    text(
+                        """
+                        SELECT status
+                        FROM outbox_events
+                        WHERE aggregate_type = 'job_attempt'
+                          AND aggregate_id = :attempt_id
+                        """
+                    ),
+                    {"attempt_id": str(completed.current_attempt.id)},
+                )
+            assert attempts == [(1, "lost", "worker_lost"), (2, "succeeded", None)]
+            assert retry_dispatch_status == "processed"
 
 
 def test_p7_cleanup_worker_restart_uses_readback_only_after_duplicate_delivery(
@@ -1105,15 +1582,19 @@ def _start_coordinator(runtime: RuntimeEnvironment, log_path: Path) -> ManagedPr
 def _start_process(command: list[str], environment: Mapping[str, str], log_path: Path) -> ManagedProcess:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     stream = log_path.open("w", encoding="utf-8")
-    process = subprocess.Popen(
-        command,
-        cwd=REPO_ROOT,
-        env=dict(environment),
-        stdout=stream,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
-        text=True,
-    )
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=REPO_ROOT,
+            env=dict(environment),
+            stdout=stream,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            text=True,
+        )
+    except BaseException:
+        stream.close()
+        raise
     return ManagedProcess(process=process, stream=stream, log_path=log_path)
 
 

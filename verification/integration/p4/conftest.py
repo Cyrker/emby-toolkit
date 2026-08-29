@@ -62,17 +62,17 @@ def p4_runtime(migrated_p4_postgres_url: str) -> Iterator[DatabaseRuntime]:
             application_name="etk-p4-integration-raw",
         ),
     )
-    runtime.start()
-    with runtime.engine.begin() as connection:
-        connection.execute(
-            text(
-                """
-                TRUNCATE TABLE idempotency_records, outbox_events, job_attempts, job_runs
-                RESTART IDENTITY CASCADE
-                """
-            )
-        )
     try:
+        runtime.start()
+        with runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    TRUNCATE TABLE idempotency_records, outbox_events, job_attempts, job_runs
+                    RESTART IDENTITY CASCADE
+                    """
+                )
+            )
         yield runtime
     finally:
         runtime.shutdown()

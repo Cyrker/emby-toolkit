@@ -306,6 +306,29 @@ def test_invalid_or_incomplete_provider_page_never_reconciles_that_root() -> Non
     assert progress.updates[-1][0] == -1
 
 
+@pytest.mark.parametrize(
+    "directory",
+    [
+        {"fid": "", "fn": "Missing ID", "fc": 0},
+        {"fid": "missing-name", "fn": "", "fc": 0},
+    ],
+)
+def test_malformed_directory_item_fails_closed_without_reconciling(directory: dict[str, object]) -> None:
+    service, _client, _gateway, repository, _progress = _service(
+        rules=[{"cid": "root-a", "name": "Movies"}],
+        responses={
+            ("root-a", 0): {"state": True, "data": [directory], "count": 1},
+            ("root-a", 1): {"state": True, "data": [], "count": 1},
+        },
+    )
+
+    outcome = service.execute(FakeProgress())
+
+    assert outcome.status is TaskOutcomeStatus.FAILED
+    assert repository.calls == []
+    assert "缺少有效 ID 或名称的目录项" in outcome.details["errors"][0]["error"]
+
+
 def test_partial_sync_reconciles_only_the_authoritatively_completed_root() -> None:
     service, _client, _gateway, repository, _progress = _service(
         rules=[

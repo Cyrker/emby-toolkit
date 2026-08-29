@@ -42,6 +42,11 @@ from .directory_sync import (
     P115SettingsReader,
     P115TaskProgress,
 )
+from .directory_transport import (
+    HttpxP115DirectoryTreeGateway,
+    P115DirectoryCredentialChanged,
+    P115DirectoryTransportError,
+)
 from .emby_path_gateway import HttpxEmbyPathChangeGateway
 from .episode_regex import (
     P115_EPISODE_REGEX_RULES_KEY,
@@ -334,6 +339,7 @@ __all__ = [
     "HttpxP115BridgeEmbyGateway",
     "HttpxP115EpisodeRuntimeGateway",
     "HttpxP115AuthorizationGateway",
+    "HttpxP115DirectoryTreeGateway",
     "HttpxEmbyPathChangeGateway",
     "IntroDetectionExecutionService",
     "IntroDetectionIntent",
@@ -381,11 +387,13 @@ __all__ = [
     "P115DirectoryGateway",
     "P115DirectoryCacheEntry",
     "P115DirectoryCacheRepository",
+    "P115DirectoryCredentialChanged",
     "P115DirectoryReconcileResult",
     "P115DirectoryRoot",
     "P115DirectorySyncService",
     "P115DirectoryTreeClient",
     "P115DirectoryTreeGateway",
+    "P115DirectoryTransportError",
     "P115DeepDeleteJobGateway",
     "P115DeepDeleteService",
     "P115DirectUrl",

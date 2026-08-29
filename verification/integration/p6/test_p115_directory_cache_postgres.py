@@ -2,23 +2,206 @@ from __future__ import annotations
 
 import json
 
+import httpx
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from etk.domains.p115 import (
+    HttpxP115DirectoryTreeGateway,
     P115DirectoryCacheEntry,
     P115DirectoryRoot,
+    P115DirectorySyncService,
+    SqlAlchemyP115CredentialRepository,
     SqlAlchemyP115DirectoryCacheRepository,
     SqlAlchemyP115EpisodeRegexRepository,
     SqlAlchemyP115RenameConfigRepository,
     SqlAlchemyP115SortingRulesRepository,
 )
+from etk.domains.system.repository import SqlAlchemyAppSettingsRepository
 from etk.platform.db import DatabaseRuntime
+from etk.platform.tasks import TaskOutcomeStatus
 
 
 def _entry(entry_id: str, root: str, name: str) -> P115DirectoryCacheEntry:
     return P115DirectoryCacheEntry(entry_id, root, name, f"Movies/{name}")
+
+
+class _Progress:
+    def update(self, progress: int, message: str) -> None:
+        del progress, message
+
+    def checkpoint(self) -> None:
+        return None
+
+
+def test_postgres18_directory_service_reconciles_a_mocked_native_provider_page(
+    p6_runtime: DatabaseRuntime,
+) -> None:
+    credentials = SqlAlchemyP115CredentialRepository(p6_runtime.unit_of_work)
+    credentials.save_openapi(
+        "fixture-openapi-token",
+        "fixture-refresh-token",
+        account_id="115001",
+    )
+    SqlAlchemyP115SortingRulesRepository(p6_runtime.unit_of_work).save(
+        [{"cid": "root-native", "category_path": "Movies"}],
+        account_id="115001",
+    )
+    responses = iter(
+        (
+            httpx.Response(
+                200,
+                json={
+                    "state": True,
+                    "count": 2,
+                    "data": [
+                        {"file_id": "dir-native", "file_name": "Native", "type": 0},
+                        {"file_id": "movie-native", "file_name": "movie.mkv", "type": 1},
+                    ],
+                },
+            ),
+            httpx.Response(200, json={"state": True, "count": 2, "data": []}),
+        )
+    )
+    transport = httpx.MockTransport(lambda _request: next(responses))
+    service = P115DirectorySyncService(
+        settings=SqlAlchemyAppSettingsRepository(p6_runtime.unit_of_work),
+        credentials=credentials,
+        directories=HttpxP115DirectoryTreeGateway(
+            credentials=credentials,
+            priority=lambda: "openapi",
+            client_factory=lambda **kwargs: httpx.Client(transport=transport, **kwargs),
+        ),
+        repository=SqlAlchemyP115DirectoryCacheRepository(p6_runtime.unit_of_work),
+    )
+
+    outcome = service.execute(_Progress())
+
+    assert outcome.status is TaskOutcomeStatus.SUCCEEDED
+    assert outcome.details["cached"] == 1
+    assert outcome.details["cleaned"] == 0
+    with p6_runtime.engine.connect() as connection:
+        row = (
+            connection.execute(
+                text(
+                    """
+                    SELECT id, parent_id, name, local_path, account_id, entry_kind
+                    FROM p115_filesystem_cache
+                    WHERE id = 'dir-native'
+                    """
+                )
+            )
+            .mappings()
+            .one()
+        )
+    assert dict(row) == {
+        "id": "dir-native",
+        "parent_id": "root-native",
+        "name": "Native",
+        "local_path": "Movies/Native",
+        "account_id": "115001",
+        "entry_kind": "directory",
+    }
+
+
+@pytest.mark.parametrize(
+    ("status_code", "payload"),
+    [
+        (401, {"state": False, "error": "fixture unauthorized"}),
+        (503, {"state": False, "error": "fixture unavailable"}),
+        (200, {"state": False, "errno": 0, "data": []}),
+        (
+            200,
+            {
+                "state": True,
+                "count": 1,
+                "data": [{"cid": "", "name": "Broken", "type": 0}],
+            },
+        ),
+        (
+            200,
+            {
+                "state": True,
+                "count": 1,
+                "data": [{"file_id": "", "file_name": "Broken", "file_category": 0}],
+            },
+        ),
+        (
+            200,
+            {
+                "state": True,
+                "count": 1,
+                "data": [{"is_dir": 1, "cid": "dir-broken", "name": ""}],
+            },
+        ),
+    ],
+)
+def test_postgres18_directory_service_preserves_cache_and_credentials_on_provider_failure(
+    p6_runtime: DatabaseRuntime,
+    status_code: int,
+    payload: object,
+) -> None:
+    credentials = SqlAlchemyP115CredentialRepository(p6_runtime.unit_of_work)
+    credentials.save_openapi(
+        "fixture-openapi-token",
+        "fixture-refresh-token",
+        account_id="115001",
+    )
+    before_credentials = credentials.load_record()
+    SqlAlchemyP115SortingRulesRepository(p6_runtime.unit_of_work).save(
+        [{"cid": "root-failure", "category_path": "Movies"}],
+        account_id="115001",
+    )
+    with p6_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_filesystem_cache (
+                    id, parent_id, name, local_path, account_id, entry_kind
+                ) VALUES (
+                    'stale-preserved',
+                    'root-failure',
+                    'Stale',
+                    'Movies/Stale',
+                    '115001',
+                    'directory'
+                )
+                """
+            )
+        )
+    transport = httpx.MockTransport(lambda _request: httpx.Response(status_code, json=payload))
+    service = P115DirectorySyncService(
+        settings=SqlAlchemyAppSettingsRepository(p6_runtime.unit_of_work),
+        credentials=credentials,
+        directories=HttpxP115DirectoryTreeGateway(
+            credentials=credentials,
+            priority=lambda: "openapi",
+            client_factory=lambda **kwargs: httpx.Client(transport=transport, **kwargs),
+        ),
+        repository=SqlAlchemyP115DirectoryCacheRepository(p6_runtime.unit_of_work),
+    )
+
+    outcome = service.execute(_Progress())
+
+    assert outcome.status is TaskOutcomeStatus.FAILED
+    assert credentials.load_record() == before_credentials
+    with p6_runtime.engine.connect() as connection:
+        assert (
+            connection.scalar(
+                text(
+                    """
+                SELECT COUNT(*)
+                FROM p115_filesystem_cache
+                WHERE id = 'stale-preserved'
+                  AND parent_id = 'root-failure'
+                  AND account_id = '115001'
+                  AND entry_kind = 'directory'
+                """
+                )
+            )
+            == 1
+        )
 
 
 def test_postgres18_repository_reconciles_one_root_idempotently(
