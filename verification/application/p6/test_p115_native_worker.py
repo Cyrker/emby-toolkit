@@ -9,14 +9,20 @@ from uuid import UUID
 
 import httpx
 import pytest
+from p115pickcode import to_pickcode
 
 from etk.domains.p115 import (
     HttpxP115DirectoryTreeGateway,
+    HttpxP115FingerprintRemoteGateway,
+    LocalP115FingerprintHintGateway,
     P115CredentialSnapshot,
     P115DirectoryCacheEntry,
     P115DirectoryReconcileResult,
     P115DirectoryRoot,
     P115DirectorySyncService,
+    P115FileFingerprint,
+    P115FingerprintRepairRow,
+    P115FingerprintRepairService,
     P115OrganizeRecordTmdbBackfillService,
 )
 from etk.platform.jobs import JobStatus
@@ -127,6 +133,39 @@ class NativeDirectoryRepository:
         return P115DirectoryReconcileResult(cached=len(frozen), cleaned=1)
 
 
+class NativeFingerprintRepository:
+    def __init__(self, row: P115FingerprintRepairRow) -> None:
+        self.row = row
+        self.commits: list[tuple[int, P115FileFingerprint, str]] = []
+
+    def list_repair_rows(self) -> tuple[P115FingerprintRepairRow, ...]:
+        return (self.row,)
+
+    def find_fingerprint(
+        self,
+        *,
+        account_id: str,
+        pick_code: str = "",
+        sha1: str = "",
+        file_id: str = "",
+        local_paths: Sequence[str] = (),
+    ) -> P115FileFingerprint | None:
+        del account_id, pick_code, sha1, file_id, local_paths
+        return None
+
+    def commit_repair(
+        self,
+        row: P115FingerprintRepairRow,
+        asset_index: int,
+        fingerprint: P115FileFingerprint,
+        *,
+        account_id: str,
+    ) -> bool:
+        assert row == self.row
+        self.commits.append((asset_index, fingerprint, account_id))
+        return True
+
+
 def _projection(task_key: str = "sync-115-directory-tree") -> Any:
     return SimpleNamespace(
         job=SimpleNamespace(
@@ -160,6 +199,7 @@ def _projection(task_key: str = "sync-115-directory-tree") -> Any:
         "full-sync-strm",
         "monitor-115-life-events",
         "play-pool-daily-speedtest",
+        "repair-p115-fingerprints",
     ],
 )
 def test_worker_executes_p6_sync_without_resolving_legacy_processor(
@@ -341,6 +381,126 @@ def test_native_worker_executes_real_directory_service_without_legacy_runtime(
             "compatibility_fallback": False,
         },
     }
+
+
+def test_native_worker_executes_real_fingerprint_service_without_legacy_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    file_id = "9001"
+    pick_code = str(to_pickcode(int(file_id)))
+    sha1 = "A" * 40
+    strm_path = tmp_path / "Movies" / "Fixture.strm"
+    strm_path.parent.mkdir()
+    strm_path.write_text(
+        f"https://fixture.invalid/p115/play/{pick_code}/Fixture.mkv",
+        encoding="utf-8",
+    )
+    row = P115FingerprintRepairRow.create(
+        tmdb_id="101",
+        item_type="Movie",
+        title="Fixture",
+        assets=({"path": str(strm_path)},),
+        sha1s=("",),
+        pick_codes=(pick_code,),
+        revision="1" * 64,
+    )
+    repository = NativeFingerprintRepository(row)
+    credentials = NativeDirectoryCredentials()
+    requests: list[httpx.Request] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "state": True,
+                "data": {
+                    "file_id": file_id,
+                    "parent_id": "8001",
+                    "file_name": "Fixture.mkv",
+                    "sha1": sha1,
+                    "pick_code": pick_code,
+                    "size": 123,
+                },
+            },
+        )
+
+    repair = P115FingerprintRepairService(
+        credentials=credentials,
+        repository=repository,
+        hints=LocalP115FingerprintHintGateway(),
+        remote=HttpxP115FingerprintRemoteGateway(
+            credentials=credentials,
+            priority=lambda: "openapi",
+            client_factory=lambda **kwargs: httpx.Client(
+                transport=httpx.MockTransport(respond),
+                **kwargs,
+            ),
+        ),
+        local_root=lambda: str(tmp_path),
+    )
+    projection = _projection("repair-p115-fingerprints")
+    store = ExecutionStore(projection)
+    runtime = WorkerRuntime(config=TaskRuntimeConfig(heartbeat_seconds=60, lease_seconds=120))
+    state = cast(Any, runtime)
+    state._store = store
+    state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
+    state._adapter = None
+    state._native_only = True
+    state._p6_p115_tasks = P6P115TaskRouter(fingerprint_repair=repair)
+    monkeypatch.setattr(
+        worker_module,
+        "_processor",
+        lambda _identity: (_ for _ in ()).throw(AssertionError("native fingerprint repair resolved a processor")),
+    )
+    original_import = builtins.__import__
+
+    def guarded_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] | None = (),
+        level: int = 0,
+    ) -> Any:
+        if level == 0 and (
+            name in {"database", "extensions", "handler", "routes", "task_manager", "tasks"}
+            or name.startswith(("database.", "handler.", "routes.", "tasks."))
+        ):
+            raise AssertionError(f"native fingerprint repair imported legacy runtime {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert len(requests) == 1
+    assert requests[0].url.path == "/open/folder/get_info"
+    assert requests[0].headers["Authorization"] == "Bearer fixture-openapi-token"
+    assert repository.commits == [
+        (
+            0,
+            P115FileFingerprint(
+                file_id=file_id,
+                parent_id="8001",
+                name="Fixture.mkv",
+                sha1=sha1,
+                pick_code=pick_code,
+                size=123,
+                account_id="115001",
+                local_path="Movies/Fixture.mkv",
+            ),
+            "115001",
+        )
+    ]
+    assert [status for status, _values in store.terminals] == ["succeeded"]
+    result = store.terminals[0][1]["result"]
+    assert result["status"] == "succeeded"
+    assert result["details"]["fixed_assets"] == 1
+    assert result["details"]["remote_fixed_assets"] == 1
+    assert result["details"]["task_key"] == "repair-p115-fingerprints"
+    assert result["details"]["native_handler"] == "P6P115TaskRouter"
+    assert result["details"]["compatibility_fallback"] is False
 
 
 def test_worker_persists_partial_directory_sync_details_on_failed_attempt(

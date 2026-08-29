@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
 from typing import Any, Protocol
 from urllib.parse import unquote, urlsplit
@@ -297,7 +297,14 @@ class P115FingerprintRepairService:
                                     sha1=known_sha1,
                                     pick_code=known_pick_code,
                                 )
-                                candidate = remote_value
+                                candidate = (
+                                    replace(
+                                        remote_value,
+                                        local_path=_preferred_local_path(inspected.local_paths),
+                                    )
+                                    if not remote_value.local_path and inspected.local_paths
+                                    else remote_value
+                                )
                                 source = "remote"
 
                     if candidate is None:
@@ -430,6 +437,12 @@ def _path_extension(value: str) -> str:
     parsed = urlsplit(unquote(str(value or "").strip()))
     path = parsed.path if parsed.scheme else str(value or "").split("#", 1)[0].split("?", 1)[0]
     return PurePosixPath(path.replace("\\", "/")).suffix.lower()
+
+
+def _preferred_local_path(values: Sequence[str]) -> str:
+    candidates = tuple(dict.fromkeys(_relative_local_path(value) for value in values if value))
+    videos = tuple(value for value in candidates if _path_extension(value) in (_VIDEO_EXTENSIONS - {".strm"}))
+    return min(videos or candidates, key=len, default="")
 
 
 def _relative_local_path(value: object) -> str:

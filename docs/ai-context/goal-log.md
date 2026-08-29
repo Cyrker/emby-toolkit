@@ -3433,6 +3433,78 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-P115-Fingerprint-Repair
+
+Stage / Batch: P11 / processor-free P115 fingerprint-repair Worker slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `332502fd` (`refactor(p11): record native p8 effect task owners`).
+- Checkpoint: this batch's `refactor(p11): execute native fingerprint repair` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Replaced `LegacyP115FingerprintRemoteGateway` in both Worker profiles with the account-bound,
+  read-only `HttpxP115FingerprintRemoteGateway`. It uses local PickCode-to-FID decoding, fixed
+  OpenAPI/Cookie file-info endpoints, finite transport retries, request-before/after account and
+  credential fencing, and never refreshes or saves credentials.
+- Normalized confirmed 115 not-found codes to a missing asset while keeping HTTP/provider/JSON
+  failures task-level. Provider identity or field conflicts fail the current asset closed and allow
+  the repair scan to continue.
+- Preserved authoritative file, parent, PickCode, SHA1, name, category and size validation. Cookie
+  responses retain top-level path/breadcrumb evidence; a missing parent may use an explicit
+  same-account OpenAPI readback, while Cookie-only ambiguous identity remains a per-asset conflict.
+- Remote repair now carries the shortest root-contained real-video local path from the inspected
+  STRM hints. PostgreSQL cache and media-array updates retain the existing account/revision/slot
+  fencing and one-UoW commit boundary.
+- Promoted only `repair-p115-fingerprints` to native-only execution. The Worker graph is now
+  `16 executable / 34 unavailable`; all other unproven task paths remain explicit.
+
+Targeted gate:
+
+- Scoped Ruff check and format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`.
+- Fingerprint/auth/directory Worker application and architecture scope -> `233 passed, 1` existing
+  Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 P115 MediaInfo/fingerprint repository scope -> `15 passed`.
+- Disposable PostgreSQL 18 + Redis/Celery native-only OpenAPI crash/replay,
+  compatibility-enabled OpenAPI and native-only Cookie profiles -> `3 passed, 19 deselected`; only
+  loopback HTTP Stubs were used.
+- Task export reported `task_keys=50`; Manifest and OpenAPI currentness were clean; contract scope
+  -> `16 passed`; `uv lock --check`, three fixture secret scans and `git diff --check` were clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-fingerprint-repair-20260829/`.
+
+Focused review:
+
+- Initial reviews found four P1 gaps: 115 not-found classification, task-wide handling of
+  asset-local identity conflicts, lost local-path hints and incomplete Cookie parent recovery.
+  They also identified name/category aliases, self-parent and unknown-size fail-closed gaps.
+- The final delta rereview confirmed top-level breadcrumb preservation, same-account OpenAPI parent
+  fallback, Cookie-only fail-closed behavior and the real Cookie-only Worker profile. No P0/P1/P2
+  remains in this slice; checkpoint verdict is GO.
+
+Stage full gate:
+
+- Not run. P11 still has explicit route, task, table, dynamic/bootstrap config and standalone-setting
+  ownership gaps, so controlled removal and stage NFR/security gates remain unauthorized.
+
+Pending:
+
+- Native-only Worker execution is `16 executable / 34 unavailable`. Fifty-seven route decorators,
+  61 method bindings, 12 tables, 82 dynamic config keys, seven bootstrap keys and 18 standalone
+  settings remain legacy-owned.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue the smallest evidence-backed P11 ownership or normal processed Worker slice. Do not
+start controlled removal or P12 until execution and ownership reach 100%.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlsplit
 from uuid import UUID, uuid4
 
 import pytest
+from p115pickcode import to_pickcode
 from pydantic import SecretStr
 from redis import Redis
 from sqlalchemy import text
@@ -81,6 +82,11 @@ class P115DirectoryStubState:
 
 
 @dataclass(slots=True)
+class P115FingerprintStubState:
+    requests: list[dict[str, Any]]
+
+
+@dataclass(slots=True)
 class CleanupScanEmbyStubState:
     requests: list[dict[str, Any]]
 
@@ -131,6 +137,72 @@ def _start_p115_directory_stub(
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, name="etk-p115-directory-stub", daemon=True)
+    thread.start()
+    return server, thread, state
+
+
+def _start_p115_fingerprint_stub(
+    *,
+    file_id: str,
+    parent_id: str,
+    pick_code: str,
+    sha1: str,
+) -> tuple[ThreadingHTTPServer, threading.Thread, P115FingerprintStubState]:
+    state = P115FingerprintStubState(requests=[])
+    lock = threading.Lock()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            parsed = urlsplit(self.path)
+            query = parse_qs(parsed.query)
+            authorization = self.headers.get("Authorization")
+            cookie = self.headers.get("Cookie")
+            with lock:
+                state.requests.append(
+                    {
+                        "path": parsed.path,
+                        "file_id": tuple(query.get("file_id", ())),
+                        "authorization": authorization,
+                        "cookie": cookie,
+                    }
+                )
+            openapi = parsed.path == "/open/folder/get_info" and authorization == "Bearer fixture-openapi-token"
+            cookie_api = parsed.path == "/files/file" and str(cookie or "").startswith("UID=115001_A1_1")
+            if tuple(query.get("file_id", ())) != (file_id,) or not (openapi or cookie_api):
+                self.send_response(403)
+                self.end_headers()
+                return
+            data = {
+                "file_id": file_id,
+                "file_name": "Fixture.mkv",
+                "sha1": sha1,
+                "pick_code": pick_code,
+                "size": 123,
+            }
+            if openapi:
+                data["parent_id"] = parent_id
+            response: dict[str, Any] = {
+                "state": True,
+                "data": data,
+            }
+            if cookie_api:
+                response["breadcrumb"] = [
+                    {"file_id": "0", "file_category": "0"},
+                    {"file_id": parent_id, "file_category": "0"},
+                    {"file_id": file_id, "file_category": "1"},
+                ]
+            payload = json.dumps(response).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: object) -> None:
+            del format, args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, name="etk-p115-fingerprint-stub", daemon=True)
     thread.start()
     return server, thread, state
 
@@ -724,6 +796,39 @@ def _restore_p115_directory_fixture(
             )
 
 
+def _restore_p115_fingerprint_fixture(
+    runtime: DatabaseRuntime,
+    *,
+    prior_settings: Mapping[str, tuple[Any, datetime]],
+    tmdb_id: str,
+    file_id: str,
+) -> None:
+    with runtime.engine.begin() as connection:
+        connection.execute(
+            text("DELETE FROM p115_filesystem_cache WHERE id = :file_id"),
+            {"file_id": file_id},
+        )
+        connection.execute(
+            text("DELETE FROM media_metadata WHERE tmdb_id = :tmdb_id AND item_type = 'Movie'"),
+            {"tmdb_id": tmdb_id},
+        )
+        connection.execute(text("DELETE FROM app_settings WHERE setting_key = 'p115_auth_tokens'"))
+        for setting_key, (value_json, last_updated_at) in prior_settings.items():
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES (:setting_key, CAST(:value_json AS jsonb), :last_updated_at)
+                    """
+                ),
+                {
+                    "setting_key": setting_key,
+                    "value_json": json.dumps(value_json, separators=(",", ":")),
+                    "last_updated_at": last_updated_at,
+                },
+            )
+
+
 def _p115_directory_cache_rows(runtime: DatabaseRuntime, *, root_id: str) -> list[dict[str, Any]]:
     with runtime.engine.connect() as connection:
         rows = connection.execute(
@@ -1180,6 +1285,365 @@ if checkpoint_file and checkpoint_job_id and release_file:
                 )
             assert attempts == [(1, "lost", "worker_lost"), (2, "succeeded", None)]
             assert retry_dispatch_status == "processed"
+
+
+@pytest.mark.parametrize(
+    ("compatibility_enabled", "provider_backend"),
+    [
+        (False, "openapi"),
+        (True, "openapi"),
+        (False, "cookie"),
+    ],
+    ids=["native-only-openapi", "compatibility-openapi", "native-only-cookie"],
+)
+def test_p115_fingerprint_repair_replays_committed_slot_through_real_worker_profiles(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+    provider_backend: str,
+) -> None:
+    fixture_id = uuid4().hex
+    numeric_suffix = int(fixture_id[:7], 16)
+    file_id = str(9_000_000_000 + numeric_suffix)
+    parent_id = str(8_000_000_000 + numeric_suffix)
+    pick_code = str(to_pickcode(int(file_id)))
+    sha1 = fixture_id.upper().ljust(40, "A")[:40]
+    tmdb_id = f"fingerprint-{fixture_id}"
+    replay_checkpoint = tmp_path / "p115-fingerprint-before-job-result.checkpoint"
+    replay_release = tmp_path / "p115-fingerprint-before-job-result.release"
+
+    with ExitStack() as cleanup:
+        server, server_thread, stub = _start_p115_fingerprint_stub(
+            file_id=file_id,
+            parent_id=parent_id,
+            pick_code=pick_code,
+            sha1=sha1,
+        )
+        cleanup.callback(_shutdown_http_stub, server, server_thread)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+        prior_settings = _snapshot_app_settings(p4_runtime, ("p115_auth_tokens",))
+        cleanup.callback(
+            _restore_p115_fingerprint_fixture,
+            p4_runtime,
+            prior_settings=prior_settings,
+            tmdb_id=tmdb_id,
+            file_id=file_id,
+        )
+        credentials = {
+            "cookie": "UID=115001_A1_1; CID=fixture; SEID=fixture",
+            "app_type": "web",
+            "account_id": "115001",
+            "cookie_account_id": "115001",
+        }
+        if provider_backend == "openapi":
+            credentials.update(
+                {
+                    "access_token": "fixture-openapi-token",
+                    "refresh_token": "fixture-refresh-token",
+                    "openapi_account_id": "115001",
+                }
+            )
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES ('p115_auth_tokens', CAST(:credentials AS jsonb), NOW())
+                    ON CONFLICT (setting_key) DO UPDATE SET
+                        value_json = EXCLUDED.value_json,
+                        last_updated_at = NOW()
+                    """
+                ),
+                {"credentials": json.dumps(credentials)},
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO media_metadata (
+                        tmdb_id, item_type, title, in_library,
+                        emby_item_ids_json, asset_details_json,
+                        file_sha1_json, file_pickcode_json
+                    ) VALUES (
+                        :tmdb_id, 'Movie', 'Fingerprint Worker Fixture', TRUE,
+                        '["emby-fingerprint-fixture"]'::jsonb,
+                        CAST(:assets AS jsonb), '[""]'::jsonb,
+                        CAST(:pick_codes AS jsonb)
+                    )
+                    """
+                ),
+                {
+                    "tmdb_id": tmdb_id,
+                    "assets": json.dumps([{"path": (f"https://fixture.invalid/p115/play/{pick_code}/Fixture.mkv")}]),
+                    "pick_codes": json.dumps([pick_code]),
+                },
+            )
+
+        created = p4_store.create_job(
+            task_key="repair-p115-fingerprints",
+            queue_name=p4_runtime_environment.queue_name,
+            max_attempts=1 if compatibility_enabled else 2,
+            payload={
+                "payload_version": 1,
+                "parameters": {},
+                "processor_type": "media",
+                "display_name": "P11 native fingerprint fixture",
+                "silent": True,
+            },
+        ).projection
+
+        site_directory = tmp_path / f"p115-fingerprint-site-{compatibility_enabled}"
+        site_directory.mkdir()
+        (site_directory / "sitecustomize.py").write_text(
+            """
+import builtins
+import os
+import time
+
+import etk.domains.p115.fingerprint_transport as fingerprint_transport
+
+base_url = os.environ["ETK_TEST_P115_FINGERPRINT_BASE_URL"].rstrip("/")
+fingerprint_transport._OPENAPI_INFO_URL = base_url + "/open/folder/get_info"
+fingerprint_transport._COOKIE_INFO_URL = base_url + "/files/file"
+
+guard_file = os.environ.get("ETK_TEST_P115_FINGERPRINT_IMPORT_GUARD")
+if guard_file:
+    original_import = builtins.__import__
+    forbidden = ("database", "extensions", "handler", "routes", "task_manager", "tasks")
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if level == 0 and os.path.exists(guard_file) and any(
+            name == prefix or name.startswith(prefix + ".") for prefix in forbidden
+        ):
+            raise AssertionError(f"native P115 fingerprint Worker imported legacy runtime {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    builtins.__import__ = guarded_import
+
+checkpoint_file = os.environ.get("ETK_TEST_P115_FINGERPRINT_RESULT_CHECKPOINT")
+checkpoint_job_id = os.environ.get("ETK_TEST_P115_FINGERPRINT_RESULT_JOB_ID")
+release_file = os.environ.get("ETK_TEST_P115_FINGERPRINT_RESULT_RELEASE")
+if checkpoint_file and checkpoint_job_id and release_file:
+    from etk.platform.jobs import PostgresJobStore
+
+    original_succeed_attempt = PostgresJobStore.succeed_attempt
+
+    def succeed_attempt_after_test_checkpoint(self, **kwargs):
+        if str(kwargs.get("job_id")) == checkpoint_job_id and not os.path.exists(checkpoint_file):
+            try:
+                descriptor = os.open(checkpoint_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError:
+                pass
+            else:
+                os.write(descriptor, str(os.getpid()).encode())
+                os.close(descriptor)
+                deadline = time.monotonic() + 60
+                while time.monotonic() < deadline and not os.path.exists(release_file):
+                    time.sleep(0.05)
+                if not os.path.exists(release_file):
+                    raise TimeoutError("P115 fingerprint result checkpoint was not released")
+        return original_succeed_attempt(self, **kwargs)
+
+    PostgresJobStore.succeed_attempt = succeed_attempt_after_test_checkpoint
+""".lstrip(),
+            encoding="utf-8",
+        )
+
+        worker_environment_values = dict(p4_runtime_environment.environment)
+        worker_environment_values["ETK_TEST_P115_FINGERPRINT_BASE_URL"] = base_url
+        worker_environment_values["P115_API_PRIORITY"] = provider_backend
+        legacy_import_guard = tmp_path / "p115-fingerprint-legacy-import.guard"
+        existing_python_path = worker_environment_values.get("PYTHONPATH", "")
+        worker_environment_values["PYTHONPATH"] = os.pathsep.join(
+            filter(
+                None,
+                (
+                    str(site_directory),
+                    str(REPO_ROOT / "src"),
+                    str(REPO_ROOT),
+                    existing_python_path,
+                ),
+            )
+        )
+        if compatibility_enabled:
+            worker_environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+            worker_environment_values.pop("ETK_TEST_P115_FINGERPRINT_IMPORT_GUARD", None)
+        else:
+            worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+            worker_environment_values["ETK_TEST_P115_FINGERPRINT_IMPORT_GUARD"] = str(legacy_import_guard)
+            worker_environment_values["ETK_TEST_P115_FINGERPRINT_RESULT_CHECKPOINT"] = str(replay_checkpoint)
+            worker_environment_values["ETK_TEST_P115_FINGERPRINT_RESULT_JOB_ID"] = str(created.job.id)
+            worker_environment_values["ETK_TEST_P115_FINGERPRINT_RESULT_RELEASE"] = str(replay_release)
+        worker_environment = RuntimeEnvironment(
+            environment=worker_environment_values,
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        worker = _start_worker(worker_environment, tmp_path / "p115-fingerprint-worker")
+        cleanup.callback(
+            _stop_managed_process,
+            worker,
+            expected_code=0,
+            allow_sigkill=not compatibility_enabled,
+        )
+        if not compatibility_enabled:
+            cleanup.callback(replay_release.touch)
+        _wait_for_worker(worker, worker_environment.config)
+        if not compatibility_enabled:
+            legacy_import_guard.write_text("active", encoding="utf-8")
+            coordinator_environment = RuntimeEnvironment(
+                environment={
+                    **p4_runtime_environment.environment,
+                    "ETK_ENABLE_LEGACY_COMPATIBILITY": "true",
+                },
+                config=p4_runtime_environment.config,
+                data_dir=p4_runtime_environment.data_dir,
+                queue_name=p4_runtime_environment.queue_name,
+            )
+            coordinator = _start_coordinator(
+                coordinator_environment,
+                tmp_path / "p115-fingerprint-coordinator",
+            )
+            cleanup.callback(
+                _stop_managed_process,
+                coordinator,
+                expected_code=128 + signal.SIGTERM,
+            )
+            _wait_until(
+                lambda: _health_state(coordinator.log_path.with_suffix(".health.json")) == "leader",
+                description="compatibility Coordinator to acquire fingerprint recovery leadership",
+                timeout=30,
+            )
+
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+            count=2,
+        )
+        active_worker = worker
+        if not compatibility_enabled:
+            _wait_until(
+                replay_checkpoint.exists,
+                description="fingerprint slot commit before Job result persistence",
+                timeout=30,
+            )
+            running = p4_store.get_job(created.job.id)
+            assert running is not None and running.job.status is JobStatus.RUNNING
+            with p4_runtime.engine.connect() as connection:
+                committed = connection.execute(
+                    text(
+                        """
+                        SELECT file_sha1_json, file_pickcode_json
+                        FROM media_metadata
+                        WHERE tmdb_id = :tmdb_id AND item_type = 'Movie'
+                        """
+                    ),
+                    {"tmdb_id": tmdb_id},
+                ).one()
+            assert committed == ([sha1], [pick_code])
+            worker.kill()
+            replacement = _start_worker(
+                worker_environment,
+                tmp_path / "p115-fingerprint-replacement-worker",
+            )
+            cleanup.callback(_stop_managed_process, replacement, expected_code=0)
+            _wait_for_worker(replacement, worker_environment.config)
+            active_worker = replacement
+
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert completed.current_attempt.attempt_no == (1 if compatibility_enabled else 2)
+        assert completed.job.result is not None
+        assert completed.job.result["status"] == "succeeded"
+        details = completed.job.result["details"]
+        assert details["task_key"] == "repair-p115-fingerprints"
+        assert details["native_handler"] == "P6P115TaskRouter"
+        assert details["compatibility_fallback"] is False
+        assert details["failed_assets"] == 0
+        if compatibility_enabled:
+            assert details["fixed_assets"] == 1
+            assert details["remote_fixed_assets"] == 1
+            assert details["verified_assets"] == 0
+        else:
+            assert details["fixed_assets"] == 0
+            assert details["remote_fixed_assets"] == 0
+            assert details["verified_assets"] == 1
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in active_worker.read_log(),
+            description="duplicate fingerprint delivery to be skipped",
+            timeout=15,
+        )
+
+        with p4_runtime.engine.connect() as connection:
+            media = connection.execute(
+                text(
+                    """
+                    SELECT file_sha1_json, file_pickcode_json
+                    FROM media_metadata
+                    WHERE tmdb_id = :tmdb_id AND item_type = 'Movie'
+                    """
+                ),
+                {"tmdb_id": tmdb_id},
+            ).one()
+            cache = connection.execute(
+                text(
+                    """
+                    SELECT id, parent_id, name, sha1, pick_code, size, account_id, entry_kind
+                    FROM p115_filesystem_cache
+                    WHERE id = :file_id
+                    """
+                ),
+                {"file_id": file_id},
+            ).one()
+        assert media == ([sha1], [pick_code])
+        assert cache == (
+            file_id,
+            parent_id,
+            "Fixture.mkv",
+            sha1,
+            pick_code,
+            123,
+            "115001",
+            "file",
+        )
+        if provider_backend == "cookie":
+            expected_requests = [
+                {
+                    "path": "/files/file",
+                    "file_id": (file_id,),
+                    "authorization": None,
+                    "cookie": "UID=115001_A1_1; CID=fixture; SEID=fixture",
+                }
+            ]
+        else:
+            expected_requests = [
+                {
+                    "path": "/open/folder/get_info",
+                    "file_id": (file_id,),
+                    "authorization": "Bearer fixture-openapi-token",
+                    "cookie": None,
+                }
+            ]
+        assert stub.requests == expected_requests
+
+        if not compatibility_enabled:
+            with p4_runtime.engine.connect() as connection:
+                attempts = connection.execute(
+                    text(
+                        """
+                        SELECT attempt_no, status, error_type
+                        FROM job_attempts
+                        WHERE job_id = :job_id
+                        ORDER BY attempt_no
+                        """
+                    ),
+                    {"job_id": created.job.id},
+                ).all()
+            assert attempts == [(1, "lost", "worker_lost"), (2, "succeeded", None)]
 
 
 @pytest.mark.parametrize(

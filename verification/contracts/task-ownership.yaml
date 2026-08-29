@@ -1062,7 +1062,7 @@
       "help": "扫描在库电影和分集，补齐共享资源必需的 115 PC 与 SHA1 以及缓存；优先从本地缓存恢复，必要时查询 115。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
-      "notes": "P6.6 native Worker dispatch executes the account-bound fingerprint repair use case without constructing a legacy Processor or calling tasks.media.task_repair_p115_fingerprints.",
+      "notes": "P11 native-only and compatibility Workers execute the account- and credential-fenced HTTP fingerprint repair use case without constructing a legacy Processor, importing the legacy runtime, or calling tasks.media.task_repair_p115_fingerprints.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
         "execution_kind": "native-use-case",
@@ -1078,7 +1078,7 @@
       ],
       "target_stage": "P6",
       "task_key": "repair-p115-fingerprints",
-      "validation_method": "ordered-task-registry-native-router-fingerprint-unit-and-postgres18",
+      "validation_method": "ordered-task-registry-native-http-router-fingerprint-postgres18-redis-celery-and-import-sentinel",
       "validation_owner": "p115/fingerprints",
       "visible_in": [
         "all",

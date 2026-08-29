@@ -482,6 +482,8 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     )
     assert type(state._p6_p115_tasks._directory_sync).__name__ == "P115DirectorySyncService"
     assert type(state._p6_p115_tasks._directory_sync._directories).__name__ == ("HttpxP115DirectoryTreeGateway")
+    assert type(state._p6_p115_tasks._fingerprint_repair).__name__ == "P115FingerprintRepairService"
+    assert type(state._p6_p115_tasks._fingerprint_repair._remote).__name__ == ("HttpxP115FingerprintRemoteGateway")
     assert state._p6_p115_tasks._organize_execution is None
     assert type(state._p6_p115_tasks._organize_reconciliation).__name__ == "P115OrganizeExecutionService"
     assert type(state._p6_p115_tasks._organize_reconciliation._mutations).__name__ == (

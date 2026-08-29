@@ -109,7 +109,7 @@ class HttpxP115DirectoryTreeGateway:
                         backend=backend,
                         headers={
                             "Cookie": snapshot.cookie,
-                            "User-Agent": _cookie_user_agent(snapshot.app_type),
+                            "User-Agent": p115_cookie_user_agent(snapshot.app_type),
                         },
                         credential_value=snapshot.cookie,
                         credential_app_type=snapshot.app_type,
@@ -331,7 +331,7 @@ def _truthy_directory_flag(value: object) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "y", "folder", "dir", "directory"}
 
 
-def _cookie_user_agent(app_type: str) -> str:
+def p115_cookie_user_agent(app_type: str) -> str:
     normalized = str(app_type or "web").strip().lower() or "web"
     return _COOKIE_USER_AGENTS.get(normalized, _COOKIE_USER_AGENTS["web"])
 
@@ -340,4 +340,5 @@ __all__ = [
     "HttpxP115DirectoryTreeGateway",
     "P115DirectoryCredentialChanged",
     "P115DirectoryTransportError",
+    "p115_cookie_user_agent",
 ]

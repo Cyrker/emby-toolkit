@@ -6521,9 +6521,9 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
-        "notes": "P6.6 native Worker dispatch executes the account-bound fingerprint repair use case without constructing a legacy Processor or calling tasks.media.task_repair_p115_fingerprints.",
+        "notes": "P11 native-only and compatibility Workers execute the account- and credential-fenced HTTP fingerprint repair use case without constructing a legacy Processor, importing the legacy runtime, or calling tasks.media.task_repair_p115_fingerprints.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-fingerprint-unit-and-postgres18",
+        "validation_method": "ordered-task-registry-native-http-router-fingerprint-postgres18-redis-celery-and-import-sentinel",
         "validation_owner": "p115/fingerprints"
       },
       "task-418ca693681d": {

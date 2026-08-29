@@ -130,6 +130,10 @@ def test_p6_6_task_and_table_ownership_are_native_and_fixture_backed() -> None:
     assert repair["ownership_layers"]["execution_owner"] == (
         "etk.domains.p115.fingerprints.P115FingerprintRepairService"
     )
+    assert repair["validation_method"] == (
+        "ordered-task-registry-native-http-router-fingerprint-postgres18-redis-celery-and-import-sentinel"
+    )
+    assert "account- and credential-fenced HTTP" in repair["notes"]
     restore = tasks_by_key["restore_mediainfo"]
     assert restore["status"] == "new"
     assert restore["new_owner"] == "etk.processes.p5_media_tasks.P5MediaTaskRouter"
@@ -219,6 +223,7 @@ def test_p6_6_migration_owns_revisioned_cache_and_internal_probe_worklist() -> N
 def test_p6_6_native_business_services_do_not_import_legacy_task_or_cache_owners() -> None:
     for relative_path in (
         "src/etk/domains/p115/fingerprints.py",
+        "src/etk/domains/p115/fingerprint_transport.py",
         "src/etk/domains/p115/media_info.py",
         "src/etk/domains/p115/media_info_repository.py",
         "src/etk/domains/p115/media_info_restore.py",
@@ -228,6 +233,18 @@ def test_p6_6_native_business_services_do_not_import_legacy_task_or_cache_owners
         assert "tasks.media" not in source
         assert "P115CacheManager" not in source
         assert "_extract_115_fingerprints" not in source
+
+
+def test_fingerprint_worker_uses_native_http_provider_without_legacy_runtime_fallback() -> None:
+    transport = _source("src/etk/domains/p115/fingerprint_transport.py")
+    worker = _source("src/etk/processes/worker.py")
+
+    assert "from p115pickcode import to_id" in transport
+    assert "p115client" not in transport
+    assert "import_module" not in transport
+    assert "handler.p115_service" not in transport
+    assert "LegacyP115FingerprintRemoteGateway" not in worker
+    assert worker.count("HttpxP115FingerprintRemoteGateway(") == 2
 
 
 def test_legacy_webhook_and_consistency_seams_only_submit_the_p6_native_repair_task() -> None:

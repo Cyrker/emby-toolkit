@@ -2,25 +2,62 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from pathlib import Path
+from typing import Any
 
+import httpx
 import pytest
+from p115pickcode import to_pickcode
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from etk.domains.p115.fingerprint_transport import HttpxP115FingerprintRemoteGateway
 from etk.domains.p115.fingerprints import (
     P115FileFingerprint,
     P115FingerprintAccountChanged,
     P115FingerprintConflict,
+    P115FingerprintRepairService,
 )
 from etk.domains.p115.media_info import P115MediaProbeItemStatus
+from etk.domains.p115.media_info_adapters import LocalP115FingerprintHintGateway
 from etk.domains.p115.media_info_repository import SqlAlchemyP115MediaInfoRepository
 from etk.domains.p115.media_probe import P115MediaProbeRequest
+from etk.domains.p115.models import P115CredentialSnapshot
 from etk.platform.db import DatabaseRuntime
+from etk.platform.tasks import TaskOutcomeStatus
 
 SHA_A = "A" * 40
 SHA_B = "B" * 40
 PROVENANCE_A = "a" * 64
 PROVENANCE_B = "b" * 64
+
+
+class _FingerprintCredentials:
+    def load(self) -> P115CredentialSnapshot:
+        return P115CredentialSnapshot(
+            access_token="fixture-openapi-token",
+            account_id="115001",
+        )
+
+    def save_openapi(self, *_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("fingerprint repair must not mutate credentials")
+
+    def save_cookie(self, *_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("fingerprint repair must not mutate credentials")
+
+    def app_label(self, app_type: str) -> str:
+        return app_type
+
+
+class _FingerprintProgress:
+    def __init__(self) -> None:
+        self.checkpoints = 0
+
+    def checkpoint(self) -> None:
+        self.checkpoints += 1
+
+    def update(self, progress: int, message: str) -> None:
+        del progress, message
 
 
 def _repository(runtime: DatabaseRuntime) -> SqlAlchemyP115MediaInfoRepository:
@@ -411,6 +448,110 @@ def test_fingerprint_repairs_preserve_positions_across_multiple_atomic_commits(
             "local_path": "Movies/B.mkv",
         },
     ]
+
+
+def test_native_fingerprint_service_persists_root_contained_real_video_local_path(
+    p6_runtime: DatabaseRuntime,
+    tmp_path: Path,
+) -> None:
+    file_id = "9303"
+    parent_id = "8303"
+    pick_code = str(to_pickcode(int(file_id)))
+    sha1 = "C" * 40
+    strm_path = tmp_path / "Movies" / "Fixture.strm"
+    strm_path.parent.mkdir()
+    strm_path.write_text(
+        f"https://fixture.invalid/p115/play/{pick_code}/Fixture.mkv",
+        encoding="utf-8",
+    )
+    with p6_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, title, in_library,
+                    emby_item_ids_json, asset_details_json,
+                    file_sha1_json, file_pickcode_json
+                ) VALUES (
+                    '303', 'Movie', 'Native Fingerprint Fixture', TRUE,
+                    '["emby-native-fingerprint"]'::jsonb,
+                    CAST(:assets AS jsonb), '[""]'::jsonb,
+                    CAST(:pick_codes AS jsonb)
+                )
+                """
+            ),
+            {
+                "assets": json.dumps([{"path": str(strm_path)}]),
+                "pick_codes": json.dumps([pick_code]),
+            },
+        )
+
+    credentials = _FingerprintCredentials()
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/open/folder/get_info"
+        assert request.url.params["file_id"] == file_id
+        return httpx.Response(
+            200,
+            json={
+                "state": True,
+                "data": {
+                    "file_id": file_id,
+                    "parent_id": parent_id,
+                    "file_name": "Fixture.mkv",
+                    "sha1": sha1,
+                    "pick_code": pick_code,
+                    "size": 123,
+                },
+            },
+        )
+
+    outcome = P115FingerprintRepairService(
+        credentials=credentials,
+        repository=_repository(p6_runtime),
+        hints=LocalP115FingerprintHintGateway(),
+        remote=HttpxP115FingerprintRemoteGateway(
+            credentials=credentials,
+            priority=lambda: "openapi",
+            client_factory=lambda **kwargs: httpx.Client(
+                transport=httpx.MockTransport(respond),
+                **kwargs,
+            ),
+        ),
+        local_root=lambda: str(tmp_path),
+    ).execute(_FingerprintProgress())
+
+    assert outcome.status is TaskOutcomeStatus.SUCCEEDED
+    assert outcome.details["fixed_assets"] == 1
+    with p6_runtime.engine.connect() as connection:
+        media = connection.execute(
+            text(
+                """
+                SELECT file_sha1_json, file_pickcode_json
+                FROM media_metadata
+                WHERE tmdb_id = '303' AND item_type = 'Movie'
+                """
+            )
+        ).one()
+        cache = connection.execute(
+            text(
+                """
+                SELECT id, parent_id, sha1, pick_code, local_path, account_id
+                FROM p115_filesystem_cache
+                WHERE id = :file_id
+                """
+            ),
+            {"file_id": file_id},
+        ).one()
+    assert media == ([sha1], [pick_code])
+    assert cache == (
+        file_id,
+        parent_id,
+        sha1,
+        pick_code,
+        "Movies/Fixture.mkv",
+        "115001",
+    )
 
 
 def test_fingerprint_account_drift_rolls_back_cache_and_media_write(

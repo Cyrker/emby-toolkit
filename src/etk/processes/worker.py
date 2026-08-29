@@ -107,6 +107,7 @@ from etk.domains.p115 import (
     HttpxEmbyPathChangeGateway,
     HttpxP115DirectoryTreeGateway,
     HttpxP115EpisodeRuntimeGateway,
+    HttpxP115FingerprintRemoteGateway,
     HttpxP115OrganizeReadbackGateway,
     IntroDetectionExecutionService,
     IntroDetectionOperation,
@@ -153,7 +154,6 @@ from etk.domains.p115.iso_probe import NativeP115IsoProbeGateway
 from etk.domains.p115.media_info_adapters import (
     ControlledProcessRunner,
     LegacyP115DirectUrlGateway,
-    LegacyP115FingerprintRemoteGateway,
     LocalP115FingerprintHintGateway,
     PersistentP115MediaInfoPolicyProvider,
 )
@@ -277,6 +277,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     | {
         "backfill-organize-record-tmdb-ids",
         "manual-correct-organize-records",
+        "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
         "scan-cleanup-issues",
         "scan_old_seasons_backfill",
@@ -898,7 +899,10 @@ class WorkerRuntime:
                     credentials=p115_credentials,
                     repository=p115_mediainfo_repository,
                     hints=LocalP115FingerprintHintGateway(),
-                    remote=LegacyP115FingerprintRemoteGateway(),
+                    remote=HttpxP115FingerprintRemoteGateway(
+                        credentials=p115_credentials,
+                        priority=lambda: str(settings_provider().p115_api_priority),
+                    ),
                     local_root=lambda: str(config_adapter.load().local_strm_root or ""),
                 )
                 processes = ControlledProcessRunner()
@@ -1260,6 +1264,16 @@ class WorkerRuntime:
             )
             organize_plans = SqlAlchemyP115OrganizePlanRepository(database.unit_of_work)
             organize_executions = SqlAlchemyP115OrganizeExecutionRepository(database.unit_of_work)
+            p115_fingerprint_repair = P115FingerprintRepairService(
+                credentials=p115_credentials,
+                repository=SqlAlchemyP115MediaInfoRepository(database.unit_of_work),
+                hints=LocalP115FingerprintHintGateway(),
+                remote=HttpxP115FingerprintRemoteGateway(
+                    credentials=p115_credentials,
+                    priority=lambda: str(settings_provider().p115_api_priority),
+                ),
+                local_root=lambda: str(config_adapter.load().local_strm_root or ""),
+            )
             p6_p115_tasks = P6P115TaskRouter(
                 directory_sync=P115DirectorySyncService(
                     settings=app_settings,
@@ -1273,6 +1287,7 @@ class WorkerRuntime:
                 organize_record_tmdb_backfill=P115OrganizeRecordTmdbBackfillService(
                     SqlAlchemyP115OrganizeRecordsRepository(database.unit_of_work)
                 ),
+                fingerprint_repair=p115_fingerprint_repair,
                 organize_reconciliation=P115OrganizeExecutionService(
                     plans=organize_plans,
                     repository=organize_executions,

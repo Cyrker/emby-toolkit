@@ -57,6 +57,10 @@ from .episode_regex import (
     match_episode_regex,
     normalize_episode_regex_rules,
 )
+from .fingerprint_transport import (
+    HttpxP115FingerprintRemoteGateway,
+    P115FingerprintTransportError,
+)
 from .fingerprints import (
     P115FileFingerprint,
     P115FingerprintAccountChanged,
@@ -342,6 +346,7 @@ __all__ = [
     "HttpxEmbyMediaInfoQueryGateway",
     "HttpxP115BridgeEmbyGateway",
     "HttpxP115EpisodeRuntimeGateway",
+    "HttpxP115FingerprintRemoteGateway",
     "HttpxP115AuthorizationGateway",
     "HttpxP115DirectoryTreeGateway",
     "HttpxP115OrganizeReadbackGateway",
@@ -418,6 +423,7 @@ __all__ = [
     "P115FingerprintRepairRow",
     "P115FingerprintRepairService",
     "P115FingerprintRepository",
+    "P115FingerprintTransportError",
     "P115ExecutionAction",
     "P115ExecutionActionStatus",
     "P115ExecutionBusy",

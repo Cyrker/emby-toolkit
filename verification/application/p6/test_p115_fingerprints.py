@@ -9,6 +9,7 @@ import pytest
 from etk.domains.p115 import P115CredentialSnapshot
 from etk.domains.p115.fingerprints import (
     P115FileFingerprint,
+    P115FingerprintConflict,
     P115FingerprintHints,
     P115FingerprintRepairRow,
     P115FingerprintRepairService,
@@ -73,6 +74,14 @@ class FakeRemoteClient:
 
     def lookup(self, pick_code: str) -> P115FileFingerprint | None:
         self.calls.append(pick_code)
+        return self.values.get(pick_code)
+
+
+class ConflictThenRemoteClient(FakeRemoteClient):
+    def lookup(self, pick_code: str) -> P115FileFingerprint | None:
+        self.calls.append(pick_code)
+        if len(self.calls) == 1:
+            raise P115FingerprintConflict("fixture provider identity conflict")
         return self.values.get(pick_code)
 
 
@@ -328,6 +337,29 @@ def test_repair_fails_closed_on_conflicting_cache_identity() -> None:
     assert outcome.status is TaskOutcomeStatus.FAILED
     assert outcome.details["failed_assets"] == 1
     assert repository.commits == []
+
+
+def test_repair_continues_after_one_remote_identity_conflict() -> None:
+    first = _row(pick_codes=("pc-a",))
+    second = replace(_row(pick_codes=("pc-b",)), tmdb_id="102")
+    remote_value = _fingerprint(pick_code="pc-b")
+    repository = FakeRepository((first, second))
+    remote = ConflictThenRemoteClient({"pc-b": remote_value})
+    service = P115FingerprintRepairService(
+        credentials=FakeCredentials(),
+        repository=repository,
+        hints=FakeHints(),
+        remote=FakeRemoteGateway(remote),
+        local_root=lambda: "/library",
+    )
+
+    outcome = service.execute(FakeProgress())
+
+    assert outcome.status is TaskOutcomeStatus.PARTIAL
+    assert outcome.details["failed_assets"] == 1
+    assert outcome.details["fixed_assets"] == 1
+    assert remote.calls == ["pc-a", "pc-b"]
+    assert repository.commits == [(second, 0, remote_value, "115001")]
 
 
 def test_repair_row_rejects_more_fingerprint_slots_than_assets() -> None:

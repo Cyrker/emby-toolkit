@@ -25,6 +25,7 @@ dependencies = [
   "openai==3.3.1",
   "p115client==0.0.9.4.9.1",
   "p115oss==0.1.0.4",
+  "p115pickcode==0.0.5.4",
   "pillow==12.3.0",
   "pydantic>=2,<3",
   "pypinyin==0.55.0",
