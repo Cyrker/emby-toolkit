@@ -3800,6 +3800,71 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Contract-Decision-Hold
+
+Stage / Batch: P11 / pre-removal contract-decision handoff
+
+HEAD / Commit:
+
+- Pre-record HEAD: `87fa5ccf` (`refactor(p11): retire license key alias`).
+- This docs-only checkpoint records the next writer boundary; it does not authorize a runtime
+  promotion, controlled removal or P12.
+
+Implemented:
+
+- Revalidated a clean worktree and current ownership truth: native-only Worker `17 executable / 33
+  unavailable`; routes `286 / 343` decorators and `306 / 367` method bindings native-owned; tables
+  `27 new / 12 legacy`; standalone settings `35 new / 13 legacy / 5 retired-approved`.
+- Read-only task and ownership audits found no remaining decision-free semantic closure. A typed
+  service, native envelope or compatibility projection is not sufficient evidence for native-only
+  execution or ownership.
+- Recorded five implementation-ready contract bundles that require explicit approval:
+  `check-expired-users`, `intro-fingerprint-backfill`, `scan-organize-115`, `update-daily-theme`
+  and the `subscription_quota_state` compatibility cutover.
+- Reconciled the supplied washing audit provenance: its `d8128be7` baseline predates the native
+  evaluator and later parity checkpoints. No current test or review failure justifies another
+  washing rewrite.
+
+Targeted gate:
+
+- Read-only preflight: `git status --short --branch` -> clean;
+  `git rev-parse HEAD` -> `87fa5ccf4ee684009116389fbd0e27973ed07782`;
+  `git diff --check` -> clean.
+- No application, PostgreSQL 18 or Redis/Celery gate was rerun because this checkpoint changes only
+  Goal evidence and makes no runtime or contract mutation.
+
+Stage full gate:
+
+- Not run. P11 ownership/execution is incomplete and the controlled-removal/NFR wave remains
+  unauthorized.
+
+Pending:
+
+- The recommended contract package preserves `expired` state with a per-user durable expiry
+  operation, separates intro/shared effects, requires approved immutable organize executions,
+  retains the last valid daily-theme pool on failure, and makes the quota reservation ledger the
+  sole accounting fact. These are new P11 decisions and are not covered by the earlier P8 Database
+  Maintenance approval.
+- All remaining route/task/table/config ownership, compatibility removal, security/performance/
+  reliability/resource evidence, SBOM, vulnerability and License gates remain pending.
+
+Blocker:
+
+- No explicit approval has been received for the five P11 contract bundles. Implementing any of
+  them now would guess business, destructive-operation, concurrency or compatibility semantics.
+
+Next:
+
+- After explicit approval, implement `check-expired-users` first with application, PostgreSQL 18,
+  Redis/Celery, import-sentinel, Manifest and focused-review evidence, then create its independent
+  checkpoint. Keep P11 `DOING`, P12 `TODO` and Live Acceptance `HUMAN_PENDING` until the full local
+  exit criteria pass.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
