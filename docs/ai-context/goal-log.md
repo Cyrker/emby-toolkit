@@ -3865,6 +3865,44 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Blocked-Audit
+
+Stage / Batch: P11 / contract-approval blocked audit
+
+HEAD / Commit:
+
+- Pre-record HEAD: `394b306b` (`docs(p11): record contract decision blockers`).
+- This docs-only checkpoint aligns the local status truth with the Goal blocked audit; it changes no
+  runtime contract and does not authorize P12.
+
+Evidence:
+
+- The same concrete condition persisted across three consecutive Goal turns: no explicit approval
+  was received for the five recorded P11 contract bundles, and read-only audits found no independent
+  decision-free semantic closure.
+- Current worktree preflight remained clean at
+  `394b306b4bb4e6dcc1076c238714e5fbc9dba66c`; `git diff --check` passed.
+- P11 remains incomplete at native-only Worker `17 executable / 33 unavailable`, routes `286 / 343`
+  decorators and `306 / 367` method bindings native-owned, tables `27 new / 12 legacy`, and
+  standalone settings `35 new / 13 legacy / 5 retired-approved`.
+
+Blocker:
+
+- Implementing the next slice without approval would guess user-expiry state and cancellation,
+  destructive 115 organize planning, daily-theme failure/concurrency, intro provider/export, or
+  quota-accounting semantics.
+
+Resume condition:
+
+- Explicit approval of the recommended P11 contract package. Resume as a fresh blocked audit,
+  restore P11 to `DOING`, implement `check-expired-users` first, and keep P12 `TODO` plus Live
+  Acceptance `HUMAN_PENDING` until the full P11 exit criteria pass.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -3884,7 +3922,6 @@ Read first:
 
 Next:
 
-- Continue an independent P11 execution or ownership slice. Keep `intro-fingerprint-backfill`,
-  `scan-organize-115` and `update-daily-theme` unavailable until their recorded contract decisions
-  are confirmed; do not start controlled removal until execution and ownership reach 100%. Keep all
-  Live Acceptance items pending.
+- Obtain explicit approval for the five P11 contract bundles, then resume with
+  `check-expired-users`. Keep all affected tasks unavailable and do not start controlled removal or
+  P12 until execution and ownership reach 100%. Keep all Live Acceptance items pending.
