@@ -223,9 +223,10 @@ def _determine_best_version_by_rules(versions: List[Dict[str, Any]], item_name: 
     """
     根据规则决定最佳版本，返回最佳版本的 ID。
     """
-    # ★ 适配集中式配置读取
-    config_data = settings_db.get_setting('media_cleanup_config') or {}
-    rules = config_data.get('rules') or settings_db.get_setting('media_cleanup_rules')
+    from etk.domains.subscription.cleanup import canonical_cleanup_config
+
+    config_data = canonical_cleanup_config(settings_db.get_setting('media_cleanup_config'))
+    rules = config_data.get('rules')
     
     if not rules:
         rules = [
@@ -306,13 +307,14 @@ def task_scan_for_cleanup_issues(processor):
     try:
         import json # 确保导入了 json
         
-        # 配置读取
-        config_data = settings_db.get_setting('media_cleanup_config') or {}
-        library_ids_to_scan = config_data.get('library_ids') or settings_db.get_setting('media_cleanup_library_ids') or []
+        from etk.domains.subscription.cleanup import canonical_cleanup_config
+
+        config_data = canonical_cleanup_config(settings_db.get_setting('media_cleanup_config'))
+        library_ids_to_scan = config_data.get('library_ids') or []
         
         keep_one_per_res = config_data.get('keep_one_per_res')
         if keep_one_per_res is None:
-            keep_one_per_res = settings_db.get_setting('media_cleanup_keep_one_per_res') or False
+            keep_one_per_res = False
         
         logger.info(f"  ➜ 正在计算扫描范围 (基于用户 {processor.emby_user_id} 的权限)...")
         

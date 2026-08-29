@@ -4,15 +4,21 @@ import json
 import time
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
+from importlib import import_module
+from pathlib import Path
 from queue import Queue
 from threading import Event
 from typing import Any
 from uuid import uuid4
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
+from etk.domains.subscription.cleanup import canonical_cleanup_config
 from etk.domains.subscription.cleanup_scan import (
     CleanupScanEntry,
     CleanupScanService,
@@ -28,12 +34,18 @@ from etk.platform.db import DatabaseRuntime, SqlAlchemyUnitOfWork
 from etk.platform.jobs import PersistentExecutionCancelled, PostgresJobStore
 
 _PREFIX = "p11-cleanup-scan"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_CUTOVER_CONSTRAINT = "verification_p11_cleanup_config_cutover"
 _SETTING_KEYS = (
     "media_cleanup_config",
     "media_cleanup_rules",
     "media_cleanup_library_ids",
     "media_cleanup_keep_one_per_res",
+    "media_cleanup_delete_delay",
     "rating_mapping",
+)
+_CLEANUP_CONFIG_CUTOVER_SQL = str(
+    import_module("migrations.versions.0020_p11_cleanup_config_cutover").CLEANUP_CONFIG_CUTOVER_SQL
 )
 
 
@@ -67,6 +79,230 @@ class ObservedUnitOfWork(SqlAlchemyUnitOfWork):
         entered = super().__enter__()
         self._pids.put(int(entered.session.scalar(text("SELECT pg_backend_pid()")) or 0))
         return entered
+
+
+def test_cleanup_config_cutover_is_atomic_and_never_overwrites_canonical_on_postgres18(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    prior_settings = _snapshot_settings(p7_runtime)
+    migrated = {
+        "rules": [{"id": "filesize", "enabled": True, "priority": "asc"}],
+        "library_ids": ["legacy-library"],
+        "keep_one_per_res": True,
+        "delete_delay": 12,
+        "manual_delete_without_confirm": False,
+    }
+    canonical = {
+        "rules": [],
+        "library_ids": ["canonical-library"],
+        "keep_one_per_res": False,
+        "delete_delay": 0,
+        "manual_delete_without_confirm": True,
+    }
+    try:
+        with p7_runtime.engine.begin() as connection:
+            connection.execute(
+                text("DELETE FROM app_settings WHERE setting_key = ANY(CAST(:keys AS text[]))"),
+                {"keys": list(_SETTING_KEYS)},
+            )
+            connection.execute(text(_CLEANUP_CONFIG_CUTOVER_SQL))
+        assert _setting_value(p7_runtime, "media_cleanup_config") == {
+            "rules": [],
+            "library_ids": [],
+            "keep_one_per_res": False,
+            "delete_delay": 0,
+            "manual_delete_without_confirm": False,
+        }
+
+        with p7_runtime.engine.begin() as connection:
+            connection.execute(text("DELETE FROM app_settings WHERE setting_key = 'media_cleanup_config'"))
+            for key, value in {
+                "media_cleanup_rules": migrated["rules"],
+                "media_cleanup_library_ids": migrated["library_ids"],
+                "media_cleanup_keep_one_per_res": migrated["keep_one_per_res"],
+                "media_cleanup_delete_delay": migrated["delete_delay"],
+            }.items():
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                        VALUES (:key, CAST(:value AS jsonb), NOW())
+                        """
+                    ),
+                    {"key": key, "value": json.dumps(value)},
+                )
+            connection.execute(text(_CLEANUP_CONFIG_CUTOVER_SQL))
+
+        assert _setting_value(p7_runtime, "media_cleanup_config") == migrated
+        assert all(_setting_value(p7_runtime, key) is not None for key in _SETTING_KEYS[1:5])
+
+        with p7_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE app_settings
+                    SET value_json = CAST(:value AS jsonb), last_updated_at = NOW()
+                    WHERE setting_key = 'media_cleanup_config'
+                    """
+                ),
+                {"value": json.dumps(canonical)},
+            )
+            connection.execute(text(_CLEANUP_CONFIG_CUTOVER_SQL))
+        assert _setting_value(p7_runtime, "media_cleanup_config") == canonical
+
+        connection = p7_runtime.engine.connect()
+        transaction = connection.begin()
+        try:
+            connection.execute(text("DELETE FROM app_settings WHERE setting_key = 'media_cleanup_config'"))
+            connection.execute(text(_CLEANUP_CONFIG_CUTOVER_SQL))
+            assert (
+                connection.scalar(
+                    text("SELECT value_json FROM app_settings WHERE setting_key = 'media_cleanup_config'")
+                )
+                == migrated
+            )
+            transaction.rollback()
+        finally:
+            if transaction.is_active:
+                transaction.rollback()
+            connection.close()
+        assert _setting_value(p7_runtime, "media_cleanup_config") == canonical
+
+        with p7_runtime.engine.begin() as connection:
+            connection.execute(text("DELETE FROM app_settings WHERE setting_key = 'media_cleanup_config'"))
+            connection.execute(
+                text(
+                    """
+                    UPDATE app_settings
+                    SET value_json = '{}'::jsonb, last_updated_at = NOW()
+                    WHERE setting_key = 'media_cleanup_library_ids'
+                    """
+                )
+            )
+            connection.execute(text(_CLEANUP_CONFIG_CUTOVER_SQL))
+        malformed = _setting_value(p7_runtime, "media_cleanup_config")
+        assert isinstance(malformed, dict)
+        assert malformed["library_ids"] == {}
+        with pytest.raises(TypeError, match=r"media_cleanup_config\.library_ids"):
+            canonical_cleanup_config(malformed)
+    finally:
+        _restore_settings(p7_runtime, prior_settings)
+
+
+def test_cleanup_config_cutover_runs_through_alembic_and_preserves_one_way_downgrade_on_postgres18(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    prior_settings = _snapshot_settings(p7_runtime)
+    config = Config(str(_REPO_ROOT / "alembic.ini"))
+    migrated = {
+        "rules": [],
+        "library_ids": ["legacy-library"],
+        "keep_one_per_res": True,
+        "delete_delay": 12,
+        "manual_delete_without_confirm": False,
+    }
+    try:
+        command.downgrade(config, "0019_p9_proxy_leases")
+        with p7_runtime.engine.begin() as connection:
+            connection.execute(
+                text("DELETE FROM app_settings WHERE setting_key = ANY(CAST(:keys AS text[]))"),
+                {"keys": list(_SETTING_KEYS)},
+            )
+            for key, value in {
+                "media_cleanup_rules": migrated["rules"],
+                "media_cleanup_library_ids": migrated["library_ids"],
+                "media_cleanup_keep_one_per_res": migrated["keep_one_per_res"],
+                "media_cleanup_delete_delay": migrated["delete_delay"],
+            }.items():
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                        VALUES (:key, CAST(:value AS jsonb), NOW())
+                        """
+                    ),
+                    {"key": key, "value": json.dumps(value)},
+                )
+            connection.execute(
+                text(
+                    f"""
+                    ALTER TABLE app_settings ADD CONSTRAINT {_CUTOVER_CONSTRAINT}
+                    CHECK (setting_key <> 'media_cleanup_config')
+                    """
+                )
+            )
+
+        with pytest.raises(IntegrityError):
+            command.upgrade(config, "head")
+        assert _alembic_head(p7_runtime) == "0019_p9_proxy_leases"
+        assert _setting_value(p7_runtime, "media_cleanup_config") is None
+
+        with p7_runtime.engine.begin() as connection:
+            connection.execute(text(f"ALTER TABLE app_settings DROP CONSTRAINT {_CUTOVER_CONSTRAINT}"))
+        command.upgrade(config, "head")
+        assert _alembic_head(p7_runtime) == "0020_p11_cleanup_config_cutover"
+        assert _setting_value(p7_runtime, "media_cleanup_config") == migrated
+
+        command.downgrade(config, "0019_p9_proxy_leases")
+        with p7_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE app_settings
+                    SET value_json = '["changed-after-downgrade"]'::jsonb, last_updated_at = NOW()
+                    WHERE setting_key = 'media_cleanup_library_ids'
+                    """
+                )
+            )
+        command.upgrade(config, "head")
+        assert _setting_value(p7_runtime, "media_cleanup_config") == migrated
+    finally:
+        with p7_runtime.engine.begin() as connection:
+            connection.execute(text(f"ALTER TABLE app_settings DROP CONSTRAINT IF EXISTS {_CUTOVER_CONSTRAINT}"))
+        command.upgrade(config, "head")
+        _restore_settings(p7_runtime, prior_settings)
+
+
+def test_cleanup_config_cutover_waits_for_and_preserves_a_concurrent_canonical_writer_on_postgres18(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    prior_settings = _snapshot_settings(p7_runtime)
+    canonical = {
+        "rules": [],
+        "library_ids": ["concurrent-canonical"],
+        "keep_one_per_res": False,
+        "delete_delay": 0,
+        "manual_delete_without_confirm": True,
+    }
+    writer = p7_runtime.engine.connect()
+    transaction = writer.begin()
+    try:
+        writer.execute(
+            text("DELETE FROM app_settings WHERE setting_key = ANY(CAST(:keys AS text[]))"),
+            {"keys": list(_SETTING_KEYS)},
+        )
+        writer.execute(
+            text(
+                """
+                INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                VALUES ('media_cleanup_config', CAST(:value AS jsonb), NOW())
+                """
+            ),
+            {"value": json.dumps(canonical)},
+        )
+        pids: Queue[int] = Queue()
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            cutover = executor.submit(_execute_cleanup_cutover, p7_runtime, pids)
+            cutover_pid = pids.get(timeout=10)
+            _wait_until_blocked(p7_runtime, cutover_pid)
+            transaction.commit()
+            cutover.result(timeout=10)
+        assert _setting_value(p7_runtime, "media_cleanup_config") == canonical
+    finally:
+        if transaction.is_active:
+            transaction.rollback()
+        writer.close()
+        _restore_settings(p7_runtime, prior_settings)
 
 
 def test_cleanup_scan_filters_user_scope_and_atomically_reconciles_on_postgres18(
@@ -767,6 +1003,25 @@ def _cleanup_rows(runtime: DatabaseRuntime) -> list[dict[str, Any]]:
 
 def _row_payloads(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     return [{key: value for key, value in row.items() if key != "id"} for row in rows]
+
+
+def _setting_value(runtime: DatabaseRuntime, key: str) -> Any:
+    with runtime.engine.connect() as connection:
+        return connection.scalar(
+            text("SELECT value_json FROM app_settings WHERE setting_key = :key"),
+            {"key": key},
+        )
+
+
+def _alembic_head(runtime: DatabaseRuntime) -> str:
+    with runtime.engine.connect() as connection:
+        return str(connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) or "")
+
+
+def _execute_cleanup_cutover(runtime: DatabaseRuntime, pids: Queue[int]) -> None:
+    with runtime.engine.begin() as connection:
+        pids.put(int(connection.scalar(text("SELECT pg_backend_pid()")) or 0))
+        connection.execute(text(_CLEANUP_CONFIG_CUTOVER_SQL))
 
 
 def _snapshot_settings(runtime: DatabaseRuntime) -> dict[str, tuple[Any, Any]]:

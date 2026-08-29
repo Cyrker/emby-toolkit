@@ -3650,6 +3650,82 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Cleanup-Config-Cutover
+
+Stage / Batch: P11 / cleanup canonical configuration cutover
+
+HEAD / Commit:
+
+- Pre-cutover HEAD: `21dcbcd5` (`fix(p11): reconcile washing recalculation parity`).
+- Checkpoint: this batch's `refactor(p11): retire cleanup config fallbacks` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Added migration `0020_p11_cleanup_config_cutover`. In one PostgreSQL transaction it creates
+  `media_cleanup_config` only when absent, copies the four former cleanup setting values, supplies
+  typed defaults for missing rows, and leaves all historical source rows untouched. Existing
+  canonical state always wins through `ON CONFLICT DO NOTHING`; downgrade is intentionally a
+  non-destructive no-op, so the cutover is one-way.
+- Added one canonical cleanup schema validator and routed native HTTP, cleanup scan, compatibility
+  HTTP/task and maintenance readers through it. The canonical object is authoritative as a whole;
+  malformed outer or nested fields fail closed, including missing/non-string rule IDs.
+- Removed every operational read of `media_cleanup_rules`, `media_cleanup_library_ids`,
+  `media_cleanup_keep_one_per_res` and `media_cleanup_delete_delay`. The Manifest exporter now keeps
+  these historical contracts visible as `retired-approved` and fails generation if an operational
+  reader returns.
+- Regenerated Manifest/source inventory and advanced the single Alembic head to
+  `0020_p11_cleanup_config_cutover`; OpenAPI behavior is unchanged.
+
+Targeted gate:
+
+- `uv lock --check`, scoped Ruff check/format, scoped Pyright, compileall and `git diff --check` ->
+  clean.
+- Cleanup HTTP/scan plus migration-head architecture scope -> `68 passed`; static Manifest/OpenAPI
+  contract scope -> `9 passed`.
+- Disposable PostgreSQL 18 cleanup/settings/database-head scope -> `19 passed`. Evidence includes
+  real Alembic upgrade failure rollback, successful retry, one-way downgrade/re-upgrade, a blocked
+  concurrent canonical writer, canonical precedence, malformed JSONB fail-closed behavior and the
+  existing cleanup scan transaction/drift matrix.
+- Manifest/OpenAPI currentness, Alembic single-head check, retired-key operational-reader sentinel
+  and all three fixture/contract secret scans -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-cleanup-config-cutover-20260829/`.
+
+Focused review:
+
+- Initial review found two P1 issues: a PostgreSQL regression still required the removed fallback,
+  and malformed migrated fields had inconsistent reader behavior. Both were corrected with the
+  actual cutover path and shared validator. Follow-up P2 gaps for rule identity, real Alembic
+  failure/downgrade and concurrent-writer evidence were also closed. Final review found no
+  P0/P1/P2 in this slice.
+
+Stage full gate:
+
+- Not run. This cutover retires four standalone setting contracts but leaves task, route, table,
+  dynamic/bootstrap config and other standalone ownership gaps, so controlled removal and P11
+  stage NFR/security gates remain unauthorized.
+
+Pending:
+
+- Native-only Worker execution remains `17 executable / 33 unavailable`. Fifty-seven route
+  decorators, 61 method bindings, 12 tables, 82 dynamic config keys, seven bootstrap keys and 14
+  standalone settings remain legacy-owned; four additional cleanup settings are now
+  `retired-approved` with no operational reader.
+- `intro-fingerprint-backfill` is not eligible for promotion until its favorite `force=True`,
+  provider-backend pinning, P6/P9 shared-export ownership and historical favorite-source contracts
+  are confirmed. No allowlist-only change was made; other independent P11 slices can continue.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue another evidence-backed P11 execution or ownership slice that does not depend on the
+unresolved intro contracts. Do not start controlled removal or P12 until ownership reaches 100%.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -3669,6 +3745,6 @@ Read first:
 
 Next:
 
-- Reconcile the supplied washing-recalculation parity audit against the current native implementation.
-  Keep every other unmigrated task/binding explicit; do not start controlled removal until execution
-  and ownership reach 100%. Keep all Live Acceptance items pending.
+- Continue an independent P11 execution or ownership slice. Keep `intro-fingerprint-backfill`
+  unavailable until its four contract decisions are confirmed; do not start controlled removal until
+  execution and ownership reach 100%. Keep all Live Acceptance items pending.

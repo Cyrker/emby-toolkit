@@ -22,6 +22,14 @@ from manifest_common import (
 
 SECRET_FRAGMENTS = ("password", "secret", "token", "cookie", "api_key", "license_key")
 EXPLICIT_SECRET_KEYS = frozenset({"mp_config", "p115_play_pool_config"})
+RETIRED_STANDALONE_SETTING_KEYS = frozenset(
+    {
+        "media_cleanup_delete_delay",
+        "media_cleanup_keep_one_per_res",
+        "media_cleanup_library_ids",
+        "media_cleanup_rules",
+    }
+)
 
 
 def _is_secret_key(key: str) -> bool:
@@ -223,6 +231,11 @@ def _scan_setting_calls() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 continue
             else:
                 unresolved.append(item)
+    retired_with_active_access = sorted(RETIRED_STANDALONE_SETTING_KEYS & resolved.keys())
+    if retired_with_active_access:
+        raise ManifestError(f"retired standalone settings still have operational readers: {retired_with_active_access}")
+    for key in RETIRED_STANDALONE_SETTING_KEYS:
+        resolved[key] = []
     entries = [
         apply_contract_override(
             {

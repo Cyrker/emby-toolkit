@@ -14,10 +14,6 @@ CLEANUP_EXECUTION_PROVIDER = "subscription.cleanup-execution"
 CLEANUP_VERSION_DELETION_PROVIDER = "media.cleanup-version-deletion"
 
 CLEANUP_CONFIG_SETTING = "media_cleanup_config"
-LEGACY_CLEANUP_RULES_SETTING = "media_cleanup_rules"
-LEGACY_CLEANUP_LIBRARY_IDS_SETTING = "media_cleanup_library_ids"
-LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING = "media_cleanup_keep_one_per_res"
-LEGACY_CLEANUP_DELETE_DELAY_SETTING = "media_cleanup_delete_delay"
 SCAN_CLEANUP_TASK_KEY = "scan-cleanup-issues"
 
 _DEFAULT_RULES_MAP: dict[str, dict[str, Any]] = {
@@ -112,6 +108,53 @@ class CleanupPhysicalDeletionError(RuntimeError):
     pass
 
 
+def canonical_cleanup_config(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise TypeError("media_cleanup_config must be an object")
+
+    rules = value.get("rules", [])
+    if rules is None:
+        rules = []
+    if not isinstance(rules, list):
+        raise TypeError("media_cleanup_config.rules must be an array")
+    if any(not isinstance(rule, Mapping) for rule in rules):
+        raise TypeError("media_cleanup_config.rules entries must be objects")
+    if any(not isinstance(rule.get("id"), str) or not str(rule["id"]).strip() for rule in rules):
+        raise TypeError("media_cleanup_config.rules entries require a non-empty string id")
+
+    library_ids = value.get("library_ids", [])
+    if library_ids is None:
+        library_ids = []
+    if not isinstance(library_ids, list):
+        raise TypeError("media_cleanup_config.library_ids must be an array")
+
+    keep_one_per_res = value.get("keep_one_per_res", False)
+    if keep_one_per_res is None:
+        keep_one_per_res = False
+    if not isinstance(keep_one_per_res, bool):
+        raise TypeError("media_cleanup_config.keep_one_per_res must be boolean")
+
+    delete_delay = value.get("delete_delay", 0)
+    if delete_delay is None:
+        delete_delay = 0
+    if isinstance(delete_delay, bool) or not isinstance(delete_delay, int) or delete_delay < 0:
+        raise TypeError("media_cleanup_config.delete_delay must be a non-negative integer")
+
+    manual_delete_without_confirm = value.get("manual_delete_without_confirm", False)
+    if manual_delete_without_confirm is None:
+        manual_delete_without_confirm = False
+    if not isinstance(manual_delete_without_confirm, bool):
+        raise TypeError("media_cleanup_config.manual_delete_without_confirm must be boolean")
+
+    return {
+        "rules": deepcopy(rules),
+        "library_ids": deepcopy(library_ids),
+        "keep_one_per_res": keep_one_per_res,
+        "delete_delay": delete_delay,
+        "manual_delete_without_confirm": manual_delete_without_confirm,
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class CleanupClearAllResult:
     task_count: int
@@ -180,27 +223,10 @@ class CleanupService:
         return CleanupClearAllResult(len(task_ids), True)
 
     def get_settings(self) -> dict[str, Any]:
-        config_data = self._settings.load(CLEANUP_CONFIG_SETTING)
-        if config_data is not None:
-            if not isinstance(config_data, Mapping):
-                raise TypeError("media_cleanup_config must be an object")
-            saved_rules = config_data.get("rules", [])
-            library_ids = deepcopy(config_data.get("library_ids", []))
-            keep_one_per_res = deepcopy(config_data.get("keep_one_per_res", False))
-            delete_delay = deepcopy(config_data.get("delete_delay", 0))
-            manual_delete_without_confirm = deepcopy(config_data.get("manual_delete_without_confirm", False))
-        else:
-            saved_rules = self._settings.load(LEGACY_CLEANUP_RULES_SETTING) or []
-            library_ids = deepcopy(self._settings.load(LEGACY_CLEANUP_LIBRARY_IDS_SETTING) or [])
-            keep_one_per_res = deepcopy(self._settings.load(LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING) or False)
-            delete_delay = deepcopy(self._settings.load(LEGACY_CLEANUP_DELETE_DELAY_SETTING) or 0)
-            manual_delete_without_confirm = False
+        config_data = canonical_cleanup_config(self._settings.load(CLEANUP_CONFIG_SETTING))
         return {
-            "rules": _merge_cleanup_rules(saved_rules),
-            "library_ids": library_ids,
-            "keep_one_per_res": keep_one_per_res,
-            "delete_delay": delete_delay,
-            "manual_delete_without_confirm": manual_delete_without_confirm,
+            **config_data,
+            "rules": _merge_cleanup_rules(config_data["rules"]),
         }
 
     def save_settings(self, data: Mapping[str, Any]) -> None:

@@ -15,10 +15,6 @@ from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.subscription.cleanup import (
     CLEANUP_CONFIG_SETTING,
     CLEANUP_USE_CASE_PROVIDER,
-    LEGACY_CLEANUP_DELETE_DELAY_SETTING,
-    LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING,
-    LEGACY_CLEANUP_LIBRARY_IDS_SETTING,
-    LEGACY_CLEANUP_RULES_SETTING,
     SCAN_CLEANUP_TASK_KEY,
     CleanupService,
     CleanupVersionNotFoundError,
@@ -33,6 +29,10 @@ FIXTURE_PATH = REPO_ROOT / "verification/fixtures/http/p7-cleanup.json"
 FIXTURE: Mapping[str, Any] = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
 CONFIG_OWNERSHIP = REPO_ROOT / "verification/contracts/config-ownership.yaml"
 SECRET_KEY = b"p7-cleanup-fixture-session-key"
+LEGACY_CLEANUP_RULES_SETTING = "media_cleanup_rules"
+LEGACY_CLEANUP_LIBRARY_IDS_SETTING = "media_cleanup_library_ids"
+LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING = "media_cleanup_keep_one_per_res"
+LEGACY_CLEANUP_DELETE_DELAY_SETTING = "media_cleanup_delete_delay"
 
 
 class FakePermissions:
@@ -394,18 +394,21 @@ def test_clear_all_reads_pending_before_submission_without_mutating_state() -> N
     assert repository.ignored == [] and repository.deleted == []
 
 
-def test_settings_legacy_fallback_and_rule_normalization_match_source() -> None:
+def test_settings_migrated_canonical_values_preserve_rule_normalization() -> None:
     app, _permissions, _repository, _settings, *_ = _build_app(
         setting_values={
-            "media_cleanup_rules": [
-                {"id": "effect", "enabled": False, "priority": ["DOVI", "HDR", "hdr"]},
-                {"id": "resolution", "enabled": True, "priority": ["2160p", "1080p"]},
-                {"id": "codec", "enabled": True, "priority": ["h265", "AVC", "AVC", "Custom"]},
-                {"id": "fixture_rule", "enabled": True, "priority": ["x"]},
-            ],
-            "media_cleanup_library_ids": ["library-1"],
-            "media_cleanup_keep_one_per_res": True,
-            "media_cleanup_delete_delay": 12,
+            CLEANUP_CONFIG_SETTING: {
+                "rules": [
+                    {"id": "effect", "enabled": False, "priority": ["DOVI", "HDR", "hdr"]},
+                    {"id": "resolution", "enabled": True, "priority": ["2160p", "1080p"]},
+                    {"id": "codec", "enabled": True, "priority": ["h265", "AVC", "AVC", "Custom"]},
+                    {"id": "fixture_rule", "enabled": True, "priority": ["x"]},
+                ],
+                "library_ids": ["library-1"],
+                "keep_one_per_res": True,
+                "delete_delay": 12,
+                "manual_delete_without_confirm": False,
+            }
         }
     )
     with TestClient(app) as client:
@@ -466,7 +469,7 @@ def test_cleanup_canonical_object_wins_as_a_whole_over_legacy_fallback_rows() ->
     assert body["delete_delay"] == 0
 
 
-@pytest.mark.parametrize("value", [[], "", 0, False])
+@pytest.mark.parametrize("value", [None, [], "", 0, False])
 def test_cleanup_settings_reject_falsy_non_object_canonical_config(value: object) -> None:
     app, *_ = _build_app(
         setting_values={
@@ -482,6 +485,48 @@ def test_cleanup_settings_reject_falsy_non_object_canonical_config(value: object
     assert response.json() == {
         "error": "获取清理设置失败: media_cleanup_config must be an object",
     }
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("rules", {}, "media_cleanup_config.rules must be an array"),
+        ("rules", ["invalid"], "media_cleanup_config.rules entries must be objects"),
+        (
+            "rules",
+            [{"enabled": True}],
+            "media_cleanup_config.rules entries require a non-empty string id",
+        ),
+        ("library_ids", {}, "media_cleanup_config.library_ids must be an array"),
+        ("keep_one_per_res", "false", "media_cleanup_config.keep_one_per_res must be boolean"),
+        ("delete_delay", True, "media_cleanup_config.delete_delay must be a non-negative integer"),
+        (
+            "manual_delete_without_confirm",
+            "false",
+            "media_cleanup_config.manual_delete_without_confirm must be boolean",
+        ),
+    ],
+)
+def test_cleanup_settings_fail_closed_on_malformed_canonical_fields(
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    config: dict[str, Any] = {
+        "rules": [],
+        "library_ids": [],
+        "keep_one_per_res": False,
+        "delete_delay": 0,
+        "manual_delete_without_confirm": False,
+    }
+    config[field] = value
+    app, *_ = _build_app(setting_values={CLEANUP_CONFIG_SETTING: config})
+
+    with TestClient(app) as client:
+        response = client.get("/api/cleanup/settings")
+
+    assert response.status_code == 500
+    assert response.json() == {"error": f"获取清理设置失败: {message}"}
 
 
 def test_settings_central_read_save_and_manual_validation_contracts() -> None:
@@ -546,7 +591,7 @@ def test_settings_central_read_save_and_manual_validation_contracts() -> None:
     assert unsupported.status_code == 415 and unsupported.headers["content-type"].startswith("text/html")
 
 
-def test_cleanup_config_has_canonical_ownership_without_absorbing_legacy_fallbacks() -> None:
+def test_cleanup_config_has_canonical_ownership_after_legacy_key_cutover() -> None:
     manifest = json.loads(CONFIG_OWNERSHIP.read_text(encoding="utf-8"))
     settings = {item["key"]: item for item in manifest["standalone_app_settings"]}
 
@@ -557,14 +602,31 @@ def test_cleanup_config_has_canonical_ownership_without_absorbing_legacy_fallbac
     assert canonical["fixture"] == "verification/fixtures/http/p7-cleanup.json"
     assert canonical["validation_owner"] == "subscription/settings"
 
-    for key in (
+    retired_keys = {
         LEGACY_CLEANUP_RULES_SETTING,
         LEGACY_CLEANUP_LIBRARY_IDS_SETTING,
         LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING,
         LEGACY_CLEANUP_DELETE_DELAY_SETTING,
-    ):
-        assert settings[key]["status"] == "legacy"
+    }
+    for key in retired_keys:
+        assert settings[key]["status"] == "retired-approved"
         assert settings[key]["new_owner"] is None
+        assert settings[key]["retirement_approval"]
+        assert settings[key]["accesses"] == []
+
+    for relative_path in (
+        "database/maintenance_db.py",
+        "routes/media_cleanup.py",
+        "src/etk/domains/subscription/cleanup.py",
+        "src/etk/domains/subscription/cleanup_scan.py",
+        "src/etk/domains/subscription/cleanup_scan_repository.py",
+        "tasks/cleanup.py",
+    ):
+        source = (REPO_ROOT / relative_path).read_text(encoding="utf-8-sig")
+        assert all(key not in source for key in retired_keys)
+
+    migration = (REPO_ROOT / "migrations/versions/0020_p11_cleanup_config_cutover.py").read_text(encoding="utf-8")
+    assert all(key in migration for key in retired_keys)
 
 
 def test_settings_repository_failure_keeps_legacy_json_500() -> None:

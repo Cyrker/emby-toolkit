@@ -5934,9 +5934,45 @@
         "fixture": "verification/fixtures/http/p7-cleanup.json",
         "fixture_exception": null,
         "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
-        "notes": "P11 confirms CleanupService owns canonical HTTP cleanup normalization and save semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. The four media_cleanup_* keys remain explicit legacy fallbacks; legacy task and maintenance readers retain their field-level fallback behavior until cleanup execution migration.",
+        "notes": "P11 confirms CleanupService owns canonical HTTP cleanup normalization and save semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Migration 0020 atomically preserves the four former media_cleanup_* values when the canonical row is absent; operational readers are canonical-only and the historical rows remain untouched.",
         "status": "new",
-        "validation_method": "pytest-http-contract-and-postgres18-canonical-fallback-rollback",
+        "validation_method": "pytest-http-contract-and-postgres18-canonical-cutover-rollback",
+        "validation_owner": "subscription/settings"
+      },
+      "setting-eeeb0909b1ca": {
+        "fixture": "verification/integration/p7/test_cleanup_scan_postgres18.py",
+        "fixture_exception": null,
+        "notes": "P11 migration 0020 copies this historical value into media_cleanup_config only when the canonical row is absent. The source row is preserved for rollback inspection but has no operational reader.",
+        "retirement_approval": "P11 cleanup canonical cutover 0020; historical source row preserved",
+        "status": "retired-approved",
+        "validation_method": "postgres18-cutover-and-operational-reader-sentinel",
+        "validation_owner": "subscription/settings"
+      },
+      "setting-7f0b0c8e6a3e": {
+        "fixture": "verification/integration/p7/test_cleanup_scan_postgres18.py",
+        "fixture_exception": null,
+        "notes": "P11 migration 0020 copies this historical value into media_cleanup_config only when the canonical row is absent. The source row is preserved for rollback inspection but has no operational reader.",
+        "retirement_approval": "P11 cleanup canonical cutover 0020; historical source row preserved",
+        "status": "retired-approved",
+        "validation_method": "postgres18-cutover-and-operational-reader-sentinel",
+        "validation_owner": "subscription/settings"
+      },
+      "setting-1b258e693ea5": {
+        "fixture": "verification/integration/p7/test_cleanup_scan_postgres18.py",
+        "fixture_exception": null,
+        "notes": "P11 migration 0020 copies this historical value into media_cleanup_config only when the canonical row is absent. The source row is preserved for rollback inspection but has no operational reader.",
+        "retirement_approval": "P11 cleanup canonical cutover 0020; historical source row preserved",
+        "status": "retired-approved",
+        "validation_method": "postgres18-cutover-and-operational-reader-sentinel",
+        "validation_owner": "subscription/settings"
+      },
+      "setting-525eb0daec99": {
+        "fixture": "verification/integration/p7/test_cleanup_scan_postgres18.py",
+        "fixture_exception": null,
+        "notes": "P11 migration 0020 copies this historical value into media_cleanup_config only when the canonical row is absent. The source row is preserved for rollback inspection but has no operational reader.",
+        "retirement_approval": "P11 cleanup canonical cutover 0020; historical source row preserved",
+        "status": "retired-approved",
+        "validation_method": "postgres18-cutover-and-operational-reader-sentinel",
         "validation_owner": "subscription/settings"
       },
       "setting-4640efe53366": {

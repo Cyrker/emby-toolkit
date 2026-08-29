@@ -94,11 +94,12 @@ def _determine_cleanup_best_version_payload(
 ) -> Any:
     from tasks.cleanup import _get_properties_for_comparison, _determine_best_version_by_rules
     from database import settings_db
+    from etk.domains.subscription.cleanup import canonical_cleanup_config
 
-    cleanup_config = settings_db.get_setting('media_cleanup_config') or {}
+    cleanup_config = canonical_cleanup_config(settings_db.get_setting('media_cleanup_config'))
     keep_one_per_res = cleanup_config.get('keep_one_per_res')
     if keep_one_per_res is None:
-        keep_one_per_res = settings_db.get_setting('media_cleanup_keep_one_per_res') or False
+        keep_one_per_res = False
 
     if not keep_one_per_res:
         return _determine_best_version_by_rules(

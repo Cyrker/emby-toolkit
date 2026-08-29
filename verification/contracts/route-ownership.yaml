@@ -1206,7 +1206,7 @@
       "notes": "P7 native cleanup router preserves version deletion and durable operation semantics.",
       "path": "/api/cleanup/delete_version",
       "retirement_approval": null,
-      "source": "routes/media_cleanup.py:288",
+      "source": "routes/media_cleanup.py:280",
       "status": "new",
       "target_domains": [
         "subscription",
@@ -1272,7 +1272,7 @@
       "notes": "P7 native cleanup router preserves durable scan submission and busy-state handling.",
       "path": "/api/cleanup/scan",
       "retirement_approval": null,
-      "source": "routes/media_cleanup.py:271",
+      "source": "routes/media_cleanup.py:263",
       "status": "new",
       "target_domains": [
         "subscription",
@@ -1316,7 +1316,7 @@
       "notes": "P7 native cleanup router owns the validated cleanup settings mutation contract.",
       "path": "/api/cleanup/settings",
       "retirement_approval": null,
-      "source": "routes/media_cleanup.py:235",
+      "source": "routes/media_cleanup.py:227",
       "status": "new",
       "target_domains": [
         "subscription",
@@ -9126,7 +9126,7 @@
       "notes": "P7 native cleanup router preserves version deletion and durable operation semantics.",
       "path": "/api/cleanup/delete_version",
       "retirement_approval": null,
-      "source": "routes/media_cleanup.py:288",
+      "source": "routes/media_cleanup.py:280",
       "status": "new",
       "target_domains": [
         "subscription",
@@ -9201,7 +9201,7 @@
       "notes": "P7 native cleanup router preserves durable scan submission and busy-state handling.",
       "path": "/api/cleanup/scan",
       "retirement_approval": null,
-      "source": "routes/media_cleanup.py:271",
+      "source": "routes/media_cleanup.py:263",
       "status": "new",
       "target_domains": [
         "subscription",
@@ -9251,7 +9251,7 @@
       "notes": "P7 native cleanup router owns the validated cleanup settings mutation contract.",
       "path": "/api/cleanup/settings",
       "retirement_approval": null,
-      "source": "routes/media_cleanup.py:235",
+      "source": "routes/media_cleanup.py:227",
       "status": "new",
       "target_domains": [
         "subscription",

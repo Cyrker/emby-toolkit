@@ -194,8 +194,8 @@ def _snapshot(*items: CleanupScanItem, visible: bool = True) -> CleanupScanSnaps
     )
 
 
-def test_cleanup_scan_policy_preserves_canonical_and_legacy_fallback_order() -> None:
-    legacy = effective_cleanup_scan_policy(
+def test_cleanup_scan_policy_uses_canonical_object_as_the_whole_policy() -> None:
+    empty_canonical = effective_cleanup_scan_policy(
         {
             "media_cleanup_config": {"rules": [], "library_ids": [], "keep_one_per_res": None},
             "media_cleanup_rules": [{"id": "filesize", "enabled": True, "priority": "asc"}],
@@ -213,15 +213,16 @@ def test_cleanup_scan_policy_preserves_canonical_and_legacy_fallback_order() -> 
         }
     )
 
-    assert legacy.rules == ({"id": "filesize", "enabled": True, "priority": "asc"},)
-    assert legacy.library_ids == ("legacy-library",)
-    assert legacy.keep_one_per_resolution is True
+    assert empty_canonical.rules[0]["id"] == "runtime"
+    assert len(empty_canonical.rules) == 11
+    assert empty_canonical.library_ids == ()
+    assert empty_canonical.keep_one_per_resolution is False
     assert canonical.rules == ({"id": "runtime", "enabled": True},)
     assert canonical.library_ids == ("canonical-library",)
     assert canonical.keep_one_per_resolution is False
 
 
-@pytest.mark.parametrize("value", [[], "", 0, False])
+@pytest.mark.parametrize("value", [None, [], "", 0, False])
 def test_cleanup_scan_policy_rejects_falsy_non_object_canonical_config(value: object) -> None:
     with pytest.raises(TypeError, match="media_cleanup_config"):
         effective_cleanup_scan_policy({"media_cleanup_config": value})

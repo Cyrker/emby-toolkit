@@ -142,7 +142,7 @@ def test_snapshot_claim_schema_is_current_and_rejects_orphan_job_identity(
                 )
             ).scalars()
         )
-    assert head == "0019_p9_proxy_leases"
+    assert head == "0020_p11_cleanup_config_cutover"
     assert {
         "ck_sas_snapshot_claim",
         "fk_sas_snapshot_job",

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from copy import deepcopy
+from importlib import import_module
 from typing import Any, cast
 
 from sqlalchemy import text
@@ -13,10 +14,6 @@ from etk.domains.subscription.actor import (
 )
 from etk.domains.subscription.cleanup import (
     CLEANUP_CONFIG_SETTING,
-    LEGACY_CLEANUP_DELETE_DELAY_SETTING,
-    LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING,
-    LEGACY_CLEANUP_LIBRARY_IDS_SETTING,
-    LEGACY_CLEANUP_RULES_SETTING,
     CleanupService,
 )
 from etk.domains.subscription.watchlist import (
@@ -26,6 +23,14 @@ from etk.domains.subscription.watchlist import (
 )
 from etk.domains.system.repository import SqlAlchemyAppSettingsRepository
 from etk.platform.db import DatabaseRuntime, EngineConfig
+
+LEGACY_CLEANUP_RULES_SETTING = "media_cleanup_rules"
+LEGACY_CLEANUP_LIBRARY_IDS_SETTING = "media_cleanup_library_ids"
+LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING = "media_cleanup_keep_one_per_res"
+LEGACY_CLEANUP_DELETE_DELAY_SETTING = "media_cleanup_delete_delay"
+CLEANUP_CONFIG_CUTOVER_SQL = str(
+    import_module("migrations.versions.0020_p11_cleanup_config_cutover").CLEANUP_CONFIG_CUTOVER_SQL
+)
 
 SETTING_KEYS = (
     ACTOR_DEFAULT_CONFIG_KEY,
@@ -57,7 +62,7 @@ class _ActorRepository:
         return 701
 
 
-def test_subscription_settings_use_canonical_rows_and_preserve_legacy_fallbacks(
+def test_subscription_settings_use_canonical_rows_and_preserve_retired_source_rows(
     migrated_p7_postgres_url: str,
 ) -> None:
     runtime = DatabaseRuntime.create(
@@ -162,6 +167,8 @@ def test_subscription_settings_use_canonical_rows_and_preserve_legacy_fallbacks(
             LEGACY_CLEANUP_DELETE_DELAY_SETTING: 12,
         }
         settings.save_many(cleanup_fallbacks)
+        with runtime.engine.begin() as connection:
+            connection.execute(text(CLEANUP_CONFIG_CUTOVER_SQL))
         cleanup = CleanupService(
             cast(Any, object()),
             settings,

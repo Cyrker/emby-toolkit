@@ -118,8 +118,10 @@ def clear_all_cleanup_tasks():
 @media_cleanup_bp.route('/api/cleanup/settings', methods=['GET'])
 @admin_required
 def get_cleanup_settings():
-    """获取所有媒体去重设置（集中式读取，带向下兼容）。"""
+    """获取 canonical 媒体去重设置。"""
     try:
+        from etk.domains.subscription.cleanup import canonical_cleanup_config
+
         default_rules_map = {
             "runtime": {"id": "runtime", "enabled": True, "priority": "desc"},
             "effect": {
@@ -138,22 +140,12 @@ def get_cleanup_settings():
             "date_added": {"id": "date_added", "enabled": True, "priority": "asc"}
         }
         
-        # ★★★ 核心修改：优先读取集中式配置 ★★★
-        config_data = settings_db.get_setting('media_cleanup_config')
-        
-        if config_data:
-            saved_rules_list = config_data.get('rules', [])
-            saved_library_ids = config_data.get('library_ids', [])
-            keep_one_per_res = config_data.get('keep_one_per_res', False)
-            delete_delay = config_data.get('delete_delay', 0)
-            manual_delete_without_confirm = config_data.get('manual_delete_without_confirm', False)
-        else:
-            # 向下兼容：如果没找到新配置，去读老配置
-            saved_rules_list = settings_db.get_setting('media_cleanup_rules') or []
-            saved_library_ids = settings_db.get_setting('media_cleanup_library_ids') or []
-            keep_one_per_res = settings_db.get_setting('media_cleanup_keep_one_per_res') or False
-            delete_delay = settings_db.get_setting('media_cleanup_delete_delay') or 0
-            manual_delete_without_confirm = False
+        config_data = canonical_cleanup_config(settings_db.get_setting('media_cleanup_config'))
+        saved_rules_list = config_data.get('rules', [])
+        saved_library_ids = config_data.get('library_ids', [])
+        keep_one_per_res = config_data.get('keep_one_per_res', False)
+        delete_delay = config_data.get('delete_delay', 0)
+        manual_delete_without_confirm = config_data.get('manual_delete_without_confirm', False)
         
         # --- 规则清洗逻辑 (保持你原来的逻辑不变) ---
         if not saved_rules_list:

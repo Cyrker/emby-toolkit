@@ -12,12 +12,7 @@ from uuid import UUID
 from etk.platform import Settings
 from etk.policy_defaults import DEFAULT_RATING_MAPPING
 
-from .cleanup import (
-    CLEANUP_CONFIG_SETTING,
-    LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING,
-    LEGACY_CLEANUP_LIBRARY_IDS_SETTING,
-    LEGACY_CLEANUP_RULES_SETTING,
-)
+from .cleanup import CLEANUP_CONFIG_SETTING, canonical_cleanup_config
 
 RATING_MAPPING_SETTING = "rating_mapping"
 
@@ -225,28 +220,13 @@ class CleanupScanService:
 
 
 def effective_cleanup_scan_policy(values: Mapping[str, Any]) -> CleanupScanPolicy:
-    raw_config = values.get(CLEANUP_CONFIG_SETTING)
-    if raw_config is not None and not isinstance(raw_config, Mapping):
-        raise TypeError("media_cleanup_config must be an object")
-    config: Mapping[str, Any] = raw_config if isinstance(raw_config, Mapping) else {}
+    config = canonical_cleanup_config(values.get(CLEANUP_CONFIG_SETTING))
 
-    raw_rules = config.get("rules") or values.get(LEGACY_CLEANUP_RULES_SETTING) or _DEFAULT_SCAN_RULES
-    if not isinstance(raw_rules, (list, tuple)):
-        raise TypeError("cleanup scan rules must be an array")
-    rules: list[Mapping[str, Any]] = []
-    for rule in raw_rules:
-        if not isinstance(rule, Mapping):
-            raise TypeError("cleanup scan rule must be an object")
-        rules.append(deepcopy(dict(rule)))
+    raw_rules = config["rules"] or _DEFAULT_SCAN_RULES
+    rules = [deepcopy(dict(rule)) for rule in raw_rules]
 
-    raw_libraries = config.get("library_ids") or values.get(LEGACY_CLEANUP_LIBRARY_IDS_SETTING) or []
-    if not isinstance(raw_libraries, list):
-        raise TypeError("cleanup scan library_ids must be an array")
+    raw_libraries = config["library_ids"]
     library_ids = tuple(dict.fromkeys(str(value).strip() for value in raw_libraries if str(value).strip()))
-
-    keep_one_per_resolution = config.get("keep_one_per_res")
-    if keep_one_per_resolution is None:
-        keep_one_per_resolution = values.get(LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING) or False
 
     raw_rating_mapping = values.get(RATING_MAPPING_SETTING) or DEFAULT_RATING_MAPPING
     if not isinstance(raw_rating_mapping, Mapping):
@@ -264,7 +244,7 @@ def effective_cleanup_scan_policy(values: Mapping[str, Any]) -> CleanupScanPolic
     return CleanupScanPolicy(
         rules=tuple(rules),
         library_ids=library_ids,
-        keep_one_per_resolution=bool(keep_one_per_resolution),
+        keep_one_per_resolution=config["keep_one_per_res"],
         rating_mapping=rating_mapping,
     )
 
@@ -520,9 +500,6 @@ def _normalize_codec(value: object) -> str:
 def cleanup_scan_setting_keys() -> tuple[str, ...]:
     return (
         CLEANUP_CONFIG_SETTING,
-        LEGACY_CLEANUP_RULES_SETTING,
-        LEGACY_CLEANUP_LIBRARY_IDS_SETTING,
-        LEGACY_CLEANUP_KEEP_ONE_PER_RES_SETTING,
         RATING_MAPPING_SETTING,
     )
 
