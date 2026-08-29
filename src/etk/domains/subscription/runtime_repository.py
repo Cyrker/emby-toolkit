@@ -7,7 +7,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Any, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy import text
@@ -68,6 +68,83 @@ class SubscriptionRuntimeState:
     revision: int
     created_at: datetime
     updated_at: datetime
+
+
+class SubscriptionQuotaDbApiCursor(Protocol):
+    def execute(self, query: str, parameters: Mapping[str, Any]) -> Any: ...
+
+    def fetchone(self) -> Any: ...
+
+
+def quota_availability_dbapi(
+    cursor: SubscriptionQuotaDbApiCursor,
+    quota_date: date,
+    *,
+    daily_cap: int,
+    now: datetime | None = None,
+) -> SubscriptionQuotaAvailability:
+    """Compute current quota from the reservation ledger on an existing transaction."""
+
+    cap = _non_negative_int(daily_cap, "daily_cap")
+    current_time = _utc(now)
+    cursor.execute(
+        "SELECT pg_advisory_xact_lock(hashtextextended(%(lock_key)s, 0))",
+        {"lock_key": f"etk:subscription-quota:{quota_date.isoformat()}"},
+    )
+    cursor.execute(
+        """
+        UPDATE subscription_quota_reservations AS quota
+        SET status = 'released',
+            state_revision = state_revision + 1,
+            released_at = %(now)s,
+            updated_at = %(now)s
+        WHERE quota.quota_date = %(quota_date)s
+          AND quota.status = 'reserved'
+          AND quota.expires_at <= %(now)s
+          AND (
+              quota.operation_id IS NULL
+              OR EXISTS (
+                  SELECT 1
+                  FROM subscription_operations AS operation
+                  WHERE operation.id = quota.operation_id
+                    AND operation.status IN ('confirmed','rejected','indeterminate','cancelled')
+              )
+          )
+        """,
+        {"quota_date": quota_date, "now": current_time},
+    )
+    cursor.execute(
+        """
+        SELECT
+            COALESCE(SUM(units) FILTER (WHERE status = 'reserved'), 0)::integer AS reserved_units,
+            COALESCE(SUM(units) FILTER (WHERE status = 'committed'), 0)::integer AS committed_units
+        FROM subscription_quota_reservations
+        WHERE quota_date = %(quota_date)s
+        """,
+        {"quota_date": quota_date},
+    )
+    row = cursor.fetchone()
+    if row is None:
+        raise SubscriptionQuotaStateError("quota ledger aggregation returned no row")
+    reserved_units = int(_dbapi_value(row, "reserved_units", 0) or 0)
+    committed_units = int(_dbapi_value(row, "committed_units", 1) or 0)
+    availability = SubscriptionQuotaAvailability(
+        quota_date,
+        cap,
+        reserved_units,
+        committed_units,
+    )
+    cursor.execute(
+        """
+        INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+        VALUES ('subscription_quota_state', CAST(%(value)s AS jsonb), NOW())
+        ON CONFLICT (setting_key) DO UPDATE SET
+            value_json = EXCLUDED.value_json,
+            last_updated_at = NOW()
+        """,
+        {"value": _quota_projection_json(quota_date, cap, reserved_units, committed_units)},
+    )
+    return availability
 
 
 class PostgresSubscriptionRuntimeRepository:
@@ -185,9 +262,8 @@ class PostgresSubscriptionRuntimeRepository:
             for quota_day in dates:
                 _lock_quota_date(uow, quota_day)
                 released += self._release_expired_for_date(uow, quota_day, current_time)
-                cap = self._projected_cap_for_date(
+                cap = self._canonical_cap(
                     uow,
-                    quota_day,
                     fallback=self._cap_for_date(uow, quota_day),
                 )
                 availability = self._availability_in_uow(uow, quota_day, cap)
@@ -386,9 +462,8 @@ class PostgresSubscriptionRuntimeRepository:
                     .mappings()
                     .one()
                 )
-                cap = self._projected_cap_for_date(
+                cap = self._canonical_cap(
                     uow,
-                    quota_day,
                     fallback=current.cap_snapshot,
                 )
                 availability = self._availability_in_uow(uow, quota_day, cap)
@@ -482,32 +557,22 @@ class PostgresSubscriptionRuntimeRepository:
         return int(value or 0)
 
     @staticmethod
-    def _projected_cap_for_date(
+    def _canonical_cap(
         uow: SqlAlchemyUnitOfWork,
-        quota_date: date,
         *,
         fallback: int,
     ) -> int:
-        row = (
-            uow.session.execute(
-                text(
-                    """
-                SELECT
-                    value_json ->> 'last_reset_date' AS quota_date,
-                    value_json ->> 'max_quota_on_reset' AS daily_cap
-                FROM app_settings
-                WHERE setting_key = 'subscription_quota_state'
-                FOR UPDATE
+        value = uow.session.scalar(
+            text(
                 """
-                )
+                SELECT value_json ->> 'resubscribe_daily_cap'
+                FROM app_settings
+                WHERE setting_key = 'mp_config'
+                """
             )
-            .mappings()
-            .first()
         )
-        if row is None or str(row["quota_date"] or "") != quota_date.isoformat():
-            return max(0, int(fallback))
         try:
-            return max(0, int(row["daily_cap"]))
+            return max(0, int(value)) if value is not None else max(0, int(fallback))
         except (TypeError, ValueError):
             return max(0, int(fallback))
 
@@ -519,17 +584,6 @@ class PostgresSubscriptionRuntimeRepository:
         reserved_units: int,
         committed_units: int,
     ) -> None:
-        remaining = max(0, daily_cap - reserved_units - committed_units)
-        projection = json.dumps(
-            {
-                "current_quota": remaining,
-                "last_reset_date": quota_date.isoformat(),
-                "max_quota_on_reset": daily_cap,
-            },
-            ensure_ascii=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        )
         uow.session.execute(
             text(
                 """
@@ -540,7 +594,14 @@ class PostgresSubscriptionRuntimeRepository:
                     last_updated_at = NOW()
                 """
             ),
-            {"value": projection},
+            {
+                "value": _quota_projection_json(
+                    quota_date,
+                    daily_cap,
+                    reserved_units,
+                    committed_units,
+                )
+            },
         )
 
 
@@ -690,6 +751,30 @@ def _json_object(value: Mapping[str, Any]) -> str:
     )
 
 
+def _quota_projection_json(
+    quota_date: date,
+    daily_cap: int,
+    reserved_units: int,
+    committed_units: int,
+) -> str:
+    return json.dumps(
+        {
+            "current_quota": max(0, daily_cap - reserved_units - committed_units),
+            "last_reset_date": quota_date.isoformat(),
+            "max_quota_on_reset": daily_cap,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _dbapi_value(row: Any, key: str, index: int) -> Any:
+    if isinstance(row, Mapping):
+        return row[key]
+    return row[index]
+
+
 def _positive_int(value: int, name: str) -> int:
     normalized = int(value)
     if normalized < 1:
@@ -752,6 +837,8 @@ __all__ = [
     "SubscriptionQuotaReservation",
     "SubscriptionQuotaStateError",
     "SubscriptionQuotaStatus",
+    "SubscriptionQuotaDbApiCursor",
     "SubscriptionRuntimeState",
     "SubscriptionRuntimeStateConflictError",
+    "quota_availability_dbapi",
 ]

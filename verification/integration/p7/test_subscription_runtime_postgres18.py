@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
 from sqlalchemy import text
 
+from database import settings_db as legacy_settings_db
 from etk.domains.subscription.moviepilot import (
     MoviePilotQueryDisposition,
     MoviePilotQueryResult,
@@ -276,6 +278,19 @@ def test_dynamic_daily_cap_reduction_is_not_undone_by_old_reservation_commit(
         now=now + timedelta(seconds=1),
     )
     assert reduced.available_units == 0
+    with p7_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                VALUES ('mp_config', CAST(:value AS jsonb), NOW())
+                ON CONFLICT (setting_key) DO UPDATE SET
+                    value_json = EXCLUDED.value_json,
+                    last_updated_at = NOW()
+                """
+            ),
+            {"value": '{"resubscribe_daily_cap":1}'},
+        )
     repository.commit_quota(reservation.id, now=now + timedelta(seconds=2))
 
     with p7_runtime.engine.connect() as connection:
@@ -284,6 +299,69 @@ def test_dynamic_daily_cap_reduction_is_not_undone_by_old_reservation_commit(
         ).scalar_one()
     assert projection["current_quota"] == 0
     assert projection["max_quota_on_reset"] == 1
+
+
+def test_compatibility_quota_read_uses_ledger_and_repairs_tampered_projection(
+    p7_runtime: DatabaseRuntime,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = _repository(p7_runtime)
+    quota_day = date(2026, 8, 26)
+    now = datetime(2026, 8, 26, 1, tzinfo=UTC)
+    committed = repository.reserve_quota(
+        "fixture-dbapi-committed",
+        quota_date=quota_day,
+        daily_cap=5,
+        units=2,
+        now=now,
+    )
+    repository.commit_quota(committed.id, now=now + timedelta(seconds=1))
+    repository.reserve_quota(
+        "fixture-dbapi-reserved",
+        quota_date=quota_day,
+        daily_cap=5,
+        units=1,
+        now=now,
+    )
+    with p7_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE app_settings
+                SET value_json = CAST(:value AS jsonb), last_updated_at = NOW()
+                WHERE setting_key = 'subscription_quota_state'
+                """
+            ),
+            {"value": '{"current_quota":999,"last_reset_date":"2026-08-26","max_quota_on_reset":999}'},
+        )
+
+    @contextmanager
+    def compatibility_connection():
+        connection = p7_runtime.engine.raw_connection()
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+    class FixedDatetime:
+        @classmethod
+        def now(cls, timezone):
+            return (now + timedelta(seconds=2)).astimezone(timezone)
+
+    monkeypatch.setattr(legacy_settings_db, "get_setting", lambda _key: {"resubscribe_daily_cap": 5})
+    monkeypatch.setattr(legacy_settings_db, "get_db_connection", compatibility_connection)
+    monkeypatch.setattr(legacy_settings_db, "datetime", FixedDatetime)
+
+    assert legacy_settings_db.get_subscription_quota() == 2
+    with p7_runtime.engine.connect() as connection:
+        projection = connection.scalar(
+            text("SELECT value_json FROM app_settings WHERE setting_key = 'subscription_quota_state'")
+        )
+    assert projection == {
+        "current_quota": 2,
+        "last_reset_date": "2026-08-26",
+        "max_quota_on_reset": 5,
+    }
 
 
 def test_runtime_state_requires_revision_cas_and_replay_does_not_overwrite(

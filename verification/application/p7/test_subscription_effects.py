@@ -6,6 +6,7 @@ from typing import Any, cast
 import pytest
 
 import task_manager
+from database import settings_db as legacy_settings_db
 from etk.domains.subscription.operations import SubscriptionOperation, SubscriptionOperationStatus
 from etk.platform.tasks import TaskOutcomeStatus
 from etk.processes.p7_subscription_effects import (
@@ -14,6 +15,7 @@ from etk.processes.p7_subscription_effects import (
     _scope,
 )
 from etk.processes.p7_subscription_tasks import _explicit_outcome
+from handler import moviepilot
 from tasks import subscriptions
 
 
@@ -28,6 +30,33 @@ def _gateway() -> PersistentMoviePilotEffectGateway:
 @pytest.fixture(autouse=True)
 def _legacy_trace_logger(monkeypatch) -> None:
     monkeypatch.setattr(subscriptions.logger, "trace", lambda *_args, **_kwargs: None, raising=False)
+
+
+def test_quota_consuming_moviepilot_fallback_fails_before_provider_write(monkeypatch) -> None:
+    monkeypatch.setattr(moviepilot, "_persistent_effect_gateway", None)
+    monkeypatch.setattr(
+        moviepilot.requests,
+        "post",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("provider write attempted")),
+    )
+
+
+def test_direct_subscription_quota_decrement_fails_without_database_access(monkeypatch) -> None:
+    monkeypatch.setattr(
+        legacy_settings_db,
+        "get_db_connection",
+        lambda: (_ for _ in ()).throw(AssertionError("database connection attempted")),
+    )
+
+    assert legacy_settings_db.decrement_subscription_quota() is False
+
+    assert (
+        moviepilot.subscribe_with_custom_payload(
+            {"tmdbid": 101, "type": "电影", "name": "Fixture"},
+            consume_quota=True,
+        )
+        is False
+    )
 
 
 def test_rejected_effect_returns_false_without_reporting_job_failure(monkeypatch) -> None:

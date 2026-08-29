@@ -235,6 +235,39 @@ def test_persistent_hdhive_resubscribe_is_deferred_without_inline_client(monkeyp
     ]
 
 
+def test_non_persistent_hdhive_resubscribe_fails_before_inline_client(monkeypatch) -> None:
+    item = {
+        "item_id": 1,
+        "item_name": "Fixture",
+        "tmdb_id": "101",
+        "item_type": "Movie",
+        "matched_rule_id": 1,
+    }
+    rule = {"id": 1, "rule_type": "resubscribe", "resubscribe_source": "hdhive"}
+    monkeypatch.setattr(resubscribe.resubscribe_db, "get_all_needed_resubscribe_items", lambda: [item])
+    monkeypatch.setattr(resubscribe.resubscribe_db, "get_all_resubscribe_rules", lambda: [rule])
+    monkeypatch.setattr(resubscribe.settings_db, "get_setting", lambda *_args: {})
+    monkeypatch.setattr(resubscribe.settings_db, "get_subscription_quota", lambda: 1)
+    monkeypatch.setattr(resubscribe.task_manager, "update_status_from_thread", lambda *_args: None)
+    monkeypatch.setattr(resubscribe.task_manager, "has_persistent_execution", lambda: False)
+    monkeypatch.setattr(resubscribe, "HDHiveClient", _forbid("HDHive client construction"))
+
+    result = resubscribe.task_resubscribe_library(_Processor())
+
+    assert result is not None
+    assert result["status"] == "failed"
+    assert result["provider_failures"] == [
+        {
+            "action": "hdhive",
+            "tmdb_id": "101",
+            "item_type": "Movie",
+            "season": None,
+            "reason": "durable_execution_required",
+        }
+    ]
+    assert result["retryable"] is False
+
+
 def test_deferred_and_non_retryable_legacy_results_remain_visible_to_worker() -> None:
     deferred = _explicit_outcome(
         "resubscribe-library",

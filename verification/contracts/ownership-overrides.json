@@ -6038,6 +6038,15 @@
         "validation_method": "pytest-http-contract-and-postgres18-atomic-strategy-rollback",
         "validation_owner": "subscription/moviepilot-config"
       },
+      "setting-fac06b386ddb": {
+        "fixture": "verification/integration/p7/test_subscription_runtime_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.runtime_repository.PostgresSubscriptionRuntimeRepository",
+        "notes": "P11 makes subscription_quota_reservations the sole accounting fact. This app_settings value is only a ledger-derived compatibility projection; native operation transitions and compatibility reads obtain the canonical cap from mp_config and never use the projection to reserve, commit, release or authorize provider writes.",
+        "status": "new",
+        "validation_method": "postgres18-ledger-concurrency-replay-rollback-dynamic-cap-projection-tamper-and-provider-fail-closed",
+        "validation_owner": "subscription/quota-ledger"
+      },
       "setting-76801fa87ade": {
         "fixture": "verification/fixtures/http/p11-p115-washing-priority.json",
         "fixture_exception": null,

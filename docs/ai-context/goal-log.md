@@ -4139,6 +4139,64 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Quota-Ledger
+
+Stage / Batch: P11 / subscription quota ledger-only cutover
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `38a5c2cd` (`refactor(p11): publish daily theme atomically`).
+- Target checkpoint message: `refactor(p11): cut over subscription quota ledger`.
+
+Implemented:
+
+- Made `subscription_quota_reservations` the sole accounting fact. Compatibility quota reads and
+  all native terminal transitions aggregate only `reserved` and `committed`; the
+  `subscription_quota_state` row is a derived compatibility projection and cannot authorize,
+  reserve, commit or release capacity.
+- Made `mp_config.resubscribe_daily_cap` the canonical cap source, with an existing reservation's
+  `cap_snapshot` used only when the canonical setting is absent or invalid. A tampered projection
+  no longer changes accounting and is repaired from the ledger on compatibility read.
+- Disabled direct projection decrement. Quota-consuming MoviePilot fallback and non-persistent
+  HDHive resubscribe now fail before provider access unless a durable operation gateway owns the
+  write; the unreachable legacy HDHive inline block was removed.
+- Preserved Subscribe Assistant repair and full-washing recovery as non-quota-consuming
+  reconciliation paths. Added source sentinels and behavior regressions for the compatibility
+  getter, direct decrement, provider fail-closed boundary and recovery defaults.
+- Promoted the compatibility projection to its native repository owner in the configuration
+  Manifest while explicitly documenting that it is not an accounting source.
+
+Targeted gate:
+
+- Native/test scoped Ruff and format, legacy import-only Ruff, scoped Pyright, source compilation,
+  `uv lock --check` and `git diff --check` -> clean.
+- Subscription/resubscribe/assistant application and architecture scope -> `42 passed`.
+- Disposable PostgreSQL 18 quota/runtime/operation scope -> `20 passed`, including concurrency at
+  cap, reservation replay, rollback, dynamic canonical cap, projection tamper through the real
+  compatibility getter, indeterminate quota retention and pre-write release.
+- Manifest/OpenAPI currentness and all three fixture/contract secret scans -> clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-quota-ledger-20260830/`.
+
+Focused review:
+
+- Initial findings-first review identified four P2 evidence/residual gaps: an unreachable direct
+  decrement block, helper-only tamper coverage, no behavior test for direct decrement and no
+  explicit recovery-default sentinel. All four were closed with the smallest source and test
+  changes. Final local review found no remaining deterministic P0/P1/P2 in this slice.
+
+Pending:
+
+- Quota accounting ownership is complete, but `auto-subscribe`, `manual_subscribe_batch`,
+  `resubscribe-library` and `subscribe-assistant-maintenance` still require processor-free native
+  execution before task ownership can reach 100%. Route/Table/Config/Frontend closure, pre-removal
+  inventory, controlled legacy removal and all P11 NFR/security/SBOM/License gates remain pending.
+  P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

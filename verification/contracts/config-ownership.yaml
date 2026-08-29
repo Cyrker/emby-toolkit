@@ -3414,7 +3414,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:715"
+          "source": "database/settings_db.py:716"
         },
         {
           "operation": "get_setting",
@@ -3422,11 +3422,11 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1149"
+          "source": "handler/moviepilot.py:1146"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1222"
+          "source": "handler/moviepilot.py:1219"
         },
         {
           "operation": "get_setting",
@@ -3434,67 +3434,67 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1309"
+          "source": "handler/moviepilot.py:1306"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1377"
+          "source": "handler/moviepilot.py:1374"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1446"
+          "source": "handler/moviepilot.py:1443"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1527"
+          "source": "handler/moviepilot.py:1524"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1616"
+          "source": "handler/moviepilot.py:1613"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1655"
+          "source": "handler/moviepilot.py:1652"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1677"
+          "source": "handler/moviepilot.py:1674"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1707"
+          "source": "handler/moviepilot.py:1704"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1738"
+          "source": "handler/moviepilot.py:1735"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1760"
+          "source": "handler/moviepilot.py:1757"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1779"
+          "source": "handler/moviepilot.py:1776"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1864"
+          "source": "handler/moviepilot.py:1861"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:391"
+          "source": "handler/moviepilot.py:394"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:434"
+          "source": "handler/moviepilot.py:431"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:510"
+          "source": "handler/moviepilot.py:507"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:642"
+          "source": "handler/moviepilot.py:639"
         },
         {
           "operation": "get_setting",
@@ -3874,7 +3874,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:624"
+          "source": "database/settings_db.py:625"
         },
         {
           "operation": "get_setting",
@@ -3926,7 +3926,7 @@
       "accesses": [
         {
           "operation": "_save_setting_with_cursor",
-          "source": "database/settings_db.py:168"
+          "source": "database/settings_db.py:169"
         },
         {
           "operation": "get_setting",
@@ -3986,7 +3986,7 @@
       "accesses": [
         {
           "operation": "_save_setting_with_cursor",
-          "source": "database/settings_db.py:169"
+          "source": "database/settings_db.py:170"
         }
       ],
       "contract_id": "setting-8c289bfe520d",
@@ -4091,15 +4091,15 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:613"
+          "source": "database/settings_db.py:614"
         },
         {
           "operation": "save_setting",
-          "source": "database/settings_db.py:636"
+          "source": "database/settings_db.py:637"
         },
         {
           "operation": "_save_setting_with_cursor",
-          "source": "database/settings_db.py:671"
+          "source": "database/settings_db.py:672"
         }
       ],
       "contract_id": "setting-76801fa87ade",
@@ -4123,15 +4123,15 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:555"
+          "source": "database/settings_db.py:556"
         },
         {
           "operation": "_save_setting_with_cursor",
-          "source": "database/settings_db.py:603"
+          "source": "database/settings_db.py:604"
         },
         {
           "operation": "_save_setting_with_cursor",
-          "source": "database/settings_db.py:683"
+          "source": "database/settings_db.py:684"
         },
         {
           "operation": "_save_setting_with_cursor",
@@ -4525,19 +4525,19 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:870"
+          "source": "database/settings_db.py:815"
         },
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:989"
+          "source": "database/settings_db.py:934"
         },
         {
           "operation": "get_shared_resource_config",
-          "source": "database/settings_db.py:997"
+          "source": "database/settings_db.py:942"
         },
         {
           "operation": "save_setting",
-          "source": "database/settings_db.py:999"
+          "source": "database/settings_db.py:944"
         },
         {
           "operation": "get_setting",
@@ -4714,35 +4714,30 @@
     {
       "accesses": [
         {
-          "operation": "get_setting",
-          "source": "database/settings_db.py:722"
+          "operation": "ledger_derived_projection",
+          "source": "src/etk/domains/subscription/runtime_repository.py:PostgresSubscriptionRuntimeRepository._sync_legacy_projection"
         },
         {
-          "operation": "save_setting",
-          "source": "database/settings_db.py:732"
-        },
-        {
-          "operation": "save_setting",
-          "source": "database/settings_db.py:754"
-        },
-        {
-          "operation": "_save_setting_with_cursor",
-          "source": "database/settings_db.py:784"
+          "operation": "ledger_derived_projection",
+          "source": "src/etk/domains/subscription/runtime_repository.py:quota_availability_dbapi"
         }
       ],
       "contract_id": "setting-fac06b386ddb",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p7/test_subscription_runtime_postgres18.py",
+      "fixture_exception": null,
       "key": "subscription_quota_state",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.runtime_repository.PostgresSubscriptionRuntimeRepository",
+      "notes": "P11 makes subscription_quota_reservations the sole accounting fact. This app_settings value is only a ledger-derived compatibility projection; native operation transitions and compatibility reads obtain the canonical cap from mp_config and never use the projection to reserve, commit, release or authorize provider writes.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "postgres18-ledger-concurrency-replay-rollback-dynamic-cap-projection-tamper-and-provider-fail-closed",
+      "validation_owner": "subscription/quota-ledger"
     },
     {
       "accesses": [
@@ -4889,11 +4884,11 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "database/settings_db.py:877"
+          "source": "database/settings_db.py:822"
         },
         {
           "operation": "save_setting",
-          "source": "database/settings_db.py:884"
+          "source": "database/settings_db.py:829"
         },
         {
           "operation": "get_setting",

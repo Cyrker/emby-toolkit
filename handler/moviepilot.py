@@ -387,6 +387,9 @@ def subscribe_with_custom_payload(payload: dict, config: Dict[str, Any] = None, 
     gateway = _current_persistent_effect_gateway()
     if gateway is not None:
         return bool(gateway.create_subscription(payload, consume_quota=consume_quota))
+    if consume_quota:
+        logger.error("  ➜ MoviePilot订阅失败：消耗配额的写入必须通过持久 operation gateway。")
+        return False
     try:
         mp_config = settings_db.get_setting('mp_config') or {}
         moviepilot_url = mp_config.get('moviepilot_url', '').rstrip('/')
@@ -394,10 +397,6 @@ def subscribe_with_custom_payload(payload: dict, config: Dict[str, Any] = None, 
         access_token = _get_access_token(config)
         if not access_token:
             logger.error("  ➜ MoviePilot订阅失败：认证失败，未能获取到 Token。")
-            return False
-
-        if consume_quota and settings_db.get_subscription_quota() <= 0:
-            logger.warning("  ➜ MoviePilot订阅失败：每日 MP 订阅额度已用尽。")
             return False
 
         subscribe_url = f"{moviepilot_url}/api/v1/subscribe/"
@@ -409,8 +408,6 @@ def subscribe_with_custom_payload(payload: dict, config: Dict[str, Any] = None, 
         
         if sub_response.status_code in [200, 201, 204]:
             logger.info(f"  ➜ MoviePilot 已接受订阅任务。")
-            if consume_quota:
-                settings_db.decrement_subscription_quota()
             return True
         else:
             try:

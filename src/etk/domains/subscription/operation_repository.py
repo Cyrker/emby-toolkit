@@ -1282,9 +1282,8 @@ def _transition_operation_quota(
         ),
         {"id": reservation.id, "status": target.value, "now": now},
     )
-    cap = PostgresSubscriptionRuntimeRepository._projected_cap_for_date(
+    cap = PostgresSubscriptionRuntimeRepository._canonical_cap(
         uow,
-        quota_day,
         fallback=reservation.cap_snapshot,
     )
     availability = PostgresSubscriptionRuntimeRepository._availability_in_uow(uow, quota_day, cap)

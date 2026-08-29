@@ -1,24 +1,25 @@
 # database/settings_db.py
-import psycopg2
-import logging
 import json
+import logging
 import re
 import threading
-import pytz
 from collections.abc import Callable, Mapping
 from contextlib import contextmanager
-from typing import Optional, Any, Dict
 from datetime import datetime
+from typing import Any, Dict, Optional
 
-from .connection import get_db_connection
+import pytz
+
+import constants
+from etk.domains.subscription.runtime_repository import quota_availability_dbapi
 from etk.platform.config.locking import (
     DYNAMIC_CONFIG_LOCK_KEY,
     DYNAMIC_CONFIG_LOCK_NAMESPACE,
     P115_AUTH_LOCK_KEY,
     P115_UNRECOGNIZED_DELETE_LOCK_KEY,
 )
-import config_manager
-import constants
+
+from .connection import get_db_connection
 
 logger = logging.getLogger(__name__)
 WASHING_PRIORITY_RECALCULATE_SETTING_KEY = 'p115_washing_priority_recalculate_state'
@@ -709,92 +710,36 @@ def delete_setting(setting_key: str) -> bool:
 
 # --- 全局订阅配额管理器 ---
 def get_subscription_quota() -> int:
-    """【V3 - 终极健壮版】获取当前可用的订阅配额。"""
-    
+    """从 reservation ledger 读取当前配额并刷新兼容 projection。"""
+
     try:
         mp_config = get_setting('mp_config') or {}
-        current_max_quota = mp_config.get('resubscribe_daily_cap', 200)
-        today_str = datetime.now(pytz.timezone(constants.TIMEZONE)).strftime('%Y-%m-%d')
+        try:
+            current_max_quota = max(0, int(mp_config.get('resubscribe_daily_cap', 200)))
+        except (TypeError, ValueError):
+            current_max_quota = 200
+        current_time = datetime.now(pytz.timezone(constants.TIMEZONE))
 
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            
-            state = get_setting('subscription_quota_state') or {}
-            last_reset_date = state.get('last_reset_date')
-            
-            if last_reset_date != today_str:
-                logger.info(f"  ➜ 检测到新的一天 ({today_str})，正在重置订阅配额为 {current_max_quota}。")
-                new_state = {
-                    'current_quota': current_max_quota,
-                    'last_reset_date': today_str,
-                    'max_quota_on_reset': current_max_quota
-                }
-                save_setting('subscription_quota_state', new_state)
-                return current_max_quota
-            else:
-                max_quota_on_reset = state.get('max_quota_on_reset', -1)
-                current_quota_in_db = state.get('current_quota', 0)
-                effective_remaining_quota = 0
-                
-                if max_quota_on_reset != -1 and current_max_quota != max_quota_on_reset:
-                    consumed = max_quota_on_reset - current_quota_in_db
-                    effective_remaining_quota = max(0, current_max_quota - consumed)
-                else:
-                    effective_remaining_quota = current_quota_in_db
-                    
-                final_remaining_quota = min(effective_remaining_quota, current_max_quota)
-                
-                if final_remaining_quota != current_quota_in_db or max_quota_on_reset == -1:
-                    logger.info(f"  ➜ 动态调整或修正了当日订阅配额。旧剩余: {current_quota_in_db}, 新剩余: {final_remaining_quota}, 当前上限: {current_max_quota}")
-                    new_state = {
-                        'current_quota': final_remaining_quota,
-                        'last_reset_date': today_str,
-                        'max_quota_on_reset': current_max_quota
-                    }
-                    save_setting('subscription_quota_state', new_state)
-                
-                return final_remaining_quota
+            availability = quota_availability_dbapi(
+                cursor,
+                current_time.date(),
+                daily_cap=current_max_quota,
+                now=current_time,
+            )
+            conn.commit()
+            return availability.available_units
 
     except Exception as e:
         logger.error(f"获取订阅配额时发生严重错误，将返回0以确保安全: {e}", exc_info=True)
         return 0
 
 def decrement_subscription_quota() -> bool:
-    """将当前订阅配额减一。"""
-    
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            try:
-                # 使用 FOR UPDATE 锁住这行，防止并发问题，这是很好的实践
-                cursor.execute("SELECT value_json FROM app_settings WHERE setting_key = 'subscription_quota_state' FOR UPDATE")
-                row = cursor.fetchone()
-                
-                if not row or not row.get('value_json'):
-                    # 注意：这里不需要 rollback，因为还没有做任何修改。
-                    # 事务会在 with 块结束时自动处理。
-                    logger.warning("  ➜ 尝试减少配额，但未找到配额状态记录。")
-                    return False
+    """禁止绕过 reservation ledger 直接扣减兼容 projection。"""
 
-                state = row['value_json']
-                current_quota = state.get('current_quota', 0)
-
-                if current_quota > 0:
-                    state['current_quota'] = current_quota - 1
-                    _save_setting_with_cursor(cursor, 'subscription_quota_state', state)
-                    logger.debug(f"  ➜ 配额已消耗，剩余: {state['current_quota']}")
-                
-                # 所有操作成功，提交事务
-                conn.commit()
-                return True
-            except Exception as e_trans:
-                # 事务中发生任何错误，回滚
-                conn.rollback()
-                logger.error(f"  ➜ 减少配额的数据库事务失败: {e_trans}", exc_info=True)
-                return False
-    except Exception as e:
-        logger.error(f"  ➜ 减少订阅配额时发生严重错误: {e}", exc_info=True)
-        return False
+    logger.error("直接扣减订阅配额已禁用；必须通过 durable subscription operation 预留并结算配额。")
+    return False
     
 def remove_item_from_recommendation_pool(tmdb_id: str):
     """

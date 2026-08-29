@@ -50,6 +50,82 @@ def test_subscription_runtime_repository_owns_quota_lock_and_state_cas_without_l
     assert "web_app" not in source
 
 
+def test_subscription_quota_projection_is_derived_and_direct_fallback_writes_fail_closed() -> None:
+    runtime_source = _source("src/etk/domains/subscription/runtime_repository.py")
+    runtime_tree = ast.parse(runtime_source)
+    canonical_cap = next(
+        node
+        for node in ast.walk(runtime_tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "_canonical_cap"
+    )
+    canonical_source = ast.get_source_segment(runtime_source, canonical_cap) or ""
+
+    assert "_projected_cap_for_date" not in runtime_source
+    assert "subscription_quota_state" not in canonical_source
+    assert "setting_key = 'mp_config'" in canonical_source
+
+    settings_source = _source("database/settings_db.py")
+    settings_tree = ast.parse(settings_source)
+    getter = next(
+        node
+        for node in ast.walk(settings_tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "get_subscription_quota"
+    )
+    decrement = next(
+        node
+        for node in ast.walk(settings_tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "decrement_subscription_quota"
+    )
+    getter_source = ast.get_source_segment(settings_source, getter) or ""
+    decrement_source = ast.get_source_segment(settings_source, decrement) or ""
+
+    assert "quota_availability_dbapi" in getter_source
+    assert "subscription_quota_state" not in getter_source
+    assert "get_db_connection" not in decrement_source
+    assert "_save_setting_with_cursor" not in decrement_source
+    assert "return False" in decrement_source
+
+    moviepilot_source = _source("handler/moviepilot.py")
+    moviepilot_tree = ast.parse(moviepilot_source)
+    subscribe = next(
+        node
+        for node in ast.walk(moviepilot_tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "subscribe_with_custom_payload"
+    )
+    subscribe_source = ast.get_source_segment(moviepilot_source, subscribe) or ""
+
+    assert subscribe_source.index("if consume_quota:") < subscribe_source.index("_get_access_token")
+    assert "settings_db.decrement_subscription_quota" not in subscribe_source
+    assert "settings_db.decrement_subscription_quota" not in _source("tasks/resubscribe.py")
+
+
+def test_subscribe_assistant_recovery_keeps_non_consuming_quota_contract() -> None:
+    source = _source("services/subscribe_assistant/manager.py")
+    tree = ast.parse(source)
+    functions = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name
+        in {
+            "_create_subscription",
+            "_keep_full_washing_subscription_active",
+            "_repair_snapshot_subscription",
+        }
+    }
+    create = functions["_create_subscription"]
+    assert isinstance(create.args.defaults[-1], ast.Constant)
+    assert create.args.defaults[-1].value is False
+
+    create_source = ast.get_source_segment(source, create) or ""
+    repair_source = ast.get_source_segment(source, functions["_repair_snapshot_subscription"]) or ""
+    washing_source = ast.get_source_segment(source, functions["_keep_full_washing_subscription_active"]) or ""
+
+    assert "consume_quota=consume_quota" in create_source
+    assert "consume_quota=" not in repair_source
+    assert "consume_quota=" not in washing_source
+
+
 def test_subscribe_assistant_processed_execution_remains_an_explicit_compatibility_boundary() -> None:
     manifest = json.loads(_source("verification/contracts/task-ownership.yaml"))
     task = next(entry for entry in manifest["tasks"] if entry["task_key"] == "subscribe-assistant-maintenance")

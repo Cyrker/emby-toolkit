@@ -1306,95 +1306,17 @@ def _execute_resubscribe(processor, task_name: str, target):
                 })
                 logger.info(f"  ➜ [影巢] 《{item_name}》已延后到 P9-owned Adapter，不在 P7 Worker 内执行。")
                 continue
-            # 新版影巢统一使用 OpenAPI OAuth 授权，经 HDHive Relay 转发请求。
-            # 不再读取/校验个人 API Key；只要求用户在影巢设置页完成授权。
-            media_type = 'movie' if item_type == 'Movie' else 'tv'
-            target_season = season_number if item_type == 'Season' else None
-
-            hdhive_client = HDHiveClient()
-            if not hdhive_client.ping():
-                auth_url = ''
-                try:
-                    auth_url = hdhive_client.authorize_url()
-                except Exception:
-                    auth_url = ''
-                if auth_url:
-                    logger.error(f"  ➜ [影巢] 尚未完成 OpenAPI 授权，无法处理: {item_name}。请到影巢设置页授权，或打开授权链接: {auth_url}")
-                else:
-                    logger.error(f"  ➜ [影巢] 尚未完成 OpenAPI 授权，无法处理: {item_name}。请到影巢设置页完成授权。")
-                continue
-
-            resources = hdhive_client.get_resources(
-                tmdb_id=tmdb_id,
-                media_type=media_type,
-                target_season=target_season
+            provider_failures.append(
+                {
+                    "action": "hdhive",
+                    "tmdb_id": str(tmdb_id),
+                    "item_type": str(item_type),
+                    "season": int(season_number) if season_number is not None else None,
+                    "reason": "durable_execution_required",
+                }
             )
-
-            if not resources:
-                logger.warning(f"  ➜ [影巢] 未找到资源: {item_name}")
-                continue
-
-            before_count = len(resources)
-            resources = filter_hdhive_resources(
-                resources,
-                media_type=media_type,
-                target_season=target_season
-            )
-
-            if not resources:
-                logger.warning(
-                    f"  ➜ [影巢] 找到 {before_count} 个资源，但全部被影巢筛选规则排除: {item_name}"
-                )
-                continue
-
-            logger.info(
-                f"  ➜ [影巢] 资源筛选完成: {before_count} -> {len(resources)}，开始自动选择资源..."
-            )
-
-            def _resource_score(res):
-                pan_type = str(res.get('pan_type') or '115').lower()
-                points = res.get('unlock_points')
-                points = 0 if points is None else int(points or 0)
-
-                return (
-                    0 if res.get('already_owned') else 1,
-                    points,
-                    0 if pan_type == '115' else 1
-                )
-
-            selected = sorted(resources, key=_resource_score)[0]
-            slug = selected.get('slug')
-
-            if not slug:
-                logger.warning(f"  ➜ [影巢] 资源缺少 slug，跳过: {item_name}")
-                continue
-
-            logger.info(
-                f"  ➜ [影巢] 自动选择资源: {selected.get('title') or slug} "
-                f"(类型: {selected.get('pan_type') or '115'}, 积分: {selected.get('unlock_points')})"
-            )
-
-            ok = task_download_from_hdhive(
-                slug=slug,
-                tmdb_id=tmdb_id,
-                media_type=media_type,
-                title=item_name
-            )
-
-            if ok:
-                settings_db.decrement_subscription_quota()
-                resubscribed_count += 1
-
-                actual_season = int(season_number) if season_number is not None else -1
-                key_tuple = (str(tmdb_id), item_type, actual_season)
-                resubscribe_db.batch_update_resubscribe_index_status([key_tuple], "subscribed")
-
-                logger.info(f"  ➜ [影巢] 已提交处理: {item_name}")
-            else:
-                logger.error(f"  ➜ [影巢] 处理失败: {item_name}")
-
-            if i < total - 1:
-                time.sleep(delay)
+            logger.error(f"  ➜ [影巢] 《{item_name}》拒绝非持久执行；必须由 P9 Adapter 处理。")
+            continue
 
     # ======================================================================
     # 统一执行批量操作 (115 联动删除 & Emby 极速刷新)

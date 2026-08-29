@@ -65,6 +65,19 @@ NATIVE_STANDALONE_SETTING_ACCESSES = {
             "source": "src/etk/domains/media/daily_theme_repository.py:SqlAlchemyDailyThemeRepository.publish",
         }
     ],
+    "subscription_quota_state": [
+        {
+            "operation": "ledger_derived_projection",
+            "source": "src/etk/domains/subscription/runtime_repository.py:quota_availability_dbapi",
+        },
+        {
+            "operation": "ledger_derived_projection",
+            "source": (
+                "src/etk/domains/subscription/runtime_repository.py:"
+                "PostgresSubscriptionRuntimeRepository._sync_legacy_projection"
+            ),
+        },
+    ],
 }
 
 
