@@ -78,9 +78,13 @@ P7_TASKS = {
     "recalculate_library_washing_priorities",
 }
 P7_NATIVE_EXECUTION_OWNERS = {
-    "subscribe-assistant-maintenance": "etk.domains.subscription.assistant.SubscribeAssistantMaintenanceService",
     "recalculate_library_washing_priorities": (
         "etk.domains.p115.washing_recalculation.P115WashingPriorityRecalculationService"
+    ),
+}
+P7_COMPATIBILITY_EXECUTION_OWNERS = {
+    "subscribe-assistant-maintenance": (
+        "etk.processes.p7_subscription_tasks.LegacySubscribeAssistantMaintenanceGateway"
     ),
 }
 P8_TASKS = {
@@ -220,11 +224,14 @@ def export_tasks() -> dict[str, Any]:
             }
         elif task_key in P7_TASKS:
             execution_owner = P7_NATIVE_EXECUTION_OWNERS.get(task_key)
+            compatibility_owner = P7_COMPATIBILITY_EXECUTION_OWNERS.get(
+                task_key,
+                "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
+            )
             entry["ownership_layers"] = {
                 "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
                 "execution_kind": "native-use-case" if execution_owner else "legacy-compatibility-callable",
-                "execution_owner": execution_owner
-                or "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
+                "execution_owner": execution_owner or compatibility_owner,
                 **({} if execution_owner else {"retirement_stage": "P11"}),
             }
         elif task_key in P9_TASKS:

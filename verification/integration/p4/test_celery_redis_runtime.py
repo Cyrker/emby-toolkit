@@ -543,7 +543,7 @@ def test_p7_cleanup_worker_restart_uses_readback_only_after_duplicate_delivery(
                 )
 
 
-def test_subscribe_assistant_restart_resumes_frozen_phases_through_real_worker(
+def test_subscribe_assistant_restart_resumes_frozen_phases_through_real_compatibility_worker(
     p4_store: PostgresJobStore,
     p4_runtime: DatabaseRuntime,
     p4_runtime_environment: RuntimeEnvironment,
@@ -610,7 +610,16 @@ def test_subscribe_assistant_restart_resumes_frozen_phases_through_real_worker(
     assert len(retries) == 1
     second_attempt = retries[0].id
 
-    worker = _start_worker(p4_runtime_environment, tmp_path / "subscribe-assistant-worker")
+    compatibility_environment = RuntimeEnvironment(
+        environment={
+            **p4_runtime_environment.environment,
+            "ETK_ENABLE_LEGACY_COMPATIBILITY": "true",
+        },
+        config=p4_runtime_environment.config,
+        data_dir=p4_runtime_environment.data_dir,
+        queue_name=p4_runtime_environment.queue_name,
+    )
+    worker = _start_worker(compatibility_environment, tmp_path / "subscribe-assistant-worker")
     try:
         _wait_for_worker(worker, p4_runtime_environment.config)
         _send_delivery(p4_runtime_environment.config, created.job.id, second_attempt, count=2)

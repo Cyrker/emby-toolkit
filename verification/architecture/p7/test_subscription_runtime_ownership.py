@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 
 from alembic.config import Config
@@ -47,3 +48,21 @@ def test_subscription_runtime_repository_owns_quota_lock_and_state_cas_without_l
     assert "handler.moviepilot" not in source
     assert "database.settings_db" not in source
     assert "web_app" not in source
+
+
+def test_subscribe_assistant_processed_execution_remains_an_explicit_compatibility_boundary() -> None:
+    manifest = json.loads(_source("verification/contracts/task-ownership.yaml"))
+    task = next(entry for entry in manifest["tasks"] if entry["task_key"] == "subscribe-assistant-maintenance")
+
+    assert task["status"] == "new"
+    assert task["new_owner"] == "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter"
+    assert task["ownership_layers"] == {
+        "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
+        "execution_kind": "legacy-compatibility-callable",
+        "execution_owner": "etk.processes.p7_subscription_tasks.LegacySubscribeAssistantMaintenanceGateway",
+        "retirement_stage": "P11",
+    }
+    assert task["validation_method"] == (
+        "ordered-task-registry-native-envelope-compatibility-worker-outcome-postgres18-and-redis-celery"
+    )
+    assert "legacy Subscribe Assistant manager/store" in task["notes"]

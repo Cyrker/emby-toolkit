@@ -6764,9 +6764,9 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope executes durable Subscribe Assistant phases with persistent Job/Attempt identity and lease-fenced snapshot state; it does not use the generic legacy task adapter.",
+        "notes": "P7 owns the durable Worker envelope and lease-fenced phase checkpoints, but the normal processed path still executes through LegacySubscribeAssistantMaintenanceGateway and the legacy Subscribe Assistant manager/store; native-only execution remains unavailable until every enabled phase has a processor-free owner.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
+        "validation_method": "ordered-task-registry-native-envelope-compatibility-worker-outcome-postgres18-and-redis-celery",
         "validation_owner": "subscription/task-envelope"
       },
       "task-c70dfb0bd638": {

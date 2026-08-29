@@ -2802,6 +2802,68 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Assistant-Execution-Ownership-Truth
+
+Stage / Batch: P11 / Subscribe Assistant execution-ownership correction
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `fbac80f3` (`refactor(p11): migrate p115 credential ownership`).
+- Checkpoint: this batch's `fix(p11): report assistant compatibility execution` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Corrected `subscribe-assistant-maintenance` from a false `native-use-case` execution claim to an
+  explicit native envelope plus `LegacySubscribeAssistantMaintenanceGateway` processed-execution
+  boundary. Its eight configurable phases still use the legacy Subscribe Assistant manager/store,
+  so the task remains outside the native-only executable set.
+- Added a generator-level compatibility-owner mapping and an architecture regression that freezes
+  the envelope owner, real gateway owner, retirement stage and compatibility validation method.
+- Corrected the Redis-Celery restart fixture to start a compatibility-enabled Worker explicitly.
+  The prior default native-only run now fails honestly with `NativeTaskExecutionUnavailable`, as
+  already required by the exhaustive Worker negative test.
+
+Targeted gate:
+
+- Scoped Ruff -> clean; format check -> `3 files already formatted`; scoped Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- Subscribe Assistant, ownership and Worker outcome application/architecture scope -> `86 passed`.
+- Disposable PostgreSQL 18 Subscribe Assistant runtime scope -> `12 passed`.
+- Redis-Celery compatibility restart/resume path -> `1 passed, 10 deselected` after the initial
+  default-native-only failure exposed the stale fixture assumption.
+- Manifest currentness and `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-assistant-ownership-20260829/`.
+
+Focused review:
+
+- Initial review found one P1: the first correction named the generic P7 compatibility gateway
+  instead of the real assistant-specific gateway. The generator, manifest and assertion now use
+  `LegacySubscribeAssistantMaintenanceGateway`; rereview found no remaining P0/P1/P2 and no other
+  task was changed.
+
+Stage full gate:
+
+- Not run. This slice makes execution ownership truthful; it does not migrate the eight assistant
+  phases, authorize controlled removal or start P12.
+
+Pending:
+
+- Native-only Worker execution remains `11 executable / 39 unavailable`. Route, table,
+  dynamic/bootstrap config and standalone-setting counts are unchanged.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: add direct regression evidence for the newly audited washing-evaluator edge coverage, then
+continue the smallest normal processed Worker candidate (`scan_old_seasons_backfill`) without
+promoting any task before its processor-free repository/service path passes.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -2821,6 +2883,7 @@ Read first:
 
 Next:
 
-- Continue `P11-Pre-removal` with the next evidence-backed residual route/config/table or processed
-  Worker execution slice. Keep every unmigrated task/binding explicit; do not start controlled
-  removal until execution and ownership reach 100%. Keep all Live Acceptance items pending.
+- Add direct regression evidence for the supplemental washing-evaluator parity audit, then continue
+  `P11-Pre-removal` with the smallest processor-free Worker candidate. Keep every unmigrated
+  task/binding explicit; do not start controlled removal until execution and ownership reach 100%.
+  Keep all Live Acceptance items pending.
