@@ -1649,12 +1649,11 @@
       "help": "更新每日主题推荐内容，用于影视探索页的主题展示。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P11 native-only and compatibility Workers execute the processor-free daily-theme use case with explicit TaskOutcome, provider-failure retention, and atomic revision-fenced publication without importing or invoking the legacy task.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.media.daily_theme.DailyThemeService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -1667,8 +1666,8 @@
       ],
       "target_stage": "P8",
       "task_key": "update-daily-theme",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "operations/p8-effects",
+      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-redis-celery-and-import-sentinel",
+      "validation_owner": "media/daily-theme",
       "visible_in": [
         "all"
       ]

@@ -211,7 +211,7 @@ class DiscoverEffectsService:
         trace_id: str | None,
     ) -> DiscoverEffectsHttpResult:
         try:
-            self._jobs.submit_task(
+            submitted = self._jobs.submit_task(
                 "update-daily-theme",
                 trigger_type="manual",
                 requested_by_user_id=requested_by_user_id,
@@ -223,8 +223,18 @@ class DiscoverEffectsService:
             return DiscoverEffectsHttpResult({"error": "后台有任务正在运行，请稍后再试。"}, 409)
         except Exception:
             return DiscoverEffectsHttpResult({"error": "启动任务失败"}, 500)
+        projection = getattr(submitted, "projection", None)
+        job = getattr(projection, "job", None)
+        job_id = str(getattr(job, "id", "") or "").strip() or None
+        if job_id is None:
+            return DiscoverEffectsHttpResult({"error": "启动任务失败"}, 500)
         return DiscoverEffectsHttpResult(
-            {"status": "ok", "message": "更新任务已在后台启动。"},
+            {
+                "status": "ok",
+                "task_key": "update-daily-theme",
+                "job_id": job_id,
+                "message": "更新任务已在后台启动。",
+            },
             202,
         )
 

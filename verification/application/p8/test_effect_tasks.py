@@ -61,6 +61,23 @@ class FakeUserExpiry:
         return self.outcome
 
 
+class FakeDailyTheme:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def execute(
+        self,
+        progress: P8TaskProgress,
+        *,
+        publication_id: str,
+        mode: str = "daily",
+    ) -> TaskOutcome:
+        self.calls.append(mode)
+        assert publication_id == "00000000-0000-0000-0000-000000000293"
+        progress.update(100, "published")
+        return TaskOutcome.succeeded("published", {"publication_revision": 3})
+
+
 class FakeProgress:
     def __init__(self) -> None:
         self.last_progress: int | None = None
@@ -202,14 +219,27 @@ def test_user_expiry_is_processor_free_and_requires_worker_owned_metadata() -> N
 
 def test_processor_free_router_does_not_require_a_compatibility_gateway() -> None:
     sync = FakeUserSync()
-    router = P8EffectTaskRouter(None, cast(UserSyncService, sync))
+    daily_theme = FakeDailyTheme()
+    router = P8EffectTaskRouter(None, cast(UserSyncService, sync), daily_theme=daily_theme)
 
     synced = router.execute(_message("sync-all-user-data"), None, FakeProgress())
     disabled_update = router.execute(_message("system-auto-update"), None, FakeProgress())
+    published = router.execute(
+        _message(
+            "update-daily-theme",
+            metadata={"job_id": "00000000-0000-0000-0000-000000000293"},
+        ),
+        None,
+        FakeProgress(),
+    )
 
     assert synced.status is TaskOutcomeStatus.SUCCEEDED
     assert disabled_update.status is TaskOutcomeStatus.SKIPPED
+    assert published.status is TaskOutcomeStatus.SUCCEEDED
+    assert published.details["publication_revision"] == 3
+    assert published.details["compatibility_fallback"] is False
     assert sync.calls == 1
+    assert daily_theme.calls == ["daily"]
     with pytest.raises(RuntimeError, match="compatibility execution is unavailable"):
         router.execute(_message("refresh-collections"), object(), FakeProgress())
 

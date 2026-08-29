@@ -5912,6 +5912,15 @@
       }
     },
     "settings": {
+      "setting-b2f428151361": {
+        "fixture": "verification/integration/p8/test_daily_theme_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.daily_theme_repository.SqlAlchemyDailyThemeRepository",
+        "notes": "P11 publication metadata is the native revision and audit record for atomic daily-theme publication, durable replenishment effects and portal removal; per-Job receipts survive later publications and stale fingerprints cannot overwrite a newer mutation. Listed legacy accesses remain an explicit compatibility residual until controlled removal.",
+        "status": "new",
+        "validation_method": "postgres18-atomic-publication-rollback-portal-concurrency-durable-receipt-and-worker-replay",
+        "validation_owner": "media/daily-theme"
+      },
       "setting-5ba80aa585a1": {
         "fixture": "verification/fixtures/http/p7-actor-subscriptions.json",
         "fixture_exception": null,
@@ -6244,25 +6253,31 @@
         "validation_owner": "media/secondary"
       },
       "setting-e12f1ddd30da": {
-        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
-        "notes": "P8 Discover recommendation pool is read from one settings snapshot and updated atomically with its page/theme state.",
+        "fixture": "verification/integration/p8/test_daily_theme_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.daily_theme_repository.SqlAlchemyDailyThemeRepository",
+        "notes": "P11 native daily publication, same-theme replenishment and portal removal mutate the recommendation pool through the revision-fenced publication facade; listed legacy accesses remain an explicit compatibility residual until controlled removal.",
         "status": "new",
-        "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
-        "validation_owner": "media/discover"
+        "validation_method": "postgres18-publication-replenishment-portal-removal-concurrency-and-rollback",
+        "validation_owner": "media/daily-theme"
       },
       "setting-10e4f4bb6eef": {
-        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
-        "notes": "P8 Discover recommendation page participates in the atomic pool/page/theme settings snapshot.",
+        "fixture": "verification/integration/p8/test_daily_theme_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.daily_theme_repository.SqlAlchemyDailyThemeRepository",
+        "notes": "P11 native daily publication and same-theme replenishment advance or reset the recommendation page in the same revision-fenced UoW as the pool; listed legacy accesses remain an explicit compatibility residual until controlled removal.",
         "status": "new",
-        "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
-        "validation_owner": "media/discover"
+        "validation_method": "postgres18-atomic-publication-replenishment-and-rollback",
+        "validation_owner": "media/daily-theme"
       },
       "setting-c27c8264cf43": {
-        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
-        "notes": "P8 Discover theme index participates in the atomic pool/page/theme settings snapshot.",
+        "fixture": "verification/integration/p8/test_daily_theme_postgres18.py",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.media.daily_theme_repository.SqlAlchemyDailyThemeRepository",
+        "notes": "P11 native daily publication rotates the theme index atomically; replenishment retains it and portal removal only advances the shared publication revision. Listed legacy accesses remain an explicit compatibility residual until controlled removal.",
         "status": "new",
-        "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
-        "validation_owner": "media/discover"
+        "validation_method": "postgres18-atomic-theme-publication-replenishment-and-portal-removal",
+        "validation_owner": "media/daily-theme"
       }
     },
     "tables": {
@@ -6503,10 +6518,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+        "notes": "P11 native-only and compatibility Workers execute the processor-free daily-theme use case with explicit TaskOutcome, provider-failure retention, and atomic revision-fenced publication without importing or invoking the legacy task.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "operations/p8-effects"
+        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-redis-celery-and-import-sentinel",
+        "validation_owner": "media/daily-theme"
       },
       "task-0b6e7c9ee5b5": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

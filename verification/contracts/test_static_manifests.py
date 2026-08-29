@@ -58,7 +58,7 @@ class StaticManifestTests(unittest.TestCase):
         config_manifest = json.loads(
             (ROOT / "verification/contracts/config-ownership.yaml").read_text(encoding="utf-8")
         )
-        self.assertEqual(config_manifest["metrics"]["standalone_setting_key_count"], 53)
+        self.assertEqual(config_manifest["metrics"]["standalone_setting_key_count"], 54)
         self.assertEqual(config_manifest["metrics"]["unresolved_setting_call_count"], 0)
 
     def test_nested_playback_credentials_are_classified_as_secret(self) -> None:

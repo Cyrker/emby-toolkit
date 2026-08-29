@@ -123,6 +123,8 @@ def test_portal_media_operation_quota_outbox_and_pool_commit_atomically(
     )
 
     assert len(result.operation_ids) == 1
+    assert result.recommendation_revision == 1
+    assert result.recommendation_pool_size == 1
     operation_id = result.operation_ids[0]
     with p8_runtime.engine.connect() as connection:
         media = (
@@ -173,6 +175,41 @@ def test_portal_media_operation_quota_outbox_and_pool_commit_atomically(
         assert connection.scalar(
             text("SELECT value_json FROM app_settings WHERE setting_key = 'recommendation_pool'")
         ) == [{"id": "202"}]
+        publication = connection.scalar(
+            text("SELECT value_json FROM app_settings WHERE setting_key = 'recommendation_publication_state'")
+        )
+        assert publication["mutation"] == "portal_removal"
+        assert publication["removed_tmdb_id"] == "101"
+        assert publication["pool_size"] == 1
+        assert publication["revision"] == 1
+        replenishment = (
+            connection.execute(
+                text(
+                    """
+                    SELECT id, status, payload_json
+                    FROM media_effects
+                    WHERE effect_key = 'daily-theme:replenishment:publication:1'
+                    """
+                )
+            )
+            .mappings()
+            .one()
+        )
+        assert replenishment["status"] == "pending"
+        assert replenishment["payload_json"] == {"publication_revision": 1}
+        assert (
+            connection.scalar(
+                text(
+                    """
+                    SELECT status FROM outbox_events
+                    WHERE topic = 'media.effect.requested'
+                      AND aggregate_id = :effect_id
+                    """
+                ),
+                {"effect_id": str(replenishment["id"])},
+            )
+            == "pending"
+        )
 
 
 def test_confirmed_portal_provider_operation_projects_subscribed_and_commits_quota(
@@ -375,6 +412,7 @@ def test_outbox_failure_rolls_back_media_quota_operation_and_pool(
             assert connection.scalar(text("SELECT COUNT(*) FROM media_metadata")) == 0
             assert connection.scalar(text("SELECT COUNT(*) FROM subscription_operations")) == 0
             assert connection.scalar(text("SELECT COUNT(*) FROM subscription_quota_reservations")) == 0
+            assert connection.scalar(text("SELECT COUNT(*) FROM media_effects")) == 0
             assert connection.scalar(
                 text("SELECT value_json FROM app_settings WHERE setting_key = 'recommendation_pool'")
             ) == [{"id": "101"}, {"id": "202"}]
@@ -461,7 +499,13 @@ def test_replay_reuses_operation_and_source_without_duplicate_quota(
     with p8_runtime.engine.connect() as connection:
         assert connection.scalar(text("SELECT COUNT(*) FROM subscription_operations")) == 1
         assert connection.scalar(text("SELECT COUNT(*) FROM subscription_quota_reservations")) == 1
-        assert connection.scalar(text("SELECT COUNT(*) FROM outbox_events")) == 1
+        assert (
+            connection.scalar(
+                text("SELECT COUNT(*) FROM outbox_events WHERE topic = 'subscription.operation.requested'")
+            )
+            == 1
+        )
+        assert connection.scalar(text("SELECT COUNT(*) FROM outbox_events WHERE topic = 'media.effect.requested'")) == 1
         assert (
             connection.scalar(
                 text(
@@ -732,7 +776,13 @@ def test_different_explicit_keys_alias_one_active_provider_scope_with_separate_r
     with p8_runtime.engine.connect() as connection:
         assert connection.scalar(text("SELECT COUNT(*) FROM subscription_operations")) == 1
         assert connection.scalar(text("SELECT COUNT(*) FROM subscription_quota_reservations")) == 1
-        assert connection.scalar(text("SELECT COUNT(*) FROM outbox_events")) == 1
+        assert (
+            connection.scalar(
+                text("SELECT COUNT(*) FROM outbox_events WHERE topic = 'subscription.operation.requested'")
+            )
+            == 1
+        )
+        assert connection.scalar(text("SELECT COUNT(*) FROM outbox_events WHERE topic = 'media.effect.requested'")) == 1
         assert connection.scalar(text("SELECT COUNT(*) FROM portal_subscription_requests")) == 2
         assert (
             connection.scalar(
@@ -1010,7 +1060,13 @@ def test_concurrent_unkeyed_double_submit_reuses_one_operation_and_quota(
     with p8_runtime.engine.connect() as connection:
         assert connection.scalar(text("SELECT COUNT(*) FROM subscription_operations")) == 1
         assert connection.scalar(text("SELECT COUNT(*) FROM subscription_quota_reservations")) == 1
-        assert connection.scalar(text("SELECT COUNT(*) FROM outbox_events")) == 1
+        assert (
+            connection.scalar(
+                text("SELECT COUNT(*) FROM outbox_events WHERE topic = 'subscription.operation.requested'")
+            )
+            == 1
+        )
+        assert connection.scalar(text("SELECT COUNT(*) FROM outbox_events WHERE topic = 'media.effect.requested'")) == 1
 
 
 def test_concurrent_series_and_season_requests_serialize_overlapping_provider_scope(

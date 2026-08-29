@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -572,6 +572,72 @@ class PostgresMediaEffectLedger:
                         """
                     ),
                     {"limit": limit, "error_json": error},
+                )
+                .mappings()
+                .all()
+            )
+            projections = tuple(_projection(row) for row in rows)
+            for projection in projections:
+                _update_effect_outbox(uow.session, projection)
+            uow.commit()
+            return len(projections)
+
+    def requeue_replay_safe_stale_claims(
+        self,
+        *,
+        effect_types: Sequence[str],
+        limit: int = 100,
+        retry_delay_seconds: float = 0,
+    ) -> int:
+        normalized_types = tuple(dict.fromkeys(_nonempty(value, "effect_type") for value in effect_types))
+        if not normalized_types:
+            return 0
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        if retry_delay_seconds < 0:
+            raise ValueError("retry_delay_seconds must not be negative")
+        error = canonical_json(
+            {
+                "type": "claim_lease_expired_retryable",
+                "message": "执行器租约过期，本地幂等副作用将安全重放",
+            },
+            field="media effect replay-safe stale claim error",
+        )
+        with self._uow_factory() as uow:
+            rows = (
+                uow.session.execute(
+                    text(
+                        """
+                        WITH candidates AS (
+                            SELECT id
+                            FROM media_effects
+                            WHERE status = 'claimed'
+                              AND lease_expires_at <= NOW()
+                              AND effect_type = ANY(CAST(:effect_types AS text[]))
+                            ORDER BY lease_expires_at, created_at
+                            LIMIT :limit
+                            FOR UPDATE SKIP LOCKED
+                        )
+                        UPDATE media_effects AS effect
+                        SET status = 'retryable',
+                            available_at = NOW() + make_interval(secs => :retry_delay_seconds),
+                            claimed_by = NULL, claim_token = NULL,
+                            claimed_at = NULL, lease_expires_at = NULL,
+                            error_json = CAST(:error_json AS jsonb),
+                            finished_at = NULL, updated_at = NOW()
+                        FROM candidates
+                        WHERE effect.id = candidates.id
+                          AND effect.status = 'claimed'
+                          AND effect.lease_expires_at <= NOW()
+                        RETURNING effect.*
+                        """
+                    ),
+                    {
+                        "effect_types": list(normalized_types),
+                        "limit": limit,
+                        "retry_delay_seconds": retry_delay_seconds,
+                        "error_json": error,
+                    },
                 )
                 .mappings()
                 .all()

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
+from types import SimpleNamespace
 from typing import Any, cast
+from uuid import UUID
 
 import httpx
 from fastapi import FastAPI
@@ -159,6 +161,7 @@ class FakeJobs:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self.busy = False
+        self.missing_projection = False
 
     def submit_task(
         self,
@@ -166,11 +169,15 @@ class FakeJobs:
         parameters: Mapping[str, Any] | None = None,
         **kwargs: Any,
     ) -> object:
-        del parameters
         if self.busy:
             raise TaskBusyError("fixture busy")
+        del parameters
         self.calls.append((task_key, dict(kwargs)))
-        return object()
+        if self.missing_projection:
+            return object()
+        return SimpleNamespace(
+            projection=SimpleNamespace(job=SimpleNamespace(id=UUID("00000000-0000-0000-0000-000000000288")))
+        )
 
 
 class StepClock:
@@ -384,6 +391,12 @@ def test_timeout_search_genres_details_errors_and_durable_recommendation_job() -
     assert provider.search_calls == [("Fixture", "movie", 2)]
     assert details.json()["seasons"][0]["subscription_status"] == "WANTED"
     assert submitted.status_code == 202
+    assert submitted.json() == {
+        "status": "ok",
+        "task_key": "update-daily-theme",
+        "job_id": "00000000-0000-0000-0000-000000000288",
+        "message": "更新任务已在后台启动。",
+    }
     assert busy.status_code == 409
     assert jobs.calls == [
         (
@@ -399,6 +412,19 @@ def test_timeout_search_genres_details_errors_and_durable_recommendation_job() -
     ]
     assert unavailable.status_code == 502
     assert failed.status_code == 500
+
+
+def test_recommendation_trigger_rejects_a_submission_without_a_durable_job_identity() -> None:
+    app, permissions, _provider, _projection, jobs = _build_app()
+    permissions.active.add("fixture-user")
+    jobs.missing_projection = True
+
+    with TestClient(app) as client:
+        _set_user(client, "fixture-user")
+        response = client.post("/api/discover/trigger_recommendation_update")
+
+    assert response.status_code == 500
+    assert response.json() == {"error": "启动任务失败"}
 
 
 def test_httpx_discover_adapter_uses_fixed_tmdb_paths_and_english_search_fallback() -> None:
@@ -433,6 +459,8 @@ def test_httpx_discover_adapter_uses_fixed_tmdb_paths_and_english_search_fallbac
     )
 
     assert adapter.discover_movie({"page": 1}) is not None
+    assert adapter.daily_theme_configured() is True
+    assert adapter.movie_details(9) is not None
     assert adapter.person_tv_credits(1) is not None
     assert adapter.genres("movie") == ({"id": 18, "name": "Drama"},)
     search = adapter.search(query="Fixture", media_type="movie", page=2)
@@ -441,6 +469,7 @@ def test_httpx_discover_adapter_uses_fixed_tmdb_paths_and_english_search_fallbac
     assert adapter.tv_details(8) == {"id": 8, "seasons": []}
     assert [request.url.path for request in requests] == [
         "/3/discover/movie",
+        "/3/movie/9",
         "/3/person/1/tv_credits",
         "/3/genre/movie/list",
         "/3/search/movie",

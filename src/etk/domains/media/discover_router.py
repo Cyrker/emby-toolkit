@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Request
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
 from werkzeug.exceptions import BadRequest, UnsupportedMediaType
@@ -17,6 +18,14 @@ from .discover_effects import DiscoverEffectsHttpResult, DiscoverEffectsService
 router = APIRouter(prefix="/api/discover", tags=["discover"])
 effects_router = APIRouter(prefix="/api/discover", tags=["discover"])
 JsonValue = dict[str, Any] | list[Any]
+
+
+class RecommendationUpdateAccepted(BaseModel):
+    status: Literal["ok"]
+    task_key: Literal["update-daily-theme"]
+    job_id: str
+    message: str
+
 
 _JSON_BODY = {
     "requestBody": {
@@ -193,7 +202,8 @@ async def search_discover_media(request: Request) -> Response:
 
 @effects_router.post(
     "/trigger_recommendation_update",
-    response_model=JsonValue,
+    status_code=202,
+    response_model=RecommendationUpdateAccepted,
     responses=_responses(401, 409, 500),
 )
 def trigger_recommendation_update(request: Request) -> Response:

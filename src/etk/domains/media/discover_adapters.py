@@ -18,11 +18,21 @@ class HttpxDiscoverProviderAdapter:
         self._settings = settings
         self._client_factory = client_factory or self._default_client
 
+    def daily_theme_configured(self) -> bool:
+        settings = self._settings()
+        return bool(settings.tmdb_api_key.get_secret_value().strip() and settings.tmdb_api_base_url.strip())
+
     def discover_movie(self, payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
         return self._mapping("/discover/movie", payload)
 
     def discover_tv(self, payload: Mapping[str, Any]) -> Mapping[str, Any] | None:
         return self._mapping("/discover/tv", payload)
+
+    def movie_details(self, movie_id: int) -> Mapping[str, Any] | None:
+        return self._mapping(
+            f"/movie/{int(movie_id)}",
+            {"append_to_response": "credits"},
+        )
 
     def person_tv_credits(self, person_id: int) -> Mapping[str, Any] | None:
         return self._mapping(f"/person/{int(person_id)}/tv_credits", {})

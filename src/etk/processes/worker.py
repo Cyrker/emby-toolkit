@@ -79,6 +79,11 @@ from etk.domains.ingestion import MonitorItemProjection, PostgresIngestionMonito
 from etk.domains.media.bridge_client import HttpxEmbyBridgeClient
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
 from etk.domains.media.compatibility import LegacyP5MediaEventGateway
+from etk.domains.media.daily_theme import DailyThemeService
+from etk.domains.media.daily_theme_effects import DailyThemeReplenishmentEffectDelivery
+from etk.domains.media.daily_theme_repository import SqlAlchemyDailyThemeRepository
+from etk.domains.media.discover_adapters import HttpxDiscoverProviderAdapter
+from etk.domains.media.discover_compatibility import LegacyDiscoverDefaults
 from etk.domains.media.editing_effects import BridgeMediaEffectDelivery, PersistentMediaInfoCommandGateway
 from etk.domains.media.effect_execution import PersistentMediaEffectExecutor, RoutedMediaEffectDelivery
 from etk.domains.media.effects import MediaEffectProjection, PostgresMediaEffectLedger
@@ -291,6 +296,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "sync-115-directory-tree",
         "sync-all-user-data",
         "system-auto-update",
+        "update-daily-theme",
     }
 )
 
@@ -847,6 +853,11 @@ class WorkerRuntime:
                     washing_recalculation,
                     OldSeasonBackfillService(SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)),
                 )
+                daily_theme = DailyThemeService(
+                    HttpxDiscoverProviderAdapter(settings_provider),
+                    SqlAlchemyDailyThemeRepository(database.unit_of_work),
+                    LegacyDiscoverDefaults(),
+                )
                 p8_effect_tasks = P8EffectTaskRouter(
                     LegacyP8EffectsCompatibilityGateway(),
                     UserSyncService(
@@ -861,6 +872,7 @@ class WorkerRuntime:
                             settings_provider().emby_api_timeout
                         ),
                     ),
+                    daily_theme=daily_theme,
                 )
                 shared_center = HttpxSharedCenterAdapter(settings_provider)
                 p9_sharing_tasks = P9SharingTaskRouter(
@@ -1062,6 +1074,7 @@ class WorkerRuntime:
                             P5MediaEventEffectDelivery(LegacyP5MediaEventGateway(event_compatibility)),
                             user_event_delivery,
                             SharedIntroExportEffectDelivery(app_settings, shared_center),
+                            DailyThemeReplenishmentEffectDelivery(daily_theme),
                             EmbyPathChangeEffectDelivery(
                                 settings_provider,
                                 HttpxEmbyPathChangeGateway(),
@@ -1302,12 +1315,18 @@ class WorkerRuntime:
             p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
             bridge_client = HttpxEmbyBridgeClient(settings_provider)
             shared_center = HttpxSharedCenterAdapter(settings_provider)
+            daily_theme = DailyThemeService(
+                HttpxDiscoverProviderAdapter(settings_provider),
+                SqlAlchemyDailyThemeRepository(database.unit_of_work),
+                LegacyDiscoverDefaults(),
+            )
             media_effects = PersistentMediaEffectExecutor(
                 PostgresMediaEffectLedger(database.unit_of_work),
                 RoutedMediaEffectDelivery(
                     [
                         BridgeMediaEffectDelivery(bridge_client),
                         SharedIntroExportEffectDelivery(app_settings, shared_center),
+                        DailyThemeReplenishmentEffectDelivery(daily_theme),
                     ]
                 ),
                 worker_id=f"{self._worker_id}:media-effect",
@@ -1439,6 +1458,7 @@ class WorkerRuntime:
                     identity_mutations,
                     lease_seconds=lambda: identity_operation_claim_lease_seconds(settings_provider().emby_api_timeout),
                 ),
+                daily_theme=daily_theme,
             )
             p9_sharing_tasks = P9SharingTaskRouter(
                 shared_center=shared_center,
@@ -2061,6 +2081,7 @@ class WorkerRuntime:
                             "scan_old_seasons_backfill",
                             "sync-all-user-data",
                             "system-auto-update",
+                            "update-daily-theme",
                         }
                     )
                 )
@@ -2833,6 +2854,9 @@ def _raise_for_reported_failure(task_key: str, result: Any) -> None:
 def _reported_failure_is_retryable(result: Any) -> bool:
     if not isinstance(result, TaskOutcome):
         return True
+    retryable = result.details.get("retryable")
+    if isinstance(retryable, bool):
+        return retryable
     legacy = result.details.get("legacy_result")
     return not (isinstance(legacy, Mapping) and legacy.get("retryable") is False)
 

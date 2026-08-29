@@ -39,6 +39,7 @@ from etk.compatibility.upload_monitor import (
 from etk.domains.collection.operation_repository import PostgresCollectionOperationRepository
 from etk.domains.identity.operation_repository import PostgresIdentityOperationRepository
 from etk.domains.ingestion import PostgresIngestionMonitorLedger
+from etk.domains.media.daily_theme import DAILY_THEME_REPLENISHMENT_EFFECT_TYPE
 from etk.domains.media.effects import PostgresMediaEffectLedger
 from etk.domains.operations.database_maintenance import PostgresDatabaseMaintenanceRepository
 from etk.domains.operations.jobs import JobSubmissionService, TaskBusyError
@@ -510,6 +511,7 @@ class CoordinatorRuntime:
             self._media_effect_publisher,
             self.config,
             publisher_id=f"{self._publisher_id}:media-effect",
+            replay_safe_effect_types=(DAILY_THEME_REPLENISHMENT_EFFECT_TYPE,),
         )
         ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
         self._ingestion_ingress = PersistentIngestionIngressGateway(
@@ -747,6 +749,11 @@ class CoordinatorRuntime:
         media_dispatcher = getattr(self, "_media_effect_dispatcher", None)
         if media_dispatcher is not None:
             media_result = media_dispatcher.tick()
+            if media_result.requeued_replay_safe_claims:
+                logger.warning(
+                    "Expired replay-safe Media Effect claims were requeued",
+                    extra={"requeued_claims": media_result.requeued_replay_safe_claims},
+                )
             if media_result.expired_claims:
                 logger.warning(
                     "Expired Media Effect claims were marked indeterminate",

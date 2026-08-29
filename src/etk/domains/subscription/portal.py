@@ -11,6 +11,9 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 
+from etk.domains.media.daily_theme import DAILY_THEME_REPLENISHMENT_EFFECT_TYPE
+from etk.domains.media.daily_theme_repository import remove_recommendation_in_uow
+from etk.domains.media.effects import SqlAlchemyMediaEffectRepository
 from etk.platform.db import SqlAlchemyUnitOfWork
 
 from .operation_repository import PostgresSubscriptionOperationRepository
@@ -66,6 +69,8 @@ class PortalSubmissionResult:
     operation_ids: tuple[UUID, ...]
     response: Mapping[str, Any] | None = None
     replayed: bool = False
+    recommendation_revision: int | None = None
+    recommendation_pool_size: int | None = None
 
 
 class PortalSubscriptionConflictError(RuntimeError):
@@ -292,10 +297,31 @@ class PortalSubscriptionRepository:
                         "operation_ids": operation_ids,
                     },
                 )
-            if recommendation_tmdb_id is not None:
-                _remove_recommendation(uow, recommendation_tmdb_id)
+            recommendation_mutation = (
+                remove_recommendation_in_uow(
+                    uow,
+                    tmdb_id=recommendation_tmdb_id,
+                    mutation_id=f"portal:{occurrence}:remove:{recommendation_tmdb_id}",
+                    occurred_at=self._clock().astimezone(UTC).isoformat(),
+                )
+                if recommendation_tmdb_id is not None
+                else None
+            )
+            if recommendation_mutation is not None and recommendation_mutation.pool_size < 5:
+                SqlAlchemyMediaEffectRepository(uow.session).reserve(
+                    effect_key=f"daily-theme:replenishment:publication:{recommendation_mutation.revision}",
+                    effect_type=DAILY_THEME_REPLENISHMENT_EFFECT_TYPE,
+                    aggregate_type="daily_theme_publication",
+                    aggregate_id=str(recommendation_mutation.revision),
+                    payload={"publication_revision": recommendation_mutation.revision},
+                )
             uow.commit()
-        return PortalSubmissionResult(tuple(operation_ids), response=accepted_response)
+        return PortalSubmissionResult(
+            tuple(operation_ids),
+            response=accepted_response,
+            recommendation_revision=(recommendation_mutation.revision if recommendation_mutation else None),
+            recommendation_pool_size=(recommendation_mutation.pool_size if recommendation_mutation else None),
+        )
 
 
 class PortalSubscriptionService:
@@ -658,32 +684,6 @@ def _portal_request_fingerprint(
     return hashlib.sha256(
         json.dumps(stable, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
     ).hexdigest()
-
-
-def _remove_recommendation(uow: SqlAlchemyUnitOfWork, tmdb_id: str) -> None:
-    row = uow.session.execute(
-        text(
-            """
-            SELECT value_json FROM app_settings
-            WHERE setting_key = 'recommendation_pool'
-            FOR UPDATE
-            """
-        )
-    ).first()
-    if row is None or not isinstance(row[0], list):
-        return
-    pool = [item for item in row[0] if not isinstance(item, Mapping) or str(item.get("id")) != tmdb_id]
-    if len(pool) == len(row[0]):
-        return
-    uow.session.execute(
-        text(
-            """
-            UPDATE app_settings SET value_json = CAST(:pool AS jsonb), last_updated_at = NOW()
-            WHERE setting_key = 'recommendation_pool'
-            """
-        ),
-        {"pool": json.dumps(pool, ensure_ascii=False, separators=(",", ":"))},
-    )
 
 
 def _daily_cap(config: Mapping[str, Any]) -> int:

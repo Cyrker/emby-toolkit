@@ -31,6 +31,7 @@ class DiscoverService:
         "recommendation_pool",
         "recommendation_pool_page",
         "recommendation_theme_index",
+        "recommendation_publication_state",
     )
 
     def __init__(self, *, settings: DiscoverSettings, defaults: DiscoverDefaults) -> None:
@@ -104,7 +105,8 @@ class DiscoverService:
         try:
             snapshot = self._snapshot()
             pool = snapshot.get("recommendation_pool")
-            if not pool:
+            publication = snapshot.get("recommendation_publication_state")
+            if not pool and not publication:
                 return DiscoverHttpResult({"error": "推荐池尚未生成或为空。"}, 404)
             mapping = snapshot.get("keyword_mapping") or self._defaults.keyword_mapping()
             if isinstance(mapping, Mapping):
@@ -125,7 +127,12 @@ class DiscoverService:
             theme_index = snapshot.get("recommendation_theme_index")
             if theme_index is not None and themes:
                 theme_name = str(themes[int(theme_index) % len(themes)]["label"])
-            return DiscoverHttpResult({"theme_name": theme_name, "pool": pool})
+            return DiscoverHttpResult(
+                {
+                    "theme_name": theme_name,
+                    "pool": pool or [],
+                }
+            )
         except Exception:
             return DiscoverHttpResult({"error": "获取推荐池失败"}, 500)
 

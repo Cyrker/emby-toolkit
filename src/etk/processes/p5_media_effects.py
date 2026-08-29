@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -49,6 +50,7 @@ class CeleryMediaEffectPublisher:
 
 @dataclass(frozen=True, slots=True)
 class MediaEffectDispatchResult:
+    requeued_replay_safe_claims: int
     expired_claims: int
     requeued_events: int
     rejected_dead_effects: int
@@ -64,17 +66,31 @@ class MediaEffectOutboxDispatcher:
         config: TaskRuntimeConfig,
         *,
         publisher_id: str,
+        replay_safe_effect_types: Sequence[str] = (),
     ) -> None:
         self._store = store
         self._ledger = ledger
         self._publisher = publisher
         self._config = config
         self._publisher_id = str(publisher_id or "").strip()
+        self._replay_safe_effect_types = tuple(
+            dict.fromkeys(str(value or "").strip() for value in replay_safe_effect_types)
+        )
         if not self._publisher_id:
             raise ValueError("media effect publisher id must not be empty")
+        if any(not value for value in self._replay_safe_effect_types):
+            raise ValueError("replay-safe media effect type must not be empty")
 
     def tick(self) -> MediaEffectDispatchResult:
         limit = self._config.outbox_batch_size
+        requeued_replay_safe = (
+            self._ledger.requeue_replay_safe_stale_claims(
+                effect_types=self._replay_safe_effect_types,
+                limit=limit,
+            )
+            if self._replay_safe_effect_types
+            else 0
+        )
         expired = self._ledger.expire_stale_claims(limit=limit)
         requeued = self._ledger.requeue_stale_published(
             limit=limit,
@@ -92,6 +108,7 @@ class MediaEffectOutboxDispatcher:
         if publish.dead:
             rejected += self._ledger.reject_dead_dispatches(limit=limit)
         return MediaEffectDispatchResult(
+            requeued_replay_safe_claims=requeued_replay_safe,
             expired_claims=expired,
             requeued_events=requeued,
             rejected_dead_effects=rejected,

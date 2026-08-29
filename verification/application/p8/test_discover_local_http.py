@@ -158,3 +158,16 @@ def test_discover_fallback_empty_and_storage_failure_envelopes() -> None:
 
     assert failed.status_code == 500
     assert failed.json() == {"error": "获取推荐池失败"}
+
+
+def test_published_empty_daily_pool_is_a_successful_snapshot() -> None:
+    app, repository = _build_app()
+    repository.values["recommendation_pool"] = []
+    repository.values["recommendation_publication_state"] = {"revision": 1}
+
+    with TestClient(app) as client:
+        _set_user(client)
+        response = client.get("/api/discover/daily_recommendation")
+
+    assert response.status_code == 200
+    assert response.json() == {"theme_name": "恐怖", "pool": []}

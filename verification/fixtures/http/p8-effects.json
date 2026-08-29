@@ -30,7 +30,7 @@
     {"method": "POST", "path": "/api/discover/tv", "owner": "etk.domains.media.discover_router", "response_statuses": [200, 400, 401, 415, 500, 502]},
     {"method": "POST", "path": "/api/discover/search", "owner": "etk.domains.media.discover_router", "response_statuses": [200, 400, 401, 415, 500]},
     {"method": "GET", "path": "/api/discover/tmdb/tv/{tv_id}", "owner": "etk.domains.media.discover_router", "response_statuses": [200, 400, 401, 500]},
-    {"method": "POST", "path": "/api/discover/trigger_recommendation_update", "owner": "etk.domains.media.discover_router", "response_statuses": [200, 401, 409, 500]},
+    {"method": "POST", "path": "/api/discover/trigger_recommendation_update", "owner": "etk.domains.media.discover_router", "response_statuses": [202, 401, 409, 500]},
     {"method": "GET", "path": "/api/portal/dashboard-stats", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 403, 500]},
     {"method": "GET", "path": "/api/portal/playback-report", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 401, 403, 500]},
     {"method": "POST", "path": "/api/portal/subscribe", "owner": "etk.domains.identity.users_router", "response_statuses": [200, 400, 401, 409, 500]},

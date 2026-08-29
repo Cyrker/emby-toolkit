@@ -32,6 +32,40 @@ RETIRED_STANDALONE_SETTING_KEYS = frozenset(
     }
 )
 RETIRED_STANDALONE_SETTING_SENTINEL_PATHS = ("src/etk/bootstrap/legacy_runtime.py",)
+NATIVE_STANDALONE_SETTING_ACCESSES = {
+    "recommendation_pool": [
+        {
+            "operation": "compare_and_publish",
+            "source": "src/etk/domains/media/daily_theme_repository.py:SqlAlchemyDailyThemeRepository.publish",
+        },
+        {
+            "operation": "locked_portal_removal",
+            "source": "src/etk/domains/media/daily_theme_repository.py:remove_recommendation_in_uow",
+        },
+    ],
+    "recommendation_pool_page": [
+        {
+            "operation": "compare_and_publish",
+            "source": "src/etk/domains/media/daily_theme_repository.py:SqlAlchemyDailyThemeRepository.publish",
+        }
+    ],
+    "recommendation_publication_state": [
+        {
+            "operation": "compare_publish_and_receipt",
+            "source": "src/etk/domains/media/daily_theme_repository.py:SqlAlchemyDailyThemeRepository.publish",
+        },
+        {
+            "operation": "locked_portal_removal",
+            "source": "src/etk/domains/media/daily_theme_repository.py:remove_recommendation_in_uow",
+        },
+    ],
+    "recommendation_theme_index": [
+        {
+            "operation": "compare_and_publish",
+            "source": "src/etk/domains/media/daily_theme_repository.py:SqlAlchemyDailyThemeRepository.publish",
+        }
+    ],
+}
 
 
 def _is_secret_key(key: str) -> bool:
@@ -270,6 +304,8 @@ def _scan_setting_calls() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 unresolved.append(item)
     for key, accesses in _retired_setting_sentinel_accesses(constant_symbols).items():
         resolved[key].extend(accesses)
+    for key, accesses in NATIVE_STANDALONE_SETTING_ACCESSES.items():
+        resolved[key].extend(accesses)
     retired_with_active_access = sorted(RETIRED_STANDALONE_SETTING_KEYS & resolved.keys())
     if retired_with_active_access:
         raise ManifestError(f"retired standalone settings still have operational readers: {retired_with_active_access}")
@@ -347,7 +383,12 @@ def export_config() -> dict[str, Any]:
     return {
         "schema_version": 1,
         "generator": "scripts/refactor/export_config.py",
-        "source_scope": ["config_manager.py", "constants.py", "**/*.py app_settings calls"],
+        "source_scope": [
+            "config_manager.py",
+            "constants.py",
+            "**/*.py app_settings calls",
+            "native standalone setting declarations",
+        ],
         "metrics": {
             "bootstrap_key_count": len(bootstrap),
             "dynamic_key_count": len(dynamic),

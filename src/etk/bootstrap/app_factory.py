@@ -96,6 +96,8 @@ from etk.domains.media.compatibility import (
     LegacyMediaRuntimeGateway,
     LegacyP5MediaEventGateway,
 )
+from etk.domains.media.daily_theme import DailyThemeService
+from etk.domains.media.daily_theme_repository import SqlAlchemyDailyThemeRepository
 from etk.domains.media.discover import DiscoverService
 from etk.domains.media.discover_adapters import HttpxDiscoverProviderAdapter
 from etk.domains.media.discover_compatibility import LegacyDiscoverDefaults
@@ -878,6 +880,12 @@ def _register_users_providers(container: AppContainer) -> None:
             lambda: current.database.unit_of_work(),
         ),
     )
+    container.register_repository(
+        "media.daily-theme",
+        lambda current: SqlAlchemyDailyThemeRepository(
+            lambda: current.database.unit_of_work(),
+        ),
+    )
     container.register_use_case(
         "media.discover",
         lambda current: DiscoverService(
@@ -894,6 +902,14 @@ def _register_users_providers(container: AppContainer) -> None:
             current.client("media.discover-defaults"),
             current.use_case("operations.jobs"),
             include_adult=lambda: bool(current.settings.tmdb_include_adult),
+        ),
+    )
+    container.register_use_case(
+        "media.daily-theme",
+        lambda current: DailyThemeService(
+            current.client("media.discover-provider"),
+            current.repository("media.daily-theme"),
+            current.client("media.discover-defaults"),
         ),
     )
 

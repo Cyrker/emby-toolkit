@@ -2758,7 +2758,7 @@
     "bootstrap_key_count": 7,
     "duplicate_definition_key_count": 2,
     "dynamic_key_count": 96,
-    "standalone_setting_key_count": 53,
+    "standalone_setting_key_count": 54,
     "unresolved_setting_call_count": 0
   },
   "runtime_derived_config": [
@@ -2790,7 +2790,8 @@
   "source_scope": [
     "config_manager.py",
     "constants.py",
-    "**/*.py app_settings calls"
+    "**/*.py app_settings calls",
+    "native standalone setting declarations"
   ],
   "standalone_app_settings": [
     {
@@ -4335,6 +4336,14 @@
           "source": "routes/discover.py:855"
         },
         {
+          "operation": "compare_and_publish",
+          "source": "src/etk/domains/media/daily_theme_repository.py:SqlAlchemyDailyThemeRepository.publish"
+        },
+        {
+          "operation": "locked_portal_removal",
+          "source": "src/etk/domains/media/daily_theme_repository.py:remove_recommendation_in_uow"
+        },
+        {
           "operation": "save_setting",
           "source": "tasks/discover.py:133"
         },
@@ -4349,21 +4358,27 @@
       ],
       "contract_id": "setting-e12f1ddd30da",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p8/test_daily_theme_postgres18.py",
+      "fixture_exception": null,
       "key": "recommendation_pool",
       "mutability": "runtime_dynamic",
-      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
-      "notes": "P8 Discover recommendation pool is read from one settings snapshot and updated atomically with its page/theme state.",
+      "new_owner": "etk.domains.media.daily_theme_repository.SqlAlchemyDailyThemeRepository",
+      "notes": "P11 native daily publication, same-theme replenishment and portal removal mutate the recommendation pool through the revision-fenced publication facade; listed legacy accesses remain an explicit compatibility residual until controlled removal.",
       "restart_level": "call-site-specific",
       "secret": false,
       "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
-      "validation_owner": "media/discover"
+      "validation_method": "postgres18-publication-replenishment-portal-removal-concurrency-and-rollback",
+      "validation_owner": "media/daily-theme"
     },
     {
       "accesses": [
+        {
+          "operation": "compare_and_publish",
+          "source": "src/etk/domains/media/daily_theme_repository.py:SqlAlchemyDailyThemeRepository.publish"
+        },
         {
           "operation": "save_setting",
           "source": "tasks/discover.py:135"
@@ -4387,24 +4402,58 @@
       ],
       "contract_id": "setting-10e4f4bb6eef",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p8/test_daily_theme_postgres18.py",
+      "fixture_exception": null,
       "key": "recommendation_pool_page",
       "mutability": "runtime_dynamic",
-      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
-      "notes": "P8 Discover recommendation page participates in the atomic pool/page/theme settings snapshot.",
+      "new_owner": "etk.domains.media.daily_theme_repository.SqlAlchemyDailyThemeRepository",
+      "notes": "P11 native daily publication and same-theme replenishment advance or reset the recommendation page in the same revision-fenced UoW as the pool; listed legacy accesses remain an explicit compatibility residual until controlled removal.",
       "restart_level": "call-site-specific",
       "secret": false,
       "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
-      "validation_owner": "media/discover"
+      "validation_method": "postgres18-atomic-publication-replenishment-and-rollback",
+      "validation_owner": "media/daily-theme"
+    },
+    {
+      "accesses": [
+        {
+          "operation": "compare_publish_and_receipt",
+          "source": "src/etk/domains/media/daily_theme_repository.py:SqlAlchemyDailyThemeRepository.publish"
+        },
+        {
+          "operation": "locked_portal_removal",
+          "source": "src/etk/domains/media/daily_theme_repository.py:remove_recommendation_in_uow"
+        }
+      ],
+      "contract_id": "setting-b2f428151361",
+      "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p8/test_daily_theme_postgres18.py",
+      "fixture_exception": null,
+      "key": "recommendation_publication_state",
+      "mutability": "runtime_dynamic",
+      "new_owner": "etk.domains.media.daily_theme_repository.SqlAlchemyDailyThemeRepository",
+      "notes": "P11 publication metadata is the native revision and audit record for atomic daily-theme publication, durable replenishment effects and portal removal; per-Job receipts survive later publications and stale fingerprints cannot overwrite a newer mutation. Listed legacy accesses remain an explicit compatibility residual until controlled removal.",
+      "restart_level": "call-site-specific",
+      "secret": false,
+      "status": "new",
+      "storage": "app_settings",
+      "storage_default": null,
+      "target_stage": "P2",
+      "validation_method": "postgres18-atomic-publication-rollback-portal-concurrency-durable-receipt-and-worker-replay",
+      "validation_owner": "media/daily-theme"
     },
     {
       "accesses": [
         {
           "operation": "get_setting",
           "source": "routes/discover.py:755"
+        },
+        {
+          "operation": "compare_and_publish",
+          "source": "src/etk/domains/media/daily_theme_repository.py:SqlAlchemyDailyThemeRepository.publish"
         },
         {
           "operation": "save_setting",
@@ -4425,18 +4474,20 @@
       ],
       "contract_id": "setting-c27c8264cf43",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p8/test_daily_theme_postgres18.py",
+      "fixture_exception": null,
       "key": "recommendation_theme_index",
       "mutability": "runtime_dynamic",
-      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
-      "notes": "P8 Discover theme index participates in the atomic pool/page/theme settings snapshot.",
+      "new_owner": "etk.domains.media.daily_theme_repository.SqlAlchemyDailyThemeRepository",
+      "notes": "P11 native daily publication rotates the theme index atomically; replenishment retains it and portal removal only advances the shared publication revision. Listed legacy accesses remain an explicit compatibility residual until controlled removal.",
       "restart_level": "call-site-specific",
       "secret": false,
       "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "pytest-postgres18-jsonb-atomic-settings-contract",
-      "validation_owner": "media/discover"
+      "validation_method": "postgres18-atomic-theme-publication-replenishment-and-portal-removal",
+      "validation_owner": "media/daily-theme"
     },
     {
       "accesses": [

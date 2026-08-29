@@ -48,7 +48,6 @@ _LEGACY_HANDLERS = {
     "process_all_custom_collections": ("tasks.custom_collections", "task_process_all_custom_collections"),
     "refresh-collections": ("tasks.tmdb_collections", "task_refresh_collections"),
     "scan-cleanup-issues": ("tasks.cleanup", "task_scan_for_cleanup_issues"),
-    "update-daily-theme": ("tasks.discover", "task_update_daily_theme"),
     REVIEW_REPROCESS_ONE_TASK_KEY: ("tasks.media", "task_reprocess_single_item"),
     REVIEW_REPROCESS_ALL_TASK_KEY: ("tasks.media", "task_reprocess_all_review_items"),
 }
@@ -91,6 +90,16 @@ class P8UserExpiry(Protocol):
     ) -> TaskOutcome: ...
 
 
+class P8DailyTheme(Protocol):
+    def execute(
+        self,
+        progress: P8TaskProgress,
+        *,
+        publication_id: str,
+        mode: str = "daily",
+    ) -> TaskOutcome: ...
+
+
 class LegacyP8EffectsCompatibilityGateway:
     """Worker-only allowlist around established P8 task implementations."""
 
@@ -123,11 +132,13 @@ class P8EffectTaskRouter:
         user_sync: UserSyncService,
         cleanup_scan: P8CleanupScan | None = None,
         user_expiry: P8UserExpiry | None = None,
+        daily_theme: P8DailyTheme | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._user_sync = user_sync
         self._cleanup_scan = cleanup_scan
         self._user_expiry = user_expiry
+        self._daily_theme = daily_theme
 
     def execute(
         self,
@@ -184,6 +195,19 @@ class P8EffectTaskRouter:
                 result.message,
                 {**dict(result.stats), **_details(message.task_key, compatibility=False)},
             )
+        if message.task_key == "update-daily-theme":
+            if self._daily_theme is None:
+                raise RuntimeError("P8 daily-theme execution is unavailable")
+            outcome = self._daily_theme.execute(
+                progress,
+                publication_id=str(_metadata_uuid(message.metadata.get("job_id"), "job_id")),
+                mode=str(parameters.get("mode") or "daily"),
+            )
+            return TaskOutcome(
+                outcome.status,
+                outcome.message,
+                {**outcome.details, **_details(message.task_key, compatibility=False)},
+            )
         if processor is None:
             raise RuntimeError(f"P8 task {message.task_key!r} media processor is unavailable")
         if self._compatibility is None:
@@ -234,6 +258,13 @@ def _normalize_parameters(task_key: str, payload: Mapping[str, Any]) -> dict[str
             "tags": tags,
             "rating_filters": _optional_string_list(payload.get("rating_filters"), field="rating_filters"),
         }
+    if task_key == "update-daily-theme" and payload:
+        if set(payload) != {"mode"}:
+            raise ValueError("update-daily-theme accepts only mode")
+        mode = str(payload["mode"] or "").strip().lower()
+        if mode not in {"daily", "replenish"}:
+            raise ValueError("update-daily-theme mode must be daily or replenish")
+        return {"mode": mode}
     if payload:
         raise ValueError(f"task {task_key!r} does not accept parameters")
     return {}
@@ -344,6 +375,7 @@ __all__ = [
     "LegacyP8EffectsCompatibilityGateway",
     "P8_COMPATIBILITY_FALLBACK_UNTIL",
     "P8CleanupScan",
+    "P8DailyTheme",
     "P8EffectTaskRouter",
     "P8EffectsCompatibilityGateway",
     "P8TaskProgress",

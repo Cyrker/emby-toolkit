@@ -258,7 +258,7 @@
                     </div>
                 </div>
               </div>
-            <n-empty v-if="!isRecommendationLoading && !currentRecommendation" description="太棒了！热门电影似乎都在您的库中，今日无特别推荐。" />
+            <n-empty v-if="!isPoolLoading && !currentRecommendation" description="太棒了！热门电影似乎都在您的库中，今日无特别推荐。" />
           </n-card>
         </n-gi>
       </n-grid>
@@ -748,7 +748,7 @@ const fetchRecommendationPool = async () => {
           }
           try {
             const pollResponse = await apiClient.get(apiPath('api_discover_daily_recommendation_a5fd4ede'));
-            if (pollResponse.data && pollResponse.data.pool && pollResponse.data.pool.length > 0) {
+            if (pollResponse.data && Array.isArray(pollResponse.data.pool)) {
               clearInterval(intervalId);
               recommendationPool.value = pollResponse.data.pool;
               recommendationThemeName.value = pollResponse.data.theme_name;

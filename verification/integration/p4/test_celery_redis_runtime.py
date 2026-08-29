@@ -24,6 +24,8 @@ from redis import Redis
 from sqlalchemy import text
 
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
+from etk.domains.media.daily_theme_repository import SqlAlchemyDailyThemeRepository
+from etk.domains.media.effects import PostgresMediaEffectLedger, SqlAlchemyMediaEffectRepository
 from etk.domains.p115 import P115ExecutionEffectStatus, P115ExecutionStatus
 from etk.domains.subscription.assistant import ASSISTANT_MAINTENANCE_PHASES, _state_json
 from etk.domains.subscription.cleanup_adapters import SettingsCleanupExecutionPolicy
@@ -31,7 +33,7 @@ from etk.domains.subscription.cleanup_repository import SqlAlchemyCleanupReposit
 from etk.platform import Settings
 from etk.platform.db import DatabaseRuntime
 from etk.platform.jobs import AttemptStatus, JobProjection, JobStatus, PostgresJobStore
-from etk.processes.celery_app import EXECUTE_JOB_TASK, create_celery_app
+from etk.processes.celery_app import EXECUTE_JOB_TASK, EXECUTE_MEDIA_EFFECT_TASK, create_celery_app
 from etk.processes.runtime_config import TaskRuntimeConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -104,6 +106,11 @@ class IdentityExpiryEmbyStubState:
     user_readbacks: int = 0
 
 
+@dataclass(slots=True)
+class DailyThemeTmdbStubState:
+    requests: list[str]
+
+
 def _start_identity_expiry_emby_stub(
     user_id: str,
 ) -> tuple[ThreadingHTTPServer, threading.Thread, IdentityExpiryEmbyStubState]:
@@ -157,6 +164,65 @@ def _start_identity_expiry_emby_stub(
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, name="etk-identity-expiry-stub", daemon=True)
+    thread.start()
+    return server, thread, state
+
+
+def _start_daily_theme_tmdb_stub() -> tuple[ThreadingHTTPServer, threading.Thread, DailyThemeTmdbStubState]:
+    state = DailyThemeTmdbStubState(requests=[])
+    lock = threading.Lock()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            parsed = urlsplit(self.path)
+            if parse_qs(parsed.query).get("api_key") != ["fixture-tmdb-key"]:
+                self.send_response(403)
+                self.end_headers()
+                return
+            with lock:
+                state.requests.append(self.path)
+            if parsed.path == "/3/discover/movie":
+                page = int(parse_qs(parsed.query).get("page", ["1"])[0])
+                payload_value: dict[str, Any] = (
+                    {
+                        "results": [
+                            {
+                                "id": 810001,
+                                "title": "每日主题测试电影",
+                                "overview": "脱敏测试简介",
+                                "poster_path": "/fixture.jpg",
+                            }
+                        ]
+                    }
+                    if page == 1
+                    else {"results": []}
+                )
+            elif parsed.path == "/3/movie/810001":
+                payload_value = {
+                    "id": 810001,
+                    "title": "每日主题测试电影",
+                    "overview": "脱敏测试简介",
+                    "poster_path": "/fixture.jpg",
+                    "release_date": "2026-08-30",
+                    "vote_average": 8.1,
+                    "credits": {"cast": []},
+                }
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
+            payload = json.dumps(payload_value, ensure_ascii=False, separators=(",", ":")).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: object) -> None:
+            del format, args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, name="etk-daily-theme-tmdb-stub", daemon=True)
     thread.start()
     return server, thread, state
 
@@ -4211,6 +4277,385 @@ def test_active_worker_sigterm_reaches_cooperative_safe_point_before_shutdown_ti
             worker.kill()
 
 
+@pytest.mark.parametrize(
+    "compatibility_enabled",
+    [False, True],
+    ids=["native-only", "compatibility-enabled"],
+)
+def test_daily_theme_executes_once_through_real_worker_profiles(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+) -> None:
+    server, server_thread, stub = _start_daily_theme_tmdb_stub()
+    worker: ManagedProcess | None = None
+    try:
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM app_settings
+                    WHERE setting_key = 'recommendation_publication_state'
+                    """
+                )
+            )
+            for key, value in (
+                ("keyword_mapping", [{"label": "测试主题", "ids": [701]}]),
+                ("recommendation_pool", [{"id": 700001}]),
+                ("recommendation_theme_index", -1),
+                ("recommendation_pool_page", 4),
+                (
+                    "dynamic_app_config",
+                    {
+                        "tmdb_api_base_url": f"http://127.0.0.1:{server.server_port}/3",
+                        "tmdb_api_key": "fixture-tmdb-key",
+                    },
+                ),
+            ):
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                        VALUES (:key, CAST(:value AS jsonb), NOW())
+                        ON CONFLICT (setting_key) DO UPDATE SET
+                            value_json = EXCLUDED.value_json,
+                            last_updated_at = NOW()
+                        """
+                    ),
+                    {"key": key, "value": json.dumps(value, ensure_ascii=False)},
+                )
+        created = p4_store.create_job(
+            task_key="update-daily-theme",
+            queue_name=p4_runtime_environment.queue_name,
+            max_attempts=1,
+            payload={
+                "payload_version": 1,
+                "parameters": {},
+                "processor_type": "media",
+                "display_name": "P11 native daily-theme fixture",
+                "silent": True,
+            },
+        ).projection
+        site_directory = tmp_path / f"daily-theme-site-{compatibility_enabled}"
+        site_directory.mkdir()
+        (site_directory / "sitecustomize.py").write_text(
+            """
+import builtins
+import os
+
+guard_file = os.environ.get("ETK_TEST_DAILY_THEME_LEGACY_IMPORT_GUARD_FILE")
+if guard_file:
+    original_import = builtins.__import__
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if level == 0 and os.path.exists(guard_file) and (
+            name == "tasks.discover" or name.startswith("tasks.discover.")
+        ):
+            raise AssertionError(f"daily-theme Worker imported legacy execution owner {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    builtins.__import__ = guarded_import
+""".lstrip(),
+            encoding="utf-8",
+        )
+        import_guard = tmp_path / f"daily-theme-legacy-import-{compatibility_enabled}.guard"
+        worker_environment_values = dict(p4_runtime_environment.environment)
+        existing_python_path = worker_environment_values.get("PYTHONPATH", "")
+        worker_environment_values["PYTHONPATH"] = os.pathsep.join(
+            filter(
+                None,
+                (
+                    str(site_directory),
+                    str(REPO_ROOT / "src"),
+                    str(REPO_ROOT),
+                    existing_python_path,
+                ),
+            )
+        )
+        worker_environment_values["ETK_TEST_DAILY_THEME_LEGACY_IMPORT_GUARD_FILE"] = str(import_guard)
+        worker_environment_values["TMDB_API_BASE_URL"] = f"http://127.0.0.1:{server.server_port}/3"
+        worker_environment_values["TMDB_API_KEY"] = "fixture-tmdb-key"
+        if compatibility_enabled:
+            worker_environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+        else:
+            worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+        worker_environment = RuntimeEnvironment(
+            environment=worker_environment_values,
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        worker = _start_worker(worker_environment, tmp_path / f"daily-theme-worker-{compatibility_enabled}")
+        _wait_for_worker(worker, worker_environment.config)
+        import_guard.write_text("active", encoding="utf-8")
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+            count=2,
+        )
+
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert completed.current_attempt.attempt_no == 1
+        assert completed.job.result is not None
+        assert completed.job.result["status"] == "succeeded"
+        details = completed.job.result["details"]
+        assert details["task_key"] == "update-daily-theme"
+        assert details["native_handler"] == "P8EffectTaskRouter"
+        assert details["compatibility_fallback"] is False
+        assert details["publication"] == "committed"
+        assert details["publication_revision"] == 1
+        assert details["theme_label"] == "测试主题"
+        assert details["pool_size"] == 1
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in worker.read_log(),
+            description="duplicate daily-theme delivery to be skipped",
+            timeout=15,
+        )
+        with p4_runtime.engine.connect() as connection:
+            values = {
+                str(row["setting_key"]): row["value_json"]
+                for row in connection.execute(
+                    text(
+                        """
+                        SELECT setting_key, value_json
+                        FROM app_settings
+                        WHERE setting_key IN (
+                            'recommendation_pool',
+                            'recommendation_theme_index',
+                            'recommendation_pool_page',
+                            'recommendation_publication_state'
+                        )
+                        """
+                    )
+                ).mappings()
+            }
+        assert values["recommendation_pool"][0]["id"] == 810001
+        assert values["recommendation_theme_index"] == 0
+        assert values["recommendation_pool_page"] == 1
+        assert values["recommendation_publication_state"]["revision"] == 1
+        assert len(stub.requests) == 3
+        assert [urlsplit(value).path for value in stub.requests] == [
+            "/3/discover/movie",
+            "/3/movie/810001",
+            "/3/discover/movie",
+        ]
+
+        repository = SqlAlchemyDailyThemeRepository(p4_runtime.unit_of_work)
+        later_snapshot = repository.load_snapshot()
+        later = repository.publish(
+            expected_fingerprint=later_snapshot.fingerprint,
+            pool=[{"id": 810002}],
+            theme_index=0,
+            pool_page=2,
+            metadata={
+                "publication_id": (
+                    "00000000-0000-0000-0000-000000000302"
+                    if compatibility_enabled
+                    else "00000000-0000-0000-0000-000000000301"
+                ),
+                "mode": "daily",
+                "source_revision": later_snapshot.publication_revision,
+                "source_fingerprint": later_snapshot.fingerprint,
+                "theme_index": 0,
+                "theme_label": "后续主题",
+                "pool_page": 2,
+                "pool_size": 1,
+                "pages_scanned": 2,
+                "added_count": 1,
+                "published_at": "2026-08-30T00:10:00+00:00",
+            },
+        )
+        assert later is not None and later.revision == 2
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE job_attempts
+                    SET status = 'lost', retryable = TRUE,
+                        error_type = 'worker_lost', error_message = 'fixture crash window',
+                        result_json = NULL, updated_at = NOW()
+                    WHERE id = :attempt_id
+                    """
+                ),
+                {"attempt_id": created.current_attempt.id},
+            )
+            connection.execute(
+                text(
+                    """
+                    UPDATE job_runs
+                    SET status = 'failed', result_json = NULL,
+                        error_summary_json = '{"type":"worker_lost"}'::jsonb,
+                        finished_at = NOW(), updated_at = NOW()
+                    WHERE id = :job_id
+                    """
+                ),
+                {"job_id": created.job.id},
+            )
+        resumed = p4_store.resume_terminal_job(created.job.id)
+        assert resumed.resumed is True
+        _send_delivery(
+            worker_environment.config,
+            resumed.projection.job.id,
+            resumed.projection.current_attempt.id,
+        )
+        replayed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
+        assert replayed.current_attempt.attempt_no == 2
+        assert replayed.job.result is not None
+        replay_details = replayed.job.result["details"]
+        assert replay_details["publication"] == "already_committed"
+        assert replay_details["publication_revision"] == 1
+        assert replay_details["replayed"] is True
+        assert len(stub.requests) == 3
+        current = repository.load_snapshot()
+        assert current.publication_revision == 2
+        assert current.values["recommendation_pool"] == [{"id": 810002}]
+
+        with p4_runtime.unit_of_work() as uow:
+            reservation = SqlAlchemyMediaEffectRepository(uow.session).reserve(
+                effect_key=f"fixture-daily-theme-replenishment:{compatibility_enabled}",
+                effect_type="daily-theme.replenishment",
+                aggregate_type="daily_theme_publication",
+                aggregate_id="2",
+                payload={"publication_revision": 2},
+            )
+            uow.commit()
+        ledger = PostgresMediaEffectLedger(p4_runtime.unit_of_work)
+        assert (
+            ledger.claim_by_id(
+                reservation.effect.id,
+                worker_id="fixture-crashed-before-publication",
+                lease_seconds=60,
+            )
+            is not None
+        )
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE media_effects
+                    SET claimed_at = NOW() - INTERVAL '2 minutes',
+                        lease_expires_at = NOW() - INTERVAL '1 minute'
+                    WHERE id = :effect_id
+                    """
+                ),
+                {"effect_id": reservation.effect.id},
+            )
+        assert (
+            ledger.requeue_replay_safe_stale_claims(
+                effect_types=("daily-theme.replenishment",),
+                limit=10,
+            )
+            == 1
+        )
+        _send_media_effect(worker_environment.config, reservation.effect.id)
+
+        def replenishment_confirmed() -> bool:
+            with p4_runtime.engine.connect() as connection:
+                status = connection.scalar(
+                    text("SELECT status FROM media_effects WHERE id = :effect_id"),
+                    {"effect_id": reservation.effect.id},
+                )
+            return status == "confirmed"
+
+        _wait_until(
+            replenishment_confirmed,
+            description="daily-theme replenishment effect confirmation",
+            timeout=45,
+        )
+        replenished = repository.load_snapshot()
+        assert replenished.publication_revision == 3
+        assert replenished.values["recommendation_pool"] == [{"id": 810002}]
+        assert replenished.values["recommendation_theme_index"] == 0
+        assert replenished.values["recommendation_pool_page"] == 0
+        assert len(stub.requests) == 4
+        assert urlsplit(stub.requests[-1]).path == "/3/discover/movie"
+        assert parse_qs(urlsplit(stub.requests[-1]).query)["page"] == ["3"]
+
+        with p4_runtime.unit_of_work() as uow:
+            committed_reservation = SqlAlchemyMediaEffectRepository(uow.session).reserve(
+                effect_key=f"fixture-daily-theme-committed-replenishment:{compatibility_enabled}",
+                effect_type="daily-theme.replenishment",
+                aggregate_type="daily_theme_publication",
+                aggregate_id="3",
+                payload={"publication_revision": 3},
+            )
+            uow.commit()
+        assert (
+            ledger.claim_by_id(
+                committed_reservation.effect.id,
+                worker_id="fixture-crashed-after-publication",
+                lease_seconds=60,
+            )
+            is not None
+        )
+        committed_snapshot = repository.load_snapshot()
+        committed_publication = repository.publish(
+            expected_fingerprint=committed_snapshot.fingerprint,
+            pool=[{"id": 810002}],
+            theme_index=0,
+            pool_page=0,
+            metadata={
+                "publication_id": str(committed_reservation.effect.id),
+                "mode": "replenish",
+                "source_revision": committed_snapshot.publication_revision,
+                "source_fingerprint": committed_snapshot.fingerprint,
+                "theme_index": 0,
+                "theme_label": "测试主题",
+                "pool_page": 0,
+                "pool_size": 1,
+                "pages_scanned": 1,
+                "added_count": 0,
+                "published_at": "2026-08-30T00:20:00+00:00",
+            },
+        )
+        assert committed_publication is not None and committed_publication.revision == 4
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    UPDATE media_effects
+                    SET claimed_at = NOW() - INTERVAL '2 minutes',
+                        lease_expires_at = NOW() - INTERVAL '1 minute'
+                    WHERE id = :effect_id
+                    """
+                ),
+                {"effect_id": committed_reservation.effect.id},
+            )
+        assert (
+            ledger.requeue_replay_safe_stale_claims(
+                effect_types=("daily-theme.replenishment",),
+                limit=10,
+            )
+            == 1
+        )
+        requests_before_reconciliation = len(stub.requests)
+        _send_media_effect(worker_environment.config, committed_reservation.effect.id)
+
+        def committed_replenishment_confirmed() -> bool:
+            with p4_runtime.engine.connect() as connection:
+                status = connection.scalar(
+                    text("SELECT status FROM media_effects WHERE id = :effect_id"),
+                    {"effect_id": committed_reservation.effect.id},
+                )
+            return status == "confirmed"
+
+        _wait_until(
+            committed_replenishment_confirmed,
+            description="committed daily-theme replenishment reconciliation",
+            timeout=45,
+        )
+        assert len(stub.requests) == requests_before_reconciliation
+        assert repository.load_snapshot().publication_revision == 4
+    finally:
+        if worker is not None:
+            assert worker.stop() == 0
+        _shutdown_http_stub(server, server_thread)
+
+
 def _create_empty_chain_job(store: PostgresJobStore, queue_name: str):
     return store.create_job(
         task_key="task-chain-high-freq",
@@ -4322,6 +4767,21 @@ def _send_delivery(config: TaskRuntimeConfig, job_id: UUID, attempt_id: UUID, *,
                 routing_key=config.queue_name,
                 serializer="json",
             )
+    finally:
+        app.close()
+
+
+def _send_media_effect(config: TaskRuntimeConfig, effect_id: UUID) -> None:
+    app = create_celery_app(config)
+    try:
+        app.send_task(
+            EXECUTE_MEDIA_EFFECT_TASK,
+            kwargs={"effect_id": str(effect_id)},
+            task_id=str(effect_id),
+            queue=config.queue_name,
+            routing_key=config.queue_name,
+            serializer="json",
+        )
     finally:
         app.close()
 

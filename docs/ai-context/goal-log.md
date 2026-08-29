@@ -4074,6 +4074,71 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Daily-Theme
+
+Stage / Batch: P11 / processor-free atomic daily-theme publication and replenishment
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `1733aceb` (`refactor(p11): execute native organize plans`).
+- Target checkpoint message: `refactor(p11): publish daily theme atomically`.
+
+Implemented:
+
+- Replaced `update-daily-theme` Worker execution with a native service that retains the last valid
+  pool on provider/projection failure, publishes valid empty results, supports same-theme
+  replenishment and never imports the legacy task in either Worker profile.
+- Added one PostgreSQL revision fence over pool, theme index, page and publication metadata. Daily
+  publication, Portal removal and durable per-publication receipts share the same advisory/table
+  lock and UoW; stale plans cannot overwrite a later publication or removal.
+- Made low-inventory Portal removal reserve `daily-theme.replenishment` plus its Outbox event in the
+  Portal UoW. The effect carries only the trigger revision and uses its own UUID as the idempotent
+  publication receipt identity.
+- Added replay-safe stale-claim recovery only for the local replenishment effect. A crash before
+  publication rearms the effect; a crash after commit replays the durable receipt and confirms the
+  original effect. External media-effect types retain their no-blind-replay `indeterminate` rule.
+- Tightened the trigger to an explicit `202` schema with required `job_id`, synchronized the current
+  OpenAPI TypeScript schema, and made the frontend accept an authoritatively published empty pool.
+- Recorded the native task and settings owners while keeping legacy direct accesses explicit as
+  compatibility residuals until controlled removal.
+
+Targeted gate:
+
+- Scoped Ruff and format -> clean (`29 files already formatted`); scoped Pyright ->
+  `0 errors, 0 warnings, 0 informations`; `uv lock --check`, compileall and `git diff --check` ->
+  clean.
+- Daily-theme/media-effect/application/architecture/contracts scope -> `165 passed, 1` existing
+  Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 media-effect, daily-theme and Portal scope -> `41 passed`; generic
+  external stale claims remain indeterminate while the opted-in local effect is rearmed.
+- Disposable PostgreSQL 18 + Redis/Celery native-only and compatibility-enabled profiles ->
+  `2 passed, 29 deselected`; Job receipt replay and both replenishment crash windows were covered.
+- Frontend OpenAPI generation was byte-stable before/after regeneration; `typecheck`, production
+  build and API-boundary check passed. Manifest/OpenAPI currentness, all three secret scans and
+  source compilation passed.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-daily-theme-20260830/`.
+
+Focused review:
+
+- Initial review closed provider partial-publication, empty-result polling, latest-state-only replay,
+  nullable trigger identity and post-commit replenishment-intent gaps.
+- Storage review then found one P1: the local replenishment effect inherited external-effect stale
+  claim terminalization. The opt-in replay-safe recovery and PostgreSQL/Redis-Celery crash-window
+  regressions closed it without weakening any external effect fence.
+- Generated client churn is the deterministic output of the current full OpenAPI, not a manual or
+  unrelated backend change; regeneration preserved the exact SHA-256.
+
+Pending:
+
+- Complete the approved `subscription_quota_state` ledger-only cutover, then reach 100% executable
+  ownership, produce pre-removal evidence, perform controlled legacy removal and run all P11
+  NFR/security/SBOM/License gates. P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -4093,6 +4158,6 @@ Read first:
 
 Next:
 
-- Continue the approved `update-daily-theme` and `subscription_quota_state` contracts. Do not start
-  controlled removal or P12 until P11 execution and ownership reach 100%. Keep all Live Acceptance
-  items pending.
+- Continue the approved `subscription_quota_state` ledger-only cutover. Do not start controlled
+  removal or P12 until P11 execution and ownership reach 100%. Keep all Live Acceptance items
+  pending.

@@ -52,6 +52,10 @@ class FakeLedger:
         self.calls.append(("expire", options))
         return 1
 
+    def requeue_replay_safe_stale_claims(self, **options: Any) -> int:
+        self.calls.append(("requeue-safe", options))
+        return 5
+
     def requeue_stale_published(self, **options: Any) -> int:
         self.calls.append(("requeue", options))
         return 4
@@ -210,16 +214,22 @@ def test_media_effect_dispatcher_recovers_before_publish_and_finalizes_new_dead_
         publisher,
         _config(),
         publisher_id="fixture-coordinator:media",
+        replay_safe_effect_types=("daily-theme.replenishment",),
     )
 
     result = dispatcher.tick()
 
     assert ledger.calls == [
+        (
+            "requeue-safe",
+            {"effect_types": ("daily-theme.replenishment",), "limit": 7},
+        ),
         ("expire", {"limit": 7}),
         ("requeue", {"limit": 7, "processed_timeout_seconds": 60}),
         ("reject", {"limit": 7}),
         ("reject", {"limit": 7}),
     ]
+    assert result.requeued_replay_safe_claims == 5
     assert store.calls == [
         (
             publisher,

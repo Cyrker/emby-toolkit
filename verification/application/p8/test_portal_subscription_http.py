@@ -35,6 +35,9 @@ class FakeRepository:
         self.status: str | None = None
         self.submissions: list[dict[str, Any]] = []
         self.conflict = False
+        self.recommendation_revision: int | None = None
+        self.recommendation_pool_size: int | None = None
+        self.replayed = False
 
     def can_subscribe_without_review(self, user_id: str) -> bool:
         assert user_id in {"fixture-user", "fixture-admin"}
@@ -51,7 +54,13 @@ class FakeRepository:
         if self.conflict:
             raise PortalSubscriptionConflictError("fixture conflict")
         self.submissions.append(dict(values))
-        return PortalSubmissionResult((), response=dict(values.get("response_payload") or {}))
+        return PortalSubmissionResult(
+            (),
+            response=dict(values.get("response_payload") or {}),
+            replayed=self.replayed,
+            recommendation_revision=self.recommendation_revision,
+            recommendation_pool_size=self.recommendation_pool_size,
+        )
 
 
 class FakeTmdb:

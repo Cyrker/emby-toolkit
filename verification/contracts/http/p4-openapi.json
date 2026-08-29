@@ -1062,6 +1062,36 @@
         "title": "ReauthorizeResponse",
         "type": "object"
       },
+      "RecommendationUpdateAccepted": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "task_key": {
+            "const": "update-daily-theme",
+            "title": "Task Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "task_key",
+          "job_id",
+          "message"
+        ],
+        "title": "RecommendationUpdateAccepted",
+        "type": "object"
+      },
       "ReviewItemResponse": {
         "additionalProperties": true,
         "properties": {
@@ -7175,21 +7205,11 @@
       "post": {
         "operationId": "trigger_recommendation_update_api_discover_trigger_recommendation_update_post",
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
-                    {
-                      "items": {},
-                      "type": "array"
-                    }
-                  ],
-                  "title": "Response Trigger Recommendation Update Api Discover Trigger Recommendation Update Post"
+                  "$ref": "#/components/schemas/RecommendationUpdateAccepted"
                 }
               }
             },

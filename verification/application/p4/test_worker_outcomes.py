@@ -893,6 +893,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "sync-115-directory-tree",
             "sync-all-user-data",
             "system-auto-update",
+            "update-daily-theme",
         }
         | P9_NATIVE_TASK_KEYS
     )
