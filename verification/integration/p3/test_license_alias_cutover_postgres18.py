@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from etk.platform.db import DatabaseRuntime, EngineConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-MIGRATION_HEAD = "0021_p11_license_alias_cutover"
+MIGRATION_HEAD = "0022_p11_identity_user_expiry"
 PREVIOUS_HEAD = "0020_p11_cleanup_config_cutover"
 CONSTRAINT = "verification_p11_license_alias_cutover"
 SETTING_KEYS = ("license_key", "pro_license_key")

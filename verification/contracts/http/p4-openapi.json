@@ -2590,6 +2590,9 @@
           "403": {
             "description": "Legacy-compatible P8 users response"
           },
+          "409": {
+            "description": "Legacy-compatible P8 users response"
+          },
           "415": {
             "description": "Legacy-compatible P8 users response"
           },

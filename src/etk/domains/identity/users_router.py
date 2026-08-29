@@ -422,7 +422,7 @@ def delete_invitation(request: Request, invitation_id: str) -> Response:
 @router.post(
     "/api/admin/users/{user_id}/expiration",
     response_model=dict[str, Any],
-    responses=_responses(400, 403, 415, 500),
+    responses=_responses(400, 403, 409, 415, 500),
     openapi_extra=_OBJECT_BODY,
 )
 async def set_user_expiration(request: Request, user_id: str) -> Response:

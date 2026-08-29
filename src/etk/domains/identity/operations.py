@@ -19,6 +19,7 @@ class IdentityOperationKind(StrEnum):
     REGISTER = "register"
     ASSIGN_TEMPLATE = "assign_template"
     SET_STATUS = "set_status"
+    EXPIRE_USER = "expire_user"
     DELETE_USER = "delete_user"
     UPLOAD_AVATAR = "upload_avatar"
 

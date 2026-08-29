@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Event
 from typing import Any, cast
+from uuid import UUID
 
 import pytest
 from sqlalchemy import text
@@ -25,6 +26,7 @@ from etk.domains.identity.repository import SqlAlchemyIdentityRepository
 from etk.domains.identity.users_effects import IdentityEffectsService
 from etk.domains.identity.users_repository import (
     IdentityReservationConflictError,
+    IdentityUserLifecycleBusyError,
     SqlAlchemyUsersRepository,
 )
 from etk.platform import Settings
@@ -129,6 +131,26 @@ class BlockingSnapshotProvider(FakeIdentityProvider):
         return super().get_user(user_id)
 
 
+class BlockingExpiryPolicyProvider(FakeIdentityProvider):
+    def __init__(self) -> None:
+        super().__init__()
+        self.policy_started = Event()
+        self.release_policy = Event()
+
+    def set_policy(self, user_id: str, policy: Mapping[str, object]) -> ProviderWriteResult:
+        self.policy_started.set()
+        if not self.release_policy.wait(timeout=5):
+            raise TimeoutError("fixture expiry policy was not released")
+        return super().set_policy(user_id, policy)
+
+
+class MissingExpiryPolicyProvider(FakeIdentityProvider):
+    def set_policy(self, user_id: str, policy: Mapping[str, object]) -> ProviderWriteResult:
+        del user_id, policy
+        self.calls.append("policy:404")
+        return ProviderWriteResult(ProviderWriteOutcome.UNKNOWN, 404)
+
+
 def _copy_user(value: Mapping[str, Any]) -> dict[str, Any]:
     result = dict(value)
     for key in ("Policy", "Configuration"):
@@ -178,6 +200,56 @@ def _seed_user(runtime: DatabaseRuntime, *, template_id: int = 1) -> None:
         )
 
 
+def _seed_expiry_job(runtime: DatabaseRuntime, job_id: str, *, created_at: datetime = NOW) -> None:
+    with runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO job_runs (
+                    id, task_key, trigger_type, queue_name, payload_version,
+                    request_payload_json, status, max_attempts, current_attempt,
+                    scheduled_for, created_at, updated_at
+                ) VALUES (
+                    CAST(:job_id AS uuid), 'check-expired-users', 'manual', 'fixture.serial', 1,
+                    '{}'::jsonb, 'queued', 4, 1, :created_at, :created_at, :created_at
+                )
+                """
+            ),
+            {"job_id": job_id, "created_at": created_at},
+        )
+
+
+def _seed_expiry_user(
+    runtime: DatabaseRuntime,
+    user_id: str,
+    *,
+    status: str = "active",
+    expiration_date: datetime | None,
+) -> None:
+    with runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO emby_users (id, name, is_administrator, policy_json)
+                VALUES (:user_id, :user_id, FALSE, CAST(:policy AS jsonb))
+                """
+            ),
+            {
+                "user_id": user_id,
+                "policy": canonical_json({"CanDownload": False, "IsDisabled": False}),
+            },
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO emby_users_extended (emby_user_id, status, expiration_date)
+                VALUES (:user_id, :status, :expiration_date)
+                """
+            ),
+            {"user_id": user_id, "status": status, "expiration_date": expiration_date},
+        )
+
+
 def _coordinator(
     runtime: DatabaseRuntime,
     provider: FakeIdentityProvider,
@@ -191,6 +263,362 @@ def _coordinator(
         max_attempts=max_attempts,
         readback_delay_seconds=0,
     )
+
+
+def test_expiry_uses_parent_job_cutoff_and_replays_one_durable_child_per_user(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    job_id = "00000000-0000-0000-0000-000000000891"
+    _seed_expiry_job(p8_runtime, job_id)
+    _seed_expiry_user(p8_runtime, "expired-user", expiration_date=NOW - timedelta(seconds=1))
+    _seed_expiry_user(p8_runtime, "cutoff-user", expiration_date=NOW)
+    _seed_expiry_user(p8_runtime, "future-user", expiration_date=NOW + timedelta(seconds=1))
+    _seed_expiry_user(p8_runtime, "permanent-user", expiration_date=None)
+    _seed_expiry_user(
+        p8_runtime,
+        "disabled-user",
+        status="disabled",
+        expiration_date=NOW - timedelta(days=1),
+    )
+    provider = FakeIdentityProvider()
+    provider.users["expired-user"] = {
+        "Id": "expired-user",
+        "Name": "expired-user",
+        "Policy": {"CanDownload": False, "IsDisabled": False},
+        "Configuration": {},
+    }
+    repository, coordinator = _coordinator(p8_runtime, provider)
+    parent_job_id = UUID(job_id)
+
+    assert repository.expired_user_ids(parent_job_id) == ("expired-user",)
+    reservation = repository.reserve_expired_user(
+        parent_job_id,
+        "expired-user",
+        now=NOW + timedelta(seconds=1),
+    )
+    assert reservation is not None and reservation.created is True
+    assert reservation.operation.request["expiration_cutoff"] == NOW.isoformat()
+
+    execution = coordinator.execute(
+        reservation.operation.id,
+        worker_id="fixture-worker",
+        lease_seconds=90,
+        now=NOW + timedelta(seconds=2),
+    )
+
+    assert execution is not None
+    assert execution.operation.status is IdentityOperationStatus.CONFIRMED
+    assert provider.calls == ["policy:False:True"]
+    assert provider.users["expired-user"]["Policy"] == {
+        "CanDownload": False,
+        "IsDisabled": True,
+    }
+    assert repository.expired_user_ids(parent_job_id) == ("expired-user",)
+    replay = repository.reserve_expired_user(
+        parent_job_id,
+        "expired-user",
+        now=NOW + timedelta(seconds=3),
+    )
+    assert replay is not None
+    assert replay.created is False
+    assert replay.operation.id == reservation.operation.id
+    assert replay.operation.status is IdentityOperationStatus.CONFIRMED
+    with p8_runtime.engine.connect() as connection:
+        assert (
+            connection.scalar(text("SELECT status FROM emby_users_extended WHERE emby_user_id = 'expired-user'"))
+            == "expired"
+        )
+        assert connection.scalar(text("SELECT COUNT(*) FROM identity_operations")) == 1
+        assert (
+            connection.scalar(
+                text(
+                    """
+                SELECT COUNT(*) FROM outbox_events
+                WHERE event_key = :event_key AND status = 'processed'
+                """
+                ),
+                {"event_key": f"identity.operation.requested:{reservation.operation.id}"},
+            )
+            == 1
+        )
+
+
+def test_renewal_committed_before_provider_boundary_cancels_expiry_without_remote_write(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    job_id = UUID("00000000-0000-0000-0000-000000000892")
+    _seed_expiry_job(p8_runtime, str(job_id))
+    _seed_expiry_user(p8_runtime, "renewed-user", expiration_date=NOW - timedelta(seconds=1))
+    provider = FakeIdentityProvider()
+    provider.users["renewed-user"] = {
+        "Id": "renewed-user",
+        "Name": "renewed-user",
+        "Policy": {"CanDownload": False, "IsDisabled": False},
+        "Configuration": {},
+    }
+    repository, coordinator = _coordinator(p8_runtime, provider)
+    reservation = repository.reserve_expired_user(job_id, "renewed-user", now=NOW)
+    assert reservation is not None
+
+    SqlAlchemyUsersRepository(p8_runtime.unit_of_work).set_expiration(
+        "renewed-user",
+        (NOW + timedelta(days=30)).isoformat(),
+    )
+    execution = coordinator.execute(
+        reservation.operation.id,
+        worker_id="fixture-worker",
+        lease_seconds=90,
+        now=NOW + timedelta(seconds=1),
+    )
+
+    assert execution is not None
+    assert execution.operation.status is IdentityOperationStatus.CANCELLED
+    assert execution.operation.result == {
+        "user_id": "renewed-user",
+        "skipped": "expiry_snapshot_stale",
+    }
+    assert provider.calls == []
+    with p8_runtime.engine.connect() as connection:
+        row = (
+            connection.execute(
+                text(
+                    """
+                SELECT status, expiration_date
+                FROM emby_users_extended
+                WHERE emby_user_id = 'renewed-user'
+                """
+                )
+            )
+            .mappings()
+            .one()
+        )
+    assert row["status"] == "active"
+    assert row["expiration_date"] == NOW + timedelta(days=30)
+
+
+def test_expiry_unknown_write_recovers_by_readback_without_resending_and_fences_late_renewal(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    job_id = UUID("00000000-0000-0000-0000-000000000893")
+    _seed_expiry_job(p8_runtime, str(job_id))
+    _seed_expiry_user(p8_runtime, "unknown-user", expiration_date=NOW - timedelta(seconds=1))
+    provider = FakeIdentityProvider()
+    provider.users["unknown-user"] = {
+        "Id": "unknown-user",
+        "Name": "unknown-user",
+        "Policy": {"CanDownload": False, "IsDisabled": False},
+        "Configuration": {},
+    }
+    provider.policy_outcomes = [ProviderWriteOutcome.UNKNOWN]
+    repository, coordinator = _coordinator(p8_runtime, provider)
+    reservation = repository.reserve_expired_user(job_id, "unknown-user", now=NOW)
+    assert reservation is not None
+
+    first = coordinator.execute(
+        reservation.operation.id,
+        worker_id="fixture-worker",
+        lease_seconds=90,
+        now=NOW,
+    )
+    assert first is not None
+    assert first.operation.status is IdentityOperationStatus.AWAITING_READBACK
+    with pytest.raises(IdentityUserLifecycleBusyError):
+        SqlAlchemyUsersRepository(p8_runtime.unit_of_work).set_expiration(
+            "unknown-user",
+            (NOW + timedelta(days=30)).isoformat(),
+        )
+
+    provider.users["unknown-user"]["Policy"] = {"CanDownload": False, "IsDisabled": True}
+    second = coordinator.execute(
+        reservation.operation.id,
+        worker_id="replacement-worker",
+        lease_seconds=90,
+        now=NOW + timedelta(seconds=1),
+    )
+
+    assert second is not None
+    assert second.operation.status is IdentityOperationStatus.CONFIRMED
+    assert provider.calls == ["policy:False:True"]
+    with p8_runtime.engine.connect() as connection:
+        assert (
+            connection.scalar(text("SELECT status FROM emby_users_extended WHERE emby_user_id = 'unknown-user'"))
+            == "expired"
+        )
+
+
+def test_expiry_policy_404_is_rejected_without_local_expired_commit(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    job_id = UUID("00000000-0000-0000-0000-000000000896")
+    _seed_expiry_job(p8_runtime, str(job_id))
+    _seed_expiry_user(p8_runtime, "missing-policy-user", expiration_date=NOW - timedelta(seconds=1))
+    provider = MissingExpiryPolicyProvider()
+    provider.users["missing-policy-user"] = {
+        "Id": "missing-policy-user",
+        "Name": "missing-policy-user",
+        "Policy": {"CanDownload": False, "IsDisabled": False},
+        "Configuration": {},
+    }
+    repository, coordinator = _coordinator(p8_runtime, provider)
+    reservation = repository.reserve_expired_user(job_id, "missing-policy-user", now=NOW)
+    assert reservation is not None
+
+    execution = coordinator.execute(
+        reservation.operation.id,
+        worker_id="fixture-worker",
+        lease_seconds=90,
+        now=NOW,
+    )
+
+    assert execution is not None
+    assert execution.operation.status is IdentityOperationStatus.REJECTED
+    assert execution.operation.error == {
+        "type": "expiry_policy_rejected",
+        "status_code": 404,
+    }
+    assert provider.calls == ["policy:404"]
+    with p8_runtime.engine.connect() as connection:
+        assert (
+            connection.scalar(text("SELECT status FROM emby_users_extended WHERE emby_user_id = 'missing-policy-user'"))
+            == "active"
+        )
+
+
+def test_expiry_provider_boundary_linearizes_against_concurrent_renewal(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    job_id = UUID("00000000-0000-0000-0000-000000000894")
+    _seed_expiry_job(p8_runtime, str(job_id))
+    _seed_expiry_user(p8_runtime, "racing-user", expiration_date=NOW - timedelta(seconds=1))
+    provider = BlockingExpiryPolicyProvider()
+    provider.users["racing-user"] = {
+        "Id": "racing-user",
+        "Name": "racing-user",
+        "Policy": {"CanDownload": False, "IsDisabled": False},
+        "Configuration": {},
+    }
+    repository, coordinator = _coordinator(p8_runtime, provider)
+    reservation = repository.reserve_expired_user(job_id, "racing-user", now=NOW)
+    assert reservation is not None
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(
+            coordinator.execute,
+            reservation.operation.id,
+            worker_id="fixture-worker",
+            lease_seconds=90,
+            now=NOW,
+        )
+        assert provider.policy_started.wait(timeout=5)
+        with pytest.raises(IdentityUserLifecycleBusyError):
+            SqlAlchemyUsersRepository(p8_runtime.unit_of_work).set_expiration(
+                "racing-user",
+                (NOW + timedelta(days=30)).isoformat(),
+            )
+        provider.release_policy.set()
+        execution = future.result(timeout=5)
+
+    assert execution is not None
+    assert execution.operation.status is IdentityOperationStatus.CONFIRMED
+    assert provider.calls == ["policy:False:True"]
+
+
+def test_expiry_local_commit_rolls_back_and_retries_without_repeating_provider_write(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    job_id = UUID("00000000-0000-0000-0000-000000000895")
+    _seed_expiry_job(p8_runtime, str(job_id))
+    _seed_expiry_user(p8_runtime, "rollback-user", expiration_date=NOW - timedelta(seconds=1))
+    provider = FakeIdentityProvider()
+    provider.users["rollback-user"] = {
+        "Id": "rollback-user",
+        "Name": "rollback-user",
+        "Policy": {"CanDownload": False, "IsDisabled": False},
+        "Configuration": {},
+    }
+    repository, coordinator = _coordinator(p8_runtime, provider)
+    reservation = repository.reserve_expired_user(job_id, "rollback-user", now=NOW)
+    assert reservation is not None
+    with p8_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE FUNCTION p8_reject_expiry_commit() RETURNS trigger
+                LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF NEW.status = 'expired' THEN
+                        RAISE EXCEPTION 'fixture expiry local commit rejection';
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TRIGGER p8_reject_expiry_commit
+                BEFORE UPDATE ON emby_users_extended
+                FOR EACH ROW EXECUTE FUNCTION p8_reject_expiry_commit()
+                """
+            )
+        )
+    try:
+        first = coordinator.execute(
+            reservation.operation.id,
+            worker_id="fixture-worker",
+            lease_seconds=90,
+            now=NOW,
+        )
+        assert first is not None
+        assert first.operation.status is IdentityOperationStatus.AWAITING_READBACK
+        with p8_runtime.engine.connect() as connection:
+            assert (
+                connection.scalar(text("SELECT status FROM emby_users_extended WHERE emby_user_id = 'rollback-user'"))
+                == "active"
+            )
+    finally:
+        with p8_runtime.engine.begin() as connection:
+            connection.execute(text("DROP TRIGGER IF EXISTS p8_reject_expiry_commit ON emby_users_extended"))
+            connection.execute(text("DROP FUNCTION IF EXISTS p8_reject_expiry_commit()"))
+
+    second = coordinator.execute(
+        reservation.operation.id,
+        worker_id="replacement-worker",
+        lease_seconds=90,
+        now=NOW + timedelta(seconds=1),
+    )
+
+    assert second is not None
+    assert second.operation.status is IdentityOperationStatus.CONFIRMED
+    assert provider.calls == ["policy:False:True"]
+    with p8_runtime.engine.connect() as connection:
+        row = (
+            connection.execute(
+                text(
+                    """
+                SELECT operation.status AS operation_status,
+                       extended.status AS user_status,
+                       outbox.status AS outbox_status
+                FROM identity_operations AS operation
+                JOIN emby_users_extended AS extended
+                  ON extended.emby_user_id = operation.request_json ->> 'user_id'
+                JOIN outbox_events AS outbox
+                  ON outbox.event_key = 'identity.operation.requested:' || operation.id::text
+                WHERE operation.id = :operation_id
+                """
+                ),
+                {"operation_id": reservation.operation.id},
+            )
+            .mappings()
+            .one()
+        )
+    assert row == {
+        "operation_status": "confirmed",
+        "user_status": "expired",
+        "outbox_status": "processed",
+    }
 
 
 def test_assign_template_confirms_remote_before_atomic_local_commit(

@@ -3903,6 +3903,61 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Native-User-Expiry
+
+Stage / Batch: P11 / processor-free durable user-expiry Worker slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `d44cc98c` (`docs(p11): mark contract approval blocker`).
+- Target checkpoint message: `refactor(p11): execute native user expiry`.
+
+Implemented:
+
+- Applied the approved P11 contract package and restored P11 from `BLOCKED` to `DOING`.
+- Added deterministic per-parent-Job/per-user `EXPIRE_USER` operations, parent Job creation-time
+  cutoff, authoritative Emby Policy readback, readback-only recovery after an uncertain write,
+  local `expired` CAS, identity Outbox recovery and a fail-closed Alembic kind migration.
+- Linearized renewal against the provider-write checkpoint with the existing user advisory scope:
+  renewal committed before the checkpoint cancels the child without an Emby write; after the
+  checkpoint the HTTP expiration update returns `409` until the child is reconciled.
+- Made parent replay include previously created children after local status changes, preserved
+  confirmed `expired` state during user sync, removed the `tasks.users` execution fallback and made
+  both Worker profiles processor-free for this task.
+- Updated the task ownership Manifest, ownership override, OpenAPI `409` response, HTTP fixture and
+  the Alembic head assertions to `0022_p11_identity_user_expiry`.
+
+Targeted gate:
+
+- `uv lock --check`; scoped Ruff check/format; scoped Pyright; compileall; `git diff --check` ->
+  clean. Application and architecture scope -> `153 passed`.
+- Disposable PostgreSQL 18 identity expiry/migration/users/sync scope -> `43 passed`; cross-stage
+  migration-head regressions -> `6 passed`.
+- Disposable Redis/Celery native-only, compatibility-enabled, duplicate-delivery and replacement-
+  Worker replay scope -> `3 passed`; the provider Stub received exactly one Policy write after a
+  crash between child commit and parent Job result persistence.
+- Manifest/OpenAPI currentness, single Alembic head and all three fixture/contract secret scans ->
+  clean. Detailed evidence: `/tmp/etk-refactor-artifacts/p11-user-expiry-20260829/`.
+
+Focused review:
+
+- Initial review found a parent-replay P1 (confirmed children disappeared from the candidate query)
+  and a renewal/provider-write P1 (the advisory lock did not fence a renewal after the checkpoint).
+  Both were corrected and covered by PostgreSQL 18 plus Redis/Celery replacement-Worker evidence.
+- The final review found no unresolved P0/P1/P2 in this slice. Data mutation, operation terminal
+  state and Outbox completion share one UoW; no transaction is held across the Emby Stub call.
+
+Pending:
+
+- Continue the other approved P11 contracts: `intro-fingerprint-backfill`, `scan-organize-115`,
+  `update-daily-theme`, then `subscription_quota_state`; ownership 100%, controlled legacy removal
+  and all P11 NFR/security/SBOM/License gates remain pending. P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -3922,6 +3977,6 @@ Read first:
 
 Next:
 
-- Obtain explicit approval for the five P11 contract bundles, then resume with
-  `check-expired-users`. Keep all affected tasks unavailable and do not start controlled removal or
-  P12 until execution and ownership reach 100%. Keep all Live Acceptance items pending.
+- Continue the approved `intro-fingerprint-backfill` contract, followed by `scan-organize-115`,
+  `update-daily-theme` and `subscription_quota_state`. Do not start controlled removal or P12 until
+  P11 execution and ownership reach 100%. Keep all Live Acceptance items pending.

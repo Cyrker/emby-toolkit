@@ -244,12 +244,11 @@
       "help": "检查会员或体验卡到期用户，并执行到期后的权限处理。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P11 executes processor-free per-user durable EXPIRE_USER operations with parent-Job cutoff, authoritative Emby readback, renewal fencing, local expired-state CAS, Outbox replay and no legacy task callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.identity.user_expiry.IdentityUserExpiryService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -262,7 +261,7 @@
       ],
       "target_stage": "P8",
       "task_key": "check-expired-users",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
+      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-redis-celery-and-import-sentinel",
       "validation_owner": "operations/p8-effects",
       "visible_in": [
         "all"

@@ -484,6 +484,7 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
 @pytest.mark.parametrize(
     ("task_key", "router_field"),
     [
+        ("check-expired-users", "_p8_effect_tasks"),
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
         ("scan-cleanup-issues", "_p8_effect_tasks"),
         ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
@@ -525,6 +526,7 @@ def test_native_processor_free_tasks_do_not_import_task_manager(
 @pytest.mark.parametrize(
     ("task_key", "router_field"),
     [
+        ("check-expired-users", "_p8_effect_tasks"),
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
         ("scan-cleanup-issues", "_p8_effect_tasks"),
         ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
@@ -543,6 +545,22 @@ def test_compatibility_worker_does_not_resolve_processor_for_native_tasks(
         "etk.processes.worker._processor",
         lambda _identity: (_ for _ in ()).throw(AssertionError(f"{task_key} resolved a processor")),
     )
+    if task_key == "check-expired-users":
+        original_import = builtins.__import__
+        forbidden = ("database", "extensions", "handler", "task_manager", "tasks.users")
+
+        def guarded_import(
+            name: str,
+            globals: Mapping[str, object] | None = None,
+            locals: Mapping[str, object] | None = None,
+            fromlist: Sequence[str] | None = (),
+            level: int = 0,
+        ) -> Any:
+            if level == 0 and any(name == prefix or name.startswith(prefix + ".") for prefix in forbidden):
+                raise AssertionError(f"check-expired-users imported legacy runtime {name}")
+            return original_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", guarded_import)
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
 
@@ -858,6 +876,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
         P4_NATIVE_TASK_KEYS
         | {
             "backfill-organize-record-tmdb-ids",
+            "check-expired-users",
             "manual-correct-organize-records",
             "recalculate_library_washing_priorities",
             "repair-p115-fingerprints",

@@ -215,6 +215,146 @@ class PostgresIdentityOperationRepository:
             uow.commit()
             return reservation
 
+    def expired_user_ids(self, parent_job_id: UUID) -> tuple[str, ...]:
+        with self._unit_of_work() as uow:
+            cutoff = self._expiry_cutoff(uow, parent_job_id)
+            rows = uow.session.execute(
+                text(
+                    """
+                    WITH candidates AS (
+                        SELECT extended.emby_user_id AS user_id,
+                               extended.expiration_date AS expiration_date
+                        FROM emby_users_extended AS extended
+                        JOIN emby_users AS users ON users.id = extended.emby_user_id
+                        WHERE extended.status = 'active'
+                          AND extended.expiration_date IS NOT NULL
+                          AND extended.expiration_date < :cutoff
+                        UNION ALL
+                        SELECT operation.request_json ->> 'user_id' AS user_id,
+                               CAST(operation.request_json ->> 'expiration_date' AS timestamptz)
+                                   AS expiration_date
+                        FROM identity_operations AS operation
+                        WHERE operation.kind = 'expire_user'
+                          AND operation.request_json ->> 'parent_job_id' = :parent_job_id
+                    )
+                    SELECT user_id
+                    FROM candidates
+                    WHERE user_id IS NOT NULL AND user_id <> ''
+                    GROUP BY user_id
+                    ORDER BY MIN(expiration_date), user_id
+                    """
+                ),
+                {"cutoff": cutoff, "parent_job_id": str(parent_job_id)},
+            )
+            return tuple(str(row[0]) for row in rows)
+
+    def reserve_expired_user(
+        self,
+        parent_job_id: UUID,
+        user_id: str,
+        *,
+        outbox_delay_seconds: float = 0,
+        now: datetime | None = None,
+    ) -> IdentityOperationReservation | None:
+        normalized_user_id = str(user_id or "").strip()
+        if not normalized_user_id:
+            raise ValueError("identity expiry user id must not be empty")
+        timestamp = _utc(now)
+        with self._unit_of_work() as uow:
+            cutoff = self._expiry_cutoff(uow, parent_job_id)
+            scope_key = f"user:{normalized_user_id}"
+            uow.session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:scope_key, 0))"),
+                {"scope_key": scope_key},
+            )
+            existing = (
+                uow.session.execute(
+                    text(
+                        """
+                        SELECT *
+                        FROM identity_operations
+                        WHERE kind = 'expire_user'
+                          AND request_json ->> 'parent_job_id' = :parent_job_id
+                          AND request_json ->> 'user_id' = :user_id
+                        ORDER BY event_sequence
+                        LIMIT 1
+                        FOR UPDATE
+                        """
+                    ),
+                    {"parent_job_id": str(parent_job_id), "user_id": normalized_user_id},
+                )
+                .mappings()
+                .first()
+            )
+            if existing is not None:
+                uow.commit()
+                return IdentityOperationReservation(_operation(existing), created=False)
+            row = (
+                uow.session.execute(
+                    text(
+                        """
+                        SELECT extended.status, extended.expiration_date
+                        FROM emby_users_extended AS extended
+                        JOIN emby_users AS users ON users.id = extended.emby_user_id
+                        WHERE extended.emby_user_id = :user_id
+                        FOR UPDATE OF extended, users
+                        """
+                    ),
+                    {"user_id": normalized_user_id},
+                )
+                .mappings()
+                .first()
+            )
+            if (
+                row is None
+                or str(row["status"]) != "active"
+                or row["expiration_date"] is None
+                or _utc(row["expiration_date"]) >= cutoff
+            ):
+                uow.commit()
+                return None
+            expiration_date = _utc(row["expiration_date"])
+            request_id = f"expiry:{parent_job_id}:{normalized_user_id}"
+            intent = IdentityOperationIntent.create(
+                kind=IdentityOperationKind.EXPIRE_USER,
+                scope_key=scope_key,
+                request={
+                    "user_id": normalized_user_id,
+                    "request_id": request_id,
+                    "parent_job_id": str(parent_job_id),
+                    "expiration_date": expiration_date.isoformat(),
+                    "expiration_cutoff": cutoff.isoformat(),
+                    "snapshot_pending": True,
+                },
+                available_at=timestamp,
+                idempotency_key=request_id,
+            )
+            try:
+                reservation = self._reserve_in_uow(
+                    uow,
+                    intent,
+                    outbox_available_at=timestamp + timedelta(seconds=max(0, float(outbox_delay_seconds))),
+                )
+            except IdentityOperationScopeBusyError:
+                uow.commit()
+                raise
+            uow.commit()
+            return reservation
+
+    def _expiry_cutoff(self, uow: SqlAlchemyUnitOfWork, parent_job_id: UUID) -> datetime:
+        job = uow.session.scalar(
+            text(
+                """
+                SELECT created_at FROM job_runs
+                WHERE id = :job_id AND task_key = 'check-expired-users'
+                """
+            ),
+            {"job_id": parent_job_id},
+        )
+        if job is None:
+            raise IdentityOperationStateError("identity expiry parent Job is unavailable")
+        return _utc(job)
+
     def reserve_in_uow(
         self,
         uow: SqlAlchemyUnitOfWork,
@@ -309,6 +449,70 @@ class PostgresIdentityOperationRepository:
             )
             uow.commit()
             return _operation(updated)
+
+    def finalize_claimed_request_snapshot(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        request: Mapping[str, Any],
+        *,
+        now: datetime | None = None,
+    ) -> IdentityOperation:
+        timestamp = _utc(now)
+        normalized_request = normalize_durable_json_object(
+            dict(request),
+            field="identity operation request",
+        )
+        request_hash = hashlib.sha256(canonical_json(normalized_request).encode()).digest()
+        with self._unit_of_work() as uow:
+            operation = self._require_live_claim(
+                uow,
+                operation_id,
+                claim_token,
+                now=timestamp,
+            )
+            if (
+                operation.kind is not IdentityOperationKind.EXPIRE_USER
+                or operation.current_step is not IdentityOperationStep.RESERVED
+                or operation.request.get("snapshot_pending") is not True
+            ):
+                raise IdentityOperationStateError("identity operation claimed snapshot is not reservable")
+            if not _same_snapshot_caller_intent(operation.kind, operation.request, normalized_request):
+                raise IdentityOperationStateError("identity operation claimed snapshot changed caller intent")
+            row = self._claimed_update(
+                uow,
+                operation_id,
+                claim_token,
+                "request_hash = :request_hash, request_json = CAST(:request_json AS jsonb)",
+                {
+                    "request_hash": request_hash,
+                    "request_json": canonical_json(normalized_request),
+                },
+                renew_lease_at=timestamp,
+                renew_lease_until=_renewed_claim_expiry(operation, timestamp),
+            )
+            uow.session.execute(
+                text(
+                    """
+                    UPDATE outbox_events
+                    SET payload_json = jsonb_set(
+                            payload_json,
+                            '{request_hash}',
+                            to_jsonb(CAST(:request_hash_hex AS text)),
+                            TRUE
+                        ),
+                        updated_at = :now
+                    WHERE event_key = :event_key AND status <> 'dead'
+                    """
+                ),
+                {
+                    "event_key": f"{IDENTITY_OPERATION_TOPIC}:{operation_id}",
+                    "request_hash_hex": request_hash.hex(),
+                    "now": timestamp,
+                },
+            )
+            uow.commit()
+            return _operation(row)
 
     def reject_ready_before_write(
         self,
@@ -627,6 +831,88 @@ class PostgresIdentityOperationRepository:
             )
             if normalized_step is not IdentityOperationStep.PREFLIGHT_USERNAME:
                 self._arm_outbox(uow, operation_id, available_at=timestamp)
+            uow.commit()
+            return _operation(row)
+
+    def mark_expiry_policy_started_if_current(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        state: Mapping[str, Any],
+        now: datetime | None = None,
+    ) -> IdentityOperation:
+        timestamp = _utc(now)
+        normalized_state = normalize_durable_json_object(dict(state), field="identity operation state")
+        with self._unit_of_work() as uow:
+            operation = self._require_live_claim(
+                uow,
+                operation_id,
+                claim_token,
+                now=timestamp,
+            )
+            if operation.kind is not IdentityOperationKind.EXPIRE_USER:
+                raise IdentityOperationStateError("identity operation is not a user expiry")
+            user_id = str(operation.request.get("user_id") or "").strip()
+            expiration_date = _request_timestamp(operation.request.get("expiration_date"), "expiration_date")
+            cutoff = _request_timestamp(operation.request.get("expiration_cutoff"), "expiration_cutoff")
+            uow.session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:scope_key, 0))"),
+                {"scope_key": operation.scope_key},
+            )
+            current = (
+                uow.session.execute(
+                    text(
+                        """
+                        SELECT status, expiration_date
+                        FROM emby_users_extended
+                        WHERE emby_user_id = :user_id
+                        FOR UPDATE
+                        """
+                    ),
+                    {"user_id": user_id},
+                )
+                .mappings()
+                .first()
+            )
+            snapshot_current = bool(
+                current is not None
+                and str(current["status"]) == "active"
+                and current["expiration_date"] is not None
+                and _utc(current["expiration_date"]) == expiration_date
+                and expiration_date < cutoff
+            )
+            if not snapshot_current:
+                row = self._claimed_update(
+                    uow,
+                    operation_id,
+                    claim_token,
+                    "status = 'cancelled', state_json = CAST(:state_json AS jsonb), "
+                    "result_json = CAST(:result_json AS jsonb), "
+                    "error_json = CAST(:error_json AS jsonb), finished_at = :now, "
+                    "claimed_by = NULL, claim_token = NULL, claimed_at = NULL, "
+                    "lease_expires_at = NULL",
+                    {
+                        "state_json": canonical_json(normalized_state),
+                        "result_json": canonical_json({"user_id": user_id, "skipped": "expiry_snapshot_stale"}),
+                        "error_json": canonical_json({"type": "expiry_snapshot_stale"}),
+                        "now": timestamp,
+                    },
+                )
+                self._complete_outbox(uow, operation_id)
+                uow.commit()
+                return _operation(row)
+            row = self._claimed_update(
+                uow,
+                operation_id,
+                claim_token,
+                "status = 'requesting', current_step = 'policy', step_started_at = :now, "
+                "state_json = CAST(:state_json AS jsonb), error_json = NULL",
+                {"now": timestamp, "state_json": canonical_json(normalized_state)},
+                renew_lease_at=timestamp,
+                renew_lease_until=_renewed_claim_expiry(operation, timestamp),
+            )
+            self._arm_outbox(uow, operation_id, available_at=timestamp)
             uow.commit()
             return _operation(row)
 
@@ -1067,6 +1353,59 @@ class PostgresIdentityOperationRepository:
             user_id = str(operation.request.get("user_id") or "").strip()
             if not user_id:
                 raise IdentityOperationStateError("identity user operation is missing its user id")
+            if operation.kind is IdentityOperationKind.EXPIRE_USER:
+                expiration_date = _request_timestamp(operation.request.get("expiration_date"), "expiration_date")
+                expiration_cutoff = _request_timestamp(
+                    operation.request.get("expiration_cutoff"),
+                    "expiration_cutoff",
+                )
+                uow.session.execute(
+                    text("SELECT pg_advisory_xact_lock(hashtextextended(:scope_key, 0))"),
+                    {"scope_key": operation.scope_key},
+                )
+                current = (
+                    uow.session.execute(
+                        text(
+                            """
+                            SELECT status, expiration_date
+                            FROM emby_users_extended
+                            WHERE emby_user_id = :user_id
+                            FOR UPDATE
+                            """
+                        ),
+                        {"user_id": user_id},
+                    )
+                    .mappings()
+                    .first()
+                )
+                snapshot_current = bool(
+                    current is not None
+                    and str(current["status"]) == "active"
+                    and current["expiration_date"] is not None
+                    and _utc(current["expiration_date"]) == expiration_date
+                    and expiration_date < expiration_cutoff
+                )
+                if not snapshot_current:
+                    row = self._claimed_update(
+                        uow,
+                        operation_id,
+                        claim_token,
+                        "status = 'cancelled', state_json = CAST(:state_json AS jsonb), "
+                        "result_json = CAST(:result_json AS jsonb), "
+                        "error_json = CAST(:error_json AS jsonb), finished_at = :now, "
+                        "claimed_by = NULL, claim_token = NULL, claimed_at = NULL, lease_expires_at = NULL",
+                        {
+                            "state_json": canonical_json(normalized_state),
+                            "result_json": canonical_json(
+                                {"user_id": user_id, "skipped": "expiry_snapshot_changed_at_local_commit"}
+                            ),
+                            "error_json": canonical_json({"type": "expiry_snapshot_changed_at_local_commit"}),
+                            "now": timestamp,
+                        },
+                    )
+                    self._complete_outbox(uow, operation_id)
+                    uow.commit()
+                    return _operation(row)
             uow.session.execute(
                 text(
                     """
@@ -1151,6 +1490,48 @@ class PostgresIdentityOperationRepository:
                     ),
                     {"user_id": user_id, "status": status},
                 )
+            elif operation.kind is IdentityOperationKind.EXPIRE_USER:
+                desired_policy = operation.request.get("desired_policy")
+                if not isinstance(desired_policy, Mapping):
+                    raise IdentityOperationStateError("expiry policy is unavailable at local commit")
+                local_policy = normalized_result.get("policy")
+                if not isinstance(local_policy, Mapping):
+                    local_policy = desired_policy
+                if local_policy.get("IsDisabled") is not True:
+                    raise IdentityOperationStateError("expiry policy readback is not disabled")
+                updated_user = uow.session.execute(
+                    text(
+                        """
+                        UPDATE emby_users
+                        SET is_administrator = :is_administrator,
+                            policy_json = CAST(:policy_json AS jsonb),
+                            last_updated_at = :now
+                        WHERE id = :user_id
+                        """
+                    ),
+                    {
+                        "user_id": user_id,
+                        "is_administrator": bool(local_policy.get("IsAdministrator", False)),
+                        "policy_json": canonical_json(dict(local_policy)),
+                        "now": timestamp,
+                    },
+                )
+                if int(getattr(updated_user, "rowcount", 0) or 0) != 1:
+                    raise IdentityOperationStateError("expiry user is missing from local identity store")
+                expired = uow.session.execute(
+                    text(
+                        """
+                        UPDATE emby_users_extended
+                        SET status = 'expired'
+                        WHERE emby_user_id = :user_id AND status = 'active'
+                        """
+                    ),
+                    {
+                        "user_id": user_id,
+                    },
+                )
+                if int(getattr(expired, "rowcount", 0) or 0) != 1:
+                    raise IdentityOperationStateError("expiry snapshot changed before local commit")
             elif operation.kind is IdentityOperationKind.DELETE_USER:
                 uow.session.execute(
                     text(
@@ -1752,6 +2133,13 @@ def _same_snapshot_caller_intent(
     fields = {
         IdentityOperationKind.ASSIGN_TEMPLATE: ("user_id", "request_id", "template_id"),
         IdentityOperationKind.SET_STATUS: ("user_id", "request_id", "disable"),
+        IdentityOperationKind.EXPIRE_USER: (
+            "user_id",
+            "request_id",
+            "parent_job_id",
+            "expiration_date",
+            "expiration_cutoff",
+        ),
     }.get(kind)
     return fields is not None and all(reserved.get(field) == finalized.get(field) for field in fields)
 
@@ -1793,6 +2181,14 @@ def _has_provider_receipt(state: Mapping[str, Any]) -> bool:
         isinstance(receipts, Mapping)
         and any(isinstance(receipt, Mapping) and receipt.get("confirmed") is True for receipt in receipts.values())
     )
+
+
+def _request_timestamp(value: object, field: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise IdentityOperationStateError(f"identity operation {field} is invalid") from exc
+    return _utc(parsed)
 
 
 def _utc(value: datetime | None) -> datetime:

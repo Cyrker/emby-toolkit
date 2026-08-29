@@ -72,6 +72,7 @@ from etk.domains.identity.user_activity_effects import (
     SqlAlchemyTemplatePropagationRepository,
     UserPolicyEffectService,
 )
+from etk.domains.identity.user_expiry import IdentityUserExpiryService
 from etk.domains.identity.user_sync import SqlAlchemyUserSyncRepository, UserSyncService
 from etk.domains.identity.user_sync_adapter import HttpxEmbyUserSyncAdapter
 from etk.domains.ingestion import MonitorItemProjection, PostgresIngestionMonitorLedger
@@ -277,6 +278,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     | P9_NATIVE_TASK_KEYS
     | {
         "backfill-organize-record-tmdb-ids",
+        "check-expired-users",
         "manual-correct-organize-records",
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
@@ -849,6 +851,13 @@ class WorkerRuntime:
                         SqlAlchemyUserSyncRepository(database.unit_of_work),
                     ),
                     cleanup_scan,
+                    IdentityUserExpiryService(
+                        identity_operations,
+                        identity_mutations,
+                        lease_seconds=lambda: identity_operation_claim_lease_seconds(
+                            settings_provider().emby_api_timeout
+                        ),
+                    ),
                 )
                 p9_sharing_tasks = P9SharingTaskRouter(
                     shared_center=HttpxSharedCenterAdapter(settings_provider),
@@ -1244,9 +1253,10 @@ class WorkerRuntime:
             )
             identity_operations = PostgresIdentityOperationRepository(database.unit_of_work)
             identity_effects = HttpxEmbyIdentityEffectsAdapter(settings_provider)
+            identity_mutations = IdentityUserMutationCoordinator(identity_operations, identity_effects)
             identity_executor = IdentityOperationExecutor(
                 RegistrationSagaCoordinator(identity_operations, identity_effects),
-                IdentityUserMutationCoordinator(identity_operations, identity_effects),
+                identity_mutations,
                 identity_operations,
             )
             database_maintenance_repository = PostgresDatabaseMaintenanceRepository(database.unit_of_work)
@@ -1352,6 +1362,11 @@ class WorkerRuntime:
                     SqlAlchemyUserSyncRepository(database.unit_of_work),
                 ),
                 cleanup_scan,
+                IdentityUserExpiryService(
+                    identity_operations,
+                    identity_mutations,
+                    lease_seconds=lambda: identity_operation_claim_lease_seconds(settings_provider().emby_api_timeout),
+                ),
             )
             p9_sharing_tasks = P9SharingTaskRouter(
                 shared_center=HttpxSharedCenterAdapter(settings_provider),
@@ -1965,6 +1980,7 @@ class WorkerRuntime:
                         definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
                         or definition.key
                         in {
+                            "check-expired-users",
                             "recalculate_library_washing_priorities",
                             "restore_mediainfo",
                             "scan-cleanup-issues",
@@ -2115,7 +2131,7 @@ class WorkerRuntime:
                 )
                 if self._p8_effect_tasks is None:
                     raise RuntimeError("P8 effect task router is unavailable")
-                if self._native_only:
+                if self._native_only or definition.key == "check-expired-users":
                     result = self._p8_effect_tasks.execute(message, processor, progress)
                 else:
                     from task_manager import persistent_execution

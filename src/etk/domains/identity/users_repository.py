@@ -19,6 +19,10 @@ class IdentityReservationConflictError(RuntimeError):
     pass
 
 
+class IdentityUserLifecycleBusyError(RuntimeError):
+    pass
+
+
 class SqlAlchemyUsersRepository:
     """P8 identity owner for templates, invitations, profiles, and user lifecycle state."""
 
@@ -434,7 +438,38 @@ class SqlAlchemyUsersRepository:
             return dict(row) if row is not None else None
 
     def set_expiration(self, user_id: str, expiration_date: str | None) -> None:
+        normalized_user_id = str(user_id or "").strip()
+        if not normalized_user_id:
+            raise ValueError("identity user id must not be empty")
         with self._unit_of_work() as uow:
+            scope_key = f"user:{normalized_user_id}"
+            uow.session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:scope_key, 0))"),
+                {"scope_key": scope_key},
+            )
+            expiry_provider_started = uow.session.scalar(
+                text(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM identity_operations
+                        WHERE scope_key = :scope_key
+                          AND kind = 'expire_user'
+                          AND status IN (
+                              'claimed','requesting','awaiting_readback','retryable',
+                              'remote_confirmed','indeterminate'
+                          )
+                          AND (
+                              current_step <> 'reserved'
+                              OR step_started_at IS NOT NULL
+                          )
+                    )
+                    """
+                ),
+                {"scope_key": scope_key},
+            )
+            if expiry_provider_started:
+                raise IdentityUserLifecycleBusyError("identity user expiry has reached the provider-write boundary")
             uow.session.execute(
                 text(
                     """
@@ -447,7 +482,7 @@ class SqlAlchemyUsersRepository:
                         expiration_date = EXCLUDED.expiration_date
                     """
                 ),
-                {"user_id": user_id, "expiration_date": expiration_date or None},
+                {"user_id": normalized_user_id, "expiration_date": expiration_date or None},
             )
             uow.commit()
 
@@ -534,6 +569,7 @@ def _json_text(value: Mapping[str, Any]) -> str:
 
 __all__ = [
     "IdentityReservationConflictError",
+    "IdentityUserLifecycleBusyError",
     "SqlAlchemyUsersRepository",
     "UserTemplateNameConflictError",
 ]

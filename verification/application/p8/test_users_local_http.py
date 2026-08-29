@@ -12,7 +12,10 @@ from fastapi.testclient import TestClient
 
 from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.identity.users import UsersMediaProjection, UsersRepository, UsersService
-from etk.domains.identity.users_repository import UserTemplateNameConflictError
+from etk.domains.identity.users_repository import (
+    IdentityUserLifecycleBusyError,
+    UserTemplateNameConflictError,
+)
 from etk.domains.identity.users_router import router
 from etk.platform import AppContainer, Settings
 from etk.platform.web import CookieSessionMiddleware
@@ -64,6 +67,7 @@ class FakeUsersRepository:
             },
         }
         self.expirations: list[tuple[str, str | None]] = []
+        self.expiry_busy = False
         self.chat_ids: list[tuple[str, str | None]] = []
 
     def list_templates(self) -> list[dict[str, Any]]:
@@ -124,6 +128,8 @@ class FakeUsersRepository:
         )
 
     def set_expiration(self, user_id: str, expiration_date: str | None) -> None:
+        if self.expiry_busy:
+            raise IdentityUserLifecycleBusyError("fixture expiry provider write started")
         self.expirations.append((user_id, expiration_date))
 
     @staticmethod
@@ -249,6 +255,23 @@ def test_invitation_create_and_expiration_paths_keep_legacy_envelopes() -> None:
     assert missing.status_code == 404
     assert expiration.status_code == 200
     assert repository.expirations == [("user-a", "2026-09-01T00:00:00+00:00")]
+
+
+def test_expiration_update_reports_conflict_after_expiry_provider_write_started() -> None:
+    app, permissions, repository = _build_app()
+    permissions.admins.add("admin-user")
+    repository.expiry_busy = True
+
+    with TestClient(app) as client:
+        _set_user(client, "admin-user")
+        response = client.post(
+            "/api/admin/users/user-a/expiration",
+            json={"expiration_date": "2026-09-01T00:00:00+00:00"},
+        )
+
+    assert response.status_code == 409
+    assert response.json() == {"status": "error", "message": "用户到期状态正在确认，请稍后重试"}
+    assert repository.expirations == []
 
 
 def test_json_transport_and_template_conflict_never_return_runtime_422() -> None:

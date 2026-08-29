@@ -11,6 +11,7 @@ from sqlalchemy.exc import DBAPIError
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PREVIOUS_REVISION = "0015_p7_assistant_claims"
+EXPIRY_PREVIOUS_REVISION = "0021_p11_license_alias_cutover"
 
 
 def test_identity_revision_downgrades_to_predecessor_and_upgrades_to_head(
@@ -145,6 +146,100 @@ def test_identity_revision_installs_username_fence_and_state_machine_constraints
         "ck_invitations_reservation_fields",
         "ck_identity_avatar_expiry_window",
     }.issubset(constraints)
+
+
+def test_expiry_kind_revision_round_trips_and_refuses_lossy_downgrade(
+    migrated_p8_postgres_url: str,
+) -> None:
+    config = Config(str(REPO_ROOT / "alembic.ini"))
+    previous = os.environ.get("ETK_DATABASE_URL")
+    os.environ["ETK_DATABASE_URL"] = migrated_p8_postgres_url
+    engine = create_engine(migrated_p8_postgres_url)
+    operation_id = "00000000-0000-0000-0000-000000000822"
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO identity_operations (
+                        id, operation_key, request_hash, kind, scope_key,
+                        request_json, status, current_step
+                    ) VALUES (
+                        CAST(:id AS uuid), :operation_key, :request_hash,
+                        'expire_user', 'user:migration-expiry',
+                        '{"user_id":"migration-expiry"}'::jsonb,
+                        'ready', 'reserved'
+                    )
+                    """
+                ),
+                {
+                    "id": operation_id,
+                    "operation_key": "e" * 64,
+                    "request_hash": b"e" * 32,
+                },
+            )
+
+        try:
+            command.downgrade(config, EXPIRY_PREVIOUS_REVISION)
+        except DBAPIError as exc:
+            assert "cannot downgrade while expire_user identity operations exist" in str(exc)
+        else:
+            raise AssertionError("lossy expiry-operation downgrade unexpectedly succeeded")
+
+        with engine.begin() as connection:
+            connection.execute(
+                text("DELETE FROM identity_operations WHERE id = CAST(:id AS uuid)"),
+                {"id": operation_id},
+            )
+        command.downgrade(config, EXPIRY_PREVIOUS_REVISION)
+        with engine.connect() as connection:
+            assert (
+                connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version"))
+                == EXPIRY_PREVIOUS_REVISION
+            )
+            try:
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO identity_operations (
+                            id, operation_key, request_hash, kind, scope_key,
+                            request_json, status, current_step
+                        ) VALUES (
+                            CAST(:id AS uuid), :operation_key, :request_hash,
+                            'expire_user', 'user:migration-expiry',
+                            '{"user_id":"migration-expiry"}'::jsonb,
+                            'ready', 'reserved'
+                        )
+                        """
+                    ),
+                    {
+                        "id": operation_id,
+                        "operation_key": "e" * 64,
+                        "request_hash": b"e" * 32,
+                    },
+                )
+            except DBAPIError as exc:
+                assert "ck_identity_operation_kind" in str(exc)
+            else:
+                raise AssertionError("pre-expiry constraint unexpectedly accepted expire_user")
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            assert (
+                connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version"))
+                == ScriptDirectory.from_config(config).get_current_head()
+            )
+    finally:
+        command.upgrade(config, "head")
+        with engine.begin() as connection:
+            connection.execute(
+                text("DELETE FROM identity_operations WHERE id = CAST(:id AS uuid)"),
+                {"id": operation_id},
+            )
+        if previous is None:
+            os.environ.pop("ETK_DATABASE_URL", None)
+        else:
+            os.environ["ETK_DATABASE_URL"] = previous
+        engine.dispose()
 
 
 def test_identity_revision_refuses_downgrade_with_portal_request_receipts(

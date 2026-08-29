@@ -142,7 +142,7 @@ def test_snapshot_claim_schema_is_current_and_rejects_orphan_job_identity(
                 )
             ).scalars()
         )
-    assert head == "0021_p11_license_alias_cutover"
+    assert head == "0022_p11_identity_user_expiry"
     assert {
         "ck_sas_snapshot_claim",
         "fk_sas_snapshot_job",

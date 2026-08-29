@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
@@ -97,6 +97,24 @@ class IdentityOperationRepositoryPort(Protocol):
         operation_id: UUID,
         request: Mapping[str, Any],
         *,
+        now: datetime | None = None,
+    ) -> IdentityOperation: ...
+
+    def finalize_claimed_request_snapshot(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        request: Mapping[str, Any],
+        *,
+        now: datetime | None = None,
+    ) -> IdentityOperation: ...
+
+    def mark_expiry_policy_started_if_current(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        state: Mapping[str, Any],
         now: datetime | None = None,
     ) -> IdentityOperation: ...
 
@@ -794,6 +812,7 @@ class IdentityUserMutationCoordinator:
         {
             IdentityOperationKind.ASSIGN_TEMPLATE,
             IdentityOperationKind.SET_STATUS,
+            IdentityOperationKind.EXPIRE_USER,
             IdentityOperationKind.DELETE_USER,
             IdentityOperationKind.UPLOAD_AVATAR,
         }
@@ -991,19 +1010,26 @@ class IdentityUserMutationCoordinator:
         if operation.claim_token is None:
             raise AssertionError("claimed identity operation is missing its claim token")
         if operation.request.get("snapshot_pending") is True:
-            completed = self._repository.mark_rejected(
-                operation.id,
-                operation.claim_token,
-                state=operation.state,
-                error={"type": "provider_snapshot_unavailable_before_write"},
-                release_invitation=False,
-                now=now,
-            )
-            return IdentityOperationExecution(completed, claimed=True)
+            if operation.kind is IdentityOperationKind.EXPIRE_USER:
+                operation = self._prepare_expiry_snapshot(operation, now=now)
+                if operation.status is not IdentityOperationStatus.CLAIMED:
+                    return IdentityOperationExecution(operation, claimed=True)
+            else:
+                completed = self._repository.mark_rejected(
+                    operation.id,
+                    operation.claim_token,
+                    state=operation.state,
+                    error={"type": "provider_snapshot_unavailable_before_write"},
+                    release_invitation=False,
+                    now=now,
+                )
+                return IdentityOperationExecution(completed, claimed=True)
         if operation.kind is IdentityOperationKind.ASSIGN_TEMPLATE:
             completed = self._assign_template(operation, now=now)
         elif operation.kind is IdentityOperationKind.SET_STATUS:
             completed = self._set_status(operation, now=now)
+        elif operation.kind is IdentityOperationKind.EXPIRE_USER:
+            completed = self._expire_user(operation, now=now)
         elif operation.kind is IdentityOperationKind.DELETE_USER:
             completed = self._delete_user(operation, now=now)
         elif operation.kind is IdentityOperationKind.UPLOAD_AVATAR:
@@ -1011,13 +1037,81 @@ class IdentityUserMutationCoordinator:
         else:
             completed = self._repository.mark_rejected(
                 operation.id,
-                operation.claim_token,
+                _claim_token(operation),
                 state=operation.state,
                 error={"type": "unsupported_identity_operation"},
                 release_invitation=False,
                 now=now,
             )
         return IdentityOperationExecution(completed, claimed=True)
+
+    def _prepare_expiry_snapshot(
+        self,
+        operation: IdentityOperation,
+        *,
+        now: datetime | None,
+    ) -> IdentityOperation:
+        claim_token = _claim_token(operation)
+        user_id = str(operation.request.get("user_id") or "").strip()
+        observed = self._read_user(user_id)
+        if observed is _UNAVAILABLE:
+            if operation.attempts >= self._max_attempts:
+                return self._repository.mark_rejected(
+                    operation.id,
+                    claim_token,
+                    state=operation.state,
+                    error={"type": "expiry_policy_snapshot_unavailable"},
+                    release_invitation=False,
+                    now=now,
+                )
+            return self._repository.mark_retryable(
+                operation.id,
+                claim_token,
+                state=operation.state,
+                error={"type": "expiry_policy_snapshot_unavailable"},
+                retry_after_seconds=self._readback_delay_seconds,
+                now=now,
+            )
+        if observed is None:
+            return self._repository.mark_rejected(
+                operation.id,
+                claim_token,
+                state=operation.state,
+                error={"type": "expiry_user_not_found"},
+                release_invitation=False,
+                now=now,
+            )
+        if not isinstance(observed, Mapping):
+            return self._repository.mark_rejected(
+                operation.id,
+                claim_token,
+                state=operation.state,
+                error={"type": "expiry_user_snapshot_invalid"},
+                release_invitation=False,
+                now=now,
+            )
+        previous_policy = observed.get("Policy")
+        if not isinstance(previous_policy, Mapping):
+            return self._repository.mark_rejected(
+                operation.id,
+                claim_token,
+                state=operation.state,
+                error={"type": "expiry_policy_snapshot_invalid"},
+                release_invitation=False,
+                now=now,
+            )
+        desired_policy = dict(previous_policy)
+        desired_policy["IsDisabled"] = True
+        request = dict(operation.request)
+        request.pop("snapshot_pending", None)
+        request["desired_policy"] = desired_policy
+        request["previous_policy"] = dict(previous_policy)
+        return self._repository.finalize_claimed_request_snapshot(
+            operation.id,
+            claim_token,
+            request,
+            now=now,
+        )
 
     def _assign_template(
         self,
@@ -1093,6 +1187,61 @@ class IdentityUserMutationCoordinator:
             result={
                 "user_id": str(operation.request["user_id"]),
                 "disabled": bool(operation.request.get("disable")),
+            },
+            now=now,
+        )
+
+    def _expire_user(
+        self,
+        operation: IdentityOperation,
+        *,
+        now: datetime | None,
+    ) -> IdentityOperation:
+        policy = operation.request.get("desired_policy")
+        if not isinstance(policy, Mapping):
+            return self._reject_before_write(operation, "invalid_expiry_policy", now=now)
+
+        def start_if_current(
+            current: IdentityOperation,
+            state: Mapping[str, Any],
+        ) -> IdentityOperation:
+            return self._repository.mark_expiry_policy_started_if_current(
+                current.id,
+                _claim_token(current),
+                state=state,
+                now=now,
+            )
+
+        def write_policy(user_id: str, desired: Mapping[str, object]) -> ProviderWriteResult:
+            try:
+                result = self._emby.set_policy(user_id, desired)
+            except Exception:
+                return ProviderWriteResult(ProviderWriteOutcome.UNKNOWN)
+            if result.status_code == 404:
+                return ProviderWriteResult(ProviderWriteOutcome.REJECTED, 404)
+            return result
+
+        operation = self._apply_mapping(
+            operation,
+            step=IdentityOperationStep.POLICY,
+            receipt="expiry_policy",
+            desired=policy,
+            observed_key="Policy",
+            writer=write_policy,
+            next_step=IdentityOperationStep.LOCAL_COMMIT,
+            now=now,
+            starter=start_if_current,
+            readback_matches=lambda observed, _desired: _expiry_readback_matches(observed),
+        )
+        if operation.status is not IdentityOperationStatus.CLAIMED:
+            return operation
+        return self._complete_user_projection(
+            operation,
+            state=operation.state,
+            result={
+                "user_id": str(operation.request["user_id"]),
+                "expired": True,
+                "parent_job_id": str(operation.request["parent_job_id"]),
             },
             now=now,
         )
@@ -1319,6 +1468,8 @@ class IdentityUserMutationCoordinator:
         writer: Any,
         next_step: IdentityOperationStep,
         now: datetime | None,
+        starter: Callable[[IdentityOperation, Mapping[str, Any]], IdentityOperation] | None = None,
+        readback_matches: Callable[[object, Mapping[str, object]], bool] | None = None,
     ) -> IdentityOperation:
         claim_token = _claim_token(operation)
         state = dict(operation.state)
@@ -1334,16 +1485,27 @@ class IdentityUserMutationCoordinator:
         already_started = operation.current_step is step and operation.step_started_at is not None
         write_result: ProviderWriteResult | None = None
         if not already_started:
-            operation = self._repository.mark_step_started(
-                operation.id,
-                claim_token,
-                step=step,
-                state=state,
-                now=now,
+            operation = (
+                starter(operation, state)
+                if starter is not None
+                else self._repository.mark_step_started(
+                    operation.id,
+                    claim_token,
+                    step=step,
+                    state=state,
+                    now=now,
+                )
             )
+            if operation.status is not IdentityOperationStatus.REQUESTING:
+                return operation
             write_result = writer(user_id, desired)
         observed = self._read_user(user_id)
-        if isinstance(observed, Mapping) and _mapping_contains(observed.get(observed_key), desired):
+        matches = (
+            readback_matches(observed, desired)
+            if readback_matches is not None
+            else isinstance(observed, Mapping) and _mapping_contains(observed.get(observed_key), desired)
+        )
+        if matches:
             _confirm_step(state, receipt, status_code=write_result.status_code if write_result else None)
             return self._repository.continue_claim(
                 operation.id,
@@ -1658,6 +1820,7 @@ def _same_caller_intent(
     fields = {
         IdentityOperationKind.ASSIGN_TEMPLATE: ("user_id", "template_id"),
         IdentityOperationKind.SET_STATUS: ("user_id", "disable"),
+        IdentityOperationKind.EXPIRE_USER: ("user_id", "parent_job_id", "expiration_date"),
         IdentityOperationKind.DELETE_USER: ("user_id",),
     }.get(kind, ("user_id",))
     return all(existing.get(field) == requested.get(field) for field in fields)
@@ -1689,6 +1852,13 @@ def _mapping_contains(observed: object, expected: Mapping[str, object]) -> bool:
         elif current != value:
             return False
     return True
+
+
+def _expiry_readback_matches(observed: object) -> bool:
+    if not isinstance(observed, Mapping):
+        return False
+    policy = observed.get("Policy")
+    return isinstance(policy, Mapping) and policy.get("IsDisabled") is True
 
 
 def _expiration_info(value: object) -> str:

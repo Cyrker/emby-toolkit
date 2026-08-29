@@ -6719,9 +6719,9 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+        "notes": "P11 executes processor-free per-user durable EXPIRE_USER operations with parent-Job cutoff, authoritative Emby readback, renewal fencing, local expired-state CAS, Outbox replay and no legacy task callable.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
+        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-redis-celery-and-import-sentinel",
         "validation_owner": "operations/p8-effects"
       },
       "task-96a9dbcf81e6": {

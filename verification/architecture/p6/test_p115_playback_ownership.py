@@ -143,7 +143,7 @@ def test_playback_migration_is_single_head_and_owns_exactly_four_native_tables()
     repository = _source("src/etk/domains/p115/playback_repository.py")
     assert all(table in repository for table in PLAYBACK_TABLES)
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0021_p11_license_alias_cutover"]
+    assert scripts.get_heads() == ["0022_p11_identity_user_expiry"]
 
 
 def test_only_actively_native_playback_config_keys_are_claimed() -> None:

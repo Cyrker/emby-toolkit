@@ -105,7 +105,7 @@ class SqlAlchemyUserSyncRepository:
                             emby_users_extended.registration_date
                         ),
                         status = CASE
-                            WHEN :disabled THEN 'disabled'
+                            WHEN :disabled AND emby_users_extended.status <> 'expired' THEN 'disabled'
                             ELSE emby_users_extended.status
                         END
                     """

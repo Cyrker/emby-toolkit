@@ -105,6 +105,7 @@ P8_TASKS = {
     "check-expired-users",
 }
 P8_NATIVE_EXECUTION_OWNERS = {
+    "check-expired-users": "etk.domains.identity.user_expiry.IdentityUserExpiryService",
     "scan-cleanup-issues": "etk.domains.subscription.cleanup_scan.CleanupScanService",
     "sync-all-user-data": "etk.domains.identity.user_sync.UserSyncService",
     "system-auto-update": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",

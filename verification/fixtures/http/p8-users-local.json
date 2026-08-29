@@ -23,7 +23,7 @@
     {"method":"GET","path":"/api/admin/invitations","request_body":false,"response_statuses":[200,403,500]},
     {"method":"POST","path":"/api/admin/invitations","request_body":true,"response_statuses":[201,400,403,415,500]},
     {"method":"DELETE","path":"/api/admin/invitations/{invitation_id}","request_body":false,"response_statuses":[200,403,404,409,500]},
-    {"method":"POST","path":"/api/admin/users/{user_id}/expiration","request_body":true,"response_statuses":[200,400,403,415,500]},
+    {"method":"POST","path":"/api/admin/users/{user_id}/expiration","request_body":true,"response_statuses":[200,400,403,409,415,500]},
     {"method":"GET","path":"/api/register/invite/validate/{token}","request_body":false,"response_statuses":[200,404,410,500]},
     {"method":"GET","path":"/api/portal/account-info","request_body":false,"response_statuses":[200,401,500]},
     {"method":"GET","path":"/api/portal/subscription-history","request_body":false,"response_statuses":[200,401,500]},

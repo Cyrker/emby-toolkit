@@ -301,6 +301,7 @@ def test_worker_identity_execution_maintains_active_counter_and_idle(monkeypatch
     runtime._active_subscription_executions = 0
     runtime._active_collection_operation_executions = 0
     runtime._active_identity_executions = 0
+    runtime._active_media_effect_executions = 0
     monkeypatch.setattr(runtime, "start", lambda: None)
     monkeypatch.setattr("etk.processes.worker.worker_shutdown_requested", lambda: False)
 

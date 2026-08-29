@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from importlib import import_module
 from typing import Any, Protocol
+from uuid import UUID
 
 from etk.domains.identity.user_sync import UserSyncService
 from etk.domains.operations.review_reprocess import (
@@ -37,7 +38,6 @@ _DISPLAY_NAMES = {
 }
 
 _LEGACY_HANDLERS = {
-    "check-expired-users": ("tasks.users", "task_check_expired_users"),
     "custom-collections": ("tasks.custom_collections", "task_process_all_custom_collections"),
     "execute-auto-tagging-rules": ("tasks.media", "task_execute_auto_tagging_rules"),
     "fill-studio-images": ("tasks.media", "task_fill_studio_images"),
@@ -81,6 +81,16 @@ class P8CleanupScan(Protocol):
     ) -> CleanupScanResult: ...
 
 
+class P8UserExpiry(Protocol):
+    def execute(
+        self,
+        progress: P8TaskProgress,
+        *,
+        parent_job_id: UUID,
+        worker_id: str,
+    ) -> TaskOutcome: ...
+
+
 class LegacyP8EffectsCompatibilityGateway:
     """Worker-only allowlist around established P8 task implementations."""
 
@@ -112,10 +122,12 @@ class P8EffectTaskRouter:
         compatibility: P8EffectsCompatibilityGateway | None,
         user_sync: UserSyncService,
         cleanup_scan: P8CleanupScan | None = None,
+        user_expiry: P8UserExpiry | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._user_sync = user_sync
         self._cleanup_scan = cleanup_scan
+        self._user_expiry = user_expiry
 
     def execute(
         self,
@@ -127,12 +139,26 @@ class P8EffectTaskRouter:
             raise TypeError("P8 effect task router requires a TaskMessage")
         if message.task_key not in P8_NATIVE_TASK_KEYS:
             raise LookupError(f"unknown P8 task key: {message.task_key}")
-        if message.processor is not ProcessorIdentity.MEDIA:
-            raise ValueError(f"task {message.task_key!r} requires the media processor")
         if message.payload.version != 1:
             raise ValueError(f"task {message.task_key!r} payload version is not supported")
         payload = TaskPayload.create(message.payload.data, version=message.payload.version).data
         parameters = _normalize_parameters(message.task_key, payload)
+        if message.processor is not ProcessorIdentity.MEDIA:
+            raise ValueError(f"task {message.task_key!r} requires the media processor")
+
+        if message.task_key == "check-expired-users":
+            if self._user_expiry is None:
+                raise RuntimeError("P8 user-expiry execution is unavailable")
+            outcome = self._user_expiry.execute(
+                progress,
+                parent_job_id=_metadata_uuid(message.metadata.get("job_id"), "job_id"),
+                worker_id=_metadata_text(message.metadata.get("worker_id"), "worker_id"),
+            )
+            return TaskOutcome(
+                outcome.status,
+                outcome.message,
+                {**outcome.details, **_details(message.task_key, compatibility=False)},
+            )
 
         if message.task_key == "system-auto-update":
             return TaskOutcome.skipped(
@@ -224,6 +250,20 @@ def _optional_string_list(value: Any, *, field: str) -> list[str] | None:
     return normalized
 
 
+def _metadata_uuid(value: object, field: str) -> UUID:
+    try:
+        return UUID(str(value))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"P8 task metadata {field} must be a UUID") from exc
+
+
+def _metadata_text(value: object, field: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        raise ValueError(f"P8 task metadata {field} must not be empty")
+    return normalized
+
+
 def _normalize_review_parameters(task_key: str, payload: Mapping[str, Any]) -> dict[str, Any]:
     values = dict(payload)
     if task_key == REVIEW_REPROCESS_ONE_TASK_KEY:
@@ -307,4 +347,5 @@ __all__ = [
     "P8EffectTaskRouter",
     "P8EffectsCompatibilityGateway",
     "P8TaskProgress",
+    "P8UserExpiry",
 ]

@@ -7,7 +7,11 @@ from typing import Any, Protocol
 
 from etk.platform import Settings
 
-from .users_repository import IdentityReservationConflictError, UserTemplateNameConflictError
+from .users_repository import (
+    IdentityReservationConflictError,
+    IdentityUserLifecycleBusyError,
+    UserTemplateNameConflictError,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -221,6 +225,8 @@ class UsersService:
         try:
             self._repository.set_expiration(user_id, _optional_text(payload.get("expiration_date")))
             return UsersHttpResult({"status": "ok", "message": "用户有效期已更新"})
+        except IdentityUserLifecycleBusyError:
+            return UsersHttpResult({"status": "error", "message": "用户到期状态正在确认，请稍后重试"}, 409)
         except Exception:
             return UsersHttpResult({"status": "error", "message": "更新有效期失败"}, 500)
 

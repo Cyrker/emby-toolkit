@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
+from uuid import UUID
 
 import pytest
 
@@ -16,6 +17,7 @@ from etk.platform.tasks.catalog import P8_NATIVE_TASK_KEYS
 from etk.processes.p8_effect_tasks import (
     P8EffectsCompatibilityGateway,
     P8EffectTaskRouter,
+    P8TaskProgress,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -42,6 +44,23 @@ class FakeUserSync:
         return TaskOutcome.succeeded("sync complete", {"synchronized": 2})
 
 
+class FakeUserExpiry:
+    def __init__(self, outcome: TaskOutcome | None = None) -> None:
+        self.outcome = outcome or TaskOutcome.succeeded("expiry complete", {"successful": 2})
+        self.calls: list[tuple[UUID, str]] = []
+
+    def execute(
+        self,
+        progress: P8TaskProgress,
+        *,
+        parent_job_id: UUID,
+        worker_id: str,
+    ) -> TaskOutcome:
+        progress.update(100, "done")
+        self.calls.append((parent_job_id, worker_id))
+        return self.outcome
+
+
 class FakeProgress:
     def __init__(self) -> None:
         self.last_progress: int | None = None
@@ -58,11 +77,17 @@ class FakeProgress:
         return self.last_progress == 100
 
 
-def _message(task_key: str, payload: Mapping[str, object] | None = None) -> TaskMessage:
+def _message(
+    task_key: str,
+    payload: Mapping[str, object] | None = None,
+    *,
+    metadata: Mapping[str, object] | None = None,
+) -> TaskMessage:
     return TaskMessage.create(
         task_key=task_key,
         processor=ProcessorIdentity.MEDIA,
         payload=payload,
+        metadata=metadata,
     )
 
 
@@ -122,6 +147,57 @@ def test_user_sync_uses_native_service_without_media_processor() -> None:
     assert outcome.details["compatibility_fallback"] is False
     assert sync.calls == 1
     assert gateway.calls == []
+
+
+def test_user_expiry_is_processor_free_and_requires_worker_owned_metadata() -> None:
+    gateway = FakeCompatibility()
+    sync = FakeUserSync()
+    expiry = FakeUserExpiry()
+    router = P8EffectTaskRouter(
+        cast(P8EffectsCompatibilityGateway, gateway),
+        cast(UserSyncService, sync),
+        user_expiry=expiry,
+    )
+    job_id = UUID("00000000-0000-0000-0000-000000000292")
+    message = _message(
+        "check-expired-users",
+        metadata={"job_id": str(job_id), "worker_id": "fixture-worker"},
+    )
+
+    outcome = router.execute(message, None, FakeProgress())
+
+    assert outcome.status is TaskOutcomeStatus.SUCCEEDED
+    assert outcome.details["successful"] == 2
+    assert outcome.details["compatibility_fallback"] is False
+    assert expiry.calls == [(job_id, "fixture-worker")]
+    assert gateway.calls == []
+    assert sync.calls == 0
+
+    with pytest.raises(ValueError, match="job_id must be a UUID"):
+        router.execute(
+            _message(
+                "check-expired-users",
+                metadata={"job_id": "not-a-uuid", "worker_id": "fixture-worker"},
+            ),
+            None,
+            FakeProgress(),
+        )
+    with pytest.raises(ValueError, match="worker_id must not be empty"):
+        router.execute(
+            _message("check-expired-users", metadata={"job_id": str(job_id)}),
+            None,
+            FakeProgress(),
+        )
+    with pytest.raises(ValueError, match="does not accept parameters"):
+        router.execute(
+            _message(
+                "check-expired-users",
+                {"user_id": "client-selected"},
+                metadata={"job_id": str(job_id), "worker_id": "fixture-worker"},
+            ),
+            None,
+            FakeProgress(),
+        )
 
 
 def test_processor_free_router_does_not_require_a_compatibility_gateway() -> None:

@@ -97,6 +97,70 @@ class CleanupScanEmbyStubState:
     requests: list[dict[str, Any]]
 
 
+@dataclass(slots=True)
+class IdentityExpiryEmbyStubState:
+    user: dict[str, Any]
+    policy_writes: int = 0
+    user_readbacks: int = 0
+
+
+def _start_identity_expiry_emby_stub(
+    user_id: str,
+) -> tuple[ThreadingHTTPServer, threading.Thread, IdentityExpiryEmbyStubState]:
+    state = IdentityExpiryEmbyStubState(
+        user={
+            "Id": user_id,
+            "Name": "Expiry Worker Fixture",
+            "Policy": {"CanDownload": False, "IsDisabled": False},
+            "Configuration": {},
+        }
+    )
+    lock = threading.Lock()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            path = urlsplit(self.path).path
+            if self.headers.get("X-Emby-Token") != "fixture-expiry-token" or path != f"/Users/{user_id}":
+                self.send_response(403)
+                self.end_headers()
+                return
+            with lock:
+                state.user_readbacks += 1
+                payload = json.dumps(state.user, separators=(",", ":")).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def do_POST(self) -> None:  # noqa: N802
+            path = urlsplit(self.path).path
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length) if length else b"{}"
+            if self.headers.get("X-Emby-Token") != "fixture-expiry-token" or path != f"/Users/{user_id}/Policy":
+                self.send_response(403)
+                self.end_headers()
+                return
+            policy = json.loads(raw)
+            if not isinstance(policy, dict):
+                self.send_response(400)
+                self.end_headers()
+                return
+            with lock:
+                state.policy_writes += 1
+                state.user["Policy"] = dict(policy)
+            self.send_response(204)
+            self.end_headers()
+
+        def log_message(self, format: str, *args: object) -> None:
+            del format, args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, name="etk-identity-expiry-stub", daemon=True)
+    thread.start()
+    return server, thread, state
+
+
 def _start_p115_directory_stub(
     *,
     directory_id: str = "dir-worker-native",
@@ -1075,6 +1139,59 @@ def _snapshot_app_settings(
             {"keys": list(keys)},
         ).mappings()
         return {str(row["setting_key"]): (row["value_json"], row["last_updated_at"]) for row in rows}
+
+
+def _restore_identity_expiry_fixture(
+    runtime: DatabaseRuntime,
+    *,
+    user_id: str,
+    prior_dynamic_setting: Mapping[str, tuple[Any, datetime]],
+) -> None:
+    with runtime.engine.begin() as connection:
+        operation_ids = list(
+            connection.scalars(
+                text(
+                    """
+                    SELECT id
+                    FROM identity_operations
+                    WHERE kind = 'expire_user'
+                      AND request_json ->> 'user_id' = :user_id
+                    """
+                ),
+                {"user_id": user_id},
+            )
+        )
+        if operation_ids:
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM outbox_events
+                    WHERE aggregate_type = 'identity-operation'
+                      AND aggregate_id = ANY(CAST(:operation_ids AS text[]))
+                    """
+                ),
+                {"operation_ids": [str(operation_id) for operation_id in operation_ids]},
+            )
+            connection.execute(
+                text("DELETE FROM identity_operations WHERE id = ANY(CAST(:operation_ids AS uuid[]))"),
+                {"operation_ids": operation_ids},
+            )
+        connection.execute(text("DELETE FROM emby_users WHERE id = :user_id"), {"user_id": user_id})
+        connection.execute(text("DELETE FROM app_settings WHERE setting_key = 'dynamic_app_config'"))
+        for setting_key, (value_json, last_updated_at) in prior_dynamic_setting.items():
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES (:setting_key, CAST(:value_json AS jsonb), :last_updated_at)
+                    """
+                ),
+                {
+                    "setting_key": setting_key,
+                    "value_json": json.dumps(value_json, separators=(",", ":")),
+                    "last_updated_at": last_updated_at,
+                },
+            )
 
 
 def _restore_cleanup_scan_fixture(
@@ -2509,6 +2626,475 @@ if checkpoint_file and checkpoint_job_id and release_file:
                 )
             assert attempts == [(1, "lost", "worker_lost"), (2, "succeeded", None)]
             assert retry_dispatch_status == "processed"
+
+
+@pytest.mark.parametrize(
+    "compatibility_enabled",
+    [False, True],
+    ids=["native-only", "compatibility-enabled"],
+)
+def test_identity_expiry_executes_once_through_real_worker_profiles(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+) -> None:
+    user_id = f"expiry-worker-{uuid4().hex}"
+    with ExitStack() as cleanup:
+        server, server_thread, stub = _start_identity_expiry_emby_stub(user_id)
+        cleanup.callback(_shutdown_http_stub, server, server_thread)
+        emby_url = f"http://127.0.0.1:{server.server_address[1]}"
+        prior_dynamic = _snapshot_app_settings(p4_runtime, ("dynamic_app_config",))
+        cleanup.callback(
+            _restore_identity_expiry_fixture,
+            p4_runtime,
+            user_id=user_id,
+            prior_dynamic_setting=prior_dynamic,
+        )
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES ('dynamic_app_config', CAST(:value AS jsonb), NOW())
+                    ON CONFLICT (setting_key) DO UPDATE SET
+                        value_json = EXCLUDED.value_json,
+                        last_updated_at = NOW()
+                    """
+                ),
+                {
+                    "value": json.dumps(
+                        {
+                            "emby_server_url": emby_url,
+                            "emby_api_key": "fixture-expiry-token",
+                            "emby_api_timeout": 5,
+                        },
+                        separators=(",", ":"),
+                    )
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO emby_users (id, name, is_administrator, policy_json)
+                    VALUES (:user_id, 'Expiry Worker Fixture', FALSE, CAST(:policy AS jsonb))
+                    """
+                ),
+                {
+                    "user_id": user_id,
+                    "policy": json.dumps(
+                        {"CanDownload": False, "IsDisabled": False},
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO emby_users_extended (emby_user_id, status, expiration_date)
+                    VALUES (:user_id, 'active', :expiration_date)
+                    """
+                ),
+                {"user_id": user_id, "expiration_date": datetime.now(UTC) - timedelta(days=1)},
+            )
+
+        created = p4_store.create_job(
+            task_key="check-expired-users",
+            queue_name=p4_runtime_environment.queue_name,
+            max_attempts=1,
+            payload={
+                "payload_version": 1,
+                "parameters": {},
+                "processor_type": "media",
+                "display_name": "P11 native identity expiry fixture",
+                "silent": True,
+            },
+        ).projection
+        site_directory = tmp_path / f"identity-expiry-site-{compatibility_enabled}"
+        site_directory.mkdir()
+        (site_directory / "sitecustomize.py").write_text(
+            """
+import builtins
+import os
+
+guard_file = os.environ.get("ETK_TEST_IDENTITY_EXPIRY_LEGACY_IMPORT_GUARD_FILE")
+if guard_file:
+    original_import = builtins.__import__
+    forbidden = ("database", "extensions", "handler", "task_manager", "tasks")
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if level == 0 and os.path.exists(guard_file) and any(
+            name == prefix or name.startswith(prefix + ".") for prefix in forbidden
+        ):
+            raise AssertionError(f"identity expiry Worker imported legacy runtime {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    builtins.__import__ = guarded_import
+""".lstrip(),
+            encoding="utf-8",
+        )
+        import_guard = tmp_path / f"identity-expiry-legacy-import-{compatibility_enabled}.guard"
+        worker_environment_values = dict(p4_runtime_environment.environment)
+        existing_python_path = worker_environment_values.get("PYTHONPATH", "")
+        worker_environment_values["PYTHONPATH"] = os.pathsep.join(
+            filter(
+                None,
+                (
+                    str(site_directory),
+                    str(REPO_ROOT / "src"),
+                    str(REPO_ROOT),
+                    existing_python_path,
+                ),
+            )
+        )
+        worker_environment_values["ETK_TEST_IDENTITY_EXPIRY_LEGACY_IMPORT_GUARD_FILE"] = str(import_guard)
+        if compatibility_enabled:
+            worker_environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+        else:
+            worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+        worker_environment = RuntimeEnvironment(
+            environment=worker_environment_values,
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        worker = _start_worker(worker_environment, tmp_path / f"identity-expiry-worker-{compatibility_enabled}")
+        cleanup.callback(_stop_managed_process, worker, expected_code=0)
+        _wait_for_worker(worker, worker_environment.config)
+        if not compatibility_enabled:
+            import_guard.write_text("active", encoding="utf-8")
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+            count=2,
+        )
+
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert completed.current_attempt.attempt_no == 1
+        assert completed.job.result is not None
+        assert completed.job.result["status"] == "succeeded"
+        details = completed.job.result["details"]
+        assert details["candidate_count"] == 1
+        assert details["successful"] == 1
+        assert details["failed"] == 0
+        assert details["pending"] == 0
+        assert details["task_key"] == "check-expired-users"
+        assert details["native_handler"] == "P8EffectTaskRouter"
+        assert details["compatibility_fallback"] is False
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in worker.read_log(),
+            description="duplicate identity-expiry delivery to be skipped",
+            timeout=15,
+        )
+        with p4_runtime.engine.connect() as connection:
+            row = (
+                connection.execute(
+                    text(
+                        """
+                    SELECT operation.status AS operation_status,
+                           extended.status AS user_status,
+                           outbox.status AS outbox_status
+                    FROM identity_operations AS operation
+                    JOIN emby_users_extended AS extended
+                      ON extended.emby_user_id = operation.request_json ->> 'user_id'
+                    JOIN outbox_events AS outbox
+                      ON outbox.event_key = 'identity.operation.requested:' || operation.id::text
+                    WHERE operation.kind = 'expire_user'
+                      AND operation.request_json ->> 'user_id' = :user_id
+                    """
+                    ),
+                    {"user_id": user_id},
+                )
+                .mappings()
+                .one()
+            )
+            attempts = connection.execute(
+                text("SELECT attempt_no, status FROM job_attempts WHERE job_id = :job_id ORDER BY attempt_no"),
+                {"job_id": created.job.id},
+            ).all()
+        assert dict(row) == {
+            "operation_status": "confirmed",
+            "user_status": "expired",
+            "outbox_status": "processed",
+        }
+        assert attempts == [(1, "succeeded")]
+        assert stub.policy_writes == 1
+        assert stub.user["Policy"] == {"CanDownload": False, "IsDisabled": True}
+
+
+def test_identity_expiry_replacement_worker_replays_parent_without_repeating_provider_write(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+) -> None:
+    user_id = f"expiry-replay-{uuid4().hex}"
+    checkpoint = tmp_path / "identity-expiry-before-job-result.checkpoint"
+    release = tmp_path / "identity-expiry-before-job-result.release"
+    import_guard = tmp_path / "identity-expiry-replay-legacy-import.guard"
+    with ExitStack() as cleanup:
+        server, server_thread, stub = _start_identity_expiry_emby_stub(user_id)
+        cleanup.callback(_shutdown_http_stub, server, server_thread)
+        emby_url = f"http://127.0.0.1:{server.server_address[1]}"
+        prior_dynamic = _snapshot_app_settings(p4_runtime, ("dynamic_app_config",))
+        cleanup.callback(
+            _restore_identity_expiry_fixture,
+            p4_runtime,
+            user_id=user_id,
+            prior_dynamic_setting=prior_dynamic,
+        )
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES ('dynamic_app_config', CAST(:value AS jsonb), NOW())
+                    ON CONFLICT (setting_key) DO UPDATE SET
+                        value_json = EXCLUDED.value_json,
+                        last_updated_at = NOW()
+                    """
+                ),
+                {
+                    "value": json.dumps(
+                        {
+                            "emby_server_url": emby_url,
+                            "emby_api_key": "fixture-expiry-token",
+                            "emby_api_timeout": 5,
+                        },
+                        separators=(",", ":"),
+                    )
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO emby_users (id, name, is_administrator, policy_json)
+                    VALUES (:user_id, 'Expiry Replay Fixture', FALSE, CAST(:policy AS jsonb))
+                    """
+                ),
+                {
+                    "user_id": user_id,
+                    "policy": json.dumps(
+                        {"CanDownload": False, "IsDisabled": False},
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO emby_users_extended (emby_user_id, status, expiration_date)
+                    VALUES (:user_id, 'active', :expiration_date)
+                    """
+                ),
+                {"user_id": user_id, "expiration_date": datetime.now(UTC) - timedelta(days=1)},
+            )
+
+        created = p4_store.create_job(
+            task_key="check-expired-users",
+            queue_name=p4_runtime_environment.queue_name,
+            max_attempts=2,
+            payload={
+                "payload_version": 1,
+                "parameters": {},
+                "processor_type": "media",
+                "display_name": "P11 identity expiry replay fixture",
+                "silent": True,
+            },
+        ).projection
+        site_directory = tmp_path / "identity-expiry-replay-site"
+        site_directory.mkdir()
+        (site_directory / "sitecustomize.py").write_text(
+            """
+import builtins
+import os
+import time
+
+guard_file = os.environ.get("ETK_TEST_IDENTITY_EXPIRY_LEGACY_IMPORT_GUARD_FILE")
+if guard_file:
+    original_import = builtins.__import__
+    forbidden = ("database", "extensions", "handler", "task_manager", "tasks")
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if level == 0 and os.path.exists(guard_file) and any(
+            name == prefix or name.startswith(prefix + ".") for prefix in forbidden
+        ):
+            raise AssertionError(f"identity expiry Worker imported legacy runtime {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    builtins.__import__ = guarded_import
+
+checkpoint_file = os.environ.get("ETK_TEST_IDENTITY_EXPIRY_RESULT_CHECKPOINT")
+checkpoint_job_id = os.environ.get("ETK_TEST_IDENTITY_EXPIRY_RESULT_JOB_ID")
+release_file = os.environ.get("ETK_TEST_IDENTITY_EXPIRY_RESULT_RELEASE")
+if checkpoint_file and checkpoint_job_id and release_file:
+    from etk.domains.identity.user_expiry import IdentityUserExpiryService
+
+    original_execute = IdentityUserExpiryService.execute
+
+    def execute_after_test_checkpoint(self, progress, *, parent_job_id, worker_id):
+        result = original_execute(
+            self,
+            progress,
+            parent_job_id=parent_job_id,
+            worker_id=worker_id,
+        )
+        if str(parent_job_id) == checkpoint_job_id and not os.path.exists(checkpoint_file):
+            try:
+                descriptor = os.open(checkpoint_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError:
+                return result
+            os.write(descriptor, str(os.getpid()).encode())
+            os.close(descriptor)
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline and not os.path.exists(release_file):
+                time.sleep(0.05)
+            if not os.path.exists(release_file):
+                raise TimeoutError("identity expiry result checkpoint was not released")
+        return result
+
+    IdentityUserExpiryService.execute = execute_after_test_checkpoint
+""".lstrip(),
+            encoding="utf-8",
+        )
+        worker_environment_values = dict(p4_runtime_environment.environment)
+        existing_python_path = worker_environment_values.get("PYTHONPATH", "")
+        worker_environment_values.update(
+            {
+                "PYTHONPATH": os.pathsep.join(
+                    filter(
+                        None,
+                        (
+                            str(site_directory),
+                            str(REPO_ROOT / "src"),
+                            str(REPO_ROOT),
+                            existing_python_path,
+                        ),
+                    )
+                ),
+                "ETK_TEST_IDENTITY_EXPIRY_LEGACY_IMPORT_GUARD_FILE": str(import_guard),
+                "ETK_TEST_IDENTITY_EXPIRY_RESULT_CHECKPOINT": str(checkpoint),
+                "ETK_TEST_IDENTITY_EXPIRY_RESULT_JOB_ID": str(created.job.id),
+                "ETK_TEST_IDENTITY_EXPIRY_RESULT_RELEASE": str(release),
+            }
+        )
+        worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+        worker_environment = RuntimeEnvironment(
+            environment=worker_environment_values,
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        coordinator_environment = RuntimeEnvironment(
+            environment={
+                **p4_runtime_environment.environment,
+                "ETK_ENABLE_LEGACY_COMPATIBILITY": "true",
+            },
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        worker = _start_worker(worker_environment, tmp_path / "identity-expiry-replay-worker")
+        cleanup.callback(_stop_managed_process, worker, expected_code=0, allow_sigkill=True)
+        _wait_for_worker(worker, worker_environment.config)
+        import_guard.write_text("active", encoding="utf-8")
+        coordinator = _start_coordinator(
+            coordinator_environment,
+            tmp_path / "identity-expiry-replay-coordinator",
+        )
+        cleanup.callback(
+            _stop_managed_process,
+            coordinator,
+            expected_code=128 + signal.SIGTERM,
+        )
+        cleanup.callback(release.touch)
+        _wait_until(
+            lambda: _health_state(coordinator.log_path.with_suffix(".health.json")) == "leader",
+            description="Coordinator to acquire identity expiry recovery leadership",
+            timeout=30,
+        )
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+            count=2,
+        )
+        _wait_until(
+            checkpoint.exists,
+            description="identity expiry child commit before parent Job result persistence",
+            timeout=30,
+        )
+        running = p4_store.get_job(created.job.id)
+        assert running is not None
+        assert running.job.status is JobStatus.RUNNING
+        with p4_runtime.engine.connect() as connection:
+            assert (
+                connection.scalar(
+                    text("SELECT status FROM emby_users_extended WHERE emby_user_id = :user_id"),
+                    {"user_id": user_id},
+                )
+                == "expired"
+            )
+            assert (
+                connection.scalar(
+                    text(
+                        """
+                    SELECT COUNT(*)
+                    FROM identity_operations
+                    WHERE kind = 'expire_user'
+                      AND request_json ->> 'user_id' = :user_id
+                      AND status = 'confirmed'
+                    """
+                    ),
+                    {"user_id": user_id},
+                )
+                == 1
+            )
+        assert stub.policy_writes == 1
+
+        worker.kill()
+        replacement = _start_worker(
+            worker_environment,
+            tmp_path / "identity-expiry-replacement-worker",
+        )
+        cleanup.callback(_stop_managed_process, replacement, expected_code=0)
+        _wait_for_worker(replacement, worker_environment.config)
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
+
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert completed.current_attempt.attempt_no == 2
+        assert completed.job.result is not None
+        assert completed.job.result["status"] == "succeeded"
+        assert completed.job.result["details"]["successful"] == 1
+        assert stub.policy_writes == 1
+        with p4_runtime.engine.connect() as connection:
+            attempts = connection.execute(
+                text(
+                    """
+                    SELECT attempt_no, status, error_type
+                    FROM job_attempts
+                    WHERE job_id = :job_id
+                    ORDER BY attempt_no
+                    """
+                ),
+                {"job_id": created.job.id},
+            ).all()
+            operation_count = connection.scalar(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM identity_operations
+                    WHERE kind = 'expire_user'
+                      AND request_json ->> 'user_id' = :user_id
+                    """
+                ),
+                {"user_id": user_id},
+            )
+        assert attempts == [(1, "lost", "worker_lost"), (2, "succeeded", None)]
+        assert operation_count == 1
 
 
 @pytest.mark.parametrize(

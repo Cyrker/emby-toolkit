@@ -205,6 +205,32 @@ def test_tombstone_fences_provider_snapshot_that_is_stale_before_sync_starts(
         assert connection.scalar(text("SELECT COUNT(*) FROM identity_user_tombstones")) == 1
 
 
+def test_user_sync_preserves_confirmed_expired_state_when_emby_reports_disabled(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    _seed_user(p8_runtime)
+    with p8_runtime.engine.begin() as connection:
+        connection.execute(
+            text("UPDATE emby_users_extended SET status = 'expired' WHERE emby_user_id = 'fixture-user'")
+        )
+    remote = _stale_remote_user()
+    remote["Policy"] = {
+        "CanDownload": False,
+        "IsAdministrator": False,
+        "IsDisabled": True,
+    }
+    provider = BlockingUserSyncProvider([remote], {"fixture-user": remote})
+
+    outcome = _service(p8_runtime, provider).execute(RecordingProgress())
+
+    assert outcome.status is TaskOutcomeStatus.SUCCEEDED
+    with p8_runtime.engine.connect() as connection:
+        assert (
+            connection.scalar(text("SELECT status FROM emby_users_extended WHERE emby_user_id = 'fixture-user'"))
+            == "expired"
+        )
+
+
 def test_registration_commit_during_absence_read_cannot_be_deleted_by_old_snapshot(
     p8_runtime: DatabaseRuntime,
 ) -> None:
