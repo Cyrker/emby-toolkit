@@ -466,6 +466,24 @@ def test_cleanup_canonical_object_wins_as_a_whole_over_legacy_fallback_rows() ->
     assert body["delete_delay"] == 0
 
 
+@pytest.mark.parametrize("value", [[], "", 0, False])
+def test_cleanup_settings_reject_falsy_non_object_canonical_config(value: object) -> None:
+    app, *_ = _build_app(
+        setting_values={
+            CLEANUP_CONFIG_SETTING: value,
+            LEGACY_CLEANUP_LIBRARY_IDS_SETTING: ["legacy-library"],
+        }
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/api/cleanup/settings")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "error": "获取清理设置失败: media_cleanup_config must be an object",
+    }
+
+
 def test_settings_central_read_save_and_manual_validation_contracts() -> None:
     app, _permissions, _repository, settings, *_ = _build_app(
         setting_values={

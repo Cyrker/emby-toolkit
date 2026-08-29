@@ -181,7 +181,7 @@ class CleanupService:
 
     def get_settings(self) -> dict[str, Any]:
         config_data = self._settings.load(CLEANUP_CONFIG_SETTING)
-        if config_data:
+        if config_data is not None:
             if not isinstance(config_data, Mapping):
                 raise TypeError("media_cleanup_config must be an object")
             saved_rules = config_data.get("rules", [])

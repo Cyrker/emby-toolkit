@@ -3255,6 +3255,62 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Cleanup-Config-Fail-Closed
+
+Stage / Batch: P11 / cleanup canonical-config correctness fix
+
+HEAD / Commit:
+
+- Pre-fix HEAD: `ec898a1e` (`refactor(p11): execute native cleanup scan`).
+- Checkpoint: this batch's `fix(p11): reject malformed cleanup config` commit after the targeted
+  gate below.
+
+Implemented:
+
+- Changed native `CleanupService.get_settings()` to treat every non-`None`
+  `media_cleanup_config` value as authoritative. Falsy non-object JSON values now fail closed
+  instead of silently widening to the four legacy fallback rows.
+- Added HTTP regressions for `[]`, `""`, `0` and `false`, matching the cleanup-scan policy boundary.
+- A fresh ownership audit found that the four legacy fallback keys still have active readers in
+  legacy cleanup execution and maintenance paths. Their proposed Manifest promotion was therefore
+  rejected; ownership remains `35 new / 18 legacy` until those readers are migrated.
+
+Targeted gate:
+
+- Cleanup HTTP -> `22 passed`; cleanup-scan application regression -> `18 passed`.
+- Disposable PostgreSQL 18 subscription-settings scope -> `1 passed`.
+- Scoped Ruff and format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`;
+  `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-cleanup-config-fail-closed-20260829/targeted-gate.md`.
+
+Focused review:
+
+- No remaining P0/P1/P2 in this two-file fix. The stale audit against `d8128be7` predates the
+  native washing evaluator implementation and later parity checkpoints, so it does not justify
+  another washing rewrite on the current HEAD.
+
+Stage full gate:
+
+- Not run. This correctness fix changes no ownership or executable-task counts and does not
+  authorize controlled removal or P12.
+
+Pending:
+
+- Native-only Worker execution remains `14 executable / 36 unavailable`; route, table, dynamic and
+  bootstrap config, standalone-setting and active compatibility-runtime gaps remain explicit.
+- Cleanup execution still uses legacy media/P115 gateways; the four cleanup fallback keys cannot
+  be promoted until those active readers are migrated.
+
+Next: migrate the smallest processor-free normal task path. The current read-only task audit selects
+`manual-correct-organize-records`, which already has a durable native reconciliation service and only
+needs an account-bound read-only 115 provider plus Worker/replay evidence.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
