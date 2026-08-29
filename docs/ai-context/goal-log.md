@@ -2996,6 +2996,65 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Quota-Projection-Replay-Fix
+
+Stage / Batch: P11 / subscription quota compatibility-projection correctness fix
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `9c08742a` (`refactor(p11): execute native old-season backfill`).
+- Checkpoint: this batch's `fix(p11): refresh quota projection on replay` commit after the targeted
+  gate below.
+
+Implemented:
+
+- Fixed `_reserve_quota_in_uow()` so an idempotent reservation replay recomputes ledger availability
+  and refreshes `subscription_quota_state` in the same UoW after other expired reservations are
+  released. The replay still returns the original reservation and creates no duplicate quota row.
+- Added a PostgreSQL 18 regression with one expired reservation and one replayed retained
+  reservation; the ledger states and projected remaining quota must converge atomically.
+- Kept `subscription_quota_state` explicitly legacy-owned. Active compatibility tasks still read or
+  directly write that row, so this correctness fix does not falsely promote the projection to a
+  native source of truth.
+
+Targeted gate:
+
+- Scoped Ruff -> clean; format check -> `2 files already formatted`; scoped Pyright ->
+  `0 errors, 0 warnings, 0 informations`.
+- Subscription/resubscribe application regressions -> `10 passed`.
+- Disposable PostgreSQL 18 subscription runtime scope -> `19 passed`.
+- `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-quota-projection-replay-20260829/`.
+
+Focused review:
+
+- The initial ownership audit found one P2: releasing an expired reservation before returning an
+  existing replay could leave the compatibility projection stale. The manifest promotion draft was
+  withdrawn because direct compatibility readers/writers remain active.
+- Final findings-first rereview found no remaining P0/P1/P2 in this two-file fix.
+
+Stage full gate:
+
+- Not run. This post-checkpoint correctness fix changes no P11 ownership counts and does not
+  authorize controlled removal or P12.
+
+Pending:
+
+- Native-only Worker execution remains `12 executable / 38 unavailable`; route, table,
+  dynamic/bootstrap config and standalone-setting counts are unchanged.
+- `subscription_quota_state` can be promoted only after its active compatibility readers/writers
+  are migrated or routed through the native quota ledger.
+
+Next: continue with the smallest processor-free native Worker candidate while extracting any
+runtime provider adapter that still imports legacy modules. Do not equate a typed service with a
+fully removable execution path.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

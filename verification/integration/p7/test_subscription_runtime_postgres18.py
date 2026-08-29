@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
@@ -77,6 +77,21 @@ class _ScriptedMoviePilotGateway:
 
     def delete_subscription(self, tmdb_id: int | str, *, season: int | None = None) -> MoviePilotWriteResult:
         return self._write("delete", (str(tmdb_id), season))
+
+    def delete_subscription_by_id(self, subscription_id: int | str) -> MoviePilotWriteResult:
+        return self._write("delete_by_id", str(subscription_id))
+
+    def search_subscription(self, subscription_id: int | str) -> MoviePilotWriteResult:
+        return self._write("search", str(subscription_id))
+
+    def delete_download_tasks(self, hashes: Sequence[str]) -> MoviePilotWriteResult:
+        return self._write("delete_downloads", tuple(hashes))
+
+    def delete_transfer_history(self, record: Mapping[str, Any]) -> MoviePilotWriteResult:
+        return self._write("delete_transfer_history", dict(record))
+
+    def redo_transfer_history(self, history_ids: Sequence[int]) -> MoviePilotWriteResult:
+        return self._write("redo_transfer_history", tuple(history_ids))
 
     def _write(self, action: str, payload: Any) -> MoviePilotWriteResult:
         self.writes.append((action, payload))
@@ -182,6 +197,64 @@ def test_expired_quota_reservation_is_released_before_new_capacity_is_reported(
             {"id": reservation.id},
         ).scalar_one()
     assert status == SubscriptionQuotaStatus.RELEASED.value
+
+
+def test_quota_replay_refreshes_projection_after_releasing_another_expired_reservation(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    repository = _repository(p7_runtime)
+    quota_day = date(2026, 8, 26)
+    now = datetime(2026, 8, 26, 1, tzinfo=UTC)
+    expired = repository.reserve_quota(
+        "fixture-expired-before-replay",
+        quota_date=quota_day,
+        daily_cap=3,
+        ttl_seconds=1,
+        now=now,
+    )
+    retained = repository.reserve_quota(
+        "fixture-retained-replay",
+        quota_date=quota_day,
+        daily_cap=3,
+        now=now,
+    )
+
+    replay = repository.reserve_quota(
+        "fixture-retained-replay",
+        quota_date=quota_day,
+        daily_cap=3,
+        now=now + timedelta(seconds=2),
+    )
+
+    assert replay == retained
+    with p7_runtime.engine.connect() as connection:
+        status_rows = (
+            connection.execute(
+                text(
+                    """
+                    SELECT id, status
+                    FROM subscription_quota_reservations
+                    WHERE id IN (:expired_id, :retained_id)
+                    """
+                ),
+                {"expired_id": expired.id, "retained_id": retained.id},
+            )
+            .mappings()
+            .all()
+        )
+        rows = {row["id"]: str(row["status"]) for row in status_rows}
+        projection = connection.scalar(
+            text("SELECT value_json FROM app_settings WHERE setting_key = 'subscription_quota_state'")
+        )
+    assert rows == {
+        expired.id: SubscriptionQuotaStatus.RELEASED.value,
+        retained.id: SubscriptionQuotaStatus.RESERVED.value,
+    }
+    assert projection == {
+        "current_quota": 2,
+        "last_reset_date": "2026-08-26",
+        "max_quota_on_reset": 3,
+    }
 
 
 def test_dynamic_daily_cap_reduction_is_not_undone_by_old_reservation_commit(

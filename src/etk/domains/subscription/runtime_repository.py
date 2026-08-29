@@ -578,6 +578,18 @@ def _reserve_quota_in_uow(
             raise SubscriptionQuotaStateError("quota reservation is bound to another operation")
         if projection.quota_date != quota_date or projection.units != units:
             raise SubscriptionQuotaStateError("quota reservation idempotency identity conflict")
+        availability = PostgresSubscriptionRuntimeRepository._availability_in_uow(
+            uow,
+            quota_date,
+            daily_cap,
+        )
+        PostgresSubscriptionRuntimeRepository._sync_legacy_projection(
+            uow,
+            quota_date,
+            daily_cap,
+            availability.reserved_units,
+            availability.committed_units,
+        )
         return projection
 
     availability = PostgresSubscriptionRuntimeRepository._availability_in_uow(
