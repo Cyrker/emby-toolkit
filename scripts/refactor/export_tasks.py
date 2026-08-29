@@ -30,7 +30,7 @@ P5_TASK_EXECUTION_OWNERS = {
 P6_TASK_EXECUTION_OWNERS = {
     "backfill-organize-record-tmdb-ids": ("etk.domains.p115.organize_records.P115OrganizeRecordTmdbBackfillService"),
     "full-sync-strm": "etk.domains.p115.strm_sync.P115StrmSyncService",
-    "intro-fingerprint-backfill": ("etk.domains.p115.intro_detection_compatibility.P115IntroBackfillTaskService"),
+    "intro-fingerprint-backfill": ("etk.domains.p115.intro_backfill.P115IntroBackfillTaskService"),
     "manual-correct-organize-records": ("etk.domains.p115.organize_execution.P115OrganizeExecutionService.reconcile"),
     "monitor-115-life-events": "etk.domains.p115.strm_sync.P115StrmSyncService",
     "play-pool-daily-speedtest": "etk.domains.p115.playback_service.P115PlaybackService.daily_speedtest",

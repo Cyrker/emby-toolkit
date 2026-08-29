@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import RowMapping
 
 from etk.domains.media.effects import SqlAlchemyMediaEffectRepository
+from etk.domains.sharing.intro_effects import SHARED_INTRO_EXPORT_EFFECT
 from etk.platform.db import SqlAlchemyUnitOfWork
 
 from .intro_detection import (
@@ -1073,6 +1074,23 @@ class PostgresP115IntroDetectionRepository:
                     payload=payload,
                 )
                 effect_ids.append(reservation.effect.id)
+                if projection.intro_start_ticks is not None:
+                    intro_chapters = _intro_export_chapters(merged)
+                    if intro_chapters:
+                        export_payload = {
+                            "sha1": projection.episode.sha1,
+                            "chapters": intro_chapters,
+                            "file_name": "",
+                            "reason": "etk_intro_detection",
+                        }
+                        export = SqlAlchemyMediaEffectRepository(uow.session).reserve(
+                            effect_key=_intro_export_effect_key(projection.episode, export_payload),
+                            effect_type=SHARED_INTRO_EXPORT_EFFECT,
+                            aggregate_type="media_asset",
+                            aggregate_id=projection.episode.sha1,
+                            payload=export_payload,
+                        )
+                        effect_ids.append(export.effect.id)
             persisted_progress = {
                 **normalized_progress,
                 "effect_ids": sorted({*map(str, effect_ids), *map(str, normalized_progress.get("effect_ids", []))}),
@@ -1431,6 +1449,58 @@ def _chapter_effect_key(
 ) -> str:
     digest = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
     return f"p6:intro:emby.chapters.update:{operation.id}:{episode.item_id}:{episode.sha1}:{digest}"
+
+
+def _intro_export_effect_key(
+    episode: IntroEpisodeSnapshot,
+    payload: Mapping[str, Any],
+) -> str:
+    digest = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
+    return f"p9:{SHARED_INTRO_EXPORT_EFFECT}:{episode.sha1}:{digest}"
+
+
+def _intro_export_chapters(mediainfo: object) -> list[dict[str, Any]]:
+    root = _mediainfo_root(mediainfo)
+    if root is None or not isinstance(root.get("Chapters"), list):
+        return []
+    selected: list[dict[str, Any]] = []
+    for index, raw in enumerate(root["Chapters"]):
+        if not isinstance(raw, Mapping):
+            continue
+        marker = str(raw.get("MarkerType") or "").strip()
+        if marker not in {"IntroStart", "IntroEnd"}:
+            continue
+        try:
+            ticks = int(str(raw.get("StartPositionTicks")))
+        except (TypeError, ValueError):
+            continue
+        if ticks < 0:
+            continue
+        selected.append(
+            {
+                "StartPositionTicks": ticks,
+                "Name": str(raw.get("Name") or ("片头" if marker == "IntroStart" else "片头结束")),
+                "MarkerType": marker,
+                "ChapterIndex": _chapter_index(raw.get("ChapterIndex"), index),
+            }
+        )
+    markers = {chapter["MarkerType"] for chapter in selected}
+    if markers != {"IntroStart", "IntroEnd"} or len(selected) != 2:
+        return []
+    by_marker = {chapter["MarkerType"]: chapter for chapter in selected}
+    if by_marker["IntroEnd"]["StartPositionTicks"] <= by_marker["IntroStart"]["StartPositionTicks"]:
+        return []
+    selected.sort(key=lambda chapter: (chapter["StartPositionTicks"], chapter["MarkerType"]))
+    return selected
+
+
+def _chapter_index(value: object, fallback: int) -> int:
+    if value is None:
+        return fallback
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return fallback
 
 
 def _first_aligned_identity(row: Mapping[str, Any]) -> tuple[str, str, str, str] | None:

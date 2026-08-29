@@ -61,6 +61,45 @@ class P115SdkDirectUrlGateway:
             return None
         priority = str(self._priority() or "openapi").strip().lower()
         backends = ("cookie", "openapi") if priority == "cookie" else ("openapi", "cookie")
+        return self._resolve_backends(
+            snapshot=snapshot,
+            backends=backends,
+            pick_code=normalized_pick_code,
+            user_agent=normalized_user_agent,
+        )
+
+    def resolve_backend(
+        self,
+        pick_code: str,
+        *,
+        expected_account_id: str,
+        expected_backend: str,
+        user_agent: str,
+    ) -> P115DirectUrl | None:
+        normalized_pick_code = str(pick_code or "").strip()
+        account_id = str(expected_account_id or "").strip()
+        backend = str(expected_backend or "").strip().lower()
+        normalized_user_agent = str(user_agent or "Mozilla/5.0").strip() or "Mozilla/5.0"
+        if not normalized_pick_code or not account_id.isdigit() or backend not in {"openapi", "cookie"}:
+            return None
+        snapshot = self._credentials.load()
+        if str(snapshot.account_id or "").strip() != account_id:
+            return None
+        return self._resolve_backends(
+            snapshot=snapshot,
+            backends=(backend,),
+            pick_code=normalized_pick_code,
+            user_agent=normalized_user_agent,
+        )
+
+    def _resolve_backends(
+        self,
+        *,
+        snapshot: P115CredentialSnapshot,
+        backends: Sequence[str],
+        pick_code: str,
+        user_agent: str,
+    ) -> P115DirectUrl | None:
         for backend in backends:
             credential = snapshot.cookie if backend == "cookie" else snapshot.access_token
             if not credential:
@@ -68,8 +107,8 @@ class P115SdkDirectUrlGateway:
             resolved = self._resolve_backend(
                 backend=backend,
                 snapshot=snapshot,
-                pick_code=normalized_pick_code,
-                user_agent=normalized_user_agent,
+                pick_code=pick_code,
+                user_agent=user_agent,
             )
             if resolved is _CREDENTIAL_DRIFT:
                 return None

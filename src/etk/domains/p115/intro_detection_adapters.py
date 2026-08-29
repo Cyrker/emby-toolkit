@@ -160,7 +160,7 @@ class LegacyP7IntroReadAdapter(LegacyIntroPolicySource, LegacyIntroCandidateSour
         return self._favorite_candidates(_positive_limit(limit), tuple(library_ids))
 
 
-class LegacyP7IntroPolicyAdapter(IntroDetectionPolicyPort):
+class NativeIntroPolicyAdapter(IntroDetectionPolicyPort):
     def __init__(self, source: LegacyIntroPolicySource) -> None:
         self._source = source
 
@@ -174,6 +174,10 @@ class LegacyP7IntroPolicyAdapter(IntroDetectionPolicyPort):
         if current.trigger_mode.value == "favorite":
             return self._source.season_is_favorite(operation.series_tmdb_id, operation.season_number)
         return True
+
+
+class LegacyP7IntroPolicyAdapter(NativeIntroPolicyAdapter):
+    """Compatibility name retained for P6 fixtures and old imports."""
 
 
 class IntroAccountIdentityPort(Protocol):
@@ -192,7 +196,13 @@ class IntroDirectUrlResolverPort(Protocol):
 class AccountBoundIntroDirectUrlPort(Protocol):
     def assert_account(self, account_id: str) -> None: ...
 
-    def resolve(self, account_id: str, pick_code: str) -> P115DirectUrl | None: ...
+    def resolve(
+        self,
+        account_id: str,
+        pick_code: str,
+        *,
+        provider_backend: str = "",
+    ) -> P115DirectUrl | None: ...
 
 
 class IntroDetectionAccountChanged(RuntimeError):
@@ -213,7 +223,13 @@ class AccountBoundIntroDirectUrlGateway:
         if _account_id(self._identity.account_id()) != expected:
             raise IntroDetectionAccountChanged("115 account changed during intro fingerprint extraction")
 
-    def resolve(self, account_id: str, pick_code: str) -> P115DirectUrl | None:
+    def resolve(
+        self,
+        account_id: str,
+        pick_code: str,
+        *,
+        provider_backend: str = "",
+    ) -> P115DirectUrl | None:
         expected = _account_id(account_id)
         self.assert_account(expected)
         resolved = self._resolver.resolve_download_url(
@@ -221,6 +237,55 @@ class AccountBoundIntroDirectUrlGateway:
             user_agent=INTRO_FINGERPRINT_USER_AGENT,
         )
         self.assert_account(expected)
+        backend = str(provider_backend or "").strip().lower()
+        if backend and (backend not in {"openapi", "cookie"} or resolved is None or resolved.backend != backend):
+            return None
+        return resolved
+
+
+class PinnedIntroDirectUrlResolverPort(Protocol):
+    def resolve_backend(
+        self,
+        pick_code: str,
+        *,
+        expected_account_id: str,
+        expected_backend: str,
+        user_agent: str,
+    ) -> P115DirectUrl | None: ...
+
+
+class NativeP115IntroDirectUrlGateway:
+    """Resolve one URL through the backend frozen in the durable operation."""
+
+    def __init__(self, credential_store: Any, direct_urls: PinnedIntroDirectUrlResolverPort) -> None:
+        self._credential_store = credential_store
+        self._direct_urls = direct_urls
+
+    def assert_account(self, account_id: str) -> None:
+        expected = _account_id(account_id)
+        snapshot = self._credential_store.load()
+        if _account_id(getattr(snapshot, "account_id", "")) != expected:
+            raise IntroDetectionAccountChanged("115 account changed during intro fingerprint extraction")
+
+    def resolve(
+        self,
+        account_id: str,
+        pick_code: str,
+        *,
+        provider_backend: str = "",
+    ) -> P115DirectUrl | None:
+        expected = _account_id(account_id)
+        backend = _provider_backend(provider_backend)
+        self.assert_account(expected)
+        resolved = self._direct_urls.resolve_backend(
+            _required_text(pick_code, "pick_code"),
+            expected_account_id=expected,
+            expected_backend=backend,
+            user_agent=INTRO_FINGERPRINT_USER_AGENT,
+        )
+        self.assert_account(expected)
+        if resolved is not None and resolved.backend != backend:
+            raise RuntimeError("115 direct URL resolver changed the frozen provider backend")
         return resolved
 
 
@@ -392,7 +457,7 @@ class P115IntroFingerprintAdapter:
         self._process = process
         self._success_delay_seconds = float(success_delay_seconds)
         self._sleeper = sleeper
-        self._cache: dict[tuple[str, str], P115DirectUrl] = {}
+        self._cache: dict[tuple[str, str, str], P115DirectUrl] = {}
 
     def extract(
         self,
@@ -400,11 +465,13 @@ class P115IntroFingerprintAdapter:
         episode: IntroEpisodeSnapshot,
         kind: IntroFingerprintKind,
         *,
+        provider_backend: str = "openapi",
         sample_seconds: int,
         audio_stream_index: int | None,
         cancel: CancelCheck,
     ) -> IntroFingerprintExtraction:
         expected_account = _account_id(account_id)
+        backend = _provider_backend(provider_backend)
         window_start, sample = fingerprint_window(episode, kind, sample_seconds)
         if sample <= 0:
             return IntroFingerprintExtraction(
@@ -413,10 +480,14 @@ class P115IntroFingerprintAdapter:
                 window_start,
                 reason="runtime_unavailable",
             )
-        cache_key = (expected_account, episode.pick_code)
+        cache_key = (expected_account, backend, episode.pick_code)
         cached = self._cache.get(cache_key)
         reused = cached is not None
-        direct_url = cached or self._direct_urls.resolve(expected_account, episode.pick_code)
+        direct_url = cached or self._direct_urls.resolve(
+            expected_account,
+            episode.pick_code,
+            provider_backend=backend,
+        )
         if direct_url is None:
             return IntroFingerprintExtraction(
                 IntroFingerprintExtractionStatus.UNAVAILABLE,
@@ -435,7 +506,11 @@ class P115IntroFingerprintAdapter:
         )
         if not outcome.succeeded and reused and outcome.status is not IntroFingerprintExtractionStatus.CANCELLED:
             self._cache.pop(cache_key, None)
-            refreshed = self._direct_urls.resolve(expected_account, episode.pick_code)
+            refreshed = self._direct_urls.resolve(
+                expected_account,
+                episode.pick_code,
+                provider_backend=backend,
+            )
             if refreshed is not None:
                 self._cache[cache_key] = refreshed
                 outcome = self._extract_with_account_fence(
@@ -1000,6 +1075,7 @@ class NativeIntroDetectionBatchEngine:
             operation.account_id,
             episode,
             kind,
+            provider_backend=operation.provider_backend,
             sample_seconds=sample_seconds,
             audio_stream_index=self._repository.fingerprint_audio_stream_index(episode),
             cancel=cancel,
@@ -1287,6 +1363,13 @@ def _account_id(value: object) -> str:
     return normalized
 
 
+def _provider_backend(value: object) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized not in {"openapi", "cookie"}:
+        raise ValueError("115 provider backend must be openapi or cookie")
+    return normalized
+
+
 def _required_text(value: object, field_name: str) -> str:
     normalized = str(value or "").strip()
     if not normalized:
@@ -1321,7 +1404,10 @@ __all__ = [
     "LegacyP7IntroPolicyAdapter",
     "NoopIntroChaptersChangedHook",
     "NativeIntroDetectionBatchEngine",
+    "NativeIntroPolicyAdapter",
+    "NativeP115IntroDirectUrlGateway",
     "P115IntroFingerprintAdapter",
+    "PinnedIntroDirectUrlResolverPort",
     "fingerprint_window",
     "legacy_account_bound_direct_urls",
 ]

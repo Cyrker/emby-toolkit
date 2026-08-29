@@ -128,6 +128,38 @@ def test_shared_center_retries_idempotent_reads_but_invalid_json_is_safe() -> No
     assert mutation_raised.value.disposition is ProviderDisposition.INDETERMINATE
 
 
+def test_shared_intro_upload_uses_exact_single_shot_contract() -> None:
+    client = FakeClient([_response(200, {"ok": True})])
+    adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(attempts=4),
+    )
+
+    result = adapter.upload_intro_chapters(
+        "a" * 40,
+        [
+            {"StartPositionTicks": 0, "MarkerType": "IntroStart", "ChapterIndex": 0},
+            {"StartPositionTicks": 180_000_000, "MarkerType": "IntroEnd", "ChapterIndex": 1},
+        ],
+        reason="etk_intro_detection",
+    )
+
+    assert result.disposition is ProviderDisposition.CONFIRMED
+    assert len(client.calls) == 1
+    method, url, options = client.calls[0]
+    assert (method, url) == ("POST", "https://center.fixture/api/v1/intro-chapters/upload")
+    assert options["json"] == {
+        "sha1": "A" * 40,
+        "chapters": [
+            {"StartPositionTicks": 0, "MarkerType": "IntroStart", "ChapterIndex": 0},
+            {"StartPositionTicks": 180_000_000, "MarkerType": "IntroEnd", "ChapterIndex": 1},
+        ],
+        "file_name": "",
+        "reason": "etk_intro_detection",
+    }
+
+
 def test_telegram_mutations_are_not_retried_and_token_is_redacted() -> None:
     token = "123456:fixture-secret-token"
     client = FakeClient([_response(429, {"ok": False, "description": "rate limited"})])

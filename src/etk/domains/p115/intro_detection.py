@@ -258,6 +258,7 @@ class IntroDetectionIntent:
     season_number: int
     algorithm_version: int
     account_id: str
+    provider_backend: str
     trigger_mode: IntroTriggerMode
     request: Mapping[str, Any]
     available_at: datetime
@@ -272,6 +273,7 @@ class IntroDetectionIntent:
         episodes: Sequence[IntroEpisodeSnapshot],
         available_at: datetime | None = None,
         algorithm_version: int = INTRO_DETECTION_ALGORITHM_VERSION,
+        provider_backend: str = "openapi",
     ) -> IntroDetectionIntent:
         if len(episodes) < MIN_COMPARABLE_EPISODES:
             raise ValueError("intro detection requires at least two comparable episodes")
@@ -297,12 +299,14 @@ class IntroDetectionIntent:
         normalized_account = _required_text(account_id, "account_id", maximum=255)
         if not normalized_account.isdigit():
             raise ValueError("account_id must be numeric")
+        normalized_backend = _provider_backend(provider_backend)
         episode_payload = [episode.to_request() for episode in filtered]
         source_revision = _sha256_bytes(episode_payload)
         policy_payload = policy.to_request()
         policy_revision = _sha256_bytes(policy_payload)
         request = {
             "account_id": normalized_account,
+            "provider_backend": normalized_backend,
             "trigger": normalized_trigger.value,
             "algorithm_version": version,
             "series_tmdb_id": filtered[0].series_tmdb_id,
@@ -315,6 +319,7 @@ class IntroDetectionIntent:
         request_hash = _sha256_bytes(request)
         semantic = {
             "account_id": normalized_account,
+            "provider_backend": normalized_backend,
             "algorithm_version": version,
             "series_tmdb_id": filtered[0].series_tmdb_id,
             "season_number": filtered[0].season_number,
@@ -330,6 +335,7 @@ class IntroDetectionIntent:
             season_number=filtered[0].season_number,
             algorithm_version=version,
             account_id=normalized_account,
+            provider_backend=normalized_backend,
             trigger_mode=policy.trigger_mode,
             request=request,
             available_at=_aware(available_at or datetime.now(UTC), "available_at"),
@@ -373,6 +379,10 @@ class IntroDetectionOperation:
         if not isinstance(raw, list):
             raise IntroDetectionStateError("intro detection request has no episode snapshot")
         return tuple(_episode_from_request(value) for value in raw)
+
+    @property
+    def provider_backend(self) -> str:
+        return _provider_backend(self.request.get("provider_backend"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -493,6 +503,15 @@ class IntroDetectionExecutionService:
                 operation.phase,
                 False,
                 error={"type": "cancel_requested"},
+            )
+        try:
+            _ = operation.provider_backend
+        except ValueError:
+            return IntroBatchResult(
+                IntroBatchDisposition.REJECTED,
+                operation.phase,
+                False,
+                error={"type": "provider_backend_unpinned"},
             )
         if not self._policy.permits(operation):
             return IntroBatchResult(
@@ -1003,6 +1022,13 @@ def _canonical_sha1(value: object) -> str:
         bytes.fromhex(normalized)
     except ValueError as exc:
         raise ValueError("sha1 must be 40 hexadecimal characters") from exc
+    return normalized
+
+
+def _provider_backend(value: object) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized not in {"openapi", "cookie"}:
+        raise ValueError("provider_backend must be openapi or cookie")
     return normalized
 
 

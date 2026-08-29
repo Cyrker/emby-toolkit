@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import math
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Protocol
 from urllib.parse import quote
 
@@ -63,6 +63,15 @@ class SharedCenterPort(Protocol):
     def create_share_request(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
 
     def list_share_requests(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
+
+    def upload_intro_chapters(
+        self,
+        sha1: str,
+        chapters: Sequence[Mapping[str, Any]],
+        *,
+        file_name: str = "",
+        reason: str = "",
+    ) -> ProviderResponse[dict[str, Any]]: ...
 
 
 class SharedCenterError(ExternalAdapterError):
@@ -193,6 +202,30 @@ class HttpxSharedCenterAdapter:
             "/api/v1/devices/share-sync/heartbeat",
             operation="share_sync_heartbeat",
             json=_object(payload, "share sync heartbeat"),
+        )
+
+    def upload_intro_chapters(
+        self,
+        sha1: str,
+        chapters: Sequence[Mapping[str, Any]],
+        *,
+        file_name: str = "",
+        reason: str = "",
+    ) -> ProviderResponse[dict[str, Any]]:
+        normalized_sha1 = _hash40(sha1, "sha1").upper()
+        if not isinstance(chapters, Sequence) or isinstance(chapters, (str, bytes, bytearray)) or not chapters:
+            raise ValueError("intro chapters must be a non-empty list")
+        normalized_chapters = [_object(chapter, "intro chapter") for chapter in chapters]
+        return self.request_json(
+            "POST",
+            "/api/v1/intro-chapters/upload",
+            operation="upload_intro_chapters",
+            json={
+                "sha1": normalized_sha1,
+                "chapters": normalized_chapters,
+                "file_name": _text(file_name, "file_name", limit=1024),
+                "reason": _text(reason, "reason", limit=200),
+            },
         )
 
     def run_maintenance(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:
@@ -405,6 +438,17 @@ def _hash(value: Any, field: str) -> str:
     if not normalized:
         raise ValueError(f"{field} must not be empty")
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _hash40(value: Any, field: str) -> str:
+    normalized = _text(value, field, limit=40).upper()
+    if len(normalized) != 40:
+        raise ValueError(f"{field} must be a SHA-1 hex digest")
+    try:
+        bytes.fromhex(normalized)
+    except ValueError as exc:
+        raise ValueError(f"{field} must be a SHA-1 hex digest") from exc
+    return normalized
 
 
 def _retry_after(response: httpx.Response) -> float | None:

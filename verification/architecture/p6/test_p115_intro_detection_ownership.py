@@ -87,6 +87,11 @@ def test_intro_detection_runtime_is_wired_through_worker_coordinator_celery_and_
     app_factory = _source("src/etk/bootstrap/app_factory.py")
 
     assert "P115IntroDetectionOperationExecutor" in worker
+    assert "PostgresP115IntroRuntimeSource" in worker
+    assert "NativeP115IntroDirectUrlGateway" in worker
+    assert "SharedIntroExportEffectDelivery" in worker
+    assert "LegacyP7IntroRuntimeSource" not in worker
+    assert "LegacyP9IntroChaptersChangedHook" not in worker
     assert "execute_p115_intro_detection_operation" in worker
     assert "install_persistent_intro_detection_gateway(intro_detection_gateway)" in worker
     assert "clear_persistent_intro_detection_gateway" in worker
@@ -95,6 +100,9 @@ def test_intro_detection_runtime_is_wired_through_worker_coordinator_celery_and_
     assert EXECUTE_P115_INTRO_DETECTION_OPERATION_TASK in celery
     assert "execute_p115_intro_detection_operation" in celery
     assert '"p115.intro-detection-gateway"' in app_factory
+    assert '"p115.intro-runtime"' in app_factory
+    assert "PostgresP115IntroRuntimeSource" in app_factory
+    assert "LegacyP7IntroRuntimeSource" not in app_factory
     assert "install_persistent_intro_detection_gateway(intro_detection_gateway)" in app_factory
     assert "clear_persistent_intro_detection_gateway(intro_detection_gateway)" in app_factory
 
@@ -113,7 +121,7 @@ def test_intro_task_and_legacy_tables_have_native_p6_10_ownership_without_contra
     assert task["ownership_layers"] == {
         "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
         "execution_kind": "native-use-case",
-        "execution_owner": ("etk.domains.p115.intro_detection_compatibility.P115IntroBackfillTaskService"),
+        "execution_owner": ("etk.domains.p115.intro_backfill.P115IntroBackfillTaskService"),
     }
 
     tables = _contract("verification/contracts/table-ownership.yaml")
@@ -149,17 +157,23 @@ def test_intro_sync_owns_two_native_auth_none_contracts_with_fixture_and_optiona
     assert all(entry["fixtures"] == [INTRO_FIXTURE] for entry in contracts)
 
 
-def test_intro_core_keeps_p7_and_p9_behind_compatibility_ports() -> None:
+def test_intro_native_core_has_typed_p7_reads_and_durable_p9_effect_without_legacy_imports() -> None:
     core = _source("src/etk/domains/p115/intro_detection.py")
     repository = _source("src/etk/domains/p115/intro_detection_repository.py")
     adapters = _source("src/etk/domains/p115/intro_detection_adapters.py")
-    combined = "\n".join((core, repository, adapters))
+    runtime = _source("src/etk/domains/p115/intro_runtime.py")
+    gateway = _source("src/etk/domains/p115/intro_gateway.py")
+    effect = _source("src/etk/domains/sharing/intro_effects.py")
+    combined = "\n".join((core, repository, adapters, runtime, gateway, effect))
 
     assert "watchlist_db" not in combined
     assert "settings_db" not in combined
     assert "SharedCenterClient" not in combined
     assert "Telegram" not in combined
     assert "handler.shared_intro_service" not in combined
+    assert "from handler" not in combined
+    assert "from database" not in combined
     assert "https://" not in repr(json.loads(json.dumps({"core": core}))).lower()
     assert "IntroDetectionPolicyPort" in core
-    assert "IntroChaptersChangedHook" in adapters
+    assert "PostgresP115IntroRuntimeSource" in runtime
+    assert 'SHARED_INTRO_EXPORT_EFFECT = "sharing.intro.export"' in effect

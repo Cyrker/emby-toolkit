@@ -381,29 +381,52 @@ def test_chapter_cache_effect_and_operation_progress_stage_in_one_uow(
         phase=IntroDetectionPhase.PROJECT,
         progress={"intro_projected": 1},
     )
+    replay_ids = repository.stage_chapters(
+        operation.id,
+        claimed.claim_token,
+        (projection,),
+        authorization_revision="a" * 64,
+        phase=IntroDetectionPhase.PROJECT,
+        progress={"intro_projected": 1},
+    )
 
-    assert len(effect_ids) == 1
+    assert len(effect_ids) == 2
+    assert replay_ids == effect_ids
     with p6_runtime.engine.connect() as connection:
         chapters = connection.scalar(
             text("SELECT mediainfo_json -> 'Chapters' FROM p115_mediainfo_cache WHERE sha1 = :sha1"),
             {"sha1": projection.episode.sha1},
         )
-        effect = (
+        effects = (
             connection.execute(
-                text("SELECT effect_type, status FROM media_effects WHERE id = :effect_id"),
-                {"effect_id": effect_ids[0]},
+                text(
+                    """
+                    SELECT effect_type, aggregate_type, aggregate_id, status, payload_json
+                    FROM media_effects
+                    WHERE id = ANY(CAST(:effect_ids AS uuid[]))
+                    ORDER BY effect_type
+                    """
+                ),
+                {"effect_ids": list(effect_ids)},
             )
             .mappings()
-            .one()
+            .all()
         )
         progress = connection.scalar(
             text("SELECT progress_json FROM p115_intro_detection_operations WHERE id = :operation_id"),
             {"operation_id": operation.id},
         )
     assert [chapter["MarkerType"] for chapter in chapters] == ["IntroStart", "IntroEnd"]
-    assert effect == {"effect_type": "emby.chapters.update", "status": "pending"}
+    assert [(effect["effect_type"], effect["status"]) for effect in effects] == [
+        ("emby.chapters.update", "pending"),
+        ("sharing.intro.export", "pending"),
+    ]
+    export = effects[1]
+    assert export["aggregate_type"] == "media_asset"
+    assert export["aggregate_id"] == projection.episode.sha1
+    assert set(export["payload_json"]) == {"sha1", "chapters", "file_name", "reason"}
     assert progress["intro_projected"] == 1
-    assert progress["effect_ids"] == [str(effect_ids[0])]
+    assert progress["effect_ids"] == sorted(map(str, effect_ids))
 
 
 def test_dead_outbox_rejects_unclaimed_operation(p6_runtime: DatabaseRuntime) -> None:

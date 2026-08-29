@@ -144,10 +144,17 @@ class _BoundUrls:
         if self.current_account != account_id:
             raise IntroDetectionAccountChanged("fixture account changed")
 
-    def resolve(self, account_id: str, pick_code: str) -> P115DirectUrl:
+    def resolve(
+        self,
+        account_id: str,
+        pick_code: str,
+        *,
+        provider_backend: str = "",
+    ) -> P115DirectUrl:
         self.resolve_calls += 1
         self.assert_account(account_id)
         assert pick_code == "pick-1"
+        assert provider_backend == "openapi"
         return P115DirectUrl("https://fixture.invalid/media", "ua", "openapi", "download_url")
 
 

@@ -877,6 +877,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
         | {
             "backfill-organize-record-tmdb-ids",
             "check-expired-users",
+            "intro-fingerprint-backfill",
             "manual-correct-organize-records",
             "recalculate_library_washing_priorities",
             "repair-p115-fingerprints",

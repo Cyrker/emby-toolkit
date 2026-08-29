@@ -105,6 +105,7 @@ from etk.domains.p115 import (
     ChromaprintProcessAdapter,
     EmbyAuthorizationRevisionAdapter,
     EmbyPathChangeEffectDelivery,
+    HttpxEmbyIntroFavoriteGateway,
     HttpxEmbyPathChangeGateway,
     HttpxP115DirectoryTreeGateway,
     HttpxP115EpisodeRuntimeGateway,
@@ -113,9 +114,6 @@ from etk.domains.p115 import (
     IntroDetectionExecutionService,
     IntroDetectionOperation,
     IntroDetectionSubmissionService,
-    LegacyP7IntroPolicyAdapter,
-    LegacyP7IntroRuntimeSource,
-    LegacyP9IntroChaptersChangedHook,
     LegacyP115DirectLinkGateway,
     LegacyP115OrganizeMutationGateway,
     LegacyP115PlaybackProvider,
@@ -123,7 +121,9 @@ from etk.domains.p115 import (
     LegacyP115PlaybackUserGateway,
     LegacyP115StrmSyncGateway,
     NativeIntroDetectionBatchEngine,
+    NativeIntroPolicyAdapter,
     NativeP115IntroDetectionGateway,
+    NativeP115IntroDirectUrlGateway,
     P115DirectorySyncService,
     P115FingerprintRepairService,
     P115IntroBackfillTaskService,
@@ -137,6 +137,7 @@ from etk.domains.p115 import (
     P115StrmSyncService,
     P115WashingPriorityRecalculationService,
     PostgresP115IntroDetectionRepository,
+    PostgresP115IntroRuntimeSource,
     PostgresP115PlaybackRepository,
     PostgresP115StrmSyncCoordinator,
     SqlAlchemyP115CredentialRepository,
@@ -150,12 +151,11 @@ from etk.domains.p115 import (
     SqlAlchemyP115StrmSyncRepository,
     SqlAlchemyP115WashingPriorityRepository,
     SqlAlchemyP115WashingRecalculationRepository,
-    legacy_account_bound_direct_urls,
+    select_intro_provider_identity,
 )
 from etk.domains.p115.iso_probe import NativeP115IsoProbeGateway
 from etk.domains.p115.media_info_adapters import (
     ControlledProcessRunner,
-    LegacyP115DirectUrlGateway,
     LocalP115FingerprintHintGateway,
     PersistentP115MediaInfoPolicyProvider,
 )
@@ -169,6 +169,7 @@ from etk.domains.p115.upload_adapters import (
 )
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService, UploadOperation
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.sharing import SharedIntroExportEffectDelivery
 from etk.domains.subscription.assistant import (
     SqlAlchemyAssistantMaintenanceRepository,
     SubscribeAssistantMaintenanceService,
@@ -279,6 +280,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     | {
         "backfill-organize-record-tmdb-ids",
         "check-expired-users",
+        "intro-fingerprint-backfill",
         "manual-correct-organize-records",
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
@@ -859,8 +861,9 @@ class WorkerRuntime:
                         ),
                     ),
                 )
+                shared_center = HttpxSharedCenterAdapter(settings_provider)
                 p9_sharing_tasks = P9SharingTaskRouter(
-                    shared_center=HttpxSharedCenterAdapter(settings_provider),
+                    shared_center=shared_center,
                     hdhive=HttpxHDHiveAdapter(settings_provider),
                     telegram=HttpxTelegramBotAdapter(settings_provider),
                     compatibility=LegacyP9SharingCompatibilityGateway(),
@@ -919,16 +922,28 @@ class WorkerRuntime:
                 )
                 processes = ControlledProcessRunner()
                 intro_repository = PostgresP115IntroDetectionRepository(database.unit_of_work)
-                intro_source = LegacyP7IntroRuntimeSource(intro_repository)
+                intro_source = PostgresP115IntroRuntimeSource(
+                    database.unit_of_work,
+                    intro_repository,
+                    app_settings,
+                    HttpxEmbyIntroFavoriteGateway(settings_provider),
+                )
                 intro_detection_gateway = NativeP115IntroDetectionGateway(
                     submission=IntroDetectionSubmissionService(intro_repository),
                     source=intro_source,
                     account_id=lambda: p115_credentials.load().account_id,
+                    provider_identity=lambda: select_intro_provider_identity(
+                        p115_credentials,
+                        lambda: settings_provider().p115_api_priority,
+                    ),
                 )
                 intro_fingerprints = P115IntroFingerprintAdapter(
-                    legacy_account_bound_direct_urls(
+                    NativeP115IntroDirectUrlGateway(
                         p115_credentials,
-                        LegacyP115DirectUrlGateway(),
+                        P115SdkDirectUrlGateway(
+                            credentials=p115_credentials,
+                            priority=lambda: str(settings_provider().p115_api_priority),
+                        ),
                     ),
                     ChromaprintProcessAdapter(processes),
                 )
@@ -939,9 +954,8 @@ class WorkerRuntime:
                             intro_repository,
                             intro_fingerprints,
                             EmbyAuthorizationRevisionAdapter(bridge_client),
-                            chapters_changed=LegacyP9IntroChaptersChangedHook(),
                         ),
-                        LegacyP7IntroPolicyAdapter(intro_source),
+                        NativeIntroPolicyAdapter(intro_source),
                     ),
                     worker_id=f"{self._worker_id}:p115-intro",
                 )
@@ -1043,6 +1057,7 @@ class WorkerRuntime:
                             ManualImageEffectDelivery(LegacyMediaImageEditingGateway()),
                             P5MediaEventEffectDelivery(LegacyP5MediaEventGateway(event_compatibility)),
                             user_event_delivery,
+                            SharedIntroExportEffectDelivery(app_settings, shared_center),
                             EmbyPathChangeEffectDelivery(
                                 settings_provider,
                                 HttpxEmbyPathChangeGateway(),
@@ -1282,9 +1297,15 @@ class WorkerRuntime:
             organize_executions = SqlAlchemyP115OrganizeExecutionRepository(database.unit_of_work)
             p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
             bridge_client = HttpxEmbyBridgeClient(settings_provider)
+            shared_center = HttpxSharedCenterAdapter(settings_provider)
             media_effects = PersistentMediaEffectExecutor(
                 PostgresMediaEffectLedger(database.unit_of_work),
-                RoutedMediaEffectDelivery([BridgeMediaEffectDelivery(bridge_client)]),
+                RoutedMediaEffectDelivery(
+                    [
+                        BridgeMediaEffectDelivery(bridge_client),
+                        SharedIntroExportEffectDelivery(app_settings, shared_center),
+                    ]
+                ),
                 worker_id=f"{self._worker_id}:media-effect",
                 lease_seconds=lambda: max(float(config_adapter.load().emby_api_timeout) + 30, 90),
             )
@@ -1300,6 +1321,44 @@ class WorkerRuntime:
             )
             mediainfo_policies = PersistentP115MediaInfoPolicyProvider(app_settings)
             processes = ControlledProcessRunner()
+            intro_repository = PostgresP115IntroDetectionRepository(database.unit_of_work)
+            intro_source = PostgresP115IntroRuntimeSource(
+                database.unit_of_work,
+                intro_repository,
+                app_settings,
+                HttpxEmbyIntroFavoriteGateway(settings_provider),
+            )
+            intro_detection_gateway = NativeP115IntroDetectionGateway(
+                submission=IntroDetectionSubmissionService(intro_repository),
+                source=intro_source,
+                account_id=lambda: p115_credentials.load().account_id,
+                provider_identity=lambda: select_intro_provider_identity(
+                    p115_credentials,
+                    lambda: settings_provider().p115_api_priority,
+                ),
+            )
+            intro_fingerprints = P115IntroFingerprintAdapter(
+                NativeP115IntroDirectUrlGateway(
+                    p115_credentials,
+                    P115SdkDirectUrlGateway(
+                        credentials=p115_credentials,
+                        priority=lambda: str(settings_provider().p115_api_priority),
+                    ),
+                ),
+                ChromaprintProcessAdapter(processes),
+            )
+            intro_executor = P115IntroDetectionOperationExecutor(
+                repository=intro_repository,
+                service=IntroDetectionExecutionService(
+                    NativeIntroDetectionBatchEngine(
+                        intro_repository,
+                        intro_fingerprints,
+                        EmbyAuthorizationRevisionAdapter(bridge_client),
+                    ),
+                    NativeIntroPolicyAdapter(intro_source),
+                ),
+                worker_id=f"{self._worker_id}:p115-intro",
+            )
             p5_media_tasks = P5MediaTaskRouter(
                 compatibility=None,
                 restore_mediainfo=P115MediaInfoRestoreService(
@@ -1338,6 +1397,7 @@ class WorkerRuntime:
                     SqlAlchemyP115OrganizeRecordsRepository(database.unit_of_work)
                 ),
                 fingerprint_repair=p115_fingerprint_repair,
+                intro_backfill=P115IntroBackfillTaskService(intro_detection_gateway),
                 organize_reconciliation=P115OrganizeExecutionService(
                     plans=organize_plans,
                     repository=organize_executions,
@@ -1369,7 +1429,7 @@ class WorkerRuntime:
                 ),
             )
             p9_sharing_tasks = P9SharingTaskRouter(
-                shared_center=HttpxSharedCenterAdapter(settings_provider),
+                shared_center=shared_center,
                 hdhive=HttpxHDHiveAdapter(settings_provider),
                 telegram=HttpxTelegramBotAdapter(settings_provider),
                 compatibility=None,
@@ -1405,6 +1465,8 @@ class WorkerRuntime:
         self._subscription_executor = subscription_executor
         self._identity_executor = identity_executor
         self._database_maintenance_executor = database_maintenance_executor
+        self._p115_intro_executor = intro_executor
+        self._intro_detection_gateway = intro_detection_gateway
         self._p115_credentials = p115_credentials
         self._native_only = True
         self._started = True

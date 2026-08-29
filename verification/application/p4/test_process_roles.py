@@ -480,6 +480,7 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert state._media_effects._delivery.effect_types == {
         "emby.chapters.update",
         "emby.mediainfo.apply",
+        "sharing.intro.export",
     }
     assert type(state._p5_media_tasks).__name__ == "P5MediaTaskRouter"
     assert state._p5_media_tasks._compatibility is None
@@ -493,6 +494,9 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert type(state._p6_p115_tasks._directory_sync._directories).__name__ == ("HttpxP115DirectoryTreeGateway")
     assert type(state._p6_p115_tasks._fingerprint_repair).__name__ == "P115FingerprintRepairService"
     assert type(state._p6_p115_tasks._fingerprint_repair._remote).__name__ == ("HttpxP115FingerprintRemoteGateway")
+    assert type(state._p6_p115_tasks._intro_backfill).__name__ == "P115IntroBackfillTaskService"
+    assert type(state._p6_p115_tasks._intro_backfill._gateway._source).__name__ == "PostgresP115IntroRuntimeSource"
+    assert type(state._p115_intro_executor).__name__ == "P115IntroDetectionOperationExecutor"
     assert state._p6_p115_tasks._organize_execution is None
     assert type(state._p6_p115_tasks._organize_reconciliation).__name__ == "P115OrganizeExecutionService"
     assert type(state._p6_p115_tasks._organize_reconciliation._mutations).__name__ == (

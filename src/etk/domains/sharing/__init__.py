@@ -1,5 +1,6 @@
 """P9 sharing domain: durable contribution ledger and external-effects seams."""
 
+from .intro_effects import SHARED_INTRO_EXPORT_EFFECT, SharedIntroExportEffectDelivery
 from .ledger import (
     ContributionLedger,
     ContributionLedgerEntry,
@@ -30,9 +31,11 @@ __all__ = [
     "LedgerIdempotencyConflictError",
     "PostgresContributionLedger",
     "PostgresSharingOperationRepository",
+    "SHARED_INTRO_EXPORT_EFFECT",
     "SHARING_OPERATION_AGGREGATE_TYPE",
     "SHARING_OPERATION_TOPIC",
     "SharingLedgerService",
+    "SharedIntroExportEffectDelivery",
     "SharingService",
     "SharingOperation",
     "SharingOperationIntent",

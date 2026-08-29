@@ -157,10 +157,10 @@ from etk.domains.operations.runtime_router import router as runtime_query_router
 from etk.domains.operations.system_runtime_router import router as system_runtime_router
 from etk.domains.p115 import (
     AtomicP115LocalStrmLibraryGateway,
+    HttpxEmbyIntroFavoriteGateway,
     HttpxP115AuthorizationGateway,
     HttpxP115BridgeEmbyGateway,
     IntroDetectionSubmissionService,
-    LegacyP7IntroRuntimeSource,
     LegacyP115DeepDeleteScopeGateway,
     LegacyP115DirectLinkGateway,
     LegacyP115DirectoryGateway,
@@ -198,6 +198,7 @@ from etk.domains.p115 import (
     P115StrmReplaceService,
     P115WashingPriorityService,
     PostgresP115IntroDetectionRepository,
+    PostgresP115IntroRuntimeSource,
     PostgresP115PlaybackRepository,
     PostgresP115StrmSyncCoordinator,
     SqlAlchemyP115CredentialRepository,
@@ -210,6 +211,7 @@ from etk.domains.p115 import (
     SqlAlchemyP115RenameConfigRepository,
     SqlAlchemyP115SortingRulesRepository,
     SqlAlchemyP115WashingPriorityRepository,
+    select_intro_provider_identity,
 )
 from etk.domains.p115.playback_router import router as p115_playback_router
 from etk.domains.p115.router import router as p115_router
@@ -1181,8 +1183,13 @@ def _register_p115_providers(container: AppContainer) -> None:
         lambda current: HttpxP115BridgeEmbyGateway(lambda: current.settings),
     )
     container.register_client(
-        "p115.intro-p7-reads",
-        lambda current: LegacyP7IntroRuntimeSource(current.repository("p115.intro-detection")),
+        "p115.intro-runtime",
+        lambda current: PostgresP115IntroRuntimeSource(
+            current.database.unit_of_work,
+            current.repository("p115.intro-detection"),
+            current.repository("app-settings"),
+            HttpxEmbyIntroFavoriteGateway(lambda: current.settings),
+        ),
     )
     container.register_client(
         "p115.intro-sync-feature",
@@ -1374,8 +1381,12 @@ def _register_p115_providers(container: AppContainer) -> None:
         "p115.intro-detection-gateway",
         lambda current: NativeP115IntroDetectionGateway(
             submission=current.use_case("p115.intro-detection-submission"),
-            source=current.client("p115.intro-p7-reads"),
+            source=current.client("p115.intro-runtime"),
             account_id=lambda: current.repository("p115.credentials").load().account_id,
+            provider_identity=lambda: select_intro_provider_identity(
+                current.repository("p115.credentials"),
+                lambda: current.settings.p115_api_priority,
+            ),
         ),
     )
     container.register_use_case(

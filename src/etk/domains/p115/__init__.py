@@ -75,6 +75,7 @@ from .fingerprints import (
     P115FingerprintRepository,
     canonical_sha1,
 )
+from .intro_backfill import P115IntroBackfillTaskService
 from .intro_detection import (
     IntroDetectionExecutionService,
     IntroDetectionIntent,
@@ -88,16 +89,23 @@ from .intro_detection_adapters import (
     EmbyAuthorizationRevisionAdapter,
     LegacyP7IntroPolicyAdapter,
     NativeIntroDetectionBatchEngine,
+    NativeIntroPolicyAdapter,
+    NativeP115IntroDirectUrlGateway,
     P115IntroFingerprintAdapter,
     legacy_account_bound_direct_urls,
 )
 from .intro_detection_compatibility import (
     LegacyP7IntroRuntimeSource,
     LegacyP9IntroChaptersChangedHook,
-    NativeP115IntroDetectionGateway,
-    P115IntroBackfillTaskService,
 )
 from .intro_detection_repository import PostgresP115IntroDetectionRepository
+from .intro_gateway import NativeP115IntroDetectionGateway
+from .intro_runtime import (
+    HttpxEmbyIntroFavoriteGateway,
+    IntroFavoriteIdentity,
+    PostgresP115IntroRuntimeSource,
+    select_intro_provider_identity,
+)
 from .intro_sync import P115IntroSyncService
 from .intro_sync_adapters import LegacyP115IntroSnapshotExporter, LegacyP115IntroSyncFeature
 from .iso_probe import (
@@ -351,6 +359,7 @@ __all__ = [
     "HttpxP115AuthorizationGateway",
     "HttpxP115DirectoryTreeGateway",
     "HttpxP115OrganizeReadbackGateway",
+    "HttpxEmbyIntroFavoriteGateway",
     "HttpxEmbyPathChangeGateway",
     "IntroDetectionExecutionService",
     "IntroDetectionIntent",
@@ -358,6 +367,7 @@ __all__ = [
     "IntroDetectionPolicySnapshot",
     "IntroDetectionSubmissionService",
     "IntroEpisodeSnapshot",
+    "IntroFavoriteIdentity",
     "ChromaprintProcessAdapter",
     "EmbyAuthorizationRevisionAdapter",
     "LegacyP7IntroPolicyAdapter",
@@ -384,8 +394,10 @@ __all__ = [
     "LegacyP115WashingPriorityConfigGateway",
     "LocalP115FingerprintHintGateway",
     "NativeIntroDetectionBatchEngine",
+    "NativeIntroPolicyAdapter",
     "NativeP115IsoProbeGateway",
     "NativeP115IntroDetectionGateway",
+    "NativeP115IntroDirectUrlGateway",
     "NativeP115UploadSourceCleanupGateway",
     "P115AuthDirectoryService",
     "P115_AUTH_TOKENS_SETTING",
@@ -502,6 +514,7 @@ __all__ = [
     "P115IntroBackfillTaskService",
     "P115IntroFingerprintAdapter",
     "P115IntroSyncService",
+    "PostgresP115IntroRuntimeSource",
     "P115ItemReadyService",
     "P115LanguageMappingRule",
     "P115LocalDirectoryBrowser",
@@ -591,6 +604,7 @@ __all__ = [
     "normalize_washing_priority_recalculate_scope",
     "policy_revision",
     "runtime_config_revision",
+    "select_intro_provider_identity",
     "legacy_account_bound_direct_urls",
     "LegacyP115IntroSnapshotExporter",
     "LegacyP115IntroSyncFeature",

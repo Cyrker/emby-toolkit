@@ -9,6 +9,7 @@ from etk.compatibility.intro_detection import (
     clear_persistent_intro_detection_gateway,
     install_persistent_intro_detection_gateway,
 )
+from etk.domains.p115.intro_backfill import P115IntroBackfillTaskService
 from etk.domains.p115.intro_detection import (
     IntroDetectionPolicySnapshot,
     IntroEpisodeSnapshot,
@@ -76,13 +77,27 @@ class _Source:
         del item
         return (self.season,)
 
-    def list_library_seasons(self, *, limit: int, library_ids: Any) -> Any:
+    def list_library_seasons(
+        self,
+        *,
+        limit: int,
+        library_ids: Any,
+        credits_enabled: bool | None = None,
+    ) -> Any:
         assert limit == 50
         assert tuple(library_ids) == ("library-a",)
+        assert credits_enabled is True
         return (self.season,)
 
-    def list_favorite_seasons(self, *, limit: int, library_ids: Any) -> Any:
+    def list_favorite_seasons(
+        self,
+        *,
+        limit: int,
+        library_ids: Any,
+        credits_enabled: bool | None = None,
+    ) -> Any:
         del limit, library_ids
+        assert credits_enabled is True
         return (self.season,)
 
 
@@ -128,6 +143,7 @@ def test_native_gateway_reserves_one_immutable_season_operation() -> None:
     assert result["created"] == 1
     assert len(submission.intents) == 1
     request = submission.intents[0].request
+    assert request["provider_backend"] == "openapi"
     assert [episode["episode_number"] for episode in request["episodes"]] == [1, 2, 3]
     serialized = repr(request).lower()
     assert "http://" not in serialized
@@ -155,6 +171,27 @@ def test_native_gateway_backfill_is_idempotent_and_keeps_empty_external_payload_
         "operation_ids": result["operation_ids"],
     }
     assert len(result["operation_ids"]) == 1
+
+
+def test_backfill_task_forces_favorite_scope_without_changing_off_or_playback_policy() -> None:
+    calls: list[tuple[int, bool]] = []
+
+    class _Gateway:
+        def enqueue_active_backfill(self, limit: int = 50, *, force: bool = False) -> dict[str, Any]:
+            calls.append((limit, force))
+            return {"ok": True, "queued": False, "completed": True, "count": 0, "scope": "active_watchlist"}
+
+    class _Progress:
+        def checkpoint(self) -> None:
+            return None
+
+        def update(self, _progress: int, _message: str) -> None:
+            return None
+
+    outcome = P115IntroBackfillTaskService(cast(Any, _Gateway())).execute(cast(Any, _Progress()))
+
+    assert calls == [(50, True)]
+    assert outcome.details["forced_backfill"] is True
 
 
 def test_installed_gateway_prevents_legacy_intro_queue_or_daemon_start(monkeypatch) -> None:

@@ -259,6 +259,29 @@ def test_backend_failure_falls_back_in_configured_order() -> None:
     assert opened == ["openapi", "cookie"]
 
 
+def test_pinned_backend_never_falls_back_or_follows_later_priority_changes() -> None:
+    credentials = MutableCredentials(_snapshot())
+    openapi = FakeOpenApiClient(RuntimeError("fixture provider failure"))
+    opened: list[str] = []
+    priority = ["cookie"]
+    gateway = P115SdkDirectUrlGateway(
+        credentials=credentials,
+        priority=lambda: priority[0],
+        openapi_client_factory=lambda _token: (opened.append("openapi"), openapi)[1],
+        cookie_client_factory=lambda _cookie, _app: pytest.fail("pinned backend must not fall back"),
+    )
+
+    resolved = gateway.resolve_backend(
+        PICK_CODE,
+        expected_account_id=ACCOUNT_ID,
+        expected_backend="openapi",
+        user_agent=USER_AGENT,
+    )
+
+    assert resolved is None
+    assert opened == ["openapi"]
+
+
 def test_missing_preferred_credential_uses_available_backend() -> None:
     credentials = MutableCredentials(replace(_snapshot(), access_token="", refresh_token=""))
     cookie = FakeCookieClient("https://download.invalid/cookie-only.mkv")

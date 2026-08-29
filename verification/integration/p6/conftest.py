@@ -111,6 +111,7 @@ def p6_runtime(migrated_p6_postgres_url: str) -> Iterator[DatabaseRuntime]:
         connection.execute(text("DELETE FROM p115_organize_records"))
         connection.execute(text("DELETE FROM p115_filesystem_cache"))
         connection.execute(text("DELETE FROM p115_mediainfo_cache"))
+        connection.execute(text("DELETE FROM emby_favorite_items"))
         connection.execute(text("DELETE FROM media_metadata"))
         connection.execute(
             text(
@@ -121,7 +122,9 @@ def p6_runtime(migrated_p6_postgres_url: str) -> Iterator[DatabaseRuntime]:
                     'p115_episode_regex_rules',
                     'p115_rename_config',
                     'p115_sorting_rules',
-                    'p115_sorting_rules_account_id'
+                    'p115_sorting_rules_account_id',
+                    'watchlist_config',
+                    'shared_resource_config'
                 )
                 """
             )

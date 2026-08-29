@@ -6,9 +6,8 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Protocol
 
 from etk.compatibility.background import spawn
-from etk.domains.p115.directory_sync import P115TaskProgress
-from etk.platform.tasks import TaskOutcome
 
+from .intro_backfill import P115IntroBackfillTaskService
 from .intro_detection import (
     IntroDetectionIntent,
     IntroDetectionPolicySnapshot,
@@ -17,6 +16,7 @@ from .intro_detection import (
     IntroJobTrigger,
     IntroTriggerMode,
 )
+from .intro_gateway import NativeP115IntroDetectionGateway
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,7 @@ class IntroDetectionRuntimeSource(Protocol):
         *,
         limit: int,
         library_ids: Sequence[str],
+        credits_enabled: bool | None = None,
     ) -> Sequence[Sequence[IntroEpisodeSnapshot]]: ...
 
     def list_favorite_seasons(
@@ -68,6 +69,7 @@ class IntroDetectionRuntimeSource(Protocol):
         *,
         limit: int,
         library_ids: Sequence[str],
+        credits_enabled: bool | None = None,
     ) -> Sequence[Sequence[IntroEpisodeSnapshot]]: ...
 
 
@@ -154,7 +156,9 @@ class LegacyP7IntroRuntimeSource:
         *,
         limit: int,
         library_ids: Sequence[str],
+        credits_enabled: bool | None = None,
     ) -> tuple[tuple[IntroEpisodeSnapshot, ...], ...]:
+        del credits_enabled
         refs = self._legacy()._load_library_episode_refs(
             limit=limit,
             selected_library_ids=tuple(library_ids),
@@ -166,7 +170,9 @@ class LegacyP7IntroRuntimeSource:
         *,
         limit: int,
         library_ids: Sequence[str],
+        credits_enabled: bool | None = None,
     ) -> tuple[tuple[IntroEpisodeSnapshot, ...], ...]:
+        del credits_enabled
         refs = self._legacy()._load_active_watchlist_episode_refs(
             limit=limit,
             selected_library_ids=tuple(library_ids),
@@ -202,7 +208,7 @@ class LegacyP7IntroRuntimeSource:
         return intro_detection_service
 
 
-class NativeP115IntroDetectionGateway:
+class _CompatibilityP115IntroDetectionGateway:
     """Reserve native season operations for all still-legacy P7 trigger call sites."""
 
     def __init__(
@@ -211,10 +217,14 @@ class NativeP115IntroDetectionGateway:
         submission: IntroDetectionSubmitter,
         source: IntroDetectionRuntimeSource,
         account_id: Callable[[], object],
+        provider_backend: Callable[[], object] = lambda: "openapi",
+        provider_identity: Callable[[], tuple[object, object]] | None = None,
     ) -> None:
         self._submission = submission
         self._source = source
         self._account_id = account_id
+        self._provider_backend = provider_backend
+        self._provider_identity = provider_identity
 
     def enqueue_item(
         self,
@@ -326,12 +336,14 @@ class NativeP115IntroDetectionGateway:
                 seasons = self._source.list_library_seasons(
                     limit=batch_limit,
                     library_ids=policy.library_ids,
+                    credits_enabled=policy.credits_enabled,
                 )
                 scope = "library"
             else:
                 seasons = self._source.list_favorite_seasons(
                     limit=batch_limit,
                     library_ids=policy.library_ids,
+                    credits_enabled=policy.credits_enabled,
                 )
                 scope = "favorite"
             summary = self._reserve(seasons, IntroJobTrigger.BACKFILL, policy)
@@ -353,9 +365,16 @@ class NativeP115IntroDetectionGateway:
         trigger: IntroJobTrigger,
         policy: IntroDetectionPolicySnapshot,
     ) -> dict[str, Any]:
-        account_id = str(self._account_id() or "").strip()
+        if self._provider_identity is None:
+            raw_account_id, raw_backend = self._account_id(), self._provider_backend()
+        else:
+            raw_account_id, raw_backend = self._provider_identity()
+        account_id = str(raw_account_id or "").strip()
         if not account_id.isdigit():
             raise ValueError("stable 115 account identity is unavailable")
+        provider_backend = str(raw_backend or "").strip().lower()
+        if provider_backend not in {"openapi", "cookie"}:
+            raise ValueError("stable 115 provider backend is unavailable")
         created = 0
         accepted = 0
         skipped = 0
@@ -372,6 +391,7 @@ class NativeP115IntroDetectionGateway:
             try:
                 intent = IntroDetectionIntent.create(
                     account_id=account_id,
+                    provider_backend=provider_backend,
                     trigger=trigger,
                     policy=policy,
                     episodes=season,
@@ -391,30 +411,6 @@ class NativeP115IntroDetectionGateway:
             "candidates": len(seen),
             "operation_ids": operation_ids,
         }
-
-
-class P115IntroBackfillTaskService:
-    def __init__(self, gateway: NativeP115IntroDetectionGateway, *, limit: int = 50) -> None:
-        self._gateway = gateway
-        self._limit = max(1, min(int(limit), 200))
-
-    def execute(self, progress: P115TaskProgress) -> TaskOutcome:
-        progress.checkpoint()
-        progress.update(0, "=== 开始提交片头片尾提取任务 ===")
-        result = dict(self._gateway.enqueue_active_backfill(limit=self._limit))
-        details = {**result, "native_intro_detection": True}
-        if not result.get("ok"):
-            message = "片头片尾提取任务提交失败"
-            progress.update(-1, message)
-            return TaskOutcome.failed(message, details)
-        if result.get("skipped"):
-            message = "当前触发策略无需执行片头片尾查漏"
-            progress.update(100, message)
-            return TaskOutcome.skipped(message, details)
-        count = int(result.get("count") or 0)
-        message = f"片头片尾查漏完成，已创建 {count} 个持久化季任务"
-        progress.update(100, message)
-        return TaskOutcome.succeeded(message, details)
 
 
 class LegacyP9IntroChaptersChangedHook:

@@ -3958,6 +3958,63 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Intro-Backfill
+
+Stage / Batch: P11 / processor-free durable intro-fingerprint backfill Worker slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `cb909460` (`refactor(p11): execute native user expiry`).
+- Target checkpoint message: `refactor(p11): execute native intro backfill`.
+
+Implemented:
+
+- Replaced Worker and API wiring for intro policy, candidate, favorite and task reads with native
+  PostgreSQL owners. The backfill task always uses `force=True`; only favorite mode is forceable,
+  while off and playback remain native skips.
+- Frozen `account_id` and the first available configured provider backend into each immutable intro
+  operation. Direct URL extraction, refresh and continuation use only that backend; URLs remain
+  operation-local memory and are absent from request, progress, result and Outbox payloads.
+- Added exact favorite projection with processor-free authoritative Emby readback fallback, distinct
+  library and active-watchlist candidate scopes, and native policy revalidation.
+- Staged cache chapters, the Bridge effect and stable `sharing.intro.export` effect in one UoW. The
+  P9 effect uses SHA1 aggregate identity and chapter-content dedup, validates marker ordering and
+  malformed confirmations, and never controls P6 operation terminalization.
+- Registered the export effect exactly once in both Worker profiles, promoted
+  `intro-fingerprint-backfill` to native-only execution and recorded its native task owner.
+- Old persisted operations without a frozen backend now fail closed immediately as
+  `provider_backend_unpinned`; no backend is guessed and no policy/provider work or retry loop occurs.
+
+Targeted gate:
+
+- Scoped Ruff and format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`;
+  compileall and `git diff --check` -> clean.
+- Intro/P4/P6/P9 application, architecture and task-contract scope -> `228 passed, 1` existing
+  Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 intro repository/runtime scope -> `10 passed`.
+- Disposable PostgreSQL 18 + Redis/Celery native-only and compatibility-enabled profiles ->
+  `2 passed, 27 deselected`; disabled policy, duplicate delivery, no legacy task Processor,
+  no intro operation/Outbox/export effect and no provider write were confirmed.
+- Manifest/OpenAPI currentness and all three fixture/contract secret scans -> clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-intro-backfill-20260830/`.
+
+Focused review:
+
+- Initial review found one P1: pre-pin persisted operations would repeatedly retry because their
+  request lacks `provider_backend`. The explicit fail-closed terminal path and forbidden
+  policy/provider regression closed it. Delta rereview found no remaining P0/P1/P2.
+
+Pending:
+
+- Continue the approved `scan-organize-115`, `update-daily-theme` and
+  `subscription_quota_state` contracts, then reach ownership 100%, perform controlled legacy
+  removal and run all P11 NFR/security/SBOM/License gates. P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

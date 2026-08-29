@@ -122,11 +122,27 @@ def test_intent_is_deterministic_and_contains_only_immutable_snapshot_data() -> 
     assert first.source_set_revision == second.source_set_revision
     assert first.policy_revision == second.policy_revision
     assert first.algorithm_version == INTRO_DETECTION_ALGORITHM_VERSION
+    assert first.provider_backend == "openapi"
+    assert first.request["provider_backend"] == "openapi"
     assert [episode["episode_number"] for episode in first.request["episodes"]] == [1, 2]
     serialized = repr(first.request).lower()
     assert "http://" not in serialized
     assert "https://" not in serialized
     assert "direct_url" not in serialized
+
+    cookie = IntroDetectionIntent.create(
+        account_id="115001",
+        provider_backend="cookie",
+        trigger=IntroJobTrigger.IMPORT,
+        policy=IntroDetectionPolicySnapshot.create(
+            trigger_mode=IntroTriggerMode.IMPORT,
+            credits_enabled=True,
+            library_ids=("library-a",),
+        ),
+        episodes=(_episode(2), _episode(1)),
+    )
+    assert cookie.operation_key != first.operation_key
+    assert cookie.request["provider_backend"] == "cookie"
 
 
 def test_trigger_policy_preserves_legacy_mode_contract() -> None:
@@ -229,6 +245,34 @@ def test_execution_service_turns_no_progress_into_bounded_backoff() -> None:
     assert result.disposition is IntroBatchDisposition.RETRYABLE
     assert result.retry_after_seconds == 3
     assert result.progress["no_progress_batches"] == 1
+
+
+def test_execution_service_rejects_unpinned_legacy_operation_before_policy_or_provider_work() -> None:
+    class _ForbiddenPolicy:
+        def permits(self, operation: IntroDetectionOperation) -> bool:
+            del operation
+            raise AssertionError("legacy operation must fail before policy evaluation")
+
+    class _ForbiddenBatch:
+        def execute_batch(
+            self,
+            operation: IntroDetectionOperation,
+            *,
+            cancel: CancelCheck,
+        ) -> IntroBatchResult:
+            del operation, cancel
+            raise AssertionError("legacy operation must fail before provider work")
+
+    operation = _operation()
+    legacy_request = {key: value for key, value in operation.request.items() if key != "provider_backend"}
+
+    result = IntroDetectionExecutionService(_ForbiddenBatch(), _ForbiddenPolicy()).execute(
+        replace(operation, request=legacy_request),
+        cancel=lambda: False,
+    )
+
+    assert result.disposition is IntroBatchDisposition.REJECTED
+    assert result.error == {"type": "provider_backend_unpinned"}
 
 
 def test_no_progress_rotates_later_episodes_and_rejects_after_two_full_sweeps() -> None:

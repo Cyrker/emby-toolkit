@@ -896,6 +896,167 @@ def test_old_season_backfill_executes_once_through_real_worker_profiles(
             )
 
 
+@pytest.mark.parametrize(
+    "compatibility_enabled",
+    [False, True],
+    ids=["native-only", "compatibility-enabled"],
+)
+def test_intro_backfill_skips_without_legacy_or_provider_effects_through_real_worker_profiles(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+) -> None:
+    prior_settings = _snapshot_app_settings(p4_runtime, ("watchlist_config",))
+    with p4_runtime.engine.begin() as connection:
+        operation_count = connection.scalar(text("SELECT count(*) FROM p115_intro_detection_operations"))
+        intro_outbox_count = connection.scalar(
+            text("SELECT count(*) FROM outbox_events WHERE topic = 'p115.intro-detection.requested'")
+        )
+        export_effect_count = connection.scalar(
+            text("SELECT count(*) FROM media_effects WHERE effect_type = 'sharing.intro.export'")
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                VALUES ('watchlist_config', CAST(:value AS jsonb), NOW())
+                ON CONFLICT (setting_key) DO UPDATE SET
+                    value_json = EXCLUDED.value_json,
+                    last_updated_at = NOW()
+                """
+            ),
+            {
+                "value": json.dumps(
+                    {
+                        "intro_detection_trigger_mode": "off",
+                        "intro_detection_credits_enabled": True,
+                        "intro_detection_library_ids": ["must-not-be-read"],
+                    },
+                    separators=(",", ":"),
+                )
+            },
+        )
+
+    created = p4_store.create_job(
+        task_key="intro-fingerprint-backfill",
+        queue_name=p4_runtime_environment.queue_name,
+        max_attempts=1,
+        payload={
+            "payload_version": 1,
+            "parameters": {},
+            "processor_type": "watchlist",
+            "display_name": "P11 native intro backfill disabled fixture",
+            "silent": True,
+        },
+    ).projection
+    site_directory = tmp_path / f"intro-backfill-site-{compatibility_enabled}"
+    site_directory.mkdir()
+    (site_directory / "sitecustomize.py").write_text(
+        """
+import builtins
+import os
+
+guard_file = os.environ.get("ETK_TEST_INTRO_BACKFILL_LEGACY_IMPORT_GUARD_FILE")
+if guard_file:
+    original_import = builtins.__import__
+    forbidden = ("database", "extensions", "handler", "task_manager", "tasks", "watchlist_processor")
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if level == 0 and os.path.exists(guard_file) and any(
+            name == prefix or name.startswith(prefix + ".") for prefix in forbidden
+        ):
+            raise AssertionError(f"intro backfill Worker imported legacy runtime {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    builtins.__import__ = guarded_import
+""".lstrip(),
+        encoding="utf-8",
+    )
+    import_guard = tmp_path / f"intro-backfill-legacy-import-{compatibility_enabled}.guard"
+    worker_environment_values = dict(p4_runtime_environment.environment)
+    existing_python_path = worker_environment_values.get("PYTHONPATH", "")
+    worker_environment_values["PYTHONPATH"] = os.pathsep.join(
+        filter(
+            None,
+            (
+                str(site_directory),
+                str(REPO_ROOT / "src"),
+                str(REPO_ROOT),
+                existing_python_path,
+            ),
+        )
+    )
+    worker_environment_values["ETK_TEST_INTRO_BACKFILL_LEGACY_IMPORT_GUARD_FILE"] = str(import_guard)
+    if compatibility_enabled:
+        worker_environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+    else:
+        worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+    worker_environment = RuntimeEnvironment(
+        environment=worker_environment_values,
+        config=p4_runtime_environment.config,
+        data_dir=p4_runtime_environment.data_dir,
+        queue_name=p4_runtime_environment.queue_name,
+    )
+    worker = _start_worker(worker_environment, tmp_path / f"intro-backfill-worker-{compatibility_enabled}")
+    try:
+        _wait_for_worker(worker, worker_environment.config)
+        warmup = _create_empty_chain_job(p4_store, worker_environment.queue_name)
+        _send_delivery(
+            worker_environment.config,
+            warmup.job.id,
+            warmup.attempt.id,
+        )
+        _wait_for_job(p4_store, warmup.job.id, {JobStatus.SUCCEEDED}, timeout=30)
+        import_guard.write_text("active", encoding="utf-8")
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+            count=2,
+        )
+
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=30)
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert completed.current_attempt.attempt_no == 1
+        assert completed.job.result is not None
+        assert completed.job.result["status"] == "skipped"
+        assert completed.job.result["details"] == {
+            "ok": True,
+            "queued": False,
+            "skipped": True,
+            "reason": "disabled",
+            "native_intro_detection": True,
+            "forced_backfill": True,
+            "task_key": "intro-fingerprint-backfill",
+            "native_handler": "P6P115TaskRouter",
+            "compatibility_fallback": False,
+        }
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in worker.read_log(),
+            description="duplicate intro-backfill delivery to be skipped",
+            timeout=15,
+        )
+        with p4_runtime.engine.connect() as connection:
+            assert connection.scalar(text("SELECT count(*) FROM p115_intro_detection_operations")) == operation_count
+            assert (
+                connection.scalar(
+                    text("SELECT count(*) FROM outbox_events WHERE topic = 'p115.intro-detection.requested'")
+                )
+                == intro_outbox_count
+            )
+            assert (
+                connection.scalar(text("SELECT count(*) FROM media_effects WHERE effect_type = 'sharing.intro.export'"))
+                == export_effect_count
+            )
+    finally:
+        import_guard.unlink(missing_ok=True)
+        if worker.process.poll() is None:
+            assert worker.stop() == 0
+        _restore_app_settings(p4_runtime, prior_settings, ("watchlist_config",))
+
+
 def _snapshot_p115_directory_settings(runtime: DatabaseRuntime) -> dict[str, tuple[Any, datetime]]:
     with runtime.engine.connect() as connection:
         rows = connection.execute(
@@ -1139,6 +1300,32 @@ def _snapshot_app_settings(
             {"keys": list(keys)},
         ).mappings()
         return {str(row["setting_key"]): (row["value_json"], row["last_updated_at"]) for row in rows}
+
+
+def _restore_app_settings(
+    runtime: DatabaseRuntime,
+    prior_settings: Mapping[str, tuple[Any, datetime]],
+    keys: tuple[str, ...],
+) -> None:
+    with runtime.engine.begin() as connection:
+        connection.execute(
+            text("DELETE FROM app_settings WHERE setting_key = ANY(CAST(:keys AS text[]))"),
+            {"keys": list(keys)},
+        )
+        for setting_key, (value_json, last_updated_at) in prior_settings.items():
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES (:setting_key, CAST(:value_json AS jsonb), :last_updated_at)
+                    """
+                ),
+                {
+                    "setting_key": setting_key,
+                    "value_json": json.dumps(value_json, separators=(",", ":")),
+                    "last_updated_at": last_updated_at,
+                },
+            )
 
 
 def _restore_identity_expiry_fixture(

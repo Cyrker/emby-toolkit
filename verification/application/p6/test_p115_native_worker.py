@@ -174,7 +174,7 @@ def _projection(task_key: str = "sync-115-directory-tree") -> Any:
             request_payload={
                 "payload_version": 1,
                 "parameters": {},
-                "processor_type": "media",
+                "processor_type": "watchlist" if task_key == "intro-fingerprint-backfill" else "media",
                 "display_name": "同步网盘目录",
                 "silent": True,
                 "call_style": "catalog",
@@ -197,6 +197,7 @@ def _projection(task_key: str = "sync-115-directory-tree") -> Any:
         "backfill-organize-record-tmdb-ids",
         "sync-115-directory-tree",
         "full-sync-strm",
+        "intro-fingerprint-backfill",
         "monitor-115-life-events",
         "play-pool-daily-speedtest",
         "repair-p115-fingerprints",

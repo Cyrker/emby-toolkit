@@ -45,7 +45,7 @@ def test_p6_native_tasks_have_native_catalog_and_execution_ownership() -> None:
             "etk.domains.p115.organize_records.P115OrganizeRecordTmdbBackfillService"
         ),
         "full-sync-strm": "etk.domains.p115.strm_sync.P115StrmSyncService",
-        "intro-fingerprint-backfill": ("etk.domains.p115.intro_detection_compatibility.P115IntroBackfillTaskService"),
+        "intro-fingerprint-backfill": ("etk.domains.p115.intro_backfill.P115IntroBackfillTaskService"),
         "monitor-115-life-events": "etk.domains.p115.strm_sync.P115StrmSyncService",
         "play-pool-daily-speedtest": ("etk.domains.p115.playback_service.P115PlaybackService.daily_speedtest"),
         "repair-p115-fingerprints": "etk.domains.p115.fingerprints.P115FingerprintRepairService",

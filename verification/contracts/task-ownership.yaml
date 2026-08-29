@@ -595,7 +595,7 @@
       "ownership_layers": {
         "envelope_owner": "etk.processes.p6_p115_tasks.P6P115TaskRouter",
         "execution_kind": "native-use-case",
-        "execution_owner": "etk.domains.p115.intro_detection_compatibility.P115IntroBackfillTaskService"
+        "execution_owner": "etk.domains.p115.intro_backfill.P115IntroBackfillTaskService"
       },
       "processor_type": "watchlist",
       "retirement_approval": null,
