@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
@@ -16,6 +17,8 @@ from .washing_evaluator import (
     WashingVersionSource,
 )
 from .washing_priority import normalize_washing_priority_recalculate_scope
+
+logger = logging.getLogger(__name__)
 
 
 class WashingRecalculationDrift(RuntimeError):
@@ -205,8 +208,18 @@ class SqlAlchemyP115WashingRecalculationRepository:
 
             backfilled = 0
             for backfill in mutation.organize_backfills:
-                if self._backfill_target_cid(uow, current, backfill):
-                    backfilled += 1
+                try:
+                    with uow.session.begin_nested():
+                        if self._backfill_target_cid(uow, current, backfill):
+                            backfilled += 1
+                except Exception as exc:
+                    logger.debug(
+                        "Unable to backfill washing target CID for tmdb=%s cache=%s: %s",
+                        item.tmdb_id,
+                        backfill.cache_id,
+                        exc,
+                        exc_info=True,
+                    )
 
             uow.session.execute(
                 text(

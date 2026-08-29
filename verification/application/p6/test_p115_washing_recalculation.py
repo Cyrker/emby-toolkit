@@ -478,6 +478,52 @@ def test_evaluator_preserves_zero_numeric_fallbacks_and_fixed_taiwan_aliases() -
     assert normalize_language("臺灣", ()) == "chi"
 
 
+def test_evaluator_preserves_none_language_and_forces_normal_slot_matching() -> None:
+    policy = _policy([])
+    normalized = normalize_washing_info(
+        {
+            "MediaSourceInfo": {
+                "MediaStreams": [
+                    {"Type": "Video", "Width": 1920, "Height": 1080, "Codec": "hevc"},
+                    {"Type": "Audio", "Language": None},
+                    {"Type": "Subtitle", "Language": None},
+                ]
+            }
+        },
+        language_mapping=policy.language_mapping,
+        release_group_mapping={},
+        item=_item(),
+        remote_episode_runtime_minutes=None,
+    )
+
+    assert normalized["audio_langs"] == {"und"}
+    assert normalized["sub_langs"] == {"und"}
+    assert match_washing_priority(normalized, {"audio": ["und"]}) == (True, "匹配成功")
+    assert match_washing_priority(normalized, {"subtitle": ["und"], "is_exclude": True})[0] is True
+
+    raw_slot_match = {
+        "resolution": ["4k"],
+        "codec": ["hevc"],
+        "is_exclude": True,
+    }
+    assert match_washing_priority(normalized, raw_slot_match)[0] is True
+    slot = resolve_washing_version_slot(
+        normalized,
+        {
+            "version_slots_enabled": True,
+            "version_slots": [
+                {
+                    "id": "partial-exclude",
+                    "match": raw_slot_match,
+                },
+                {"id": "fallback", "fallback": True},
+            ],
+        },
+    )
+    assert slot is not None
+    assert slot["id"] == "fallback"
+
+
 def test_evaluator_preserves_normal_rule_truthiness_and_empty_filename_source() -> None:
     assert has_normal_washing_priorities({}) is False
     assert has_normal_washing_priorities([{}]) is True

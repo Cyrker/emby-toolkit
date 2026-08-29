@@ -3579,6 +3579,77 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Washing-Parity-Reconcile
+
+Stage / Batch: P11 / washing recalculation parity reconciliation
+
+HEAD / Commit:
+
+- Pre-fix HEAD: `79b35311` (`refactor(p11): execute native mediainfo restore`).
+- Checkpoint: this batch's `fix(p11): reconcile washing recalculation parity` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Preserved legacy handling for explicit MediaInfo `Language=None`: the stream value is normalized
+  through the configured unknown-language alias and remains matchable as `und` instead of being
+  discarded.
+- Forced version-slot match rules to ordinary all-condition semantics even when a raw helper caller
+  supplies truthy `is_exclude`, matching the legacy resolver. Persisted canonical config already
+  strips this unknown field; the direct helper contract is now safe if that projection changes.
+- Isolated organize-record target-CID backfill in a PostgreSQL savepoint. A backfill failure remains
+  best effort while cache and media washing snapshots still commit in the same outer item UoW;
+  source-fingerprint drift continues to fail before this boundary.
+- Reconciled three supplied audit claims against the current legacy source. Both implementations
+  intentionally filter empty SHA1/PickCode entries, scan later asset entries for a filename fallback,
+  and select non-empty organize targets without a `status='success'` predicate, so no speculative
+  change was made. The previously documented `臺灣 -> chi` native compatibility alias remains.
+
+Targeted gate:
+
+- Scoped Ruff check/format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`;
+  scoped compileall and `git diff --check` -> clean.
+- Washing evaluator, priority, native Worker and P7 runtime application scope -> `69 passed`.
+- Disposable PostgreSQL 18 washing recalculation/priority scope -> `2 passed`; the regression injects
+  a real division-by-zero database error and proves the savepoint leaves the outer UoW committable.
+- Manifest and OpenAPI currentness plus all three fixture/contract secret scans -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-washing-parity-reconcile-20260829/`.
+
+Focused review:
+
+- Initial read-only audits identified the unknown-language, raw slot-matching and backfill exception
+  P2 deltas. The final delta review confirmed the savepoint does not swallow source drift or split the
+  cache/media UoW. The slot regression was made explicitly discriminating between exclude-any and
+  ordinary-all matching. No P0/P1/P2 remains in this slice.
+
+Execution note:
+
+- Two main-thread mechanical formatter commands were mistakenly dispatched concurrently against
+  different files. They had no overlapping target or subagent writer; the complete tracked diff was
+  audited immediately and every final gate above was rerun serially. All later writes remain serial.
+
+Stage full gate:
+
+- Not run. This bounded parity batch does not change Worker/route/table/config ownership counts and
+  does not authorize controlled removal or P12.
+
+Pending:
+
+- Native-only Worker execution remains `17 executable / 33 unavailable`. Fifty-seven route
+  decorators, 61 method bindings, 12 tables, 82 dynamic config keys, seven bootstrap keys and 18
+  standalone settings remain legacy-owned.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue the smallest evidence-backed normal processed Worker or ownership slice. Do not start
+controlled removal or P12 until execution and ownership reach 100%.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

@@ -817,7 +817,7 @@ def resolve_washing_version_slot(
             continue
         matched, _reason = match_washing_priority(
             normalized,
-            dict(match),
+            dict(match, is_exclude=False),
             language_mapping=language_mapping,
             release_group_mapping=release_mapping,
         )
@@ -1234,7 +1234,7 @@ def _detected_languages(
                     if matched:
                         stream_languages.add(normalized_key)
                         break
-        raw_language = str(stream.get("Language") or "").lower().strip()
+        raw_language = str(stream.get("Language", "")).lower().strip()
         if raw_language:
             normalized = normalize_language(raw_language, language_mapping)
             if normalized:

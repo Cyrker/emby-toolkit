@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -8,6 +9,7 @@ import pytest
 from sqlalchemy import text
 
 from etk.domains.p115.washing_evaluator import (
+    WashingOrganizeBackfill,
     build_washing_policy_snapshot,
     evaluate_washing_item,
 )
@@ -19,7 +21,7 @@ from etk.domains.p115.washing_recalculation_repository import (
     WashingRecalculationDrift,
 )
 from etk.platform import Settings
-from etk.platform.db import DatabaseRuntime, EngineConfig
+from etk.platform.db import DatabaseRuntime, EngineConfig, SqlAlchemyUnitOfWork
 
 TMDB_ID = "9911711"
 CACHE_ID = "p11-washing-recalculation-file"
@@ -52,6 +54,7 @@ class RecordingProgress:
 
 def test_washing_recalculation_updates_snapshots_and_acks_revision_on_postgres18(
     migrated_p6_postgres_url: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runtime = DatabaseRuntime.create(
         EngineConfig(
@@ -361,6 +364,60 @@ def test_washing_recalculation_updates_snapshots_and_acks_revision_on_postgres18
             ),
             evaluated_at=NOW + timedelta(minutes=1),
         )
+        mutation_with_failed_backfill = replace(
+            mutation,
+            organize_backfills=(
+                WashingOrganizeBackfill(
+                    cache_id=CACHE_ID,
+                    pick_code=PICK_CODE,
+                    original_name="P11 Washing Fixture",
+                    target_cid="200",
+                    category_name="Movies",
+                ),
+            ),
+        )
+
+        def fail_backfill_with_database_error(
+            uow: SqlAlchemyUnitOfWork,
+            _item: object,
+            _backfill: object,
+        ) -> bool:
+            uow.session.execute(text("SELECT 1 / 0"))
+            return False
+
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                SqlAlchemyP115WashingRecalculationRepository,
+                "_backfill_target_cid",
+                staticmethod(fail_backfill_with_database_error),
+            )
+            assert recalculation_repository.persist_item(loaded, mutation_with_failed_backfill) == 0
+
+        with runtime.engine.connect() as connection:
+            timestamps = dict(
+                connection.execute(
+                    text(
+                        """
+                        SELECT
+                            (
+                                SELECT washing_snapshot_json->>'evaluated_at'
+                                FROM media_metadata
+                                WHERE tmdb_id = :tmdb_id AND item_type = 'Movie'
+                            ) AS media,
+                            (
+                                SELECT washing_snapshot_json->>'evaluated_at'
+                                FROM p115_filesystem_cache
+                                WHERE id = :cache_id
+                            ) AS cache
+                    """
+                    ),
+                    {"tmdb_id": TMDB_ID, "cache_id": CACHE_ID},
+                )
+                .mappings()
+                .one()
+            )
+        assert timestamps == {"media": "2026-08-29T09:01:00Z", "cache": "2026-08-29T09:01:00Z"}
+
         with runtime.engine.begin() as connection:
             connection.execute(
                 text(
@@ -385,7 +442,7 @@ def test_washing_recalculation_updates_snapshots_and_acks_revision_on_postgres18
                 ),
                 {"tmdb_id": TMDB_ID},
             )
-        assert persisted_timestamp == "2026-08-29T09:00:00Z"
+        assert persisted_timestamp == "2026-08-29T09:01:00Z"
     finally:
         try:
             if mutated:
