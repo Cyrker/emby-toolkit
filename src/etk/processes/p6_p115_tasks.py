@@ -38,7 +38,17 @@ class _OrganizeRecordTmdbBackfillUseCase(Protocol):
     def execute(self, progress: P115TaskProgress) -> TaskOutcome: ...
 
 
-class _OrganizeExecutionUseCase(Protocol):
+class _OrganizeReconciliationUseCase(Protocol):
+    def reconcile(
+        self,
+        execution_id: UUID,
+        approved_intent_id: str,
+        *,
+        actor: str | None = None,
+    ) -> _ReconciliationResult: ...
+
+
+class _OrganizeExecutionUseCase(_OrganizeReconciliationUseCase, Protocol):
     def execute(
         self,
         execution_id: UUID,
@@ -48,14 +58,6 @@ class _OrganizeExecutionUseCase(Protocol):
         attempt_id: UUID,
         worker_id: str | None = None,
     ) -> P115ExecutionRunResult: ...
-
-    def reconcile(
-        self,
-        execution_id: UUID,
-        approved_intent_id: str,
-        *,
-        actor: str | None = None,
-    ) -> _ReconciliationResult: ...
 
 
 class P6P115TaskRouter:
@@ -70,6 +72,7 @@ class P6P115TaskRouter:
         playback: _PlaybackMaintenanceUseCase | None = None,
         intro_backfill: _IntroBackfillUseCase | None = None,
         organize_record_tmdb_backfill: _OrganizeRecordTmdbBackfillUseCase | None = None,
+        organize_reconciliation: _OrganizeReconciliationUseCase | None = None,
     ) -> None:
         self._directory_sync = directory_sync
         self._organize_execution = organize_execution
@@ -78,6 +81,7 @@ class P6P115TaskRouter:
         self._playback = playback
         self._intro_backfill = intro_backfill
         self._organize_record_tmdb_backfill = organize_record_tmdb_backfill
+        self._organize_reconciliation = organize_reconciliation or organize_execution
 
     def execute(self, message: TaskMessage, progress: P115TaskProgress) -> TaskOutcome:
         if not isinstance(message, TaskMessage):
@@ -169,9 +173,9 @@ class P6P115TaskRouter:
             container="metadata",
             maximum=255,
         )
-        if self._organize_execution is None:
+        if self._organize_reconciliation is None:
             raise RuntimeError("P6 organize-execution use case is unavailable")
-        result = self._organize_execution.reconcile(execution_id, approved_intent_id, actor=actor)
+        result = self._organize_reconciliation.reconcile(execution_id, approved_intent_id, actor=actor)
         return TaskOutcome.succeeded(
             "115 整理对账完成",
             self._details(

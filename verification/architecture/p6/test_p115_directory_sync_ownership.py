@@ -79,11 +79,16 @@ def test_p6_native_tasks_have_native_catalog_and_execution_ownership() -> None:
     assert table["new_owner"] == "etk.domains.p115.repository.SqlAlchemyP115DirectoryCacheRepository"
 
 
-def test_native_directory_sync_import_does_not_load_legacy_task_or_provider_modules() -> None:
+def test_native_directory_and_reconciliation_imports_do_not_load_legacy_modules() -> None:
     program = """
 import json
 import sys
-from etk.domains.p115 import HttpxP115DirectoryTreeGateway, P115DirectorySyncService
+from etk.domains.p115 import (
+    HttpxP115DirectoryTreeGateway,
+    HttpxP115OrganizeReadbackGateway,
+    P115DirectorySyncService,
+    P115OrganizeExecutionService,
+)
 from etk.processes.p6_p115_tasks import P6P115TaskRouter
 forbidden_prefixes = ('database', 'extensions', 'handler', 'routes', 'task_manager', 'tasks')
 loaded = sorted(
@@ -93,7 +98,9 @@ loaded = sorted(
 print(json.dumps({
     'loaded': loaded,
     'gateway': HttpxP115DirectoryTreeGateway.__name__,
+    'readback_gateway': HttpxP115OrganizeReadbackGateway.__name__,
     'router': P6P115TaskRouter.__name__,
+    'reconciliation': P115OrganizeExecutionService.__name__,
     'service': P115DirectorySyncService.__name__,
 }))
 """
@@ -115,6 +122,8 @@ print(json.dumps({
     assert json.loads(completed.stdout) == {
         "loaded": [],
         "gateway": "HttpxP115DirectoryTreeGateway",
+        "readback_gateway": "HttpxP115OrganizeReadbackGateway",
         "router": "P6P115TaskRouter",
+        "reconciliation": "P115OrganizeExecutionService",
         "service": "P115DirectorySyncService",
     }

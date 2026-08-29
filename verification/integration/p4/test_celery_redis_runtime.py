@@ -23,6 +23,7 @@ from redis import Redis
 from sqlalchemy import text
 
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
+from etk.domains.p115 import P115ExecutionEffectStatus, P115ExecutionStatus
 from etk.domains.subscription.assistant import ASSISTANT_MAINTENANCE_PHASES, _state_json
 from etk.domains.subscription.cleanup_adapters import SettingsCleanupExecutionPolicy
 from etk.domains.subscription.cleanup_repository import SqlAlchemyCleanupRepository
@@ -87,6 +88,7 @@ class CleanupScanEmbyStubState:
 def _start_p115_directory_stub(
     *,
     directory_id: str = "dir-worker-native",
+    directory_name: str = "Native",
 ) -> tuple[ThreadingHTTPServer, threading.Thread, P115DirectoryStubState]:
     state = P115DirectoryStubState(requests=[])
     lock = threading.Lock()
@@ -111,7 +113,7 @@ def _start_p115_directory_stub(
             offset = int(query.get("offset") or 0)
             data = (
                 [
-                    {"file_id": directory_id, "file_name": "Native", "type": 0},
+                    {"file_id": directory_id, "file_name": directory_name, "type": 0},
                     {"file_id": "movie-worker-native", "file_name": "movie.mkv", "type": 1},
                 ]
                 if offset == 0
@@ -738,6 +740,62 @@ def _p115_directory_cache_rows(runtime: DatabaseRuntime, *, root_id: str) -> lis
         return [dict(row) for row in rows]
 
 
+def _prepare_indeterminate_organize_execution(
+    runtime: DatabaseRuntime,
+    *,
+    plan_id: UUID,
+    approved_execution_intent_id: str,
+) -> UUID:
+    from verification.integration.p6.test_p115_organize_execution_postgres import (
+        _plan as _organize_plan,
+    )
+    from verification.integration.p6.test_p115_organize_execution_postgres import (
+        _reserve as _reserve_organize_execution,
+    )
+    from verification.integration.p6.test_p115_organize_execution_postgres import (
+        _start as _start_organize_execution,
+    )
+
+    plan = _organize_plan(runtime, plan_id=str(plan_id), name="Movie")
+    repository, reservation, execution_job, _request_hash = _reserve_organize_execution(
+        runtime,
+        plan,
+        approved_intent_id=approved_execution_intent_id,
+    )
+    store, owner = _start_organize_execution(
+        runtime,
+        repository,
+        reservation.execution.execution_id,
+        execution_job,
+    )
+    claimed = repository.claim_effect(
+        reservation.execution.execution_id,
+        plan.actions[0].action_id,
+        owner,
+        lease_seconds=300,
+    )
+    assert claimed is not None and claimed.effect.claim_token is not None
+    repository.mark_requesting(
+        reservation.execution.execution_id,
+        plan.actions[0].action_id,
+        owner,
+        claimed.effect.claim_token,
+        binding=claimed.binding,
+    )
+    store.fail_attempt(
+        job_id=execution_job.job_id,
+        attempt_id=execution_job.attempt_id,
+        worker_id=owner.worker_id,
+        error_type="fixture_requesting_crash",
+        error_message="fixture Worker crashed after provider request began",
+        retryable=False,
+    )
+    recovered = repository.recover_orphaned(reservation.execution.execution_id)
+    assert recovered is not None and recovered.status is P115ExecutionStatus.INDETERMINATE
+    assert recovered.actions[0].effect.status is P115ExecutionEffectStatus.INDETERMINATE
+    return recovered.execution_id
+
+
 def _snapshot_app_settings(
     runtime: DatabaseRuntime,
     keys: tuple[str, ...],
@@ -1096,6 +1154,339 @@ if checkpoint_file and checkpoint_job_id and release_file:
             }
         ]
         assert [request["query"]["offset"] for request in stub.requests] == expected_offsets
+        if not compatibility_enabled:
+            with p4_runtime.engine.connect() as connection:
+                attempts = connection.execute(
+                    text(
+                        """
+                        SELECT attempt_no, status, error_type
+                        FROM job_attempts
+                        WHERE job_id = :job_id
+                        ORDER BY attempt_no
+                        """
+                    ),
+                    {"job_id": created.job.id},
+                ).all()
+                retry_dispatch_status = connection.scalar(
+                    text(
+                        """
+                        SELECT status
+                        FROM outbox_events
+                        WHERE aggregate_type = 'job_attempt'
+                          AND aggregate_id = :attempt_id
+                        """
+                    ),
+                    {"attempt_id": str(completed.current_attempt.id)},
+                )
+            assert attempts == [(1, "lost", "worker_lost"), (2, "succeeded", None)]
+            assert retry_dispatch_status == "processed"
+
+
+@pytest.mark.parametrize(
+    "compatibility_enabled",
+    [False, True],
+    ids=["native-only", "compatibility-enabled"],
+)
+def test_p115_organize_reconciliation_replays_committed_result_through_real_worker_profiles(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+) -> None:
+    fixture_id = uuid4().hex
+    plan_id = uuid4()
+    directory_id = f"organize-directory-{fixture_id}"
+    approved_execution_intent_id = f"approved-organize-execution-{fixture_id}"
+    approved_reconciliation_intent_id = f"approved-organize-reconciliation-{fixture_id}"
+    replay_checkpoint = tmp_path / "p115-organize-before-job-result.checkpoint"
+    replay_release = tmp_path / "p115-organize-before-job-result.release"
+
+    with ExitStack() as cleanup:
+        server, server_thread, stub = _start_p115_directory_stub(
+            directory_id=directory_id,
+            directory_name="Movie",
+        )
+        cleanup.callback(_shutdown_http_stub, server, server_thread)
+        base_url = f"http://127.0.0.1:{server.server_address[1]}"
+
+        prior_settings = _snapshot_p115_directory_settings(p4_runtime)
+        cleanup.callback(
+            _restore_p115_directory_fixture,
+            p4_runtime,
+            prior_settings=prior_settings,
+            cache_ids=(),
+        )
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES
+                        ('p115_auth_tokens', CAST(:credentials AS jsonb), NOW()),
+                        ('p115_sorting_rules', '[]'::jsonb, NOW()),
+                        ('p115_sorting_rules_account_id', '""'::jsonb, NOW())
+                    ON CONFLICT (setting_key) DO UPDATE SET
+                        value_json = EXCLUDED.value_json,
+                        last_updated_at = NOW()
+                    """
+                ),
+                {
+                    "credentials": json.dumps(
+                        {
+                            "access_token": "fixture-openapi-token",
+                            "refresh_token": "fixture-refresh-token",
+                            "cookie": None,
+                            "app_type": "web",
+                            "account_id": "115001",
+                            "openapi_account_id": "115001",
+                            "cookie_account_id": None,
+                        }
+                    )
+                },
+            )
+
+        execution_id = _prepare_indeterminate_organize_execution(
+            p4_runtime,
+            plan_id=plan_id,
+            approved_execution_intent_id=approved_execution_intent_id,
+        )
+        created = p4_store.create_job(
+            task_key="manual-correct-organize-records",
+            queue_name=p4_runtime_environment.queue_name,
+            max_attempts=1 if compatibility_enabled else 2,
+            payload={
+                "payload_version": 1,
+                "parameters": {
+                    "execution_id": str(execution_id),
+                    "approved_reconciliation_intent_id": approved_reconciliation_intent_id,
+                },
+                "processor_type": "media",
+                "display_name": "P11 native organize reconciliation fixture",
+                "silent": True,
+            },
+        ).projection
+
+        site_directory = tmp_path / f"p115-organize-site-{compatibility_enabled}"
+        site_directory.mkdir()
+        (site_directory / "sitecustomize.py").write_text(
+            """
+import builtins
+import os
+import time
+
+import etk.domains.p115.directory_transport as directory_transport
+
+base_url = os.environ["ETK_TEST_P115_ORGANIZE_BASE_URL"].rstrip("/")
+directory_transport._OPENAPI_FILES_URL = base_url + "/open/ufile/files"
+directory_transport._COOKIE_FILES_URL = base_url + "/files"
+
+guard_file = os.environ.get("ETK_TEST_P115_ORGANIZE_IMPORT_GUARD")
+if guard_file:
+    original_import = builtins.__import__
+    forbidden = ("database", "extensions", "handler", "routes", "task_manager", "tasks")
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if level == 0 and os.path.exists(guard_file) and any(
+            name == prefix or name.startswith(prefix + ".") for prefix in forbidden
+        ):
+            raise AssertionError(f"native P115 organize reconciliation imported legacy runtime {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    builtins.__import__ = guarded_import
+
+checkpoint_file = os.environ.get("ETK_TEST_P115_ORGANIZE_RESULT_CHECKPOINT")
+checkpoint_job_id = os.environ.get("ETK_TEST_P115_ORGANIZE_RESULT_JOB_ID")
+release_file = os.environ.get("ETK_TEST_P115_ORGANIZE_RESULT_RELEASE")
+if checkpoint_file and checkpoint_job_id and release_file:
+    from etk.platform.jobs import PostgresJobStore
+
+    original_succeed_attempt = PostgresJobStore.succeed_attempt
+
+    def succeed_attempt_after_test_checkpoint(self, **kwargs):
+        if str(kwargs.get("job_id")) == checkpoint_job_id and not os.path.exists(checkpoint_file):
+            try:
+                descriptor = os.open(checkpoint_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            except FileExistsError:
+                pass
+            else:
+                os.write(descriptor, str(os.getpid()).encode())
+                os.close(descriptor)
+                deadline = time.monotonic() + 60
+                while time.monotonic() < deadline and not os.path.exists(release_file):
+                    time.sleep(0.05)
+                if not os.path.exists(release_file):
+                    raise TimeoutError("P115 organize result checkpoint was not released")
+        return original_succeed_attempt(self, **kwargs)
+
+    PostgresJobStore.succeed_attempt = succeed_attempt_after_test_checkpoint
+""".lstrip(),
+            encoding="utf-8",
+        )
+
+        worker_environment_values = dict(p4_runtime_environment.environment)
+        worker_environment_values["ETK_TEST_P115_ORGANIZE_BASE_URL"] = base_url
+        legacy_import_guard = tmp_path / "p115-organize-legacy-import.guard"
+        existing_python_path = worker_environment_values.get("PYTHONPATH", "")
+        worker_environment_values["PYTHONPATH"] = os.pathsep.join(
+            filter(
+                None,
+                (
+                    str(site_directory),
+                    str(REPO_ROOT / "src"),
+                    str(REPO_ROOT),
+                    existing_python_path,
+                ),
+            )
+        )
+        if compatibility_enabled:
+            worker_environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+            worker_environment_values.pop("ETK_TEST_P115_ORGANIZE_IMPORT_GUARD", None)
+        else:
+            worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+            worker_environment_values["ETK_TEST_P115_ORGANIZE_IMPORT_GUARD"] = str(legacy_import_guard)
+            worker_environment_values["ETK_TEST_P115_ORGANIZE_RESULT_CHECKPOINT"] = str(replay_checkpoint)
+            worker_environment_values["ETK_TEST_P115_ORGANIZE_RESULT_JOB_ID"] = str(created.job.id)
+            worker_environment_values["ETK_TEST_P115_ORGANIZE_RESULT_RELEASE"] = str(replay_release)
+        worker_environment = RuntimeEnvironment(
+            environment=worker_environment_values,
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        worker = _start_worker(worker_environment, tmp_path / "p115-organize-worker")
+        cleanup.callback(
+            _stop_managed_process,
+            worker,
+            expected_code=0,
+            allow_sigkill=not compatibility_enabled,
+        )
+        if not compatibility_enabled:
+            cleanup.callback(replay_release.touch)
+        _wait_for_worker(worker, worker_environment.config)
+        if not compatibility_enabled:
+            legacy_import_guard.write_text("active", encoding="utf-8")
+            coordinator_environment = RuntimeEnvironment(
+                environment={
+                    **p4_runtime_environment.environment,
+                    "ETK_ENABLE_LEGACY_COMPATIBILITY": "true",
+                },
+                config=p4_runtime_environment.config,
+                data_dir=p4_runtime_environment.data_dir,
+                queue_name=p4_runtime_environment.queue_name,
+            )
+            coordinator = _start_coordinator(
+                coordinator_environment,
+                tmp_path / "p115-organize-coordinator",
+            )
+            cleanup.callback(
+                _stop_managed_process,
+                coordinator,
+                expected_code=128 + signal.SIGTERM,
+            )
+            _wait_until(
+                lambda: _health_state(coordinator.log_path.with_suffix(".health.json")) == "leader",
+                description="compatibility Coordinator to acquire organize-reconciliation recovery leadership",
+                timeout=30,
+            )
+
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+            count=2,
+        )
+        active_worker = worker
+        if not compatibility_enabled:
+            _wait_until(
+                replay_checkpoint.exists,
+                description="organize reconciliation commit before Job result persistence",
+                timeout=30,
+            )
+            running = p4_store.get_job(created.job.id)
+            assert running is not None and running.job.status is JobStatus.RUNNING
+            with p4_runtime.engine.connect() as connection:
+                committed = connection.execute(
+                    text(
+                        """
+                        SELECT status, outcome, actor
+                        FROM p115_organize_reconciliation_intents
+                        WHERE execution_id = :execution_id
+                          AND approved_intent_id = :approved_intent_id
+                        """
+                    ),
+                    {
+                        "execution_id": execution_id,
+                        "approved_intent_id": approved_reconciliation_intent_id,
+                    },
+                ).one()
+            assert committed == ("completed", "applied", None)
+            worker.kill()
+            replacement = _start_worker(
+                worker_environment,
+                tmp_path / "p115-organize-replacement-worker",
+            )
+            cleanup.callback(_stop_managed_process, replacement, expected_code=0)
+            _wait_for_worker(replacement, worker_environment.config)
+            active_worker = replacement
+
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert completed.current_attempt.attempt_no == (1 if compatibility_enabled else 2)
+        assert completed.job.result is not None
+        assert completed.job.result["ok"] is True
+        assert completed.job.result["status"] == "succeeded"
+        assert completed.job.result["message"] == "115 整理对账完成"
+        details = completed.job.result["details"]
+        assert details["task_key"] == "manual-correct-organize-records"
+        assert details["native_handler"] == "P6P115TaskRouter"
+        assert details["compatibility_fallback"] is False
+        assert details["p4_terminalized"] is False
+        assert details["external_mutations_executed"] == 0
+        assert details["reconciliation"]["approved_reconciliation_intent_id"] == (approved_reconciliation_intent_id)
+        assert details["reconciliation"]["status"] == "completed"
+        assert details["reconciliation"]["outcome"] == "applied"
+        assert details["reconciliation"]["actor"] is None
+        assert details["execution"]["status"] == "confirmed"
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in active_worker.read_log(),
+            description="duplicate organize reconciliation delivery to be skipped",
+            timeout=15,
+        )
+        assert [request["query"]["offset"] for request in stub.requests] == ["0", "2"]
+        assert all(request["path"] == "/open/ufile/files" for request in stub.requests)
+        assert all(request["query"]["cid"] == "target" for request in stub.requests)
+        assert all(request["authorization"] == "Bearer fixture-openapi-token" for request in stub.requests)
+
+        with p4_runtime.engine.connect() as connection:
+            reconciliations = connection.execute(
+                text(
+                    """
+                    SELECT approved_intent_id, status, outcome, actor
+                    FROM p115_organize_reconciliation_intents
+                    WHERE execution_id = :execution_id
+                    ORDER BY created_at
+                    """
+                ),
+                {"execution_id": execution_id},
+            ).all()
+            execution_state = connection.execute(
+                text(
+                    """
+                    SELECT execution.status, action.status, effect.status
+                    FROM p115_organize_plan_executions AS execution
+                    JOIN p115_organize_execution_actions AS action
+                      ON action.execution_id = execution.execution_id
+                    JOIN p115_organize_effects AS effect
+                      ON effect.effect_key = action.effect_key
+                    WHERE execution.execution_id = :execution_id
+                    """
+                ),
+                {"execution_id": execution_id},
+            ).one()
+        assert reconciliations == [(approved_reconciliation_intent_id, "completed", "applied", None)]
+        assert execution_state == ("confirmed", "confirmed", "indeterminate")
+
         if not compatibility_enabled:
             with p4_runtime.engine.connect() as connection:
                 attempts = connection.execute(

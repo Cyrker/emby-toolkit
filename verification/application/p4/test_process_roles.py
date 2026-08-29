@@ -483,6 +483,10 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert type(state._p6_p115_tasks._directory_sync).__name__ == "P115DirectorySyncService"
     assert type(state._p6_p115_tasks._directory_sync._directories).__name__ == ("HttpxP115DirectoryTreeGateway")
     assert state._p6_p115_tasks._organize_execution is None
+    assert type(state._p6_p115_tasks._organize_reconciliation).__name__ == "P115OrganizeExecutionService"
+    assert type(state._p6_p115_tasks._organize_reconciliation._mutations).__name__ == (
+        "HttpxP115OrganizeReadbackGateway"
+    )
     assert type(state._p6_ingestion_tasks).__name__ == "P6IngestionTaskRouter"
     assert type(state._p7_subscription_tasks).__name__ == "P7SubscriptionTaskRouter"
     assert state._p7_subscription_tasks._compatibility is None

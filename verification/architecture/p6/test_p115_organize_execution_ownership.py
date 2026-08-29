@@ -11,6 +11,7 @@ from etk.domains.p115.router import router
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXECUTION_MODULE = REPO_ROOT / "src/etk/domains/p115/organize_execution.py"
 ADAPTER_MODULE = REPO_ROOT / "src/etk/domains/p115/adapters.py"
+READBACK_MODULE = REPO_ROOT / "src/etk/domains/p115/organize_readback.py"
 LEGACY_CLIENT_MODULE = REPO_ROOT / "handler/p115_service.py"
 OPENAPI_PATH = REPO_ROOT / "verification/contracts/http/p4-openapi.json"
 ROUTE_OWNERSHIP_PATH = REPO_ROOT / "verification/contracts/route-ownership.yaml"
@@ -126,6 +127,26 @@ def test_native_adapter_uses_only_fixed_backend_transport_methods() -> None:
     assert "fs_mkdir" not in method_names
     assert "fs_move" not in method_names
     assert "fs_rename" not in method_names
+
+
+def test_native_reconciliation_adapter_is_read_only_and_has_no_legacy_imports() -> None:
+    tree = ast.parse(READBACK_MODULE.read_text(encoding="utf-8"))
+    imported_roots = {
+        alias.name.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names
+    }
+    imported_roots.update(
+        str(node.module).split(".")[0]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module and not node.level
+    )
+    assert imported_roots.isdisjoint({"config_manager", "database", "extensions", "handler", "routes", "tasks"})
+
+    client = _class(tree, "_HttpxP115OrganizeReadbackClient")
+    list_children = _function(client, "list_children")
+    assert _called_attributes(list_children) & {"list_page"} == {"list_page"}
+    for method_name in ("ensure_directory", "move", "rename"):
+        method = _function(client, method_name)
+        assert _called_attributes(method) == set()
 
 
 def test_legacy_fixed_backend_methods_never_fallback_and_surface_transport_exceptions() -> None:

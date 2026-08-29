@@ -3311,6 +3311,78 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Organize-Reconciliation
+
+Stage / Batch: P11 / processor-free organize-reconciliation Worker slice
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `fc223207` (`fix(p11): reject malformed cleanup config`).
+- Checkpoint: this batch's `refactor(p11): execute native organize reconciliation` commit after the
+  targeted gate below.
+
+Implemented:
+
+- Added an account-bound `HttpxP115OrganizeReadbackGateway` that opens only the execution's persisted
+  `openapi` or `cookie` backend, never falls back, reuses the native credential fences and exposes only
+  authoritative `list_children` behavior. Its mutation methods fail explicitly.
+- Added complete-page, stable-count, duplicate-page/ID and malformed-item validation. Transport,
+  credential/account drift, invalid payloads and incomplete pagination fail closed without completing
+  reconciliation.
+- Split `P6P115TaskRouter` execution and reconciliation dependencies. `scan-organize-115` retains the
+  legacy mutation-capable provider in compatibility mode, while `manual-correct-organize-records` uses
+  the processor-free readback service in both Worker profiles.
+- Promoted only `manual-correct-organize-records` to native-only execution. The Worker graph is now
+  `15 executable / 35 unavailable`.
+- Added Redis/Celery evidence for a native-only crash after reconciliation commit but before P4 Job
+  result persistence. Attempt 2 reuses the completed approved intent, performs no second HTTP readback,
+  and leaves the global indeterminate effect unchanged; the compatibility-enabled normal path uses the
+  same native service and loopback 115 Stub.
+
+Targeted gate:
+
+- Scoped Ruff -> clean; format check -> `12 files already formatted`; scoped Pyright -> `0 errors,
+  0 warnings, 0 informations`.
+- Application, Worker, router, HTTP/adapter and architecture scope -> `211 passed, 1` existing Starlette
+  WSGI deprecation warning; dedicated readback matrix -> `10 passed`.
+- Disposable PostgreSQL 18 organize execution/reconciliation -> `9 passed`.
+- Disposable PostgreSQL 18 + Redis/Celery native-only crash/replay and compatibility-enabled normal
+  profiles -> `2 passed, 17 deselected`; requests were limited to the loopback OpenAPI Stub.
+- Task export reported `task_keys=50`; Manifest and OpenAPI currentness were clean; contract tests ->
+  `9 passed`; `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-organize-reconciliation-20260829/`.
+
+Focused review:
+
+- No P0/P1 remains. The compatibility constructor's deliberate fallback from an omitted dedicated
+  reconciliation service to `organize_execution` remains a P2 architecture note; `reconcile()` itself
+  is read-only, and both production Worker profiles explicitly inject the readback-only service.
+- The shared directory normalizer can infer a file from an otherwise type-less `id` alias. There is no
+  provider-contract evidence that this existing alias must be rejected; unknown authoritative payload
+  combinations remain a non-blocking Live/provider-schema residual.
+
+Stage full gate:
+
+- Not run. P11 still has explicit route, task, table, dynamic/bootstrap config and standalone-setting
+  ownership gaps, so controlled removal and stage NFR/security gates remain unauthorized.
+
+Pending:
+
+- Native-only Worker execution is `15 executable / 35 unavailable`. Fifty-seven route decorators, 61
+  method bindings, 12 tables, 82 dynamic config keys, seven bootstrap keys and 18 standalone settings
+  remain legacy-owned.
+- Controlled removal, security/performance/reliability/resource gates, SBOM, vulnerability report,
+  License inventory and P12 remain pending.
+
+Next: continue the smallest evidence-backed P11 ownership or normal processed Worker slice. Do not
+start controlled removal or P12 until execution and ownership reach 100%.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

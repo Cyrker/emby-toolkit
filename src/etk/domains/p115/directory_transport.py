@@ -62,7 +62,12 @@ class HttpxP115DirectoryTreeGateway:
         self._client_factory = client_factory
         self._timeout_seconds = max(1.0, float(timeout_seconds))
 
-    def open(self, *, expected_account_id: str) -> P115DirectoryTreeClient | None:
+    def open(
+        self,
+        *,
+        expected_account_id: str,
+        expected_backend: str | None = None,
+    ) -> P115DirectoryTreeClient | None:
         account_id = str(expected_account_id or "").strip()
         if not account_id:
             return None
@@ -70,8 +75,14 @@ class HttpxP115DirectoryTreeGateway:
         if str(snapshot.account_id or "").strip() != account_id:
             raise P115DirectoryCredentialChanged("115 账号在目录同步客户端创建前发生变化")
 
-        priority = str(self._priority() or "openapi").strip().lower()
-        backends = ("cookie", "openapi") if priority == "cookie" else ("openapi", "cookie")
+        requested_backend = str(expected_backend or "").strip().lower()
+        if requested_backend and requested_backend not in {"openapi", "cookie"}:
+            raise P115DirectoryTransportError("115 目录树请求了不支持的固定 API 后端")
+        if requested_backend:
+            backends = (requested_backend,)
+        else:
+            priority = str(self._priority() or "openapi").strip().lower()
+            backends = ("cookie", "openapi") if priority == "cookie" else ("openapi", "cookie")
         clients: list[_HttpxP115DirectoryTreeClient] = []
         for backend in backends:
             if backend == "openapi" and snapshot.access_token:
@@ -106,7 +117,9 @@ class HttpxP115DirectoryTreeGateway:
                         timeout_seconds=self._timeout_seconds,
                     )
                 )
-        return _FallbackP115DirectoryTreeClient(clients) if clients else None
+        if not clients:
+            return None
+        return clients[0] if requested_backend else _FallbackP115DirectoryTreeClient(clients)
 
 
 class _FallbackP115DirectoryTreeClient:

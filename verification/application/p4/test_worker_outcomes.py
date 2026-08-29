@@ -551,6 +551,49 @@ def test_compatibility_worker_does_not_resolve_processor_for_native_tasks(
     assert router.calls[0][1] is None
 
 
+@pytest.mark.parametrize("native_only", [False, True])
+def test_manual_reconciliation_task_is_processor_free_without_task_manager(
+    monkeypatch: pytest.MonkeyPatch,
+    native_only: bool,
+) -> None:
+    projection = _catalog_projection(
+        "manual-correct-organize-records",
+        parameters={
+            "execution_id": "00000000-0000-0000-0000-000000000223",
+            "approved_reconciliation_intent_id": "fixture-intent",
+        },
+    )
+    router = StubP6Router()
+    if native_only:
+        runtime, store = _native_catalog_runtime(projection)
+        cast(Any, runtime)._p6_p115_tasks = router
+    else:
+        runtime, store = _catalog_runtime(projection, router)
+    monkeypatch.setattr(
+        "etk.processes.worker._processor",
+        lambda _identity: (_ for _ in ()).throw(AssertionError("manual reconciliation resolved a processor")),
+    )
+    original_import = builtins.__import__
+
+    def guarded_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] | None = (),
+        level: int = 0,
+    ) -> Any:
+        if name == "task_manager":
+            raise AssertionError("manual reconciliation imported task_manager")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == ["succeeded"]
+    assert len(router.calls) == 1
+
+
 @pytest.mark.parametrize(
     "task_key",
     sorted((NATIVE_TASK_KEYS - _NATIVE_ONLY_EXECUTABLE_TASK_KEYS) | P8_REVIEW_TASK_KEYS),
@@ -815,6 +858,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
         P4_NATIVE_TASK_KEYS
         | {
             "backfill-organize-record-tmdb-ids",
+            "manual-correct-organize-records",
             "recalculate_library_washing_priorities",
             "scan-cleanup-issues",
             "scan-monitor-folders",

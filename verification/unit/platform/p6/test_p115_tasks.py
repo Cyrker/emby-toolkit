@@ -403,6 +403,32 @@ def test_manual_correction_is_reconciliation_only_and_reports_zero_external_muta
     assert directory_sync.calls == []
 
 
+def test_manual_correction_uses_the_dedicated_readback_service() -> None:
+    mutation_execution = FakeOrganizeExecution()
+    readback_execution = FakeOrganizeExecution()
+    router = P6P115TaskRouter(
+        FakeDirectorySync(),
+        mutation_execution,
+        organize_reconciliation=readback_execution,
+    )
+
+    outcome = router.execute(
+        _message(
+            "manual-correct-organize-records",
+            payload={
+                "execution_id": str(EXECUTION_ID),
+                "approved_reconciliation_intent_id": "fixture-reconciliation-intent",
+            },
+        ),
+        FakeProgress(),
+    )
+
+    assert outcome.status is TaskOutcomeStatus.SUCCEEDED
+    assert mutation_execution.execute_calls == []
+    assert mutation_execution.reconcile_calls == []
+    assert len(readback_execution.reconcile_calls) == 1
+
+
 @pytest.mark.parametrize(
     "payload",
     [
