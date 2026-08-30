@@ -343,25 +343,47 @@ class PostgresSharingOperationRepository:
                             WHERE status IN ('claimed','requesting') AND lease_expires_at <= :now
                             ORDER BY event_sequence ASC LIMIT :limit FOR UPDATE SKIP LOCKED
                         )
-                        UPDATE sharing_operations
-                        SET status = 'retryable', available_at = :now,
+                        UPDATE sharing_operations AS operation
+                        SET status = CASE
+                                WHEN stale.status = 'claimed' THEN 'retryable'
+                                ELSE 'indeterminate'
+                            END,
+                            available_at = CASE
+                                WHEN stale.status = 'claimed' THEN :now
+                                ELSE operation.available_at
+                            END,
+                            finished_at = CASE
+                                WHEN stale.status = 'requesting' THEN :now
+                                ELSE operation.finished_at
+                            END,
                             claimed_by = NULL, claim_token = NULL, claimed_at = NULL,
                             lease_expires_at = NULL, step_started_at = NULL,
-                            error_json = CAST(:error_json AS jsonb),
-                            state_revision = state_revision + 1, updated_at = :now
-                        WHERE id IN (SELECT id FROM stale)
-                        RETURNING *
+                            error_json = jsonb_build_object(
+                                'type', CASE
+                                    WHEN stale.status = 'claimed'
+                                        THEN 'sharing_claim_expired'
+                                    ELSE 'sharing_request_claim_expired'
+                                END,
+                                'provider_may_have_been_called', stale.status = 'requesting'
+                            ),
+                            state_revision = operation.state_revision + 1, updated_at = :now
+                        FROM stale
+                        WHERE operation.id = stale.id
+                        RETURNING operation.*
                         """
                 ),
                 {
                     "now": timestamp,
                     "limit": bounded,
-                    "error_json": json.dumps({"type": "sharing_claim_expired"}),
                 },
             )
             rows = result.mappings().all()
             for row in rows:
-                self._stage_outbox(uow, _operation(row))
+                operation = _operation(row)
+                if operation.status is SharingOperationStatus.RETRYABLE:
+                    self._stage_outbox(uow, operation)
+                else:
+                    self._complete_outbox(uow, operation.id)
             count = len(rows)
             uow.commit()
             return count

@@ -122,6 +122,12 @@ def test_postgres_sharing_operation_outbox_claim_retry_expiry_and_terminal_lifec
     assert reclaimed.claim_token is not None
     expired_at = (reclaimed.lease_expires_at or datetime.now(UTC)) + timedelta(seconds=1)
     assert repository.expire_stale_claims(now=expired_at) == 1
+    expired = repository.read(operation.id)
+    assert expired is not None
+    assert expired.error == {
+        "type": "sharing_claim_expired",
+        "provider_may_have_been_called": False,
+    }
     status, processed_at = outbox_status()
     assert status == "pending"
     assert processed_at is None
@@ -137,3 +143,57 @@ def test_postgres_sharing_operation_outbox_claim_retry_expiry_and_terminal_lifec
     status, processed_at = outbox_status()
     assert status == "processed"
     assert processed_at is not None
+
+
+def test_postgres_stale_requesting_sharing_operation_is_not_replayed(p9_runtime) -> None:
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    operation = repository.reserve(
+        SharingOperationIntent.create(
+            kind=SharingOperationKind.TRANSFER,
+            scope_key="source:requesting-expiry",
+            principal_id="device-requesting-expiry",
+            request={"source_id": "requesting-expiry", "amount": 1},
+            idempotency_key="requesting-expiry-1",
+        )
+    )
+    claimed = repository.claim_by_id(
+        operation.id,
+        worker_id="worker-requesting-expiry",
+        lease_seconds=1,
+    )
+    assert claimed is not None
+    assert claimed.claim_token is not None
+    requesting = repository.mark_requesting(operation.id, claimed.claim_token)
+
+    expired_at = (requesting.lease_expires_at or datetime.now(UTC)) + timedelta(seconds=1)
+    assert repository.expire_stale_claims(now=expired_at) == 1
+
+    terminal = repository.read(operation.id)
+    assert terminal is not None
+    assert terminal.status.value == "indeterminate"
+    assert terminal.error == {
+        "type": "sharing_request_claim_expired",
+        "provider_may_have_been_called": True,
+    }
+    assert (
+        repository.claim_by_id(
+            operation.id,
+            worker_id="replacement-worker",
+            lease_seconds=60,
+            now=expired_at,
+        )
+        is None
+    )
+    with p9_runtime.engine.connect() as connection:
+        outbox = connection.execute(
+            text(
+                """
+                SELECT status, processed_at
+                FROM outbox_events
+                WHERE aggregate_id = :operation_id
+                """
+            ),
+            {"operation_id": str(operation.id)},
+        ).one()
+    assert outbox[0] == "processed"
+    assert outbox[1] is not None

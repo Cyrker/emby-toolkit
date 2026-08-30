@@ -4365,6 +4365,48 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Sharing-Claim-Replay-Fix
+
+Stage / Batch: P11 / sharing operation stale-request safety fix
+
+HEAD / Commit:
+
+- Pre-fix HEAD: `a31491b2` (`refactor(p11): persist auto subscription occurrences`).
+- Target checkpoint message: `fix(p11): prevent stale sharing write replay`.
+
+Implemented:
+
+- Split stale sharing claims by the provider-write checkpoint. An expired pre-request `claimed`
+  operation remains retryable and rearms its Outbox; an expired `requesting` operation now becomes
+  terminal `indeterminate`, keeps the scope fenced and cannot be claimed or blindly replayed.
+- Kept the transition and Outbox terminal/rearm update in one PostgreSQL UoW. The existing
+  `sharing_claim_expired` error type remains stable for pre-request recovery; requesting expiry adds
+  explicit `provider_may_have_been_called=true` evidence.
+
+Targeted gate:
+
+- P9 application scope -> `36 passed`.
+- Disposable PostgreSQL 18 sharing ledger/operation scope -> `4 passed`, including pre-request
+  requeue and post-checkpoint terminal fencing.
+- Scoped Ruff check/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`);
+  `git diff --check` -> clean.
+
+Focused review:
+
+- The current repository has no provider executor or authoritative readback consumer. Treating both
+  stale states as retryable was therefore a deterministic duplicate-write risk. The fail-closed
+  split removes that risk without claiming an executor exists. No P0/P1/P2 remains in this fix.
+
+Pending:
+
+- A native sharing provider executor/readback boundary is still required before auto Shared Center,
+  HDHive or TG source execution can be promoted. P11 remains `DOING`; P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
