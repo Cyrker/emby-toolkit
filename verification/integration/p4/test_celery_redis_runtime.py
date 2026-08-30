@@ -3399,10 +3399,7 @@ if checkpoint_file and checkpoint_job_id and release_file:
             queue_name=p4_runtime_environment.queue_name,
         )
         coordinator_environment = RuntimeEnvironment(
-            environment={
-                **p4_runtime_environment.environment,
-                "ETK_ENABLE_LEGACY_COMPATIBILITY": "true",
-            },
+            environment=dict(worker_environment_values),
             config=p4_runtime_environment.config,
             data_dir=p4_runtime_environment.data_dir,
             queue_name=p4_runtime_environment.queue_name,

@@ -4510,6 +4510,58 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Native-Coordinator-Dispatch
+
+Stage / Batch: P11 / native-only Coordinator Outbox dispatch
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `315e1e5d` (`refactor(p11): dispatch sharing operations`).
+- Target checkpoint message: `refactor(p11): dispatch native coordinator outboxes`.
+
+Implemented:
+
+- Replaced the native-only heartbeat with advisory-lock leadership and Job, Media Effect,
+  ingestion, P115 upload/playback/intro, Subscription, Collection, Identity, Database Maintenance
+  and Sharing Outbox dispatch.
+- Kept native-only execution free of compatibility scheduler, RuntimeSupervisor, Watchdog ingress,
+  Telegram UserBot and legacy runtime-context refresh. P115 upload startup only ensures its native
+  control-plane configuration and does not scan directories or call a provider.
+- Paired native Workers with the native Coordinator in the real Redis/Celery profile. Redis outage
+  recovery and dual-Coordinator failover now exercise the native runtime rather than compatibility
+  dispatch.
+- Closed the focused-review P1 by placing partial native initialization inside the same cleanup
+  boundary as the dispatch loop; initialization failure now closes the AppContainer and writes
+  stopped health.
+
+Targeted gate:
+
+- Scoped Ruff and format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`;
+  application process-role/Coordinator scope -> `55 passed, 1` existing Starlette WSGI deprecation
+  warning; `git diff --check` -> clean.
+- Disposable PostgreSQL 18 + Redis/Celery sharing profiles, Redis outage recovery and native
+  dual-Coordinator leader failover -> `4 passed, 31 deselected`.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-native-coordinator-20260830/summary.md`.
+
+Focused review:
+
+- Leadership acquisition/loss, shutdown, native/compat isolation, control-plane initialization,
+  publisher topic separation and degraded publish handling were reviewed. The only P1 was the
+  partial-startup resource leak described above; it is closed with a regression. No deterministic
+  P0/P1/P2 remains in this slice.
+
+Pending:
+
+- Native Shared Resource HTTP/UI contracts, backend-owned device identity, remaining synchronous
+  provider mutations, protected HDHive/share receipts and `auto-subscribe` source execution remain.
+- Remaining Task/Route/Table/Config/Frontend ownership, pre-removal evidence, controlled legacy
+  removal and all P11 NFR/security/SBOM/License gates remain pending. P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

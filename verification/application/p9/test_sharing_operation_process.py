@@ -20,6 +20,7 @@ from etk.domains.sharing.operations import (
 from etk.integrations import ProviderDisposition, ProviderResponse
 from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus, PublishBatchResult
 from etk.processes.celery_app import EXECUTE_SHARING_OPERATION_TASK, create_celery_app
+from etk.processes.coordinator import CoordinatorRuntime
 from etk.processes.p9_sharing_operations import (
     SHARING_OPERATION_CLAIM_LEASE_SECONDS,
     CelerySharingOperationPublisher,
@@ -245,6 +246,86 @@ def test_sharing_coordinator_recovers_disjoint_claims_and_dead_dispatches() -> N
         "topics": topics,
     }
     assert store.publisher is publisher
+
+
+def test_native_coordinator_tick_dispatches_without_legacy_runtime_hooks() -> None:
+    calls: list[str] = []
+
+    class Store:
+        def enqueue_due_retries(self, **_options: Any) -> None:
+            calls.append("enqueue")
+
+        def recover_stale_attempts(self, **_options: Any) -> None:
+            calls.append("recover")
+
+        def requeue_stale_published(self, **_options: Any) -> None:
+            calls.append("requeue")
+
+        def publish_outbox_batch(self, _publisher: Any, **_options: Any) -> PublishBatchResult:
+            calls.append("publish")
+            return PublishBatchResult(claimed=0, published=0, failed=0, dead=0)
+
+    class Sharing:
+        def tick(self) -> SharingOperationCoordinatorResult:
+            calls.append("sharing")
+            return SharingOperationCoordinatorResult(
+                expired_claims=0,
+                expired_readbacks=0,
+                rejected_dead=0,
+                publish=PublishBatchResult(claimed=0, published=0, failed=0, dead=0),
+            )
+
+    settings = SimpleNamespace(monitor_enabled=False)
+    runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
+    runtime.config = TaskRuntimeConfig()
+    runtime._store = cast(Any, Store())
+    runtime._publisher = cast(Any, object())
+    runtime._publisher_id = "fixture-native-coordinator"
+    runtime._config_adapter = SimpleNamespace(load=lambda: calls.append("settings") or settings)
+    runtime._cleanup_execution_repository = None
+    runtime._sharing_operation_coordinator = cast(Any, Sharing())
+    runtime._refresh_settings = lambda **_options: (_ for _ in ()).throw(  # type: ignore[method-assign]
+        AssertionError("native Coordinator called compatibility settings refresh")
+    )
+    runtime._process_telegram_commands = lambda: (_ for _ in ()).throw(  # type: ignore[method-assign]
+        AssertionError("native Coordinator called legacy Telegram runtime")
+    )
+
+    runtime._tick(compatibility=False)
+
+    assert runtime._last_settings is settings
+    assert calls == ["settings", "enqueue", "recover", "requeue", "publish", "sharing"]
+
+
+def test_native_coordinator_closes_container_when_startup_initialization_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    health: list[str] = []
+
+    class FailingContainer:
+        closed = False
+
+        @property
+        def database(self) -> Any:
+            raise RuntimeError("fixture native initialization failed")
+
+        def close(self) -> None:
+            self.closed = True
+
+    container = FailingContainer()
+    monkeypatch.setattr(
+        "etk.processes.coordinator._create_default_container",
+        lambda _data_dir: (container, object()),
+    )
+    runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
+    runtime.config = TaskRuntimeConfig()
+    runtime._write_health = health.append  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError, match="fixture native initialization failed"):
+        runtime._run_native_only()
+
+    assert container.closed is True
+    assert health == ["stopped"]
 
 
 def test_sharing_delivery_checkpoints_immediately_before_provider_mutation() -> None:

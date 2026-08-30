@@ -639,16 +639,143 @@ class CoordinatorRuntime:
                 raise ExceptionGroup("Coordinator shutdown failed", errors)
 
     def _run_native_only(self) -> None:
-        """Keep a native heartbeat without starting legacy scheduler/daemon code."""
+        """Dispatch native Job and operation Outboxes without legacy daemons."""
 
         if self.config.schedules_enabled:
             logger.warning("Coordinator schedules are disabled in the native runtime")
+        container, config_adapter = _create_default_container(None)
+        leadership: CoordinatorLeadership | None = None
         try:
+            database = container.database
+            cleanup_execution_repository = SqlAlchemyCleanupExecutionRepository(database.unit_of_work)
+            store = PostgresJobStore(
+                lambda: database.unit_of_work(),
+                cancellation_policy=cleanup_execution_repository,
+            )
+            leadership = CoordinatorLeadership(database.raw_pool)
+            self._container = container
+            self._config_adapter = config_adapter
+            self._store = store
+            self._cleanup_execution_repository = cleanup_execution_repository
+            self._media_effect_dispatcher = MediaEffectOutboxDispatcher(
+                store,
+                PostgresMediaEffectLedger(database.unit_of_work),
+                self._media_effect_publisher,
+                self.config,
+                publisher_id=f"{self._publisher_id}:media-effect",
+                replay_safe_effect_types=(DAILY_THEME_REPLENISHMENT_EFFECT_TYPE,),
+            )
+            ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
+            self._ingestion_coordinator = IngestionMonitorCoordinator(
+                store=store,
+                ledger=ingestion_ledger,
+                publisher=self._ingestion_publisher,
+                config=self.config,
+                publisher_id=f"{self._publisher_id}:ingestion",
+            )
+            upload_repository = PostgresP115UploadMonitorRepository(database.unit_of_work)
+            upload_config = P115UploadMonitorConfigService(
+                upload_repository,
+                lambda: config_adapter.load().monitor_extensions,
+            )
+            P115UploadMonitorIngressService(
+                config=upload_config,
+                repository=upload_repository,
+            ).ensure_config()
+            self._p115_upload_coordinator = P115UploadMonitorCoordinator(
+                store=store,
+                repository=upload_repository,
+                config_service=upload_config,
+                publisher=self._p115_upload_publisher,
+                config=self.config,
+                publisher_id=f"{self._publisher_id}:p115-upload",
+            )
+            self._p115_playback_coordinator = P115PlaybackCoordinator(
+                store=store,
+                repository=PostgresP115PlaybackRepository(database.unit_of_work),
+                publisher=self._p115_playback_publisher,
+                config=self.config,
+                publisher_id=f"{self._publisher_id}:p115-playback",
+            )
+            self._p115_intro_coordinator = P115IntroDetectionCoordinator(
+                store=store,
+                repository=PostgresP115IntroDetectionRepository(database.unit_of_work),
+                publisher=self._p115_intro_publisher,
+                config=self.config,
+                publisher_id=f"{self._publisher_id}:p115-intro",
+            )
+            self._subscription_coordinator = SubscriptionOperationCoordinator(
+                store=store,
+                repository=PostgresSubscriptionOperationRepository(database.unit_of_work),
+                runtime_repository=PostgresSubscriptionRuntimeRepository(database.unit_of_work),
+                publisher=self._subscription_publisher,
+                config=self.config,
+                publisher_id=f"{self._publisher_id}:subscription",
+            )
+            self._collection_operation_coordinator = CollectionOperationCoordinator(
+                store=store,
+                repository=PostgresCollectionOperationRepository(database.unit_of_work),
+                publisher=self._collection_operation_publisher,
+                config=self.config,
+                publisher_id=f"{self._publisher_id}:collection-operation",
+            )
+            self._identity_coordinator = IdentityOperationCoordinator(
+                store=store,
+                repository=PostgresIdentityOperationRepository(database.unit_of_work),
+                publisher=self._identity_publisher,
+                config=self.config,
+                publisher_id=f"{self._publisher_id}:identity",
+            )
+            self._database_maintenance_coordinator = DatabaseMaintenanceCoordinator(
+                store=store,
+                repository=PostgresDatabaseMaintenanceRepository(database.unit_of_work),
+                publisher=self._database_maintenance_publisher,
+                config=self.config,
+                publisher_id=f"{self._publisher_id}:database-maintenance",
+            )
+            self._sharing_operation_coordinator = SharingOperationCoordinator(
+                store=store,
+                repository=PostgresSharingOperationRepository(database.unit_of_work),
+                publisher=self._sharing_operation_publisher,
+                config=self.config,
+                publisher_id=f"{self._publisher_id}:sharing-operation",
+            )
+            self._leadership = leadership
+            self._write_health("standby")
             while not self._stop.is_set():
-                self._write_health("standby")
+                if leadership.acquired and not leadership.validate():
+                    logger.warning("Native Coordinator leadership lease was lost")
+                    self._write_health("standby")
+                    self._stop.wait(self.config.coordinator_interval_seconds)
+                    continue
+                if not leadership.acquired and not leadership.try_acquire():
+                    self._write_health("standby")
+                    self._stop.wait(self.config.coordinator_interval_seconds)
+                    continue
+                try:
+                    self._tick(compatibility=False)
+                except Exception:
+                    logger.exception("Native Coordinator iteration failed")
+                    self._write_health("degraded")
+                else:
+                    self._write_health("leader")
                 self._stop.wait(self.config.coordinator_interval_seconds)
         finally:
-            self._write_health("stopped")
+            errors: list[Exception] = []
+            cleanup_callbacks = [container.close]
+            if leadership is not None:
+                cleanup_callbacks.insert(0, leadership.release)
+            for cleanup in cleanup_callbacks:
+                try:
+                    cleanup()
+                except Exception as exc:
+                    errors.append(exc)
+            try:
+                self._write_health("stopped")
+            except Exception as exc:
+                errors.append(exc)
+            if errors:
+                raise ExceptionGroup("Native Coordinator shutdown failed", errors)
 
     def _become_leader(self) -> None:
         if (
@@ -725,12 +852,15 @@ class CoordinatorRuntime:
         if errors:
             raise ExceptionGroup("Coordinator leader shutdown failed", errors)
 
-    def _tick(self) -> None:
+    def _tick(self, *, compatibility: bool = True) -> None:
         store = self._store
         if store is None:
             raise RuntimeError("Coordinator store is not initialized")
-        self._refresh_settings()
-        self._process_telegram_commands()
+        if compatibility:
+            self._refresh_settings()
+            self._process_telegram_commands()
+        elif self._config_adapter is not None:
+            self._last_settings = self._config_adapter.load()
         cleanup = getattr(self, "_cleanup_execution_repository", None)
         if cleanup is not None:
             cleanup.protect_stale_post_effect_cancellations()
