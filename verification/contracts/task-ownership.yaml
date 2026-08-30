@@ -657,12 +657,11 @@
       "help": "处理手动批量订阅队列，适合一次性提交多个想看的电影或剧集。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-      "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+      "notes": "P11 native-only and compatibility Workers execute the processor-free manual subscription batch service with strict JSON items, per-item quota-ledger effects, Movie/Season/Series policy branches, cancellation checkpoints, local projection reconciliation, and no legacy task callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.subscription.manual_batch.ManualSubscriptionBatchService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -674,8 +673,8 @@
       ],
       "target_stage": "P7",
       "task_key": "manual_subscribe_batch",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "subscription/task-envelope",
+      "validation_method": "ordered-task-registry-native-manual-batch-postgres18-redis-celery-replacement-worker-and-import-sentinel",
+      "validation_owner": "subscription/manual-batch",
       "visible_in": [
         "all"
       ]

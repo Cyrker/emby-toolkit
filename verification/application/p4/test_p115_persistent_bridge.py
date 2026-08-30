@@ -45,6 +45,49 @@ def test_persistent_only_task_submission_fails_closed_without_local_queue(monkey
     )
 
     assert task_manager.submit_persistent_task(lambda: None, "fixture", processor_type="media") is False
+    assert (
+        task_manager.submit_persistent_task_key(
+            "manual_subscribe_batch",
+            "fixture",
+            processor_type="media",
+            subscribe_requests=[],
+        )
+        is False
+    )
+
+
+def test_catalog_key_submission_forwards_json_parameters_without_callable(monkeypatch) -> None:
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    class Gateway:
+        def submit_key(self, *args: object, **kwargs: object) -> bool:
+            calls.append((args, kwargs))
+            return True
+
+    monkeypatch.setattr(task_manager, "_persistent_gateway", Gateway())
+
+    assert task_manager.submit_persistent_task_key(
+        "manual_subscribe_batch",
+        "立即订阅",
+        processor_type="media",
+        subscribe_requests=[{"tmdb_id": "101", "item_type": "Movie"}],
+    )
+    assert calls == [
+        (
+            (
+                "manual_subscribe_batch",
+                "立即订阅",
+                "media",
+                {"subscribe_requests": [{"tmdb_id": "101", "item_type": "Movie"}]},
+            ),
+            {
+                "silent": False,
+                "max_attempts": 1,
+                "idempotency_key": None,
+                "idempotency_scope": None,
+            },
+        )
+    ]
 
 
 def test_persistent_only_task_submission_holds_the_gateway_lock_during_submit(monkeypatch) -> None:
@@ -79,6 +122,9 @@ def test_persistent_only_task_submission_cannot_be_cleared_mid_submit(monkeypatc
         def submit(self, *_args, **_kwargs) -> bool:
             entered.set()
             assert release.wait(1)
+            return True
+
+        def submit_key(self, *_args, **_kwargs) -> bool:
             return True
 
         def is_busy(self) -> bool:

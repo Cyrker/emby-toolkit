@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar, Token
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Any
@@ -23,6 +26,54 @@ from etk.domains.system.standalone import StandaloneSettingsRepository
 
 _P7_LOCAL_SUBSCRIPTION_TASKS = frozenset({"auto-subscribe", "manual_subscribe_batch"})
 _P7_RESUBSCRIBE_TASK = "resubscribe-library"
+
+
+@dataclass(frozen=True, slots=True)
+class MoviePilotExecutionBinding:
+    job_id: str
+    attempt_id: str
+    worker_id: str
+    task_key: str
+    checkpoint: Callable[[], None]
+
+    def identity(self) -> dict[str, str]:
+        return {
+            "job_id": self.job_id,
+            "attempt_id": self.attempt_id,
+            "worker_id": self.worker_id,
+            "task_key": self.task_key,
+        }
+
+
+_MOVIEPILOT_EXECUTION: ContextVar[MoviePilotExecutionBinding | None] = ContextVar(
+    "etk_moviepilot_execution",
+    default=None,
+)
+
+
+@contextmanager
+def bind_moviepilot_execution(
+    *,
+    job_id: str,
+    attempt_id: str,
+    worker_id: str,
+    task_key: str,
+    checkpoint: Callable[[], None],
+):
+    values = {
+        "job_id": str(job_id or "").strip(),
+        "attempt_id": str(attempt_id or "").strip(),
+        "worker_id": str(worker_id or "").strip(),
+        "task_key": str(task_key or "").strip(),
+    }
+    if not all(values.values()):
+        raise RuntimeError("durable MoviePilot execution identity is incomplete")
+    binding = MoviePilotExecutionBinding(**values, checkpoint=checkpoint)
+    token: Token[MoviePilotExecutionBinding | None] = _MOVIEPILOT_EXECUTION.set(binding)
+    try:
+        yield binding
+    finally:
+        _MOVIEPILOT_EXECUTION.reset(token)
 
 
 class DurableMoviePilotEffectIndeterminateError(RuntimeError):
@@ -49,7 +100,13 @@ class PersistentMoviePilotEffectGateway:
         self._wait_timeout_seconds = max(float(wait_timeout_seconds), 1)
         self._sleep = sleep
 
-    def create_subscription(self, payload: Mapping[str, Any], *, consume_quota: bool) -> bool:
+    def create_subscription(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        consume_quota: bool,
+        apply_local_continuation: bool = True,
+    ) -> bool:
         normalized = dict(payload)
         tmdb_id = _required_text(normalized.get("tmdbid") or normalized.get("tmdb_id"), "tmdb_id")
         season = _optional_nonnegative_int(normalized.get("season"), "season")
@@ -63,7 +120,9 @@ class PersistentMoviePilotEffectGateway:
         }
         if season is not None:
             request["season"] = season
-        continuation = _local_continuation(identity["task_key"], tmdb_id, normalized, season)
+        continuation = (
+            _local_continuation(identity["task_key"], tmdb_id, normalized, season) if apply_local_continuation else None
+        )
         if continuation is not None:
             request["local_continuation"] = continuation
         return self._execute(
@@ -282,9 +341,8 @@ class PersistentMoviePilotEffectGateway:
         )
 
     def _execute(self, intent: SubscriptionOperationIntent) -> bool:
-        import task_manager
-
-        task_manager.persistent_execution_checkpoint()
+        identity = self._identity()
+        self._checkpoint_before_reserve()
         operation_id = self._repository.reserve(intent).operation.id
         deadline = time.monotonic() + self._wait_timeout_seconds
         while True:
@@ -297,7 +355,7 @@ class PersistentMoviePilotEffectGateway:
                 return terminal
             execution = self._executor.execute(
                 operation_id,
-                worker_id=self._identity()["worker_id"],
+                worker_id=identity["worker_id"],
                 lease_seconds=self._lease_seconds,
             )
             if execution is not None:
@@ -326,15 +384,32 @@ class PersistentMoviePilotEffectGateway:
         return None
 
     def _checkpoint_or_cancel(self, operation_id: UUID) -> None:
-        import task_manager
-
         try:
-            task_manager.persistent_execution_checkpoint()
+            binding = _MOVIEPILOT_EXECUTION.get()
+            if binding is not None:
+                binding.checkpoint()
+            else:
+                import task_manager
+
+                task_manager.persistent_execution_checkpoint()
         except BaseException:
             self._repository.request_cancel(operation_id)
             raise
 
+    @staticmethod
+    def _checkpoint_before_reserve() -> None:
+        binding = _MOVIEPILOT_EXECUTION.get()
+        if binding is not None:
+            binding.checkpoint()
+            return
+        import task_manager
+
+        task_manager.persistent_execution_checkpoint()
+
     def _identity(self) -> dict[str, str]:
+        binding = _MOVIEPILOT_EXECUTION.get()
+        if binding is not None:
+            return binding.identity()
         import task_manager
 
         identity = task_manager.current_persistent_execution_identity()
@@ -436,6 +511,8 @@ def _optional_nonnegative_int(value: object, field: str) -> int | None:
 
 
 __all__ = [
+    "bind_moviepilot_execution",
     "DurableMoviePilotEffectIndeterminateError",
+    "MoviePilotExecutionBinding",
     "PersistentMoviePilotEffectGateway",
 ]

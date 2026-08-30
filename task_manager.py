@@ -59,6 +59,19 @@ class PersistentSubmissionGateway(Protocol):
 
     def status(self) -> dict[str, Any]: ...
 
+    def submit_key(
+        self,
+        task_key: str,
+        task_name: str,
+        processor_type: ProcessorType,
+        parameters: dict[str, Any],
+        *,
+        silent: bool,
+        max_attempts: int = 1,
+        idempotency_key: str | None = None,
+        idempotency_scope: str | None = None,
+    ) -> bool: ...
+
 
 class PersistentExecutionProgress(Protocol):
     def update(self, progress: int, message: str) -> None: ...
@@ -434,6 +447,36 @@ def submit_persistent_task(
                 tuple(args),
                 dict(kwargs),
                 silent=silent,
+        )
+    )
+
+
+def submit_persistent_task_key(
+    task_key: str,
+    task_name: str,
+    processor_type: ProcessorType = "media",
+    *,
+    silent: bool = False,
+    max_attempts: int = 1,
+    idempotency_key: str | None = None,
+    idempotency_scope: str | None = None,
+    **parameters: Any,
+) -> bool:
+    """Submit a catalog task without importing or passing its legacy callable."""
+    with _persistent_gateway_lock:
+        gateway = _persistent_gateway
+        if gateway is None:
+            return False
+        return bool(
+            gateway.submit_key(
+                str(task_key),
+                str(task_name),
+                processor_type,
+                dict(parameters),
+                silent=silent,
+                max_attempts=max_attempts,
+                idempotency_key=idempotency_key,
+                idempotency_scope=idempotency_scope,
             )
         )
 

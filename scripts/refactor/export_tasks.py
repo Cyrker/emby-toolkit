@@ -78,6 +78,7 @@ P7_TASKS = {
     "recalculate_library_washing_priorities",
 }
 P7_NATIVE_EXECUTION_OWNERS = {
+    "manual_subscribe_batch": "etk.domains.subscription.manual_batch.ManualSubscriptionBatchService",
     "recalculate_library_washing_priorities": (
         "etk.domains.p115.washing_recalculation.P115WashingPriorityRecalculationService"
     ),

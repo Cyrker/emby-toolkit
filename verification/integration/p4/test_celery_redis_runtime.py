@@ -111,6 +111,12 @@ class DailyThemeTmdbStubState:
     requests: list[str]
 
 
+@dataclass(slots=True)
+class ManualSubscriptionStubState:
+    requests: list[str]
+    moviepilot_writes: list[dict[str, Any]]
+
+
 def _start_identity_expiry_emby_stub(
     user_id: str,
 ) -> tuple[ThreadingHTTPServer, threading.Thread, IdentityExpiryEmbyStubState]:
@@ -223,6 +229,90 @@ def _start_daily_theme_tmdb_stub() -> tuple[ThreadingHTTPServer, threading.Threa
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, name="etk-daily-theme-tmdb-stub", daemon=True)
+    thread.start()
+    return server, thread, state
+
+
+def _start_manual_subscription_stub() -> tuple[
+    ThreadingHTTPServer,
+    threading.Thread,
+    ManualSubscriptionStubState,
+]:
+    state = ManualSubscriptionStubState(requests=[], moviepilot_writes=[])
+    lock = threading.Lock()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            parsed = urlsplit(self.path)
+            with lock:
+                state.requests.append(self.path)
+            if parsed.path == "/3/movie/820001":
+                if parse_qs(parsed.query).get("api_key") != ["fixture-tmdb-key"]:
+                    self._respond(403, {})
+                    return
+                self._respond(
+                    200,
+                    {
+                        "id": 820001,
+                        "title": "手动订阅测试电影",
+                        "release_dates": {
+                            "results": [
+                                {
+                                    "iso_3166_1": "CN",
+                                    "release_dates": [{"type": 4, "release_date": "2026-08-01T00:00:00Z"}],
+                                }
+                            ]
+                        },
+                    },
+                )
+                return
+            if parsed.path == "/api/v1/subscribe/media/tmdb:820001":
+                if self.headers.get("Authorization") != "Bearer fixture-mp-token":
+                    self._respond(401, {})
+                    return
+                self._respond(
+                    200,
+                    {"id": 1, "tmdbid": 820001, "type": "电影", "name": "手动订阅测试电影"},
+                )
+                return
+            self._respond(404, {})
+
+        def do_POST(self) -> None:  # noqa: N802
+            parsed = urlsplit(self.path)
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length) if length else b""
+            with lock:
+                state.requests.append(self.path)
+            if parsed.path == "/api/v1/login/access-token":
+                self._respond(200, {"access_token": "fixture-mp-token"})
+                return
+            if parsed.path == "/api/v1/subscribe/":
+                if self.headers.get("Authorization") != "Bearer fixture-mp-token":
+                    self._respond(401, {})
+                    return
+                payload = json.loads(raw or b"{}")
+                if not isinstance(payload, dict):
+                    self._respond(400, {})
+                    return
+                with lock:
+                    state.moviepilot_writes.append(dict(payload))
+                self._respond(201, {"id": 1})
+                return
+            self._respond(404, {})
+
+        def _respond(self, status: int, payload_value: Mapping[str, Any]) -> None:
+            payload = json.dumps(payload_value, ensure_ascii=False, separators=(",", ":")).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: object) -> None:
+            del format, args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, name="etk-manual-subscription-stub", daemon=True)
     thread.start()
     return server, thread, state
 
@@ -4652,6 +4742,210 @@ if guard_file:
         assert repository.load_snapshot().publication_revision == 4
     finally:
         if worker is not None:
+            assert worker.stop() == 0
+        _shutdown_http_stub(server, server_thread)
+
+
+@pytest.mark.parametrize(
+    "compatibility_enabled",
+    [False, True],
+    ids=["native-only", "compatibility-enabled"],
+)
+def test_manual_subscription_executes_once_through_real_worker_profiles(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+) -> None:
+    server, server_thread, stub = _start_manual_subscription_stub()
+    worker: ManagedProcess | None = None
+    replacement: ManagedProcess | None = None
+    try:
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(text("DELETE FROM outbox_events WHERE topic = 'subscription.operation.requested'"))
+            connection.execute(text("DELETE FROM subscription_quota_reservations"))
+            connection.execute(text("DELETE FROM subscription_operations"))
+            connection.execute(text("DELETE FROM media_metadata WHERE tmdb_id = '820001' AND item_type = 'Movie'"))
+            for key, value in (
+                (
+                    "mp_config",
+                    {
+                        "moviepilot_url": f"http://127.0.0.1:{server.server_port}",
+                        "moviepilot_username": "fixture-user",
+                        "moviepilot_password": "fixture-password",
+                        "resubscribe_daily_cap": 2,
+                    },
+                ),
+                ("watchlist_config", {}),
+                (
+                    "dynamic_app_config",
+                    {
+                        "tmdb_api_base_url": f"http://127.0.0.1:{server.server_port}/3",
+                        "tmdb_api_key": "fixture-tmdb-key",
+                    },
+                ),
+            ):
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                        VALUES (:key, CAST(:value AS jsonb), NOW())
+                        ON CONFLICT (setting_key) DO UPDATE SET
+                            value_json = EXCLUDED.value_json,
+                            last_updated_at = NOW()
+                        """
+                    ),
+                    {"key": key, "value": json.dumps(value, ensure_ascii=False)},
+                )
+        created = p4_store.create_job(
+            task_key="manual_subscribe_batch",
+            queue_name=p4_runtime_environment.queue_name,
+            max_attempts=1,
+            payload={
+                "payload_version": 1,
+                "parameters": {
+                    "subscribe_requests": [
+                        {
+                            "tmdb_id": "820001",
+                            "item_type": "Movie",
+                            "title": "手动订阅测试电影",
+                            "user_id": "fixture-user-id",
+                        }
+                    ]
+                },
+                "processor_type": "media",
+                "display_name": "P11 native manual subscription fixture",
+                "silent": True,
+            },
+        ).projection
+        site_directory = tmp_path / f"manual-subscription-site-{compatibility_enabled}"
+        site_directory.mkdir()
+        (site_directory / "sitecustomize.py").write_text(
+            """
+import builtins
+import os
+
+guard_file = os.environ.get("ETK_TEST_MANUAL_SUBSCRIPTION_IMPORT_GUARD_FILE")
+if guard_file:
+    original_import = builtins.__import__
+    compatibility_enabled = os.environ.get("ETK_ENABLE_LEGACY_COMPATIBILITY", "").lower() in {
+        "1", "true", "yes", "on"
+    }
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if level == 0 and not compatibility_enabled and os.path.exists(guard_file) and (
+            name == "tasks.subscriptions"
+            or name.startswith("tasks.subscriptions.")
+            or name == "handler.moviepilot"
+            or name.startswith("handler.moviepilot.")
+        ):
+            raise AssertionError(f"manual subscription Worker imported legacy execution owner {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    builtins.__import__ = guarded_import
+""".lstrip(),
+            encoding="utf-8",
+        )
+        import_guard = tmp_path / f"manual-subscription-import-{compatibility_enabled}.guard"
+        worker_environment_values = dict(p4_runtime_environment.environment)
+        existing_python_path = worker_environment_values.get("PYTHONPATH", "")
+        worker_environment_values["PYTHONPATH"] = os.pathsep.join(
+            filter(
+                None,
+                (
+                    str(site_directory),
+                    str(REPO_ROOT / "src"),
+                    str(REPO_ROOT),
+                    existing_python_path,
+                ),
+            )
+        )
+        worker_environment_values["ETK_TEST_MANUAL_SUBSCRIPTION_IMPORT_GUARD_FILE"] = str(import_guard)
+        worker_environment_values["TMDB_API_BASE_URL"] = f"http://127.0.0.1:{server.server_port}/3"
+        worker_environment_values["TMDB_API_KEY"] = "fixture-tmdb-key"
+        if compatibility_enabled:
+            worker_environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+        else:
+            worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+        worker_environment = RuntimeEnvironment(
+            environment=worker_environment_values,
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        worker = _start_worker(worker_environment, tmp_path / f"manual-worker-{compatibility_enabled}")
+        _wait_for_worker(worker, worker_environment.config)
+        import_guard.write_text("active", encoding="utf-8")
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+            count=2,
+        )
+
+        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
+        assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+        assert completed.job.result is not None
+        assert completed.job.result["status"] == "succeeded"
+        details = completed.job.result["details"]
+        assert details["task_key"] == "manual_subscribe_batch"
+        assert details["native_handler"] == "P7SubscriptionTaskRouter"
+        assert details["compatibility_fallback"] is False
+        assert details["processed"] == 1
+        assert details["provider_failures"] == []
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in worker.read_log(),
+            description="duplicate manual subscription delivery to be skipped",
+            timeout=15,
+        )
+        assert worker.stop() == 0
+        replacement = _start_worker(
+            worker_environment,
+            tmp_path / f"manual-replacement-worker-{compatibility_enabled}",
+        )
+        _wait_for_worker(replacement, worker_environment.config)
+        _send_delivery(
+            worker_environment.config,
+            created.job.id,
+            created.current_attempt.id,
+        )
+        _wait_until(
+            lambda: "Duplicate or stale delivery skipped" in replacement.read_log(),
+            description="replacement Worker to reject completed manual subscription delivery",
+            timeout=15,
+        )
+        assert stub.moviepilot_writes == [{"name": "手动订阅测试电影", "tmdbid": 820001, "type": "电影"}]
+        with p4_runtime.engine.connect() as connection:
+            state = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT
+                            (SELECT subscription_status FROM media_metadata
+                             WHERE tmdb_id = '820001' AND item_type = 'Movie') AS media_status,
+                            (SELECT COUNT(*) FROM subscription_operations) AS operations,
+                            (SELECT COUNT(*) FROM subscription_quota_reservations) AS quota_rows,
+                            (SELECT status FROM subscription_quota_reservations LIMIT 1) AS quota_status,
+                            (SELECT COUNT(*) FROM outbox_events
+                             WHERE topic = 'subscription.operation.requested') AS outbox_rows
+                        """
+                    )
+                )
+                .mappings()
+                .one()
+            )
+        assert dict(state) == {
+            "media_status": "SUBSCRIBED",
+            "operations": 1,
+            "quota_rows": 1,
+            "quota_status": "committed",
+            "outbox_rows": 1,
+        }
+    finally:
+        if replacement is not None:
+            assert replacement.stop() == 0
+        if worker is not None and worker.process.poll() is None:
             assert worker.stop() == 0
         _shutdown_http_stub(server, server_thread)
 

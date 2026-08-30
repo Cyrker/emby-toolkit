@@ -95,6 +95,7 @@ from etk.domains.media.final_refresh_effects import (
 )
 from etk.domains.media.image_editing_compatibility import LegacyMediaImageEditingGateway
 from etk.domains.media.image_editing_effects import ManualImageEffectDelivery
+from etk.domains.media.subscription_projection import SqlAlchemySubscriptionMediaProjection
 from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
 from etk.domains.operations.database_maintenance import (
     DatabaseMaintenanceExecutor,
@@ -196,10 +197,19 @@ from etk.domains.subscription.cleanup_repository import SqlAlchemyCleanupReposit
 from etk.domains.subscription.cleanup_runtime_repository import SqlAlchemyCleanupExecutionRepository
 from etk.domains.subscription.cleanup_scan import CleanupScanService
 from etk.domains.subscription.cleanup_scan_repository import SqlAlchemyCleanupScanRepository
+from etk.domains.subscription.manual_batch import (
+    ManualSubscriptionBatchService,
+    SqlAlchemyManualSubscriptionRepository,
+)
+from etk.domains.subscription.manual_batch_adapters import (
+    HttpxManualSubscriptionTmdbAdapter,
+    ManualSubscriptionQuotaLedger,
+)
 from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotGateway
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.operations import SubscriptionOperation
 from etk.domains.subscription.provider_execution import SubscriptionOperationExecutor
+from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
 from etk.domains.subscription.watchlist import OldSeasonBackfillService
 from etk.domains.system import SqlAlchemyAppSettingsRepository
 from etk.integrations import (
@@ -287,6 +297,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "check-expired-users",
         "intro-fingerprint-backfill",
         "manual-correct-organize-records",
+        "manual_subscribe_batch",
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
         "restore_mediainfo",
@@ -835,6 +846,18 @@ class WorkerRuntime:
                     app_settings,
                     lease_seconds=SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS,
                 )
+                manual_watchlist = SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
+                manual_batch = ManualSubscriptionBatchService(
+                    SqlAlchemyManualSubscriptionRepository(
+                        database.unit_of_work,
+                        SqlAlchemySubscriptionMediaProjection(),
+                    ),
+                    app_settings,
+                    HttpxManualSubscriptionTmdbAdapter(settings_provider),
+                    moviepilot_effects,
+                    ManualSubscriptionQuotaLedger(PostgresSubscriptionRuntimeRepository(database.unit_of_work)),
+                    manual_watchlist,
+                )
                 resubscribe_cleanup = PersistentResubscribeCleanupGateway(
                     SqlAlchemyCleanupRepository(
                         database.unit_of_work,
@@ -852,6 +875,7 @@ class WorkerRuntime:
                     resubscribe_cleanup,
                     washing_recalculation,
                     OldSeasonBackfillService(SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)),
+                    manual_batch=manual_batch,
                 )
                 daily_theme = DailyThemeService(
                     HttpxDiscoverProviderAdapter(settings_provider),
@@ -1283,6 +1307,24 @@ class WorkerRuntime:
                 subscription_operations,
                 ConfiguredMoviePilotGateway(app_settings),
             )
+            moviepilot_effects = PersistentMoviePilotEffectGateway(
+                subscription_operations,
+                subscription_executor,
+                app_settings,
+                lease_seconds=SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS,
+            )
+            manual_watchlist = SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
+            manual_batch = ManualSubscriptionBatchService(
+                SqlAlchemyManualSubscriptionRepository(
+                    database.unit_of_work,
+                    SqlAlchemySubscriptionMediaProjection(),
+                ),
+                app_settings,
+                HttpxManualSubscriptionTmdbAdapter(settings_provider),
+                moviepilot_effects,
+                ManualSubscriptionQuotaLedger(PostgresSubscriptionRuntimeRepository(database.unit_of_work)),
+                manual_watchlist,
+            )
             identity_operations = PostgresIdentityOperationRepository(database.unit_of_work)
             identity_effects = HttpxEmbyIdentityEffectsAdapter(settings_provider)
             identity_mutations = IdentityUserMutationCoordinator(identity_operations, identity_effects)
@@ -1445,6 +1487,7 @@ class WorkerRuntime:
                 old_season_backfill=OldSeasonBackfillService(
                     SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
                 ),
+                manual_batch=manual_batch,
             )
             p8_effect_tasks = P8EffectTaskRouter(
                 None,
@@ -2075,6 +2118,7 @@ class WorkerRuntime:
                         or definition.key
                         in {
                             "check-expired-users",
+                            "manual_subscribe_batch",
                             "recalculate_library_washing_priorities",
                             "restore_mediainfo",
                             "scan-cleanup-issues",

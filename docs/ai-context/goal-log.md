@@ -4197,6 +4197,65 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Manual-Subscribe
+
+Stage / Batch: P11 / processor-free durable manual subscription execution
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `5dba5dec` (`refactor(p11): cut over subscription quota ledger`).
+- Target checkpoint message: `refactor(p11): execute native manual subscriptions`.
+
+Implemented:
+
+- Added a processor-free `ManualSubscriptionBatchService` for Movie, Season and Series requests,
+  with strict task envelopes, cancellation checkpoints, legacy-compatible counters and explicit
+  handling of invalid Season identity. Series expansion preserves future-season
+  `PENDING_RELEASE`, TG-owned local success and create-then-pending provider sequencing.
+- Bound durable MoviePilot effects to explicit Job/Attempt/Worker identity, preserving operation,
+  quota and Outbox replay without relying on compatibility `task_manager` execution context.
+- Promoted `manual_subscribe_batch` to native-only Worker execution in both runtime profiles and
+  migrated the Portal from callable submission to catalog task key plus JSON parameters. Season
+  Portal requests now carry an authoritative parent Series identity.
+- Updated native execution ownership and generated manifests; retained the legacy callable only as
+  source compatibility pending the controlled removal wave.
+
+Targeted gate:
+
+- Native/test scoped Ruff and format -> clean; legacy delta safety Ruff -> clean; scoped Pyright ->
+  `0 errors, 0 warnings, 0 informations`; source compilation, `uv lock --check` and
+  `git diff --check` -> clean.
+- Manual subscription/P4/P7 application and architecture scope -> `198 passed`, with one existing
+  Starlette WSGI deprecation warning.
+- Disposable PostgreSQL 18 manual subscription, operation and assistant runtime scope ->
+  `34 passed`.
+- Disposable PostgreSQL 18 + Redis/Celery native-only and compatibility-enabled Worker profiles,
+  including duplicate delivery and replacement Worker replay -> `2 passed, 31 deselected`.
+- Manifest/OpenAPI currentness and all three fixture/contract secret scans -> clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-manual-subscribe-20260830/`.
+
+Focused review:
+
+- Review found missing explicit Season parent validation and an unclassified empty Series detail;
+  both were closed with business-skip regressions. Follow-up found the Portal Season payload lacked
+  the newly required parent identity; the payload and source sentinel were fixed. Final rereview
+  found no remaining deterministic P0/P1/P2 in this slice.
+- Five other observations were retained as frozen legacy compatibility behavior rather than changed
+  without a contract decision: Movie detail failure skip, Series-without-seasons provider-only
+  success, missing `episode_count` default, quota precheck/succeeded semantics and Job-scoped replay.
+
+Pending:
+
+- `auto-subscribe`, `resubscribe-library` and `subscribe-assistant-maintenance` still require
+  processor-free native owners. Other unavailable P5/P7/P8 task owners, remaining Route/Table/
+  Config closure, pre-removal inventory, controlled legacy removal and all P11 NFR/security/SBOM/
+  License gates remain pending. P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -4216,6 +4275,6 @@ Read first:
 
 Next:
 
-- Continue the approved `subscription_quota_state` ledger-only cutover. Do not start controlled
-  removal or P12 until P11 execution and ownership reach 100%. Keep all Live Acceptance items
-  pending.
+- Continue processor-free task execution ownership, beginning with `auto-subscribe`; then close the
+  remaining task, Route, Table and Config ownership before controlled removal. Do not start P12
+  until P11 ownership, removal and NFR gates are complete. Keep all Live Acceptance items pending.

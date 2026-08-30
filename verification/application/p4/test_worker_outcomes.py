@@ -523,6 +523,41 @@ def test_native_processor_free_tasks_do_not_import_task_manager(
     assert router.calls[0][1] is None
 
 
+def test_native_worker_routes_manual_subscription_without_legacy_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    projection = _catalog_projection("manual_subscribe_batch", parameters={"subscribe_requests": []})
+    runtime, store = _native_catalog_runtime(projection)
+    router = StubProcessorFreeRouter()
+    cast(Any, runtime)._p7_subscription_tasks = router
+    monkeypatch.setattr(
+        "etk.processes.worker._processor",
+        lambda _identity: (_ for _ in ()).throw(AssertionError("manual batch resolved a processor")),
+    )
+    original_import = builtins.__import__
+
+    def guarded_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] | None = (),
+        level: int = 0,
+    ) -> Any:
+        if level == 0 and any(
+            name == prefix or name.startswith(prefix + ".") for prefix in ("handler", "task_manager", "tasks")
+        ):
+            raise AssertionError(f"manual batch imported legacy runtime {name}")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == ["succeeded"]
+    assert len(router.calls) == 1
+    assert router.calls[0][1] is None
+
+
 @pytest.mark.parametrize(
     ("task_key", "router_field"),
     [
@@ -883,6 +918,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "check-expired-users",
             "intro-fingerprint-backfill",
             "manual-correct-organize-records",
+            "manual_subscribe_batch",
             "recalculate_library_washing_priorities",
             "repair-p115-fingerprints",
             "restore_mediainfo",

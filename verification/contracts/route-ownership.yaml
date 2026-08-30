@@ -116,7 +116,7 @@
     },
     {
       "name": "user_portal_bp",
-      "source": "routes/user_portal.py:24",
+      "source": "routes/user_portal.py:23",
       "url_prefix": "/api/portal",
       "variable": "user_portal_bp"
     },
@@ -5182,7 +5182,7 @@
       "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/account-info",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:266",
+      "source": "routes/user_portal.py:267",
       "status": "new",
       "target_domains": [
         "users"
@@ -5203,7 +5203,7 @@
       "notes": "P8-EFFECTS native adapter/effect owner; external calls use Fake/Stub in local verification and live acceptance remains HUMAN_PENDING.",
       "path": "/api/portal/dashboard-stats",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:564",
+      "source": "routes/user_portal.py:565",
       "status": "new",
       "target_domains": [
         "users"
@@ -5224,7 +5224,7 @@
       "notes": "P8-EFFECTS native adapter/effect owner; external calls use Fake/Stub in local verification and live acceptance remains HUMAN_PENDING.",
       "path": "/api/portal/playback-report",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:418",
+      "source": "routes/user_portal.py:419",
       "status": "new",
       "target_domains": [
         "users"
@@ -5245,7 +5245,7 @@
       "notes": "P8-EFFECTS native adapter/effect owner; external calls use Fake/Stub in local verification and live acceptance remains HUMAN_PENDING.",
       "path": "/api/portal/subscribe",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:27",
+      "source": "routes/user_portal.py:26",
       "status": "new",
       "target_domains": [
         "users"
@@ -5266,7 +5266,7 @@
       "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/subscription-history",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:289",
+      "source": "routes/user_portal.py:290",
       "status": "new",
       "target_domains": [
         "users"
@@ -5287,7 +5287,7 @@
       "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/subscription-stats",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:359",
+      "source": "routes/user_portal.py:360",
       "status": "new",
       "target_domains": [
         "users"
@@ -5308,7 +5308,7 @@
       "notes": "P8-EFFECTS native adapter/effect owner; external calls use Fake/Stub in local verification and live acceptance remains HUMAN_PENDING.",
       "path": "/api/portal/telegram-bot-info",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:325",
+      "source": "routes/user_portal.py:326",
       "status": "new",
       "target_domains": [
         "users"
@@ -5329,7 +5329,7 @@
       "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/telegram-chat-id",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:311",
+      "source": "routes/user_portal.py:312",
       "status": "new",
       "target_domains": [
         "users"
@@ -5350,7 +5350,7 @@
       "notes": "P8-EFFECTS native adapter/effect owner; external calls use Fake/Stub in local verification and live acceptance remains HUMAN_PENDING.",
       "path": "/api/portal/upload-avatar",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:367",
+      "source": "routes/user_portal.py:368",
       "status": "new",
       "target_domains": [
         "users"
@@ -13453,7 +13453,7 @@
       "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/account-info",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:266",
+      "source": "routes/user_portal.py:267",
       "status": "new",
       "target_domains": [
         "users"
@@ -13477,7 +13477,7 @@
       "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/portal/dashboard-stats",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:564",
+      "source": "routes/user_portal.py:565",
       "status": "new",
       "target_domains": [
         "users"
@@ -13501,7 +13501,7 @@
       "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/portal/playback-report",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:418",
+      "source": "routes/user_portal.py:419",
       "status": "new",
       "target_domains": [
         "users"
@@ -13525,7 +13525,7 @@
       "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/portal/subscribe",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:27",
+      "source": "routes/user_portal.py:26",
       "status": "new",
       "target_domains": [
         "users"
@@ -13549,7 +13549,7 @@
       "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/subscription-history",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:289",
+      "source": "routes/user_portal.py:290",
       "status": "new",
       "target_domains": [
         "users"
@@ -13573,7 +13573,7 @@
       "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/subscription-stats",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:359",
+      "source": "routes/user_portal.py:360",
       "status": "new",
       "target_domains": [
         "users"
@@ -13597,7 +13597,7 @@
       "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/portal/telegram-bot-info",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:325",
+      "source": "routes/user_portal.py:326",
       "status": "new",
       "target_domains": [
         "users"
@@ -13621,7 +13621,7 @@
       "notes": "P8-LOCAL native Users route preserves admin, portal, public invite validation, and PostgreSQL transaction contracts; cross-system mutations remain P8-EFFECTS.",
       "path": "/api/portal/telegram-chat-id",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:311",
+      "source": "routes/user_portal.py:312",
       "status": "new",
       "target_domains": [
         "users"
@@ -13645,7 +13645,7 @@
       "notes": "Native FastAPI route is present in the frozen OpenAPI surface; compatibility implementation remains only until the controlled P11 removal wave.",
       "path": "/api/portal/upload-avatar",
       "retirement_approval": null,
-      "source": "routes/user_portal.py:367",
+      "source": "routes/user_portal.py:368",
       "status": "new",
       "target_domains": [
         "users"

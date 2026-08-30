@@ -142,3 +142,24 @@ def test_subscribe_assistant_processed_execution_remains_an_explicit_compatibili
         "ordered-task-registry-native-envelope-compatibility-worker-outcome-postgres18-and-redis-celery"
     )
     assert "legacy Subscribe Assistant manager/store" in task["notes"]
+
+
+def test_manual_subscription_batch_has_processor_free_native_execution_ownership() -> None:
+    manifest = json.loads(_source("verification/contracts/task-ownership.yaml"))
+    task = next(entry for entry in manifest["tasks"] if entry["task_key"] == "manual_subscribe_batch")
+
+    assert task["status"] == "new"
+    assert task["new_owner"] == "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter"
+    assert task["ownership_layers"] == {
+        "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.subscription.manual_batch.ManualSubscriptionBatchService",
+    }
+    assert task["validation_owner"] == "subscription/manual-batch"
+    assert "no legacy task callable" in task["notes"]
+
+    service = _source("src/etk/domains/subscription/manual_batch.py")
+    adapter = _source("src/etk/domains/subscription/manual_batch_adapters.py")
+    for forbidden in ("task_manager", "tasks.", "handler.", "Processor", "config_manager", "extensions"):
+        assert forbidden not in service
+        assert forbidden not in adapter

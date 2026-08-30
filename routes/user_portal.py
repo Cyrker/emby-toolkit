@@ -17,7 +17,6 @@ from routes.discover import check_and_replenish_pool
 import task_manager
 import extensions
 from tasks.helpers import process_subscription_items_and_update_db
-from tasks.subscriptions import task_manual_subscribe_batch
 from etk.compatibility.background import spawn
 
 # 1. 创建一个新的蓝图
@@ -238,10 +237,12 @@ def request_subscription():
             'user_id': emby_user_id,
             'season_number': season_number
         }
+        if item_type == 'Season':
+            req_item['series_tmdb_id'] = series_tmdb_id
         
         # 提交任务
-        task_manager.submit_task(
-            task_function=task_manual_subscribe_batch,
+        task_manager.submit_persistent_task_key(
+            "manual_subscribe_batch",
             task_name=f"立即订阅: {media_info['title']}",
             processor_type='media',
             subscribe_requests=[req_item]

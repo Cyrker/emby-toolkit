@@ -192,3 +192,37 @@ def test_task_manager_gateway_forwards_retry_and_idempotency_policy() -> None:
     assert service.values["idempotency_key"] == "update:1"
     assert service.values["idempotency_scope"] == "telegram-resource-action"
     assert service.values["queue_when_busy"] is True
+
+
+def test_task_manager_gateway_submits_catalog_key_without_legacy_callable() -> None:
+    class CaptureCatalogService:
+        def __init__(self) -> None:
+            self.values: dict[str, object] = {}
+
+        def submit_task(self, *args: object, **kwargs: object) -> SimpleNamespace:
+            self.values = {"args": args, **kwargs}
+            return SimpleNamespace()
+
+    service = CaptureCatalogService()
+    gateway = PersistentTaskManagerGateway(service)  # type: ignore[arg-type]
+
+    assert gateway.submit_key(
+        "manual_subscribe_batch",
+        "立即订阅",
+        "media",
+        {"subscribe_requests": [{"tmdb_id": "101", "item_type": "Movie"}]},
+        silent=False,
+        max_attempts=2,
+        idempotency_key="portal:request-1",
+        idempotency_scope="portal-manual-subscription",
+    )
+
+    assert service.values["args"] == (
+        "manual_subscribe_batch",
+        {"subscribe_requests": [{"tmdb_id": "101", "item_type": "Movie"}]},
+    )
+    assert service.values["trigger_type"] == "system"
+    assert service.values["queue_name"] == "legacy.backlog"
+    assert service.values["max_attempts"] == 2
+    assert service.values["idempotency_key"] == "portal:request-1"
+    assert service.values["idempotency_scope"] == "portal-manual-subscription"
