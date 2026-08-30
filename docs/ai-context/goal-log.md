@@ -4306,6 +4306,65 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Auto-Subscribe-Occurrences
+
+Stage / Batch: P11 / durable auto-subscribe item occurrence and MoviePilot identity foundation
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `4a8f012c` (`refactor(p11): isolate auto subscription policy`).
+- Target checkpoint message: `refactor(p11): persist auto subscription occurrences`.
+
+Implemented:
+
+- Added deterministic worklist-generation occurrences, cross-Job item claims, leases and claim-token
+  fencing over `subscription_runtime_states`. Active claims return busy, confirmed generations replay
+  locally, replay-safe expired requests can recover, and expired non-replay-safe requests become
+  indeterminate instead of being replayed blindly.
+- Bound MoviePilot create/status effects to the stable occurrence. Their scope and durable request
+  origin no longer depend on the parent Job when an explicit occurrence is present; existing manual
+  and deletion call sites retain their prior identity behavior.
+- Added a dedicated auto MoviePilot adapter for Movie/Season, including pending create-then-status,
+  completed washing flags, TG-owned non-completed seasons and quota exhaustion. Provider confirmation
+  and the local media projection/receipt now complete in one repository UoW.
+- Added the native Telegram notification directory and best-effort delivery adapter. Production
+  Shared Center, HDHive and TG source execution is intentionally not wired: the current P9 sharing
+  operation code has a repository but no provider executor/readback consumer, so promotion would be
+  an allowlist-only ownership claim.
+
+Targeted gate:
+
+- Auto policy/adapters/MoviePilot effect application scope -> `31 passed`.
+- Disposable PostgreSQL 18 auto worklist/claim/projection scope -> `5 passed`, including two-Job
+  claim fencing, stale-token rejection, replay-safe recovery, non-replay-safe indeterminate handling
+  and injected projection rollback followed by recovery.
+- Scoped Ruff check/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`);
+  `git diff --check` -> clean.
+
+Focused review:
+
+- Confirmed the stable occurrence, MP scope/origin split, claim-token fence and projection transaction.
+  A zero-row projection guard and an injected rollback/recovery regression were added during review.
+- No P0/P1/P2 remains in this foundation. It is not evidence for production source execution or
+  native-only Worker ownership.
+
+Stage full gate:
+
+- Not run. P11 ownership, controlled removal and NFR/security/SBOM/License gates remain pending.
+
+Pending:
+
+- Implement a real provider executor/readback boundary for sharing operations, then native
+  Shared Center/HDHive/TG auto sources, Router/Worker DI, Redis-Celery duplicate/replacement evidence,
+  import sentinels, native-only promotion and task Manifest ownership.
+- All other P11 Route/Task/Table/Config closure, controlled removal and NFR gates remain pending;
+  P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

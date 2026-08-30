@@ -10,6 +10,9 @@ from etk.domains.subscription.auto_subscribe import (
     AutoSourceDisposition,
     AutoSourceResult,
     AutoSubscribeService,
+    AutoSubscriptionClaim,
+    AutoSubscriptionClaimDisposition,
+    AutoSubscriptionExecution,
     AutoSubscriptionItemResult,
 )
 
@@ -60,15 +63,92 @@ class _Repository:
     def mark_subscribed(self, item: Mapping[str, Any]) -> None:
         self.subscribed.append(dict(item))
 
+    def claim(
+        self,
+        item: Mapping[str, Any],
+        *,
+        phase: str,
+        execution: AutoSubscriptionExecution,
+    ) -> AutoSubscriptionClaim:
+        del execution
+        occurrence = f"{phase}:{item.get('item_type', 'Movie')}:{item.get('tmdb_id')}"
+        return AutoSubscriptionClaim(
+            occurrence,
+            occurrence,
+            phase,
+            AutoSubscriptionClaimDisposition.ACQUIRED,
+            claim_token=f"token:{occurrence}",
+        )
+
+    def begin_source(
+        self,
+        claim: AutoSubscriptionClaim,
+        *,
+        source_type: str,
+        replay_safe: bool,
+        execution: AutoSubscriptionExecution,
+    ) -> None:
+        del claim, source_type, replay_safe, execution
+
+    def finish_source(
+        self,
+        claim: AutoSubscriptionClaim,
+        *,
+        disposition: AutoSourceDisposition,
+    ) -> None:
+        del claim, disposition
+
+    def release(self, claim: AutoSubscriptionClaim) -> None:
+        del claim
+
+    def mark_indeterminate(
+        self,
+        claim: AutoSubscriptionClaim,
+        *,
+        source_type: str,
+        error: Mapping[str, Any],
+    ) -> None:
+        del claim, source_type, error
+
+    def complete_subscription(
+        self,
+        claim: AutoSubscriptionClaim,
+        item: Mapping[str, Any],
+        *,
+        action_type: str,
+        mark_subscribed: bool,
+    ) -> None:
+        del claim, action_type
+        if mark_subscribed:
+            self.subscribed.append(dict(item))
+
+    def complete_movie_maintenance(
+        self,
+        claim: AutoSubscriptionClaim,
+        *,
+        tmdb_id: str,
+        action: str,
+        pause_days: int | None = None,
+    ) -> None:
+        del claim
+        if action == "revive":
+            self.revived.append(tmdb_id)
+        else:
+            self.paused.append((tmdb_id, int(pause_days or 1)))
+
 
 class _Tmdb:
     def __init__(self) -> None:
         self.movies: dict[int, Mapping[str, Any]] = {}
+        self.series: dict[int, Mapping[str, Any]] = {}
         self.calls: list[int] = []
 
     def movie(self, tmdb_id: int) -> Mapping[str, Any]:
         self.calls.append(tmdb_id)
         return self.movies.get(tmdb_id, {})
+
+    def tv(self, tmdb_id: int) -> Mapping[str, Any]:
+        return self.series.get(tmdb_id, {})
 
 
 class _Quota:
@@ -97,11 +177,14 @@ class _MoviePilot:
         season: int | None,
         status: str,
         total_episodes: int | None = None,
+        operation_occurrence: str,
     ) -> bool:
+        assert operation_occurrence
         self.status_calls.append((tmdb_id, season, status, total_episodes))
         return self.status_results.pop(0) if self.status_results else True
 
-    def create_movie(self, tmdb_id: str, title: str) -> bool:
+    def create_movie(self, tmdb_id: str, title: str, *, operation_occurrence: str) -> bool:
+        assert operation_occurrence
         self.create_calls.append((tmdb_id, title))
         return self.create_results.pop(0) if self.create_results else True
 
@@ -115,6 +198,10 @@ class _Sources:
     def __init__(self, results: Mapping[str, Sequence[AutoSourceResult | Exception]] | None = None) -> None:
         self.results = {key: list(value) for key, value in dict(results or {}).items()}
         self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def replay_safe(self, source_type: str) -> bool:
+        del source_type
+        return True
 
     def attempt(self, source_type: str, context: Mapping[str, Any], progress: Any) -> AutoSourceResult:
         progress.checkpoint()
@@ -210,6 +297,10 @@ def _user_source(user_id: str) -> list[dict[str, str]]:
     return [{"type": "user_request", "user_id": user_id}]
 
 
+def _execution() -> AutoSubscriptionExecution:
+    return AutoSubscriptionExecution("job-1", "attempt-1", "worker-1")
+
+
 def test_empty_worklist_preserves_revive_pause_results_and_failures() -> None:
     repository = _Repository()
     repository.promoted = 2
@@ -223,7 +314,7 @@ def test_empty_worklist_preserves_revive_pause_results_and_failures() -> None:
     moviepilot.create_results = [False, True]
     service, *_rest = _service(repository=repository, moviepilot=moviepilot)
 
-    result = service.execute(_Progress())
+    result = service.execute(_Progress(), _execution())
 
     assert result.status == "partial"
     assert result.requested == 0
@@ -255,7 +346,7 @@ def test_zero_or_negative_maintenance_config_disables_revive_and_pause(
         settings={"mp_config": mp_config},
     )
 
-    result = service.execute(_Progress())
+    result = service.execute(_Progress(), _execution())
 
     assert result.processed == 0
     assert result.revived == 0
@@ -310,7 +401,7 @@ def test_source_order_release_guard_nonwanted_mp_fence_and_notifications() -> No
         sources=sources,
     )
 
-    result = service.execute(_Progress())
+    result = service.execute(_Progress(), _execution())
 
     assert result.status == "succeeded"
     assert result.requested == 3
@@ -352,7 +443,7 @@ def test_quota_exhaustion_skips_entire_wanted_item_but_keeps_later_recheck() -> 
         sources=sources,
     )
 
-    result = service.execute(_Progress())
+    result = service.execute(_Progress(), _execution())
 
     assert result.status == "succeeded"
     assert result.processed == 1
@@ -393,7 +484,7 @@ def test_indeterminate_source_stops_fallback_and_is_reported() -> None:
         sources=sources,
     )
 
-    result = service.execute(_Progress())
+    result = service.execute(_Progress(), _execution())
 
     assert result.status == "failed"
     assert result.processed == 0
@@ -421,7 +512,7 @@ def test_unknown_source_exception_is_indeterminate_and_stops_fallback() -> None:
         sources=sources,
     )
 
-    result = service.execute(_Progress())
+    result = service.execute(_Progress(), _execution())
 
     assert result.status == "failed"
     assert result.provider_failures[0]["error_type"] == "RuntimeError"
@@ -457,7 +548,7 @@ def test_moviepilot_rejection_falls_through_and_is_discarded_after_later_success
         sources=sources,
     )
 
-    result = service.execute(_Progress())
+    result = service.execute(_Progress(), _execution())
 
     assert result.status == "succeeded"
     assert result.processed == 1
@@ -492,7 +583,7 @@ def test_moviepilot_partial_counts_item_and_cancellation_stops_before_source() -
         moviepilot=moviepilot,
     )
 
-    result = service.execute(_Progress())
+    result = service.execute(_Progress(), _execution())
 
     assert result.status == "partial"
     assert result.processed == 1
@@ -502,11 +593,11 @@ def test_moviepilot_partial_counts_item_and_cancellation_stops_before_source() -
     cancelled_repository.items = list(repository.items)
     cancelled, *_rest = _service(repository=cancelled_repository, tmdb=tmdb, moviepilot=moviepilot)
     with pytest.raises(RuntimeError, match="cancelled fixture"):
-        cancelled.execute(_Progress(fail_checkpoint=1))
+        cancelled.execute(_Progress(fail_checkpoint=1), _execution())
     assert cancelled_repository.promotion_calls == 0
 
 
-def test_moviepilot_local_projection_is_not_applied_twice() -> None:
+def test_moviepilot_confirmation_applies_local_projection_once() -> None:
     repository = _Repository()
     repository.items = [
         {
@@ -519,7 +610,7 @@ def test_moviepilot_local_projection_is_not_applied_twice() -> None:
     tmdb = _Tmdb()
     tmdb.movies[55] = _released_movie()
     moviepilot = _MoviePilot()
-    moviepilot.item_results = [AutoSubscriptionItemResult(True, local_projection_applied=True)]
+    moviepilot.item_results = [AutoSubscriptionItemResult(True)]
     service, *_rest = _service(
         repository=repository,
         settings={"subscription_strategy_config": {"subscription_sources": ["mp"]}},
@@ -527,10 +618,10 @@ def test_moviepilot_local_projection_is_not_applied_twice() -> None:
         moviepilot=moviepilot,
     )
 
-    result = service.execute(_Progress())
+    result = service.execute(_Progress(), _execution())
 
     assert result.processed == 1
-    assert repository.subscribed == []
+    assert [item["tmdb_id"] for item in repository.subscribed] == ["55"]
 
 
 def test_request_delay_has_checkpoints_on_both_sides() -> None:
@@ -545,7 +636,7 @@ def test_request_delay_has_checkpoints_on_both_sides() -> None:
         settings={"mp_config": {"resubscribe_delay_seconds": 1}},
     )
 
-    result = service.execute(progress)
+    result = service.execute(progress, _execution())
 
     assert result.processed == 0
     assert progress.checkpoints == 4

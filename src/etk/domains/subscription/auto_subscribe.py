@@ -21,19 +21,67 @@ class AutoSubscriptionRepositoryPort(Protocol):
 
     def movies_to_pause(self, *, search_window_days: int) -> Sequence[Mapping[str, Any]]: ...
 
-    def mark_movie_revived(self, tmdb_id: str) -> None: ...
-
-    def mark_movie_paused(self, tmdb_id: str, *, pause_days: int) -> None: ...
-
     def worklist(self) -> Sequence[Mapping[str, Any]]: ...
 
     def series_title(self, tmdb_id: str) -> str | None: ...
 
-    def mark_subscribed(self, item: Mapping[str, Any]) -> None: ...
+    def claim(
+        self,
+        item: Mapping[str, Any],
+        *,
+        phase: str,
+        execution: AutoSubscriptionExecution,
+    ) -> AutoSubscriptionClaim: ...
+
+    def begin_source(
+        self,
+        claim: AutoSubscriptionClaim,
+        *,
+        source_type: str,
+        replay_safe: bool,
+        execution: AutoSubscriptionExecution,
+    ) -> None: ...
+
+    def finish_source(
+        self,
+        claim: AutoSubscriptionClaim,
+        *,
+        disposition: AutoSourceDisposition,
+    ) -> None: ...
+
+    def release(self, claim: AutoSubscriptionClaim) -> None: ...
+
+    def mark_indeterminate(
+        self,
+        claim: AutoSubscriptionClaim,
+        *,
+        source_type: str,
+        error: Mapping[str, Any],
+    ) -> None: ...
+
+    def complete_subscription(
+        self,
+        claim: AutoSubscriptionClaim,
+        item: Mapping[str, Any],
+        *,
+        action_type: str,
+        mark_subscribed: bool,
+    ) -> None: ...
+
+    def complete_movie_maintenance(
+        self,
+        claim: AutoSubscriptionClaim,
+        *,
+        tmdb_id: str,
+        action: str,
+        pause_days: int | None = None,
+    ) -> None: ...
 
 
 class AutoSubscriptionTmdbPort(Protocol):
     def movie(self, tmdb_id: int) -> Mapping[str, Any]: ...
+
+    def tv(self, tmdb_id: int) -> Mapping[str, Any]: ...
 
 
 class AutoSubscriptionQuotaPort(Protocol):
@@ -48,9 +96,10 @@ class AutoSubscriptionMoviePilotPort(Protocol):
         season: int | None,
         status: str,
         total_episodes: int | None = None,
+        operation_occurrence: str,
     ) -> bool: ...
 
-    def create_movie(self, tmdb_id: str, title: str) -> bool: ...
+    def create_movie(self, tmdb_id: str, title: str, *, operation_occurrence: str) -> bool: ...
 
     def subscribe_item(
         self,
@@ -102,6 +151,8 @@ class AutoSourceResult:
 
 
 class OrderedAutoSubscriptionSourcePort(Protocol):
+    def replay_safe(self, source_type: str) -> bool: ...
+
     def attempt(
         self,
         source_type: str,
@@ -123,7 +174,44 @@ class AutoSubscriptionItemResult:
     processed: bool
     provider_failures: tuple[Mapping[str, Any], ...] = ()
     quota_exhausted: bool = False
-    local_projection_applied: bool = True
+    action_type: str = "MP"
+
+
+class AutoSubscriptionClaimDisposition(StrEnum):
+    ACQUIRED = "acquired"
+    BUSY = "busy"
+    REPLAYED = "replayed"
+    INDETERMINATE = "indeterminate"
+
+
+@dataclass(frozen=True, slots=True)
+class AutoSubscriptionExecution:
+    job_id: str
+    attempt_id: str
+    worker_id: str
+    lease_seconds: float = 1_800
+
+    def __post_init__(self) -> None:
+        for field in ("job_id", "attempt_id", "worker_id"):
+            if not str(getattr(self, field) or "").strip():
+                raise ValueError(f"auto-subscribe execution {field} must not be empty")
+        if float(self.lease_seconds) <= 0:
+            raise ValueError("auto-subscribe execution lease_seconds must be positive")
+
+
+@dataclass(frozen=True, slots=True)
+class AutoSubscriptionClaim:
+    state_key: str
+    occurrence: str
+    phase: str
+    disposition: AutoSubscriptionClaimDisposition
+    claim_token: str | None = None
+    action_type: str = ""
+    error: Mapping[str, Any] | None = None
+
+    @property
+    def acquired(self) -> bool:
+        return self.disposition is AutoSubscriptionClaimDisposition.ACQUIRED
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,7 +270,11 @@ class AutoSubscribeService:
         self._clock = clock
         self._sleep = sleep
 
-    def execute(self, progress: AutoSubscriptionProgress) -> AutoSubscriptionResult:
+    def execute(
+        self,
+        progress: AutoSubscriptionProgress,
+        execution: AutoSubscriptionExecution,
+    ) -> AutoSubscriptionResult:
         progress.update(0, "正在加载订阅策略...")
         strategy = _mapping(self._settings.load("subscription_strategy_config"))
         mp_config = _mapping(self._settings.load("mp_config"))
@@ -198,6 +290,7 @@ class AutoSubscribeService:
         if search_window > 0 and pause_days > 0:
             revived, paused, maintenance_failures = self._maintain_movies(
                 progress,
+                execution,
                 search_window_days=search_window,
                 pause_days=pause_days,
             )
@@ -248,58 +341,128 @@ class AutoSubscribeService:
                 quota_exhausted = True
                 continue
 
+            claim = self._repository.claim(
+                item,
+                phase="subscribe",
+                execution=execution,
+            )
+            if claim.disposition is AutoSubscriptionClaimDisposition.BUSY:
+                continue
+            if claim.disposition is AutoSubscriptionClaimDisposition.REPLAYED:
+                continue
+            if claim.disposition is AutoSubscriptionClaimDisposition.INDETERMINATE:
+                failures.append(
+                    claim.error
+                    or {
+                        "action": "auto-subscribe",
+                        "tmdb_id": str(item.get("tmdb_id") or ""),
+                        "item_type": item_type,
+                        "indeterminate": True,
+                    }
+                )
+                continue
+
             context = self._context(item, title)
+            context["operation_occurrence"] = claim.occurrence
             source_order = sources if wanted else tuple(source for source in sources if source != "mp")
             success = False
             partial_success = False
             action_type = "MP"
-            local_projection_applied = False
+            terminal_claim = False
             item_failures: list[Mapping[str, Any]] = []
             for source_type in source_order:
                 progress.checkpoint()
+                replay_safe = source_type == "mp" or self._sources.replay_safe(source_type)
+                self._repository.begin_source(
+                    claim,
+                    source_type=source_type,
+                    replay_safe=replay_safe,
+                    execution=execution,
+                )
                 if source_type == "mp":
-                    result = self._moviepilot.subscribe_item(context, _NestedProgress(progress))
-                    item_failures.extend(result.provider_failures)
-                    quota_exhausted = quota_exhausted or result.quota_exhausted
-                    success = result.processed and not result.provider_failures
-                    partial_success = result.processed and bool(result.provider_failures)
-                    local_projection_applied = result.local_projection_applied
-                    action_type = "MP"
-                    if success:
-                        break
-                    continue
-                try:
-                    source_result = self._sources.attempt(source_type, context, progress)
-                except AutoSourceError as exc:
-                    source_result = AutoSourceResult(exc.disposition, source_type, exc.error)
-                except Exception as exc:
-                    source_result = AutoSourceResult(
-                        AutoSourceDisposition.INDETERMINATE,
-                        source_type,
-                        {
-                            "action": source_type,
-                            "tmdb_id": str(item.get("tmdb_id") or ""),
-                            "item_type": item_type,
-                            "error_type": type(exc).__name__,
-                            "indeterminate": True,
-                        },
-                    )
+                    try:
+                        result = self._moviepilot.subscribe_item(context, _NestedProgress(progress))
+                    except Exception as exc:
+                        source_result = AutoSourceResult(
+                            AutoSourceDisposition.INDETERMINATE,
+                            source_type,
+                            {
+                                "action": source_type,
+                                "tmdb_id": str(item.get("tmdb_id") or ""),
+                                "item_type": item_type,
+                                "error_type": type(exc).__name__,
+                                "indeterminate": True,
+                            },
+                        )
+                    else:
+                        item_failures.extend(result.provider_failures)
+                        quota_exhausted = quota_exhausted or result.quota_exhausted
+                        success = result.processed and not result.provider_failures
+                        partial_success = result.processed and bool(result.provider_failures)
+                        action_type = result.action_type or "MP"
+                        if success:
+                            self._repository.complete_subscription(
+                                claim,
+                                item,
+                                action_type=action_type,
+                                mark_subscribed=wanted,
+                            )
+                            terminal_claim = True
+                            break
+                        self._repository.finish_source(
+                            claim,
+                            disposition=(
+                                AutoSourceDisposition.REJECTED
+                                if result.provider_failures
+                                else AutoSourceDisposition.MISS
+                            ),
+                        )
+                        continue
+                else:
+                    try:
+                        source_result = self._sources.attempt(source_type, context, progress)
+                    except AutoSourceError as exc:
+                        source_result = AutoSourceResult(exc.disposition, source_type, exc.error)
+                    except Exception as exc:
+                        source_result = AutoSourceResult(
+                            AutoSourceDisposition.INDETERMINATE,
+                            source_type,
+                            {
+                                "action": source_type,
+                                "tmdb_id": str(item.get("tmdb_id") or ""),
+                                "item_type": item_type,
+                                "error_type": type(exc).__name__,
+                                "indeterminate": True,
+                            },
+                        )
                 if source_result.disposition is AutoSourceDisposition.CONFIRMED:
                     success = True
                     action_type = source_result.action_type or source_type
+                    self._repository.complete_subscription(
+                        claim,
+                        item,
+                        action_type=action_type,
+                        mark_subscribed=wanted,
+                    )
+                    terminal_claim = True
                     break
                 if source_result.disposition is AutoSourceDisposition.INDETERMINATE:
-                    item_failures.append(
-                        source_result.error
-                        or {
-                            "action": source_type,
-                            "tmdb_id": str(item.get("tmdb_id") or ""),
-                            "item_type": item_type,
-                            "season": _optional_positive_int(item.get("season_number")),
-                            "indeterminate": True,
-                        }
+                    error = source_result.error or {
+                        "action": source_type,
+                        "tmdb_id": str(item.get("tmdb_id") or ""),
+                        "item_type": item_type,
+                        "season": _optional_positive_int(item.get("season_number")),
+                        "indeterminate": True,
+                    }
+                    item_failures.append(error)
+                    self._repository.mark_indeterminate(
+                        claim,
+                        source_type=source_type,
+                        error=error,
                     )
+                    terminal_claim = True
                     break
+                self._repository.finish_source(claim, disposition=source_result.disposition)
 
             if not success and item_failures:
                 failures.extend(item_failures)
@@ -307,8 +470,6 @@ class AutoSubscribeService:
                 processed += 1
             if success:
                 processed += 1
-                if wanted and (action_type != "MP" or (item_type != "Series" and not local_projection_applied)):
-                    self._repository.mark_subscribed(item)
                 _collect_user_titles(successful_notifications, item, _notification_title(context))
                 summary.append(
                     {
@@ -318,6 +479,8 @@ class AutoSubscribeService:
                         "action": action_type,
                     }
                 )
+            if not terminal_claim:
+                self._repository.release(claim)
             self._delay(progress, request_delay, index, total)
 
         self._notify(
@@ -344,6 +507,7 @@ class AutoSubscribeService:
     def _maintain_movies(
         self,
         progress: AutoSubscriptionProgress,
+        execution: AutoSubscriptionExecution,
         *,
         search_window_days: int,
         pause_days: int,
@@ -355,31 +519,116 @@ class AutoSubscribeService:
             progress.checkpoint()
             tmdb_id = _required_text(item.get("tmdb_id"), "movie tmdb_id")
             title = _text(item.get("title")) or tmdb_id
-            confirmed = self._moviepilot.update_status(tmdb_id, season=None, status="R")
+            claim = self._repository.claim(item, phase="revive", execution=execution)
+            if claim.disposition is AutoSubscriptionClaimDisposition.REPLAYED:
+                continue
+            if claim.disposition is AutoSubscriptionClaimDisposition.BUSY:
+                continue
+            if claim.disposition is AutoSubscriptionClaimDisposition.INDETERMINATE:
+                failures.append(claim.error or _provider_failure("revive", tmdb_id, "Movie", None))
+                continue
+            self._repository.begin_source(
+                claim,
+                source_type="mp",
+                replay_safe=True,
+                execution=execution,
+            )
+            confirmed = self._moviepilot.update_status(
+                tmdb_id,
+                season=None,
+                status="R",
+                operation_occurrence=claim.occurrence,
+            )
             if not confirmed:
+                self._repository.finish_source(claim, disposition=AutoSourceDisposition.REJECTED)
                 progress.checkpoint()
-                confirmed = self._moviepilot.create_movie(tmdb_id, title)
+                self._repository.begin_source(
+                    claim,
+                    source_type="mp",
+                    replay_safe=True,
+                    execution=execution,
+                )
+                confirmed = self._moviepilot.create_movie(
+                    tmdb_id,
+                    title,
+                    operation_occurrence=claim.occurrence,
+                )
             if confirmed:
-                self._repository.mark_movie_revived(tmdb_id)
+                self._repository.complete_movie_maintenance(
+                    claim,
+                    tmdb_id=tmdb_id,
+                    action="revive",
+                )
                 revived += 1
             else:
+                self._repository.finish_source(claim, disposition=AutoSourceDisposition.REJECTED)
+                self._repository.release(claim)
                 failures.append(_provider_failure("revive", tmdb_id, "Movie", None))
 
         for item in self._repository.movies_to_pause(search_window_days=search_window_days):
             progress.checkpoint()
             tmdb_id = _required_text(item.get("tmdb_id"), "movie tmdb_id")
             title = _text(item.get("title")) or tmdb_id
-            confirmed = self._moviepilot.update_status(tmdb_id, season=None, status="S")
+            claim = self._repository.claim(item, phase="pause", execution=execution)
+            if claim.disposition is AutoSubscriptionClaimDisposition.REPLAYED:
+                continue
+            if claim.disposition is AutoSubscriptionClaimDisposition.BUSY:
+                continue
+            if claim.disposition is AutoSubscriptionClaimDisposition.INDETERMINATE:
+                failures.append(claim.error or _provider_failure("pause", tmdb_id, "Movie", None))
+                continue
+            self._repository.begin_source(
+                claim,
+                source_type="mp",
+                replay_safe=True,
+                execution=execution,
+            )
+            confirmed = self._moviepilot.update_status(
+                tmdb_id,
+                season=None,
+                status="S",
+                operation_occurrence=claim.occurrence,
+            )
             if not confirmed:
+                self._repository.finish_source(claim, disposition=AutoSourceDisposition.REJECTED)
                 progress.checkpoint()
-                confirmed = self._moviepilot.create_movie(tmdb_id, title)
+                self._repository.begin_source(
+                    claim,
+                    source_type="mp",
+                    replay_safe=True,
+                    execution=execution,
+                )
+                confirmed = self._moviepilot.create_movie(
+                    tmdb_id,
+                    title,
+                    operation_occurrence=claim.occurrence,
+                )
                 if confirmed:
+                    self._repository.finish_source(claim, disposition=AutoSourceDisposition.CONFIRMED)
                     progress.checkpoint()
-                    confirmed = self._moviepilot.update_status(tmdb_id, season=None, status="S")
+                    self._repository.begin_source(
+                        claim,
+                        source_type="mp",
+                        replay_safe=True,
+                        execution=execution,
+                    )
+                    confirmed = self._moviepilot.update_status(
+                        tmdb_id,
+                        season=None,
+                        status="S",
+                        operation_occurrence=claim.occurrence,
+                    )
             if confirmed:
-                self._repository.mark_movie_paused(tmdb_id, pause_days=pause_days)
+                self._repository.complete_movie_maintenance(
+                    claim,
+                    tmdb_id=tmdb_id,
+                    action="pause",
+                    pause_days=pause_days,
+                )
                 paused += 1
             else:
+                self._repository.finish_source(claim, disposition=AutoSourceDisposition.REJECTED)
+                self._repository.release(claim)
                 failures.append(_provider_failure("pause", tmdb_id, "Movie", None))
         return revived, paused, failures
 
@@ -623,6 +872,9 @@ __all__ = [
     "AutoSourceError",
     "AutoSourceResult",
     "AutoSubscribeService",
+    "AutoSubscriptionClaim",
+    "AutoSubscriptionClaimDisposition",
+    "AutoSubscriptionExecution",
     "AutoSubscriptionItemResult",
     "AutoSubscriptionMoviePilotPort",
     "AutoSubscriptionNotificationPort",

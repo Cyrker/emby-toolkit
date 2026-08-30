@@ -13,6 +13,7 @@ from etk.processes.p7_subscription_effects import (
     DurableMoviePilotEffectIndeterminateError,
     PersistentMoviePilotEffectGateway,
     _scope,
+    bind_moviepilot_operation_occurrence,
 )
 from etk.processes.p7_subscription_tasks import _explicit_outcome
 from handler import moviepilot
@@ -120,6 +121,42 @@ def test_missing_occurrence_preserves_existing_scope_and_request_shape() -> None
 
     assert intents[0].scope_key == _scope(identity, "delete-downloads", "downloads", None, ["abc"])
     assert "operation_occurrence" not in intents[0].request
+
+
+def test_auto_occurrence_is_stable_across_jobs_and_removes_job_id_from_request() -> None:
+    gateway = _gateway()
+    intents: list[Any] = []
+    state = cast(Any, gateway)
+    identity = {
+        "task_key": "auto-subscribe",
+        "job_id": "00000000-0000-0000-0000-000000000711",
+        "attempt_id": "00000000-0000-0000-0000-000000000712",
+        "worker_id": "fixture-worker",
+    }
+    state._identity = lambda: dict(identity)
+    state._execute = lambda intent: intents.append(intent) is None or True
+
+    with bind_moviepilot_operation_occurrence("auto:item:movie:101:generation-1"):
+        assert gateway.create_subscription(
+            {"name": "Fixture", "tmdbid": 101, "type": "电影"},
+            consume_quota=False,
+            apply_local_continuation=False,
+        )
+    identity["job_id"] = "00000000-0000-0000-0000-000000000713"
+    with bind_moviepilot_operation_occurrence("auto:item:movie:101:generation-1"):
+        assert gateway.create_subscription(
+            {"name": "Fixture", "tmdbid": 101, "type": "电影"},
+            consume_quota=False,
+            apply_local_continuation=False,
+        )
+
+    assert intents[0].id == intents[1].id
+    assert intents[0].scope_key == intents[1].scope_key
+    assert intents[0].request_hash == intents[1].request_hash
+    assert intents[0].request["origin"] == {
+        "task_key": "auto-subscribe",
+        "operation_occurrence": "auto:item:movie:101:generation-1",
+    }
 
 
 def test_transfer_history_secret_field_is_rejected_before_durable_reservation() -> None:

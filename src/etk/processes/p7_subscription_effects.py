@@ -49,6 +49,10 @@ _MOVIEPILOT_EXECUTION: ContextVar[MoviePilotExecutionBinding | None] = ContextVa
     "etk_moviepilot_execution",
     default=None,
 )
+_MOVIEPILOT_OCCURRENCE: ContextVar[str | None] = ContextVar(
+    "etk_moviepilot_operation_occurrence",
+    default=None,
+)
 
 
 @contextmanager
@@ -74,6 +78,18 @@ def bind_moviepilot_execution(
         yield binding
     finally:
         _MOVIEPILOT_EXECUTION.reset(token)
+
+
+@contextmanager
+def bind_moviepilot_operation_occurrence(value: str):
+    occurrence = _operation_occurrence(value)
+    if occurrence is None:
+        raise ValueError("durable MoviePilot operation occurrence must not be empty")
+    token: Token[str | None] = _MOVIEPILOT_OCCURRENCE.set(occurrence)
+    try:
+        yield occurrence
+    finally:
+        _MOVIEPILOT_OCCURRENCE.reset(token)
 
 
 class DurableMoviePilotEffectIndeterminateError(RuntimeError):
@@ -435,10 +451,13 @@ class PersistentMoviePilotEffectGateway:
 
 
 def _origin(identity: Mapping[str, str]) -> dict[str, str]:
-    return {
-        "task_key": identity["task_key"],
-        "job_id": identity["job_id"],
-    }
+    occurrence = _MOVIEPILOT_OCCURRENCE.get()
+    if occurrence is not None:
+        return {
+            "task_key": identity["task_key"],
+            "operation_occurrence": occurrence,
+        }
+    return {"task_key": identity["task_key"], "job_id": identity["job_id"]}
 
 
 def _scope(
@@ -450,10 +469,13 @@ def _scope(
     *,
     operation_occurrence: str | None = None,
 ) -> str:
-    digest_source = canonical_json(payload) if operation_occurrence is None else operation_occurrence
-    digest = sha256(digest_source.encode()).hexdigest()[:24]
+    occurrence = operation_occurrence or _MOVIEPILOT_OCCURRENCE.get()
     season_scope = "all" if season is None else str(season)
-    return f"p7:{identity['task_key']}:{identity['job_id']}:{action}:{target}:{season_scope}:{digest}"
+    if occurrence is not None:
+        digest = sha256(occurrence.encode()).hexdigest()[:24]
+        return f"p7:{identity['task_key']}:occurrence:{digest}:{action}:{target}:{season_scope}"
+    payload_digest = sha256(canonical_json(payload).encode()).hexdigest()[:24]
+    return f"p7:{identity['task_key']}:{identity['job_id']}:{action}:{target}:{season_scope}:{payload_digest}"
 
 
 def _operation_occurrence(value: str | None) -> str | None:
@@ -512,6 +534,7 @@ def _optional_nonnegative_int(value: object, field: str) -> int | None:
 
 __all__ = [
     "bind_moviepilot_execution",
+    "bind_moviepilot_operation_occurrence",
     "DurableMoviePilotEffectIndeterminateError",
     "MoviePilotExecutionBinding",
     "PersistentMoviePilotEffectGateway",
