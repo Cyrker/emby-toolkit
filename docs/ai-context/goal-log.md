@@ -4683,6 +4683,63 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Sharing-Cancellation
+
+Stage / Batch: P11 / durable sharing operation cancellation
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `c70f0ad4` (`refactor(p11): persist shared center mutations`).
+- Target checkpoint message: `refactor(p11): add sharing operation cancellation`.
+
+Implemented:
+
+- Added terminal pre-provider cancellation and durable post-checkpoint cancellation intent to
+  `sharing_operations`, with one PostgreSQL UoW for operation state, Outbox completion and exact
+  transfer escrow compensation.
+- Preserved the provider-write fence after `step_started_at`: cancellation no longer releases
+  escrow or permits resend, and authoritative readback may still confirm the operation or exhaust
+  to `indeterminate`.
+- Added the authenticated cancellation API, terminal replay/conflict semantics, Alembic revision
+  `0024_p11_sharing_cancellation`, generated OpenAPI/TypeScript contracts and dual-Worker replay
+  coverage.
+
+Targeted gate:
+
+- P9 application -> `80 passed`; disposable PostgreSQL 18 P9 sharing scope -> `31 passed`.
+- Migration-head architecture regressions -> `22 passed`; PostgreSQL 18 upgrade/downgrade/head
+  regressions across P3/P7/P9 -> `5 passed`.
+- Disposable PostgreSQL 18 + Redis/Celery through native-only and compatibility-enabled Worker
+  profiles -> `2 passed, 33 deselected`; a cancelled transfer produced no provider request, its
+  Outbox was terminal and its escrow was restored exactly once under duplicate/replacement Worker
+  delivery.
+- Scoped Ruff/format, Pyright (`0 errors, 0 warnings, 0 informations`), compileall, lock, Alembic
+  single-head and `git diff --check` -> clean.
+- Frontend typecheck/build/API boundary passed; Vitest -> `7 passed`. Manifest, OpenAPI and all
+  three secret scans are clean. Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-sharing-cancellation-20260830/summary.md`.
+
+Focused review:
+
+- Cancellation/checkpoint linearization, claimed Outbox delivery, post-checkpoint no-resend,
+  confirmed/readback exhaustion, escrow release/retention, terminal replay and migration downgrade
+  were reviewed. No deterministic P0/P1/P2 remains in this slice.
+
+Pending:
+
+- The non-targeted full application run currently has three stage-wide failures: the P1 import
+  subprocess exits early, and P5/P7 tests retain stale Emby-search and `shared_resource_config`
+  ownership expectations. They are not cancellation failures but must be reconciled before the P11
+  full gate.
+- Continue with native Shared Resource local projections/API/UI, then background task execution and
+  all remaining Task/Route/Table/Config ownership. Pre-removal inventory, controlled removal and all
+  P11 NFR/security/SBOM/License gates remain pending; P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

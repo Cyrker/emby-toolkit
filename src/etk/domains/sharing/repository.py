@@ -33,7 +33,6 @@ _ACTIVE_STATUSES = (
     "indeterminate",
 )
 _CLAIMABLE_STATUSES = ("ready", "retryable", "awaiting_readback")
-_TERMINAL_STATUSES = ("confirmed", "rejected", "indeterminate")
 DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS = 4
 
 
@@ -58,6 +57,13 @@ class PostgresSharingOperationRepository:
     def reserve_in_uow(self, uow: SqlAlchemyUnitOfWork, intent: SharingOperationIntent) -> SharingOperation:
         operation, _replayed = self._reserve_in_uow(uow, intent)
         return operation
+
+    def reserve_in_uow_with_replay(
+        self,
+        uow: SqlAlchemyUnitOfWork,
+        intent: SharingOperationIntent,
+    ) -> tuple[SharingOperation, bool]:
+        return self._reserve_in_uow(uow, intent)
 
     def _reserve_in_uow(
         self,
@@ -145,6 +151,80 @@ class PostgresSharingOperationRepository:
                 .one_or_none()
             )
             return _operation(row) if row is not None else None
+
+    def request_cancel(
+        self,
+        operation_id: UUID,
+        *,
+        now: datetime | None = None,
+    ) -> SharingOperation | None:
+        timestamp = _aware(now)
+        with self._unit_of_work() as uow:
+            row = (
+                uow.session.execute(
+                    text("SELECT * FROM sharing_operations WHERE id = :id FOR UPDATE"),
+                    {"id": operation_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None:
+                return None
+            current = _operation(row)
+            if current.terminal:
+                return current
+            cancellable_before_request = current.step_started_at is None and current.status in {
+                SharingOperationStatus.READY,
+                SharingOperationStatus.RETRYABLE,
+                SharingOperationStatus.CLAIMED,
+            }
+            if cancellable_before_request:
+                cancelled = (
+                    uow.session.execute(
+                        text(
+                            """
+                            UPDATE sharing_operations
+                            SET status = 'cancelled', cancel_requested_at = COALESCE(cancel_requested_at, :now),
+                                error_json = jsonb_build_object(
+                                    'type', 'cancelled_before_provider_request',
+                                    'provider_may_have_been_called', FALSE
+                                ),
+                                result_json = NULL, finished_at = :now, step_started_at = NULL,
+                                claimed_by = NULL, claim_token = NULL, claimed_at = NULL,
+                                lease_expires_at = NULL, state_revision = state_revision + 1,
+                                updated_at = :now
+                            WHERE id = :id
+                            RETURNING *
+                            """
+                        ),
+                        {"id": operation_id, "now": timestamp},
+                    )
+                    .mappings()
+                    .one()
+                )
+                operation = _operation(cancelled)
+                _apply_escrow_compensation(uow, current)
+                self._complete_outbox(uow, operation.id)
+            else:
+                requested = (
+                    uow.session.execute(
+                        text(
+                            """
+                            UPDATE sharing_operations
+                            SET cancel_requested_at = COALESCE(cancel_requested_at, :now),
+                                state_revision = state_revision + 1, updated_at = :now
+                            WHERE id = :id
+                            RETURNING *
+                            """
+                        ),
+                        {"id": operation_id, "now": timestamp},
+                    )
+                    .mappings()
+                    .one()
+                )
+                operation = _operation(requested)
+            uow.commit()
+            return operation
 
     def claim_by_id(
         self,
@@ -412,7 +492,7 @@ class PostgresSharingOperationRepository:
                 if operation.status is SharingOperationStatus.RETRYABLE:
                     self._stage_outbox(uow, operation)
                 else:
-                    _apply_rejected_local_compensation(uow, operation)
+                    _apply_escrow_compensation(uow, operation)
                     self._complete_outbox(uow, operation.id)
             count = len(rows)
             uow.commit()
@@ -544,7 +624,7 @@ class PostgresSharingOperationRepository:
             for row in rows:
                 operation = _operation(row)
                 if operation.status is SharingOperationStatus.REJECTED:
-                    _apply_rejected_local_compensation(uow, operation)
+                    _apply_escrow_compensation(uow, operation)
             uow.commit()
             return len(rows)
 
@@ -609,7 +689,7 @@ class PostgresSharingOperationRepository:
                 if operation.status is SharingOperationStatus.CONFIRMED:
                     _apply_confirmed_local_continuation(uow, current_operation)
                 elif operation.status is SharingOperationStatus.REJECTED:
-                    _apply_rejected_local_compensation(uow, current_operation)
+                    _apply_escrow_compensation(uow, current_operation)
                 self._complete_outbox(uow, operation.id)
             uow.commit()
             return operation
@@ -719,7 +799,7 @@ def _apply_confirmed_local_continuation(
     )
 
 
-def _apply_rejected_local_compensation(
+def _apply_escrow_compensation(
     uow: SqlAlchemyUnitOfWork,
     operation: SharingOperation,
 ) -> None:
@@ -801,6 +881,7 @@ def _operation(row: Mapping[Any, Any]) -> SharingOperation:
         state=dict(row.get("state_json") or {}),
         result=dict(row["result_json"]) if isinstance(row.get("result_json"), Mapping) else None,
         error=dict(row["error_json"]) if isinstance(row.get("error_json"), Mapping) else None,
+        cancel_requested_at=_nullable_time(row.get("cancel_requested_at")),
         finished_at=_nullable_time(row.get("finished_at")),
         created_at=_aware(row.get("created_at")),
         updated_at=_aware(row.get("updated_at")),

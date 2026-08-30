@@ -5086,11 +5086,12 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
         ledger = PostgresContributionLedger(p4_runtime.unit_of_work)
         operations = PostgresSharingOperationRepository(p4_runtime.unit_of_work)
         ledger.ensure_account(account_id, 5)
-        reserved = SharingLedgerService(
+        sharing_service = SharingLedgerService(
             ledger,
             operations,
             unit_of_work=p4_runtime.unit_of_work,
-        ).reserve_transfer(
+        )
+        reserved = sharing_service.reserve_transfer(
             account_id=account_id,
             source_id=f"source-{fixture}",
             amount=1,
@@ -5098,6 +5099,18 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
             idempotency_key=f"lease-{fixture}",
         )
         operation_ids.append(UUID(str(reserved.payload["operation_id"])))
+        cancelled_reserved = sharing_service.reserve_transfer(
+            account_id=account_id,
+            source_id=f"source-cancelled-{fixture}",
+            amount=1,
+            principal_id=f"principal-{fixture}",
+            idempotency_key=f"lease-cancelled-{fixture}",
+        )
+        cancelled_operation_id = UUID(str(cancelled_reserved.payload["operation_id"]))
+        cancelled_operation = operations.request_cancel(cancelled_operation_id)
+        assert cancelled_operation is not None
+        assert cancelled_operation.status.value == "cancelled"
+        operation_ids.append(cancelled_operation_id)
         device_operation = operations.reserve(
             SharingOperationIntent.create(
                 kind=SharingOperationKind.REGISTER_DEVICE,
@@ -5202,7 +5215,11 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
             status_by_id = {operation_id: status for operation_id, status in rows}
             return len(rows) == len(operation_ids) and all(
                 status_by_id.get(operation_id)
-                == ("indeterminate" if operation_id == unknown_report.id else "confirmed")
+                == (
+                    "cancelled"
+                    if operation_id == cancelled_operation_id
+                    else ("indeterminate" if operation_id == unknown_report.id else "confirmed")
+                )
                 for operation_id in operation_ids
             )
 
@@ -5251,7 +5268,11 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
         assert rows == [
             (
                 operation_id,
-                "indeterminate" if operation_id == unknown_report.id else "confirmed",
+                (
+                    "cancelled"
+                    if operation_id == cancelled_operation_id
+                    else ("indeterminate" if operation_id == unknown_report.id else "confirmed")
+                ),
                 "processed",
             )
             for operation_id in operation_ids

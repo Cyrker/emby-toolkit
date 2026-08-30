@@ -9,7 +9,7 @@ from uuid import UUID
 
 from etk.platform.jobs.json_payload import normalize_durable_json_object
 
-from .operations import SharingOperation
+from .operations import SharingOperation, SharingOperationStateError, SharingOperationStatus
 from .repository import DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS, PostgresSharingOperationRepository
 
 
@@ -209,7 +209,14 @@ class SharingOperationExecutor:
             )
             return SharingOperationExecution(completed, claimed=True)
 
-        completed = self._apply_outcome(current, token, outcome, checkpointed=checkpointed)
+        try:
+            completed = self._apply_outcome(current, token, outcome, checkpointed=checkpointed)
+        except SharingOperationStateError:
+            durable = self._repository.read(claimed.id)
+            if durable is not None and durable.status is SharingOperationStatus.CANCELLED:
+                completed = durable
+            else:
+                raise
         return SharingOperationExecution(completed, claimed=True)
 
     def _recover(self, operation: SharingOperation, token: UUID) -> SharingOperation:

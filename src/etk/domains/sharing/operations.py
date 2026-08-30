@@ -35,6 +35,7 @@ class SharingOperationStatus(StrEnum):
     CONFIRMED = "confirmed"
     REJECTED = "rejected"
     INDETERMINATE = "indeterminate"
+    CANCELLED = "cancelled"
 
     @property
     def terminal(self) -> bool:
@@ -42,6 +43,7 @@ class SharingOperationStatus(StrEnum):
             SharingOperationStatus.CONFIRMED,
             SharingOperationStatus.REJECTED,
             SharingOperationStatus.INDETERMINATE,
+            SharingOperationStatus.CANCELLED,
         }
 
 
@@ -111,6 +113,7 @@ class SharingOperation:
     state: Mapping[str, Any]
     result: Mapping[str, Any] | None
     error: Mapping[str, Any] | None
+    cancel_requested_at: datetime | None
     finished_at: datetime | None
     created_at: datetime
     updated_at: datetime

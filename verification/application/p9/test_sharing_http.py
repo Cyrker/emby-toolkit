@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 
@@ -228,6 +229,8 @@ class FakeOperations:
             attempts=0,
             state_revision=0,
             available_at=intent.available_at,
+            step_started_at=None,
+            cancel_requested_at=None,
             finished_at=None,
             result=None,
             error=None,
@@ -243,6 +246,21 @@ class FakeOperations:
 
     def read(self, operation_id: Any) -> Any | None:
         return self.by_id.get(operation_id)
+
+    def request_cancel(self, operation_id: Any) -> Any | None:
+        operation = self.by_id.get(operation_id)
+        if operation is None or operation.status.terminal:
+            return operation
+        operation.cancel_requested_at = datetime.now(UTC)
+        operation.state_revision += 1
+        if operation.step_started_at is None:
+            operation.status = SharingOperationStatus.CANCELLED
+            operation.finished_at = operation.cancel_requested_at
+            operation.error = {
+                "type": "cancelled_before_provider_request",
+                "provider_may_have_been_called": False,
+            }
+        return operation
 
 
 def _build_app() -> tuple[FastAPI, FakeCenter, FakeAppSettings, FakeOperations]:
@@ -345,6 +363,52 @@ def test_native_sharing_routes_reject_malformed_json_and_secret_payloads() -> No
     assert oversized_key.status_code == 400
     assert [name for name, _payload in center.calls] == []
     assert operations.intents == []
+
+
+def test_native_sharing_operation_cancellation_contract() -> None:
+    app, _center, _app_settings, operations = _build_app()
+    with TestClient(app) as client:
+        denied = client.post(f"/api/shared/resources/operations/{'0' * 32}/cancel")
+        _set_admin(client)
+        missing = client.post(f"/api/shared/resources/operations/{'0' * 32}/cancel")
+        staged = client.post(
+            "/api/shared/resources/shares/manual-create",
+            json={"source_kind": "movie", "root_fid": "root-cancel"},
+        )
+        operation_id = staged.json()["operation_id"]
+        cancelled = client.post(f"/api/shared/resources/operations/{operation_id}/cancel")
+        replay = client.post(f"/api/shared/resources/operations/{operation_id}/cancel")
+
+        requesting = client.post(
+            "/api/shared/resources/shares/manual-create",
+            json={"source_kind": "movie", "root_fid": "root-requesting"},
+        )
+        requesting_operation = operations.by_id[
+            next(key for key in operations.by_id if str(key) == requesting.json()["operation_id"])
+        ]
+        requesting_operation.status = SharingOperationStatus.REQUESTING
+        requesting_operation.step_started_at = datetime.now(UTC)
+        requested = client.post(f"/api/shared/resources/operations/{requesting.json()['operation_id']}/cancel")
+
+        confirmed = client.post(
+            "/api/shared/resources/shares/manual-create",
+            json={"source_kind": "movie", "root_fid": "root-confirmed"},
+        )
+        confirmed_operation = operations.by_id[
+            next(key for key in operations.by_id if str(key) == confirmed.json()["operation_id"])
+        ]
+        confirmed_operation.status = SharingOperationStatus.CONFIRMED
+        confirmed_operation.finished_at = datetime.now(UTC)
+        conflict = client.post(f"/api/shared/resources/operations/{confirmed.json()['operation_id']}/cancel")
+
+    assert denied.status_code == 403
+    assert missing.status_code == 404
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "cancelled"
+    assert replay.status_code == 200
+    assert requested.status_code == 202
+    assert requested.json()["status"] == "requesting"
+    assert conflict.status_code == 409
 
 
 def test_native_sharing_mutations_replay_and_reject_identity_or_scope_conflicts() -> None:

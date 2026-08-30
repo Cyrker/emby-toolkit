@@ -17,6 +17,7 @@ from .ledger import (
     ContributionLedgerEntry,
 )
 from .operations import (
+    SharingOperation,
     SharingOperationConflictError,
     SharingOperationIntent,
     SharingOperationKind,
@@ -620,12 +621,52 @@ class SharingService(SharingLedgerService):
                 "attempts": operation.attempts,
                 "state_revision": operation.state_revision,
                 "available_at": operation.available_at.isoformat(),
+                "cancel_requested_at": (
+                    operation.cancel_requested_at.isoformat() if operation.cancel_requested_at else None
+                ),
                 "finished_at": operation.finished_at.isoformat() if operation.finished_at else None,
                 "result": dict(operation.result or {}),
                 "error": dict(operation.error or {}),
             },
         }
         return SharingHttpResult(payload)
+
+    def cancel_operation(self, operation_id: str) -> SharingHttpResult:
+        try:
+            parsed = UUID(str(operation_id))
+        except (TypeError, ValueError, AttributeError):
+            return SharingHttpResult({"success": False, "message": "共享操作不存在"}, 404)
+        if self._operations is None:
+            return SharingHttpResult({"success": False, "message": "共享操作不可用"}, 503)
+        request_cancel = getattr(self._operations, "request_cancel", None)
+        if not callable(request_cancel):
+            return SharingHttpResult({"success": False, "message": "共享操作取消不可用"}, 503)
+        operation = cast(Callable[[UUID], SharingOperation | None], request_cancel)(parsed)
+        if operation is None:
+            return SharingHttpResult({"success": False, "message": "共享操作不存在"}, 404)
+        payload = {
+            "operation_id": str(operation.id),
+            "status": operation.status.value,
+            "cancel_requested_at": (
+                operation.cancel_requested_at.isoformat() if operation.cancel_requested_at else None
+            ),
+        }
+        if operation.status is SharingOperationStatus.CANCELLED:
+            return SharingHttpResult({"success": True, "message": "共享操作已在远端请求前取消", **payload})
+        if operation.status.terminal:
+            return SharingHttpResult(
+                {"success": False, "message": "共享操作已终结，不能取消", **payload},
+                409,
+            )
+        return SharingHttpResult(
+            {
+                "success": True,
+                "accepted": True,
+                "message": "共享操作已请求取消；远端请求已进入确认边界，将继续权威回读",
+                **payload,
+            },
+            202,
+        )
 
     @staticmethod
     def _provider_call(call: Any, *args: Any, **kwargs: Any) -> ProviderResponse[Any]:

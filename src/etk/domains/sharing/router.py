@@ -568,4 +568,26 @@ def sharing_operation_status(request: Request, operation_id: str) -> Response:
     return _response(_service(request).operation_status(operation_id))
 
 
+@router.post(
+    "/operations/{operation_id}/cancel",
+    response_model=dict[str, Any],
+    responses={
+        202: {"description": "cancellation recorded after provider checkpoint", "model": dict[str, Any]},
+        403: {"description": "admin required"},
+        404: {"description": "not found"},
+        409: {"description": "operation already terminal", "model": dict[str, Any]},
+        503: {"description": "unavailable"},
+    },
+)
+def cancel_sharing_operation(request: Request, operation_id: str) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    try:
+        UUID(operation_id)
+    except (TypeError, ValueError, AttributeError):
+        return fastapi_json_response({"success": False, "message": "共享操作不存在"}, status_code=404)
+    return _response(_service(request).cancel_operation(operation_id))
+
+
 __all__ = ["router"]

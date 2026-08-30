@@ -142,7 +142,7 @@ def test_snapshot_claim_schema_is_current_and_rejects_orphan_job_identity(
                 )
             ).scalars()
         )
-    assert head == "0023_p11_sharing_device_kind"
+    assert head == "0024_p11_sharing_cancellation"
     assert {
         "ck_sas_snapshot_claim",
         "fk_sas_snapshot_job",

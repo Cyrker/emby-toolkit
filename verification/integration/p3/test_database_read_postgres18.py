@@ -62,7 +62,7 @@ GREENFIELD_TABLES = {
     "proxy_playback_leases",
 }
 EXPECTED_TABLE_COUNT = LEGACY_TABLE_COUNT + len(GREENFIELD_TABLES)
-EXPECTED_MIGRATION_HEAD = "0023_p11_sharing_device_kind"
+EXPECTED_MIGRATION_HEAD = "0024_p11_sharing_cancellation"
 _FIXTURE_TABLES = (
     "failed_log",
     "processed_log",

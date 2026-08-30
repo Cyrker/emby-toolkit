@@ -15757,6 +15757,83 @@
         ]
       }
     },
+    "/api/shared/resources/operations/{operation_id}/cancel": {
+      "post": {
+        "operationId": "cancel_sharing_operation_api_shared_resources_operations__operation_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "operation_id",
+            "required": true,
+            "schema": {
+              "title": "Operation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Sharing Operation Api Shared Resources Operations  Operation Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Cancel Sharing Operation Api Shared Resources Operations  Operation Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "cancellation recorded after provider checkpoint"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Cancel Sharing Operation Api Shared Resources Operations  Operation Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation already terminal"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "unavailable"
+          }
+        },
+        "summary": "Cancel Sharing Operation",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
     "/api/shared/resources/operations/{operation_id}/status": {
       "get": {
         "operationId": "sharing_operation_status_api_shared_resources_operations__operation_id__status_get",

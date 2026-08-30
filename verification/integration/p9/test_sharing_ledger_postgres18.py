@@ -104,6 +104,49 @@ class _BlockingDelivery(_Delivery):
         return SharingDeliveryOutcome.confirmed({"receipt_id": "concurrent"})
 
 
+class _CancelBeforeCheckpointDelivery(_Delivery):
+    def __init__(self, repository: PostgresSharingOperationRepository) -> None:
+        super().__init__([])
+        self.repository = repository
+        self.provider_called = False
+
+    def request(
+        self,
+        operation: SharingOperation,
+        *,
+        checkpoint: Callable[[], None],
+    ) -> SharingDeliveryOutcome:
+        self.request_calls += 1
+        cancelled = self.repository.request_cancel(operation.id)
+        assert cancelled is not None and cancelled.status.value == "cancelled"
+        checkpoint()
+        self.provider_called = True
+        return SharingDeliveryOutcome.confirmed({"receipt_id": "must-not-run"})
+
+
+class _CancelAfterCheckpointDelivery(_Delivery):
+    def __init__(self, repository: PostgresSharingOperationRepository) -> None:
+        super().__init__(
+            [SharingDeliveryOutcome.retryable({"type": "transport_unknown"})],
+            readbacks=[SharingDeliveryOutcome.confirmed({"receipt_id": "authoritative"})],
+        )
+        self.repository = repository
+
+    def request(
+        self,
+        operation: SharingOperation,
+        *,
+        checkpoint: Callable[[], None],
+    ) -> SharingDeliveryOutcome:
+        self.request_calls += 1
+        checkpoint()
+        requested = self.repository.request_cancel(operation.id)
+        assert requested is not None
+        assert requested.status.value == "requesting"
+        assert requested.cancel_requested_at is not None
+        return self.requests.pop(0)
+
+
 def _sharing_operation(
     repository: PostgresSharingOperationRepository,
     suffix: str,
@@ -223,7 +266,7 @@ def test_postgres_transfer_operation_ledger_and_outbox_share_one_uow(p9_runtime)
     assert outbox == "pending"
 
 
-def test_postgres_sharing_device_kind_is_on_the_single_migration_head(p9_runtime) -> None:
+def test_postgres_sharing_cancellation_is_on_the_single_migration_head(p9_runtime) -> None:
     with p9_runtime.engine.connect() as connection:
         head = connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version"))
         constraint = connection.scalar(
@@ -235,9 +278,31 @@ def test_postgres_sharing_device_kind_is_on_the_single_migration_head(p9_runtime
                 """
             )
         )
+        status_constraint = connection.scalar(
+            text(
+                """
+                SELECT pg_get_constraintdef(oid)
+                FROM pg_constraint
+                WHERE conname = 'ck_sharing_operation_status'
+                """
+            )
+        )
+        cancel_column = connection.scalar(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'sharing_operations'
+                  AND column_name = 'cancel_requested_at'
+                """
+            )
+        )
 
-    assert head == "0023_p11_sharing_device_kind"
+    assert head == "0024_p11_sharing_cancellation"
     assert "register_device" in str(constraint)
+    assert "cancelled" in str(status_constraint)
+    assert cancel_column == 1
 
 
 def test_postgres_sharing_operation_replay_and_identity_scope_conflicts(p9_runtime) -> None:
@@ -441,6 +506,122 @@ def test_postgres_compensation_without_matching_debit_fails_closed(p9_runtime) -
     assert rolled_back.status.value == "requesting"
     assert rolled_back.state_revision == requesting.state_revision
     assert ledger.balance("device-missing-debit") == 0
+
+
+def test_postgres_prewrite_cancellation_compensates_once_and_fences_provider(p9_runtime) -> None:
+    ledger = PostgresContributionLedger(p9_runtime.unit_of_work)
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingLedgerService(ledger, repository, unit_of_work=p9_runtime.unit_of_work)
+    ledger.ensure_account("device-cancel-prewrite", 5)
+    reserved = service.reserve_transfer(
+        account_id="device-cancel-prewrite",
+        source_id="source-cancel-prewrite",
+        amount=2,
+        principal_id="principal-cancel-prewrite",
+        idempotency_key="transfer-cancel-prewrite",
+    )
+    operation_id = UUID(reserved.payload["operation_id"])
+    delivery = _CancelBeforeCheckpointDelivery(repository)
+
+    execution = SharingOperationExecutor(repository, delivery).execute(
+        operation_id,
+        worker_id="cancel-prewrite-worker",
+        lease_seconds=60,
+    )
+
+    assert execution is not None
+    assert execution.operation.status.value == "cancelled"
+    assert execution.operation.cancel_requested_at is not None
+    assert delivery.provider_called is False
+    assert ledger.balance("device-cancel-prewrite") == 5
+    replay = repository.request_cancel(operation_id)
+    assert replay is not None and replay.status.value == "cancelled"
+    assert ledger.balance("device-cancel-prewrite") == 5
+    assert [entry.delta for entry in ledger.entries("device-cancel-prewrite", limit=10)] == [2, -2]
+    with p9_runtime.engine.connect() as connection:
+        outbox = connection.execute(
+            text("SELECT status, processed_at FROM outbox_events WHERE aggregate_id = :operation_id"),
+            {"operation_id": str(operation_id)},
+        ).one()
+    assert outbox[0] == "processed"
+    assert outbox[1] is not None
+
+
+def test_postgres_post_checkpoint_cancel_uses_readback_without_resend_or_compensation(p9_runtime) -> None:
+    ledger = PostgresContributionLedger(p9_runtime.unit_of_work)
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingLedgerService(ledger, repository, unit_of_work=p9_runtime.unit_of_work)
+    ledger.ensure_account("device-cancel-readback", 5)
+    reserved = service.reserve_transfer(
+        account_id="device-cancel-readback",
+        source_id="source-cancel-readback",
+        amount=2,
+        principal_id="principal-cancel-readback",
+        idempotency_key="transfer-cancel-readback",
+    )
+    operation_id = UUID(reserved.payload["operation_id"])
+    delivery = _CancelAfterCheckpointDelivery(repository)
+    executor = SharingOperationExecutor(repository, delivery, retry_delay_seconds=0)
+
+    awaiting = executor.execute(operation_id, worker_id="cancel-readback-worker", lease_seconds=60)
+    assert awaiting is not None
+    assert awaiting.operation.status.value == "awaiting_readback"
+    assert awaiting.operation.cancel_requested_at is not None
+    assert ledger.balance("device-cancel-readback") == 3
+
+    confirmed = executor.execute(operation_id, worker_id="cancel-readback-recovery", lease_seconds=60)
+    assert confirmed is not None
+    assert confirmed.operation.status.value == "confirmed"
+    assert confirmed.operation.cancel_requested_at is not None
+    assert delivery.request_calls == 1
+    assert delivery.readback_calls == 1
+    assert ledger.balance("device-cancel-readback") == 3
+
+
+def test_postgres_post_checkpoint_cancel_indeterminate_retains_escrow(p9_runtime) -> None:
+    ledger = PostgresContributionLedger(p9_runtime.unit_of_work)
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingLedgerService(ledger, repository, unit_of_work=p9_runtime.unit_of_work)
+    ledger.ensure_account("device-cancel-indeterminate", 5)
+    reserved = service.reserve_transfer(
+        account_id="device-cancel-indeterminate",
+        source_id="source-cancel-indeterminate",
+        amount=2,
+        principal_id="principal-cancel-indeterminate",
+        idempotency_key="transfer-cancel-indeterminate",
+    )
+    operation_id = UUID(reserved.payload["operation_id"])
+
+    class _CancelThenUnknown(_Delivery):
+        def request(
+            self,
+            operation: SharingOperation,
+            *,
+            checkpoint: Callable[[], None],
+        ) -> SharingDeliveryOutcome:
+            self.request_calls += 1
+            checkpoint()
+            requested = repository.request_cancel(operation.id)
+            assert requested is not None and requested.cancel_requested_at is not None
+            return self.requests.pop(0)
+
+    delivery = _CancelThenUnknown(
+        [SharingDeliveryOutcome.indeterminate({"type": "transport_unknown"})],
+        supports_readback=False,
+    )
+    execution = SharingOperationExecutor(repository, delivery).execute(
+        operation_id,
+        worker_id="cancel-indeterminate-worker",
+        lease_seconds=60,
+    )
+
+    assert execution is not None
+    assert execution.operation.status.value == "indeterminate"
+    assert execution.operation.cancel_requested_at is not None
+    assert ledger.balance("device-cancel-indeterminate") == 3
+    terminal_cancel = repository.request_cancel(operation_id)
+    assert terminal_cancel is not None and terminal_cancel.status.value == "indeterminate"
+    assert ledger.balance("device-cancel-indeterminate") == 3
 
 
 def test_postgres_rejected_transfer_compensates_once_but_indeterminate_retains_escrow(p9_runtime) -> None:
