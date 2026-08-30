@@ -622,7 +622,7 @@ def test_settings_defaults_legacy_migration_and_pure_normalized_persistence() ->
     assert [key for key, _value in settings.saved] == [WATCHLIST_CONFIG_SETTING, WATCHLIST_CONFIG_SETTING]
 
 
-def test_watchlist_config_has_canonical_ownership_without_absorbing_legacy_fallback() -> None:
+def test_watchlist_and_shared_resource_config_have_canonical_ownership() -> None:
     manifest = json.loads(CONFIG_OWNERSHIP.read_text(encoding="utf-8"))
     settings = {item["key"]: item for item in manifest["standalone_app_settings"]}
 
@@ -634,8 +634,9 @@ def test_watchlist_config_has_canonical_ownership_without_absorbing_legacy_fallb
     assert canonical["validation_owner"] == "subscription/settings"
 
     fallback = settings[SHARED_RESOURCE_CONFIG_SETTING]
-    assert fallback["status"] == "legacy"
-    assert fallback["new_owner"] is None
+    assert fallback["status"] == "new"
+    assert fallback["new_owner"] == "etk.domains.sharing.configuration.SharingConfigurationService"
+    assert fallback["validation_owner"] == "sharing/configuration"
 
 
 def test_settings_preserve_existing_unknown_keys_but_ignore_new_unknown_keys() -> None:

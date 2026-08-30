@@ -628,7 +628,11 @@ def test_frozen_bridge_validation_errors_execute_through_the_native_router() -> 
 def test_p5_openapi_declares_every_json_body_without_automatic_422() -> None:
     with _client() as (_client_value, _repository, _jobs, _events, app):
         schema = app.openapi()
-    expected = {value["path"] for value in _CONTRACT["inbound"]}
+    expected = {
+        *(value["path"] for value in _CONTRACT["inbound"]),
+        "/api/emby/search",
+        "/api/emby/search/index",
+    }
     assert set(schema["paths"]) == expected
     for path in (
         "/api/emby/metadata/backfill/item",

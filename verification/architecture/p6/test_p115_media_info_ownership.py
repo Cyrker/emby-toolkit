@@ -253,7 +253,7 @@ def test_fingerprint_worker_uses_native_http_provider_without_legacy_runtime_fal
     assert worker.count("HttpxP115FingerprintRemoteGateway(") == 2
 
 
-def test_mediainfo_restore_uses_native_sdk_direct_urls_in_both_worker_profiles() -> None:
+def test_mediainfo_and_intro_use_native_sdk_direct_urls_in_both_worker_profiles() -> None:
     transport = _source("src/etk/domains/p115/direct_url_transport.py")
     worker = _source("src/etk/processes/worker.py")
 
@@ -266,14 +266,16 @@ def test_mediainfo_restore_uses_native_sdk_direct_urls_in_both_worker_profiles()
         if isinstance(node, ast.ImportFrom) and node.level == 0
     }
     assert imported_roots.isdisjoint({"database", "extensions", "handler", "routes", "task_manager", "tasks"})
-    assert "from p115client import P115Client, P115OpenClient" in transport
+    assert "\nfrom p115client import" not in transport
+    assert "    from p115client import P115OpenClient as Client" in transport
+    assert "    from p115client import P115Client as Client" in transport
     assert 'refresh_token=""' in transport
     assert 'app="os_windows"' in transport
     assert ".download_url_info_open(" in transport
     assert ".download_url_app(" in transport
     assert ".download_url_open(" not in transport
     assert ".download_url(" not in transport
-    assert worker.count("P115SdkDirectUrlGateway(") == 2
+    assert worker.count("P115SdkDirectUrlGateway(") == 4
 
 
 def test_legacy_webhook_and_consistency_seams_only_submit_the_p6_native_repair_task() -> None:

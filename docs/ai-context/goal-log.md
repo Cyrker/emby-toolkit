@@ -4740,6 +4740,49 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Application-Gate-Repair
+
+Stage / Batch: P11 / stage-wide application import and contract regression repair
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `f9b8a4f2` (`refactor(p11): add sharing operation cancellation`).
+- Target checkpoint message: `fix(p11): keep plaintext imports side-effect free`.
+
+Implemented:
+
+- Deferred `p115client` construction until an actual direct-URL request. Importing `main` and the
+  plaintext app factory no longer triggers the SDK's `$HOME` cache-directory side effect.
+- Preserved injectable SDK constructors and reconciled the P5 Emby-search, P7
+  `shared_resource_config` and P6 dual-profile direct-URL assertions with already-migrated native
+  ownership.
+
+Targeted gate:
+
+- P1 import/CLI -> `4 passed`; direct-URL adapter -> `13 passed`; focused P5/P7 contracts ->
+  `2 passed`; P6 media-info ownership -> `8 passed`.
+- Full application gate -> `1864 passed, 1` existing Starlette WSGI deprecation warning.
+- Scoped Ruff/format, Pyright (`0 errors, 0 warnings, 0 informations`), compileall and
+  `git diff --check` -> clean. Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-application-gate-20260830/summary.md`.
+
+Focused review:
+
+- The failure was an import-time filesystem side effect in a third-party SDK, not a missing test
+  directory. The default SDK factories are now lazy while explicit test/runtime factories retain
+  their existing behavior. No deterministic P0/P1/P2 remains in this repair.
+
+Pending:
+
+- Continue with native Shared Resource local projections/API/UI, then background task execution and
+  all remaining Task/Route/Table/Config ownership. Pre-removal inventory, controlled removal and all
+  P11 NFR/security/SBOM/License gates remain pending; P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

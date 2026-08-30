@@ -3,8 +3,6 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Protocol, cast
 
-from p115client import P115Client, P115OpenClient
-
 from .auth_directory import P115CredentialStore
 from .media_info_adapters import P115DirectUrl
 from .models import P115CredentialSnapshot
@@ -176,6 +174,23 @@ class P115SdkDirectUrlGateway:
 
 
 _CREDENTIAL_DRIFT = object()
+
+
+def _default_openapi_constructor(**kwargs: Any) -> object:
+    # p115client creates a HOME cache directory at import time, so load it only for an actual request.
+    from p115client import P115OpenClient as Client
+
+    return Client(**kwargs)
+
+
+def _default_cookie_constructor(**kwargs: Any) -> object:
+    from p115client import P115Client as Client
+
+    return Client(**kwargs)
+
+
+P115OpenClient: Callable[..., object] = _default_openapi_constructor
+P115Client: Callable[..., object] = _default_cookie_constructor
 
 
 def _openapi_client(access_token: str) -> _OpenApiDownUrlClient:
