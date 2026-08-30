@@ -224,6 +224,7 @@ from etk.domains.sharing import (
     PostgresSharingOperationRepository,
     SharingService,
 )
+from etk.domains.sharing.configuration import SharingConfigurationService, SharingServerIdentity
 from etk.domains.sharing.router import router as sharing_router
 from etk.domains.subscription.actor import ActorSubscriptionService, SqlAlchemyActorSubscriptionRepository
 from etk.domains.subscription.actor_operations import ActorCancellationOperationStager
@@ -924,10 +925,18 @@ def _register_sharing_providers(container: AppContainer) -> None:
         lambda current: PostgresContributionLedger(current.database.unit_of_work),
     )
     container.register_client(
+        "sharing.server-identity",
+        lambda current: SharingServerIdentity(
+            lambda: current.settings,
+            current.repository("app-settings"),
+        ),
+    )
+    container.register_client(
         "sharing.shared-center",
         lambda current: HttpxSharedCenterAdapter(
             lambda: current.settings,
             configuration=lambda: current.repository("app-settings").load("shared_resource_config"),
+            server_id_hash=current.client("sharing.server-identity").server_id_hash,
         ),
     )
     container.register_client(
@@ -952,6 +961,8 @@ def _register_sharing_providers(container: AppContainer) -> None:
             current.client("sharing.shared-center"),
             current.repository("sharing.operations"),
             unit_of_work=current.database.unit_of_work,
+            configuration=SharingConfigurationService(current.repository("app-settings")),
+            identity=current.client("sharing.server-identity"),
         ),
     )
 

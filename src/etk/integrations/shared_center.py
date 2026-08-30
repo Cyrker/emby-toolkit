@@ -9,6 +9,7 @@ payloads out of durable Job records.
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Protocol
@@ -47,6 +48,16 @@ class SharedCenterPort(Protocol):
         limit: int = 200,
         offset: int = 0,
     ) -> ProviderResponse[dict[str, Any]]: ...
+
+    def list_display_sources(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
+
+    def list_display_tags(self) -> ProviderResponse[dict[str, Any]]: ...
+
+    def list_display_home(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
+
+    def list_display_children(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
+
+    def display_detail(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
 
     def register_source(self, source_kind: str, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
 
@@ -88,11 +99,13 @@ class HttpxSharedCenterAdapter:
         settings: Callable[[], Settings | Mapping[str, Any]] | Settings | Mapping[str, Any],
         *,
         configuration: Callable[[], Mapping[str, Any] | None] | None = None,
+        server_id_hash: Callable[[], str | None] | None = None,
         client_factory: Callable[[], httpx.Client] | None = None,
         policy: HttpTransportPolicy | None = None,
     ) -> None:
         self._settings = settings if callable(settings) else lambda: settings
         self._configuration_provider = configuration
+        self._server_id_hash_provider = server_id_hash
         self._client_factory = client_factory or self._default_client
         self._policy = policy or HttpTransportPolicy(system=self.system)
 
@@ -152,11 +165,38 @@ class HttpxSharedCenterAdapter:
     def list_display_sources(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
         return self._display_query("/api/v1/sources/display-list", "list_display_sources", query)
 
+    def list_display_tags(self) -> ProviderResponse[dict[str, Any]]:
+        return self.request_json(
+            "GET",
+            "/api/v1/sources/display-tags",
+            operation="list_display_tags",
+            retryable=True,
+        )
+
+    def list_display_home(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
+        sections = query.pop("sections", [])
+        params = {
+            **query,
+            "sections_json": json.dumps(sections if isinstance(sections, list) else [], ensure_ascii=False),
+        }
+        return self._display_query("/api/v1/sources/display-home", "list_display_home", params)
+
     def list_cloud_search_sources(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
         return self._display_query("/api/v1/sources/cloud-search", "list_cloud_search_sources", query)
 
     def list_display_children(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
-        return self._display_query("/api/v1/sources/display-children", "list_display_children", query)
+        source_ids = query.pop("source_ids", [])
+        if isinstance(source_ids, str):
+            normalized_ids = source_ids
+        elif isinstance(source_ids, Sequence):
+            normalized_ids = ",".join(dict.fromkeys(str(value).strip() for value in source_ids if str(value).strip()))
+        else:
+            normalized_ids = ""
+        return self._display_query(
+            "/api/v1/sources/display-children",
+            "list_display_children",
+            {**query, "source_ids": normalized_ids},
+        )
 
     def display_detail(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
         return self._display_query("/api/v1/sources/display-detail", "display_detail", query)
@@ -323,6 +363,8 @@ class HttpxSharedCenterAdapter:
                     maximum=20_000 if key == "limit" else (20 if key == "limit_per_section" else 10_000_000),
                     field=key,
                 )
+            elif key == "sections_json":
+                params[key] = _text(value, key, limit=20_000)
             elif isinstance(value, bool):
                 params[key] = 1 if value else 0
             else:
@@ -364,9 +406,15 @@ class HttpxSharedCenterAdapter:
             "X-Client-Version": version or "0.0.0",
             "X-ETK-Version": version or "0.0.0",
         }
-        server_hash = (
-            str(_setting(self._settings(), "emby_server_id_hash", "server_id_hash", default="") or "").strip().lower()
-        )
+        server_hash = ""
+        if self._server_id_hash_provider is not None:
+            server_hash = str(self._server_id_hash_provider() or "").strip().lower()
+        if not server_hash:
+            server_hash = (
+                str(_setting(self._settings(), "emby_server_id_hash", "server_id_hash", default="") or "")
+                .strip()
+                .lower()
+            )
         if server_hash:
             headers["X-Server-ID-Hash"] = _hash(server_hash, "server_id_hash")
         return headers

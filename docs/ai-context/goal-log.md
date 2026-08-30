@@ -4562,6 +4562,67 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Shared-Center-Browse
+
+Stage / Batch: P11 / native Shared Center connection and display browse
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `54afd8e0` (`refactor(p11): dispatch native coordinator outboxes`).
+- Target checkpoint message: `refactor(p11): migrate shared center browsing`.
+
+Implemented:
+
+- Added canonical native `shared_resource_config` normalization over `app_settings`, including
+  legacy default home sections, bounded section policy, Rapid mode and partial-update preservation.
+- Added cache-first backend-owned Emby Server ID resolution. Only the SHA-256 digest is sent to the
+  Shared Center; the frontend cannot supply or observe the raw identity.
+- Wired the same identity/configuration source into AppContainer, compatibility Worker and
+  native-only Worker.
+- Added native config GET/POST, backend-owned device registration/status and display tags/home/
+  children/detail routes; changed source listing to the display-list contract.
+- Added typed adapter methods with exact `sections_json` and ordered `source_ids` serialization,
+  display snapshot decoration and lazy season-pack slimming.
+- Promoted exactly six implemented route bindings, five decorators and the standalone
+  `shared_resource_config` setting. Ownership is now `291 / 343` route decorators, `312 / 367`
+  method bindings and `38 new / 11 legacy / 5 retired-approved` standalone settings.
+
+Targeted gate:
+
+- Scoped Ruff and format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`;
+  P9 application scope -> `75 passed`; `git diff --check` -> clean.
+- Disposable PostgreSQL 18 sharing ledger/config/identity/operation scope -> `20 passed`.
+- Disposable PostgreSQL 18 + Redis/Celery sharing dispatch through both Worker profiles ->
+  `2 passed`.
+- Manifest -> clean; OpenAPI -> clean; generated TypeScript client, frontend typecheck, build and
+  API-boundary check -> passed. Build retains only the existing large-chunk warning.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-sharing-connection-20260830/summary.md`.
+
+Focused review:
+
+- Closed the review-discovered home-section P1 and the pack detection, JSON-string metadata,
+  ongoing-completion, short-drama override, malformed count, transient identity status and
+  reachable-202 P2 findings with targeted regressions.
+- Provider-confirmed device registration followed by a local enable-state save failure now remains
+  HTTP 200 with `configuration_saved=false`; it does not invite a duplicate provider registration.
+- No deterministic P0 remains in this slice. The broader stage P1 is explicit: device/source/
+  transfer/share-request mutations still include synchronous provider paths without durable
+  operation/readback ownership.
+
+Pending:
+
+- Complete durable Shared Center mutations and the local shared-source/credit/share-request/import
+  projections and remaining UI routes.
+- Native-only Worker remains `22 executable / 28 unavailable`; tables remain `27 new / 12 legacy`;
+  bootstrap/dynamic settings and all other legacy ownership remain incomplete.
+- Pre-removal inventory, controlled legacy removal and all P11 NFR/security/SBOM/License gates
+  remain pending. P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -4581,8 +4642,8 @@ Read first:
 
 Next:
 
-- Close native Shared Resource configuration/routes/device identity and the remaining synchronous
-  mutations, add native-only Coordinator dispatch, then continue `auto-subscribe` source execution
-  before Worker promotion. Close the remaining task, Route, Table and Config ownership before
-  controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete; keep
-  all Live Acceptance items pending.
+- Migrate the remaining synchronous Shared Center mutations into the durable sharing operation /
+  authoritative-readback runtime, then continue the local Shared Resource projections and
+  `auto-subscribe` source execution. Close all remaining Task, Route, Table and Config ownership
+  before controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are
+  complete; keep all Live Acceptance items pending.

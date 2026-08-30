@@ -5026,7 +5026,7 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
     compatibility_enabled: bool,
 ) -> None:
     fixture = uuid4().hex
-    setting_keys = ("dynamic_app_config", "hdhive_config", "shared_resource_config")
+    setting_keys = ("dynamic_app_config", "emby_server_id_cache", "hdhive_config", "shared_resource_config")
     server, server_thread, stub = _start_sharing_operation_stub()
     worker: ManagedProcess | None = None
     replacement: ManagedProcess | None = None
@@ -5049,6 +5049,7 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
                     "shared_resource_config",
                     {"p115_shared_center_url": base_url},
                 ),
+                ("emby_server_id_cache", f"fixture-server-{fixture}"),
                 (
                     "hdhive_config",
                     {

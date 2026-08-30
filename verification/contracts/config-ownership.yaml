@@ -4622,17 +4622,20 @@
       ],
       "contract_id": "setting-d3d6fded59b2",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/application/p9/test_sharing_configuration.py",
+      "fixture_exception": null,
       "key": "shared_resource_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.configuration.SharingConfigurationService",
+      "notes": "P11 SharingConfigurationService owns canonical shared_resource_config defaults, merge and normalization semantics while SqlAlchemyAppSettingsRepository owns the JSONB transaction boundary. Remaining legacy consumers stay explicit until controlled removal.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-p11-sharing-config-postgres18-roundtrip-and-http-contract",
+      "validation_owner": "sharing/configuration"
     },
     {
       "accesses": [

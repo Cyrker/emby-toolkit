@@ -15391,14 +15391,8 @@
                 "properties": {
                   "name": {
                     "type": "string"
-                  },
-                  "server_id_hash": {
-                    "type": "string"
                   }
                 },
-                "required": [
-                  "server_id_hash"
-                ],
                 "type": "object"
               }
             }
@@ -15417,6 +15411,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "202": {
+            "description": "registration outcome indeterminate"
           },
           "400": {
             "description": "invalid request"
@@ -15490,6 +15487,192 @@
           }
         },
         "summary": "List Center Sources",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/center/sources/children": {
+      "get": {
+        "operationId": "center_source_children_api_shared_resources_center_sources_children_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Center Source Children Api Shared Resources Center Sources Children Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Center Source Children",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/center/sources/detail": {
+      "get": {
+        "operationId": "center_source_detail_api_shared_resources_center_sources_detail_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Center Source Detail Api Shared Resources Center Sources Detail Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Center Source Detail",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/center/sources/home": {
+      "get": {
+        "operationId": "center_sources_home_api_shared_resources_center_sources_home_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Center Sources Home Api Shared Resources Center Sources Home Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Center Sources Home",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/center/sources/tags": {
+      "get": {
+        "operationId": "center_source_tags_api_shared_resources_center_sources_tags_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Center Source Tags Api Shared Resources Center Sources Tags Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          }
+        },
+        "summary": "Center Source Tags",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/config": {
+      "get": {
+        "operationId": "shared_resource_config_api_shared_resources_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Shared Resource Config Api Shared Resources Config Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "configuration unavailable"
+          }
+        },
+        "summary": "Shared Resource Config",
+        "tags": [
+          "sharing"
+        ]
+      },
+      "post": {
+        "operationId": "save_shared_resource_config_api_shared_resources_config_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Shared Resource Config Api Shared Resources Config Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "configuration unavailable"
+          }
+        },
+        "summary": "Save Shared Resource Config",
         "tags": [
           "sharing"
         ]
@@ -15709,6 +15892,9 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "description": "quote outcome indeterminate"
+          },
           "400": {
             "description": "invalid request"
           },
@@ -15757,6 +15943,9 @@
           },
           "201": {
             "description": "source registered"
+          },
+          "202": {
+            "description": "registration outcome indeterminate"
           },
           "400": {
             "description": "invalid request"
@@ -15852,6 +16041,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "202": {
+            "description": "report outcome indeterminate"
           },
           "400": {
             "description": "invalid request"

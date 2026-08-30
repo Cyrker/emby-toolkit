@@ -34,10 +34,8 @@ _DEVICE_REQUEST_BODY = {
             "application/json": {
                 "schema": {
                     "type": "object",
-                    "required": ["server_id_hash"],
                     "properties": {
                         "name": {"type": "string"},
-                        "server_id_hash": {"type": "string"},
                     },
                     "additionalProperties": False,
                 },
@@ -90,8 +88,36 @@ def _int_query(request: Request, key: str, default: int, minimum: int, maximum: 
     return max(minimum, min(value, maximum))
 
 
-async def _json_object(request: Request) -> tuple[dict[str, Any] | None, Response | None]:
+def _bool_query(request: Request, *keys: str, default: bool = False) -> bool:
+    value: object = None
+    for key in keys:
+        if key in request.query_params:
+            value = request.query_params.get(key)
+            break
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().casefold() in {"1", "true", "yes", "y", "on", "启用", "开启", "是"}
+
+
+async def _json_object(
+    request: Request,
+    *,
+    allow_empty: bool = False,
+) -> tuple[dict[str, Any] | None, Response | None]:
+    body = await request.body()
     content_type = request.headers.get("content-type", "").partition(";")[0].strip().casefold()
+    if (
+        allow_empty
+        and not body
+        and (
+            not content_type
+            or content_type == "application/json"
+            or (content_type.startswith("application/") and content_type.endswith("+json"))
+        )
+    ):
+        return {}, None
     if content_type != "application/json" and not (
         content_type.startswith("application/") and content_type.endswith("+json")
     ):
@@ -112,6 +138,42 @@ def _html_error(error: BadRequest | UnsupportedMediaType) -> Response:
         status_code=int(error.code or 500),
         headers={"content-type": headers["Content-Type"]},
     )
+
+
+@router.get(
+    "/config",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}, 503: {"description": "configuration unavailable"}},
+)
+def shared_resource_config(request: Request) -> Response:
+    denied = _admin_denial(request)
+    return denied or _response(_service(request).configuration())
+
+
+@router.post(
+    "/config",
+    response_model=dict[str, Any],
+    responses={
+        400: {"description": "invalid request"},
+        403: {"description": "admin required"},
+        415: {"description": "JSON required"},
+        503: {"description": "configuration unavailable"},
+    },
+    openapi_extra=_JSON_OBJECT_REQUEST_BODY,
+)
+async def save_shared_resource_config(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _json_object(request)
+    if error is not None:
+        return error
+    assert payload is not None
+    try:
+        result = await run_in_threadpool(_service(request).save_configuration, payload)
+    except (TypeError, ValueError):
+        return fastapi_json_response({"success": False, "message": "共享资源配置请求无效"}, status_code=400)
+    return _response(result)
 
 
 @router.get(
@@ -148,25 +210,112 @@ def list_center_sources(request: Request) -> Response:
         return denied
     service = _service(request)
     query: dict[str, Any] = {
-        key: request.query_params.get(key, default)
-        for key, default in (
-            ("q", ""),
-            ("status", "alive,available,updating,inconsistent,incomplete"),
-            ("source_kind", ""),
-            ("item_type", ""),
-            ("tmdb_id", ""),
-            ("source_id", ""),
-        )
+        "q": request.query_params.get("q") or request.query_params.get("keyword") or "",
+        "status": request.query_params.get("status") or "alive,available",
+        "item_type": request.query_params.get("item_type") or "",
+        "tmdb_id": request.query_params.get("tmdb_id") or "",
+        "order_by": request.query_params.get("order_by") or "latest",
+        "genre_id": request.query_params.get("genre_id") or "",
+        "release_year": request.query_params.get("release_year") or None,
+        "force_refresh": False,
     }
-    query["limit"] = _int_query(request, "limit", 200, 1, 1000)
+    default_limit = _int_query(request, "page_size", 200, 1, 1000)
+    query["limit"] = _int_query(request, "limit", default_limit, 1, 1000)
     query["offset"] = _int_query(request, "offset", 0, 0, 10_000_000)
     return _response(service.list_sources(**query))
+
+
+@router.get(
+    "/center/sources/tags",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}},
+)
+def center_source_tags(request: Request) -> Response:
+    denied = _admin_denial(request)
+    return denied or _response(_service(request).display_tags())
+
+
+@router.get(
+    "/center/sources/home",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}, 503: {"description": "provider unavailable"}},
+)
+def center_sources_home(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    service = _service(request)
+    configuration = service.configuration().payload
+    data = configuration.get("data", {}) if isinstance(configuration, Mapping) else {}
+    sections = data.get("p115_shared_center_home_sections", []) if isinstance(data, Mapping) else []
+    return _response(
+        service.display_home(
+            limit_per_section=_int_query(request, "limit_per_section", 10, 1, 20),
+            force_refresh=_bool_query(request, "force_refresh", "refresh", "no_cache"),
+            sections=sections if isinstance(sections, list) else [],
+        )
+    )
+
+
+@router.get(
+    "/center/sources/children",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}, 503: {"description": "provider unavailable"}},
+)
+def center_source_children(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    source_ids = list(
+        dict.fromkeys(
+            value.strip()
+            for value in str(request.query_params.get("source_ids") or "").replace(";", ",").split(",")
+            if value.strip()
+        )
+    )
+    source_id = str(request.query_params.get("source_id") or "").strip()
+    if source_id and source_id not in source_ids:
+        source_ids.insert(0, source_id)
+    return _response(
+        _service(request).display_children(
+            source_kind=request.query_params.get("source_kind") or "",
+            source_id=source_id,
+            source_ids=source_ids,
+            hub_id=request.query_params.get("hub_id") or "",
+            limit=_int_query(request, "limit", 5000, 1, 20_000),
+            offset=_int_query(request, "offset", 0, 0, 10_000_000),
+        )
+    )
+
+
+@router.get(
+    "/center/sources/detail",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}, 503: {"description": "provider unavailable"}},
+)
+def center_source_detail(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    return _response(
+        _service(request).display_detail(
+            source_kind=request.query_params.get("source_kind") or "",
+            source_id=request.query_params.get("source_id") or "",
+            hub_id=request.query_params.get("hub_id") or "",
+            tmdb_id=request.query_params.get("tmdb_id") or "",
+            item_type=request.query_params.get("item_type") or "",
+            season_number=request.query_params.get("season_number") or None,
+            limit=_int_query(request, "limit", 200, 1, 1000),
+            include_people=_bool_query(request, "include_people"),
+        )
+    )
 
 
 @router.post(
     "/center/device/register",
     response_model=dict[str, Any],
     responses={
+        202: {"description": "registration outcome indeterminate"},
         400: {"description": "invalid request"},
         403: {"description": "admin required"},
         415: {"description": "JSON required"},
@@ -178,19 +327,15 @@ async def register_center_device(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:
         return denied
-    payload, error = await _json_object(request)
+    payload, error = await _json_object(request, allow_empty=True)
     if error is not None:
         return error
     assert payload is not None
     name = str(payload.get("name") or "ETK Device").strip() or "ETK Device"
-    server_id_hash = str(payload.get("server_id_hash") or "").strip()
-    if not server_id_hash:
-        return fastapi_json_response({"success": False, "message": "server_id_hash is required"}, status_code=400)
     return _response(
         await run_in_threadpool(
             _service(request).register_device,
             name=name,
-            server_id_hash=server_id_hash,
         )
     )
 
@@ -210,6 +355,7 @@ def center_device_status(request: Request) -> Response:
     response_model=dict[str, Any],
     responses={
         201: {"description": "source registered"},
+        202: {"description": "registration outcome indeterminate"},
         400: {"description": "invalid request"},
         403: {"description": "admin required"},
         415: {"description": "JSON required"},
@@ -269,6 +415,7 @@ async def acquire_transfer_lease(request: Request) -> Response:
     "/transfers/report",
     response_model=dict[str, Any],
     responses={
+        202: {"description": "report outcome indeterminate"},
         400: {"description": "invalid request"},
         403: {"description": "admin required"},
         415: {"description": "JSON required"},
@@ -295,6 +442,7 @@ async def report_transfer(request: Request) -> Response:
     "/share-requests/quote",
     response_model=dict[str, Any],
     responses={
+        202: {"description": "quote outcome indeterminate"},
         400: {"description": "invalid request"},
         403: {"description": "admin required"},
         415: {"description": "JSON required"},

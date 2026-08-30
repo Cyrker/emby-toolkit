@@ -1,5 +1,6 @@
 """P9 sharing domain: durable contribution ledger and external-effects seams."""
 
+from .configuration import SharingConfigurationService, SharingServerIdentity
 from .execution import (
     SharingDeliveryDisposition,
     SharingDeliveryOutcome,
@@ -52,6 +53,8 @@ __all__ = [
     "SharingProviderOperationDelivery",
     "SharedIntroExportEffectDelivery",
     "SharingService",
+    "SharingConfigurationService",
+    "SharingServerIdentity",
     "SharingOperation",
     "SharingOperationIntent",
     "SharingOperationKind",

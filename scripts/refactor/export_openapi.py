@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 264
-EXPECTED_OPERATIONS = 314
+EXPECTED_PATHS = 269
+EXPECTED_OPERATIONS = 320
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -227,20 +227,27 @@ EMPTY_RESPONSE_SCHEMA_ALLOWED = {
 }
 
 P9_SHARING_RESPONSES = {
+    ("get", "/api/shared/resources/config"): {"200", "403", "503"},
+    ("post", "/api/shared/resources/config"): {"200", "400", "403", "415", "503"},
     ("get", "/api/shared/resources/credit/balance"): {"200", "403", "503"},
     ("get", "/api/shared/resources/credit/ledger"): {"200", "403", "503"},
     ("get", "/api/shared/resources/center/sources"): {"200", "403", "503"},
-    ("post", "/api/shared/resources/center/device/register"): {"200", "400", "403", "415", "503"},
+    ("get", "/api/shared/resources/center/sources/tags"): {"200", "403"},
+    ("get", "/api/shared/resources/center/sources/home"): {"200", "403", "503"},
+    ("get", "/api/shared/resources/center/sources/children"): {"200", "403", "503"},
+    ("get", "/api/shared/resources/center/sources/detail"): {"200", "403", "503"},
+    ("post", "/api/shared/resources/center/device/register"): {"200", "202", "400", "403", "415", "503"},
     ("get", "/api/shared/resources/center/device/status"): {"200", "403", "503"},
-    ("post", "/api/shared/resources/shares/manual-create"): {"200", "201", "400", "403", "415", "503"},
+    ("post", "/api/shared/resources/shares/manual-create"): {"200", "201", "202", "400", "403", "415", "503"},
     ("post", "/api/shared/resources/transfers/lease"): {"200", "202", "400", "403", "415", "503"},
-    ("post", "/api/shared/resources/transfers/report"): {"200", "400", "403", "415", "503"},
-    ("post", "/api/shared/resources/share-requests/quote"): {"200", "400", "403", "415", "503"},
+    ("post", "/api/shared/resources/transfers/report"): {"200", "202", "400", "403", "415", "503"},
+    ("post", "/api/shared/resources/share-requests/quote"): {"200", "202", "400", "403", "415", "503"},
     ("get", "/api/shared/resources/share-requests"): {"200", "403", "503"},
     ("post", "/api/shared/resources/share-requests"): {"200", "202", "400", "403", "415", "503"},
     ("get", "/api/shared/resources/operations/{operation_id}/status"): {"200", "403", "404", "422", "503"},
 }
 P9_SHARING_BODY_OPERATIONS = {
+    ("post", "/api/shared/resources/config"),
     ("post", "/api/shared/resources/center/device/register"),
     ("post", "/api/shared/resources/shares/manual-create"),
     ("post", "/api/shared/resources/transfers/lease"),

@@ -182,6 +182,7 @@ from etk.domains.sharing import (
     SharingOperationExecutor,
     SharingProviderOperationDelivery,
 )
+from etk.domains.sharing.configuration import SharingServerIdentity
 from etk.domains.subscription.assistant import (
     SqlAlchemyAssistantMaintenanceRepository,
     SubscribeAssistantMaintenanceService,
@@ -907,9 +908,11 @@ class WorkerRuntime:
                     ),
                     daily_theme=daily_theme,
                 )
+                sharing_identity = SharingServerIdentity(settings_provider, app_settings)
                 shared_center = HttpxSharedCenterAdapter(
                     settings_provider,
                     configuration=lambda: app_settings.load("shared_resource_config"),
+                    server_id_hash=sharing_identity.server_id_hash,
                 )
                 hdhive = HttpxHDHiveAdapter(
                     settings_provider,
@@ -1384,9 +1387,11 @@ class WorkerRuntime:
             organize_executions = SqlAlchemyP115OrganizeExecutionRepository(database.unit_of_work)
             p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
             bridge_client = HttpxEmbyBridgeClient(settings_provider)
+            sharing_identity = SharingServerIdentity(settings_provider, app_settings)
             shared_center = HttpxSharedCenterAdapter(
                 settings_provider,
                 configuration=lambda: app_settings.load("shared_resource_config"),
+                server_id_hash=sharing_identity.server_id_hash,
             )
             hdhive = HttpxHDHiveAdapter(
                 settings_provider,

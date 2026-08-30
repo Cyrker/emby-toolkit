@@ -13,10 +13,12 @@ from sqlalchemy import text
 from etk.domains.sharing import (
     InsufficientContributionError,
     PostgresContributionLedger,
+    SharingConfigurationService,
     SharingDeliveryOutcome,
     SharingLedgerService,
     SharingOperation,
     SharingOperationExecutor,
+    SharingServerIdentity,
 )
 from etk.domains.sharing.operations import (
     SharingOperationIntent,
@@ -24,6 +26,7 @@ from etk.domains.sharing.operations import (
     SharingOperationStateError,
 )
 from etk.domains.sharing.repository import PostgresSharingOperationRepository
+from etk.domains.system.repository import SqlAlchemyAppSettingsRepository
 
 
 class _Delivery:
@@ -145,6 +148,29 @@ def test_postgres_concurrent_debit_and_replay_are_atomic(p9_runtime) -> None:
     )
     assert replay.delta == -10
     assert len(ledger.entries("device-1", limit=100)) == 10
+
+
+def test_postgres_shared_config_and_server_identity_cache_are_native_owned(p9_runtime) -> None:
+    settings = SqlAlchemyAppSettingsRepository(p9_runtime.unit_of_work)
+    configuration = SharingConfigurationService(settings)
+
+    saved = configuration.save(
+        {
+            "p115_shared_center_url": "https://center.fixture/",
+            "p115_shared_resource_enabled": "yes",
+            "p115_shared_resource_mode": "legacy",
+            "p115_shared_virtual_auto_promote_movie_percent": 120,
+        }
+    )
+    settings.save("emby_server_id_cache", "postgres-server-id")
+    identity = SharingServerIdentity({}, settings)
+
+    assert saved["p115_shared_center_url"] == "https://center.fixture"
+    assert saved["p115_shared_resource_enabled"] is True
+    assert saved["p115_shared_resource_mode"] == "rapid"
+    assert saved["p115_shared_virtual_auto_promote_movie_percent"] == 100
+    assert configuration.load() == saved
+    assert identity.server_id_hash() == "db0369e380270562a4c69214abbbbe7a7715bce8c0f86deadcc2e4918a7ed4ca"
 
 
 def test_postgres_transfer_operation_ledger_and_outbox_share_one_uow(p9_runtime) -> None:

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
 import httpx
 import pytest
 
+from etk.domains.sharing.configuration import SharingConfigurationService, SharingServerIdentity
 from etk.integrations import (
     CircuitBreaker,
     HDHiveUnlockIndeterminateError,
@@ -64,6 +66,17 @@ def _policy(*, attempts: int = 3, threshold: int = 10) -> HttpTransportPolicy:
     )
 
 
+class FakeAppSettings:
+    def __init__(self, values: Mapping[str, Any] | None = None) -> None:
+        self.values = dict(values or {})
+
+    def load(self, key: str) -> Any:
+        return self.values.get(key)
+
+    def save(self, key: str, value: Any) -> None:
+        self.values[key] = value
+
+
 def test_shared_center_maps_success_and_rejection_without_leaking_payload() -> None:
     success_client = FakeClient([_response(200, {"ok": True, "items": [1]})])
     adapter = HttpxSharedCenterAdapter(
@@ -106,6 +119,75 @@ def test_shared_center_reads_standalone_runtime_configuration() -> None:
 
     assert result.disposition is ProviderDisposition.CONFIRMED
     assert client.calls[0][1] == "https://standalone-center.fixture/api/v1/sources/list"
+
+
+def test_shared_center_uses_native_cached_server_identity_for_headers() -> None:
+    emby_client = FakeClient([_response(200, {"Id": "native-server-id"})])
+    app_settings = FakeAppSettings()
+    identity = SharingServerIdentity(
+        {"emby_server_url": "https://emby.fixture", "emby_api_key": "fixture-token", "emby_api_timeout": 5},
+        app_settings,
+        client_factory=_factory(emby_client),
+        policy=_policy(),
+    )
+
+    server_hash = identity.server_id_hash()
+
+    assert server_hash == "d2a886b90ca2f3e0a700cf9ff7762def156fdd234a7ca664533152b011e21891"
+    assert app_settings.values["emby_server_id_cache"] == "native-server-id"
+    assert emby_client.calls[0][0:2] == ("GET", "https://emby.fixture/System/Info")
+    assert emby_client.calls[0][2]["headers"]["X-Emby-Token"] == "fixture-token"
+    assert identity.server_id_hash() == server_hash
+    assert len(emby_client.calls) == 1
+
+    center_client = FakeClient([_response(200, {"items": []})])
+    adapter = HttpxSharedCenterAdapter(
+        {},
+        configuration=lambda: {"p115_shared_center_url": "https://center.fixture"},
+        server_id_hash=identity.server_id_hash,
+        client_factory=_factory(center_client),
+        policy=_policy(),
+    )
+
+    assert adapter.list_display_sources(limit=1).disposition is ProviderDisposition.CONFIRMED
+    assert center_client.calls[0][2]["headers"]["X-Server-ID-Hash"] == server_hash
+
+
+def test_shared_center_display_browse_uses_exact_endpoints_and_query_shapes() -> None:
+    client = FakeClient(
+        [
+            _response(200, {"items": []}),
+            _response(200, {"items": []}),
+            _response(200, {"sections": []}),
+            _response(200, {"children": []}),
+            _response(200, {"resources": []}),
+        ]
+    )
+    adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(),
+    )
+    default_sections = SharingConfigurationService(FakeAppSettings()).load()["p115_shared_center_home_sections"]
+
+    adapter.list_display_sources(q="fixture", limit=2, force_refresh=False)
+    adapter.list_display_tags()
+    adapter.list_display_home(limit_per_section=3, force_refresh=True, sections=default_sections)
+    adapter.list_display_children(source_id="source-1", source_ids=["source-1", "source-2"], limit=20)
+    adapter.display_detail(source_kind="logical_season", source_id="source-1", include_people=True)
+
+    assert [call[1] for call in client.calls] == [
+        "https://center.fixture/api/v1/sources/display-list",
+        "https://center.fixture/api/v1/sources/display-tags",
+        "https://center.fixture/api/v1/sources/display-home",
+        "https://center.fixture/api/v1/sources/display-children",
+        "https://center.fixture/api/v1/sources/display-detail",
+    ]
+    assert client.calls[2][2]["params"]["limit_per_section"] == 3
+    assert client.calls[2][2]["params"]["force_refresh"] == 1
+    assert json.loads(client.calls[2][2]["params"]["sections_json"]) == default_sections
+    assert client.calls[3][2]["params"]["source_ids"] == "source-1,source-2"
+    assert client.calls[4][2]["params"]["include_people"] == 1
 
 
 def test_shared_center_retries_idempotent_reads_but_invalid_json_is_safe() -> None:
