@@ -449,6 +449,7 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     database = SimpleNamespace(
         unit_of_work=lambda: None,
         raw_pool=SimpleNamespace(connection=lambda: None),
+        engine=object(),
     )
     container = SimpleNamespace(
         database=database,
@@ -493,6 +494,8 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     )
     assert type(state._p6_p115_tasks._directory_sync).__name__ == "P115DirectorySyncService"
     assert type(state._p6_p115_tasks._directory_sync._directories).__name__ == ("HttpxP115DirectoryTreeGateway")
+    assert type(state._p6_p115_tasks._strm_sync).__name__ == "P115StrmSyncService"
+    assert type(state._p6_p115_tasks._strm_sync._remote).__name__ == "HttpxP115StrmSyncGateway"
     assert type(state._p6_p115_tasks._fingerprint_repair).__name__ == "P115FingerprintRepairService"
     assert type(state._p6_p115_tasks._fingerprint_repair._remote).__name__ == ("HttpxP115FingerprintRemoteGateway")
     assert type(state._p6_p115_tasks._intro_backfill).__name__ == "P115IntroBackfillTaskService"

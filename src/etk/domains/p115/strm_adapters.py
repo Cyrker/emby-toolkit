@@ -317,6 +317,20 @@ class _AtomicP115LocalStrmLibrary:
         self._assert_root()
         return P115LocalWriteResult(True, target)
 
+    def create_strm(self, relative_path: str, content: str) -> P115LocalWriteResult:
+        """Create a new STRM without replacing an unrelated same-path file."""
+
+        target = self.absolute_path(relative_path)
+        desired = content.encode("utf-8")
+        with self._parent_descriptor(relative_path, create=True) as (parent, name):
+            assert parent is not None
+            state = self._path_state_at(parent, name, display_path=target)
+            if state.kind != "absent":
+                raise RuntimeError(f"本地 STRM 目标已存在，拒绝覆盖: {target}")
+            self._atomic_create_at(parent, name, desired)
+        self._assert_root()
+        return P115LocalWriteResult(True, target)
+
     def write_subtitle(self, relative_path: str, content: bytes) -> P115LocalWriteResult:
         target = self.absolute_path(relative_path)
         with self._parent_descriptor(relative_path, create=True) as (parent, name):
@@ -832,6 +846,34 @@ class _AtomicP115LocalStrmLibrary:
                 name,
                 src_dir_fd=parent,
                 dst_dir_fd=parent,
+            )
+            os.fsync(parent)
+        finally:
+            try:
+                os.unlink(temporary_name, dir_fd=parent)
+            except FileNotFoundError:
+                pass
+
+    @staticmethod
+    def _atomic_create_at(parent: int, name: str, content: bytes) -> None:
+        temporary_name = f".{name}.{secrets.token_hex(12)}"
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(temporary_name, flags, 0o644, dir_fd=parent)
+        try:
+            written = 0
+            while written < len(content):
+                written += os.write(descriptor, content[written:])
+            os.fsync(descriptor)
+            os.fchmod(descriptor, 0o644)
+        finally:
+            os.close(descriptor)
+        try:
+            os.link(
+                temporary_name,
+                name,
+                src_dir_fd=parent,
+                dst_dir_fd=parent,
+                follow_symlinks=False,
             )
             os.fsync(parent)
         finally:

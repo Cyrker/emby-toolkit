@@ -45,6 +45,7 @@ from .directory_sync import (
 )
 from .directory_transport import (
     HttpxP115DirectoryTreeGateway,
+    HttpxP115StrmSyncGateway,
     P115DirectoryCredentialChanged,
     P115DirectoryTransportError,
 )
@@ -363,6 +364,7 @@ __all__ = [
     "HttpxP115FingerprintRemoteGateway",
     "HttpxP115AuthorizationGateway",
     "HttpxP115DirectoryTreeGateway",
+    "HttpxP115StrmSyncGateway",
     "HttpxP115OrganizeMutationGateway",
     "HttpxP115OrganizeReadbackGateway",
     "HttpxEmbyIntroFavoriteGateway",

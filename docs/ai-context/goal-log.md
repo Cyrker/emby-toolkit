@@ -5063,6 +5063,53 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Native-STRM-Execution
+
+Stage / Batch: P11 / native-only STRM task execution
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `7fbe108b` (`refactor(p11): persist shared source registration`).
+- Target checkpoint message: `refactor(p11): enable native strm tasks`.
+
+Implemented:
+
+- Added a typed account-bound `HttpxP115StrmSyncGateway`, including stable OpenAPI/Cookie fallback,
+  typed pagination, path lookup and bounded subtitle download on the pinned backend.
+- Wired `full-sync-strm` and `monitor-115-life-events` into the native-only Worker graph. Backend
+  identity is frozen only after the first authoritative page succeeds; the operation plan cannot
+  persist a speculative backend.
+- Added a native import sentinel and exclusive STRM creation primitive. Exclusive create uses an
+  atomic same-directory link and never replaces a pre-existing or racing user file.
+- Native-only Worker ownership is now `24 executable / 26 unavailable`. The remaining unavailable
+  keys are unchanged; `play-pool-daily-speedtest` was deliberately not allow-listed because its
+  native playback dependency graph is not yet complete.
+
+Targeted gate:
+
+- Scoped Ruff -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`.
+- P6 STRM/directory/application/ownership scopes -> `78 passed` and `57 passed`.
+- Disposable PostgreSQL 18 STRM plan/cache/replay scope -> `17 passed`.
+- Scoped compileall, `uv lock --check` and `git diff --check` -> clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-native-strm-20260831/summary.md`.
+
+Focused review:
+
+- Verified credential drift, cancellation, persistent plan/replay, fallback pinning, subtitle
+  backend consistency, no legacy imports and same-path race behavior. No deterministic P0/P1/P2
+  remains in this slice.
+
+Pending:
+
+- Shared Resource center import/virtual effects and 26 unavailable native task keys remain, along
+  with Route/Table/Config ownership, pre-removal, controlled removal and the P11 NFR gates.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

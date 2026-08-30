@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import ast
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from fastapi.routing import APIRoute
@@ -69,7 +72,17 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
     isolated_router_calls = [
         call
         for call in p6_router_calls
-        if not call.args and {keyword.arg for keyword in call.keywords} == {"organize_record_tmdb_backfill"}
+        if not call.args
+        and {
+            "directory_sync",
+            "organize_execution",
+            "organize_record_tmdb_backfill",
+            "strm_sync",
+            "fingerprint_repair",
+            "intro_backfill",
+            "organize_reconciliation",
+        }
+        <= {keyword.arg for keyword in call.keywords}
     ]
     assert len(full_router_calls) == 1
     assert len(isolated_router_calls) == 1
@@ -92,12 +105,16 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
         and isinstance(node.value.func, ast.Name)
         and node.value.func.id == "P115StrmMediaInfoEnrichmentService"
     ]
-    assert len(strm_mediainfo_assignments) == 1
-    strm_mediainfo_target = strm_mediainfo_assignments[0].targets[0]
-    assert isinstance(strm_mediainfo_target, ast.Name)
+    assert len(strm_mediainfo_assignments) == 2
+    strm_mediainfo_targets = {
+        target.id
+        for assignment in strm_mediainfo_assignments
+        for target in assignment.targets
+        if isinstance(target, ast.Name)
+    }
     strm_mediainfo_keyword = next(keyword for keyword in p6_router_call.args[2].keywords if keyword.arg == "mediainfo")
     assert isinstance(strm_mediainfo_keyword.value, ast.Name)
-    assert strm_mediainfo_keyword.value.id == strm_mediainfo_target.id
+    assert strm_mediainfo_keyword.value.id in strm_mediainfo_targets
     fingerprint_assignments = [
         node
         for node in ast.walk(tree)
@@ -108,12 +125,15 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
         and isinstance(node.value.func, ast.Name)
         and node.value.func.id == "P115FingerprintRepairService"
     ]
-    assert len(fingerprint_assignments) == 1
-    fingerprint_target = fingerprint_assignments[0].targets[0]
-    assert isinstance(fingerprint_target, ast.Name)
-    fingerprint_variable = fingerprint_target.id
+    assert len(fingerprint_assignments) == 2
+    fingerprint_variables = {
+        target.id
+        for assignment in fingerprint_assignments
+        for target in assignment.targets
+        if isinstance(target, ast.Name)
+    }
     assert isinstance(p6_router_call.args[3], ast.Name)
-    assert p6_router_call.args[3].id == fingerprint_variable
+    assert p6_router_call.args[3].id in fingerprint_variables
     restore_calls = [
         node
         for node in ast.walk(tree)
@@ -121,10 +141,11 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
         and isinstance(node.func, ast.Name)
         and node.func.id == "P115MediaInfoRestoreService"
     ]
-    assert len(restore_calls) == 1
-    fingerprint_keyword = next(keyword for keyword in restore_calls[0].keywords if keyword.arg == "fingerprints")
-    assert isinstance(fingerprint_keyword.value, ast.Name)
-    assert fingerprint_keyword.value.id == fingerprint_variable
+    assert len(restore_calls) == 2
+    for restore_call in restore_calls:
+        fingerprint_keyword = next(keyword for keyword in restore_call.keywords if keyword.arg == "fingerprints")
+        assert isinstance(fingerprint_keyword.value, ast.Name)
+        assert fingerprint_keyword.value.id in fingerprint_variables
 
     delivery_calls = [
         node
@@ -212,3 +233,50 @@ def test_p6_5_route_and_task_ownership_are_fixture_backed() -> None:
         assert task["status"] == "new"
         assert task["new_owner"] == "etk.processes.p6_p115_tasks.P6P115TaskRouter"
         assert task["ownership_layers"]["execution_owner"] == ("etk.domains.p115.strm_sync.P115StrmSyncService")
+
+
+def test_native_strm_execution_imports_do_not_load_legacy_modules() -> None:
+    program = """
+import json
+import sys
+from etk.domains.p115 import (
+    AtomicP115LocalStrmLibraryGateway,
+    HttpxP115StrmSyncGateway,
+    P115StrmSyncService,
+)
+from etk.processes.p6_p115_tasks import P6P115TaskRouter
+forbidden_prefixes = ('database', 'extensions', 'handler', 'routes', 'task_manager', 'tasks')
+loaded = sorted(
+    name for name in sys.modules
+    if any(name == prefix or name.startswith(prefix + '.') for prefix in forbidden_prefixes)
+)
+print(json.dumps({
+    'gateway': HttpxP115StrmSyncGateway.__name__,
+    'library': AtomicP115LocalStrmLibraryGateway.__name__,
+    'loaded': loaded,
+    'router': P6P115TaskRouter.__name__,
+    'service': P115StrmSyncService.__name__,
+}))
+"""
+    environment = os.environ.copy()
+    python_path = [str(REPO_ROOT / "src"), str(REPO_ROOT)]
+    if environment.get("PYTHONPATH"):
+        python_path.append(environment["PYTHONPATH"])
+    environment["PYTHONPATH"] = os.pathsep.join(python_path)
+
+    completed = subprocess.run(
+        [sys.executable, "-c", program],
+        cwd=REPO_ROOT,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert json.loads(completed.stdout) == {
+        "gateway": "HttpxP115StrmSyncGateway",
+        "library": "AtomicP115LocalStrmLibraryGateway",
+        "loaded": [],
+        "router": "P6P115TaskRouter",
+        "service": "P115StrmSyncService",
+    }

@@ -8,8 +8,10 @@ import pytest
 
 from etk.domains.p115 import (
     HttpxP115DirectoryTreeGateway,
+    HttpxP115StrmSyncGateway,
     P115CredentialSnapshot,
     P115DirectoryTransportError,
+    P115DirectUrl,
 )
 
 
@@ -377,3 +379,52 @@ def test_missing_credentials_returns_no_client_without_network_access() -> None:
     )
 
     assert gateway.open(expected_account_id="115001") is None
+
+
+def test_strm_transport_reuses_pinned_backend_for_type_path_and_bounded_subtitle() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.host == "fixture.invalid":
+            return httpx.Response(200, content=b"fixture-subtitle")
+        return httpx.Response(
+            200,
+            json={
+                "state": True,
+                "data": {
+                    "path": [{"cid": "0", "name": "root"}, {"cid": "media", "name": "Media"}],
+                    "list": [],
+                },
+            },
+        )
+
+    class DirectUrls:
+        def resolve_backend(self, *_args: Any, **_kwargs: Any) -> P115DirectUrl:
+            return P115DirectUrl(
+                url="https://fixture.invalid/subtitle.srt",
+                user_agent="fixture-agent",
+                backend="openapi",
+                method="fixture",
+            )
+
+    gateway = HttpxP115StrmSyncGateway(
+        credentials=FakeCredentials([_snapshot(cookie="")]),
+        priority=lambda: "openapi",
+        direct_urls=DirectUrls(),  # type: ignore[arg-type]
+        client_factory=_client_factory(httpx.MockTransport(handler)),
+    )
+    client = gateway.open(expected_account_id="115001")
+    assert client is not None
+    assert client.backend == ""
+
+    typed = client.list_page(cid="media", file_type=4, limit=10, offset=0)
+    assert client.backend == "openapi"
+    path = client.directory_path("media")
+    content = client.download_subtitle("fixture-pick-code", max_bytes=64)
+
+    assert typed["_etk_api_label_lower"] == "openapi"
+    assert path == ({"cid": "0", "name": "root"}, {"cid": "media", "name": "Media"})
+    assert content == b"fixture-subtitle"
+    assert dict(requests[0].url.params)["type"] == "4"
+    assert requests[-1].headers["user-agent"] == "fixture-agent"

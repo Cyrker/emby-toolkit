@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
-from typing import Any
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, cast
 
 import httpx
 from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from .auth_directory import P115CredentialStore
+from .direct_url_transport import P115SdkDirectUrlGateway
 from .directory_sync import P115DirectoryTreeClient
+from .strm_sync import P115StrmSyncClient
 
 _OPENAPI_FILES_URL = "https://proapi.115.com/open/ufile/files"
 _COOKIE_FILES_URL = "https://webapi.115.com/files"
@@ -54,13 +56,21 @@ class HttpxP115DirectoryTreeGateway:
         *,
         credentials: P115CredentialStore,
         priority: Callable[[], str],
+        settings: Callable[[], Any] | None = None,
+        direct_urls: P115SdkDirectUrlGateway | None = None,
         client_factory: Callable[..., httpx.Client] = httpx.Client,
         timeout_seconds: float = 30.0,
     ) -> None:
         self._credentials = credentials
         self._priority = priority
+        self._settings = settings
         self._client_factory = client_factory
         self._timeout_seconds = max(1.0, float(timeout_seconds))
+        self._direct_urls = direct_urls or P115SdkDirectUrlGateway(
+            credentials=credentials,
+            priority=priority,
+            timeout_seconds=self._timeout_seconds,
+        )
 
     def open(
         self,
@@ -97,6 +107,8 @@ class HttpxP115DirectoryTreeGateway:
                         },
                         credential_value=snapshot.access_token,
                         credential_app_type="",
+                        direct_urls=self._direct_urls,
+                        settings=self._settings,
                         client_factory=self._client_factory,
                         timeout_seconds=self._timeout_seconds,
                     )
@@ -113,6 +125,8 @@ class HttpxP115DirectoryTreeGateway:
                         },
                         credential_value=snapshot.cookie,
                         credential_app_type=snapshot.app_type,
+                        direct_urls=self._direct_urls,
+                        settings=self._settings,
                         client_factory=self._client_factory,
                         timeout_seconds=self._timeout_seconds,
                     )
@@ -122,20 +136,60 @@ class HttpxP115DirectoryTreeGateway:
         return clients[0] if requested_backend else _FallbackP115DirectoryTreeClient(clients)
 
 
+class HttpxP115StrmSyncGateway:
+    """Expose the account-bound transport through the complete STRM contract."""
+
+    def __init__(
+        self,
+        *,
+        credentials: P115CredentialStore,
+        priority: Callable[[], str],
+        settings: Callable[[], Any] | None = None,
+        direct_urls: P115SdkDirectUrlGateway | None = None,
+        client_factory: Callable[..., httpx.Client] = httpx.Client,
+        timeout_seconds: float = 30.0,
+    ) -> None:
+        self._directory = HttpxP115DirectoryTreeGateway(
+            credentials=credentials,
+            priority=priority,
+            settings=settings,
+            direct_urls=direct_urls,
+            client_factory=client_factory,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def open(self, *, expected_account_id: str) -> P115StrmSyncClient | None:
+        return cast(
+            P115StrmSyncClient | None,
+            self._directory.open(expected_account_id=expected_account_id),
+        )
+
+
 class _FallbackP115DirectoryTreeClient:
     def __init__(self, clients: list[_HttpxP115DirectoryTreeClient]) -> None:
         self._clients = tuple(clients)
         self._pinned: _HttpxP115DirectoryTreeClient | None = None
 
-    def list_page(self, *, cid: str, limit: int, offset: int) -> Mapping[str, Any]:
+    @property
+    def backend(self) -> str:
+        return self._pinned.backend if self._pinned is not None else ""
+
+    def list_page(
+        self,
+        *,
+        cid: str,
+        limit: int,
+        offset: int,
+        file_type: int | None = None,
+    ) -> Mapping[str, Any]:
         if self._pinned is not None:
-            return self._pinned.list_page(cid=cid, limit=limit, offset=offset)
+            return self._pinned.list_page(cid=cid, limit=limit, offset=offset, file_type=file_type)
 
         last_response: Mapping[str, Any] | None = None
         last_error: Exception | None = None
         for client in self._clients:
             try:
-                response = client.list_page(cid=cid, limit=limit, offset=offset)
+                response = client.list_page(cid=cid, limit=limit, offset=offset, file_type=file_type)
             except P115DirectoryCredentialChanged:
                 raise
             except Exception as exc:
@@ -151,6 +205,18 @@ class _FallbackP115DirectoryTreeClient:
             raise last_error
         raise P115DirectoryTransportError("115 目录树没有可用的稳定 API 后端")
 
+    def directory_path(self, directory_id: str) -> Sequence[Mapping[str, Any]]:
+        if self._pinned is None:
+            self.list_page(cid=directory_id, limit=1, offset=0)
+        assert self._pinned is not None
+        return self._pinned.directory_path(directory_id)
+
+    def download_subtitle(self, pick_code: str, *, max_bytes: int) -> bytes:
+        if self._pinned is None:
+            self.list_page(cid="0", limit=1, offset=0)
+        assert self._pinned is not None
+        return self._pinned.download_subtitle(pick_code, max_bytes=max_bytes)
+
 
 class _HttpxP115DirectoryTreeClient:
     def __init__(
@@ -162,6 +228,8 @@ class _HttpxP115DirectoryTreeClient:
         headers: Mapping[str, str],
         credential_value: str,
         credential_app_type: str,
+        direct_urls: P115SdkDirectUrlGateway,
+        settings: Callable[[], Any] | None,
         client_factory: Callable[..., httpx.Client],
         timeout_seconds: float,
     ) -> None:
@@ -171,6 +239,8 @@ class _HttpxP115DirectoryTreeClient:
         self._headers = dict(headers)
         self._credential_value = credential_value
         self._credential_app_type = credential_app_type
+        self._direct_urls = direct_urls
+        self._settings = settings
         self._client_factory = client_factory
         self._timeout_seconds = timeout_seconds
 
@@ -178,7 +248,14 @@ class _HttpxP115DirectoryTreeClient:
     def backend(self) -> str:
         return self._backend
 
-    def list_page(self, *, cid: str, limit: int, offset: int) -> Mapping[str, Any]:
+    def list_page(
+        self,
+        *,
+        cid: str,
+        limit: int,
+        offset: int,
+        file_type: int | None = None,
+    ) -> Mapping[str, Any]:
         url = _OPENAPI_FILES_URL if self._backend == "openapi" else _COOKIE_FILES_URL
         params = {
             "cid": str(cid),
@@ -188,6 +265,8 @@ class _HttpxP115DirectoryTreeClient:
             "count_folders": 0,
             "show_dir": 1,
         }
+        if file_type is not None:
+            params["type"] = int(file_type)
         if self._backend == "cookie":
             params["aid"] = 1
 
@@ -220,6 +299,56 @@ class _HttpxP115DirectoryTreeClient:
         )
         return retrying(invoke)
 
+    def directory_path(self, directory_id: str) -> Sequence[Mapping[str, Any]]:
+        response = self.list_page(cid=str(directory_id), limit=1, offset=0)
+        path = response.get("path")
+        if not isinstance(path, list) or any(not isinstance(node, Mapping) for node in path):
+            raise P115DirectoryTransportError("115 目录路径回读缺少权威 path")
+        return tuple(node for node in path if isinstance(node, Mapping))
+
+    def download_subtitle(self, pick_code: str, *, max_bytes: int) -> bytes:
+        if max_bytes <= 0:
+            raise ValueError("subtitle download limit must be positive")
+        self._assert_account()
+        resolved = self._direct_urls.resolve_backend(
+            str(pick_code),
+            expected_account_id=self._account_id,
+            expected_backend=self._backend,
+            user_agent="Mozilla/5.0",
+        )
+        if resolved is None:
+            raise P115DirectoryTransportError("115 字幕下载直链解析失败")
+        headers = {"User-Agent": resolved.user_agent}
+        if self._backend == "cookie":
+            headers["Cookie"] = self._credential_value
+        proxy = None
+        timeout = self._timeout_seconds
+        if self._settings is not None:
+            settings = self._settings()
+            if bool(getattr(settings, "network_proxy_enabled", False)):
+                proxy = str(getattr(settings, "network_http_proxy_url", "") or "").strip() or None
+            timeout = max(timeout, float(getattr(settings, "p115_request_interval", 0) or 0) + 15.0)
+        content = bytearray()
+        self._assert_account()
+        try:
+            with self._client_factory(
+                proxy=proxy,
+                timeout=timeout,
+                follow_redirects=True,
+            ) as client:
+                with client.stream("GET", resolved.url, headers=headers) as response:
+                    response.raise_for_status()
+                    content_length = response.headers.get("content-length")
+                    if content_length and int(content_length) > max_bytes:
+                        raise P115DirectoryTransportError("115 字幕文件超过本地下载上限")
+                    for chunk in response.iter_bytes(64 * 1024):
+                        content.extend(chunk)
+                        if len(content) > max_bytes:
+                            raise P115DirectoryTransportError("115 字幕文件超过本地下载上限")
+        finally:
+            self._assert_account()
+        return bytes(content)
+
     def _assert_account(self) -> None:
         snapshot = self._credentials.load()
         current = str(snapshot.account_id or "").strip()
@@ -236,6 +365,8 @@ def _normalize_list_response(payload: Mapping[str, Any]) -> dict[str, Any]:
     data = normalized.get("data")
     authoritative = isinstance(data, list)
     if isinstance(data, Mapping):
+        if "path" not in normalized and isinstance(data.get("path"), list):
+            normalized["path"] = list(data["path"])
         for key in ("list", "items", "files", "data"):
             nested = data.get(key)
             if isinstance(nested, list):

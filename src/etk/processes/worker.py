@@ -118,6 +118,7 @@ from etk.domains.p115 import (
     HttpxP115FingerprintRemoteGateway,
     HttpxP115OrganizeMutationGateway,
     HttpxP115OrganizeReadbackGateway,
+    HttpxP115StrmSyncGateway,
     IntroDetectionExecutionService,
     IntroDetectionOperation,
     IntroDetectionSubmissionService,
@@ -303,9 +304,11 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     | {
         "backfill-organize-record-tmdb-ids",
         "check-expired-users",
+        "full-sync-strm",
         "intro-fingerprint-backfill",
         "manual-correct-organize-records",
         "manual_subscribe_batch",
+        "monitor-115-life-events",
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
         "restore_mediainfo",
@@ -1439,6 +1442,21 @@ class WorkerRuntime:
             )
             mediainfo_policies = PersistentP115MediaInfoPolicyProvider(app_settings)
             processes = ControlledProcessRunner()
+            media_probe = P115MediaProbeService(
+                direct_urls=P115SdkDirectUrlGateway(
+                    credentials=p115_credentials,
+                    priority=lambda: str(settings_provider().p115_api_priority),
+                ),
+                processes=processes,
+                iso=NativeP115IsoProbeGateway(processes),
+                policies=mediainfo_policies,
+            )
+            strm_mediainfo = P115StrmMediaInfoEnrichmentService(
+                credentials=p115_credentials,
+                repository=p115_mediainfo_repository,
+                probe=media_probe,
+                policies=mediainfo_policies,
+            )
             intro_repository = PostgresP115IntroDetectionRepository(database.unit_of_work)
             intro_source = PostgresP115IntroRuntimeSource(
                 database.unit_of_work,
@@ -1484,15 +1502,7 @@ class WorkerRuntime:
                     repository=p115_mediainfo_repository,
                     fingerprints=p115_fingerprint_repair,
                     emby=HttpxEmbyMediaInfoQueryGateway(settings_provider),
-                    probe=P115MediaProbeService(
-                        direct_urls=P115SdkDirectUrlGateway(
-                            credentials=p115_credentials,
-                            priority=lambda: str(settings_provider().p115_api_priority),
-                        ),
-                        processes=processes,
-                        iso=NativeP115IsoProbeGateway(processes),
-                        policies=mediainfo_policies,
-                    ),
+                    probe=media_probe,
                     policies=mediainfo_policies,
                     commands=PersistentMediaInfoCommandGateway(
                         database.unit_of_work,
@@ -1521,6 +1531,21 @@ class WorkerRuntime:
                 ),
                 organize_record_tmdb_backfill=P115OrganizeRecordTmdbBackfillService(
                     SqlAlchemyP115OrganizeRecordsRepository(database.unit_of_work)
+                ),
+                strm_sync=P115StrmSyncService(
+                    settings=settings_provider,
+                    credentials=p115_credentials,
+                    sorting_rules=SqlAlchemyP115SortingRulesRepository(database.unit_of_work),
+                    rename_config=SqlAlchemyP115RenameConfigRepository(database.unit_of_work),
+                    remote=HttpxP115StrmSyncGateway(
+                        credentials=p115_credentials,
+                        priority=lambda: str(settings_provider().p115_api_priority),
+                        settings=settings_provider,
+                    ),
+                    libraries=AtomicP115LocalStrmLibraryGateway(),
+                    repository=SqlAlchemyP115StrmSyncRepository(database.unit_of_work),
+                    coordinator=PostgresP115StrmSyncCoordinator(database.engine),
+                    mediainfo=strm_mediainfo,
                 ),
                 fingerprint_repair=p115_fingerprint_repair,
                 intro_backfill=P115IntroBackfillTaskService(intro_detection_gateway),

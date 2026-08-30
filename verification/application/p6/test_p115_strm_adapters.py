@@ -45,6 +45,59 @@ def test_atomic_strm_and_subtitle_projection_preserves_exact_bytes(tmp_path: Pat
     assert not list(tmp_path.rglob(".*.strm.*"))
 
 
+def test_exclusive_strm_create_never_replaces_an_existing_file(tmp_path: Path) -> None:
+    library = _library(tmp_path)
+    target = tmp_path / "Movies/Feature/Movie.strm"
+    target.parent.mkdir(parents=True)
+    target.write_text("user-owned", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="拒绝覆盖"):
+        library.create_strm("Movies/Feature/Movie.strm", "virtual")
+
+    assert target.read_text(encoding="utf-8") == "user-owned"
+    assert not list(target.parent.glob(".Movie.strm.*"))
+
+
+def test_exclusive_strm_create_loses_a_path_race_without_overwriting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    library = _library(tmp_path)
+    original_link = os.link
+
+    def racing_link(
+        source: object,
+        target: object,
+        *,
+        src_dir_fd: int | None = None,
+        dst_dir_fd: int | None = None,
+        follow_symlinks: bool = True,
+    ) -> None:
+        assert isinstance(target, str)
+        assert dst_dir_fd is not None
+        descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644, dir_fd=dst_dir_fd)
+        try:
+            os.write(descriptor, b"racing-owner")
+        finally:
+            os.close(descriptor)
+        original_link(
+            source,
+            target,
+            src_dir_fd=src_dir_fd,
+            dst_dir_fd=dst_dir_fd,
+            follow_symlinks=follow_symlinks,
+        )
+
+    monkeypatch.setattr(os, "link", racing_link)
+
+    with pytest.raises(FileExistsError):
+        library.create_strm("Movies/Feature/Movie.strm", "virtual")
+
+    target = tmp_path / "Movies/Feature/Movie.strm"
+    assert target.read_bytes() == b"racing-owner"
+    assert not list(target.parent.glob(".Movie.strm.*"))
+
+
 def test_interrupted_atomic_subtitle_replace_leaves_no_final_or_temp_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -213,6 +213,8 @@ class P115LocalStrmLibrary(Protocol):
 
     def write_strm(self, relative_path: str, content: str) -> P115LocalWriteResult: ...
 
+    def create_strm(self, relative_path: str, content: str) -> P115LocalWriteResult: ...
+
     def write_subtitle(self, relative_path: str, content: bytes) -> P115LocalWriteResult: ...
 
     def reconcile(
@@ -373,7 +375,7 @@ class P115StrmSyncService:
                 config_revision = _config_revision(settings, rules.revision, rename.revision, scope)
                 authorization_revision = emby_authorization_revision(settings)
                 cache_before = self._repository.snapshot(roots, account_id=account_id)
-                progress.update(5, f"已固定 115 {client.backend} 后端，开始完整分页扫描")
+                progress.update(5, "开始执行 115 完整分页扫描")
                 assets, cache_entries, scan_counts = self._scan(
                     client,
                     roots,
@@ -381,6 +383,9 @@ class P115StrmSyncService:
                     rename_config=effective_rename_config(rename.config),
                     progress=progress,
                 )
+                if client.backend not in {"openapi", "cookie"}:
+                    raise RuntimeError("115 STRM 扫描未固定权威 API 后端")
+                progress.update(65, f"已固定 115 {client.backend} 后端，远端扫描完成")
                 self._assert_unchanged(
                     account_id=account_id,
                     rules_revision=rules.revision,
