@@ -540,6 +540,100 @@ def list_virtual_imports(request: Request) -> Response:
     )
 
 
+@router.post(
+    "/center/import",
+    response_model=dict[str, Any],
+    status_code=202,
+    responses={
+        200: {"description": "idempotent terminal replay", "model": dict[str, Any]},
+        202: {"description": "durable import operation accepted"},
+        400: {"description": "invalid center source"},
+        403: {"description": "admin required"},
+        409: {"description": "operation conflict"},
+        415: {"description": "JSON required"},
+        503: {"description": "sharing runtime unavailable"},
+    },
+    openapi_extra=_JSON_OBJECT_REQUEST_BODY,
+)
+async def import_center_source(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _json_object(request)
+    if error is not None:
+        return error
+    assert payload is not None
+    try:
+        result = _service(request).import_center_source(
+            payload,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    except (TypeError, ValueError):
+        return fastapi_json_response({"success": False, "message": "中心入库请求无效"}, status_code=400)
+    return _response(result)
+
+
+@router.delete(
+    "/virtual-imports/{virtual_id}",
+    response_model=dict[str, Any],
+    status_code=202,
+    responses={
+        200: {"description": "idempotent terminal replay", "model": dict[str, Any]},
+        202: {"description": "durable retirement operation accepted"},
+        400: {"description": "invalid virtual id"},
+        403: {"description": "admin required"},
+        404: {"description": "virtual import not found"},
+        409: {"description": "operation conflict"},
+        503: {"description": "sharing runtime unavailable"},
+    },
+)
+def delete_virtual_import(request: Request, virtual_id: str) -> Response:
+    denied = _admin_denial(request)
+    normalized_id = _positive_path_int(virtual_id)
+    if denied is not None:
+        return denied
+    if normalized_id is None:
+        return fastapi_json_response({"success": False, "message": "虚拟入库 ID 无效"}, status_code=400)
+    return _response(
+        _service(request).delete_virtual_import(
+            normalized_id,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    )
+
+
+@router.post(
+    "/virtual-imports/{virtual_id}/promote",
+    response_model=dict[str, Any],
+    status_code=202,
+    responses={
+        200: {"description": "idempotent terminal replay", "model": dict[str, Any]},
+        202: {"description": "durable promotion operation accepted"},
+        400: {"description": "invalid virtual import"},
+        403: {"description": "admin required"},
+        404: {"description": "virtual import not found"},
+        409: {"description": "operation conflict"},
+        503: {"description": "sharing runtime unavailable"},
+    },
+)
+def promote_virtual_import(request: Request, virtual_id: str) -> Response:
+    denied = _admin_denial(request)
+    normalized_id = _positive_path_int(virtual_id)
+    if denied is not None:
+        return denied
+    if normalized_id is None:
+        return fastapi_json_response({"success": False, "message": "虚拟入库 ID 无效"}, status_code=400)
+    return _response(
+        _service(request).promote_virtual_import(
+            normalized_id,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    )
+
+
 @router.get(
     "/credit/balance",
     response_model=dict[str, Any],

@@ -580,6 +580,33 @@
       }
     },
     "route_bindings": {
+      "route-binding-b8fa7f197e0d": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native center import freezes bounded source identity in the API process and delegates virtual projection or account-bound Rapid transfer to the durable sharing Worker.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+        "validation_owner": "sharing/virtual-import"
+      },
+      "route-binding-ca093e5badb7": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native virtual retirement uses a stable operation identity, exact Emby absence readback, digest-owned STRM cleanup and an operation-terminal database continuation.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+        "validation_owner": "sharing/virtual-import"
+      },
+      "route-binding-e44fe3e70445": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native virtual promotion freezes the virtual row and transfer manifest, performs one checkpointed Rapid transfer and commits promotion, washing and report Outbox state in one UoW.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+        "validation_owner": "sharing/virtual-import"
+      },
       "route-binding-e01de3ab9513": {
         "fixture": "verification/fixtures/http/p9-sharing.json",
         "fixture_exception": null,
@@ -3588,6 +3615,33 @@
       }
     },
     "route_decorators": {
+      "route-decorator-8ce132cb688d": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native center import freezes bounded source identity in the API process and delegates virtual projection or account-bound Rapid transfer to the durable sharing Worker.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+        "validation_owner": "sharing/virtual-import"
+      },
+      "route-decorator-960e1f79eab9": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native virtual retirement uses a stable operation identity, exact Emby absence readback, digest-owned STRM cleanup and an operation-terminal database continuation.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+        "validation_owner": "sharing/virtual-import"
+      },
+      "route-decorator-1bb7b7da2156": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native virtual promotion freezes the virtual row and transfer manifest, performs one checkpointed Rapid transfer and commits promotion, washing and report Outbox state in one UoW.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+        "validation_owner": "sharing/virtual-import"
+      },
       "route-decorator-e23bb8b4c38f": {
         "fixture": "verification/fixtures/http/p9-sharing.json",
         "fixture_exception": null,

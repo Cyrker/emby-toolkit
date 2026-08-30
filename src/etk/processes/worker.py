@@ -177,11 +177,19 @@ from etk.domains.p115.upload_adapters import (
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService, UploadOperation
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
 from etk.domains.sharing import (
+    AtomicVirtualImportProjector,
+    HttpxEmbyVirtualItemGateway,
+    NativeP115RapidTransferGateway,
     PostgresSharingOperationRepository,
+    RapidTransferOperationDelivery,
     SharedIntroExportEffectDelivery,
     SharingOperation,
     SharingOperationExecutor,
     SharingProviderOperationDelivery,
+    SqlAlchemyVirtualImportRepository,
+    VirtualImportOperationDelivery,
+    VirtualImportService,
+    VirtualImportSourceResolver,
 )
 from etk.domains.sharing.configuration import SharingServerIdentity
 from etk.domains.subscription.assistant import (
@@ -924,6 +932,15 @@ class WorkerRuntime:
                 telegram = HttpxTelegramBotAdapter(settings_provider)
                 p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
                 sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
+                virtual_imports = VirtualImportService(
+                    resolver=VirtualImportSourceResolver(shared_center),
+                    repository=SqlAlchemyVirtualImportRepository(database.unit_of_work),
+                    projector=AtomicVirtualImportProjector(
+                        settings=settings_provider,
+                        libraries=AtomicP115LocalStrmLibraryGateway(),
+                    ),
+                    configuration=lambda: app_settings.load("shared_resource_config"),
+                )
                 sharing_operation_executor = SharingOperationExecutor(
                     sharing_operations,
                     SharingProviderOperationDelivery(
@@ -931,6 +948,22 @@ class WorkerRuntime:
                         hdhive=hdhive,
                         telegram=telegram,
                         raw_ffprobe_loader=partial(_load_sharing_raw_ffprobe, p115_mediainfo_repository),
+                        virtual_imports=VirtualImportOperationDelivery(
+                            virtual_imports,
+                            HttpxEmbyVirtualItemGateway(settings_provider),
+                        ),
+                        rapid_transfers=RapidTransferOperationDelivery(
+                            repository=sharing_operations,
+                            virtual_imports=virtual_imports,
+                            credentials=p115_credentials,
+                            settings=settings_provider,
+                            center=shared_center,
+                            p115=NativeP115RapidTransferGateway(
+                                credentials=p115_credentials,
+                                priority=lambda: str(settings_provider().p115_api_priority),
+                                target_cid=lambda: str(settings_provider().p115_save_path_cid),
+                            ),
+                        ),
                     ),
                     max_attempts=4,
                 )
@@ -1403,6 +1436,15 @@ class WorkerRuntime:
             )
             telegram = HttpxTelegramBotAdapter(settings_provider)
             sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
+            virtual_imports = VirtualImportService(
+                resolver=VirtualImportSourceResolver(shared_center),
+                repository=SqlAlchemyVirtualImportRepository(database.unit_of_work),
+                projector=AtomicVirtualImportProjector(
+                    settings=settings_provider,
+                    libraries=AtomicP115LocalStrmLibraryGateway(),
+                ),
+                configuration=lambda: app_settings.load("shared_resource_config"),
+            )
             sharing_operation_executor = SharingOperationExecutor(
                 sharing_operations,
                 SharingProviderOperationDelivery(
@@ -1410,6 +1452,22 @@ class WorkerRuntime:
                     hdhive=hdhive,
                     telegram=telegram,
                     raw_ffprobe_loader=partial(_load_sharing_raw_ffprobe, p115_mediainfo_repository),
+                    virtual_imports=VirtualImportOperationDelivery(
+                        virtual_imports,
+                        HttpxEmbyVirtualItemGateway(settings_provider),
+                    ),
+                    rapid_transfers=RapidTransferOperationDelivery(
+                        repository=sharing_operations,
+                        virtual_imports=virtual_imports,
+                        credentials=p115_credentials,
+                        settings=settings_provider,
+                        center=shared_center,
+                        p115=NativeP115RapidTransferGateway(
+                            credentials=p115_credentials,
+                            priority=lambda: str(settings_provider().p115_api_priority),
+                            target_cid=lambda: str(settings_provider().p115_save_path_cid),
+                        ),
+                    ),
                 ),
                 max_attempts=4,
             )

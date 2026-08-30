@@ -15484,6 +15484,67 @@
         ]
       }
     },
+    "/api/shared/resources/center/import": {
+      "post": {
+        "operationId": "import_center_source_api_shared_resources_center_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 200 Import Center Source Api Shared Resources Center Import Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "idempotent terminal replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Center Source Api Shared Resources Center Import Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "durable import operation accepted"
+          },
+          "400": {
+            "description": "invalid center source"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "409": {
+            "description": "operation conflict"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Import Center Source",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
     "/api/shared/resources/center/replenish/prepare": {
       "post": {
         "operationId": "prepare_retired_center_replenishment_api_shared_resources_center_replenish_prepare_post",
@@ -17456,6 +17517,148 @@
           }
         },
         "summary": "List Virtual Imports",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/virtual-imports/{virtual_id}": {
+      "delete": {
+        "operationId": "delete_virtual_import_api_shared_resources_virtual_imports__virtual_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "virtual_id",
+            "required": true,
+            "schema": {
+              "title": "Virtual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 200 Delete Virtual Import Api Shared Resources Virtual Imports  Virtual Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "idempotent terminal replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Virtual Import Api Shared Resources Virtual Imports  Virtual Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "durable retirement operation accepted"
+          },
+          "400": {
+            "description": "invalid virtual id"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "virtual import not found"
+          },
+          "409": {
+            "description": "operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Delete Virtual Import",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/virtual-imports/{virtual_id}/promote": {
+      "post": {
+        "operationId": "promote_virtual_import_api_shared_resources_virtual_imports__virtual_id__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "virtual_id",
+            "required": true,
+            "schema": {
+              "title": "Virtual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 200 Promote Virtual Import Api Shared Resources Virtual Imports  Virtual Id  Promote Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "idempotent terminal replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Promote Virtual Import Api Shared Resources Virtual Imports  Virtual Id  Promote Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "durable promotion operation accepted"
+          },
+          "400": {
+            "description": "invalid virtual import"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "virtual import not found"
+          },
+          "409": {
+            "description": "operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Promote Virtual Import",
         "tags": [
           "sharing"
         ]

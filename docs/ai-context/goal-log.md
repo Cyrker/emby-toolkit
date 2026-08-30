@@ -5110,6 +5110,63 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Shared-Virtual-Import
+
+Stage / Batch: P11 / Shared Resource virtual import and Rapid transfer
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `2bc6d1c9` (`refactor(p11): enable native strm tasks`).
+- Target checkpoint message: `refactor(p11): persist shared virtual imports`.
+
+Implemented:
+
+- Added durable center import, virtual retirement and promotion operations. Request threads only
+  freeze identity and reserve work; Worker execution owns exclusive STRM projection, exact Emby
+  deletion/readback, compensation and same-UoW terminal continuations.
+- Added account/backend/credential/target-bound 115 Rapid v2 transfer with a single provider-write
+  checkpoint, persisted phase receipts, readback-only replacement-Worker recovery and deterministic
+  Shared Center success/failure reporting.
+- Closed terminal delete replay after the virtual row is removed, source-only PickCode persistence,
+  runtime target/backend drift and OpenAPI response-gate coverage.
+- Frontend now aggregates all batch terminal results, exposes every operation ID and retains the
+  idempotency key only for indeterminate results, including non-2xx all-indeterminate batches.
+- Regenerated manifests, OpenAPI and TypeScript schema. Route ownership is `315 new / 28 legacy`
+  decorators and `337 new / 30 legacy` bindings; OpenAPI is `294 paths / 346 operations`.
+
+Targeted gate:
+
+- Scoped Ruff/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`).
+- P9 application -> `127 passed`; disposable PostgreSQL 18 P9 scope -> `63 passed`.
+- P1 import/CLI, OpenAPI contract and shared virtual ownership sentinel -> `7 passed`.
+- Frontend generation, typecheck, unit, build and API boundary passed; Vitest -> `7 passed`; build
+  retained only the existing large-chunk warning.
+- Manifest/OpenAPI currentness, compileall, `uv lock --check`, three secret scans and
+  `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-shared-virtual-import-20260831/summary.md`.
+
+Focused review:
+
+- Closed runtime identity drift, no-resend/readback, terminal replay, no-files PickCode, batch
+  response and frontend operation-handle findings.
+- Final Rapid state-machine and transaction/HTTP/frontend/OpenAPI reviews found no deterministic
+  P0/P1/P2; both reviewers remained read-only.
+
+Pending:
+
+- Native-only Worker remains `24 executable / 26 unavailable`; 28 route decorators, 30 method
+  bindings, 12 tables, 82 dynamic config keys, seven bootstrap keys and 11 standalone settings
+  remain legacy-owned.
+- Complete all remaining runtime ownership, then pre-removal, controlled legacy removal and the
+  full P11 NFR/security/SBOM/vulnerability/License gates. P11 stays `DOING`; P12 stays `TODO`;
+  Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -5129,7 +5186,7 @@ Read first:
 
 Next:
 
-- Continue Shared Resource center import and virtual effects, then resume native-only task
-  execution from the latest manifests and runtime call graph. Close all remaining Route, Task,
-  Table, Config and Frontend ownership before controlled removal. Do not start P12 until P11
-  ownership, removal and NFR gates are complete; keep all Live Acceptance items pending.
+- Resume the 26 unavailable native-only task keys and the exact 28/30 Route bindings from the latest
+  manifests/runtime call graph. Close Route, Task, Table, Config and Frontend ownership before
+  controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete;
+  keep all Live Acceptance items pending.

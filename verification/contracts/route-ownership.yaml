@@ -5787,20 +5787,21 @@
       "contract_id": "route-binding-b8fa7f197e0d",
       "decorator_contract_id": "route-decorator-8ce132cb688d",
       "endpoint": "api_center_import",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native center import freezes bounded source identity in the API process and delegates virtual projection or account-bound Rapid transfer to the durable sharing Worker.",
       "path": "/api/shared/resources/center/import",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2063",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+      "validation_owner": "sharing/virtual-import"
     },
     {
       "application": "api",
@@ -6521,40 +6522,42 @@
       "contract_id": "route-binding-ca093e5badb7",
       "decorator_contract_id": "route-decorator-960e1f79eab9",
       "endpoint": "api_delete_virtual_import",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native virtual retirement uses a stable operation identity, exact Emby absence readback, digest-owned STRM cleanup and an operation-terminal database continuation.",
       "path": "/api/shared/resources/virtual-imports/<int:virtual_id>",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2146",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+      "validation_owner": "sharing/virtual-import"
     },
     {
       "application": "api",
       "contract_id": "route-binding-e44fe3e70445",
       "decorator_contract_id": "route-decorator-1bb7b7da2156",
       "endpoint": "api_promote_virtual_import",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native virtual promotion freezes the virtual row and transfer manifest, performs one checkpointed Rapid transfer and commits promotion, washing and report Outbox state in one UoW.",
       "path": "/api/shared/resources/virtual-imports/<int:virtual_id>/promote",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2162",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+      "validation_owner": "sharing/virtual-import"
     },
     {
       "application": "api",
@@ -14171,22 +14174,23 @@
       "contract_id": "route-decorator-8ce132cb688d",
       "declared_path": "/center/import",
       "endpoint": "api_center_import",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native center import freezes bounded source identity in the API process and delegates virtual projection or account-bound Rapid transfer to the durable sharing Worker.",
       "path": "/api/shared/resources/center/import",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2063",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+      "validation_owner": "sharing/virtual-import"
     },
     {
       "application": "api",
@@ -14941,22 +14945,23 @@
       "contract_id": "route-decorator-960e1f79eab9",
       "declared_path": "/virtual-imports/<int:virtual_id>",
       "endpoint": "api_delete_virtual_import",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native virtual retirement uses a stable operation identity, exact Emby absence readback, digest-owned STRM cleanup and an operation-terminal database continuation.",
       "path": "/api/shared/resources/virtual-imports/<int:virtual_id>",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2146",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+      "validation_owner": "sharing/virtual-import"
     },
     {
       "application": "api",
@@ -14964,22 +14969,23 @@
       "contract_id": "route-decorator-1bb7b7da2156",
       "declared_path": "/virtual-imports/<int:virtual_id>/promote",
       "endpoint": "api_promote_virtual_import",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native virtual promotion freezes the virtual row and transfer manifest, performs one checkpointed Rapid transfer and commits promotion, washing and report Outbox state in one UoW.",
       "path": "/api/shared/resources/virtual-imports/<int:virtual_id>/promote",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2162",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-http-worker-postgres18-openapi-and-fake-adapter",
+      "validation_owner": "sharing/virtual-import"
     },
     {
       "application": "api",

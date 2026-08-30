@@ -19,10 +19,12 @@ from .operations import (
     SharingOperation,
     SharingOperationConflictError,
     SharingOperationIntent,
+    SharingOperationKind,
     SharingOperationPreconditionError,
     SharingOperationScopeBusyError,
     SharingOperationStateError,
     SharingOperationStatus,
+    sharing_operation_key,
 )
 from .source_registration import source_registration_state_hash
 
@@ -183,6 +185,29 @@ class PostgresSharingOperationRepository:
             )
             return _operation(row) if row is not None else None
 
+    def read_by_occurrence(
+        self,
+        *,
+        kind: SharingOperationKind,
+        principal_id: str,
+        idempotency_key: str,
+    ) -> SharingOperation | None:
+        operation_key = sharing_operation_key(
+            kind=kind,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+        )
+        with self._unit_of_work() as uow:
+            row = (
+                uow.session.execute(
+                    text("SELECT * FROM sharing_operations WHERE operation_key = :operation_key"),
+                    {"operation_key": operation_key},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            return _operation(row) if row is not None else None
+
     def validate_prewrite(self, operation: SharingOperation) -> None:
         with self._unit_of_work() as uow:
             _validate_operation_prewrite(uow, operation, lock=False)
@@ -325,6 +350,39 @@ class PostgresSharingOperationRepository:
             {"now": _aware(now)},
             allowed=(SharingOperationStatus.CLAIMED,),
             validate_prewrite=True,
+        )
+
+    def save_prewrite_state(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        state: Mapping[str, Any],
+    ) -> SharingOperation:
+        normalized = normalize_durable_json_object(dict(state), field="sharing operation prewrite state")
+        return self._claimed_update(
+            operation_id,
+            claim_token,
+            "state_json = CAST(:state_json AS jsonb)",
+            {"state_json": canonical_json(normalized, field="sharing operation prewrite state")},
+            allowed=(SharingOperationStatus.CLAIMED,),
+            validate_prewrite=True,
+        )
+
+    def save_request_state(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        state: Mapping[str, Any],
+    ) -> SharingOperation:
+        """Persist a bounded receipt after the one provider-write checkpoint."""
+
+        normalized = normalize_durable_json_object(dict(state), field="sharing operation request state")
+        return self._claimed_update(
+            operation_id,
+            claim_token,
+            "state_json = CAST(:state_json AS jsonb)",
+            {"state_json": canonical_json(normalized, field="sharing operation request state")},
+            allowed=(SharingOperationStatus.REQUESTING,),
         )
 
     def mark_awaiting_readback(
@@ -842,6 +900,12 @@ def _apply_confirmed_local_continuation(
     if continuation_type == "confirm_local_source_registration":
         _apply_source_registration_confirmation(uow, operation, continuation)
         return
+    if continuation_type == "finalize_virtual_import_deletion":
+        _finalize_virtual_import_deletion(uow, continuation)
+        return
+    if continuation_type == "finalize_center_transfer":
+        _finalize_center_transfer(uow, operation, continuation)
+        return
     raise SharingOperationStateError(f"sharing local continuation type {continuation_type!r} is unsupported")
 
 
@@ -860,6 +924,231 @@ def _apply_terminal_local_continuation(
         and operation.status is not SharingOperationStatus.CANCELLED
     ):
         _record_source_registration_failure(uow, operation, continuation)
+    elif continuation_type == "finalize_center_transfer" and operation.status is SharingOperationStatus.REJECTED:
+        _stage_center_transfer_failure_report(uow, operation, continuation)
+
+
+def _finalize_center_transfer(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SharingOperation,
+    continuation: Mapping[str, Any],
+) -> None:
+    result = operation.result if isinstance(operation.result, Mapping) else {}
+    if result.get("transfer_confirmed") is not True or result.get("authoritative_readback") is not True:
+        raise SharingOperationStateError("center transfer continuation requires authoritative confirmation")
+    source_kind = _required(continuation.get("source_kind"), "transfer source kind")
+    source_id = _required(continuation.get("source_id"), "transfer source id")
+    virtual_id = _optional_positive_id(continuation.get("virtual_id"))
+    if virtual_id is not None:
+        row = (
+            uow.session.execute(
+                text("SELECT * FROM shared_virtual_imports WHERE id = :id FOR UPDATE"),
+                {"id": virtual_id},
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            item = None
+        else:
+            item = _virtual_row(row)
+            expected_hash = _required(continuation.get("expected_state_hash"), "virtual state hash")
+            if _virtual_state_hash(item) != expected_hash:
+                uow.session.execute(
+                    text(
+                        """
+                        UPDATE shared_virtual_imports
+                        SET status = 'reconcile_required',
+                            source_payload_json = source_payload_json || jsonb_build_object(
+                                '_etk_reconcile', jsonb_build_object(
+                                    'type', 'promotion_state_changed',
+                                    'operation_id', CAST(:operation_id AS text)
+                                )
+                            ),
+                            updated_at = NOW()
+                        WHERE id = :id
+                        """
+                    ),
+                    {"id": virtual_id, "operation_id": str(operation.id)},
+                )
+                item = None
+            else:
+                uow.session.execute(
+                    text(
+                        """
+                        UPDATE shared_virtual_imports
+                        SET status = 'promoting', promoted_at = COALESCE(promoted_at, NOW()), updated_at = NOW()
+                        WHERE id = :id
+                        """
+                    ),
+                    {"id": virtual_id},
+                )
+                _mark_virtual_active_washing(uow, item)
+
+    if result.get("existing") is True:
+        return
+    success_count = _nonnegative_integer(result.get("success_count"))
+    total_count = _nonnegative_integer(result.get("total_count"))
+    report_request = {
+        "provider": "shared_center",
+        "action": "report_transfer",
+        "payload": {
+            "source_kind": source_kind,
+            "source_id": source_id,
+            "result": "success",
+            "success_count": success_count,
+            "total_count": total_count,
+            "transfer_mode": "rapid",
+            "lease_id": str(result.get("lease_id") or ""),
+            "message": f"native rapid transfer confirmed: {success_count}/{total_count}",
+        },
+    }
+    report_payload = report_request["payload"]
+    for key in ("account_id", "backend", "target_cid", "files_manifest_hash"):
+        value = str(result.get(key) or "").strip()
+        if value:
+            report_payload[key] = value
+    job_ids = _json_list(result.get("rapid_sign_job_ids"))
+    if job_ids:
+        report_payload["rapid_sign_job_ids"] = job_ids
+    receipts = _json_list(result.get("receipts"))
+    if receipts:
+        report_payload["receipts"] = receipts
+    intent = SharingOperationIntent.create(
+        kind="transfer",
+        scope_key=f"center-transfer-report:{operation.id}",
+        principal_id="system",
+        request=report_request,
+        idempotency_key=f"center-transfer-report:{operation.id}",
+    )
+    PostgresSharingOperationRepository(lambda: uow)._reserve_in_uow(uow, intent)
+
+
+def _finalize_virtual_import_deletion(
+    uow: SqlAlchemyUnitOfWork,
+    continuation: Mapping[str, Any],
+) -> None:
+    virtual_id = _positive_id(continuation.get("virtual_id"), "virtual id")
+    expected_hash = _required(continuation.get("expected_state_hash"), "virtual state hash")
+    row = (
+        uow.session.execute(
+            text("SELECT * FROM shared_virtual_imports WHERE id = :id FOR UPDATE"),
+            {"id": virtual_id},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        return
+    item = _virtual_row(row)
+    if _virtual_state_hash(item) != expected_hash:
+        raise SharingOperationStateError("virtual import changed before deletion finalization")
+    deleted = uow.session.execute(
+        text("DELETE FROM shared_virtual_imports WHERE id = :id"),
+        {"id": virtual_id},
+    )
+    if int(getattr(deleted, "rowcount", 0) or 0) != 1:
+        raise SharingOperationStateError("virtual import deletion was not applied")
+
+
+def _stage_center_transfer_failure_report(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SharingOperation,
+    continuation: Mapping[str, Any],
+) -> None:
+    state = operation.state if isinstance(operation.state, Mapping) else {}
+    lease_id = str(state.get("lease_id") or "").strip()
+    if not lease_id:
+        return
+    files = _json_list(state.get("files"))
+    completed = {
+        int(value)
+        for value in _json_list(state.get("completed_file_indexes"))
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0
+    }
+    error = operation.error if isinstance(operation.error, Mapping) else {}
+    report_request = {
+        "provider": "shared_center",
+        "action": "report_transfer",
+        "payload": {
+            "source_kind": _required(continuation.get("source_kind"), "transfer source kind"),
+            "source_id": _required(continuation.get("source_id"), "transfer source id"),
+            "result": "failed",
+            "success_count": len(completed),
+            "total_count": len(files),
+            "transfer_mode": "rapid",
+            "lease_id": lease_id,
+            "message": f"native rapid transfer rejected: {str(error.get('type') or 'provider_rejected')[:200]}",
+        },
+    }
+    intent = SharingOperationIntent.create(
+        kind="transfer",
+        scope_key=f"center-transfer-report:{operation.id}",
+        principal_id="system",
+        request=report_request,
+        idempotency_key=f"center-transfer-report:{operation.id}",
+    )
+    PostgresSharingOperationRepository(lambda: uow)._reserve_in_uow(uow, intent)
+
+
+def _mark_virtual_active_washing(uow: SqlAlchemyUnitOfWork, item: Mapping[str, Any]) -> None:
+    item_type = str(item.get("item_type") or "").strip().casefold()
+    if item_type == "movie":
+        tmdb_id = str(item.get("tmdb_id") or "").strip()
+        if tmdb_id:
+            uow.session.execute(
+                text(
+                    """
+                    UPDATE media_metadata SET active_washing = TRUE
+                    WHERE tmdb_id = :tmdb_id AND item_type = 'Movie'
+                    """
+                ),
+                {"tmdb_id": tmdb_id},
+            )
+        return
+    parent_id = str(item.get("parent_series_tmdb_id") or item.get("tmdb_id") or "").strip()
+    if not parent_id:
+        return
+    files = _json_list(item.get("files_json"))
+    pairs = sorted(
+        {
+            (season, episode)
+            for file in files
+            if isinstance(file, Mapping)
+            for season, episode in [
+                (_optional_positive_id(file.get("season_number")), _optional_positive_id(file.get("episode_number")))
+            ]
+            if season is not None and episode is not None
+        }
+    )
+    params: dict[str, Any] = {"parent_id": parent_id}
+    if pairs:
+        clauses: list[str] = []
+        for index, (season, episode) in enumerate(pairs):
+            params[f"season_{index}"] = season
+            params[f"episode_{index}"] = episode
+            clauses.append(f"(season_number = :season_{index} AND episode_number = :episode_{index})")
+        uow.session.execute(
+            text(
+                "UPDATE media_metadata SET active_washing = TRUE "
+                "WHERE parent_series_tmdb_id = :parent_id AND item_type = 'Episode' AND (" + " OR ".join(clauses) + ")"
+            ),
+            params,
+        )
+        return
+    season = _optional_positive_id(item.get("season_number"))
+    episode = _optional_positive_id(item.get("episode_number"))
+    conditions = ["parent_series_tmdb_id = :parent_id", "item_type = 'Episode'"]
+    if season is not None:
+        params["season"] = season
+        conditions.append("season_number = :season")
+    if episode is not None:
+        params["episode"] = episode
+        conditions.append("episode_number = :episode")
+    uow.session.execute(
+        text("UPDATE media_metadata SET active_washing = TRUE WHERE " + " AND ".join(conditions)),
+        params,
+    )
 
 
 def _release_dependent_operation(
@@ -1390,6 +1679,68 @@ def _positive_id(value: Any, field: str) -> int:
     if normalized < 1:
         raise SharingOperationStateError(f"sharing {field} is invalid")
     return normalized
+
+
+def _optional_positive_id(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    return _positive_id(value, "positive id")
+
+
+def _nonnegative_integer(value: Any) -> int:
+    if value in (None, "") or isinstance(value, bool):
+        return 0
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _virtual_row(value: Mapping[Any, Any]) -> dict[str, Any]:
+    row = dict(value)
+    row["source_payload_json"] = _json_object(row.get("source_payload_json"))
+    row["files_json"] = _json_list(row.get("files_json"))
+    row["strm_paths_json"] = _json_list(row.get("strm_paths_json"))
+    return row
+
+
+def _virtual_state_hash(item: Mapping[str, Any]) -> str:
+    import hashlib
+
+    payload = {
+        "id": int(item.get("id") or 0),
+        "source_kind": str(item.get("source_kind") or ""),
+        "source_id": str(item.get("source_id") or ""),
+        "status": str(item.get("status") or ""),
+        "source_payload_json": _json_object(item.get("source_payload_json")),
+        "files_json": _json_list(item.get("files_json")),
+        "strm_paths_json": _json_list(item.get("strm_paths_json")),
+    }
+    return hashlib.sha256(canonical_json(payload, field="virtual import row state").encode()).hexdigest()
+
+
+def _json_object(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return dict(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return {}
+        return dict(parsed) if isinstance(parsed, Mapping) else {}
+    return {}
+
+
+def _json_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return list(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return []
+        return list(parsed) if isinstance(parsed, list) else []
+    return []
 
 
 def _positive_seconds(value: float) -> float:

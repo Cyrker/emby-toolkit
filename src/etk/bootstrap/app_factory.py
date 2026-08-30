@@ -220,10 +220,14 @@ from etk.domains.p115.router import router as p115_router
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
 from etk.domains.sharing import (
+    AtomicVirtualImportProjector,
     PostgresContributionLedger,
     PostgresSharingOperationRepository,
     SharingService,
     SqlAlchemySharingProjectionRepository,
+    SqlAlchemyVirtualImportRepository,
+    VirtualImportService,
+    VirtualImportSourceResolver,
 )
 from etk.domains.sharing.configuration import SharingConfigurationService, SharingServerIdentity
 from etk.domains.sharing.router import router as sharing_router
@@ -962,6 +966,26 @@ def _register_sharing_providers(container: AppContainer) -> None:
             configuration=lambda: current.repository("app-settings").load("hdhive_config"),
         ),
     )
+    container.register_repository(
+        "sharing.virtual-imports",
+        lambda current: SqlAlchemyVirtualImportRepository(current.database.unit_of_work),
+    )
+    container.register_client(
+        "sharing.virtual-import-projector",
+        lambda current: AtomicVirtualImportProjector(
+            settings=lambda: current.settings,
+            libraries=current.client("p115.local-strm-library"),
+        ),
+    )
+    container.register_use_case(
+        "sharing.virtual-imports",
+        lambda current: VirtualImportService(
+            resolver=VirtualImportSourceResolver(current.client("sharing.shared-center")),
+            repository=current.repository("sharing.virtual-imports"),
+            projector=current.client("sharing.virtual-import-projector"),
+            configuration=lambda: current.repository("app-settings").load("shared_resource_config"),
+        ),
+    )
     container.register_use_case(
         "sharing",
         lambda current: SharingService(
@@ -973,6 +997,7 @@ def _register_sharing_providers(container: AppContainer) -> None:
             identity=current.client("sharing.server-identity"),
             projection=current.repository("sharing.projection"),
             tmdb=current.client("media.discover-provider"),
+            virtual_imports=current.use_case("sharing.virtual-imports"),
         ),
     )
 

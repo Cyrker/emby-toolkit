@@ -73,6 +73,10 @@ class SharedCenterPort(Protocol):
 
     def acquire_transfer_lease(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
 
+    def create_rapid_sign_job(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
+
+    def wait_rapid_sign_job(self, job_id: str, *, timeout: int = 75) -> ProviderResponse[dict[str, Any]]: ...
+
     def report_transfer(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
 
     def share_sync_heartbeat(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
@@ -284,6 +288,26 @@ class HttpxSharedCenterAdapter:
             "/api/v1/transfers/lease",
             operation="acquire_transfer_lease",
             json=_object(payload, "lease payload"),
+        )
+
+    def create_rapid_sign_job(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        return self.request_json(
+            "POST",
+            "/api/v1/rapid-sign/jobs",
+            operation="create_rapid_sign_job",
+            json=_object(payload, "rapid sign job payload"),
+        )
+
+    def wait_rapid_sign_job(self, job_id: str, *, timeout: int = 75) -> ProviderResponse[dict[str, Any]]:
+        identifier = _segment(job_id, "job_id")
+        bounded_timeout = _bounded_int(timeout, minimum=1, maximum=80, field="timeout")
+        return self.request_json(
+            "GET",
+            f"/api/v1/rapid-sign/jobs/{quote(identifier, safe='')}/wait",
+            operation="wait_rapid_sign_job",
+            params={"timeout": bounded_timeout},
+            retryable=False,
+            mutation=False,
         )
 
     def report_transfer(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:

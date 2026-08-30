@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
+from uuid import UUID
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -24,6 +25,7 @@ from etk.domains.sharing.operations import (
     sharing_operation_key,
 )
 from etk.domains.sharing.router import router
+from etk.domains.sharing.virtual_import import freeze_virtual_import_source
 from etk.integrations import ProviderDisposition, ProviderResponse
 from etk.platform import AppContainer, Settings
 from etk.platform.web import CookieSessionMiddleware
@@ -477,6 +479,21 @@ class FakeOperations:
     def read(self, operation_id: Any) -> Any | None:
         return self.by_id.get(operation_id)
 
+    def read_by_occurrence(
+        self,
+        *,
+        kind: SharingOperationKind,
+        principal_id: str,
+        idempotency_key: str,
+    ) -> Any | None:
+        return self.by_key.get(
+            sharing_operation_key(
+                kind=kind,
+                principal_id=principal_id,
+                idempotency_key=idempotency_key,
+            )
+        )
+
     def request_cancel(self, operation_id: Any) -> Any | None:
         operation = self.by_id.get(operation_id)
         if operation is None or operation.status.terminal:
@@ -491,6 +508,55 @@ class FakeOperations:
                 "provider_may_have_been_called": False,
             }
         return operation
+
+
+class FakeVirtualImports:
+    def __init__(self) -> None:
+        self.freeze_calls: list[dict[str, Any]] = []
+        self.rows = {
+            17: {
+                "id": 17,
+                "source_kind": "movie",
+                "source_id": "virtual-delete",
+                "status": "virtual",
+                "source_payload_json": {
+                    "source_kind": "movie",
+                    "source_id": "virtual-delete",
+                    "item_type": "Movie",
+                    "sha1": "A" * 40,
+                    "size": 1024,
+                    "file_name": "Delete.mkv",
+                    "preid": "B" * 40,
+                },
+                "files_json": [],
+                "strm_paths_json": ["/library/Delete.strm"],
+            },
+            18: {
+                "id": 18,
+                "source_kind": "movie",
+                "source_id": "virtual-promote",
+                "status": "virtual",
+                "source_payload_json": {
+                    "source_kind": "movie",
+                    "source_id": "virtual-promote",
+                    "item_type": "Movie",
+                    "sha1": "C" * 40,
+                    "size": 2048,
+                    "file_name": "Promote.mkv",
+                    "preid": "D" * 40,
+                },
+                "files_json": [],
+                "strm_paths_json": ["/library/Promote.strm"],
+            },
+        }
+
+    def freeze(self, source: Mapping[str, Any]) -> Any:
+        self.freeze_calls.append(dict(source))
+        return freeze_virtual_import_source(source)
+
+    def get(self, virtual_id: int) -> dict[str, Any] | None:
+        value = self.rows.get(virtual_id)
+        return dict(value) if value is not None else None
 
 
 class FakeJobs:
@@ -523,6 +589,7 @@ def _build_app() -> tuple[FastAPI, FakeCenter, FakeAppSettings, FakeOperations]:
     app_settings = FakeAppSettings()
     operations = FakeOperations()
     projection = FakeProjection()
+    virtual_imports = FakeVirtualImports()
     tmdb = FakeTmdb()
     app = FastAPI()
     app.state.container = AppContainer(
@@ -537,9 +604,11 @@ def _build_app() -> tuple[FastAPI, FakeCenter, FakeAppSettings, FakeOperations]:
         identity=SharingServerIdentity({}, app_settings),
         projection=projection,
         tmdb=tmdb,
+        virtual_imports=virtual_imports,  # type: ignore[arg-type]
     )
     app.state.sharing_projection = projection
     app.state.sharing_tmdb = tmdb
+    app.state.sharing_virtual_imports = virtual_imports
     app.state.sharing_job_service = FakeJobs()
     app.add_middleware(CookieSessionMiddleware, codec_provider=lambda: LegacySessionCodec.from_secret_key(SECRET_KEY))
     app.include_router(router)
@@ -801,6 +870,81 @@ def test_native_source_registration_routes_stage_raw_prerequisite_without_reques
     assert first_registration.request["payload"]["body"]["source_provider"] == "manual_rapid"
     assert first_raw.request["payload"]["raw_reference"]["sha1"] == "1" * 40
     assert "raw_ffprobe_json" not in first_raw.request["payload"]
+
+
+def test_native_center_import_and_virtual_lifecycle_routes_only_stage_durable_operations() -> None:
+    app, center, app_settings, operations = _build_app()
+    app_settings.values["shared_resource_config"]["p115_shared_virtual_import_enabled"] = True
+    virtual_source = {
+        "source_kind": "movie",
+        "source_id": "center-virtual",
+        "item_type": "Movie",
+        "sha1": "E" * 40,
+        "size": 4096,
+        "file_name": "Virtual.mkv",
+        "preid": "F" * 40,
+    }
+    real_source = {**virtual_source, "source_id": "center-real", "sha1": "1" * 40, "preid": "2" * 40}
+    with TestClient(app) as client:
+        denied = client.post("/api/shared/resources/center/import", json={"source": virtual_source})
+        _set_admin(client)
+        virtual = client.post(
+            "/api/shared/resources/center/import",
+            json={"source": virtual_source},
+            headers={"Idempotency-Key": "center-virtual-fixture"},
+        )
+        replayed = client.post(
+            "/api/shared/resources/center/import",
+            json={"source": virtual_source},
+            headers={"Idempotency-Key": "center-virtual-fixture"},
+        )
+        real = client.post(
+            "/api/shared/resources/center/import",
+            json={"source": real_source, "force_real": True},
+            headers={"Idempotency-Key": "center-real-fixture"},
+        )
+        retired = client.delete(
+            "/api/shared/resources/virtual-imports/17",
+            headers={"Idempotency-Key": "virtual-delete-fixture"},
+        )
+        retired_operation = operations.by_id[UUID(retired.json()["operation_id"])]
+        retired_operation.status = SharingOperationStatus.CONFIRMED
+        retired_operation.result = {"deleted": True}
+        app.state.sharing_virtual_imports.rows.pop(17)
+        retired_replay = client.delete(
+            "/api/shared/resources/virtual-imports/17",
+            headers={"Idempotency-Key": "virtual-delete-fixture"},
+        )
+        promoted = client.post(
+            "/api/shared/resources/virtual-imports/18/promote",
+            headers={"Idempotency-Key": "virtual-promote-fixture"},
+        )
+        missing = client.delete("/api/shared/resources/virtual-imports/999")
+        invalid = client.delete("/api/shared/resources/virtual-imports/0")
+
+    assert denied.status_code == 403
+    assert virtual.status_code == 202
+    assert virtual.json()["data"]["virtual"] is True
+    assert replayed.status_code == 202
+    assert replayed.json()["operation_id"] == virtual.json()["operation_id"]
+    assert replayed.json()["replayed"] is True
+    assert real.status_code == 202
+    assert retired.status_code == 202
+    assert retired_replay.status_code == 200
+    assert retired_replay.json()["operation_id"] == retired.json()["operation_id"]
+    assert retired_replay.json()["replayed"] is True
+    assert promoted.status_code == 202
+    assert missing.status_code == 404
+    assert invalid.status_code == 400
+    assert center.calls == []
+    assert [intent.request["provider"] for intent in operations.intents] == [
+        "virtual_import",
+        "p115",
+        "virtual_import",
+        "p115",
+    ]
+    delete_continuation = operations.intents[2].request["local_continuation"]
+    assert delete_continuation["type"] == "finalize_virtual_import_deletion"
 
 
 def test_native_source_reregister_batch_preserves_partial_missing_skip_and_occurrence_replay() -> None:

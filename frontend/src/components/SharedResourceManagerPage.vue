@@ -590,6 +590,8 @@ const sharingOperationPollControllers = new Set<AbortController>();
 const shareRequestParticipantOperationKeys = new Map<string, string>();
 const localSourceLifecycleOperationKeys = new Map<string, string>();
 const localSourceReregisterOperationKeys = new Map<string, string>();
+const centerImportOperationKeys = new Map<string, string>();
+const virtualImportOperationKeys = new Map<string, string>();
 
 const waitForSharingOperation = async (response, pendingMessage) => {
   const initial = response?.data || {};
@@ -597,8 +599,11 @@ const waitForSharingOperation = async (response, pendingMessage) => {
   const initialStatus = String(initial.status || '').trim().toLowerCase();
   if (!operationId || initialStatus === 'confirmed') return initial;
   if (initialStatus === 'rejected' || initialStatus === 'indeterminate' || initialStatus === 'cancelled') {
-    const error = new Error(initial.message || '共享操作未能确认');
+    const detail = initial.message || '共享操作未能确认';
+    const error = new Error(`${detail}（操作 ID：${operationId}）`);
     error.sharingOperationStatus = initialStatus;
+    error.sharingOperationId = operationId;
+    error.sharingOperationIds = [operationId];
     throw error;
   }
   message.info(initial.message || pendingMessage);
@@ -616,8 +621,10 @@ const waitForSharingOperation = async (response, pendingMessage) => {
       if (status === 'confirmed') return operation;
       if (status === 'rejected' || status === 'indeterminate' || status === 'cancelled') {
         const detail = operation.error?.message || operation.error?.type || '共享操作未能确认';
-        const error = new Error(detail);
+        const error = new Error(`${detail}（操作 ID：${operationId}）`);
         error.sharingOperationStatus = status;
+        error.sharingOperationId = operationId;
+        error.sharingOperationIds = [operationId];
         throw error;
       }
     }
@@ -627,6 +634,26 @@ const waitForSharingOperation = async (response, pendingMessage) => {
   }
 };
 
+const sharingErrorMessage = (error, fallback) => {
+  const response = error?.response?.data || {};
+  const failed = Array.isArray(response.failed) ? response.failed : [];
+  const operationIds = [
+    ...(Array.isArray(error?.sharingOperationIds) ? error.sharingOperationIds : []),
+    response.operation_id,
+    ...failed.map((item) => item?.operation_id),
+  ].map((value) => String(value || '').trim()).filter(Boolean);
+  const detail = response.message || error?.message || fallback;
+  const missingIds = [...new Set(operationIds)].filter((operationId) => !String(detail).includes(operationId));
+  return missingIds.length ? `${detail}（操作 ID：${missingIds.join('、')}）` : detail;
+};
+
+const sharingErrorIsIndeterminate = (error) => {
+  const response = error?.response?.data || {};
+  const failed = Array.isArray(response.failed) ? response.failed : [];
+  return [error?.sharingOperationStatus, response.status, ...failed.map((item) => item?.status)]
+    .some((status) => String(status || '').toLowerCase() === 'indeterminate');
+};
+
 const waitForSharingOperations = async (response, pendingMessage) => {
   const initial = response?.data || {};
   const operationIds = Array.isArray(initial.operation_ids)
@@ -634,20 +661,42 @@ const waitForSharingOperations = async (response, pendingMessage) => {
     : [];
   const singleId = String(initial.operation_id || '').trim();
   if (singleId && !operationIds.includes(singleId)) operationIds.push(singleId);
-  await Promise.all(
+  const settled = await Promise.allSettled(
     operationIds.map((operationId) => waitForSharingOperation(
       { data: { operation_id: operationId, status: 'ready', message: initial.message } },
       pendingMessage,
     )),
   );
-  if (initial.success === false) {
-    const failed = Array.isArray(initial.failed) ? initial.failed : [];
-    const detail = failed.length
-      ? failed.map((item) => item?.message || item?.id).filter(Boolean).join('；')
-      : '';
+  const pollingErrors = settled
+    .filter((result) => result.status === 'rejected')
+    .map((result) => result.reason);
+  const failed = Array.isArray(initial.failed) ? initial.failed : [];
+  if (pollingErrors.length || initial.success === false) {
+    const indeterminateOperationIds = [
+      ...pollingErrors.flatMap((error) => (
+        String(error?.sharingOperationStatus || '').toLowerCase() === 'indeterminate'
+          ? (Array.isArray(error?.sharingOperationIds) ? error.sharingOperationIds : [])
+          : []
+      )),
+      ...failed
+      .filter((item) => String(item?.status || '').toLowerCase() === 'indeterminate')
+      .map((item) => String(item?.operation_id || '').trim())
+      .filter(Boolean),
+    ];
+    const detail = [
+      ...pollingErrors.map((error) => error?.message).filter(Boolean),
+      ...failed.map((item) => {
+        const messageText = item?.message || item?.id;
+        const operationId = String(item?.operation_id || '').trim();
+        return operationId
+          ? `${messageText || '共享操作未能确认'}（操作 ID：${operationId}）`
+          : messageText;
+      }).filter(Boolean),
+    ].join('；');
     const error = new Error(detail || initial.message || '部分共享源操作未提交');
-    if (failed.some((item) => String(item?.status || '').toLowerCase() === 'indeterminate')) {
+    if (indeterminateOperationIds.length) {
       error.sharingOperationStatus = 'indeterminate';
+      error.sharingOperationIds = [...new Set(indeterminateOperationIds)];
     }
     throw error;
   }
@@ -2326,6 +2375,9 @@ const executeImport = async (row, mode) => {
     return;
   }
   const loadingKey = sourcePayload.source_id || row?.group_key;
+  const operationScope = `center-import:${sourcePayload.source_kind}:${sourcePayload.source_id}:${mode}`;
+  const operationKey = centerImportOperationKeys.get(operationScope) || crypto.randomUUID();
+  centerImportOperationKeys.set(operationScope, operationKey);
   importingMap[loadingKey] = mode;
   try {
     const requestBody = {
@@ -2338,11 +2390,20 @@ const executeImport = async (row, mode) => {
     } else {
       requestBody.source_id = sourcePayload.source_id;
     }
-    const res = await apiClient.post(apiPath('api_shared_resources_center_import_7e2a7a56'), requestBody);
-    message.success(res.data?.message || '已提交');
+    const res = await apiClient.post(
+      apiPath('api_shared_resources_center_import_7e2a7a56'),
+      requestBody,
+      { headers: { 'Idempotency-Key': operationKey } },
+    );
+    await waitForSharingOperation(res, '中心入库任务已提交，正在等待确认');
+    centerImportOperationKeys.delete(operationScope);
+    message.success('中心资源入库已确认');
     await Promise.allSettled([loadCenterSources(), loadSummary(), loadLedger()]);
   } catch (e) {
-    message.error(e.response?.data?.message || `${modeText}失败`);
+    if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+      centerImportOperationKeys.delete(operationScope);
+    }
+    message.error(sharingErrorMessage(e, `${modeText}失败`));
   } finally {
     delete importingMap[loadingKey];
   }
@@ -3316,6 +3377,9 @@ const importCenterLogicalEpisode = async (version, episode) => {
     return;
   }
   const loadingKey = episode.loadingKey || `logical_episode:${source.source_id}`;
+  const operationScope = `center-import:logical_episode:${source.source_id}:permanent`;
+  const operationKey = centerImportOperationKeys.get(operationScope) || crypto.randomUUID();
+  centerImportOperationKeys.set(operationScope, operationKey);
   importingMap[loadingKey] = 'permanent';
   try {
     const res = await apiClient.post(apiPath('api_shared_resources_center_import_7e2a7a56'), {
@@ -3323,11 +3387,16 @@ const importCenterLogicalEpisode = async (version, episode) => {
       source_id: source.source_id,
       source,
       context: source,
-    });
-    message.success(res.data?.message || `第 ${episode.episode_number} 集秒传完成`);
+    }, { headers: { 'Idempotency-Key': operationKey } });
+    await waitForSharingOperation(res, '逻辑单集入库任务已提交，正在等待确认');
+    centerImportOperationKeys.delete(operationScope);
+    message.success(`第 ${episode.episode_number} 集入库已确认`);
     await Promise.allSettled([loadSummary(), loadLedger()]);
   } catch (e) {
-    message.error(e.response?.data?.message || `第 ${episode.episode_number} 集秒传失败`);
+    if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+      centerImportOperationKeys.delete(operationScope);
+    }
+    message.error(sharingErrorMessage(e, `第 ${episode.episode_number} 集秒传失败`));
   } finally {
     delete importingMap[loadingKey];
   }
@@ -3643,12 +3712,23 @@ const dismissVirtualImport = (row) => {
     positiveText: '辞退',
     negativeText: '保留',
     onPositiveClick: async () => {
+      const operationScope = `virtual-delete:${row.id}`;
+      const operationKey = virtualImportOperationKeys.get(operationScope) || crypto.randomUUID();
+      virtualImportOperationKeys.set(operationScope, operationKey);
       try {
-        const res = await apiClient.delete(apiPath('api_shared_resources_virtual_imports_param_5d51ea16', [row.id]));
-        message.success(res.data?.message || '已辞退');
+        const res = await apiClient.delete(
+          apiPath('api_shared_resources_virtual_imports_param_5d51ea16', [row.id]),
+          { headers: { 'Idempotency-Key': operationKey } },
+        );
+        await waitForSharingOperation(res, '虚拟资源辞退任务已提交，正在等待确认');
+        virtualImportOperationKeys.delete(operationScope);
+        message.success('虚拟资源已辞退');
         await Promise.allSettled([loadVirtualImports(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || '辞退失败');
+        if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+          virtualImportOperationKeys.delete(operationScope);
+        }
+        message.error(sharingErrorMessage(e, '辞退失败'));
       }
     },
   });
@@ -3660,12 +3740,24 @@ const promoteVirtualImport = (row) => {
     positiveText: '转正',
     negativeText: '取消',
     onPositiveClick: async () => {
+      const operationScope = `virtual-promote:${row.id}`;
+      const operationKey = virtualImportOperationKeys.get(operationScope) || crypto.randomUUID();
+      virtualImportOperationKeys.set(operationScope, operationKey);
       try {
-        const res = await apiClient.post(apiPath('api_shared_resources_virtual_imports_param_promote_013b3e81', [row.id]), {});
-        message.success(res.data?.message || '已转正');
+        const res = await apiClient.post(
+          apiPath('api_shared_resources_virtual_imports_param_promote_013b3e81', [row.id]),
+          {},
+          { headers: { 'Idempotency-Key': operationKey } },
+        );
+        await waitForSharingOperation(res, '虚拟资源转正任务已提交，正在等待确认');
+        virtualImportOperationKeys.delete(operationScope);
+        message.success('虚拟资源已转正');
         await Promise.allSettled([loadVirtualImports(), loadCenterSources(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || '转正失败');
+        if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+          virtualImportOperationKeys.delete(operationScope);
+        }
+        message.error(sharingErrorMessage(e, '转正失败'));
       }
     },
   });
@@ -4038,7 +4130,10 @@ const submitShareRequest = async () => {
     activeTab.value = 'requests';
     await Promise.allSettled([loadShareRequests(), loadSummary(), loadLedger()]);
   } catch (e) {
-    message.error(e.response?.data?.message || e.message || '发布求共享失败');
+    if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+      shareRequestOperationKey.value = '';
+    }
+    message.error(sharingErrorMessage(e, '发布求共享失败'));
   } finally {
     shareRequestSubmitting.value = false;
   }
@@ -4066,7 +4161,10 @@ const confirmCoRequest = (row) => {
         message.success('同求成功');
         await Promise.allSettled([loadShareRequests(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || e.message || '同求失败');
+        if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+          shareRequestParticipantOperationKeys.delete(key);
+        }
+        message.error(sharingErrorMessage(e, '同求失败'));
       }
     }
   });
@@ -4093,7 +4191,10 @@ const confirmCancelShareRequest = (row) => {
         message.success('已取消求共享');
         await Promise.allSettled([loadShareRequests(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || e.message || '取消求共享失败');
+        if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+          shareRequestParticipantOperationKeys.delete(key);
+        }
+        message.error(sharingErrorMessage(e, '取消求共享失败'));
       }
     }
   });
@@ -4193,7 +4294,10 @@ const registerCenterDevice = async () => {
     message.success(res.data?.message || (centerDeviceId.value ? '共享资源中心已重新连接' : '共享资源中心已连接'));
     await Promise.allSettled([loadSharedConfig(), loadCenterDeviceStatus(), loadSummary(), loadLedger(), loadCenterSources()]);
   } catch (e) {
-    message.error(e.response?.data?.message || e.message || '注册/恢复中心设备失败');
+    if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+      centerDeviceOperationKey.value = '';
+    }
+    message.error(sharingErrorMessage(e, '注册/恢复中心设备失败'));
   } finally {
     registeringDevice.value = false;
   }
@@ -4392,7 +4496,10 @@ const manualCreateShare = async () => {
     activeTab.value = 'shares';
     await Promise.allSettled([loadShares(), loadCenterSources(), loadSummary(), loadLedger()]);
   } catch (e) {
-    message.error(e.response?.data?.message || e.message || '登记资源失败');
+    if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+      manualShareOperationKey.value = '';
+    }
+    message.error(sharingErrorMessage(e, '登记资源失败'));
   } finally { manualCreating.value = false; }
 };
 
@@ -4432,10 +4539,10 @@ const reregisterShare = (row) => {
         message.success('已重新登记共享源');
         await Promise.allSettled([loadShares(), loadCenterSources(), loadSummary(), loadLedger()]);
       } catch (e) {
-        if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+        if (!sharingErrorIsIndeterminate(e)) {
           localSourceReregisterOperationKeys.delete(operationScope);
         }
-        message.error(e.response?.data?.message || e.message || '重新登记失败');
+        message.error(sharingErrorMessage(e, '重新登记失败'));
       }
     }
   });
@@ -4481,7 +4588,10 @@ const cancelShare = (row) => {
         message.success('已停用共享源');
         await Promise.allSettled([loadShares(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || e.message || '停用失败');
+        if (!sharingErrorIsIndeterminate(e)) {
+          localSourceLifecycleOperationKeys.delete(operationScope);
+        }
+        message.error(sharingErrorMessage(e, '停用失败'));
       }
     }
   });
@@ -4525,7 +4635,10 @@ const deleteShare = (row) => {
         message.success(alreadyDisabled ? '已删除本地共享记录' : '已取消登记并删除共享记录');
         await Promise.allSettled([loadShares(), loadCenterSources(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || e.message || '删除失败');
+        if (!sharingErrorIsIndeterminate(e)) {
+          localSourceLifecycleOperationKeys.delete(operationScope);
+        }
+        message.error(sharingErrorMessage(e, '删除失败'));
       }
     }
   });

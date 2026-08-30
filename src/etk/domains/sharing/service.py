@@ -29,6 +29,7 @@ from .source_registration import (
     SharingSourceRegistrationSkipped,
     prepare_source_registration,
 )
+from .virtual_import import VirtualImportService, virtual_import_state_hash
 
 _DISPLAY_TAG_FALLBACK = [
     {"label": "已完结", "value": "completed_certified"},
@@ -252,6 +253,7 @@ class SharingService(SharingLedgerService):
         identity: SharingServerIdentity | None = None,
         projection: Any | None = None,
         tmdb: Any | None = None,
+        virtual_imports: VirtualImportService | None = None,
     ) -> None:
         super().__init__(ledger, operations=operations, unit_of_work=unit_of_work)
         self._center = center
@@ -259,6 +261,7 @@ class SharingService(SharingLedgerService):
         self._identity = identity
         self._projection = projection
         self._tmdb = tmdb
+        self._virtual_imports = virtual_imports
 
     def configuration(self) -> SharingHttpResult:
         if self._configuration is None:
@@ -843,6 +846,152 @@ class SharingService(SharingLedgerService):
             return SharingHttpResult({"success": False, "message": "虚拟入库投影不可用"}, 503)
         return SharingHttpResult({"success": True, **self._projection.list_virtual_imports(**query)})
 
+    def import_center_source(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        if self._virtual_imports is None:
+            return SharingHttpResult({"success": False, "message": "共享虚拟入库服务不可用"}, 503)
+        source_value = payload.get("source") if isinstance(payload.get("source"), Mapping) else payload
+        if not isinstance(source_value, Mapping):
+            raise ValueError("source must be an object")
+        source = self._virtual_imports.freeze(source_value)
+        config = self._configuration.load() if self._configuration is not None else {}
+        force_real = _bool_value(payload.get("force_real", False))
+        if _bool_value(config.get("p115_shared_virtual_import_enabled", False)) and not force_real:
+            result = self._stage_provider_operation(
+                kind=SharingOperationKind.VIRTUAL_IMPORT,
+                scope_key=f"virtual-import:{source.source_kind}:{source.source_id}",
+                principal_id=principal_id,
+                idempotency_key=idempotency_key,
+                request={
+                    "provider": "virtual_import",
+                    "action": "create",
+                    "payload": {
+                        "source_kind": source.source_kind,
+                        "source_id": source.source_id,
+                        "source": source.source,
+                        "source_state_hash": source.state_hash,
+                    },
+                },
+                accepted_message="虚拟入库任务已提交",
+            )
+            return _with_data(result, ok=True, accepted=True, virtual=True)
+        request = {
+            "provider": "p115",
+            "action": "transfer_center_source",
+            "payload": {
+                "source_kind": source.source_kind,
+                "source_id": source.source_id,
+                "source": source.source,
+                "source_state_hash": source.state_hash,
+                "mode": "rapid",
+            },
+            "local_continuation": {
+                "type": "finalize_center_transfer",
+                "source_kind": source.source_kind,
+                "source_id": source.source_id,
+            },
+        }
+        result = self._stage_provider_operation(
+            kind=SharingOperationKind.TRANSFER,
+            scope_key=f"center-transfer:{source.source_kind}:{source.source_id}",
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            request=request,
+            accepted_message="共享中心转存任务已提交",
+        )
+        return _with_data(result, ok=True, accepted=True)
+
+    def delete_virtual_import(
+        self,
+        virtual_id: int,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        if self._virtual_imports is None:
+            return SharingHttpResult({"success": False, "message": "共享虚拟入库服务不可用"}, 503)
+        replay = self._replay_virtual_import_deletion(
+            virtual_id,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+        )
+        if replay is not None:
+            return replay
+        item = self._virtual_imports.get(virtual_id)
+        if item is None:
+            return SharingHttpResult({"success": False, "message": "虚拟入库记录不存在"}, 404)
+        state_hash = virtual_import_state_hash(item)
+        result = self._stage_provider_operation(
+            kind=SharingOperationKind.VIRTUAL_IMPORT,
+            scope_key=f"virtual-import:{virtual_id}",
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            request={
+                "provider": "virtual_import",
+                "action": "delete",
+                "payload": {"virtual_id": virtual_id, "state_hash": state_hash},
+                "local_continuation": {
+                    "type": "finalize_virtual_import_deletion",
+                    "virtual_id": virtual_id,
+                    "expected_state_hash": state_hash,
+                },
+            },
+            accepted_message="已提交虚拟入库辞退任务",
+        )
+        return _with_data(result, item=item)
+
+    def promote_virtual_import(
+        self,
+        virtual_id: int,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        if self._virtual_imports is None:
+            return SharingHttpResult({"success": False, "message": "共享虚拟入库服务不可用"}, 503)
+        item = self._virtual_imports.get(virtual_id)
+        if item is None:
+            return SharingHttpResult({"success": False, "message": "虚拟入库记录不存在"}, 404)
+        source = item.get("source_payload_json")
+        if not isinstance(source, Mapping) or not source:
+            return SharingHttpResult({"success": False, "message": "虚拟记录缺少中心源 payload，无法正式入库"}, 400)
+        frozen = self._virtual_imports.freeze(source)
+        state_hash = virtual_import_state_hash(item)
+        request = {
+            "provider": "p115",
+            "action": "transfer_center_source",
+            "payload": {
+                "source_kind": frozen.source_kind,
+                "source_id": frozen.source_id,
+                "source": frozen.source,
+                "source_state_hash": frozen.state_hash,
+                "mode": "rapid",
+                "virtual_id": virtual_id,
+                "virtual_state_hash": state_hash,
+            },
+            "local_continuation": {
+                "type": "finalize_center_transfer",
+                "source_kind": frozen.source_kind,
+                "source_id": frozen.source_id,
+                "virtual_id": virtual_id,
+                "expected_state_hash": state_hash,
+            },
+        }
+        result = self._stage_provider_operation(
+            kind=SharingOperationKind.VIRTUAL_IMPORT,
+            scope_key=f"virtual-import:{virtual_id}",
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            request=request,
+            accepted_message="已提交转正，等待正式入库完成",
+        )
+        return _with_data(result, item=item)
+
     def search_shareable_media(self, keyword: str, *, limit: int) -> SharingHttpResult:
         if self._projection is None:
             return SharingHttpResult({"success": False, "message": "共享资源媒体投影不可用"}, 503)
@@ -1266,6 +1415,62 @@ class SharingService(SharingLedgerService):
                 {"success": False, "status": "conflict", "message": "同一共享操作仍在处理中"},
                 409,
             )
+        return self._provider_operation_result(
+            operation,
+            replayed=replayed,
+            accepted_message=accepted_message,
+            idempotency_key=occurrence,
+        )
+
+    def _replay_virtual_import_deletion(
+        self,
+        virtual_id: int,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult | None:
+        occurrence = str(idempotency_key or "").strip()
+        reader = getattr(self._operations, "read_by_occurrence", None)
+        if not occurrence or not callable(reader):
+            return None
+        operation = cast(
+            SharingOperation | None,
+            reader(
+                kind=SharingOperationKind.VIRTUAL_IMPORT,
+                principal_id=_required(principal_id, "principal_id"),
+                idempotency_key=occurrence,
+            ),
+        )
+        if operation is None:
+            return None
+        request: Mapping[str, Any] = operation.request if isinstance(operation.request, Mapping) else {}
+        payload_value = request.get("payload")
+        payload: Mapping[str, Any] = payload_value if isinstance(payload_value, Mapping) else {}
+        if (
+            operation.scope_key != f"virtual-import:{virtual_id}"
+            or request.get("provider") != "virtual_import"
+            or request.get("action") != "delete"
+            or payload.get("virtual_id") != virtual_id
+        ):
+            return SharingHttpResult(
+                {"success": False, "status": "conflict", "message": "幂等键已用于其他共享操作"},
+                409,
+            )
+        return self._provider_operation_result(
+            operation,
+            replayed=True,
+            accepted_message="已提交虚拟入库辞退任务",
+            idempotency_key=occurrence,
+        )
+
+    @staticmethod
+    def _provider_operation_result(
+        operation: SharingOperation,
+        *,
+        replayed: bool,
+        accepted_message: str,
+        idempotency_key: str,
+    ) -> SharingHttpResult:
         status = operation.status
         payload: dict[str, Any] = {
             "success": status not in {SharingOperationStatus.REJECTED, SharingOperationStatus.INDETERMINATE},
@@ -1273,7 +1478,7 @@ class SharingService(SharingLedgerService):
             "message": accepted_message,
             "operation_id": str(operation.id),
             "status": status.value,
-            "idempotency_key": occurrence,
+            "idempotency_key": idempotency_key,
             "replayed": replayed,
         }
         if status is SharingOperationStatus.CONFIRMED:
@@ -1815,6 +2020,17 @@ def _required(value: object, field: str) -> str:
     if not normalized:
         raise ValueError(f"{field} must not be empty")
     return normalized
+
+
+def _with_data(result: SharingHttpResult, **values: Any) -> SharingHttpResult:
+    """Merge small route-facing hints without changing the operation payload."""
+
+    payload = dict(result.payload) if isinstance(result.payload, Mapping) else {"result": result.payload}
+    current = payload.get("data")
+    data = dict(current) if isinstance(current, Mapping) else {}
+    data.update(values)
+    payload["data"] = data
+    return SharingHttpResult(payload, result.status_code, result.headers)
 
 
 __all__ = [

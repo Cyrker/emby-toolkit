@@ -28,9 +28,23 @@ from .operations import (
     SharingOperationStatus,
 )
 from .projection import SqlAlchemySharingProjectionRepository
+from .rapid_transfer import (
+    NativeP115RapidTransferGateway,
+    RapidTransferOperationDelivery,
+    RapidTransferReadback,
+    RapidUploadOutcome,
+)
 from .repository import DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS, PostgresSharingOperationRepository
 from .router import router
 from .service import SharingLedgerService, SharingService
+from .virtual_import import (
+    AtomicVirtualImportProjector,
+    HttpxEmbyVirtualItemGateway,
+    SqlAlchemyVirtualImportRepository,
+    VirtualImportOperationDelivery,
+    VirtualImportService,
+    VirtualImportSourceResolver,
+)
 
 __all__ = [
     "ContributionLedger",
@@ -42,6 +56,10 @@ __all__ = [
     "PostgresContributionLedger",
     "PostgresSharingOperationRepository",
     "SqlAlchemySharingProjectionRepository",
+    "NativeP115RapidTransferGateway",
+    "RapidTransferOperationDelivery",
+    "RapidTransferReadback",
+    "RapidUploadOutcome",
     "SHARED_INTRO_EXPORT_EFFECT",
     "SHARING_OPERATION_AGGREGATE_TYPE",
     "SHARING_OPERATION_TOPIC",
@@ -57,6 +75,12 @@ __all__ = [
     "SharingService",
     "SharingConfigurationService",
     "SharingServerIdentity",
+    "AtomicVirtualImportProjector",
+    "HttpxEmbyVirtualItemGateway",
+    "SqlAlchemyVirtualImportRepository",
+    "VirtualImportOperationDelivery",
+    "VirtualImportService",
+    "VirtualImportSourceResolver",
     "SharingOperation",
     "SharingOperationIntent",
     "SharingOperationKind",

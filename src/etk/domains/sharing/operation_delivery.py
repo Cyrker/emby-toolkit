@@ -24,7 +24,9 @@ from etk.platform.jobs.json_payload import canonical_json, normalize_durable_jso
 
 from .execution import SharingDeliveryOutcome, SharingOperationDeliveryPort
 from .operations import SharingOperation
+from .rapid_transfer import RapidTransferOperationDelivery
 from .source_registration import freeze_shared_raw_ffprobe, resolve_shared_raw_ffprobe_reference
+from .virtual_import import VirtualImportOperationDelivery
 
 _READBACK_COLLECTION_KEYS = ("items", "sources", "subscriptions", "results", "data")
 _READBACK_OBJECT_KEYS = ("item", "source", "raw", "data")
@@ -52,13 +54,21 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
         hdhive: HDHivePort,
         telegram: TelegramBotPort | None = None,
         raw_ffprobe_loader: Callable[[str], Mapping[str, Any] | None] | None = None,
+        virtual_imports: VirtualImportOperationDelivery | None = None,
+        rapid_transfers: RapidTransferOperationDelivery | None = None,
     ) -> None:
         self._shared_center = shared_center
         self._hdhive = hdhive
         self._telegram = telegram
         self._raw_ffprobe_loader = raw_ffprobe_loader
+        self._virtual_imports = virtual_imports
+        self._rapid_transfers = rapid_transfers
 
     def supports_authoritative_readback(self, operation: SharingOperation) -> bool:
+        if self._virtual_imports is not None and self._virtual_imports.supports(operation):
+            return True
+        if self._rapid_transfers is not None and self._rapid_transfers.supports(operation):
+            return True
         spec = _readback_spec(operation)
         if spec is None:
             return False
@@ -70,6 +80,10 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
         *,
         checkpoint: Callable[[], None],
     ) -> SharingDeliveryOutcome:
+        if self._virtual_imports is not None and self._virtual_imports.supports(operation):
+            return self._virtual_imports.request(operation, checkpoint=checkpoint)
+        if self._rapid_transfers is not None and self._rapid_transfers.supports(operation):
+            return self._rapid_transfers.request(operation, checkpoint=checkpoint)
         provider, action, payload = _request_parts(operation)
         try:
             if provider == "shared_center" and action == "upload_raw_ffprobe":
@@ -96,6 +110,10 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
         return _response_outcome(response)
 
     def readback(self, operation: SharingOperation) -> SharingDeliveryOutcome:
+        if self._virtual_imports is not None and self._virtual_imports.supports(operation):
+            return self._virtual_imports.readback(operation)
+        if self._rapid_transfers is not None and self._rapid_transfers.supports(operation):
+            return self._rapid_transfers.readback(operation)
         spec = _readback_spec(operation)
         if spec is None:
             return SharingDeliveryOutcome.indeterminate({"type": "authoritative_readback_unavailable"})
