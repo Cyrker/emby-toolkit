@@ -769,6 +769,33 @@
         "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-postgres18-ledger",
         "validation_owner": "sharing/ledger"
       },
+      "route-binding-d8ead94da11c": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 credit refresh reads the append-only local contribution ledger and never calls Shared Center in the request thread.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-control-http-postgres18-and-openapi",
+        "validation_owner": "sharing/ledger"
+      },
+      "route-binding-5c8fa13d7dca": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 maintenance submission creates or replays the persistent shared-resource-maintenance Job with one task attempt and performs no provider work in the request thread.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-control-http-job-replay-and-openapi",
+        "validation_owner": "sharing/jobs"
+      },
+      "route-binding-4221316de142": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 keeps the Rapid v2 replenishment preparation endpoint as the fixed administrator-only 400 retirement contract.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-control-http-fixture-and-openapi",
+        "validation_owner": "sharing/http"
+      },
       "route-binding-9a968bf661aa": {
         "fixture": "verification/fixtures/http/p9-sharing.json",
         "fixture_exception": null,
@@ -3686,6 +3713,33 @@
         "status": "new",
         "validation_method": "pytest-p9-sharing-http-fixture-openapi-and-postgres18-ledger",
         "validation_owner": "sharing/ledger"
+      },
+      "route-decorator-a5ea2d78e6ab": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native credit refresh keeps the legacy route identity while making the local contribution ledger authoritative.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-control-http-postgres18-and-openapi",
+        "validation_owner": "sharing/ledger"
+      },
+      "route-decorator-22af739650e7": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native maintenance route submits the catalog Job durably with idempotent replay and no request-thread provider execution.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-control-http-job-replay-and-openapi",
+        "validation_owner": "sharing/jobs"
+      },
+      "route-decorator-80b5e6d87dfd": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native FastAPI sharing router owns the fixed Rapid v2 replenishment retirement response.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-control-http-fixture-and-openapi",
+        "validation_owner": "sharing/http"
       },
       "route-decorator-72c770ce306a": {
         "fixture": "verification/fixtures/http/p9-sharing.json",

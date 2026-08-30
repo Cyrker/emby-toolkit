@@ -195,6 +195,7 @@ export const ENDPOINTS = {
   api_shared_resources_config_886e59a6: '/api/shared/resources/config',
   api_shared_resources_credit_ledger_44a3aa5e: '/api/shared/resources/credit/ledger',
   api_shared_resources_credit_refresh_07b99f9a: '/api/shared/resources/credit/refresh',
+  api_shared_resources_maintenance_run_c2d3e4ca: '/api/shared/resources/maintenance/run',
   api_shared_resources_media_search_33a303cf: '/api/shared/resources/media/search',
   api_shared_resources_operations_param_status_4f7d0b42: '/api/shared/resources/operations/__ETK_PARAM_0__/status',
   api_shared_resources_share_requests_3abaa4b4: '/api/shared/resources/share-requests',

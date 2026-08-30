@@ -6,7 +6,7 @@ from collections.abc import Iterator
 import pytest
 from sqlalchemy import text
 
-from etk.domains.sharing import SqlAlchemySharingProjectionRepository
+from etk.domains.sharing import PostgresContributionLedger, SharingService, SqlAlchemySharingProjectionRepository
 
 SHA_A = "A" * 40
 SHA_B = "B" * 40
@@ -22,6 +22,8 @@ def _clean_projection_tables(p9_runtime) -> Iterator[None]:
         "shared_rapid_source_files",
         "shared_rapid_sources",
         "shared_virtual_imports",
+        "sharing_credit_ledger",
+        "sharing_credit_accounts",
         "shared_credit_snapshot",
         "p115_mediainfo_cache",
         "p115_filesystem_cache",
@@ -38,14 +40,6 @@ def _clean_projection_tables(p9_runtime) -> Iterator[None]:
 
 def test_postgres_local_source_summary_aggregation_and_channel_projection(p9_runtime) -> None:
     with p9_runtime.engine.begin() as connection:
-        connection.execute(
-            text(
-                """
-                INSERT INTO shared_credit_snapshot(id, credit, remote_devices)
-                VALUES (1, 9, 2)
-                """
-            )
-        )
         movie_id = connection.scalar(
             text(
                 """
@@ -125,7 +119,6 @@ def test_postgres_local_source_summary_aggregation_and_channel_projection(p9_run
     assert summary["shares"]["alive_videos"] == 3
     assert summary["shares"]["alive_series_count"] == 1
     assert summary["shares"]["alive_season_count"] == 1
-    assert summary["credit"]["credit"] == 9
     assert listed["total"] == 2
     season = next(item for item in listed["items"] if item["item_type"] == "Season")
     assert season["source_ids"] == [second_episode_id, first_episode_id]
@@ -137,6 +130,33 @@ def test_postgres_local_source_summary_aggregation_and_channel_projection(p9_run
     assert season["completed_share_channel"]["share_code"] == "share-201"
     assert by_sha1["total"] == 1
     assert by_sha1["items"][0]["id"] == movie_id
+
+
+def test_postgres_summary_and_refresh_use_contribution_ledger_not_legacy_snapshot(p9_runtime) -> None:
+    with p9_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO shared_credit_snapshot(id, credit, remote_devices)
+                VALUES (1, 999, 2)
+                """
+            )
+        )
+    ledger = PostgresContributionLedger(p9_runtime.unit_of_work)
+    ledger.ensure_account("admin", 7)
+    service = SharingService(
+        ledger,
+        object(),
+        projection=SqlAlchemySharingProjectionRepository(p9_runtime.unit_of_work, account_id=lambda: "1"),
+    )
+
+    summary = service.summary("admin")
+    refreshed = service.refresh_credit("admin")
+
+    assert summary.status_code == 200
+    assert summary.payload["data"]["credit"] == {"account_id": "admin", "credit": 7}
+    assert refreshed.status_code == 200
+    assert refreshed.payload["data"] == {"account_id": "admin", "credit": 7, "source": "local_ledger"}
 
 
 def test_postgres_local_source_channel_status_filters(p9_runtime) -> None:

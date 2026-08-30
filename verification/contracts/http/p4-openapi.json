@@ -15484,6 +15484,32 @@
         ]
       }
     },
+    "/api/shared/resources/center/replenish/prepare": {
+      "post": {
+        "operationId": "prepare_retired_center_replenishment_api_shared_resources_center_replenish_prepare_post",
+        "responses": {
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Prepare Retired Center Replenishment Api Shared Resources Center Replenish Prepare Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "retired Rapid v2 operation"
+          },
+          "403": {
+            "description": "admin required"
+          }
+        },
+        "summary": "Prepare Retired Center Replenishment",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
     "/api/shared/resources/center/sources": {
       "get": {
         "operationId": "list_center_sources_api_shared_resources_center_sources_get",
@@ -15752,6 +15778,79 @@
           }
         },
         "summary": "Credit Ledger",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/credit/refresh": {
+      "post": {
+        "operationId": "refresh_credit_api_shared_resources_credit_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Refresh Credit Api Shared Resources Credit Refresh Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          }
+        },
+        "summary": "Refresh Credit",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/maintenance/run": {
+      "post": {
+        "operationId": "run_sharing_maintenance_api_shared_resources_maintenance_run_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 200 Run Sharing Maintenance Api Shared Resources Maintenance Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "idempotent maintenance job replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Run Sharing Maintenance Api Shared Resources Maintenance Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "maintenance job queued"
+          },
+          "400": {
+            "description": "invalid idempotency key"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "409": {
+            "description": "job conflict"
+          },
+          "503": {
+            "description": "job runtime unavailable"
+          }
+        },
+        "summary": "Run Sharing Maintenance",
         "tags": [
           "sharing"
         ]

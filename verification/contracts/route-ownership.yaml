@@ -5807,20 +5807,21 @@
       "contract_id": "route-binding-4221316de142",
       "decorator_contract_id": "route-decorator-80b5e6d87dfd",
       "endpoint": "api_replenish_prepare",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 keeps the Rapid v2 replenishment preparation endpoint as the fixed administrator-only 400 retirement contract.",
       "path": "/api/shared/resources/center/replenish/prepare",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2846",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-control-http-fixture-and-openapi",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -5995,40 +5996,42 @@
       "contract_id": "route-binding-d8ead94da11c",
       "decorator_contract_id": "route-decorator-a5ea2d78e6ab",
       "endpoint": "api_refresh_credit",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 credit refresh reads the append-only local contribution ledger and never calls Shared Center in the request thread.",
       "path": "/api/shared/resources/credit/refresh",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2256",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-control-http-postgres18-and-openapi",
+      "validation_owner": "sharing/ledger"
     },
     {
       "application": "api",
       "contract_id": "route-binding-5c8fa13d7dca",
       "decorator_contract_id": "route-decorator-22af739650e7",
       "endpoint": "api_run_maintenance",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 maintenance submission creates or replays the persistent shared-resource-maintenance Job with one task attempt and performs no provider work in the request thread.",
       "path": "/api/shared/resources/maintenance/run",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2838",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-control-http-job-replay-and-openapi",
+      "validation_owner": "sharing/jobs"
     },
     {
       "application": "api",
@@ -14188,22 +14191,23 @@
       "contract_id": "route-decorator-80b5e6d87dfd",
       "declared_path": "/center/replenish/prepare",
       "endpoint": "api_replenish_prepare",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native FastAPI sharing router owns the fixed Rapid v2 replenishment retirement response.",
       "path": "/api/shared/resources/center/replenish/prepare",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2846",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-control-http-fixture-and-openapi",
+      "validation_owner": "sharing/http"
     },
     {
       "application": "api",
@@ -14380,22 +14384,23 @@
       "contract_id": "route-decorator-a5ea2d78e6ab",
       "declared_path": "/credit/refresh",
       "endpoint": "api_refresh_credit",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native credit refresh keeps the legacy route identity while making the local contribution ledger authoritative.",
       "path": "/api/shared/resources/credit/refresh",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2256",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-control-http-postgres18-and-openapi",
+      "validation_owner": "sharing/ledger"
     },
     {
       "application": "api",
@@ -14403,22 +14408,23 @@
       "contract_id": "route-decorator-22af739650e7",
       "declared_path": "/maintenance/run",
       "endpoint": "api_run_maintenance",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native maintenance route submits the catalog Job durably with idempotent replay and no request-thread provider execution.",
       "path": "/api/shared/resources/maintenance/run",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2838",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-control-http-job-replay-and-openapi",
+      "validation_owner": "sharing/jobs"
     },
     {
       "application": "api",

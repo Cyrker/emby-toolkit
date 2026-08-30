@@ -90,14 +90,11 @@ class SqlAlchemySharingProjectionRepository:
                 .mappings()
                 .one()
             )
-            credit = (
-                uow.session.execute(text("SELECT * FROM shared_credit_snapshot WHERE id = 1")).mappings().one_or_none()
-            )
         normalized_shares = _row(shares)
         normalized_shares["alive_videos"] = _integer(normalized_shares.get("alive_movies")) + _integer(
             normalized_shares.get("alive_episodes")
         )
-        return {"shares": normalized_shares, "credit": _row(credit)}
+        return {"shares": normalized_shares}
 
     def list_local_sources(
         self,

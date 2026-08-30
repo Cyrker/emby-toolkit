@@ -662,6 +662,7 @@ const registeringDevice = ref(false);
 const shareAllLoading = ref(false);
 const manualCreating = ref(false);
 const centerDeviceOperationKey = ref('');
+const maintenanceOperationKey = ref('');
 const manualShareOperationKey = ref('');
 const shareRequestOperationKey = ref('');
 const showSharedConfigModal = ref(false);
@@ -4102,9 +4103,13 @@ const openLocalShareForRequest = async (row) => {
 const triggerSharedMaintenance = async () => {
   maintenanceSubmitting.value = true;
   try {
-    const res = await apiClient.post(apiPath('api_tasks_run_e0400fed'), {
-      task_name: 'shared-resource-maintenance'
-    });
+    maintenanceOperationKey.value ||= crypto.randomUUID();
+    const res = await apiClient.post(
+      apiPath('api_shared_resources_maintenance_run_c2d3e4ca'),
+      undefined,
+      { headers: { 'Idempotency-Key': maintenanceOperationKey.value } },
+    );
+    maintenanceOperationKey.value = '';
     message.success(res.data?.message || '共享资源维护任务已提交');
   } catch (e) {
     message.error(e.response?.data?.error || e.response?.data?.message || '提交维护任务失败');
@@ -4185,17 +4190,13 @@ const registerCenterDevice = async () => {
 };
 
 const refreshCredit = async () => {
-  if (needsCenterServerId.value) {
-    message.warning('共享资源中心未连接，请先连接中心。');
-    return;
-  }
   refreshingCredit.value = true;
   try {
     await apiClient.post(apiPath('api_shared_resources_credit_refresh_07b99f9a'));
-    message.success('贡献点已同步');
+    message.success('贡献点已按本地记录刷新');
     await Promise.allSettled([loadSummary(), loadLedger()]);
   } catch (e) {
-    message.error(e.response?.data?.message || '刷新贡献点失败');
+    message.error(e.response?.data?.message || e.message || '刷新贡献点失败');
   } finally {
     refreshingCredit.value = false;
   }

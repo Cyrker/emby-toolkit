@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from etk.compatibility.session_codec import LegacySessionCodec
+from etk.domains.operations.jobs import TaskBusyError
 from etk.domains.sharing import (
     InMemoryContributionLedger,
     SharingConfigurationService,
@@ -181,7 +182,7 @@ class FakeProjection:
 
     def summary(self) -> dict[str, Any]:
         self.calls.append(("summary", {}))
-        return {"shares": {"alive": 2}, "credit": {"credit": 5}}
+        return {"shares": {"alive": 2}, "credit": {"account_id": "legacy", "credit": 999}}
 
     def list_local_sources(self, **query: Any) -> dict[str, Any]:
         self.calls.append(("list_local_sources", dict(query)))
@@ -413,6 +414,31 @@ class FakeOperations:
         return operation
 
 
+class FakeJobs:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+        self.jobs_by_key: dict[str, str] = {}
+        self.next_id = 1
+        self.error: Exception | None = None
+
+    def submit_task(self, task_key: str, parameters: Mapping[str, Any], **options: Any) -> Any:
+        if self.error is not None:
+            raise self.error
+        key = str(options.get("idempotency_key") or "")
+        reused = bool(key and key in self.jobs_by_key)
+        job_id = self.jobs_by_key.get(key) if key else None
+        if job_id is None:
+            job_id = f"maintenance-job-{self.next_id}"
+            self.next_id += 1
+            if key:
+                self.jobs_by_key[key] = job_id
+        self.calls.append((task_key, dict(parameters), dict(options)))
+        return SimpleNamespace(
+            projection=SimpleNamespace(job=SimpleNamespace(id=job_id)),
+            reused=reused,
+        )
+
+
 def _build_app() -> tuple[FastAPI, FakeCenter, FakeAppSettings, FakeOperations]:
     center = FakeCenter()
     app_settings = FakeAppSettings()
@@ -435,6 +461,7 @@ def _build_app() -> tuple[FastAPI, FakeCenter, FakeAppSettings, FakeOperations]:
     )
     app.state.sharing_projection = projection
     app.state.sharing_tmdb = tmdb
+    app.state.sharing_job_service = FakeJobs()
     app.add_middleware(CookieSessionMiddleware, codec_provider=lambda: LegacySessionCodec.from_secret_key(SECRET_KEY))
     app.include_router(router)
     return app, center, app_settings, operations
@@ -697,6 +724,7 @@ def test_native_sharing_local_projection_routes_preserve_read_only_contracts() -
         retired = client.post("/api/shared/resources/shares/1/share/cancel")
 
     assert summary.json()["data"]["shares"]["alive"] == 2
+    assert summary.json()["data"]["credit"] == {"account_id": "admin", "credit": 5}
     assert sources.json()["items"][0]["id"] == 1
     assert checked.json()["item"]["title"] == "Fixture"
     assert missing.status_code == 404
@@ -733,6 +761,93 @@ def test_native_sharing_local_projection_routes_preserve_read_only_contracts() -
         ),
     ]
     assert tmdb.calls == [{"query": "Fixture", "media_type": "tv", "page": 1}]
+
+
+def test_native_sharing_control_routes_use_local_ledger_and_persistent_jobs() -> None:
+    app, center, _app_settings, _operations = _build_app()
+    jobs = app.state.sharing_job_service
+    with TestClient(app) as client:
+        assert client.post("/api/shared/resources/credit/refresh").status_code == 403
+        assert client.post("/api/shared/resources/maintenance/run").status_code == 403
+        assert client.post("/api/shared/resources/center/replenish/prepare").status_code == 403
+        _set_admin(client)
+        refreshed = client.post("/api/shared/resources/credit/refresh")
+        queued = client.post(
+            "/api/shared/resources/maintenance/run",
+            headers={"Idempotency-Key": "maintenance-occurrence"},
+        )
+        replayed = client.post(
+            "/api/shared/resources/maintenance/run",
+            headers={"Idempotency-Key": "maintenance-occurrence"},
+        )
+        oversized = client.post(
+            "/api/shared/resources/maintenance/run",
+            headers={"Idempotency-Key": "x" * 257},
+        )
+        jobs.error = TaskBusyError("fixture busy")
+        conflict = client.post(
+            "/api/shared/resources/maintenance/run",
+            headers={"Idempotency-Key": "maintenance-conflict"},
+        )
+        jobs.error = RuntimeError("fixture unavailable")
+        unavailable = client.post(
+            "/api/shared/resources/maintenance/run",
+            headers={"Idempotency-Key": "maintenance-unavailable"},
+        )
+        retired = client.post("/api/shared/resources/center/replenish/prepare")
+
+    assert refreshed.status_code == 200
+    assert refreshed.json() == {
+        "success": True,
+        "message": "贡献点已按本地 Ledger 刷新",
+        "data": {"account_id": "admin", "credit": 5, "source": "local_ledger"},
+    }
+    assert queued.status_code == 202
+    assert queued.headers["x-etk-job-id"] == "maintenance-job-1"
+    assert queued.json() == {
+        "success": True,
+        "accepted": True,
+        "message": "共享资源维护任务已提交",
+        "job_id": "maintenance-job-1",
+        "reused": False,
+    }
+    assert replayed.status_code == 200
+    assert replayed.json()["job_id"] == "maintenance-job-1"
+    assert replayed.json()["reused"] is True
+    assert oversized.status_code == 400
+    assert conflict.status_code == 409
+    assert conflict.json() == {"success": False, "message": "共享资源维护任务冲突"}
+    assert unavailable.status_code == 503
+    assert unavailable.json() == {"success": False, "message": "共享资源维护任务提交失败"}
+    assert retired.status_code == 400
+    assert retired.json() == {"success": False, "message": "Rapid v2 没有待补充分享，直接登记本地资源即可"}
+    assert jobs.calls == [
+        (
+            "shared-resource-maintenance",
+            {},
+            {
+                "trigger_type": "manual",
+                "requested_by_user_id": "admin",
+                "idempotency_key": "maintenance-occurrence",
+                "idempotency_scope": "api.shared-resources.maintenance",
+                "max_attempts": 1,
+                "trace_id": None,
+            },
+        ),
+        (
+            "shared-resource-maintenance",
+            {},
+            {
+                "trigger_type": "manual",
+                "requested_by_user_id": "admin",
+                "idempotency_key": "maintenance-occurrence",
+                "idempotency_scope": "api.shared-resources.maintenance",
+                "max_attempts": 1,
+                "trace_id": None,
+            },
+        ),
+    ]
+    assert center.calls == []
 
 
 def test_native_sharing_tmdb_search_distinguishes_configuration_and_provider_failures() -> None:

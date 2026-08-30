@@ -278,10 +278,18 @@ class SharingService(SharingLedgerService):
     def credit_ledger(self, account_id: str, *, limit: int = 100) -> SharingHttpResult:
         return self.ledger(account_id, limit=limit)
 
-    def summary(self) -> SharingHttpResult:
+    def summary(self, account_id: str) -> SharingHttpResult:
         if self._projection is None:
             return SharingHttpResult({"success": False, "message": "共享资源本地投影不可用"}, 503)
-        return SharingHttpResult({"success": True, "data": self._projection.summary()})
+        account = _account(account_id)
+        data = dict(self._projection.summary())
+        data["credit"] = {"account_id": account, "credit": self._ledger.balance(account)}
+        return SharingHttpResult({"success": True, "data": data})
+
+    def refresh_credit(self, account_id: str) -> SharingHttpResult:
+        account = _account(account_id)
+        data = {"account_id": account, "credit": self._ledger.balance(account), "source": "local_ledger"}
+        return SharingHttpResult({"success": True, "message": "贡献点已按本地 Ledger 刷新", "data": data})
 
     def local_sources(self, **query: Any) -> SharingHttpResult:
         if self._projection is None:

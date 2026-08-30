@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from typing import Any
 from uuid import UUID
@@ -11,11 +12,14 @@ from starlette.responses import Response
 from werkzeug.exceptions import BadRequest, UnsupportedMediaType
 
 from etk.compatibility.response_contract import fastapi_json_response
+from etk.domains.operations.jobs import TaskBusyError
+from etk.platform.jobs import IdempotencyConflictError
 from etk.platform.web import PermissionPolicy, get_request_session
 
 from .service import SharingHttpResult, SharingService
 
 router = APIRouter(prefix="/api/shared/resources", tags=["sharing"])
+logger = logging.getLogger(__name__)
 
 _JSON_OBJECT_REQUEST_BODY = {
     "requestBody": {
@@ -53,6 +57,13 @@ def _service(request: Request) -> SharingService:
     if not isinstance(value, SharingService):
         raise TypeError("sharing provider returned an invalid service")
     return value
+
+
+def _jobs(request: Request) -> Any:
+    direct = getattr(request.app.state, "sharing_job_service", None)
+    if direct is not None:
+        return direct
+    return request.app.state.container.use_case("operations.jobs")
 
 
 def _admin_denial(request: Request) -> Response | None:
@@ -209,7 +220,7 @@ async def save_shared_resource_config(request: Request) -> Response:
 )
 def shared_resource_summary(request: Request) -> Response:
     denied = _admin_denial(request)
-    return denied or _response(_service(request).summary())
+    return denied or _response(_service(request).summary(_account_id(request)))
 
 
 @router.get(
@@ -461,6 +472,80 @@ def credit_ledger(request: Request) -> Response:
         return denied
     limit = _int_query(request, "limit", 100, 1, 1000)
     return _response(_service(request).credit_ledger(_account_id(request), limit=limit))
+
+
+@router.post(
+    "/credit/refresh",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}},
+)
+def refresh_credit(request: Request) -> Response:
+    denied = _admin_denial(request)
+    return denied or _response(_service(request).refresh_credit(_account_id(request)))
+
+
+@router.post(
+    "/maintenance/run",
+    response_model=dict[str, Any],
+    status_code=202,
+    responses={
+        200: {"description": "idempotent maintenance job replay", "model": dict[str, Any]},
+        202: {"description": "maintenance job queued", "model": dict[str, Any]},
+        400: {"description": "invalid idempotency key"},
+        403: {"description": "admin required"},
+        409: {"description": "job conflict"},
+        503: {"description": "job runtime unavailable"},
+    },
+)
+def run_sharing_maintenance(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    key = str(request.headers.get("idempotency-key") or "").strip() or None
+    if key is not None and len(key) > 256:
+        return fastapi_json_response({"success": False, "message": "维护任务幂等键过长"}, status_code=400)
+    try:
+        submitted = _jobs(request).submit_task(
+            "shared-resource-maintenance",
+            {},
+            trigger_type="manual",
+            requested_by_user_id=_principal_id(request),
+            idempotency_key=key,
+            idempotency_scope="api.shared-resources.maintenance" if key else None,
+            max_attempts=1,
+            trace_id=str(getattr(request.state, "trace_id", "") or "").strip() or None,
+        )
+    except (TaskBusyError, IdempotencyConflictError):
+        return fastapi_json_response({"success": False, "message": "共享资源维护任务冲突"}, status_code=409)
+    except Exception:
+        logger.exception("Unable to submit shared-resource maintenance Job")
+        return fastapi_json_response({"success": False, "message": "共享资源维护任务提交失败"}, status_code=503)
+    job_id = str(submitted.projection.job.id)
+    return fastapi_json_response(
+        {
+            "success": True,
+            "accepted": True,
+            "message": "共享资源维护任务已提交",
+            "job_id": job_id,
+            "reused": bool(submitted.reused),
+        },
+        status_code=200 if submitted.reused else 202,
+        headers={"x-etk-job-id": job_id},
+    )
+
+
+@router.post(
+    "/center/replenish/prepare",
+    response_model=dict[str, Any],
+    status_code=400,
+    responses={400: {"description": "retired Rapid v2 operation"}, 403: {"description": "admin required"}},
+)
+def prepare_retired_center_replenishment(request: Request) -> Response:
+    denied = _admin_denial(request)
+    return denied or fastapi_json_response(
+        {"success": False, "message": "Rapid v2 没有待补充分享，直接登记本地资源即可"},
+        status_code=400,
+    )
 
 
 @router.get(

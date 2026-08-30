@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 285
-EXPECTED_OPERATIONS = 337
+EXPECTED_PATHS = 288
+EXPECTED_OPERATIONS = 340
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -226,6 +226,10 @@ EMPTY_RESPONSE_SCHEMA_ALLOWED = {
     ("get", "/api/database/maintenance/operations/{operation_id}"),
 }
 
+NO_SUCCESS_RESPONSE_ALLOWED = {
+    ("post", "/api/shared/resources/center/replenish/prepare"),
+}
+
 P9_SHARING_RESPONSES = {
     ("get", "/api/shared/resources/config"): {"200", "403", "503"},
     ("post", "/api/shared/resources/config"): {"200", "400", "403", "415", "503"},
@@ -234,25 +238,45 @@ P9_SHARING_RESPONSES = {
     ("post", "/api/shared/resources/shares/{source_id}/check"): {"200", "403", "404", "422", "503"},
     ("post", "/api/shared/resources/shares/{source_id}/share/cancel"): {"200", "403", "404", "410", "422"},
     ("post", "/api/shared/resources/shares/{source_id}/cancel"): {
-        "200", "202", "400", "403", "404", "409", "422", "503"
+        "200",
+        "202",
+        "400",
+        "403",
+        "404",
+        "409",
+        "422",
+        "503",
     },
     ("post", "/api/shared/resources/shares/{source_id}/delete"): {
-        "200", "202", "400", "403", "404", "409", "422", "503"
+        "200",
+        "202",
+        "400",
+        "403",
+        "404",
+        "409",
+        "422",
+        "503",
     },
     ("delete", "/api/shared/resources/shares/{source_id}/delete"): {
-        "200", "202", "400", "403", "404", "409", "422", "503"
+        "200",
+        "202",
+        "400",
+        "403",
+        "404",
+        "409",
+        "422",
+        "503",
     },
-    ("post", "/api/shared/resources/shares/cancel-batch"): {
-        "200", "202", "400", "403", "404", "409", "415", "503"
-    },
-    ("post", "/api/shared/resources/shares/delete-batch"): {
-        "200", "202", "400", "403", "404", "409", "415", "503"
-    },
+    ("post", "/api/shared/resources/shares/cancel-batch"): {"200", "202", "400", "403", "404", "409", "415", "503"},
+    ("post", "/api/shared/resources/shares/delete-batch"): {"200", "202", "400", "403", "404", "409", "415", "503"},
     ("get", "/api/shared/resources/media/search"): {"200", "403", "503"},
     ("post", "/api/shared/resources/shares/manual-validate"): {"200", "400", "403", "415", "503"},
     ("get", "/api/shared/resources/virtual-imports"): {"200", "403", "503"},
     ("get", "/api/shared/resources/credit/balance"): {"200", "403", "503"},
     ("get", "/api/shared/resources/credit/ledger"): {"200", "403", "503"},
+    ("post", "/api/shared/resources/credit/refresh"): {"200", "403"},
+    ("post", "/api/shared/resources/maintenance/run"): {"200", "202", "400", "403", "409", "503"},
+    ("post", "/api/shared/resources/center/replenish/prepare"): {"400", "403"},
     ("get", "/api/shared/resources/center/sources"): {"200", "403", "503"},
     ("get", "/api/shared/resources/center/sources/tags"): {"200", "403"},
     ("get", "/api/shared/resources/center/sources/home"): {"200", "403", "503"},
@@ -267,10 +291,24 @@ P9_SHARING_RESPONSES = {
     ("get", "/api/shared/resources/share-requests/param-options"): {"200", "403"},
     ("get", "/api/shared/resources/share-requests/tmdb/search"): {"200", "400", "403", "503"},
     ("post", "/api/shared/resources/share-requests/{group_id}/co-request"): {
-        "200", "202", "400", "403", "409", "415", "422", "503"
+        "200",
+        "202",
+        "400",
+        "403",
+        "409",
+        "415",
+        "422",
+        "503",
     },
     ("post", "/api/shared/resources/share-requests/{group_id}/cancel"): {
-        "200", "202", "400", "403", "409", "415", "422", "503"
+        "200",
+        "202",
+        "400",
+        "403",
+        "409",
+        "415",
+        "422",
+        "503",
     },
     ("get", "/api/shared/resources/share-requests"): {"200", "403", "503"},
     ("post", "/api/shared/resources/share-requests"): {"200", "202", "400", "403", "409", "415", "503"},
@@ -500,7 +538,7 @@ def _validate_schema(schema: dict[str, Any]) -> None:
                 {},
             )
             content = success.get("content", {})
-            if not content:
+            if not content and (method.casefold(), path) not in NO_SUCCESS_RESPONSE_ALLOWED:
                 raise RuntimeError(f"P4 OpenAPI operation has no 2xx content schema: {method} {path}")
             if (
                 "application/json" in content

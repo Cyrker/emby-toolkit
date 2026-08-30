@@ -4944,6 +4944,67 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Sharing-Control-Routes
+
+Stage / Batch: P11 / Shared Resource control-route cutover
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `33da01c9` (`refactor(p11): persist shared source lifecycle`).
+- Target checkpoint message: `refactor(p11): cut over sharing control routes`.
+
+Implemented:
+
+- Made the append-only local Contribution Ledger authoritative for summary and credit refresh; the
+  legacy Shared Center credit snapshot can no longer override either response, and refresh performs
+  no external request.
+- Replaced the Shared Resource maintenance UI submission with the native
+  `POST /api/shared/resources/maintenance/run` route. The route creates or replays a persistent
+  `shared-resource-maintenance` Job, freezes `max_attempts=1`, bounds the stable idempotency key and
+  performs no provider work in the request thread.
+- Preserved `POST /api/shared/resources/center/replenish/prepare` as the exact administrator-only
+  Rapid v2 `400` retirement contract, including an explicit OpenAPI no-success exception rather than
+  a fictitious `2xx` response.
+- Regenerated Manifest, OpenAPI and the TypeScript schema. Route ownership is now `309 new / 34
+  legacy` decorators and `331 new / 36 legacy` method bindings; OpenAPI is `288 paths / 340
+  operations`.
+
+Targeted gate:
+
+- Scoped Ruff/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`).
+- P9 application -> `90 passed`; disposable PostgreSQL 18 P9 scope -> `42 passed`.
+- P1 import/CLI plus OpenAPI contract -> `5 passed`.
+- Frontend client generation, typecheck, build and API-boundary -> passed; Vitest -> `7 passed`;
+  build retained only the existing large-chunk warning.
+- Manifest/OpenAPI currentness, three fixture/contract secret scans, scoped compileall,
+  `uv lock --check` and `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-sharing-control-routes-20260830/summary.md`.
+
+Focused review:
+
+- Reviewed Ledger authority, stale legacy snapshot isolation, permission ordering, Job replay and
+  conflict/failure mapping, request-thread provider isolation, frontend occurrence retention and the
+  fixed-`400` OpenAPI contract. No deterministic P0/P1/P2 remains in this slice.
+- One read-only audit agent modified three scoped files contrary to its instruction. It was stopped;
+  provenance was confirmed, retained lines were independently reviewed, and the full targeted gate
+  was rerun serially. No unexplained writer or file remains.
+
+Pending:
+
+- Native-only Worker remains `22 executable / 28 unavailable`; 34 route decorators, 36 method
+  bindings, 12 tables, 82 dynamic config keys, seven bootstrap keys and 11 standalone settings
+  remain legacy-owned.
+- Complete the remaining Shared Resource effects/routes and all unavailable native tasks, reach
+  Route/Task/Table/Config/Frontend ownership 100%, then generate the final pre-removal inventory,
+  perform controlled legacy removal and run every P11 NFR/security/SBOM/vulnerability/License gate.
+  P12 remains `TODO` and Live Acceptance remains `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -4963,8 +5024,7 @@ Read first:
 
 Next:
 
-- Continue Shared Resource re-registration/reporting, center import, virtual effects, credit refresh
-  and maintenance routes, then resume native-only task execution beginning with the smallest
-  evidence-backed slice. Close all remaining Route, Task, Table and Config ownership before
-  controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete; keep
-  all Live Acceptance items pending.
+- Continue Shared Resource report-center/re-registration, then center import and virtual effects;
+  resume native-only task execution with the smallest evidence-backed slice afterward. Close all
+  remaining Route, Task, Table and Config ownership before controlled removal. Do not start P12
+  until P11 ownership, removal and NFR gates are complete; keep all Live Acceptance items pending.
