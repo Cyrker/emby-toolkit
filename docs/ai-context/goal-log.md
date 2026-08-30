@@ -4783,6 +4783,61 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Shared-Resource-Projections
+
+Stage / Batch: P11 / native Shared Resource local and read projections
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `bcadbe43` (`fix(p11): keep plaintext imports side-effect free`).
+- Target checkpoint message: `refactor(p11): migrate shared resource projections`.
+
+Implemented:
+
+- Added the native SQLAlchemy sharing projection for local source summary/list/check, account-bound
+  media search, local manual RAW validation, virtual-import listing, static share-request options and
+  typed TMDb search. Request-thread projection paths do not call Shared Center or perform provider
+  writes.
+- Preserved Episode-to-Season aggregation, completed logical-season channel association, UI status
+  filters, per-page RAW loading, account-scoped 115 cache/ancestor reads and multi-file PickCode-to-
+  SHA1 identity. RAW validation accepts ffprobe, nested `MediaSourceInfo.MediaStreams` and top-level
+  `MediaStreams` shapes while rejecting audio-only content.
+- Registered nine native HTTP operations, regenerated OpenAPI and the TypeScript schema, and moved
+  only those verified bindings/decorators to the native projection owner. Stabilized the P9 proxy
+  lease test by supplying its existing fixed clock to `refresh()`.
+
+Targeted gate:
+
+- P9 application -> `82 passed`; disposable PostgreSQL 18 P9 scope -> `39 passed`.
+- P1 import/CLI plus OpenAPI contract -> `5 passed`; scoped Ruff/format and Pyright -> clean
+  (`0 errors, 0 warnings, 0 informations`); compileall, `uv lock --check` and `git diff --check` ->
+  clean.
+- Frontend typecheck/build/API boundary passed; Vitest -> `7 passed`; build retained only the
+  existing large-chunk warning. Manifest, OpenAPI and all three fixture/contract secret scans are
+  clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-sharing-projection-20260830/`.
+
+Focused review:
+
+- Reviewed RAW shape and display requirements, multi-file identity, account isolation, logical-
+  season channel association/status filters, pagination, auth/status-code contracts and generated
+  ownership artifacts. A final review found sparse SHA1-slot misalignment (P1) and synthetic
+  cross-account ancestor fallback (P2); slot-preserving identity plus fail-closed ancestry and
+  PostgreSQL 18 regressions closed both. No deterministic P0/P1/P2 remains in this slice.
+
+Pending:
+
+- Shared Resource credit refresh, share-request co-request/cancel, source lifecycle, manual-create
+  completion, center import/virtual effects and sharing background task execution remain.
+- Continue all unavailable native tasks and Route/Task/Table/Config ownership, then generate the
+  pre-removal inventory, perform controlled removal and run all P11 NFR/security/SBOM/License gates.
+  P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

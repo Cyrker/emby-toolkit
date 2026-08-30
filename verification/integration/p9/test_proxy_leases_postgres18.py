@@ -46,7 +46,13 @@ def test_postgres_proxy_leases_refresh_release_and_expiry_reclaim(p9_runtime) ->
     store = PostgresPlaybackLeaseStore(p9_runtime.unit_of_work)
     lease = store.acquire("user-2", "item-1", play_session_id="session-1", ttl_seconds=10, now=NOW)
     assert lease is not None
-    assert store.refresh(user_id="user-2", item_id="item-1", play_session_id="session-1", ttl_seconds=20)
+    assert store.refresh(
+        user_id="user-2",
+        item_id="item-1",
+        play_session_id="session-1",
+        ttl_seconds=20,
+        now=NOW + timedelta(seconds=1),
+    )
     assert store.reclaim_expired(now=NOW + timedelta(seconds=1)) == 0
     assert store.release(user_id="user-2", item_id="item-1", play_session_id="session-1") == 1
     assert store.release(user_id="user-2", item_id="item-1", play_session_id="session-1") == 0

@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 270
-EXPECTED_OPERATIONS = 321
+EXPECTED_PATHS = 279
+EXPECTED_OPERATIONS = 330
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -229,6 +229,13 @@ EMPTY_RESPONSE_SCHEMA_ALLOWED = {
 P9_SHARING_RESPONSES = {
     ("get", "/api/shared/resources/config"): {"200", "403", "503"},
     ("post", "/api/shared/resources/config"): {"200", "400", "403", "415", "503"},
+    ("get", "/api/shared/resources/summary"): {"200", "403", "503"},
+    ("get", "/api/shared/resources/shares"): {"200", "403", "503"},
+    ("post", "/api/shared/resources/shares/{source_id}/check"): {"200", "403", "404", "422", "503"},
+    ("post", "/api/shared/resources/shares/{source_id}/share/cancel"): {"200", "403", "404", "410", "422"},
+    ("get", "/api/shared/resources/media/search"): {"200", "403", "503"},
+    ("post", "/api/shared/resources/shares/manual-validate"): {"200", "400", "403", "415", "503"},
+    ("get", "/api/shared/resources/virtual-imports"): {"200", "403", "503"},
     ("get", "/api/shared/resources/credit/balance"): {"200", "403", "503"},
     ("get", "/api/shared/resources/credit/ledger"): {"200", "403", "503"},
     ("get", "/api/shared/resources/center/sources"): {"200", "403", "503"},
@@ -242,6 +249,8 @@ P9_SHARING_RESPONSES = {
     ("post", "/api/shared/resources/transfers/lease"): {"200", "202", "400", "403", "409", "415", "503"},
     ("post", "/api/shared/resources/transfers/report"): {"200", "202", "400", "403", "409", "415", "503"},
     ("post", "/api/shared/resources/share-requests/quote"): {"200", "400", "403", "415", "503"},
+    ("get", "/api/shared/resources/share-requests/param-options"): {"200", "403"},
+    ("get", "/api/shared/resources/share-requests/tmdb/search"): {"200", "400", "403", "503"},
     ("get", "/api/shared/resources/share-requests"): {"200", "403", "503"},
     ("post", "/api/shared/resources/share-requests"): {"200", "202", "400", "403", "409", "415", "503"},
     ("get", "/api/shared/resources/operations/{operation_id}/status"): {"200", "403", "404", "422", "503"},
@@ -249,11 +258,17 @@ P9_SHARING_RESPONSES = {
 P9_SHARING_BODY_OPERATIONS = {
     ("post", "/api/shared/resources/config"),
     ("post", "/api/shared/resources/center/device/register"),
+    ("post", "/api/shared/resources/shares/manual-validate"),
     ("post", "/api/shared/resources/shares/manual-create"),
     ("post", "/api/shared/resources/transfers/lease"),
     ("post", "/api/shared/resources/transfers/report"),
     ("post", "/api/shared/resources/share-requests/quote"),
     ("post", "/api/shared/resources/share-requests"),
+}
+P9_SHARING_422_OPERATIONS = {
+    ("get", "/api/shared/resources/operations/{operation_id}/status"),
+    ("post", "/api/shared/resources/shares/{source_id}/check"),
+    ("post", "/api/shared/resources/shares/{source_id}/share/cancel"),
 }
 
 
@@ -294,10 +309,7 @@ def _validate_schema(schema: dict[str, Any]) -> None:
             request_body = operation.get("requestBody", {})
             if request_body.get("required") is not True or set(request_body.get("content", {})) != {"application/json"}:
                 raise RuntimeError(f"P9 sharing JSON request-body contract changed: {method} {path}")
-        if "422" in operation.get("responses", {}) and (method, path) != (
-            "get",
-            "/api/shared/resources/operations/{operation_id}/status",
-        ):
+        if "422" in operation.get("responses", {}) and (method, path) not in P9_SHARING_422_OPERATIONS:
             raise RuntimeError(f"P9 sharing operation exposes automatic 422: {method} {path}")
     for method, path in BODY_METHODS:
         operation = paths.get(path, {}).get(method, {})

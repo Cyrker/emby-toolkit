@@ -245,11 +245,15 @@ class SharingService(SharingLedgerService):
         unit_of_work: Callable[[], SqlAlchemyUnitOfWork] | None = None,
         configuration: SharingConfigurationService | None = None,
         identity: SharingServerIdentity | None = None,
+        projection: Any | None = None,
+        tmdb: Any | None = None,
     ) -> None:
         super().__init__(ledger, operations=operations, unit_of_work=unit_of_work)
         self._center = center
         self._configuration = configuration
         self._identity = identity
+        self._projection = projection
+        self._tmdb = tmdb
 
     def configuration(self) -> SharingHttpResult:
         if self._configuration is None:
@@ -273,6 +277,93 @@ class SharingService(SharingLedgerService):
 
     def credit_ledger(self, account_id: str, *, limit: int = 100) -> SharingHttpResult:
         return self.ledger(account_id, limit=limit)
+
+    def summary(self) -> SharingHttpResult:
+        if self._projection is None:
+            return SharingHttpResult({"success": False, "message": "共享资源本地投影不可用"}, 503)
+        return SharingHttpResult({"success": True, "data": self._projection.summary()})
+
+    def local_sources(self, **query: Any) -> SharingHttpResult:
+        if self._projection is None:
+            return SharingHttpResult({"success": False, "message": "共享资源本地投影不可用"}, 503)
+        return SharingHttpResult({"success": True, **self._projection.list_local_sources(**query)})
+
+    def local_source_check(self, source_id: int) -> SharingHttpResult:
+        if self._projection is None:
+            return SharingHttpResult({"success": False, "message": "共享资源本地投影不可用"}, 503)
+        item = self._projection.get_local_source(source_id)
+        if item is None:
+            return SharingHttpResult({"success": False, "message": "本地共享源不存在"}, 404)
+        return SharingHttpResult(
+            {
+                "success": True,
+                "message": "Rapid v2 本地源无需 115 分享审核",
+                "item": item,
+            }
+        )
+
+    def virtual_imports(self, **query: Any) -> SharingHttpResult:
+        if self._projection is None:
+            return SharingHttpResult({"success": False, "message": "虚拟入库投影不可用"}, 503)
+        return SharingHttpResult({"success": True, **self._projection.list_virtual_imports(**query)})
+
+    def search_shareable_media(self, keyword: str, *, limit: int) -> SharingHttpResult:
+        if self._projection is None:
+            return SharingHttpResult({"success": False, "message": "共享资源媒体投影不可用"}, 503)
+        return SharingHttpResult(
+            {"success": True, "items": self._projection.search_shareable_media(keyword, limit=limit)}
+        )
+
+    def validate_manual_source(self, payload: Mapping[str, Any]) -> SharingHttpResult:
+        if self._projection is None:
+            return SharingHttpResult({"success": False, "message": "共享资源媒体投影不可用"}, 503)
+        result = self._projection.validate_manual_source(payload)
+        return SharingHttpResult(
+            {
+                "success": True,
+                "message": result.get("message") or "预校验完成",
+                "data": result,
+                "files": result.get("files") or [],
+                "missing_raw": result.get("missing_raw") or [],
+            }
+        )
+
+    @staticmethod
+    def share_request_param_options() -> SharingHttpResult:
+        values = {
+            "resolution": ["4K", "1080p", "720p", "480p"],
+            "codec": ["HEVC", "H.264", "AV1", "VP9"],
+            "effect": ["DoVi P8", "DoVi P7", "DoVi P5", "DoVi", "HDR10+", "HDR", "SDR"],
+            "audio": ["国语", "粤语", "英语", "日语", "韩语"],
+            "subtitle": ["简体", "繁体", "英文", "日文", "韩文", "无"],
+        }
+        data = {key: [{"label": value, "value": value} for value in options] for key, options in values.items()}
+        data["frame_rate"] = [
+            {"label": label, "value": value}
+            for label, value in (("≥ 60 fps", "60"), ("≥ 50 fps", "50"), ("≥ 30 fps", "30"), ("24 fps", "24"))
+        ]
+        return SharingHttpResult({"success": True, "data": data})
+
+    def search_share_request_tmdb(self, keyword: str, *, media_type: str) -> SharingHttpResult:
+        normalized_keyword = str(keyword or "").strip()
+        if not normalized_keyword:
+            return SharingHttpResult({"success": True, "items": []})
+        if self._tmdb is None:
+            return SharingHttpResult({"success": False, "message": "TMDb 搜索不可用"}, 503)
+        configured = getattr(self._tmdb, "daily_theme_configured", None)
+        if callable(configured) and not bool(configured()):
+            return SharingHttpResult({"success": False, "message": "未配置 TMDb API Key"}, 400)
+        normalized_type = "tv" if str(media_type or "").strip().lower() in {"tv", "series"} else "movie"
+        try:
+            payload = self._tmdb.search(query=normalized_keyword, media_type=normalized_type, page=1)
+        except (RuntimeError, TypeError, ValueError):
+            return SharingHttpResult({"success": False, "message": "TMDb 搜索失败"}, 503)
+        if not isinstance(payload, Mapping):
+            return SharingHttpResult({"success": False, "message": "TMDb 搜索失败"}, 503)
+        raw_rows = payload.get("results")
+        rows = raw_rows if isinstance(raw_rows, list) else []
+        items = [_share_request_tmdb_item(row, normalized_type) for row in rows[:20] if isinstance(row, Mapping)]
+        return SharingHttpResult({"success": True, "items": items})
 
     def list_sources(self, **query: Any) -> SharingHttpResult:
         # Older fakes and compatibility adapters expose the un-decorated
@@ -1005,6 +1096,24 @@ def _display_count(value: object, default: int) -> int:
         return max(0, int(str(value).strip())) if value not in (None, "") else max(0, int(default))
     except (TypeError, ValueError, OverflowError):
         return max(0, int(default))
+
+
+def _share_request_tmdb_item(row: Mapping[str, Any], media_type: str) -> dict[str, Any]:
+    if media_type == "movie":
+        release = str(row.get("release_date") or "")
+        title = _first_text(row.get("title"), row.get("name"), row.get("original_title"))
+    else:
+        release = str(row.get("first_air_date") or "")
+        title = _first_text(row.get("name"), row.get("title"), row.get("original_name"))
+    release_year = _display_count(release[:4], 0) or None if len(release) >= 4 else None
+    return {
+        "tmdb_id": str(row.get("id") or ""),
+        "media_type": "movie" if media_type == "movie" else "tv",
+        "title": title,
+        "release_year": release_year,
+        "poster_path": row.get("poster_path") or "",
+        "overview": row.get("overview") or "",
+    }
 
 
 def _retry_header(response: ProviderResponse[Any]) -> dict[str, str]:

@@ -134,6 +134,67 @@ class FakeCenter:
         return ProviderResponse(ProviderDisposition.CONFIRMED, 202, {"group_id": "group-1"})
 
 
+class FakeProjection:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, Any]] = []
+
+    def summary(self) -> dict[str, Any]:
+        self.calls.append(("summary", {}))
+        return {"shares": {"alive": 2}, "credit": {"credit": 5}}
+
+    def list_local_sources(self, **query: Any) -> dict[str, Any]:
+        self.calls.append(("list_local_sources", dict(query)))
+        return {"items": [{"id": 1, "title": "Fixture"}], "total": 1, "page": query["page"]}
+
+    def get_local_source(self, source_id: int) -> dict[str, Any] | None:
+        self.calls.append(("get_local_source", source_id))
+        return {"id": 1, "title": "Fixture"} if source_id == 1 else None
+
+    def list_virtual_imports(self, **query: Any) -> dict[str, Any]:
+        self.calls.append(("list_virtual_imports", dict(query)))
+        return {"items": [{"id": 7, "status": "virtual"}], "total": 1, "page": query["page"]}
+
+    def search_shareable_media(self, keyword: str, *, limit: int) -> list[dict[str, Any]]:
+        self.calls.append(("search_shareable_media", {"keyword": keyword, "limit": limit}))
+        return [{"tmdb_id": "101", "share_item_type": "Movie", "resolvable": True}]
+
+    def validate_manual_source(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        self.calls.append(("validate_manual_source", dict(payload)))
+        return {
+            "valid": True,
+            "message": "预校验完成",
+            "file_count": 1,
+            "files": [{"sha1": "A" * 40}],
+            "missing_raw": [],
+        }
+
+
+class FakeTmdb:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+        self.configured = True
+        self.fail_search = False
+
+    def daily_theme_configured(self) -> bool:
+        return self.configured
+
+    def search(self, **query: Any) -> Mapping[str, Any]:
+        self.calls.append(dict(query))
+        if self.fail_search:
+            raise RuntimeError("fixture TMDb failure")
+        return {
+            "results": [
+                {
+                    "id": 101,
+                    "name": "Fixture Series",
+                    "first_air_date": "2026-08-30",
+                    "poster_path": "/fixture.jpg",
+                    "overview": "Fixture",
+                }
+            ]
+        }
+
+
 class DisplayParityCenter:
     @staticmethod
     def list_display_sources(**query: Any) -> ProviderResponse[dict[str, Any]]:
@@ -267,6 +328,8 @@ def _build_app() -> tuple[FastAPI, FakeCenter, FakeAppSettings, FakeOperations]:
     center = FakeCenter()
     app_settings = FakeAppSettings()
     operations = FakeOperations()
+    projection = FakeProjection()
+    tmdb = FakeTmdb()
     app = FastAPI()
     app.state.container = AppContainer(
         Settings(auth_enabled=True),
@@ -278,7 +341,11 @@ def _build_app() -> tuple[FastAPI, FakeCenter, FakeAppSettings, FakeOperations]:
         operations,
         configuration=SharingConfigurationService(app_settings),
         identity=SharingServerIdentity({}, app_settings),
+        projection=projection,
+        tmdb=tmdb,
     )
+    app.state.sharing_projection = projection
+    app.state.sharing_tmdb = tmdb
     app.add_middleware(CookieSessionMiddleware, codec_provider=lambda: LegacySessionCodec.from_secret_key(SECRET_KEY))
     app.include_router(router)
     return app, center, app_settings, operations
@@ -348,6 +415,16 @@ def test_native_sharing_routes_reject_malformed_json_and_secret_payloads() -> No
             content="not-json",
             headers={"content-type": "application/json"},
         )
+        manual_malformed = client.post(
+            "/api/shared/resources/shares/manual-validate",
+            content="not-json",
+            headers={"content-type": "application/json"},
+        )
+        manual_wrong_type = client.post(
+            "/api/shared/resources/shares/manual-validate",
+            content="{}",
+            headers={"content-type": "text/plain"},
+        )
         secret = client.post(
             "/api/shared/resources/shares/manual-create",
             json={"source_kind": "movie", "api_key": "must-not-persist"},
@@ -359,10 +436,90 @@ def test_native_sharing_routes_reject_malformed_json_and_secret_payloads() -> No
         )
 
     assert malformed.status_code == 400
+    assert manual_malformed.status_code == 400
+    assert manual_wrong_type.status_code == 415
     assert secret.status_code == 400
     assert oversized_key.status_code == 400
     assert [name for name, _payload in center.calls] == []
     assert operations.intents == []
+
+
+def test_native_sharing_local_projection_routes_preserve_read_only_contracts() -> None:
+    app, center, _app_settings, _operations = _build_app()
+    projection = app.state.sharing_projection
+    tmdb = app.state.sharing_tmdb
+    with TestClient(app) as client:
+        assert client.get("/api/shared/resources/summary").status_code == 403
+        _set_admin(client)
+        summary = client.get("/api/shared/resources/summary")
+        sources = client.get("/api/shared/resources/shares?status=reported&q=Fixture&page=2&page_size=7&raw_limit=1500")
+        checked = client.post("/api/shared/resources/shares/1/check")
+        missing = client.post("/api/shared/resources/shares/999/check")
+        media = client.get("/api/shared/resources/media/search?q=Fixture&limit=11")
+        validated = client.post(
+            "/api/shared/resources/shares/manual-validate",
+            json={"tmdb_id": "101", "item_type": "Movie"},
+        )
+        virtual = client.get("/api/shared/resources/virtual-imports?status=all&type=Movie&q=Fixture&page=3&page_size=9")
+        options = client.get("/api/shared/resources/share-requests/param-options")
+        empty_tmdb = client.get("/api/shared/resources/share-requests/tmdb/search")
+        searched_tmdb = client.get("/api/shared/resources/share-requests/tmdb/search?keyword=Fixture&media_type=series")
+        retired = client.post("/api/shared/resources/shares/1/share/cancel")
+
+    assert summary.json()["data"]["shares"]["alive"] == 2
+    assert sources.json()["items"][0]["id"] == 1
+    assert checked.json()["item"]["title"] == "Fixture"
+    assert missing.status_code == 404
+    assert media.json()["items"][0]["share_item_type"] == "Movie"
+    assert validated.json()["data"]["valid"] is True
+    assert virtual.json()["items"][0]["id"] == 7
+    assert options.json()["data"]["resolution"][0] == {"label": "4K", "value": "4K"}
+    assert empty_tmdb.json()["items"] == []
+    assert searched_tmdb.json()["items"] == [
+        {
+            "tmdb_id": "101",
+            "media_type": "tv",
+            "title": "Fixture Series",
+            "release_year": 2026,
+            "poster_path": "/fixture.jpg",
+            "overview": "Fixture",
+        }
+    ]
+    assert retired.status_code == 410
+    assert center.calls == []
+    assert projection.calls == [
+        ("summary", {}),
+        (
+            "list_local_sources",
+            {"status": "reported", "keyword": "Fixture", "page": 2, "page_size": 7, "raw_limit": 1500},
+        ),
+        ("get_local_source", 1),
+        ("get_local_source", 999),
+        ("search_shareable_media", {"keyword": "Fixture", "limit": 11}),
+        ("validate_manual_source", {"tmdb_id": "101", "item_type": "Movie"}),
+        (
+            "list_virtual_imports",
+            {"status": "all", "keyword": "Fixture", "item_type": "Movie", "page": 3, "page_size": 9},
+        ),
+    ]
+    assert tmdb.calls == [{"query": "Fixture", "media_type": "tv", "page": 1}]
+
+
+def test_native_sharing_tmdb_search_distinguishes_configuration_and_provider_failures() -> None:
+    app, _center, _app_settings, _operations = _build_app()
+    tmdb = app.state.sharing_tmdb
+    with TestClient(app) as client:
+        _set_admin(client)
+        tmdb.configured = False
+        not_configured = client.get("/api/shared/resources/share-requests/tmdb/search?keyword=Fixture")
+        tmdb.configured = True
+        tmdb.fail_search = True
+        unavailable = client.get("/api/shared/resources/share-requests/tmdb/search?keyword=Fixture")
+
+    assert not_configured.status_code == 400
+    assert not_configured.json() == {"success": False, "message": "未配置 TMDb API Key"}
+    assert unavailable.status_code == 503
+    assert unavailable.json() == {"success": False, "message": "TMDb 搜索失败"}
 
 
 def test_native_sharing_operation_cancellation_contract() -> None:

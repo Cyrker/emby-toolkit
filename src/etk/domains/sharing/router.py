@@ -92,6 +92,14 @@ def _int_query(request: Request, key: str, default: int, minimum: int, maximum: 
     return max(minimum, min(value, maximum))
 
 
+def _positive_path_int(value: object) -> int | None:
+    try:
+        normalized = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return normalized if normalized > 0 else None
+
+
 def _bool_query(request: Request, *keys: str, default: bool = False) -> bool:
     value: object = None
     for key in keys:
@@ -178,6 +186,138 @@ async def save_shared_resource_config(request: Request) -> Response:
     except (TypeError, ValueError):
         return fastapi_json_response({"success": False, "message": "共享资源配置请求无效"}, status_code=400)
     return _response(result)
+
+
+@router.get(
+    "/summary",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}, 503: {"description": "projection unavailable"}},
+)
+def shared_resource_summary(request: Request) -> Response:
+    denied = _admin_denial(request)
+    return denied or _response(_service(request).summary())
+
+
+@router.get(
+    "/shares",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}, 503: {"description": "projection unavailable"}},
+)
+def list_local_sources(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    return _response(
+        _service(request).local_sources(
+            status=request.query_params.get("status") or "usable",
+            keyword=request.query_params.get("keyword") or request.query_params.get("q") or "",
+            page=_int_query(request, "page", 1, 1, 10_000_000),
+            page_size=_int_query(request, "page_size", 30, 1, 200),
+            raw_limit=_int_query(request, "raw_limit", 200_000, 1_000, 200_000),
+        )
+    )
+
+
+@router.post(
+    "/shares/{source_id}/check",
+    response_model=dict[str, Any],
+    responses={
+        403: {"description": "admin required"},
+        404: {"description": "source not found"},
+        503: {"description": "projection unavailable"},
+    },
+)
+def check_local_source(request: Request, source_id: str) -> Response:
+    denied = _admin_denial(request)
+    normalized_id = _positive_path_int(source_id)
+    if normalized_id is None:
+        return denied or fastapi_json_response({"success": False, "message": "本地共享源不存在"}, status_code=404)
+    return denied or _response(_service(request).local_source_check(normalized_id))
+
+
+@router.post(
+    "/shares/{source_id}/share/cancel",
+    response_model=dict[str, Any],
+    responses={
+        403: {"description": "admin required"},
+        404: {"description": "source not found"},
+        410: {"description": "retired route"},
+    },
+)
+def cancel_retired_completed_season_share(request: Request, source_id: str) -> Response:
+    denied = _admin_denial(request)
+    if _positive_path_int(source_id) is None:
+        return denied or fastapi_json_response({"success": False, "message": "本地共享源不存在"}, status_code=404)
+    return denied or fastapi_json_response(
+        {
+            "success": False,
+            "message": "旧 completed_season 分享取消接口已停用；逻辑季分享由中心 logical_season_share_channels 管理。",
+        },
+        status_code=410,
+    )
+
+
+@router.get(
+    "/media/search",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}, 503: {"description": "projection unavailable"}},
+)
+def search_shareable_media(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    return _response(
+        _service(request).search_shareable_media(
+            request.query_params.get("keyword") or request.query_params.get("q") or "",
+            limit=_int_query(request, "limit", 100, 1, 500),
+        )
+    )
+
+
+@router.post(
+    "/shares/manual-validate",
+    response_model=dict[str, Any],
+    responses={
+        400: {"description": "invalid request"},
+        403: {"description": "admin required"},
+        415: {"description": "JSON required"},
+        503: {"description": "projection unavailable"},
+    },
+    openapi_extra=_JSON_OBJECT_REQUEST_BODY,
+)
+async def validate_manual_source(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _json_object(request)
+    if error is not None:
+        return error
+    assert payload is not None
+    try:
+        result = await run_in_threadpool(_service(request).validate_manual_source, payload)
+    except (TypeError, ValueError):
+        return fastapi_json_response({"success": False, "message": "共享源预校验请求无效"}, status_code=400)
+    return _response(result)
+
+
+@router.get(
+    "/virtual-imports",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}, 503: {"description": "projection unavailable"}},
+)
+def list_virtual_imports(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    return _response(
+        _service(request).virtual_imports(
+            status=request.query_params.get("status") or "virtual",
+            keyword=request.query_params.get("keyword") or request.query_params.get("q") or "",
+            item_type=request.query_params.get("item_type") or request.query_params.get("type") or "all",
+            page=_int_query(request, "page", 1, 1, 10_000_000),
+            page_size=_int_query(request, "page_size", 30, 1, 200),
+        )
+    )
 
 
 @router.get(
@@ -484,6 +624,37 @@ async def quote_share_request(request: Request) -> Response:
     except (TypeError, ValueError):
         return fastapi_json_response({"success": False, "message": "求共享报价请求无效"}, status_code=400)
     return _response(result)
+
+
+@router.get(
+    "/share-requests/param-options",
+    response_model=dict[str, Any],
+    responses={403: {"description": "admin required"}},
+)
+def share_request_param_options(request: Request) -> Response:
+    denied = _admin_denial(request)
+    return denied or _response(_service(request).share_request_param_options())
+
+
+@router.get(
+    "/share-requests/tmdb/search",
+    response_model=dict[str, Any],
+    responses={
+        400: {"description": "TMDb is not configured"},
+        403: {"description": "admin required"},
+        503: {"description": "TMDb unavailable"},
+    },
+)
+def search_share_request_tmdb(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    return _response(
+        _service(request).search_share_request_tmdb(
+            request.query_params.get("keyword") or request.query_params.get("q") or "",
+            media_type=request.query_params.get("media_type") or "movie",
+        )
+    )
 
 
 async def _share_requests(request: Request) -> Response:

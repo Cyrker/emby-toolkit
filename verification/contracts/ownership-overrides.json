@@ -3387,6 +3387,87 @@
         "status": "new",
         "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
         "validation_owner": "sharing/proxy"
+      },
+      "route-binding-ecd57f1532b0": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns the read-only local summary contract without calling Shared Center.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-binding-2ee916339ec5": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns local source aggregation, filtering and logical-season channel readback.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-binding-f4ab0249ec6f": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns the local source check endpoint and keeps provider mutation out of the request thread.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-binding-d5e3d3b47220": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing router preserves the retired completed-season cancellation endpoint as an explicit HTTP 410.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-binding-15a94405cae4": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns shareable media search over native media and account-bound 115 cache projections.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-binding-b906eacbe6a6": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns local manual-source identity and RAW summary validation without provider writes.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-binding-78713afda26f": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns read-only virtual-import filtering and pagination.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-binding-ad6fee259d20": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing router owns the static share-request parameter option contract.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-binding-ce9535ccd997": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing router owns share-request TMDb search through the typed native discovery adapter.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
       }
     },
     "route_decorators": {
@@ -6008,6 +6089,87 @@
         "status": "new",
         "validation_method": "pytest-p9-proxy-and-postgres18-lease-contract",
         "validation_owner": "sharing/proxy"
+      },
+      "route-decorator-69e33c61ede0": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns the read-only local summary contract without calling Shared Center.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-decorator-a335b583018b": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns local source aggregation, filtering and logical-season channel readback.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-decorator-0ea38ce099cd": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns the local source check endpoint and keeps provider mutation out of the request thread.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-decorator-e5dbfb0b836b": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing router preserves the retired completed-season cancellation endpoint as an explicit HTTP 410.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-decorator-2ef2ebed6f60": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns shareable media search over native media and account-bound 115 cache projections.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-decorator-3e5dddd3b69a": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns local manual-source identity and RAW summary validation without provider writes.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-decorator-d251ec762472": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing projection owns read-only virtual-import filtering and pagination.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-decorator-d62b85e911e0": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing router owns the static share-request parameter option contract.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
+      },
+      "route-decorator-308ef07e389c": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing router owns share-request TMDb search through the typed native discovery adapter.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+        "validation_owner": "sharing/projection"
       }
     },
     "settings": {

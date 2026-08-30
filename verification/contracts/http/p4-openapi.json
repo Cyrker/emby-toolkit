@@ -15757,6 +15757,35 @@
         ]
       }
     },
+    "/api/shared/resources/media/search": {
+      "get": {
+        "operationId": "search_shareable_media_api_shared_resources_media_search_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Search Shareable Media Api Shared Resources Media Search Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "projection unavailable"
+          }
+        },
+        "summary": "Search Shareable Media",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
     "/api/shared/resources/operations/{operation_id}/cancel": {
       "post": {
         "operationId": "cancel_sharing_operation_api_shared_resources_operations__operation_id__cancel_post",
@@ -15984,6 +16013,32 @@
         ]
       }
     },
+    "/api/shared/resources/share-requests/param-options": {
+      "get": {
+        "operationId": "share_request_param_options_api_shared_resources_share_requests_param_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Share Request Param Options Api Shared Resources Share Requests Param Options Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          }
+        },
+        "summary": "Share Request Param Options",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
     "/api/shared/resources/share-requests/quote": {
       "post": {
         "operationId": "quote_share_request_api_shared_resources_share_requests_quote_post",
@@ -16025,6 +16080,67 @@
           }
         },
         "summary": "Quote Share Request",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/share-requests/tmdb/search": {
+      "get": {
+        "operationId": "search_share_request_tmdb_api_shared_resources_share_requests_tmdb_search_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Search Share Request Tmdb Api Shared Resources Share Requests Tmdb Search Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "TMDb is not configured"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "TMDb unavailable"
+          }
+        },
+        "summary": "Search Share Request Tmdb",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/shares": {
+      "get": {
+        "operationId": "list_local_sources_api_shared_resources_shares_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Local Sources Api Shared Resources Shares Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "projection unavailable"
+          }
+        },
+        "summary": "List Local Sources",
         "tags": [
           "sharing"
         ]
@@ -16095,6 +16211,187 @@
           }
         },
         "summary": "Register Source",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/shares/manual-validate": {
+      "post": {
+        "operationId": "validate_manual_source_api_shared_resources_shares_manual_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Validate Manual Source Api Shared Resources Shares Manual Validate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "projection unavailable"
+          }
+        },
+        "summary": "Validate Manual Source",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/shares/{source_id}/check": {
+      "post": {
+        "operationId": "check_local_source_api_shared_resources_shares__source_id__check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Check Local Source Api Shared Resources Shares  Source Id  Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "source not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "projection unavailable"
+          }
+        },
+        "summary": "Check Local Source",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/shares/{source_id}/share/cancel": {
+      "post": {
+        "operationId": "cancel_retired_completed_season_share_api_shared_resources_shares__source_id__share_cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Retired Completed Season Share Api Shared Resources Shares  Source Id  Share Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "source not found"
+          },
+          "410": {
+            "description": "retired route"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Retired Completed Season Share",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/summary": {
+      "get": {
+        "operationId": "shared_resource_summary_api_shared_resources_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Shared Resource Summary Api Shared Resources Summary Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "projection unavailable"
+          }
+        },
+        "summary": "Shared Resource Summary",
         "tags": [
           "sharing"
         ]
@@ -16235,6 +16532,35 @@
           }
         },
         "summary": "Report Transfer",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/virtual-imports": {
+      "get": {
+        "operationId": "list_virtual_imports_api_shared_resources_virtual_imports_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Virtual Imports Api Shared Resources Virtual Imports Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "503": {
+            "description": "projection unavailable"
+          }
+        },
+        "summary": "List Virtual Imports",
         "tags": [
           "sharing"
         ]

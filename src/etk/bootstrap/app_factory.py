@@ -223,6 +223,7 @@ from etk.domains.sharing import (
     PostgresContributionLedger,
     PostgresSharingOperationRepository,
     SharingService,
+    SqlAlchemySharingProjectionRepository,
 )
 from etk.domains.sharing.configuration import SharingConfigurationService, SharingServerIdentity
 from etk.domains.sharing.router import router as sharing_router
@@ -924,6 +925,13 @@ def _register_sharing_providers(container: AppContainer) -> None:
         "sharing.ledger",
         lambda current: PostgresContributionLedger(current.database.unit_of_work),
     )
+    container.register_repository(
+        "sharing.projection",
+        lambda current: SqlAlchemySharingProjectionRepository(
+            current.database.unit_of_work,
+            account_id=lambda: current.repository("p115.credentials").load().account_id,
+        ),
+    )
     container.register_client(
         "sharing.server-identity",
         lambda current: SharingServerIdentity(
@@ -963,6 +971,8 @@ def _register_sharing_providers(container: AppContainer) -> None:
             unit_of_work=current.database.unit_of_work,
             configuration=SharingConfigurationService(current.repository("app-settings")),
             identity=current.client("sharing.server-identity"),
+            projection=current.repository("sharing.projection"),
+            tmdb=current.client("media.discover-provider"),
         ),
     )
 

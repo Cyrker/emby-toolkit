@@ -27,6 +27,7 @@ from .operations import (
     SharingOperationKind,
     SharingOperationStatus,
 )
+from .projection import SqlAlchemySharingProjectionRepository
 from .repository import DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS, PostgresSharingOperationRepository
 from .router import router
 from .service import SharingLedgerService, SharingService
@@ -40,6 +41,7 @@ __all__ = [
     "LedgerIdempotencyConflictError",
     "PostgresContributionLedger",
     "PostgresSharingOperationRepository",
+    "SqlAlchemySharingProjectionRepository",
     "SHARED_INTRO_EXPORT_EFFECT",
     "SHARING_OPERATION_AGGREGATE_TYPE",
     "SHARING_OPERATION_TOPIC",

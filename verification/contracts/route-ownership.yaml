@@ -6035,20 +6035,21 @@
       "contract_id": "route-binding-15a94405cae4",
       "decorator_contract_id": "route-decorator-2ef2ebed6f60",
       "endpoint": "api_search_shareable_media",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns shareable media search over native media and account-bound 115 cache projections.",
       "path": "/api/shared/resources/media/search",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1252",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -6137,20 +6138,21 @@
       "contract_id": "route-binding-ad6fee259d20",
       "decorator_contract_id": "route-decorator-d62b85e911e0",
       "endpoint": "api_share_request_param_options",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing router owns the static share-request parameter option contract.",
       "path": "/api/shared/resources/share-requests/param-options",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2953",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -6178,40 +6180,42 @@
       "contract_id": "route-binding-ce9535ccd997",
       "decorator_contract_id": "route-decorator-308ef07e389c",
       "endpoint": "api_share_request_tmdb_search",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing router owns share-request TMDb search through the typed native discovery adapter.",
       "path": "/api/shared/resources/share-requests/tmdb/search",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2977",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
       "contract_id": "route-binding-2ee916339ec5",
       "decorator_contract_id": "route-decorator-a335b583018b",
       "endpoint": "api_list_local_sources",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns local source aggregation, filtering and logical-season channel readback.",
       "path": "/api/shared/resources/shares",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:862",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -6238,20 +6242,21 @@
       "contract_id": "route-binding-f4ab0249ec6f",
       "decorator_contract_id": "route-decorator-0ea38ce099cd",
       "endpoint": "api_check_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns the local source check endpoint and keeps provider mutation out of the request thread.",
       "path": "/api/shared/resources/shares/<int:source_id>/check",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:951",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -6338,20 +6343,21 @@
       "contract_id": "route-binding-d5e3d3b47220",
       "decorator_contract_id": "route-decorator-e5dbfb0b836b",
       "endpoint": "api_cancel_completed_season_share_channel",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing router preserves the retired completed-season cancellation endpoint as an explicit HTTP 410.",
       "path": "/api/shared/resources/shares/<int:source_id>/share/cancel",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1126",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -6419,20 +6425,21 @@
       "contract_id": "route-binding-b906eacbe6a6",
       "decorator_contract_id": "route-decorator-3e5dddd3b69a",
       "endpoint": "api_manual_validate",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns local manual-source identity and RAW summary validation without provider writes.",
       "path": "/api/shared/resources/shares/manual-validate",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1273",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -6459,40 +6466,42 @@
       "contract_id": "route-binding-ecd57f1532b0",
       "decorator_contract_id": "route-decorator-69e33c61ede0",
       "endpoint": "api_shared_resource_summary",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns the read-only local summary contract without calling Shared Center.",
       "path": "/api/shared/resources/summary",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:856",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
       "contract_id": "route-binding-78713afda26f",
       "decorator_contract_id": "route-decorator-d251ec762472",
       "endpoint": "api_virtual_imports",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns read-only virtual-import filtering and pagination.",
       "path": "/api/shared/resources/virtual-imports",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2133",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -14410,22 +14419,23 @@
       "contract_id": "route-decorator-2ef2ebed6f60",
       "declared_path": "/media/search",
       "endpoint": "api_search_shareable_media",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns shareable media search over native media and account-bound 115 cache projections.",
       "path": "/api/shared/resources/media/search",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1252",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -14504,22 +14514,23 @@
       "contract_id": "route-decorator-d62b85e911e0",
       "declared_path": "/share-requests/param-options",
       "endpoint": "api_share_request_param_options",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing router owns the static share-request parameter option contract.",
       "path": "/api/shared/resources/share-requests/param-options",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2953",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -14551,22 +14562,23 @@
       "contract_id": "route-decorator-308ef07e389c",
       "declared_path": "/share-requests/tmdb/search",
       "endpoint": "api_share_request_tmdb_search",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing router owns share-request TMDb search through the typed native discovery adapter.",
       "path": "/api/shared/resources/share-requests/tmdb/search",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2977",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -14574,22 +14586,23 @@
       "contract_id": "route-decorator-a335b583018b",
       "declared_path": "/shares",
       "endpoint": "api_list_local_sources",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns local source aggregation, filtering and logical-season channel readback.",
       "path": "/api/shared/resources/shares",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:862",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -14620,22 +14633,23 @@
       "contract_id": "route-decorator-0ea38ce099cd",
       "declared_path": "/shares/<int:source_id>/check",
       "endpoint": "api_check_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns the local source check endpoint and keeps provider mutation out of the request thread.",
       "path": "/api/shared/resources/shares/<int:source_id>/check",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:951",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -14713,22 +14727,23 @@
       "contract_id": "route-decorator-e5dbfb0b836b",
       "declared_path": "/shares/<int:source_id>/share/cancel",
       "endpoint": "api_cancel_completed_season_share_channel",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing router preserves the retired completed-season cancellation endpoint as an explicit HTTP 410.",
       "path": "/api/shared/resources/shares/<int:source_id>/share/cancel",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1126",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -14806,22 +14821,23 @@
       "contract_id": "route-decorator-3e5dddd3b69a",
       "declared_path": "/shares/manual-validate",
       "endpoint": "api_manual_validate",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns local manual-source identity and RAW summary validation without provider writes.",
       "path": "/api/shared/resources/shares/manual-validate",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1273",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -14852,22 +14868,23 @@
       "contract_id": "route-decorator-69e33c61ede0",
       "declared_path": "/summary",
       "endpoint": "api_shared_resource_summary",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns the read-only local summary contract without calling Shared Center.",
       "path": "/api/shared/resources/summary",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:856",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
@@ -14875,22 +14892,23 @@
       "contract_id": "route-decorator-d251ec762472",
       "declared_path": "/virtual-imports",
       "endpoint": "api_virtual_imports",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing projection owns read-only virtual-import filtering and pagination.",
       "path": "/api/shared/resources/virtual-imports",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:2133",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
+      "validation_owner": "sharing/projection"
     },
     {
       "application": "api",
