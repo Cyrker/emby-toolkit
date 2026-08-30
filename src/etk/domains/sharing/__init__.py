@@ -17,6 +17,7 @@ from .ledger import (
     LedgerIdempotencyConflictError,
     PostgresContributionLedger,
 )
+from .operation_delivery import SharingProviderOperationDelivery
 from .operations import (
     SHARING_OPERATION_AGGREGATE_TYPE,
     SHARING_OPERATION_TOPIC,
@@ -48,6 +49,7 @@ __all__ = [
     "SharingOperationDeliveryPort",
     "SharingOperationExecution",
     "SharingOperationExecutor",
+    "SharingProviderOperationDelivery",
     "SharedIntroExportEffectDelivery",
     "SharingService",
     "SharingOperation",

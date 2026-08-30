@@ -925,7 +925,10 @@ def _register_sharing_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "sharing.shared-center",
-        lambda current: HttpxSharedCenterAdapter(lambda: current.settings),
+        lambda current: HttpxSharedCenterAdapter(
+            lambda: current.settings,
+            configuration=lambda: current.repository("app-settings").load("shared_resource_config"),
+        ),
     )
     container.register_client(
         "sharing.telegram-bot",
@@ -937,7 +940,10 @@ def _register_sharing_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "sharing.hdhive",
-        lambda current: HttpxHDHiveAdapter(lambda: current.settings),
+        lambda current: HttpxHDHiveAdapter(
+            lambda: current.settings,
+            configuration=lambda: current.repository("app-settings").load("hdhive_config"),
+        ),
     )
     container.register_use_case(
         "sharing",
@@ -945,6 +951,7 @@ def _register_sharing_providers(container: AppContainer) -> None:
             current.repository("sharing.ledger"),
             current.client("sharing.shared-center"),
             current.repository("sharing.operations"),
+            unit_of_work=current.database.unit_of_work,
         ),
     )
 

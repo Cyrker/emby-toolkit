@@ -87,10 +87,12 @@ class HttpxSharedCenterAdapter:
         self,
         settings: Callable[[], Settings | Mapping[str, Any]] | Settings | Mapping[str, Any],
         *,
+        configuration: Callable[[], Mapping[str, Any] | None] | None = None,
         client_factory: Callable[[], httpx.Client] | None = None,
         policy: HttpTransportPolicy | None = None,
     ) -> None:
         self._settings = settings if callable(settings) else lambda: settings
+        self._configuration_provider = configuration
         self._client_factory = client_factory or self._default_client
         self._policy = policy or HttpTransportPolicy(system=self.system)
 
@@ -332,7 +334,10 @@ class HttpxSharedCenterAdapter:
             return client.request(method, url, headers=self._headers(), **kwargs)
 
     def _base_url(self) -> str:
-        value = _setting(self._settings(), "p115_shared_center_url", "shared_center_url", default="")
+        configuration = self._configuration_provider() if self._configuration_provider is not None else None
+        value = _setting(configuration, "p115_shared_center_url", "shared_center_url", default="") or _setting(
+            self._settings(), "p115_shared_center_url", "shared_center_url", default=""
+        )
         normalized = str(value or "").strip().rstrip("/")
         if not normalized:
             raise SharedCenterError(

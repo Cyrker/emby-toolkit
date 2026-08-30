@@ -208,8 +208,43 @@ class PostgresContributionLedger:
     def credit(self, account_id: str, amount: int, **kwargs: Any) -> ContributionLedgerEntry:
         return self._apply(account_id, _positive_int(amount), **kwargs)
 
+    def debit_in_uow(
+        self,
+        uow: SqlAlchemyUnitOfWork,
+        account_id: str,
+        amount: int,
+        **kwargs: Any,
+    ) -> ContributionLedgerEntry:
+        return self._apply_in_uow(uow, account_id, -_positive_int(amount), **kwargs)
+
     def _apply(
         self,
+        account_id: str,
+        delta: int,
+        *,
+        idempotency_key: str,
+        reason: str,
+        reference: str | None = None,
+        operation_id: UUID | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ContributionLedgerEntry:
+        with self._unit_of_work() as uow:
+            entry = self._apply_in_uow(
+                uow,
+                account_id,
+                delta,
+                idempotency_key=idempotency_key,
+                reason=reason,
+                reference=reference,
+                operation_id=operation_id,
+                metadata=metadata,
+            )
+            uow.commit()
+            return entry
+
+    @staticmethod
+    def _apply_in_uow(
+        uow: SqlAlchemyUnitOfWork,
         account_id: str,
         delta: int,
         *,
@@ -225,98 +260,92 @@ class PostgresContributionLedger:
         normalized_reference = _optional_reference(reference)
         normalized_metadata = _metadata(metadata)
         intent_hash = _entry_hash(delta, normalized_reason, normalized_reference, operation_id, normalized_metadata)
-        with self._unit_of_work() as uow:
+        uow.session.execute(
+            text(
+                """
+                INSERT INTO sharing_credit_accounts(account_id, balance)
+                VALUES (:account_id, 0)
+                ON CONFLICT (account_id) DO NOTHING
+                """
+            ),
+            {"account_id": account},
+        )
+        row = (
             uow.session.execute(
                 text(
-                    """
-                    INSERT INTO sharing_credit_accounts(account_id, balance)
-                    VALUES (:account_id, 0)
-                    ON CONFLICT (account_id) DO NOTHING
-                    """
+                    "SELECT account_id, balance FROM sharing_credit_accounts WHERE account_id = :account_id FOR UPDATE"
                 ),
                 {"account_id": account},
             )
-            row = (
-                uow.session.execute(
-                    text(
-                        "SELECT account_id, balance FROM sharing_credit_accounts "
-                        "WHERE account_id = :account_id FOR UPDATE"
-                    ),
-                    {"account_id": account},
-                )
-                .mappings()
-                .one()
+            .mappings()
+            .one()
+        )
+        existing = (
+            uow.session.execute(
+                text("SELECT * FROM sharing_credit_ledger WHERE account_id = :account_id AND idempotency_key = :key"),
+                {"account_id": account, "key": key},
             )
-            existing = (
-                uow.session.execute(
-                    text(
-                        "SELECT * FROM sharing_credit_ledger WHERE account_id = :account_id AND idempotency_key = :key"
-                    ),
-                    {"account_id": account, "key": key},
+            .mappings()
+            .one_or_none()
+        )
+        if existing is not None:
+            existing_entry = _entry(existing)
+            if (
+                _entry_hash(
+                    existing_entry.delta,
+                    existing_entry.reason,
+                    existing_entry.reference,
+                    existing_entry.operation_id,
+                    existing_entry.metadata,
                 )
-                .mappings()
-                .one_or_none()
-            )
-            if existing is not None:
-                existing_entry = _entry(existing)
-                if (
-                    _entry_hash(
-                        existing_entry.delta,
-                        existing_entry.reason,
-                        existing_entry.reference,
-                        existing_entry.operation_id,
-                        existing_entry.metadata,
-                    )
-                    != intent_hash
-                ):
-                    raise LedgerIdempotencyConflictError("ledger idempotency key was reused with different intent")
-                uow.commit()
-                return existing_entry
-            current = int(row["balance"] or 0)
-            if delta < 0 and current < -delta:
-                raise InsufficientContributionError(account, -delta, current)
-            after = current + delta
-            values = {
-                "id": uuid5(NAMESPACE_URL, f"etk:sharing-ledger:{account}:{key}"),
-                "account_id": account,
-                "idempotency_key": key,
-                "delta": delta,
-                "balance_after": after,
-                "reason": normalized_reason,
-                "reference": normalized_reference,
-                "operation_id": operation_id,
-                "metadata": canonical_json(normalized_metadata, field="ledger metadata"),
-            }
-            inserted = (
-                uow.session.execute(
-                    text(
-                        """
-                        INSERT INTO sharing_credit_ledger(
-                            id, account_id, idempotency_key, delta, balance_after,
-                            reason, reference, operation_id, metadata
-                        ) VALUES (
-                            :id, :account_id, :idempotency_key, :delta, :balance_after,
-                            :reason, :reference, :operation_id, CAST(:metadata AS jsonb)
-                        ) RETURNING *
-                        """
-                    ),
-                    values,
-                )
-                .mappings()
-                .one()
-            )
+                != intent_hash
+            ):
+                raise LedgerIdempotencyConflictError("ledger idempotency key was reused with different intent")
+            return existing_entry
+        current = int(row["balance"] or 0)
+        if delta < 0 and current < -delta:
+            raise InsufficientContributionError(account, -delta, current)
+        after = current + delta
+        values = {
+            "id": uuid5(NAMESPACE_URL, f"etk:sharing-ledger:{account}:{key}"),
+            "account_id": account,
+            "idempotency_key": key,
+            "delta": delta,
+            "balance_after": after,
+            "reason": normalized_reason,
+            "reference": normalized_reference,
+            "operation_id": operation_id,
+            "metadata": canonical_json(normalized_metadata, field="ledger metadata"),
+        }
+        inserted = (
             uow.session.execute(
                 text(
                     """
-                    UPDATE sharing_credit_accounts
-                    SET balance = :balance, revision = revision + 1, updated_at = NOW()
-                    WHERE account_id = :account_id
+                    INSERT INTO sharing_credit_ledger(
+                        id, account_id, idempotency_key, delta, balance_after,
+                        reason, reference, operation_id, metadata
+                    ) VALUES (
+                        :id, :account_id, :idempotency_key, :delta, :balance_after,
+                        :reason, :reference, :operation_id, CAST(:metadata AS jsonb)
+                    ) RETURNING *
                     """
                 ),
-                {"account_id": account, "balance": after},
+                values,
             )
-            uow.commit()
-            return _entry(inserted)
+            .mappings()
+            .one()
+        )
+        uow.session.execute(
+            text(
+                """
+                UPDATE sharing_credit_accounts
+                SET balance = :balance, revision = revision + 1, updated_at = NOW()
+                WHERE account_id = :account_id
+                """
+            ),
+            {"account_id": account, "balance": after},
+        )
+        return _entry(inserted)
 
     def entries(self, account_id: str, *, limit: int = 100) -> Sequence[ContributionLedgerEntry]:
         account = _account_id(account_id)

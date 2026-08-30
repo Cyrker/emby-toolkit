@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from etk.integrations.http_policy import ExternalAdapterError, ProviderDisposition, ProviderResponse
+from etk.platform.db import SqlAlchemyUnitOfWork
 from etk.platform.jobs.json_payload import normalize_durable_json_object
 
 from .ledger import (
@@ -31,9 +32,16 @@ class SharingLedgerService:
     Ledger mutations themselves are atomic at the repository boundary.
     """
 
-    def __init__(self, ledger: ContributionLedger, operations: Any | None = None) -> None:
+    def __init__(
+        self,
+        ledger: ContributionLedger,
+        operations: Any | None = None,
+        *,
+        unit_of_work: Callable[[], SqlAlchemyUnitOfWork] | None = None,
+    ) -> None:
         self._ledger = ledger
         self._operations = operations
+        self._unit_of_work = unit_of_work
 
     def balance(self, account_id: str) -> SharingHttpResult:
         account = _account(account_id)
@@ -121,27 +129,62 @@ class SharingLedgerService:
         )
         operation_id: UUID | None = None
         operation: Any | None = None
+        intent: SharingOperationIntent | None = None
         if self._operations is not None:
             intent = SharingOperationIntent.create(
                 kind=SharingOperationKind.TRANSFER,
                 scope_key=f"account:{normalized_request['account_id']}:source:{normalized_source}",
                 principal_id=_required(principal_id, "principal_id"),
-                request=normalized_request,
+                request={
+                    "provider": "shared_center",
+                    "action": "acquire_transfer_lease",
+                    "payload": normalized_request,
+                },
                 idempotency_key=idempotency_key,
             )
-            operation = self._operations.reserve(intent)
-            if operation is None:
-                raise RuntimeError("sharing operation reservation returned no operation")
-            operation_id = operation.id
-        entry = self.debit(
-            account_id,
-            amount,
-            idempotency_key=f"transfer:{idempotency_key}",
-            reason="transfer_escrow",
-            reference=normalized_source,
-            operation_id=operation_id,
-            metadata={"source_id": normalized_source},
-        )
+        operations = self._operations
+        reserve_in_uow = getattr(operations, "reserve_in_uow", None)
+        debit_in_uow = getattr(self._ledger, "debit_in_uow", None)
+        if (
+            intent is not None
+            and self._unit_of_work is not None
+            and callable(reserve_in_uow)
+            and callable(debit_in_uow)
+        ):
+            with self._unit_of_work() as uow:
+                operation = reserve_in_uow(uow, intent)
+                if operation is None:
+                    raise RuntimeError("sharing operation reservation returned no operation")
+                operation_id = operation.id
+                entry = cast(
+                    ContributionLedgerEntry,
+                    debit_in_uow(
+                        uow,
+                        account_id,
+                        amount,
+                        idempotency_key=f"transfer:{idempotency_key}",
+                        reason="transfer_escrow",
+                        reference=normalized_source,
+                        operation_id=operation_id,
+                        metadata={"source_id": normalized_source},
+                    ),
+                )
+                uow.commit()
+        else:
+            if intent is not None and operations is not None:
+                operation = operations.reserve(intent)
+                if operation is None:
+                    raise RuntimeError("sharing operation reservation returned no operation")
+                operation_id = operation.id
+            entry = self.debit(
+                account_id,
+                amount,
+                idempotency_key=f"transfer:{idempotency_key}",
+                reason="transfer_escrow",
+                reference=normalized_source,
+                operation_id=operation_id,
+                metadata={"source_id": normalized_source},
+            )
         operation_status = getattr(operation, "status", "reserved") if operation is not None else "reserved"
         return SharingHttpResult(
             {
@@ -164,8 +207,15 @@ class SharingService(SharingLedgerService):
     replayed by the request thread.
     """
 
-    def __init__(self, ledger: ContributionLedger, center: Any, operations: Any | None = None) -> None:
-        super().__init__(ledger, operations=operations)
+    def __init__(
+        self,
+        ledger: ContributionLedger,
+        center: Any,
+        operations: Any | None = None,
+        *,
+        unit_of_work: Callable[[], SqlAlchemyUnitOfWork] | None = None,
+    ) -> None:
+        super().__init__(ledger, operations=operations, unit_of_work=unit_of_work)
         self._center = center
 
     def credit_balance(self, account_id: str) -> SharingHttpResult:

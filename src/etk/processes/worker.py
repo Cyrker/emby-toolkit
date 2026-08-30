@@ -175,7 +175,13 @@ from etk.domains.p115.upload_adapters import (
 )
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService, UploadOperation
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
-from etk.domains.sharing import SharedIntroExportEffectDelivery
+from etk.domains.sharing import (
+    PostgresSharingOperationRepository,
+    SharedIntroExportEffectDelivery,
+    SharingOperation,
+    SharingOperationExecutor,
+    SharingProviderOperationDelivery,
+)
 from etk.domains.subscription.assistant import (
     SqlAlchemyAssistantMaintenanceRepository,
     SubscribeAssistantMaintenanceService,
@@ -280,6 +286,7 @@ from .p8_identity import (
     identity_operation_claim_lease_seconds,
 )
 from .p9_sharing import LegacyP9SharingCompatibilityGateway, P9SharingTaskRouter
+from .p9_sharing_operations import SHARING_OPERATION_CLAIM_LEASE_SECONDS
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -726,6 +733,7 @@ class WorkerRuntime:
         self._collection_operation_executor: CollectionOperationExecutor | None = None
         self._identity_executor: IdentityOperationExecutor | None = None
         self._database_maintenance_executor: DatabaseMaintenanceExecutor | None = None
+        self._sharing_operation_executor: SharingOperationExecutor | None = None
         self._playback_gateway: NativePlaybackCompatibilityGateway | None = None
         self._intro_detection_gateway: NativeP115IntroDetectionGateway | None = None
         self._p115_upload_source_cleanup: NativeP115UploadSourceCleanupGateway | None = None
@@ -743,6 +751,7 @@ class WorkerRuntime:
         self._active_collection_operation_executions = 0
         self._active_identity_executions = 0
         self._active_database_maintenance_executions = 0
+        self._active_sharing_operation_executions = 0
         self._active_media_effect_executions = 0
         self._idle = threading.Event()
         self._idle.set()
@@ -898,11 +907,29 @@ class WorkerRuntime:
                     ),
                     daily_theme=daily_theme,
                 )
-                shared_center = HttpxSharedCenterAdapter(settings_provider)
+                shared_center = HttpxSharedCenterAdapter(
+                    settings_provider,
+                    configuration=lambda: app_settings.load("shared_resource_config"),
+                )
+                hdhive = HttpxHDHiveAdapter(
+                    settings_provider,
+                    configuration=lambda: app_settings.load("hdhive_config"),
+                )
+                telegram = HttpxTelegramBotAdapter(settings_provider)
+                sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
+                sharing_operation_executor = SharingOperationExecutor(
+                    sharing_operations,
+                    SharingProviderOperationDelivery(
+                        shared_center=shared_center,
+                        hdhive=hdhive,
+                        telegram=telegram,
+                    ),
+                    max_attempts=4,
+                )
                 p9_sharing_tasks = P9SharingTaskRouter(
                     shared_center=shared_center,
-                    hdhive=HttpxHDHiveAdapter(settings_provider),
-                    telegram=HttpxTelegramBotAdapter(settings_provider),
+                    hdhive=hdhive,
+                    telegram=telegram,
                     compatibility=LegacyP9SharingCompatibilityGateway(),
                 )
                 ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
@@ -1254,6 +1281,7 @@ class WorkerRuntime:
             self._collection_operation_executor = collection_operation_executor
             self._identity_executor = identity_executor
             self._database_maintenance_executor = database_maintenance_executor
+            self._sharing_operation_executor = sharing_operation_executor
             self._playback_gateway = playback_gateway
             self._intro_detection_gateway = intro_detection_gateway
             self._p115_upload_source_cleanup = upload_source_cleanup
@@ -1356,7 +1384,25 @@ class WorkerRuntime:
             organize_executions = SqlAlchemyP115OrganizeExecutionRepository(database.unit_of_work)
             p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
             bridge_client = HttpxEmbyBridgeClient(settings_provider)
-            shared_center = HttpxSharedCenterAdapter(settings_provider)
+            shared_center = HttpxSharedCenterAdapter(
+                settings_provider,
+                configuration=lambda: app_settings.load("shared_resource_config"),
+            )
+            hdhive = HttpxHDHiveAdapter(
+                settings_provider,
+                configuration=lambda: app_settings.load("hdhive_config"),
+            )
+            telegram = HttpxTelegramBotAdapter(settings_provider)
+            sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
+            sharing_operation_executor = SharingOperationExecutor(
+                sharing_operations,
+                SharingProviderOperationDelivery(
+                    shared_center=shared_center,
+                    hdhive=hdhive,
+                    telegram=telegram,
+                ),
+                max_attempts=4,
+            )
             daily_theme = DailyThemeService(
                 HttpxDiscoverProviderAdapter(settings_provider),
                 SqlAlchemyDailyThemeRepository(database.unit_of_work),
@@ -1505,8 +1551,8 @@ class WorkerRuntime:
             )
             p9_sharing_tasks = P9SharingTaskRouter(
                 shared_center=shared_center,
-                hdhive=HttpxHDHiveAdapter(settings_provider),
-                telegram=HttpxTelegramBotAdapter(settings_provider),
+                hdhive=hdhive,
+                telegram=telegram,
                 compatibility=None,
             )
             supervisor = RuntimeSupervisor()
@@ -1540,6 +1586,7 @@ class WorkerRuntime:
         self._subscription_executor = subscription_executor
         self._identity_executor = identity_executor
         self._database_maintenance_executor = database_maintenance_executor
+        self._sharing_operation_executor = sharing_operation_executor
         self._p115_intro_executor = intro_executor
         self._intro_detection_gateway = intro_detection_gateway
         self._p115_credentials = p115_credentials
@@ -1666,6 +1713,7 @@ class WorkerRuntime:
             self._collection_operation_executor = None
             self._identity_executor = None
             self._database_maintenance_executor = None
+            self._sharing_operation_executor = None
             self._playback_gateway = None
             self._intro_detection_gateway = None
             self._p115_upload_source_cleanup = None
@@ -1681,6 +1729,7 @@ class WorkerRuntime:
             self._active_collection_operation_executions = 0
             self._active_identity_executions = 0
             self._active_database_maintenance_executions = 0
+            self._active_sharing_operation_executions = 0
             self._active_media_effect_executions = 0
             self._idle.set()
             self._started = False
@@ -1718,6 +1767,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and self._active_database_maintenance_executions == 0
+                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
                     and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
@@ -1753,6 +1803,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
                     and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
@@ -1788,6 +1839,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
                     and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
@@ -1823,6 +1875,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
                     and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
@@ -1862,6 +1915,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
                     and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
@@ -1902,6 +1956,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
                     and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
@@ -1937,6 +1992,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
                     and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
@@ -1981,6 +2037,7 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
                     and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
@@ -2028,6 +2085,48 @@ class WorkerRuntime:
                     and self._active_collection_operation_executions == 0
                     and self._active_identity_executions == 0
                     and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
+                    and self._active_media_effect_executions == 0
+                ):
+                    self._idle.set()
+
+    def execute_sharing_operation(self, *, operation_id: str) -> SharingOperation | None:
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown is in progress")
+        try:
+            parsed_operation_id = UUID(str(operation_id))
+        except ValueError as exc:
+            raise ValueError("sharing operation id must be a UUID") from exc
+        self.start()
+        if self._shutdown_requested.is_set() or worker_shutdown_requested():
+            raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
+        with self._lock:
+            executor = self._sharing_operation_executor
+            if executor is None:
+                raise RuntimeError("Worker sharing operation executor is not initialized")
+            self._active_sharing_operation_executions = getattr(self, "_active_sharing_operation_executions", 0) + 1
+            self._idle.clear()
+        try:
+            execution = executor.execute(
+                parsed_operation_id,
+                worker_id=f"{self._worker_id}:sharing",
+                lease_seconds=SHARING_OPERATION_CLAIM_LEASE_SECONDS,
+            )
+            return execution.operation if execution is not None else None
+        finally:
+            with self._lock:
+                self._active_sharing_operation_executions -= 1
+                if (
+                    not self._active_executions
+                    and self._active_ingestion_executions == 0
+                    and self._active_p115_upload_executions == 0
+                    and self._active_p115_playback_executions == 0
+                    and self._active_p115_intro_executions == 0
+                    and self._active_subscription_executions == 0
+                    and self._active_collection_operation_executions == 0
+                    and self._active_identity_executions == 0
+                    and self._active_database_maintenance_executions == 0
+                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
                     and self._active_media_effect_executions == 0
                 ):
                     self._idle.set()
@@ -2714,6 +2813,7 @@ class WorkerRuntime:
                 and self._active_collection_operation_executions == 0
                 and self._active_identity_executions == 0
                 and getattr(self, "_active_database_maintenance_executions", 0) == 0
+                and getattr(self, "_active_sharing_operation_executions", 0) == 0
                 and self._active_media_effect_executions == 0
             ):
                 self._idle.set()

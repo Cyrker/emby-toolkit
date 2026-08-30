@@ -41,6 +41,19 @@ class HDHivePort(Protocol):
 
     def checkin(self, *, is_gambler: bool = False) -> ProviderResponse[dict[str, Any]]: ...
 
+    def create_subscription(
+        self,
+        target_type: str,
+        target_id: int,
+        target_key: str,
+        *,
+        media_filters: Mapping[str, Any] | None = None,
+    ) -> ProviderResponse[dict[str, Any]]: ...
+
+    def check_subscription(self, target_type: str, target_key: str) -> ProviderResponse[dict[str, Any]]: ...
+
+    def delete_subscription(self, subscription_id: int) -> ProviderResponse[dict[str, Any]]: ...
+
 
 class HDHiveAdapterError(ExternalAdapterError):
     pass
@@ -57,10 +70,12 @@ class HttpxHDHiveAdapter:
         self,
         settings: Callable[[], Settings | Mapping[str, Any]] | Settings | Mapping[str, Any],
         *,
+        configuration: Callable[[], Mapping[str, Any] | None] | None = None,
         client_factory: Callable[[], httpx.Client] | None = None,
         policy: HttpTransportPolicy | None = None,
     ) -> None:
         self._settings = settings if callable(settings) else lambda: settings
+        self._configuration_provider = configuration
         self._client_factory = client_factory or self._default_client
         self._policy = policy or HttpTransportPolicy(system=self.system)
 
@@ -237,10 +252,11 @@ class HttpxHDHiveAdapter:
         headers: Mapping[str, str] | None = None,
         retryable: bool = False,
     ) -> ProviderResponse[dict[str, Any]]:
-        base_url = self._base_url()
+        configuration = self._configuration()
+        base_url = self._base_url(configuration)
         normalized_method = method.upper()
         url = f"{base_url}/{path.lstrip('/')}"
-        request_headers = self._headers()
+        request_headers = self._headers(configuration)
         request_headers.update(dict(headers or {}))
         try:
             response = self._policy.request(
@@ -292,9 +308,15 @@ class HttpxHDHiveAdapter:
         with self._client_factory() as client:
             return client.request(method, url, **kwargs)
 
-    def _base_url(self) -> str:
-        cfg = _setting(self._settings(), "hdhive_config", default={})
-        cfg = cfg if isinstance(cfg, Mapping) else {}
+    def _configuration(self) -> Mapping[str, Any]:
+        if self._configuration_provider is not None:
+            value = self._configuration_provider()
+            if isinstance(value, Mapping):
+                return value
+        value = _setting(self._settings(), "hdhive_config", default={})
+        return value if isinstance(value, Mapping) else {}
+
+    def _base_url(self, cfg: Mapping[str, Any]) -> str:
         value = _setting(cfg, "relay_base_url", default="") or _setting(
             self._settings(), "hdhive_relay_base_url", "HDHIVE_RELAY_BASE_URL", default=""
         )
@@ -308,9 +330,7 @@ class HttpxHDHiveAdapter:
             )
         return base
 
-    def _headers(self) -> dict[str, str]:
-        cfg = _setting(self._settings(), "hdhive_config", default={})
-        cfg = cfg if isinstance(cfg, Mapping) else {}
+    def _headers(self, cfg: Mapping[str, Any]) -> dict[str, str]:
         instance_id = str(_setting(cfg, "relay_instance_id", "instance_id", default="") or "").strip()
         instance_secret = str(_setting(cfg, "relay_instance_secret", "instance_secret", default="") or "").strip()
         headers = {"Accept": "application/json", "Content-Type": "application/json"}

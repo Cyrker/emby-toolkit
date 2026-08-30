@@ -93,6 +93,21 @@ def test_shared_center_maps_success_and_rejection_without_leaking_payload() -> N
     assert rejected.payload is None
 
 
+def test_shared_center_reads_standalone_runtime_configuration() -> None:
+    client = FakeClient([_response(200, {"ok": True, "items": []})])
+    adapter = HttpxSharedCenterAdapter(
+        {},
+        configuration=lambda: {"p115_shared_center_url": "https://standalone-center.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(),
+    )
+
+    result = adapter.list_sources(limit=1)
+
+    assert result.disposition is ProviderDisposition.CONFIRMED
+    assert client.calls[0][1] == "https://standalone-center.fixture/api/v1/sources/list"
+
+
 def test_shared_center_retries_idempotent_reads_but_invalid_json_is_safe() -> None:
     client = FakeClient([_response(429, {"detail": "busy"}), _response(500, {}), _response(200, {"ok": True})])
     adapter = HttpxSharedCenterAdapter(
@@ -253,6 +268,27 @@ def test_retryable_hdhive_reads_are_bounded() -> None:
 
     assert result.disposition is ProviderDisposition.CONFIRMED
     assert len(client.calls) == 3
+
+
+def test_hdhive_reads_standalone_runtime_configuration() -> None:
+    client = FakeClient([_response(200, {"success": True})])
+    adapter = HttpxHDHiveAdapter(
+        {},
+        configuration=lambda: {
+            "relay_base_url": "https://standalone-hdhive.fixture",
+            "relay_instance_id": "fixture-instance",
+            "relay_instance_secret": "fixture-secret",
+        },
+        client_factory=_factory(client),
+        policy=_policy(),
+    )
+
+    result = adapter.ping()
+
+    assert result.disposition is ProviderDisposition.CONFIRMED
+    assert client.calls[0][1] == "https://standalone-hdhive.fixture/api/hdhive/status"
+    assert client.calls[0][2]["headers"]["X-ETK-Instance-ID"] == "fixture-instance"
+    assert client.calls[0][2]["headers"]["X-ETK-Instance-Secret"] == "fixture-secret"
 
 
 def test_circuit_breaker_transitions_closed_open_half_open() -> None:

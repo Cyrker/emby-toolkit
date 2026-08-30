@@ -52,6 +52,7 @@ from etk.domains.p115.upload_monitor import (
     upload_monitor_config_revision,
 )
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.sharing.repository import PostgresSharingOperationRepository
 from etk.domains.subscription.cleanup_runtime_repository import SqlAlchemyCleanupExecutionRepository
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
@@ -78,6 +79,7 @@ from .p8_database_maintenance import (
     DatabaseMaintenanceCoordinator,
 )
 from .p8_identity import CeleryIdentityOperationPublisher, IdentityOperationCoordinator
+from .p9_sharing_operations import CelerySharingOperationPublisher, SharingOperationCoordinator
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -478,6 +480,8 @@ class CoordinatorRuntime:
         self._identity_coordinator: IdentityOperationCoordinator | None = None
         self._database_maintenance_publisher = CeleryDatabaseMaintenancePublisher(self.config)
         self._database_maintenance_coordinator: DatabaseMaintenanceCoordinator | None = None
+        self._sharing_operation_publisher = CelerySharingOperationPublisher(self.config)
+        self._sharing_operation_coordinator: SharingOperationCoordinator | None = None
         self._cleanup_execution_repository: SqlAlchemyCleanupExecutionRepository | None = None
         self._publisher_id = f"{socket.gethostname()}:{os.getpid()}"
         self._last_settings_refresh = 0.0
@@ -586,6 +590,13 @@ class CoordinatorRuntime:
             publisher=self._database_maintenance_publisher,
             config=self.config,
             publisher_id=f"{self._publisher_id}:database-maintenance",
+        )
+        self._sharing_operation_coordinator = SharingOperationCoordinator(
+            store=store,
+            repository=PostgresSharingOperationRepository(database.unit_of_work),
+            publisher=self._sharing_operation_publisher,
+            config=self.config,
+            publisher_id=f"{self._publisher_id}:sharing-operation",
         )
         self._cleanup_execution_repository = cleanup_execution_repository
         self._service = service
@@ -897,6 +908,27 @@ class CoordinatorRuntime:
                 )
             if maintenance_result.publish.failed or maintenance_result.publish.dead:
                 raise RuntimeError("Database maintenance Outbox dispatch is degraded")
+
+        sharing = getattr(self, "_sharing_operation_coordinator", None)
+        if sharing is not None:
+            sharing_result = sharing.tick()
+            if sharing_result.expired_claims:
+                logger.warning(
+                    "Expired pre-write sharing operation claims were recovered",
+                    extra={"expired_operations": sharing_result.expired_claims},
+                )
+            if sharing_result.expired_readbacks:
+                logger.warning(
+                    "Expired sharing operation readback claims were recovered",
+                    extra={"expired_operations": sharing_result.expired_readbacks},
+                )
+            if sharing_result.rejected_dead:
+                logger.error(
+                    "Sharing operation dispatch exhausted without Worker execution",
+                    extra={"rejected_operations": sharing_result.rejected_dead},
+                )
+            if sharing_result.publish.failed or sharing_result.publish.dead:
+                raise RuntimeError("Sharing operation Outbox dispatch is degraded")
 
     def _process_telegram_commands(self) -> None:
         from etk.compatibility.tg_control_bridge import TelegramCommandExecutor, TelegramControlBridge

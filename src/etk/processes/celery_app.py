@@ -17,6 +17,7 @@ EXECUTE_P115_PLAYBACK_OPERATION_TASK = "etk.p115.playback.execute"
 EXECUTE_P115_UPLOAD_OPERATION_TASK = "etk.p115.upload.execute"
 EXECUTE_SUBSCRIPTION_OPERATION_TASK = "etk.subscription.operation.execute"
 EXECUTE_DATABASE_MAINTENANCE_TASK = "etk.database.maintenance.execute"
+EXECUTE_SHARING_OPERATION_TASK = "etk.sharing.operation.execute"
 
 
 def create_celery_app(config: TaskRuntimeConfig | None = None) -> Celery:
@@ -63,6 +64,7 @@ def create_celery_app(config: TaskRuntimeConfig | None = None) -> Celery:
             EXECUTE_P115_UPLOAD_OPERATION_TASK: {"queue": runtime.queue_name},
             EXECUTE_SUBSCRIPTION_OPERATION_TASK: {"queue": runtime.queue_name},
             EXECUTE_DATABASE_MAINTENANCE_TASK: {"queue": runtime.queue_name},
+            EXECUTE_SHARING_OPERATION_TASK: {"queue": runtime.queue_name},
         },
         task_serializer="json",
         timezone="Asia/Shanghai",
@@ -274,6 +276,25 @@ def create_celery_app(config: TaskRuntimeConfig | None = None) -> Celery:
         except WorkerShutdownRequested as exc:
             raise Reject(str(exc), requeue=True) from exc
 
+    @app.task(
+        bind=True,
+        name=EXECUTE_SHARING_OPERATION_TASK,
+        acks_late=True,
+        ignore_result=True,
+        reject_on_worker_lost=True,
+        serializer="json",
+        typing=True,
+    )
+    def execute_sharing_operation(_task, *, operation_id: str) -> None:
+        from .worker import WorkerShutdownRequested, get_worker_runtime, worker_shutdown_requested
+
+        if worker_shutdown_requested():
+            raise Reject("Worker shutdown is in progress", requeue=True)
+        try:
+            get_worker_runtime().execute_sharing_operation(operation_id=operation_id)
+        except WorkerShutdownRequested as exc:
+            raise Reject(str(exc), requeue=True) from exc
+
     return app
 
 
@@ -319,6 +340,7 @@ __all__ = [
     "EXECUTE_P115_PLAYBACK_OPERATION_TASK",
     "EXECUTE_P115_UPLOAD_OPERATION_TASK",
     "EXECUTE_SUBSCRIPTION_OPERATION_TASK",
+    "EXECUTE_SHARING_OPERATION_TASK",
     "app",
     "create_celery_app",
     "get_celery_app",

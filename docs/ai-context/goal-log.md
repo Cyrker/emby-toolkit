@@ -4456,6 +4456,60 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Sharing-Operation-Dispatch
+
+Stage / Batch: P11 / durable sharing operation provider dispatch
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `8af51568` (`refactor(p11): define sharing operation recovery`).
+- Target checkpoint message: `refactor(p11): dispatch sharing operations`.
+
+Implemented:
+
+- Added strict Shared Center, HDHive and Telegram Bot provider delivery, validated Celery publication,
+  Coordinator recovery/Outbox dispatch and compatibility/native-only Worker execution.
+- Kept request validation before the durable provider-write checkpoint. Post-checkpoint failure can
+  only use an explicitly declared authoritative readback; nested request echoes cannot satisfy the
+  identity match and provider payloads are reduced to safe identifiers plus a SHA-256 digest.
+- Loaded the real standalone `shared_resource_config` and `hdhive_config` records in both Worker
+  profiles and AppContainer adapters instead of assuming those keys lived in `dynamic_app_config`.
+- Moved transfer operation reservation, contribution debit and Outbox creation into one PostgreSQL
+  UoW; insufficient credit rolls all three back.
+
+Targeted gate:
+
+- Scoped Ruff check/format, Pyright, compileall, manifest currentness and `git diff --check` -> clean;
+  Pyright reported `0 errors, 0 warnings, 0 informations`.
+- P9 application plus P8 Worker-regression scope -> `71 passed`.
+- Disposable PostgreSQL 18 sharing ledger/operation scope -> `19 passed`.
+- Disposable PostgreSQL 18 + Redis/Celery + local HTTP Stub -> `2 passed` across both Worker profiles;
+  Shared Center, HDHive and Telegram each wrote once, duplicate deliveries and a replacement Worker
+  did not repeat them, and the real Worker construction read HDHive standalone credentials.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-sharing-dispatch-20260830/summary.md`.
+
+Focused review:
+
+- Fixed three deterministic P1 defects found during review: validation after checkpoint, missing
+  standalone provider configuration in Worker DI, and arbitrary nested response identity matching.
+- No remaining deterministic P0/P1/P2 exists inside this dispatch slice. The broader P11 stage still
+  has known P1 gaps: synchronous Shared Center mutations, incomplete native Shared Resource routes,
+  missing backend-owned Server ID identity, and heartbeat-only native Coordinator.
+
+Pending:
+
+- Migrate the native Shared Resource configuration/UI contracts and device identity, convert the
+  remaining synchronous mutations to durable operations, add the protected HDHive receipt/source
+  pipeline, make native-only Coordinator dispatch Outbox, then promote `auto-subscribe` only after
+  its PG18/Redis/import-sentinel evidence passes.
+- Remaining task/route/table/config ownership, controlled removal and all P11 NFR/security/SBOM/
+  License gates remain pending. P11 stays `DOING`; P12 stays `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -4475,7 +4529,8 @@ Read first:
 
 Next:
 
-- Continue `auto-subscribe` with stable item claims and replay-safe production source adapters before
-  Worker promotion; then close the remaining task, Route, Table and Config ownership before
-  controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete.
-  Keep all Live Acceptance items pending.
+- Close native Shared Resource configuration/routes/device identity and the remaining synchronous
+  mutations, add native-only Coordinator dispatch, then continue `auto-subscribe` source execution
+  before Worker promotion. Close the remaining task, Route, Table and Config ownership before
+  controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete; keep
+  all Live Acceptance items pending.

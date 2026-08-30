@@ -11,8 +11,10 @@ import pytest
 from sqlalchemy import text
 
 from etk.domains.sharing import (
+    InsufficientContributionError,
     PostgresContributionLedger,
     SharingDeliveryOutcome,
+    SharingLedgerService,
     SharingOperation,
     SharingOperationExecutor,
 )
@@ -143,6 +145,85 @@ def test_postgres_concurrent_debit_and_replay_are_atomic(p9_runtime) -> None:
     )
     assert replay.delta == -10
     assert len(ledger.entries("device-1", limit=100)) == 10
+
+
+def test_postgres_transfer_operation_ledger_and_outbox_share_one_uow(p9_runtime) -> None:
+    ledger = PostgresContributionLedger(p9_runtime.unit_of_work)
+    operations = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    ledger.ensure_account("device-transfer", 5)
+    service = SharingLedgerService(
+        ledger,
+        operations,
+        unit_of_work=p9_runtime.unit_of_work,
+    )
+
+    result = service.reserve_transfer(
+        account_id="device-transfer",
+        source_id="source-transfer",
+        amount=3,
+        principal_id="principal-transfer",
+        idempotency_key="transfer-uow",
+    )
+
+    assert result.status_code == 202
+    assert ledger.balance("device-transfer") == 2
+    operation_id = UUID(result.payload["operation_id"])
+    operation = operations.read(operation_id)
+    assert operation is not None
+    assert operation.request == {
+        "provider": "shared_center",
+        "action": "acquire_transfer_lease",
+        "payload": {
+            "account_id": "device-transfer",
+            "source_id": "source-transfer",
+            "amount": 3,
+        },
+    }
+    with p9_runtime.engine.connect() as connection:
+        outbox = connection.execute(
+            text("SELECT status FROM outbox_events WHERE aggregate_id = :operation_id"),
+            {"operation_id": str(operation_id)},
+        ).scalar_one()
+    assert outbox == "pending"
+
+
+def test_postgres_transfer_reservation_rolls_back_when_ledger_rejects(p9_runtime) -> None:
+    ledger = PostgresContributionLedger(p9_runtime.unit_of_work)
+    operations = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingLedgerService(
+        ledger,
+        operations,
+        unit_of_work=p9_runtime.unit_of_work,
+    )
+
+    with pytest.raises(InsufficientContributionError):
+        service.reserve_transfer(
+            account_id="device-no-credit",
+            source_id="source-no-credit",
+            amount=1,
+            principal_id="principal-no-credit",
+            idempotency_key="transfer-no-credit",
+        )
+
+    with p9_runtime.engine.connect() as connection:
+        counts = connection.execute(
+            text(
+                """
+                SELECT
+                    (SELECT COUNT(*) FROM sharing_operations
+                     WHERE scope_key = 'account:device-no-credit:source:source-no-credit'),
+                    (SELECT COUNT(*) FROM sharing_credit_ledger
+                     WHERE account_id = 'device-no-credit'),
+                    (SELECT COUNT(*) FROM outbox_events
+                     WHERE aggregate_type = 'sharing-operation'
+                       AND aggregate_id IN (
+                           SELECT id::text FROM sharing_operations
+                           WHERE scope_key = 'account:device-no-credit:source:source-no-credit'
+                       ))
+                """
+            )
+        ).one()
+    assert tuple(counts) == (0, 0, 0)
 
 
 def test_postgres_sharing_operation_stages_identifier_only_outbox(p9_runtime) -> None:

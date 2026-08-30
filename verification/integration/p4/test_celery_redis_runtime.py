@@ -27,13 +27,21 @@ from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjectio
 from etk.domains.media.daily_theme_repository import SqlAlchemyDailyThemeRepository
 from etk.domains.media.effects import PostgresMediaEffectLedger, SqlAlchemyMediaEffectRepository
 from etk.domains.p115 import P115ExecutionEffectStatus, P115ExecutionStatus
+from etk.domains.sharing import PostgresContributionLedger, SharingLedgerService
+from etk.domains.sharing.operations import SharingOperationIntent, SharingOperationKind
+from etk.domains.sharing.repository import PostgresSharingOperationRepository
 from etk.domains.subscription.assistant import ASSISTANT_MAINTENANCE_PHASES, _state_json
 from etk.domains.subscription.cleanup_adapters import SettingsCleanupExecutionPolicy
 from etk.domains.subscription.cleanup_repository import SqlAlchemyCleanupRepository
 from etk.platform import Settings
 from etk.platform.db import DatabaseRuntime
 from etk.platform.jobs import AttemptStatus, JobProjection, JobStatus, PostgresJobStore
-from etk.processes.celery_app import EXECUTE_JOB_TASK, EXECUTE_MEDIA_EFFECT_TASK, create_celery_app
+from etk.processes.celery_app import (
+    EXECUTE_JOB_TASK,
+    EXECUTE_MEDIA_EFFECT_TASK,
+    EXECUTE_SHARING_OPERATION_TASK,
+    create_celery_app,
+)
 from etk.processes.runtime_config import TaskRuntimeConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -115,6 +123,11 @@ class DailyThemeTmdbStubState:
 class ManualSubscriptionStubState:
     requests: list[str]
     moviepilot_writes: list[dict[str, Any]]
+
+
+@dataclass(slots=True)
+class SharingOperationStubState:
+    requests: list[dict[str, Any]]
 
 
 def _start_identity_expiry_emby_stub(
@@ -313,6 +326,60 @@ def _start_manual_subscription_stub() -> tuple[
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, name="etk-manual-subscription-stub", daemon=True)
+    thread.start()
+    return server, thread, state
+
+
+def _start_sharing_operation_stub() -> tuple[
+    ThreadingHTTPServer,
+    threading.Thread,
+    SharingOperationStubState,
+]:
+    state = SharingOperationStubState(requests=[])
+    lock = threading.Lock()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:  # noqa: N802
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length) if length else b"{}"
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.end_headers()
+                return
+            path = urlsplit(self.path).path
+            with lock:
+                state.requests.append(
+                    {
+                        "path": path,
+                        "body": body,
+                        "instance_id": self.headers.get("X-ETK-Instance-ID"),
+                        "instance_secret": self.headers.get("X-ETK-Instance-Secret"),
+                    }
+                )
+            if path == "/api/v1/transfers/lease":
+                payload = {"ok": True, "lease_id": "fixture-lease"}
+            elif path == "/api/hdhive/checkin":
+                payload = {"success": True, "id": "fixture-checkin"}
+            elif path == "/botfixture-bot-token/sendMessage":
+                payload = {"ok": True, "result": {"message_id": 1}}
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
+            encoded = json.dumps(payload, separators=(",", ":")).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
+        def log_message(self, format: str, *args: object) -> None:
+            del format, args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, name="etk-sharing-operation-stub", daemon=True)
     thread.start()
     return server, thread, state
 
@@ -4950,6 +5017,229 @@ if guard_file:
         _shutdown_http_stub(server, server_thread)
 
 
+@pytest.mark.parametrize(
+    "compatibility_enabled",
+    [False, True],
+    ids=["native-only", "compatibility-enabled"],
+)
+def test_sharing_operations_dispatch_once_through_real_worker_profiles(
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+) -> None:
+    fixture = uuid4().hex
+    setting_keys = ("dynamic_app_config", "hdhive_config", "shared_resource_config")
+    server, server_thread, stub = _start_sharing_operation_stub()
+    worker: ManagedProcess | None = None
+    replacement: ManagedProcess | None = None
+    coordinator: ManagedProcess | None = None
+    prior_settings = _snapshot_app_settings(p4_runtime, setting_keys)
+    operation_ids: list[UUID] = []
+    account_id = f"sharing-worker-{fixture}"
+    try:
+        base_url = f"http://127.0.0.1:{server.server_port}"
+        with p4_runtime.engine.begin() as connection:
+            for key, value in (
+                (
+                    "dynamic_app_config",
+                    {
+                        "telegram_api_base_url": base_url,
+                        "telegram_bot_token": "fixture-bot-token",
+                    },
+                ),
+                (
+                    "shared_resource_config",
+                    {"p115_shared_center_url": base_url},
+                ),
+                (
+                    "hdhive_config",
+                    {
+                        "relay_base_url": base_url,
+                        "relay_instance_id": "fixture-instance",
+                        "relay_instance_secret": "fixture-instance-secret",
+                    },
+                ),
+            ):
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                        VALUES (:key, CAST(:value AS jsonb), NOW())
+                        ON CONFLICT (setting_key) DO UPDATE SET
+                            value_json = EXCLUDED.value_json,
+                            last_updated_at = NOW()
+                        """
+                    ),
+                    {"key": key, "value": json.dumps(value, separators=(",", ":"))},
+                )
+
+        ledger = PostgresContributionLedger(p4_runtime.unit_of_work)
+        operations = PostgresSharingOperationRepository(p4_runtime.unit_of_work)
+        ledger.ensure_account(account_id, 5)
+        reserved = SharingLedgerService(
+            ledger,
+            operations,
+            unit_of_work=p4_runtime.unit_of_work,
+        ).reserve_transfer(
+            account_id=account_id,
+            source_id=f"source-{fixture}",
+            amount=1,
+            principal_id=f"principal-{fixture}",
+            idempotency_key=f"lease-{fixture}",
+        )
+        operation_ids.append(UUID(str(reserved.payload["operation_id"])))
+        for kind, scope, request in (
+            (
+                SharingOperationKind.HDHIVE_CHECKIN,
+                f"hdhive-checkin:{fixture}",
+                {"provider": "hdhive", "action": "checkin", "payload": {"is_gambler": False}},
+            ),
+            (
+                SharingOperationKind.TELEGRAM_DELIVERY,
+                f"telegram-delivery:{fixture}",
+                {
+                    "provider": "telegram",
+                    "action": "send_message",
+                    "payload": {"chat_id": "fixture-chat", "text": "fixture-message"},
+                },
+            ),
+        ):
+            operation_ids.append(
+                operations.reserve(
+                    SharingOperationIntent.create(
+                        kind=kind,
+                        scope_key=scope,
+                        principal_id=f"principal-{fixture}",
+                        request=request,
+                        idempotency_key=scope,
+                    )
+                ).id
+            )
+
+        worker_environment_values = dict(p4_runtime_environment.environment)
+        if compatibility_enabled:
+            worker_environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+        else:
+            worker_environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+        worker_environment = RuntimeEnvironment(
+            environment=worker_environment_values,
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        coordinator_environment = RuntimeEnvironment(
+            environment={
+                **p4_runtime_environment.environment,
+                "ETK_ENABLE_LEGACY_COMPATIBILITY": "true",
+            },
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        worker = _start_worker(worker_environment, tmp_path / f"sharing-worker-{compatibility_enabled}")
+        _wait_for_worker(worker, worker_environment.config)
+        coordinator = _start_coordinator(
+            coordinator_environment,
+            tmp_path / f"sharing-coordinator-{compatibility_enabled}",
+        )
+        _wait_until(
+            lambda: _health_state(coordinator.log_path.with_suffix(".health.json")) == "leader",
+            description="sharing Coordinator leadership",
+            timeout=30,
+        )
+
+        def operations_confirmed() -> bool:
+            with p4_runtime.engine.connect() as connection:
+                rows = connection.execute(
+                    text(
+                        """
+                        SELECT id, status
+                        FROM sharing_operations
+                        WHERE id = ANY(CAST(:ids AS uuid[]))
+                        """
+                    ),
+                    {"ids": operation_ids},
+                ).all()
+            return len(rows) == len(operation_ids) and all(status == "confirmed" for _, status in rows)
+
+        _wait_until(operations_confirmed, description="sharing operation confirmations", timeout=45)
+        for operation_id in operation_ids:
+            _send_sharing_operation(worker_environment.config, operation_id, count=2)
+        time.sleep(1)
+        assert worker.stop() == 0
+        worker = None
+        replacement = _start_worker(
+            worker_environment,
+            tmp_path / f"sharing-replacement-worker-{compatibility_enabled}",
+        )
+        _wait_for_worker(replacement, worker_environment.config)
+        for operation_id in operation_ids:
+            _send_sharing_operation(worker_environment.config, operation_id)
+        time.sleep(1)
+
+        assert sorted(request["path"] for request in stub.requests) == sorted(
+            [
+                "/api/v1/transfers/lease",
+                "/api/hdhive/checkin",
+                "/botfixture-bot-token/sendMessage",
+            ]
+        )
+        hdhive_request = next(request for request in stub.requests if request["path"] == "/api/hdhive/checkin")
+        assert hdhive_request["instance_id"] == "fixture-instance"
+        assert hdhive_request["instance_secret"] == "fixture-instance-secret"
+        with p4_runtime.engine.connect() as connection:
+            rows = connection.execute(
+                text(
+                    """
+                    SELECT operation.id, operation.status, outbox.status
+                    FROM sharing_operations AS operation
+                    JOIN outbox_events AS outbox
+                      ON outbox.aggregate_type = 'sharing-operation'
+                     AND outbox.aggregate_id = operation.id::text
+                    WHERE operation.id = ANY(CAST(:ids AS uuid[]))
+                    ORDER BY operation.event_sequence
+                    """
+                ),
+                {"ids": operation_ids},
+            ).all()
+        assert rows == [(operation_id, "confirmed", "processed") for operation_id in operation_ids]
+        assert ledger.balance(account_id) == 4
+    finally:
+        if coordinator is not None:
+            assert coordinator.stop() == 128 + signal.SIGTERM
+        if replacement is not None:
+            assert replacement.stop() == 0
+        if worker is not None:
+            assert worker.stop() == 0
+        with p4_runtime.engine.begin() as connection:
+            if operation_ids:
+                connection.execute(
+                    text(
+                        """
+                        DELETE FROM outbox_events
+                        WHERE aggregate_type = 'sharing-operation'
+                          AND aggregate_id = ANY(CAST(:ids AS text[]))
+                        """
+                    ),
+                    {"ids": [str(value) for value in operation_ids]},
+                )
+                connection.execute(
+                    text("DELETE FROM sharing_credit_ledger WHERE operation_id = ANY(CAST(:ids AS uuid[]))"),
+                    {"ids": operation_ids},
+                )
+                connection.execute(
+                    text("DELETE FROM sharing_operations WHERE id = ANY(CAST(:ids AS uuid[]))"),
+                    {"ids": operation_ids},
+                )
+            connection.execute(
+                text("DELETE FROM sharing_credit_accounts WHERE account_id = :account_id"),
+                {"account_id": account_id},
+            )
+        _restore_app_settings(p4_runtime, prior_settings, setting_keys)
+        _shutdown_http_stub(server, server_thread)
+
+
 def _create_empty_chain_job(store: PostgresJobStore, queue_name: str):
     return store.create_job(
         task_key="task-chain-high-freq",
@@ -5076,6 +5366,22 @@ def _send_media_effect(config: TaskRuntimeConfig, effect_id: UUID) -> None:
             routing_key=config.queue_name,
             serializer="json",
         )
+    finally:
+        app.close()
+
+
+def _send_sharing_operation(config: TaskRuntimeConfig, operation_id: UUID, *, count: int = 1) -> None:
+    app = create_celery_app(config)
+    try:
+        for _ in range(count):
+            app.send_task(
+                EXECUTE_SHARING_OPERATION_TASK,
+                kwargs={"operation_id": str(operation_id)},
+                task_id=str(operation_id),
+                queue=config.queue_name,
+                routing_key=config.queue_name,
+                serializer="json",
+            )
     finally:
         app.close()
 
