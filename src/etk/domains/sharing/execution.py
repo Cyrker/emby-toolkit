@@ -9,7 +9,12 @@ from uuid import UUID
 
 from etk.platform.jobs.json_payload import normalize_durable_json_object
 
-from .operations import SharingOperation, SharingOperationStateError, SharingOperationStatus
+from .operations import (
+    SharingOperation,
+    SharingOperationPreconditionError,
+    SharingOperationStateError,
+    SharingOperationStatus,
+)
 from .repository import DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS, PostgresSharingOperationRepository
 
 
@@ -145,6 +150,23 @@ class SharingOperationExecutor:
             recovered = self._recover(claimed, token)
             return SharingOperationExecution(recovered, claimed=True)
 
+        try:
+            self._repository.validate_prewrite(claimed)
+        except SharingOperationStateError:
+            completed = self._repository.mark_rejected(
+                claimed.id,
+                token,
+                error={"type": "sharing_local_precondition_changed"},
+            )
+            return SharingOperationExecution(completed, claimed=True)
+        except Exception as exc:
+            completed = self._retry_before_write(
+                claimed,
+                token,
+                error={"type": "sharing_local_precondition_error", "error_class": type(exc).__name__},
+            )
+            return SharingOperationExecution(completed, claimed=True)
+
         current = claimed
         checkpointed = False
         lost_claim: SharingOperation | None = None
@@ -171,6 +193,23 @@ class SharingOperationExecutor:
 
         try:
             outcome = _validated_outcome(self._delivery.request(claimed, checkpoint=checkpoint))
+        except SharingOperationPreconditionError:
+            if lost_claim is not None:
+                return SharingOperationExecution(lost_claim, claimed=True)
+            completed = (
+                self._post_checkpoint_failure(
+                    current,
+                    token,
+                    error={"type": "sharing_local_precondition_changed"},
+                )
+                if checkpointed
+                else self._repository.mark_rejected(
+                    claimed.id,
+                    token,
+                    error={"type": "sharing_local_precondition_changed"},
+                )
+            )
+            return SharingOperationExecution(completed, claimed=True)
         except (TypeError, ValueError) as exc:
             if lost_claim is not None:
                 return SharingOperationExecution(lost_claim, claimed=True)

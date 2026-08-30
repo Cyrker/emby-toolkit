@@ -6311,40 +6311,42 @@
       "contract_id": "route-binding-2dcab1d95123",
       "decorator_contract_id": "route-decorator-3f25a179588c",
       "endpoint": "api_report_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 report-center freezes the local source/file/RAW snapshot and stages a prerequisite RAW upload plus dependent source registration; the request thread performs no provider mutation.",
       "path": "/api/shared/resources/shares/<int:source_id>/report-center",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:960",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+      "validation_owner": "sharing/source-registration"
     },
     {
       "application": "api",
       "contract_id": "route-binding-89c6df870297",
       "decorator_contract_id": "route-decorator-b0d2eb396246",
       "endpoint": "api_reregister_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 single-source reregister preserves the original provider and uses durable RAW prerequisite, authoritative source readback, identity drift fencing and terminal local continuation.",
       "path": "/api/shared/resources/shares/<int:source_id>/reregister",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:975",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+      "validation_owner": "sharing/source-registration"
     },
     {
       "application": "api",
@@ -6456,20 +6458,21 @@
       "contract_id": "route-binding-3c0b7ba3cf08",
       "decorator_contract_id": "route-decorator-e4e4602d5867",
       "endpoint": "api_reregister_local_sources_batch",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 batch reregister creates deterministic per-source prerequisite chains, preserves skips and missing items, and exposes child operation identities for terminal polling.",
       "path": "/api/shared/resources/shares/reregister-batch",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:987",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+      "validation_owner": "sharing/source-registration"
     },
     {
       "application": "api",
@@ -14698,22 +14701,23 @@
       "contract_id": "route-decorator-3f25a179588c",
       "declared_path": "/shares/<int:source_id>/report-center",
       "endpoint": "api_report_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 report-center is owned by the native durable source-registration workflow; provider writes occur only after Outbox delivery.",
       "path": "/api/shared/resources/shares/<int:source_id>/report-center",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:960",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+      "validation_owner": "sharing/source-registration"
     },
     {
       "application": "api",
@@ -14721,22 +14725,23 @@
       "contract_id": "route-decorator-b0d2eb396246",
       "declared_path": "/shares/<int:source_id>/reregister",
       "endpoint": "api_reregister_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 single-source reregister is owned by the native RAW prerequisite and source-registration continuation workflow.",
       "path": "/api/shared/resources/shares/<int:source_id>/reregister",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:975",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+      "validation_owner": "sharing/source-registration"
     },
     {
       "application": "api",
@@ -14864,22 +14869,23 @@
       "contract_id": "route-decorator-e4e4602d5867",
       "declared_path": "/shares/reregister-batch",
       "endpoint": "api_reregister_local_sources_batch",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 batch reregister is owned by deterministic native per-source operation chains with explicit partial results.",
       "path": "/api/shared/resources/shares/reregister-batch",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:987",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+      "validation_owner": "sharing/source-registration"
     },
     {
       "application": "api",

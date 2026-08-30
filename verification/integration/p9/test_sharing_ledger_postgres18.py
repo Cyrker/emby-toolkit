@@ -4,14 +4,17 @@ import json
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from threading import Event
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
 import pytest
 from sqlalchemy import text
 
+from etk.domains.p115.media_info_repository import SqlAlchemyP115MediaInfoRepository
 from etk.domains.sharing import (
+    InMemoryContributionLedger,
     InsufficientContributionError,
     PostgresContributionLedger,
     SharingConfigurationService,
@@ -23,6 +26,7 @@ from etk.domains.sharing import (
     SharingService,
     SqlAlchemySharingProjectionRepository,
 )
+from etk.domains.sharing.operation_delivery import SharingProviderOperationDelivery
 from etk.domains.sharing.operations import (
     SharingOperationConflictError,
     SharingOperationIntent,
@@ -31,7 +35,10 @@ from etk.domains.sharing.operations import (
     SharingOperationStateError,
 )
 from etk.domains.sharing.repository import PostgresSharingOperationRepository
+from etk.domains.sharing.source_registration import freeze_shared_raw_ffprobe, source_registration_state_hash
 from etk.domains.system.repository import SqlAlchemyAppSettingsRepository
+from etk.integrations import ProviderDisposition, ProviderResponse
+from etk.processes.worker import _load_sharing_raw_ffprobe
 
 
 class _Delivery:
@@ -714,6 +721,672 @@ def test_postgres_unsupported_local_continuation_rolls_back_terminal_transition(
     assert rolled_back.status.value == "requesting"
     assert rolled_back.state_revision == requesting.state_revision
     assert rolled_back.result is None
+
+
+def test_postgres_source_registration_prerequisite_releases_and_confirms_local_projection(p9_runtime) -> None:
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    sha1 = "D" * 40
+    raw = {"format": {"size": "1024"}, "streams": []}
+    _sanitized, raw_digest, raw_size_bytes = freeze_shared_raw_ffprobe(raw)
+    raw_payload = {
+        "sha1": sha1,
+        "raw_reference": {"sha1": sha1, "sha256": raw_digest, "size_bytes": raw_size_bytes},
+    }
+    with p9_runtime.engine.begin() as connection:
+        source = (
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO shared_rapid_sources(
+                        source_key, source_kind, center_source_id, tmdb_id, item_type,
+                        title, sha1, file_name, source_provider, status, center_status,
+                        file_count, total_size, rapid_meta_json, media_signature_json
+                    ) VALUES (
+                        'native-register-source', 'movie', 'center-old', '901', 'Movie',
+                        'Native Register', :sha1, 'Native Register.mkv', 'manual_rapid',
+                        'active', 'reported', 1, 1024,
+                        '{"fid":"fid-native","pick_code":"pc-native"}'::jsonb,
+                        '{"resolution":"4K","video_codec":"hevc"}'::jsonb
+                    ) RETURNING *
+                    """
+                ),
+                {"sha1": sha1},
+            )
+            .mappings()
+            .one()
+        )
+        file = (
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO shared_rapid_source_files(
+                        local_source_id, fid, pick_code, sha1, preid, size, file_name,
+                        tmdb_id, item_type, raw_ffprobe_uploaded, rapid_meta_json,
+                        media_signature_json
+                    ) VALUES (
+                        :source_id, 'fid-native', 'pc-native', :sha1, 'preid-native',
+                        1024, 'Native Register.mkv', '901', 'Movie', FALSE,
+                        '{"fid":"fid-native","pick_code":"pc-native"}'::jsonb,
+                        '{"resolution":"4K","video_codec":"hevc"}'::jsonb
+                    ) RETURNING *
+                    """
+                ),
+                {"source_id": source["id"], "sha1": sha1},
+            )
+            .mappings()
+            .one()
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_mediainfo_cache(sha1, raw_ffprobe_json)
+                VALUES (:sha1, CAST(:raw AS jsonb))
+                """
+            ),
+            {"sha1": sha1, "raw": json.dumps(raw)},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_filesystem_cache(
+                    id, parent_id, name, local_path, sha1, pick_code, size, account_id, entry_kind
+                ) VALUES (
+                    'native-register-holder', 'native-register-parent', 'Native Register.mkv',
+                    '/Movies/Native Register.mkv', :sha1, 'pc-native', 1024, '1', 'file'
+                )
+                """
+            ),
+            {"sha1": sha1},
+        )
+    state_hash = source_registration_state_hash(dict(source), [dict(file)])
+    raw_seed = SharingOperationIntent.create(
+        kind=SharingOperationKind.REGISTER_SOURCE,
+        scope_key=f"fixture-source-raw:{source['id']}:{sha1}",
+        principal_id="fixture-source-register",
+        request={
+            "provider": "shared_center",
+            "action": "upload_raw_ffprobe",
+            "payload": raw_payload,
+            "readback": {
+                "provider": "shared_center",
+                "action": "get_raw_ffprobe",
+                "query": {"sha1": sha1},
+                "match_key": "sha1",
+                "match_value": sha1,
+            },
+        },
+        idempotency_key="fixture-source-register:raw",
+    )
+    dependent = SharingOperationIntent.create(
+        kind=SharingOperationKind.REGISTER_SOURCE,
+        scope_key=f"fixture-source-register:{source['id']}",
+        principal_id="fixture-source-register",
+        request={
+            "provider": "shared_center",
+            "action": "register_source",
+            "payload": {"source_kind": "movie", "body": {"tmdb_id": "901", "sha1": sha1}},
+            "blocked_by_operation_id": str(raw_seed.id),
+            "local_continuation": {
+                "type": "confirm_local_source_registration",
+                "source_id": source["id"],
+                "expected_source_state_hash": state_hash,
+                "expected_center_source_id": "center-old",
+                "source_kind": "movie",
+                "local_sign_holder": {"account_id": "1", "pick_code": "pc-native", "sha1": sha1},
+                "source_record": {"id": source["id"], "source_key": source["source_key"]},
+                "file_record": {"id": file["id"], "sha1": sha1, "file_name": file["file_name"]},
+            },
+        },
+        idempotency_key="fixture-source-register:register",
+    )
+    prerequisite = SharingOperationIntent.create(
+        kind=SharingOperationKind.REGISTER_SOURCE,
+        scope_key=f"fixture-source-raw:{source['id']}:{sha1}",
+        principal_id="fixture-source-register",
+        request={
+            "provider": "shared_center",
+            "action": "upload_raw_ffprobe",
+            "payload": raw_payload,
+            "readback": {
+                "provider": "shared_center",
+                "action": "get_raw_ffprobe",
+                "query": {"sha1": sha1},
+                "match_key": "sha1",
+                "match_value": sha1,
+            },
+            "local_continuation": {
+                "type": "release_dependent_operation",
+                "operation_id": str(dependent.id),
+            },
+        },
+        idempotency_key="fixture-source-register:raw",
+    )
+    assert prerequisite.id == raw_seed.id
+
+    parent, raw_operation, replayed = repository.reserve_prerequisite_chain(
+        dependent_intent=dependent,
+        prerequisite_intent=prerequisite,
+    )
+    replay_parent, replay_raw, replayed_again = repository.reserve_prerequisite_chain(
+        dependent_intent=dependent,
+        prerequisite_intent=prerequisite,
+    )
+
+    assert replayed is False
+    assert replayed_again is True
+    assert replay_parent.id == parent.id
+    assert replay_raw.id == raw_operation.id
+    with p9_runtime.engine.connect() as connection:
+        initial_outboxes = connection.execute(
+            text("SELECT aggregate_id, status FROM outbox_events WHERE aggregate_id IN (:parent, :raw)"),
+            {"parent": str(parent.id), "raw": str(raw_operation.id)},
+        ).all()
+    assert initial_outboxes == [(str(raw_operation.id), "pending")]
+
+    raw_execution = SharingOperationExecutor(
+        repository,
+        _Delivery([SharingDeliveryOutcome.confirmed({"provider_result": {"sha1": sha1}})]),
+    ).execute(raw_operation.id, worker_id="raw-worker", lease_seconds=60)
+    assert raw_execution is not None
+    assert raw_execution.operation.status.value == "confirmed"
+    with p9_runtime.engine.connect() as connection:
+        released_status = connection.scalar(
+            text("SELECT status FROM outbox_events WHERE aggregate_id = :parent"),
+            {"parent": str(parent.id)},
+        )
+    assert released_status == "pending"
+
+    registration_execution = SharingOperationExecutor(
+        repository,
+        _Delivery([SharingDeliveryOutcome.confirmed({"provider_result": {"source_id": "center-native"}})]),
+    ).execute(parent.id, worker_id="registration-worker", lease_seconds=60)
+    assert registration_execution is not None
+    assert registration_execution.operation.status.value == "confirmed"
+    with p9_runtime.engine.connect() as connection:
+        saved_source = connection.execute(
+            text(
+                """
+                SELECT center_source_id, status, center_status, last_error,
+                       raw_json->'native_registration'->>'operation_id'
+                FROM shared_rapid_sources WHERE id = :id
+                """
+            ),
+            {"id": source["id"]},
+        ).one()
+        saved_file = connection.execute(
+            text(
+                """
+                SELECT raw_ffprobe_uploaded, raw_json->>'registration_operation_id'
+                FROM shared_rapid_source_files WHERE id = :id
+                """
+            ),
+            {"id": file["id"]},
+        ).one()
+        final_outboxes = dict(
+            connection.execute(
+                text("SELECT aggregate_id, status FROM outbox_events WHERE aggregate_id IN (:parent, :raw)"),
+                {"parent": str(parent.id), "raw": str(raw_operation.id)},
+            ).all()
+        )
+    assert saved_source == ("center-native", "active", "reported", None, str(parent.id))
+    assert saved_file == (True, str(parent.id))
+    assert final_outboxes == {str(parent.id): "processed", str(raw_operation.id): "processed"}
+
+    with p9_runtime.engine.begin() as connection:
+        connection.execute(
+            text("DELETE FROM shared_rapid_source_files WHERE local_source_id = :id"), {"id": source["id"]}
+        )
+        connection.execute(text("DELETE FROM shared_rapid_sources WHERE id = :id"), {"id": source["id"]})
+        connection.execute(text("DELETE FROM p115_mediainfo_cache WHERE sha1 = :sha1"), {"sha1": sha1})
+        connection.execute(text("DELETE FROM p115_filesystem_cache WHERE id = 'native-register-holder'"))
+
+
+def test_postgres_source_only_registration_persists_current_holder_pick_code(p9_runtime) -> None:
+    sha1 = "B" * 40
+    raw = {
+        "format": {"size": "4096"},
+        "streams": [{"codec_type": "video", "codec_name": "hevc", "width": 1920, "height": 1080}],
+    }
+    with p9_runtime.engine.begin() as connection:
+        source_id = connection.scalar(
+            text(
+                """
+                INSERT INTO shared_rapid_sources(
+                    source_key, source_kind, tmdb_id, item_type, title, sha1, file_name,
+                    source_provider, status, center_status, file_count, total_size,
+                    rapid_meta_json, media_signature_json
+                ) VALUES (
+                    'source-only-registration', 'movie', '904', 'Movie', 'Source Only', :sha1,
+                    'Source Only.mkv', 'auto_ingest', 'active', 'local', 1, 4096,
+                    '{"fid":"source-only-fid"}'::jsonb,
+                    '{"resolution":"1080p","video_codec":"hevc"}'::jsonb
+                ) RETURNING id
+                """
+            ),
+            {"sha1": sha1},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_mediainfo_cache(sha1, raw_ffprobe_json)
+                VALUES (:sha1, CAST(:raw AS jsonb))
+                """
+            ),
+            {"sha1": sha1, "raw": json.dumps(raw)},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_filesystem_cache(
+                    id, parent_id, name, local_path, sha1, pick_code, size, account_id, entry_kind
+                ) VALUES (
+                    'source-only-holder', 'source-only-parent', 'Source Only.mkv',
+                    '/Movies/Source Only.mkv', :sha1, 'source-only-current-pc', 4096, '1', 'file'
+                )
+                """
+            ),
+            {"sha1": sha1},
+        )
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingService(
+        InMemoryContributionLedger(),
+        object(),
+        repository,
+        projection=SqlAlchemySharingProjectionRepository(p9_runtime.unit_of_work, account_id=lambda: "1"),
+    )
+
+    staged = service.reregister_local_source(
+        int(source_id),
+        principal_id="source-only-admin",
+        idempotency_key="source-only-registration",
+    )
+    assert staged.status_code == 202
+    parent_id = UUID(staged.payload["operation_id"])
+    raw_id = UUID(staged.payload["prerequisite_operation_id"])
+    with p9_runtime.engine.connect() as connection:
+        provider = connection.scalar(
+            text("SELECT request_json->'payload'->'body'->>'source_provider' FROM sharing_operations WHERE id = :id"),
+            {"id": parent_id},
+        )
+    assert provider == "auto_ingest"
+
+    class Center:
+        def __init__(self) -> None:
+            self.uploads: list[dict[str, Any]] = []
+
+        def validate_configuration(self) -> None:
+            return None
+
+        def upload_raw_ffprobe(self, payload: dict[str, Any]) -> ProviderResponse[dict[str, Any]]:
+            self.uploads.append(payload)
+            return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"sha1": payload["sha1"]})
+
+        def get_raw_ffprobe(self, value: str) -> ProviderResponse[dict[str, Any]]:
+            return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"sha1": value})
+
+    center = Center()
+    media_info_repository = SqlAlchemyP115MediaInfoRepository(p9_runtime.unit_of_work)
+    raw_execution = SharingOperationExecutor(
+        repository,
+        SharingProviderOperationDelivery(
+            shared_center=cast(Any, center),
+            hdhive=cast(Any, object()),
+            raw_ffprobe_loader=partial(_load_sharing_raw_ffprobe, media_info_repository),
+        ),
+    ).execute(raw_id, worker_id="source-only-raw-worker", lease_seconds=60)
+    assert raw_execution is not None and raw_execution.operation.status.value == "confirmed"
+    assert center.uploads[0]["raw_ffprobe_json"] == raw
+    assert "raw_reference" not in center.uploads[0]
+    registered = SharingOperationExecutor(
+        repository,
+        _Delivery([SharingDeliveryOutcome.confirmed({"provider_result": {"source_id": "source-only-center"}})]),
+    ).execute(parent_id, worker_id="source-only-register-worker", lease_seconds=60)
+    assert registered is not None and registered.operation.status.value == "confirmed"
+
+    with p9_runtime.engine.connect() as connection:
+        saved = connection.execute(
+            text(
+                """
+                SELECT pick_code, sha1, raw_ffprobe_uploaded
+                FROM shared_rapid_source_files WHERE local_source_id = :source_id
+                """
+            ),
+            {"source_id": source_id},
+        ).one()
+    assert saved == ("source-only-current-pc", sha1, True)
+
+    with p9_runtime.engine.begin() as connection:
+        connection.execute(text("DELETE FROM shared_rapid_source_files WHERE local_source_id = :id"), {"id": source_id})
+        connection.execute(text("DELETE FROM shared_rapid_sources WHERE id = :id"), {"id": source_id})
+        connection.execute(text("DELETE FROM p115_mediainfo_cache WHERE sha1 = :sha1"), {"sha1": sha1})
+        connection.execute(text("DELETE FROM p115_filesystem_cache WHERE id = 'source-only-holder'"))
+
+
+@pytest.mark.parametrize("dependent_status", ["requesting", "awaiting_readback", "retryable"])
+def test_postgres_confirmed_prerequisite_replay_does_not_restage_active_dependent(
+    p9_runtime,
+    dependent_status: str,
+) -> None:
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    sha1 = "C" * 40
+    key = f"fixture-prerequisite-replay:{dependent_status}"
+    raw_seed = SharingOperationIntent.create(
+        kind=SharingOperationKind.REGISTER_SOURCE,
+        scope_key=f"{key}:raw",
+        principal_id="fixture-prerequisite-replay",
+        request={
+            "provider": "shared_center",
+            "action": "upload_raw_ffprobe",
+            "payload": {"sha1": sha1},
+        },
+        idempotency_key=f"{key}:raw",
+    )
+    dependent = SharingOperationIntent.create(
+        kind=SharingOperationKind.REGISTER_SOURCE,
+        scope_key=f"{key}:dependent",
+        principal_id="fixture-prerequisite-replay",
+        request={
+            "provider": "shared_center",
+            "action": "register_source",
+            "payload": {"source_kind": "movie", "body": {"tmdb_id": "903", "sha1": sha1}},
+            "blocked_by_operation_id": str(raw_seed.id),
+        },
+        idempotency_key=f"{key}:dependent",
+    )
+    prerequisite = SharingOperationIntent.create(
+        kind=SharingOperationKind.REGISTER_SOURCE,
+        scope_key=f"{key}:raw",
+        principal_id="fixture-prerequisite-replay",
+        request={
+            "provider": "shared_center",
+            "action": "upload_raw_ffprobe",
+            "payload": {"sha1": sha1},
+            "local_continuation": {
+                "type": "release_dependent_operation",
+                "operation_id": str(dependent.id),
+            },
+        },
+        idempotency_key=f"{key}:raw",
+    )
+    parent, raw_operation, replayed = repository.reserve_prerequisite_chain(
+        dependent_intent=dependent,
+        prerequisite_intent=prerequisite,
+    )
+    assert replayed is False
+    delivery = _Delivery([SharingDeliveryOutcome.confirmed({"provider_result": {"sha1": sha1}})])
+    raw_execution = SharingOperationExecutor(repository, delivery).execute(
+        raw_operation.id,
+        worker_id=f"{dependent_status}-raw-worker",
+        lease_seconds=60,
+    )
+    assert raw_execution is not None and raw_execution.operation.status.value == "confirmed"
+    assert delivery.request_calls == 1
+
+    claimed = repository.claim_by_id(parent.id, worker_id=f"{dependent_status}-worker", lease_seconds=60)
+    assert claimed is not None and claimed.claim_token is not None
+    if dependent_status == "requesting":
+        before = repository.mark_requesting(parent.id, claimed.claim_token)
+    elif dependent_status == "awaiting_readback":
+        repository.mark_requesting(parent.id, claimed.claim_token)
+        before = repository.mark_awaiting_readback(
+            parent.id,
+            claimed.claim_token,
+            error={"type": "fixture_unknown"},
+            retry_after_seconds=0,
+        )
+    else:
+        before = repository.mark_retryable(
+            parent.id,
+            claimed.claim_token,
+            error={"type": "fixture_prewrite"},
+            retry_after_seconds=0,
+        )
+    with p9_runtime.engine.begin() as connection:
+        connection.execute(
+            text("UPDATE outbox_events SET status = 'dead' WHERE aggregate_id = :aggregate_id"),
+            {"aggregate_id": str(parent.id)},
+        )
+
+    replay_parent, replay_raw, replayed_again = repository.reserve_prerequisite_chain(
+        dependent_intent=dependent,
+        prerequisite_intent=prerequisite,
+    )
+
+    assert replayed_again is True
+    assert replay_parent.id == parent.id
+    assert replay_raw.id == raw_operation.id
+    after = repository.read(parent.id)
+    assert after is not None
+    assert after.status.value == dependent_status
+    assert after.state_revision == before.state_revision
+    with p9_runtime.engine.connect() as connection:
+        outboxes = (
+            connection.execute(
+                text("SELECT status FROM outbox_events WHERE aggregate_id = :aggregate_id"),
+                {"aggregate_id": str(parent.id)},
+            )
+            .scalars()
+            .all()
+        )
+    assert outboxes == ["dead"]
+    assert delivery.request_calls == 1
+
+
+@pytest.mark.parametrize(
+    "drift_kind",
+    [
+        "source",
+        "file",
+        "holder_deleted",
+        "holder_changed",
+        "between_validation_and_checkpoint",
+        "holder_after_checkpoint",
+    ],
+)
+def test_postgres_source_registration_confirmation_fails_closed_on_local_identity_drift(
+    p9_runtime,
+    drift_kind: str,
+) -> None:
+    sha1 = "E" * 40
+    raw = {
+        "format": {"size": "2048", "bit_rate": "8000000"},
+        "streams": [{"codec_type": "video", "codec_name": "hevc", "width": 1920, "height": 1080}],
+    }
+    with p9_runtime.engine.begin() as connection:
+        source_id = connection.scalar(
+            text(
+                """
+                INSERT INTO shared_rapid_sources(
+                    source_key, source_kind, center_source_id, tmdb_id, item_type,
+                    title, sha1, file_name, source_provider, status, center_status,
+                    file_count, total_size, rapid_meta_json, media_signature_json
+                ) VALUES (
+                    'native-register-drift', 'movie', 'center-drift-old', '902', 'Movie',
+                    'Before Drift', :sha1, 'Before Drift.mkv', 'manual_rapid',
+                    'active', 'reported', 1, 2048,
+                    '{"fid":"fid-drift","pick_code":"pc-drift"}'::jsonb,
+                    '{"resolution":"1080p","video_codec":"hevc"}'::jsonb
+                ) RETURNING id
+                """
+            ),
+            {"sha1": sha1},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO shared_rapid_source_files(
+                    local_source_id, fid, pick_code, sha1, preid, size, file_name,
+                    tmdb_id, item_type, rapid_meta_json, media_signature_json
+                ) VALUES (
+                    :source_id, 'fid-drift', 'pc-drift', :sha1, 'preid-drift',
+                    2048, 'Before Drift.mkv', '902', 'Movie',
+                    '{"fid":"fid-drift","pick_code":"pc-drift"}'::jsonb,
+                    '{"resolution":"1080p","video_codec":"hevc"}'::jsonb
+                )
+                """
+            ),
+            {"source_id": source_id, "sha1": sha1},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_mediainfo_cache(sha1, raw_ffprobe_json)
+                VALUES (:sha1, CAST(:raw AS jsonb))
+                """
+            ),
+            {"sha1": sha1, "raw": json.dumps(raw)},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_filesystem_cache(
+                    id, parent_id, name, local_path, sha1, pick_code, size, account_id, entry_kind
+                ) VALUES (
+                    'drift-file', 'drift-parent', 'Before Drift.mkv', '/Movies/Before Drift.mkv',
+                    :sha1, 'pc-drift', 2048, '1', 'file'
+                )
+                """
+            ),
+            {"sha1": sha1},
+        )
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingService(
+        InMemoryContributionLedger(),
+        object(),
+        repository,
+        projection=SqlAlchemySharingProjectionRepository(p9_runtime.unit_of_work, account_id=lambda: "1"),
+    )
+
+    staged = service.reregister_local_source(
+        int(source_id),
+        principal_id="drift-admin",
+        idempotency_key=f"drift-registration:{drift_kind}",
+    )
+    assert staged.status_code == 202
+    parent_id = UUID(staged.payload["operation_id"])
+    raw_id = UUID(staged.payload["prerequisite_operation_id"])
+    with p9_runtime.engine.connect() as connection:
+        durable_raw_payload = connection.execute(
+            text(
+                """
+                SELECT request_json->'payload'->'raw_reference',
+                       request_json->'payload' ? 'raw_ffprobe_json'
+                FROM sharing_operations WHERE id = :id
+                """
+            ),
+            {"id": raw_id},
+        ).one()
+    assert durable_raw_payload[0]["sha1"] == sha1
+    assert len(durable_raw_payload[0]["sha256"]) == 64
+    assert durable_raw_payload[0]["size_bytes"] > 0
+    assert durable_raw_payload[1] is False
+    raw_execution = SharingOperationExecutor(
+        repository,
+        _Delivery([SharingDeliveryOutcome.confirmed({"provider_result": {"sha1": sha1}})]),
+    ).execute(raw_id, worker_id="drift-raw-worker", lease_seconds=60)
+    assert raw_execution is not None and raw_execution.operation.status.value == "confirmed"
+
+    if drift_kind == "between_validation_and_checkpoint":
+
+        class DriftBeforeCheckpointDelivery(_Delivery):
+            def __init__(self) -> None:
+                super().__init__([SharingDeliveryOutcome.confirmed({"provider_result": {"source_id": "unused"}})])
+                self.provider_called = False
+
+            def request(
+                self,
+                operation: SharingOperation,
+                *,
+                checkpoint: Callable[[], None],
+            ) -> SharingDeliveryOutcome:
+                del operation
+                self.request_calls += 1
+                with p9_runtime.engine.begin() as connection:
+                    connection.execute(text("DELETE FROM p115_filesystem_cache WHERE id = 'drift-file'"))
+                checkpoint()
+                self.provider_called = True
+                return self.requests.pop(0)
+
+        delivery = DriftBeforeCheckpointDelivery()
+        execution = SharingOperationExecutor(repository, delivery).execute(
+            parent_id,
+            worker_id="drift-fenced-worker",
+            lease_seconds=60,
+        )
+        assert execution is not None
+        assert execution.operation.status.value == "rejected"
+        assert execution.operation.step_started_at is None
+        assert delivery.request_calls == 1
+        assert delivery.provider_called is False
+    elif drift_kind == "holder_after_checkpoint":
+        delivery = _Delivery(
+            [SharingDeliveryOutcome.retryable({"type": "fixture_transport_unknown"})],
+            readbacks=[SharingDeliveryOutcome.confirmed({"provider_result": {"source_id": "center-drift-new"}})],
+        )
+        executor = SharingOperationExecutor(repository, delivery, retry_delay_seconds=0)
+        awaiting = executor.execute(parent_id, worker_id="drift-registration-worker", lease_seconds=60)
+        assert awaiting is not None and awaiting.operation.status.value == "awaiting_readback"
+        with p9_runtime.engine.begin() as connection:
+            connection.execute(text("DELETE FROM p115_filesystem_cache WHERE id = 'drift-file'"))
+        with pytest.raises(SharingOperationStateError, match="sign-holder changed"):
+            executor.execute(parent_id, worker_id="drift-readback-worker", lease_seconds=60)
+        current = repository.read(parent_id)
+        assert current is not None
+        assert current.status.value == "claimed"
+        assert current.step_started_at is not None
+        assert delivery.request_calls == 1
+        assert delivery.readback_calls == 1
+        with p9_runtime.engine.connect() as connection:
+            saved = connection.execute(
+                text("SELECT center_source_id FROM shared_rapid_sources WHERE id = :id"),
+                {"id": source_id},
+            ).scalar_one()
+        assert saved == "center-drift-old"
+    else:
+        with p9_runtime.engine.begin() as connection:
+            if drift_kind == "source":
+                connection.execute(
+                    text("UPDATE shared_rapid_sources SET title = 'After Drift', updated_at = NOW() WHERE id = :id"),
+                    {"id": source_id},
+                )
+            elif drift_kind == "file":
+                connection.execute(
+                    text(
+                        "UPDATE shared_rapid_source_files SET file_name = 'After Drift.mkv', updated_at = NOW() "
+                        "WHERE local_source_id = :id"
+                    ),
+                    {"id": source_id},
+                )
+            elif drift_kind == "holder_deleted":
+                connection.execute(text("DELETE FROM p115_filesystem_cache WHERE id = 'drift-file'"))
+            else:
+                connection.execute(
+                    text("UPDATE p115_filesystem_cache SET pick_code = 'pc-drift-changed' WHERE id = 'drift-file'")
+                )
+
+        delivery = _Delivery([SharingDeliveryOutcome.confirmed({"provider_result": {"source_id": "center-drift-new"}})])
+        execution = SharingOperationExecutor(repository, delivery).execute(
+            parent_id,
+            worker_id="drift-registration-worker",
+            lease_seconds=60,
+        )
+
+        assert execution is not None
+        assert execution.operation.status.value == "rejected"
+        assert execution.operation.step_started_at is None
+        assert delivery.request_calls == 0
+        with p9_runtime.engine.connect() as connection:
+            saved = connection.execute(
+                text("SELECT title, center_source_id FROM shared_rapid_sources WHERE id = :id"),
+                {"id": source_id},
+            ).one()
+        assert saved[1] == "center-drift-old"
+
+    with p9_runtime.engine.begin() as connection:
+        connection.execute(text("DELETE FROM shared_rapid_source_files WHERE local_source_id = :id"), {"id": source_id})
+        connection.execute(text("DELETE FROM shared_rapid_sources WHERE id = :id"), {"id": source_id})
+        connection.execute(text("DELETE FROM p115_mediainfo_cache WHERE sha1 = :sha1"), {"sha1": sha1})
+        connection.execute(text("DELETE FROM p115_filesystem_cache WHERE id = 'drift-file'"))
 
 
 def test_postgres_compensation_without_matching_debit_fails_closed(p9_runtime) -> None:

@@ -24,6 +24,11 @@ from .operations import (
     SharingOperationScopeBusyError,
     SharingOperationStatus,
 )
+from .source_registration import (
+    SharingSourceRegistrationError,
+    SharingSourceRegistrationSkipped,
+    prepare_source_registration,
+)
 
 _DISPLAY_TAG_FALLBACK = [
     {"label": "已完结", "value": "completed_certified"},
@@ -309,6 +314,316 @@ class SharingService(SharingLedgerService):
                 "item": item,
             }
         )
+
+    def report_local_source(
+        self,
+        source_id: int,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        return self._stage_local_source_registration(
+            source_id,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            mode="report",
+        )
+
+    def reregister_local_source(
+        self,
+        source_id: int,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        return self._stage_local_source_registration(
+            source_id,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            mode="reregister",
+        )
+
+    def reregister_local_sources(
+        self,
+        source_ids: Sequence[int],
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        normalized_ids = list(dict.fromkeys(int(value) for value in source_ids if int(value) > 0))
+        if not normalized_ids:
+            raise ValueError("source_ids must not be empty")
+        if len(normalized_ids) > 200:
+            raise ValueError("source_ids exceeds 200 items")
+        items: list[dict[str, Any]] = []
+        operation_ids: list[str] = []
+        missing: list[int] = []
+        failed: list[dict[str, Any]] = []
+        skipped: list[dict[str, Any]] = []
+        seen_identity: set[tuple[Any, ...]] = set()
+        for source_id in normalized_ids:
+            item_key = None
+            if idempotency_key:
+                digest = hashlib.sha256(f"{idempotency_key}\0{source_id}".encode()).hexdigest()
+                item_key = f"batch:{digest}"
+            result = self._stage_local_source_registration(
+                source_id,
+                principal_id=principal_id,
+                idempotency_key=item_key,
+                mode="reregister",
+                seen_identity=seen_identity,
+            )
+            payload = dict(result.payload) if isinstance(result.payload, Mapping) else {}
+            if result.status_code == 404:
+                missing.append(source_id)
+                continue
+            if payload.get("skipped") is True:
+                skipped.append({"id": source_id, **payload})
+                continue
+            operation_id = str(payload.get("operation_id") or "").strip()
+            status = str(payload.get("status") or "").strip().casefold()
+            if status in {"rejected", "indeterminate", "cancelled"}:
+                failed.append(
+                    {
+                        "id": source_id,
+                        "operation_id": operation_id or None,
+                        "status": status,
+                        "message": payload.get("message") or "重新登记操作未确认",
+                    }
+                )
+                continue
+            if operation_id:
+                operation_ids.append(operation_id)
+                items.append({"id": source_id, **payload})
+                continue
+            if result.status_code >= 400:
+                failed.append(
+                    {
+                        "id": source_id,
+                        "status": status or "failed",
+                        "message": payload.get("message") or "重新登记任务提交失败",
+                    }
+                )
+                continue
+            items.append({"id": source_id, **payload})
+        accepted = len(operation_ids)
+        parts = [f"已提交 {accepted} 个重新登记任务"]
+        if skipped:
+            parts.append(f"{len(skipped)} 个不可秒传源已跳过")
+        if missing:
+            parts.append(f"{len(missing)} 个不存在")
+        if failed:
+            parts.append(f"{len(failed)} 个提交失败")
+        if operation_ids:
+            status_code = 202
+        elif failed or missing or skipped:
+            status_code = 400
+        else:
+            status_code = 200
+        return SharingHttpResult(
+            {
+                "success": bool(operation_ids) and not failed,
+                "accepted": bool(operation_ids),
+                "partial": bool(operation_ids and (failed or missing or skipped)),
+                "message": "，".join(parts),
+                "operation_ids": operation_ids,
+                "items": items,
+                "missing": missing,
+                "skipped": skipped,
+                "failed": failed,
+            },
+            status_code,
+        )
+
+    def _stage_local_source_registration(
+        self,
+        source_id: int,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+        mode: str,
+        seen_identity: set[tuple[Any, ...]] | None = None,
+    ) -> SharingHttpResult:
+        if self._projection is None:
+            return SharingHttpResult({"success": False, "message": "共享资源本地投影不可用"}, 503)
+        if self._operations is None:
+            return SharingHttpResult({"success": False, "message": "共享操作运行时不可用"}, 503)
+        snapshot_reader = getattr(self._projection, "source_registration_snapshot", None)
+        reserve_chain = getattr(self._operations, "reserve_prerequisite_chain", None)
+        if not callable(snapshot_reader) or not callable(reserve_chain):
+            return SharingHttpResult({"success": False, "message": "共享源登记运行时不可用"}, 503)
+        normalized_id = int(source_id)
+        if normalized_id < 1:
+            raise ValueError("source_id must be positive")
+        snapshot = snapshot_reader(normalized_id)
+        if snapshot is None:
+            return SharingHttpResult({"success": False, "message": "本地共享源不存在"}, 404)
+        if not isinstance(snapshot, Mapping):
+            raise TypeError("sharing source snapshot must be an object")
+        source = snapshot.get("source")
+        files = snapshot.get("files")
+        raw_by_sha1 = snapshot.get("raw_by_sha1")
+        formatted_by_sha1 = snapshot.get("formatted_by_sha1")
+        if not isinstance(source, Mapping) or not isinstance(files, Sequence) or isinstance(files, (str, bytes)):
+            raise TypeError("sharing source snapshot is invalid")
+        adult_reason = str(snapshot.get("adult_block_reason") or "").strip()
+        if adult_reason:
+            label = source.get("title") or source.get("tmdb_id") or normalized_id
+            return SharingHttpResult(
+                {
+                    "success": False,
+                    "adult_blocked": True,
+                    "reason": adult_reason,
+                    "source_id": normalized_id,
+                    "message": f"成人资源不参与共享登记：{label}",
+                },
+                200 if mode == "report" else 400,
+            )
+        try:
+            prepared = prepare_source_registration(
+                source,
+                [value for value in files if isinstance(value, Mapping)],
+                raw_by_sha1=raw_by_sha1 if isinstance(raw_by_sha1, Mapping) else {},
+                formatted_by_sha1=formatted_by_sha1 if isinstance(formatted_by_sha1, Mapping) else {},
+            )
+        except SharingSourceRegistrationSkipped as exc:
+            payload = {
+                "success": mode == "reregister",
+                "skipped": True,
+                "reason": exc.reason,
+                "source_id": normalized_id,
+                "message": exc.message,
+            }
+            return SharingHttpResult(payload, 200)
+        except SharingSourceRegistrationError as exc:
+            payload = {"success": False, "source_id": normalized_id, "message": str(exc)}
+            return SharingHttpResult(payload, 200 if mode == "report" else 400)
+
+        provider_payload = dict(prepared.provider_payload)
+        identity = (
+            prepared.source_kind,
+            provider_payload.get("tmdb_id"),
+            provider_payload.get("season_number"),
+            provider_payload.get("episode_number") if prepared.source_kind == "episode" else None,
+            provider_payload.get("sha1") if prepared.source_kind == "movie" else None,
+        )
+        if seen_identity is not None:
+            if identity in seen_identity:
+                return SharingHttpResult(
+                    {
+                        "success": True,
+                        "skipped": True,
+                        "reason": "duplicate_media_identity",
+                        "source_id": normalized_id,
+                        "message": "同一媒体身份已在本批次提交，已跳过重复源",
+                    }
+                )
+            seen_identity.add(identity)
+
+        principal = _required(principal_id, "principal_id")
+        scope_key = f"local-source-registration:{normalized_id}"
+        occurrence = _operation_occurrence(
+            idempotency_key,
+            kind=SharingOperationKind.REGISTER_SOURCE,
+            principal_id=principal,
+            scope_key=scope_key,
+            request={
+                "mode": mode,
+                "source_id": normalized_id,
+                "source_state_hash": prepared.source_state_hash,
+            },
+        )
+        raw_scope = f"local-source-raw:{normalized_id}:{provider_payload['sha1']}"
+        raw_seed = SharingOperationIntent.create(
+            kind=SharingOperationKind.REGISTER_SOURCE,
+            scope_key=raw_scope,
+            principal_id=principal,
+            idempotency_key=f"{occurrence}:raw",
+            request={
+                "provider": "shared_center",
+                "action": "upload_raw_ffprobe",
+                "payload": dict(prepared.raw_payload),
+                "readback": dict(prepared.raw_readback),
+            },
+        )
+        dependent_request = {
+            "provider": "shared_center",
+            "action": "register_source",
+            "payload": {"source_kind": prepared.source_kind, "body": provider_payload},
+            "readback": dict(prepared.provider_readback),
+            "local_continuation": dict(prepared.local_continuation),
+            "blocked_by_operation_id": str(raw_seed.id),
+            "registration_mode": mode,
+        }
+        dependent_intent = SharingOperationIntent.create(
+            kind=SharingOperationKind.REGISTER_SOURCE,
+            scope_key=scope_key,
+            principal_id=principal,
+            idempotency_key=f"{occurrence}:register",
+            request=dependent_request,
+        )
+        prerequisite_intent = SharingOperationIntent.create(
+            kind=SharingOperationKind.REGISTER_SOURCE,
+            scope_key=raw_scope,
+            principal_id=principal,
+            idempotency_key=f"{occurrence}:raw",
+            request={
+                "provider": "shared_center",
+                "action": "upload_raw_ffprobe",
+                "payload": dict(prepared.raw_payload),
+                "readback": dict(prepared.raw_readback),
+                "local_continuation": {
+                    "type": "release_dependent_operation",
+                    "operation_id": str(dependent_intent.id),
+                },
+            },
+        )
+        if prerequisite_intent.id != raw_seed.id:
+            raise AssertionError("sharing raw prerequisite identity drifted")
+        try:
+            operation, prerequisite, replayed = cast(
+                Callable[..., tuple[SharingOperation, SharingOperation, bool]],
+                reserve_chain,
+            )(
+                dependent_intent=dependent_intent,
+                prerequisite_intent=prerequisite_intent,
+            )
+        except (SharingOperationConflictError, SharingOperationScopeBusyError):
+            return SharingHttpResult(
+                {
+                    "success": False,
+                    "status": "conflict",
+                    "source_id": normalized_id,
+                    "message": "同一共享源登记操作仍在处理中",
+                },
+                409,
+            )
+        operation = cast(SharingOperation, operation)
+        prerequisite = cast(SharingOperation, prerequisite)
+        status = operation.status
+        payload: dict[str, Any] = {
+            "success": status not in {SharingOperationStatus.REJECTED, SharingOperationStatus.INDETERMINATE},
+            "accepted": not status.terminal,
+            "source_id": normalized_id,
+            "operation_id": str(operation.id),
+            "prerequisite_operation_id": str(prerequisite.id),
+            "status": status.value,
+            "idempotency_key": occurrence,
+            "replayed": bool(replayed),
+            "message": "共享源重新登记任务已提交" if mode == "reregister" else "共享源中心登记任务已提交",
+        }
+        if status is SharingOperationStatus.CONFIRMED:
+            payload.update(message="共享源登记已确认", result=dict(operation.result or {}))
+            return SharingHttpResult(payload)
+        if status is SharingOperationStatus.REJECTED:
+            payload.update(message="共享中心拒绝了登记操作", error=dict(operation.error or {}))
+            return SharingHttpResult(payload, 409)
+        if status is SharingOperationStatus.INDETERMINATE:
+            payload.update(message="共享源登记结果不确定，请人工核对", error=dict(operation.error or {}))
+        if status is SharingOperationStatus.CANCELLED:
+            payload.update(success=False, message="共享源登记操作已取消", error=dict(operation.error or {}))
+            return SharingHttpResult(payload, 409)
+        return SharingHttpResult(payload, 202)
 
     def disable_local_source(
         self,

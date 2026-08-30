@@ -63,6 +63,10 @@ class SharedCenterPort(Protocol):
 
     def register_source(self, source_kind: str, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
 
+    def upload_raw_ffprobe(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
+
+    def get_raw_ffprobe(self, sha1: str) -> ProviderResponse[dict[str, Any]]: ...
+
     def disable_source(
         self, source_kind: str, source_id: str, *, message: str = ""
     ) -> ProviderResponse[dict[str, Any]]: ...
@@ -227,6 +231,39 @@ class HttpxSharedCenterAdapter:
             f"/api/v1/sources/{kind}/register",
             operation="register_source",
             json=body,
+        )
+
+    def upload_raw_ffprobe(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        body = _object(payload, "raw ffprobe payload")
+        sha1 = _hash40(body.get("sha1"), "sha1").upper()
+        raw = body.get("raw_ffprobe_json")
+        summary = body.get("summary_json")
+        if not isinstance(raw, Mapping) or not raw:
+            raise ValueError("raw_ffprobe_json must be a non-empty object")
+        if not isinstance(summary, Mapping) or not summary:
+            raise ValueError("summary_json must be a non-empty object")
+        size = body.get("size")
+        if size is not None:
+            size = _bounded_int(size, minimum=0, maximum=2**63 - 1, field="size")
+        return self.request_json(
+            "POST",
+            "/api/v1/rawffprobe/upload",
+            operation="upload_raw_ffprobe",
+            json={
+                "sha1": sha1,
+                "size": size,
+                "raw_ffprobe_json": dict(raw),
+                "summary_json": dict(summary),
+            },
+        )
+
+    def get_raw_ffprobe(self, sha1: str) -> ProviderResponse[dict[str, Any]]:
+        normalized_sha1 = _hash40(sha1, "sha1").upper()
+        return self.request_json(
+            "GET",
+            f"/api/v1/rawffprobe/{quote(normalized_sha1, safe='')}",
+            operation="get_raw_ffprobe",
+            retryable=True,
         )
 
     def disable_source(

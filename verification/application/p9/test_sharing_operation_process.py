@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -16,6 +17,12 @@ from etk.domains.sharing.operations import (
     SHARING_OPERATION_AGGREGATE_TYPE,
     SHARING_OPERATION_TOPIC,
     SHARING_OPERATION_TOPICS,
+)
+from etk.domains.sharing.source_registration import (
+    SharingSourceRegistrationError,
+    build_center_raw_summary,
+    freeze_shared_raw_ffprobe,
+    prepare_source_registration,
 )
 from etk.integrations import ProviderDisposition, ProviderResponse
 from etk.integrations.http_policy import ExternalAdapterError
@@ -100,7 +107,15 @@ class FakeSharedCenter:
 
     def register_source(self, source_kind: str, payload: dict[str, Any]) -> ProviderResponse[dict[str, Any]]:
         self.calls.append(("register_source", {"source_kind": source_kind, "payload": payload}))
-        return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"source_id": "source-1"})
+        return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"item": {"source_id": "source-1"}})
+
+    def upload_raw_ffprobe(self, payload: dict[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        self.calls.append(("upload_raw_ffprobe", payload))
+        return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"sha1": payload["sha1"]})
+
+    def get_raw_ffprobe(self, sha1: str) -> ProviderResponse[dict[str, Any]]:
+        self.calls.append(("get_raw_ffprobe", {"sha1": sha1}))
+        return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"item": {"sha1": sha1}})
 
     def disable_source(
         self, source_kind: str, source_id: str, *, message: str = ""
@@ -725,6 +740,366 @@ def test_sharing_delivery_matches_identity_in_items_response() -> None:
 
     assert delivery.supports_authoritative_readback(operation) is True
     assert delivery.readback(operation).disposition is SharingDeliveryDisposition.CONFIRMED
+
+
+def test_sharing_delivery_uploads_raw_after_checkpoint_and_recovers_by_sha1() -> None:
+    center = FakeSharedCenter()
+    sha1 = "A" * 40
+    raw = {"format": {"size": "1024"}, "streams": []}
+    _sanitized, digest, size_bytes = freeze_shared_raw_ffprobe(raw)
+    loaded: list[str] = []
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, center),
+        hdhive=cast(Any, FakeHDHive()),
+        raw_ffprobe_loader=lambda value: loaded.append(value) or raw,
+    )
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "provider": "shared_center",
+                "action": "upload_raw_ffprobe",
+                "payload": {
+                    "sha1": sha1,
+                    "size": 1024,
+                    "raw_reference": {"sha1": sha1, "sha256": digest, "size_bytes": size_bytes},
+                    "summary_json": {"resolution": "4K"},
+                },
+                "readback": {
+                    "provider": "shared_center",
+                    "action": "get_raw_ffprobe",
+                    "query": {"sha1": sha1},
+                    "match_key": "sha1",
+                    "match_value": sha1,
+                },
+            }
+        ),
+    )
+    checkpoints: list[str] = []
+
+    requested = delivery.request(operation, checkpoint=lambda: checkpoints.append("checkpoint"))
+    recovered = delivery.readback(operation)
+
+    assert requested.disposition is SharingDeliveryDisposition.CONFIRMED
+    assert recovered.disposition is SharingDeliveryDisposition.CONFIRMED
+    assert recovered.result is not None
+    recovered_result = dict(recovered.result)
+    assert recovered_result == {
+        "http_status": 200,
+        "provider_result_hash": recovered_result["provider_result_hash"],
+        "authoritative_readback": True,
+        "provider_result": {"sha1": sha1},
+    }
+    assert checkpoints == ["checkpoint"]
+    assert loaded == [sha1]
+    assert [call[0] for call in center.calls] == ["upload_raw_ffprobe", "get_raw_ffprobe"]
+    uploaded = center.calls[0][1]
+    assert uploaded["raw_ffprobe_json"] == raw
+    assert "raw_reference" not in uploaded
+    assert "raw_ffprobe_json" not in operation.request["payload"]
+
+
+@pytest.mark.parametrize("case", ["cache_missing", "hash_mismatch", "size_mismatch", "sensitive_value"])
+def test_sharing_delivery_rejects_untrusted_raw_before_provider_checkpoint(case: str) -> None:
+    center = FakeSharedCenter()
+    sha1 = "A" * 40
+    raw = {"format": {"size": "1024"}, "streams": []}
+    _sanitized, digest, size_bytes = freeze_shared_raw_ffprobe(raw)
+    reference = {"sha1": sha1, "sha256": digest, "size_bytes": size_bytes}
+    loaded_raw: Mapping[str, Any] | None = raw
+    if case == "cache_missing":
+        loaded_raw = None
+    elif case == "hash_mismatch":
+        loaded_raw = {"format": {"size": "2048"}, "streams": []}
+    elif case == "size_mismatch":
+        reference["size_bytes"] = size_bytes + 1
+    else:
+        loaded_raw = {"streams": [{"tags": {"comment": "Bearer local-secret"}}]}
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, center),
+        hdhive=cast(Any, FakeHDHive()),
+        raw_ffprobe_loader=lambda _value: loaded_raw,
+    )
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "provider": "shared_center",
+                "action": "upload_raw_ffprobe",
+                "payload": {"sha1": sha1, "raw_reference": reference},
+            }
+        ),
+    )
+    checkpoints: list[str] = []
+
+    outcome = delivery.request(operation, checkpoint=lambda: checkpoints.append("checkpoint"))
+
+    assert outcome.disposition is SharingDeliveryDisposition.REJECTED
+    assert checkpoints == []
+    assert center.calls == []
+
+
+def test_sharing_raw_freeze_rejects_sensitive_values_and_payloads_over_eight_mib() -> None:
+    with pytest.raises(SharingSourceRegistrationError, match="凭据形态"):
+        freeze_shared_raw_ffprobe({"streams": [{"tags": {"comment": "Bearer local-secret"}}]})
+
+    oversized = {"streams": [{"tags": {"comment": "x" * 60_000}} for _ in range(141)]}
+    with pytest.raises(SharingSourceRegistrationError, match="8 MiB"):
+        freeze_shared_raw_ffprobe(oversized)
+
+
+@pytest.mark.parametrize(
+    "sensitive_value",
+    [
+        "https://fixture.invalid/media",
+        "/tmp/private-probe.json",
+        "Bearer local-secret",
+        "token=local-secret",
+    ],
+)
+def test_source_registration_rejects_sensitive_formatted_summary_values(sensitive_value: str) -> None:
+    source, file, raw = _source_registration_fixture()
+    formatted = {
+        "MediaSourceInfo": {
+            "MediaStreams": [
+                {"Type": "Video", "Codec": "hevc", "Width": 1920, "Height": 1080},
+                {"Type": "Subtitle", "DisplayTitle": sensitive_value},
+            ]
+        }
+    }
+
+    with pytest.raises(SharingSourceRegistrationError, match="URL、临时路径或凭据形态"):
+        prepare_source_registration(
+            source,
+            [file],
+            raw_by_sha1={file["sha1"]: raw},
+            formatted_by_sha1={file["sha1"]: formatted},
+        )
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        "/tmp/private/probe",
+        "C:\\Users\\fixture\\probe",
+        "https://fixture.invalid/probe",
+        "Bearer local-secret",
+        "token=local-secret",
+        "../private/probe",
+    ],
+)
+def test_source_registration_rejects_unsafe_durable_relative_path(relative_path: str) -> None:
+    source, file, raw = _source_registration_fixture()
+    file["relative_path"] = relative_path
+
+    with pytest.raises(SharingSourceRegistrationError):
+        prepare_source_registration(source, [file], raw_by_sha1={file["sha1"]: raw})
+
+
+def test_source_registration_bounds_summary_tracks_and_total_bytes() -> None:
+    source, file, raw = _source_registration_fixture()
+    short_formatted = {
+        "MediaSourceInfo": {
+            "MediaStreams": [
+                {"Type": "Video", "Codec": "hevc", "Width": 1920, "Height": 1080},
+                *({"Type": "Subtitle", "DisplayTitle": f"subtitle-{index}"} for index in range(24)),
+            ]
+        }
+    }
+    summary = build_center_raw_summary(raw, short_formatted, file)
+    assert len(summary["subtitles"]) == 16
+    assert len(summary["subtitle_list"]) == 16
+
+    long_text = "x" * 4_000
+    oversized_formatted = {
+        "MediaSourceInfo": {
+            "MediaStreams": [
+                {"Type": "Video", "Codec": "hevc", "Width": 1920, "Height": 1080},
+                *(
+                    {"Type": kind, "DisplayTitle": long_text, "Title": long_text}
+                    for kind in ("Audio", "Subtitle")
+                    for _index in range(16)
+                ),
+            ]
+        }
+    }
+    with pytest.raises(SharingSourceRegistrationError, match="128 KiB"):
+        prepare_source_registration(
+            source,
+            [file],
+            raw_by_sha1={file["sha1"]: raw},
+            formatted_by_sha1={file["sha1"]: oversized_formatted},
+        )
+
+
+def _source_registration_fixture() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    sha1 = "F" * 40
+    source = {
+        "id": 1,
+        "source_kind": "movie",
+        "tmdb_id": "901",
+        "item_type": "Movie",
+        "title": "Fixture",
+        "source_provider": "manual_rapid",
+        "status": "active",
+        "center_status": "local",
+    }
+    file = {
+        "id": 10,
+        "local_source_id": 1,
+        "pick_code": "fixture-pick-code",
+        "sha1": sha1,
+        "size": 1024,
+        "file_name": "Fixture.mkv",
+        "tmdb_id": "901",
+        "item_type": "Movie",
+        "local_sign_holder": True,
+        "local_sign_holder_account_id": "1",
+        "local_sign_holder_pick_code": "fixture-pick-code",
+    }
+    raw = {
+        "format": {"size": "1024"},
+        "streams": [{"codec_type": "video", "codec_name": "hevc", "width": 1920, "height": 1080}],
+    }
+    return source, file, raw
+
+
+def test_sharing_delivery_keeps_nested_source_registration_receipt() -> None:
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, FakeSharedCenter()),
+        hdhive=cast(Any, FakeHDHive()),
+    )
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "provider": "shared_center",
+                "action": "register_source",
+                "payload": {
+                    "source_kind": "movie",
+                    "body": {"tmdb_id": "101", "sha1": "A" * 40},
+                },
+            }
+        ),
+    )
+
+    outcome = delivery.request(operation, checkpoint=lambda: None)
+
+    assert outcome.disposition is SharingDeliveryDisposition.CONFIRMED
+    assert outcome.result is not None
+    assert outcome.result["provider_result"] == {"source_id": "source-1"}
+
+
+def test_sharing_delivery_requires_all_source_registration_readback_fields() -> None:
+    class Center(FakeSharedCenter):
+        def list_sources(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
+            self.calls.append(("readback", query))
+            return ProviderResponse(
+                ProviderDisposition.CONFIRMED,
+                200,
+                {
+                    "items": [
+                        {
+                            "source_id": "source-episode-1",
+                            "source_kind": "episode",
+                            "tmdb_id": "200",
+                            "season_number": 1,
+                            "episode_number": 1,
+                            "sha1": "B" * 40,
+                        },
+                        {
+                            "source_id": "source-episode-2",
+                            "source_kind": "episode",
+                            "tmdb_id": "200",
+                            "season_number": 1,
+                            "episode_number": 2,
+                            "sha1": "C" * 40,
+                        },
+                    ]
+                },
+            )
+
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, Center()),
+        hdhive=cast(Any, FakeHDHive()),
+    )
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "readback": {
+                    "provider": "shared_center",
+                    "action": "list_sources",
+                    "query": {"tmdb_id": "200"},
+                    "match_fields": {
+                        "source_kind": "episode",
+                        "tmdb_id": "200",
+                        "season_number": 1,
+                        "episode_number": 2,
+                        "sha1": "C" * 40,
+                    },
+                }
+            }
+        ),
+    )
+
+    outcome = delivery.readback(operation)
+
+    assert outcome.disposition is SharingDeliveryDisposition.CONFIRMED
+    assert outcome.result is not None
+    assert outcome.result["provider_result"] == {
+        "episode_number": 2,
+        "season_number": 1,
+        "sha1": "C" * 40,
+        "source_id": "source-episode-2",
+        "source_kind": "episode",
+        "tmdb_id": "200",
+    }
+
+
+def test_sharing_delivery_rejects_ambiguous_source_registration_readback() -> None:
+    class Center(FakeSharedCenter):
+        def list_sources(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
+            self.calls.append(("readback", query))
+            source = {
+                "source_id": "source-episode-1",
+                "source_kind": "episode",
+                "tmdb_id": "200",
+                "season_number": 1,
+                "episode_number": 2,
+                "sha1": "C" * 40,
+            }
+            return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"items": [source, dict(source)]})
+
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, Center()),
+        hdhive=cast(Any, FakeHDHive()),
+    )
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "readback": {
+                    "provider": "shared_center",
+                    "action": "list_sources",
+                    "query": {"tmdb_id": "200"},
+                    "match_fields": {
+                        "source_kind": "episode",
+                        "tmdb_id": "200",
+                        "season_number": 1,
+                        "episode_number": 2,
+                        "sha1": "C" * 40,
+                    },
+                }
+            }
+        ),
+    )
+
+    outcome = delivery.readback(operation)
+
+    assert outcome.disposition is SharingDeliveryDisposition.RETRYABLE
+    assert outcome.error is not None
+    assert outcome.error["type"] == "provider_state_not_confirmed"
 
 
 def test_sharing_delivery_does_not_treat_nested_request_echo_as_authoritative_state() -> None:

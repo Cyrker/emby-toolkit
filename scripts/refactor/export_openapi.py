@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 288
-EXPECTED_OPERATIONS = 340
+EXPECTED_PATHS = 291
+EXPECTED_OPERATIONS = 343
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -236,6 +236,35 @@ P9_SHARING_RESPONSES = {
     ("get", "/api/shared/resources/summary"): {"200", "403", "503"},
     ("get", "/api/shared/resources/shares"): {"200", "403", "503"},
     ("post", "/api/shared/resources/shares/{source_id}/check"): {"200", "403", "404", "422", "503"},
+    ("post", "/api/shared/resources/shares/{source_id}/report-center"): {
+        "200",
+        "202",
+        "400",
+        "403",
+        "404",
+        "409",
+        "422",
+        "503",
+    },
+    ("post", "/api/shared/resources/shares/{source_id}/reregister"): {
+        "200",
+        "202",
+        "400",
+        "403",
+        "404",
+        "409",
+        "422",
+        "503",
+    },
+    ("post", "/api/shared/resources/shares/reregister-batch"): {
+        "200",
+        "202",
+        "400",
+        "403",
+        "409",
+        "415",
+        "503",
+    },
     ("post", "/api/shared/resources/shares/{source_id}/share/cancel"): {"200", "403", "404", "410", "422"},
     ("post", "/api/shared/resources/shares/{source_id}/cancel"): {
         "200",
@@ -327,10 +356,13 @@ P9_SHARING_BODY_OPERATIONS = {
     ("post", "/api/shared/resources/share-requests/{group_id}/cancel"),
     ("post", "/api/shared/resources/shares/cancel-batch"),
     ("post", "/api/shared/resources/shares/delete-batch"),
+    ("post", "/api/shared/resources/shares/reregister-batch"),
 }
 P9_SHARING_422_OPERATIONS = {
     ("get", "/api/shared/resources/operations/{operation_id}/status"),
     ("post", "/api/shared/resources/shares/{source_id}/check"),
+    ("post", "/api/shared/resources/shares/{source_id}/report-center"),
+    ("post", "/api/shared/resources/shares/{source_id}/reregister"),
     ("post", "/api/shared/resources/shares/{source_id}/share/cancel"),
     ("post", "/api/shared/resources/share-requests/{group_id}/co-request"),
     ("post", "/api/shared/resources/share-requests/{group_id}/cancel"),

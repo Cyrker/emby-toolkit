@@ -260,6 +260,95 @@ def check_local_source(request: Request, source_id: str) -> Response:
     return denied or _response(_service(request).local_source_check(normalized_id))
 
 
+_SOURCE_REGISTRATION_RESPONSES: dict[int | str, dict[str, Any]] = {
+    200: {"description": "registration replayed or skipped", "model": dict[str, Any]},
+    202: {"description": "registration workflow queued", "model": dict[str, Any]},
+    400: {"description": "invalid source or request"},
+    403: {"description": "admin required"},
+    404: {"description": "source not found"},
+    409: {"description": "operation conflict", "model": dict[str, Any]},
+    503: {"description": "sharing runtime unavailable"},
+}
+
+
+@router.post(
+    "/shares/{source_id}/report-center",
+    response_model=dict[str, Any],
+    responses=_SOURCE_REGISTRATION_RESPONSES,
+)
+def report_local_source(request: Request, source_id: str) -> Response:
+    denied = _admin_denial(request)
+    normalized_id = _positive_path_int(source_id)
+    if normalized_id is None:
+        return denied or fastapi_json_response({"success": False, "message": "本地共享源不存在"}, status_code=404)
+    return denied or _response(
+        _service(request).report_local_source(
+            normalized_id,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    )
+
+
+@router.post(
+    "/shares/{source_id}/reregister",
+    response_model=dict[str, Any],
+    responses=_SOURCE_REGISTRATION_RESPONSES,
+)
+def reregister_local_source(request: Request, source_id: str) -> Response:
+    denied = _admin_denial(request)
+    normalized_id = _positive_path_int(source_id)
+    if normalized_id is None:
+        return denied or fastapi_json_response({"success": False, "message": "本地共享源不存在"}, status_code=404)
+    return denied or _response(
+        _service(request).reregister_local_source(
+            normalized_id,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    )
+
+
+@router.post(
+    "/shares/reregister-batch",
+    response_model=dict[str, Any],
+    responses={
+        200: _SOURCE_REGISTRATION_RESPONSES[200],
+        202: _SOURCE_REGISTRATION_RESPONSES[202],
+        400: _SOURCE_REGISTRATION_RESPONSES[400],
+        403: _SOURCE_REGISTRATION_RESPONSES[403],
+        409: _SOURCE_REGISTRATION_RESPONSES[409],
+        415: {"description": "JSON required"},
+        503: _SOURCE_REGISTRATION_RESPONSES[503],
+    },
+    openapi_extra=_JSON_OBJECT_REQUEST_BODY,
+)
+async def reregister_local_sources_batch(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _json_object(request)
+    if error is not None:
+        return error
+    assert payload is not None
+    source_ids = _source_ids(payload)
+    if not source_ids:
+        return fastapi_json_response(
+            {"success": False, "message": "缺少要重新登记的本地源 ID"},
+            status_code=400,
+        )
+    try:
+        result = await run_in_threadpool(
+            _service(request).reregister_local_sources,
+            source_ids,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    except (TypeError, ValueError):
+        return fastapi_json_response({"success": False, "message": "共享源批量重新登记请求无效"}, status_code=400)
+    return _response(result)
+
+
 _SOURCE_LIFECYCLE_RESPONSES: dict[int | str, dict[str, Any]] = {
     202: {"description": "provider operation queued", "model": dict[str, Any]},
     400: {"description": "invalid request"},

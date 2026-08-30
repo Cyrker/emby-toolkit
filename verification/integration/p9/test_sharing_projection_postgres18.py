@@ -299,6 +299,92 @@ def test_postgres_media_search_and_manual_validation_use_local_raw_contract(p9_r
     ]
 
 
+def test_postgres_source_registration_snapshot_freezes_source_files_and_raw_cache(p9_runtime) -> None:
+    raw = {
+        "format": {"size": "4096", "bit_rate": "12000000"},
+        "streams": [{"codec_type": "video", "codec_name": "hevc", "width": 3840, "height": 2160}],
+    }
+    formatted = [
+        {
+            "MediaSourceInfo": {
+                "Container": "mkv",
+                "Size": 4096,
+                "MediaStreams": [{"Type": "Video", "Codec": "hevc", "Width": 3840, "Height": 2160}],
+            }
+        }
+    ]
+    with p9_runtime.engine.begin() as connection:
+        source_id = connection.scalar(
+            text(
+                """
+                INSERT INTO shared_rapid_sources(
+                    source_key, source_kind, center_source_id, tmdb_id, item_type,
+                    title, sha1, file_name, source_provider, status, center_status,
+                    file_count, total_size, rapid_meta_json, media_signature_json
+                ) VALUES (
+                    'snapshot-source', 'movie', 'snapshot-center', '801', 'Movie',
+                    'Snapshot Fixture', :sha1, 'Snapshot Fixture.mkv', 'manual_rapid',
+                    'active', 'reported', 1, 4096,
+                    '{"fid":"snapshot-fid","pick_code":"snapshot-pc"}'::jsonb,
+                    '{"resolution":"4K","video_codec":"hevc"}'::jsonb
+                ) RETURNING id
+                """
+            ),
+            {"sha1": SHA_D},
+        )
+        file_id = connection.scalar(
+            text(
+                """
+                INSERT INTO shared_rapid_source_files(
+                    local_source_id, fid, pick_code, sha1, preid, size, file_name,
+                    tmdb_id, item_type, rapid_meta_json, media_signature_json
+                ) VALUES (
+                    :source_id, 'snapshot-fid', 'snapshot-pc', :sha1, 'snapshot-preid',
+                    4096, 'Snapshot Fixture.mkv', '801', 'Movie',
+                    '{"fid":"snapshot-fid","pick_code":"snapshot-pc"}'::jsonb,
+                    '{"resolution":"4K","video_codec":"hevc"}'::jsonb
+                ) RETURNING id
+                """
+            ),
+            {"source_id": source_id, "sha1": SHA_D},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_mediainfo_cache(sha1, raw_ffprobe_json, mediainfo_json)
+                VALUES (:sha1, CAST(:raw AS jsonb), CAST(:formatted AS jsonb))
+                """
+            ),
+            {"sha1": SHA_D, "raw": json.dumps(raw), "formatted": json.dumps(formatted)},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_filesystem_cache(
+                    id, parent_id, name, local_path, sha1, pick_code, size, account_id, entry_kind
+                ) VALUES (
+                    'snapshot-file', 'snapshot-parent', 'Snapshot Fixture.mkv',
+                    '/Movies/Snapshot Fixture.mkv', :sha1, 'snapshot-pc', 4096, '1', 'file'
+                )
+                """
+            ),
+            {"sha1": SHA_D},
+        )
+
+    repository = SqlAlchemySharingProjectionRepository(p9_runtime.unit_of_work, account_id=lambda: "1")
+    snapshot = repository.source_registration_snapshot(int(source_id))
+
+    assert snapshot is not None
+    assert snapshot["source"]["id"] == source_id
+    assert snapshot["files"][0]["id"] == file_id
+    assert snapshot["raw_by_sha1"] == {SHA_D: raw}
+    assert snapshot["formatted_by_sha1"] == {SHA_D: formatted}
+    assert snapshot["cache_revisions"] == {SHA_D: 0}
+    assert snapshot["files"][0]["local_sign_holder"] is True
+    assert snapshot["adult_block_reason"] == ""
+    assert len(snapshot["source_state_hash"]) == 64
+
+
 def test_postgres_manual_validation_preserves_file_identity_and_emby_raw_shapes(p9_runtime) -> None:
     ffprobe_raw = {"streams": [{"codec_type": "video", "codec_name": "hevc", "width": 3840, "height": 2160}]}
     media_source_raw = {

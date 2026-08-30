@@ -16689,6 +16689,76 @@
         ]
       }
     },
+    "/api/shared/resources/shares/reregister-batch": {
+      "post": {
+        "operationId": "reregister_local_sources_batch_api_shared_resources_shares_reregister_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 200 Reregister Local Sources Batch Api Shared Resources Shares Reregister Batch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "registration replayed or skipped"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Reregister Local Sources Batch Api Shared Resources Shares Reregister Batch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "registration workflow queued"
+          },
+          "400": {
+            "description": "invalid source or request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Reregister Local Sources Batch Api Shared Resources Shares Reregister Batch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Reregister Local Sources Batch",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
     "/api/shared/resources/shares/{source_id}/cancel": {
       "post": {
         "operationId": "disable_local_source_api_shared_resources_shares__source_id__cancel_post",
@@ -16975,6 +17045,166 @@
           }
         },
         "summary": "Delete Local Source Post",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/shares/{source_id}/report-center": {
+      "post": {
+        "operationId": "report_local_source_api_shared_resources_shares__source_id__report_center_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 200 Report Local Source Api Shared Resources Shares  Source Id  Report Center Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "registration replayed or skipped"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Report Local Source Api Shared Resources Shares  Source Id  Report Center Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "registration workflow queued"
+          },
+          "400": {
+            "description": "invalid source or request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Report Local Source Api Shared Resources Shares  Source Id  Report Center Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Report Local Source",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/shares/{source_id}/reregister": {
+      "post": {
+        "operationId": "reregister_local_source_api_shared_resources_shares__source_id__reregister_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 200 Reregister Local Source Api Shared Resources Shares  Source Id  Reregister Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "registration replayed or skipped"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Reregister Local Source Api Shared Resources Shares  Source Id  Reregister Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "registration workflow queued"
+          },
+          "400": {
+            "description": "invalid source or request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Reregister Local Source Api Shared Resources Shares  Source Id  Reregister Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Reregister Local Source",
         "tags": [
           "sharing"
         ]

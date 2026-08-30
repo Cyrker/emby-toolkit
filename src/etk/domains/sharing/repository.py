@@ -19,10 +19,12 @@ from .operations import (
     SharingOperation,
     SharingOperationConflictError,
     SharingOperationIntent,
+    SharingOperationPreconditionError,
     SharingOperationScopeBusyError,
     SharingOperationStateError,
     SharingOperationStatus,
 )
+from .source_registration import source_registration_state_hash
 
 _ACTIVE_STATUSES = (
     "ready",
@@ -65,10 +67,38 @@ class PostgresSharingOperationRepository:
     ) -> tuple[SharingOperation, bool]:
         return self._reserve_in_uow(uow, intent)
 
+    def reserve_prerequisite_chain(
+        self,
+        *,
+        dependent_intent: SharingOperationIntent,
+        prerequisite_intent: SharingOperationIntent,
+    ) -> tuple[SharingOperation, SharingOperation, bool]:
+        blocked_by = str(dependent_intent.request.get("blocked_by_operation_id") or "").strip()
+        continuation = prerequisite_intent.request.get("local_continuation")
+        if blocked_by != str(prerequisite_intent.id):
+            raise ValueError("sharing dependent operation prerequisite identity is invalid")
+        if (
+            not isinstance(continuation, Mapping)
+            or str(continuation.get("type") or "").strip() != "release_dependent_operation"
+            or str(continuation.get("operation_id") or "").strip() != str(dependent_intent.id)
+        ):
+            raise ValueError("sharing prerequisite continuation identity is invalid")
+        with self._unit_of_work() as uow:
+            dependent, replayed = self._reserve_in_uow(uow, dependent_intent, stage_outbox=False)
+            prerequisite, _prerequisite_replayed = self._reserve_in_uow(uow, prerequisite_intent)
+            if prerequisite.status is SharingOperationStatus.CONFIRMED:
+                _release_dependent_operation(uow, prerequisite, continuation)
+            elif prerequisite.terminal:
+                _terminalize_dependent_operation(uow, prerequisite, continuation)
+            uow.commit()
+            return dependent, prerequisite, replayed
+
     def _reserve_in_uow(
         self,
         uow: SqlAlchemyUnitOfWork,
         intent: SharingOperationIntent,
+        *,
+        stage_outbox: bool = True,
     ) -> tuple[SharingOperation, bool]:
         request = normalize_durable_json_object(dict(intent.request), field="sharing operation request")
         request_hash = bytes.fromhex(_sha256_json(request))
@@ -137,7 +167,8 @@ class PostgresSharingOperationRepository:
             .one()
         )
         operation = _operation(row)
-        self._stage_outbox(uow, operation)
+        if stage_outbox:
+            self._stage_outbox(uow, operation)
         return operation, False
 
     def read(self, operation_id: UUID) -> SharingOperation | None:
@@ -151,6 +182,10 @@ class PostgresSharingOperationRepository:
                 .one_or_none()
             )
             return _operation(row) if row is not None else None
+
+    def validate_prewrite(self, operation: SharingOperation) -> None:
+        with self._unit_of_work() as uow:
+            _validate_operation_prewrite(uow, operation, lock=False)
 
     def request_cancel(
         self,
@@ -204,6 +239,7 @@ class PostgresSharingOperationRepository:
                 )
                 operation = _operation(cancelled)
                 _apply_escrow_compensation(uow, current)
+                _apply_terminal_local_continuation(uow, operation)
                 self._complete_outbox(uow, operation.id)
             else:
                 requested = (
@@ -288,6 +324,7 @@ class PostgresSharingOperationRepository:
             "status = 'requesting', step_started_at = :now",
             {"now": _aware(now)},
             allowed=(SharingOperationStatus.CLAIMED,),
+            validate_prewrite=True,
         )
 
     def mark_awaiting_readback(
@@ -493,6 +530,7 @@ class PostgresSharingOperationRepository:
                     self._stage_outbox(uow, operation)
                 else:
                     _apply_escrow_compensation(uow, operation)
+                    _apply_terminal_local_continuation(uow, operation)
                     self._complete_outbox(uow, operation.id)
             count = len(rows)
             uow.commit()
@@ -568,6 +606,7 @@ class PostgresSharingOperationRepository:
                 if operation.status is SharingOperationStatus.AWAITING_READBACK:
                     self._stage_outbox(uow, operation)
                 else:
+                    _apply_terminal_local_continuation(uow, operation)
                     self._complete_outbox(uow, operation.id)
             uow.commit()
             return len(rows)
@@ -625,6 +664,7 @@ class PostgresSharingOperationRepository:
                 operation = _operation(row)
                 if operation.status is SharingOperationStatus.REJECTED:
                     _apply_escrow_compensation(uow, operation)
+                _apply_terminal_local_continuation(uow, operation)
             uow.commit()
             return len(rows)
 
@@ -638,6 +678,7 @@ class PostgresSharingOperationRepository:
         allowed: tuple[SharingOperationStatus, ...],
         stage: bool = False,
         complete: bool = False,
+        validate_prewrite: bool = False,
     ) -> SharingOperation:
         token = claim_token
         transition_at = _aware(params.get("now"))
@@ -661,6 +702,11 @@ class PostgresSharingOperationRepository:
                 or current_operation.lease_expires_at <= transition_at
             ):
                 raise SharingOperationStateError("sharing operation claim is no longer valid")
+            if validate_prewrite:
+                try:
+                    _validate_operation_prewrite(uow, current_operation, lock=True)
+                except SharingOperationStateError as exc:
+                    raise SharingOperationPreconditionError(str(exc)) from exc
             values = {"id": operation_id, "claim_token": token, **dict(params), "now": transition_at}
             row = (
                 uow.session.execute(
@@ -687,9 +733,15 @@ class PostgresSharingOperationRepository:
                 self._stage_outbox(uow, operation)
             if complete:
                 if operation.status is SharingOperationStatus.CONFIRMED:
-                    _apply_confirmed_local_continuation(uow, current_operation)
+                    _apply_confirmed_local_continuation(uow, operation)
                 elif operation.status is SharingOperationStatus.REJECTED:
-                    _apply_escrow_compensation(uow, current_operation)
+                    _apply_escrow_compensation(uow, operation)
+                    _apply_terminal_local_continuation(uow, operation)
+                elif operation.status in {
+                    SharingOperationStatus.INDETERMINATE,
+                    SharingOperationStatus.CANCELLED,
+                }:
+                    _apply_terminal_local_continuation(uow, operation)
                 self._complete_outbox(uow, operation.id)
             uow.commit()
             return operation
@@ -754,6 +806,20 @@ class PostgresSharingOperationRepository:
         )
 
 
+def _validate_operation_prewrite(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SharingOperation,
+    *,
+    lock: bool,
+) -> None:
+    continuation = operation.request.get("local_continuation")
+    if not isinstance(continuation, Mapping):
+        return
+    if str(continuation.get("type") or "").strip() != "confirm_local_source_registration":
+        return
+    _validate_source_registration_preconditions(uow, continuation, lock=lock)
+
+
 def _apply_confirmed_local_continuation(
     uow: SqlAlchemyUnitOfWork,
     operation: SharingOperation,
@@ -770,7 +836,338 @@ def _apply_confirmed_local_continuation(
     if continuation_type in {"disable_local_source", "delete_local_source"}:
         _apply_local_source_lifecycle(uow, operation, continuation, delete=continuation_type == "delete_local_source")
         return
+    if continuation_type == "release_dependent_operation":
+        _release_dependent_operation(uow, operation, continuation)
+        return
+    if continuation_type == "confirm_local_source_registration":
+        _apply_source_registration_confirmation(uow, operation, continuation)
+        return
     raise SharingOperationStateError(f"sharing local continuation type {continuation_type!r} is unsupported")
+
+
+def _apply_terminal_local_continuation(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SharingOperation,
+) -> None:
+    continuation = operation.request.get("local_continuation")
+    if not isinstance(continuation, Mapping):
+        return
+    continuation_type = str(continuation.get("type") or "").strip()
+    if continuation_type == "release_dependent_operation":
+        _terminalize_dependent_operation(uow, operation, continuation)
+    elif (
+        continuation_type == "confirm_local_source_registration"
+        and operation.status is not SharingOperationStatus.CANCELLED
+    ):
+        _record_source_registration_failure(uow, operation, continuation)
+
+
+def _release_dependent_operation(
+    uow: SqlAlchemyUnitOfWork,
+    prerequisite: SharingOperation,
+    continuation: Mapping[str, Any],
+) -> None:
+    dependent_id = _uuid(continuation.get("operation_id"), "dependent operation id")
+    row = (
+        uow.session.execute(
+            text("SELECT * FROM sharing_operations WHERE id = :id FOR UPDATE"),
+            {"id": dependent_id},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise SharingOperationStateError("sharing dependent operation was not found")
+    dependent = _operation(row)
+    if str(dependent.request.get("blocked_by_operation_id") or "").strip() != str(prerequisite.id):
+        raise SharingOperationStateError("sharing dependent operation prerequisite changed")
+    if dependent.terminal:
+        return
+    if dependent.status is not SharingOperationStatus.READY or dependent.claim_token is not None:
+        return
+    PostgresSharingOperationRepository._stage_outbox(uow, dependent)
+
+
+def _terminalize_dependent_operation(
+    uow: SqlAlchemyUnitOfWork,
+    prerequisite: SharingOperation,
+    continuation: Mapping[str, Any],
+) -> None:
+    dependent_id = _uuid(continuation.get("operation_id"), "dependent operation id")
+    row = (
+        uow.session.execute(
+            text("SELECT * FROM sharing_operations WHERE id = :id FOR UPDATE"),
+            {"id": dependent_id},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise SharingOperationStateError("sharing dependent operation was not found")
+    dependent = _operation(row)
+    if str(dependent.request.get("blocked_by_operation_id") or "").strip() != str(prerequisite.id):
+        raise SharingOperationStateError("sharing dependent operation prerequisite changed")
+    if dependent.terminal:
+        return
+    status = {
+        SharingOperationStatus.REJECTED: SharingOperationStatus.REJECTED,
+        SharingOperationStatus.INDETERMINATE: SharingOperationStatus.INDETERMINATE,
+        SharingOperationStatus.CANCELLED: SharingOperationStatus.CANCELLED,
+    }.get(prerequisite.status)
+    if status is None:
+        raise SharingOperationStateError("sharing prerequisite is not terminal")
+    error = {
+        "type": f"sharing_prerequisite_{status.value}",
+        "prerequisite_operation_id": str(prerequisite.id),
+        "provider_may_have_been_called": status is SharingOperationStatus.INDETERMINATE,
+    }
+    updated = (
+        uow.session.execute(
+            text(
+                """
+                UPDATE sharing_operations
+                SET status = :status, error_json = CAST(:error_json AS jsonb), result_json = NULL,
+                    finished_at = NOW(), claimed_by = NULL, claim_token = NULL,
+                    claimed_at = NULL, lease_expires_at = NULL, step_started_at = NULL,
+                    state_revision = state_revision + 1, updated_at = NOW()
+                WHERE id = :id AND status = 'ready' AND claim_token IS NULL
+                RETURNING *
+                """
+            ),
+            {
+                "id": dependent.id,
+                "status": status.value,
+                "error_json": canonical_json(error, field="sharing prerequisite error"),
+            },
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if updated is None:
+        raise SharingOperationStateError("sharing dependent operation terminal transition failed")
+    terminal = _operation(updated)
+    _apply_terminal_local_continuation(uow, terminal)
+    PostgresSharingOperationRepository._complete_outbox(uow, terminal.id)
+
+
+def _apply_source_registration_confirmation(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SharingOperation,
+    continuation: Mapping[str, Any],
+) -> None:
+    source, files = _validate_source_registration_preconditions(uow, continuation, lock=True)
+    source_id = _positive_id(continuation.get("source_id"), "source id")
+    expected_center_id = str(continuation.get("expected_center_source_id") or "").strip()
+    provider_result = operation.result.get("provider_result") if isinstance(operation.result, Mapping) else None
+    provider_result = dict(provider_result) if isinstance(provider_result, Mapping) else {}
+    center_source_id = str(provider_result.get("source_id") or expected_center_id).strip()
+    if not center_source_id:
+        raise SharingOperationStateError("sharing provider confirmation omitted source id")
+    receipt = normalize_durable_json_object(
+        {
+            "operation_id": str(operation.id),
+            "provider_result": provider_result,
+            "authoritative_readback": bool((operation.result or {}).get("authoritative_readback")),
+        },
+        field="sharing source confirmation receipt",
+    )
+    result = uow.session.execute(
+        text(
+            """
+            UPDATE shared_rapid_sources
+            SET center_source_id = :center_source_id,
+                status = 'active', center_status = 'reported',
+                last_error = NULL, reported_at = NOW(), disabled_at = NULL,
+                raw_json = COALESCE(raw_json, '{}'::jsonb)
+                    || jsonb_build_object('native_registration', CAST(:receipt AS jsonb)),
+                updated_at = NOW()
+            WHERE id = :id
+            """
+        ),
+        {
+            "id": source_id,
+            "center_source_id": center_source_id,
+            "receipt": canonical_json(receipt, field="sharing source confirmation receipt"),
+        },
+    )
+    if int(getattr(result, "rowcount", 0) or 0) != 1:
+        raise SharingOperationStateError("sharing local source registration was not applied")
+    if files:
+        uow.session.execute(
+            text(
+                """
+                UPDATE shared_rapid_source_files
+                SET raw_ffprobe_uploaded = TRUE,
+                    raw_json = COALESCE(raw_json, '{}'::jsonb)
+                        || jsonb_build_object('registration_operation_id', CAST(:operation_id AS text)),
+                    updated_at = NOW()
+                WHERE local_source_id = :id
+                """
+            ),
+            {"id": source_id, "operation_id": str(operation.id)},
+        )
+    else:
+        _insert_confirmed_source_file(uow, source_id, continuation, operation)
+
+
+def _validate_source_registration_preconditions(
+    uow: SqlAlchemyUnitOfWork,
+    continuation: Mapping[str, Any],
+    *,
+    lock: bool,
+) -> tuple[Mapping[str, Any], list[Mapping[str, Any]]]:
+    source_id = _positive_id(continuation.get("source_id"), "source id")
+    source_query = (
+        "SELECT * FROM shared_rapid_sources WHERE id = :id FOR UPDATE"
+        if lock
+        else ("SELECT * FROM shared_rapid_sources WHERE id = :id")
+    )
+    source = uow.session.execute(text(source_query), {"id": source_id}).mappings().one_or_none()
+    if source is None:
+        raise SharingOperationStateError("sharing local source no longer exists")
+    files_query = """
+        SELECT * FROM shared_rapid_source_files
+        WHERE local_source_id = :id
+        ORDER BY id ASC
+    """
+    if lock:
+        files_query += " FOR UPDATE"
+    files = list(uow.session.execute(text(files_query), {"id": source_id}).mappings().all())
+    expected_hash = _required(continuation.get("expected_source_state_hash"), "source state hash")
+    current_hash = source_registration_state_hash(dict(source), [dict(value) for value in files])
+    if current_hash != expected_hash:
+        raise SharingOperationStateError("sharing local source changed before registration confirmation")
+    expected_center_id = str(continuation.get("expected_center_source_id") or "").strip()
+    if str(source.get("center_source_id") or "").strip() != expected_center_id:
+        raise SharingOperationStateError("sharing center source identity changed before confirmation")
+    source_kind = _required(continuation.get("source_kind"), "source kind")
+    if str(source.get("source_kind") or "").strip().lower() != source_kind:
+        raise SharingOperationStateError("sharing local source kind changed before confirmation")
+    _validate_source_registration_holder(uow, continuation, lock=lock)
+    return dict(source), [dict(value) for value in files]
+
+
+def _validate_source_registration_holder(
+    uow: SqlAlchemyUnitOfWork,
+    continuation: Mapping[str, Any],
+    *,
+    lock: bool,
+) -> None:
+    holder = continuation.get("local_sign_holder")
+    if holder is None:
+        return
+    if not isinstance(holder, Mapping):
+        raise SharingOperationStateError("sharing local sign-holder snapshot is invalid")
+    account_id = _required(holder.get("account_id"), "sign-holder account id")
+    if not account_id.isdigit():
+        raise SharingOperationStateError("sharing local sign-holder account id is invalid")
+    pick_code = _required(holder.get("pick_code"), "sign-holder pick code")
+    sha1 = _required(holder.get("sha1"), "sign-holder sha1").upper()
+    holder_query = """
+        SELECT id
+        FROM p115_filesystem_cache
+        WHERE account_id = :account_id
+          AND (entry_kind = 'file' OR entry_kind IS NULL)
+          AND pick_code = :pick_code
+          AND upper(sha1) = :sha1
+        LIMIT 1
+    """
+    if lock:
+        holder_query += " FOR KEY SHARE"
+    found = uow.session.execute(
+        text(holder_query),
+        {"account_id": account_id, "pick_code": pick_code, "sha1": sha1},
+    ).scalar_one_or_none()
+    if found is None:
+        raise SharingOperationStateError("sharing local sign-holder changed before registration confirmation")
+
+
+def _insert_confirmed_source_file(
+    uow: SqlAlchemyUnitOfWork,
+    source_id: int,
+    continuation: Mapping[str, Any],
+    operation: SharingOperation,
+) -> None:
+    file_record = continuation.get("file_record")
+    if not isinstance(file_record, Mapping):
+        raise SharingOperationStateError("sharing source file snapshot is missing")
+    sha1 = _required(file_record.get("sha1"), "source file sha1").upper()
+    file_name = _required(file_record.get("file_name"), "source file name")
+    uow.session.execute(
+        text(
+            """
+            INSERT INTO shared_rapid_source_files(
+                local_source_id, fid, pick_code, sha1, preid, size, file_name,
+                relative_path, tmdb_id, item_type, season_number, episode_number,
+                raw_ffprobe_uploaded, media_signature_json, rapid_meta_json, raw_json
+            ) VALUES (
+                :local_source_id, :fid, :pick_code, :sha1, :preid, :size, :file_name,
+                :relative_path, :tmdb_id, :item_type, :season_number, :episode_number,
+                TRUE, CAST(:media_signature_json AS jsonb), CAST(:rapid_meta_json AS jsonb),
+                jsonb_build_object('registration_operation_id', CAST(:operation_id AS text))
+            )
+            """
+        ),
+        {
+            "local_source_id": source_id,
+            "fid": file_record.get("fid"),
+            "pick_code": file_record.get("pick_code"),
+            "sha1": sha1,
+            "preid": file_record.get("preid"),
+            "size": int(file_record.get("size") or 0),
+            "file_name": file_name,
+            "relative_path": file_record.get("relative_path"),
+            "tmdb_id": file_record.get("tmdb_id"),
+            "item_type": file_record.get("item_type"),
+            "season_number": file_record.get("season_number"),
+            "episode_number": file_record.get("episode_number"),
+            "media_signature_json": canonical_json(
+                dict(file_record.get("media_signature_json") or {}),
+                field="sharing source file signature",
+            ),
+            "rapid_meta_json": canonical_json(
+                dict(file_record.get("rapid_meta_json") or {}),
+                field="sharing source file rapid metadata",
+            ),
+            "operation_id": str(operation.id),
+        },
+    )
+
+
+def _record_source_registration_failure(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SharingOperation,
+    continuation: Mapping[str, Any],
+) -> None:
+    source_id = _positive_id(continuation.get("source_id"), "source id")
+    source = (
+        uow.session.execute(
+            text("SELECT * FROM shared_rapid_sources WHERE id = :id FOR UPDATE"),
+            {"id": source_id},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if source is None:
+        return
+    files = (
+        uow.session.execute(
+            text("SELECT * FROM shared_rapid_source_files WHERE local_source_id = :id ORDER BY id ASC"),
+            {"id": source_id},
+        )
+        .mappings()
+        .all()
+    )
+    expected_hash = str(continuation.get("expected_source_state_hash") or "").strip()
+    current_hash = source_registration_state_hash(dict(source), [dict(value) for value in files])
+    if expected_hash and current_hash != expected_hash:
+        return
+    error = operation.error if isinstance(operation.error, Mapping) else {}
+    message = str(error.get("message") or error.get("type") or f"共享登记{operation.status.value}").strip()
+    uow.session.execute(
+        text("UPDATE shared_rapid_sources SET last_error = :message, updated_at = NOW() WHERE id = :id"),
+        {"id": source_id, "message": message[:1000]},
+    )
 
 
 def _enable_shared_resource(uow: SqlAlchemyUnitOfWork) -> None:
@@ -973,6 +1370,25 @@ def _required(value: Any, field: str) -> str:
     normalized = str(value or "").strip()
     if not normalized:
         raise ValueError(f"sharing operation {field} must not be empty")
+    return normalized
+
+
+def _uuid(value: Any, field: str) -> UUID:
+    try:
+        return UUID(str(value))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise SharingOperationStateError(f"sharing {field} is invalid") from exc
+
+
+def _positive_id(value: Any, field: str) -> int:
+    if isinstance(value, bool):
+        raise SharingOperationStateError(f"sharing {field} is invalid")
+    try:
+        normalized = int(str(value).strip())
+    except (TypeError, ValueError) as exc:
+        raise SharingOperationStateError(f"sharing {field} is invalid") from exc
+    if normalized < 1:
+        raise SharingOperationStateError(f"sharing {field} is invalid")
     return normalized
 
 

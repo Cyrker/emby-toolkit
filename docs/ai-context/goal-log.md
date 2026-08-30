@@ -5005,6 +5005,64 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Shared-Source-Registration
+
+Stage / Batch: P11 / durable Shared Resource source registration
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `3a532819` (`refactor(p11): cut over sharing control routes`).
+- Target checkpoint message: `refactor(p11): persist shared source registration`.
+
+Implemented:
+
+- Migrated report-center and single/batch reregister routes to a prerequisite state machine: the
+  request thread freezes source/files/RAW identity, reserves identifier-only Outboxes and performs
+  no provider mutation. RAW remains in `p115_mediainfo_cache` until the Worker validates hash/size
+  and crosses the durable checkpoint.
+- Added same-UoW source/file/account-bound holder validation at the provider checkpoint, unique-only
+  authoritative readback, no-resend recovery, prerequisite replay fencing and atomic local
+  confirmation. Source-only fallback preserves the current holder PickCode and original provider.
+- Bounded RAW/summary durable data and rejected unsafe URL, absolute/local path, traversal, Bearer
+  and token-query values. Frontend waits for terminal state and retains occurrence identity only
+  for indeterminate results.
+- Regenerated manifests, OpenAPI and TypeScript schema. Route ownership is now `312 new / 31 legacy`
+  decorators and `334 new / 33 legacy` method bindings; OpenAPI is `291 paths / 343 operations`.
+
+Targeted gate:
+
+- Scoped Ruff/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`).
+- P9 application -> `113 passed`; disposable PostgreSQL 18 P9 scope -> `54 passed`.
+- P1 import/CLI plus OpenAPI contract -> `5 passed`.
+- Frontend generation, typecheck, build and API boundary passed; Vitest -> `7 passed`; build retained
+  only the existing large-chunk warning.
+- Manifest/OpenAPI currentness, compileall, `uv lock --check`, three secret scans and
+  `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-sharing-source-registration-20260831/summary.md`.
+
+Focused review:
+
+- Closed checkpoint TOCTOU, ambiguous readback, source-only PickCode, RAW/summary bounds, durable
+  metadata leakage, batch response and frontend idempotency-key findings.
+- Final transaction and HTTP/frontend/OpenAPI rereviews found no deterministic P0/P1/P2. One
+  reviewer exceeded its read-only boundary by running expected generators; the main thread
+  regenerated serially and reran the complete targeted gate from the final stable worktree.
+
+Pending:
+
+- Native-only Worker remains `22 executable / 28 unavailable`; 31 route decorators, 33 method
+  bindings, 12 tables, 82 dynamic config keys, seven bootstrap keys and 11 standalone settings
+  remain legacy-owned until the next inventory proves otherwise.
+- Complete remaining Shared Resource effects/routes and all ownership, then pre-removal, controlled
+  legacy-runtime removal and the P11 NFR/security/SBOM/vulnerability/License gates. P12 remains
+  `TODO`; Live Acceptance remains `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -5024,7 +5082,7 @@ Read first:
 
 Next:
 
-- Continue Shared Resource report-center/re-registration, then center import and virtual effects;
-  resume native-only task execution with the smallest evidence-backed slice afterward. Close all
-  remaining Route, Task, Table and Config ownership before controlled removal. Do not start P12
-  until P11 ownership, removal and NFR gates are complete; keep all Live Acceptance items pending.
+- Continue Shared Resource center import and virtual effects, then resume native-only task
+  execution from the latest manifests and runtime call graph. Close all remaining Route, Task,
+  Table, Config and Frontend ownership before controlled removal. Do not start P12 until P11
+  ownership, removal and NFR gates are complete; keep all Live Acceptance items pending.

@@ -3558,6 +3558,33 @@
         "status": "new",
         "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
         "validation_owner": "sharing/source-lifecycle"
+      },
+      "route-binding-2dcab1d95123": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 report-center freezes the local source/file/RAW snapshot and stages a prerequisite RAW upload plus dependent source registration; the request thread performs no provider mutation.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+        "validation_owner": "sharing/source-registration"
+      },
+      "route-binding-89c6df870297": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 single-source reregister preserves the original provider and uses durable RAW prerequisite, authoritative source readback, identity drift fencing and terminal local continuation.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+        "validation_owner": "sharing/source-registration"
+      },
+      "route-binding-3c0b7ba3cf08": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 batch reregister creates deterministic per-source prerequisite chains, preserves skips and missing items, and exposes child operation identities for terminal polling.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+        "validation_owner": "sharing/source-registration"
       }
     },
     "route_decorators": {
@@ -6341,6 +6368,33 @@
         "status": "new",
         "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
         "validation_owner": "sharing/source-lifecycle"
+      },
+      "route-decorator-3f25a179588c": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 report-center is owned by the native durable source-registration workflow; provider writes occur only after Outbox delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+        "validation_owner": "sharing/source-registration"
+      },
+      "route-decorator-b0d2eb396246": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 single-source reregister is owned by the native RAW prerequisite and source-registration continuation workflow.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+        "validation_owner": "sharing/source-registration"
+      },
+      "route-decorator-e4e4602d5867": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 batch reregister is owned by deterministic native per-source operation chains with explicit partial results.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
+        "validation_owner": "sharing/source-registration"
       }
     },
     "settings": {

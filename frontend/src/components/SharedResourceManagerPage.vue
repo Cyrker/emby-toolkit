@@ -589,14 +589,17 @@ const centerTransferButtonColor = computed(() => themeVars.value.primaryColor ||
 const sharingOperationPollControllers = new Set<AbortController>();
 const shareRequestParticipantOperationKeys = new Map<string, string>();
 const localSourceLifecycleOperationKeys = new Map<string, string>();
+const localSourceReregisterOperationKeys = new Map<string, string>();
 
 const waitForSharingOperation = async (response, pendingMessage) => {
   const initial = response?.data || {};
   const operationId = String(initial.operation_id || '').trim();
   const initialStatus = String(initial.status || '').trim().toLowerCase();
   if (!operationId || initialStatus === 'confirmed') return initial;
-  if (initialStatus === 'rejected' || initialStatus === 'indeterminate') {
-    throw new Error(initial.message || '共享操作未能确认');
+  if (initialStatus === 'rejected' || initialStatus === 'indeterminate' || initialStatus === 'cancelled') {
+    const error = new Error(initial.message || '共享操作未能确认');
+    error.sharingOperationStatus = initialStatus;
+    throw error;
   }
   message.info(initial.message || pendingMessage);
   const controller = new AbortController();
@@ -611,9 +614,11 @@ const waitForSharingOperation = async (response, pendingMessage) => {
       const operation = polled.data?.operation || {};
       const status = String(operation.status || '').trim().toLowerCase();
       if (status === 'confirmed') return operation;
-      if (status === 'rejected' || status === 'indeterminate') {
+      if (status === 'rejected' || status === 'indeterminate' || status === 'cancelled') {
         const detail = operation.error?.message || operation.error?.type || '共享操作未能确认';
-        throw new Error(detail);
+        const error = new Error(detail);
+        error.sharingOperationStatus = status;
+        throw error;
       }
     }
     throw new Error('共享操作仍在后台处理中，请稍后刷新状态');
@@ -636,10 +641,15 @@ const waitForSharingOperations = async (response, pendingMessage) => {
     )),
   );
   if (initial.success === false) {
-    const detail = Array.isArray(initial.failed) && initial.failed.length
-      ? initial.failed.map((item) => item?.message || item?.id).filter(Boolean).join('；')
+    const failed = Array.isArray(initial.failed) ? initial.failed : [];
+    const detail = failed.length
+      ? failed.map((item) => item?.message || item?.id).filter(Boolean).join('；')
       : '';
-    throw new Error(detail || initial.message || '部分共享源操作未提交');
+    const error = new Error(detail || initial.message || '部分共享源操作未提交');
+    if (failed.some((item) => String(item?.status || '').toLowerCase() === 'indeterminate')) {
+      error.sharingOperationStatus = 'indeterminate';
+    }
+    throw error;
   }
   return initial;
 };
@@ -4398,16 +4408,34 @@ const reregisterShare = (row) => {
     positiveText: '重新登记',
     negativeText: '取消',
     onPositiveClick: async () => {
+      const normalizedIds = (isBatch ? ids : [row.id]).map(String).sort();
+      const operationScope = `reregister:${normalizedIds.join(',')}`;
+      const operationKey = localSourceReregisterOperationKeys.get(operationScope) || crypto.randomUUID();
+      localSourceReregisterOperationKeys.set(operationScope, operationKey);
       try {
         if (isBatch) {
-          await apiClient.post(apiPath('api_shared_resources_shares_reregister_batch_ddfad2ab'), { ids });
+          const response = await apiClient.post(
+            apiPath('api_shared_resources_shares_reregister_batch_ddfad2ab'),
+            { ids },
+            { headers: { 'Idempotency-Key': operationKey } },
+          );
+          await waitForSharingOperations(response, '重新登记任务已提交，正在等待中心确认');
         } else {
-          await apiClient.post(apiPath('api_shared_resources_shares_param_reregister_1b66f790', [row.id]), {});
+          const response = await apiClient.post(
+            apiPath('api_shared_resources_shares_param_reregister_1b66f790', [row.id]),
+            {},
+            { headers: { 'Idempotency-Key': operationKey } },
+          );
+          await waitForSharingOperation(response, '重新登记任务已提交，正在等待中心确认');
         }
+        localSourceReregisterOperationKeys.delete(operationScope);
         message.success('已重新登记共享源');
         await Promise.allSettled([loadShares(), loadCenterSources(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || '重新登记失败');
+        if (String(e?.sharingOperationStatus || e?.response?.data?.status || '').toLowerCase() !== 'indeterminate') {
+          localSourceReregisterOperationKeys.delete(operationScope);
+        }
+        message.error(e.response?.data?.message || e.message || '重新登记失败');
       }
     }
   });

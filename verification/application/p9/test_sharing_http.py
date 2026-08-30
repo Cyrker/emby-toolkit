@@ -145,6 +145,7 @@ class FakeProjection:
     def __init__(self) -> None:
         self.calls: list[tuple[str, Any]] = []
         self.drift_source_ids: set[int] = set()
+        self.adult_source_ids: set[int] = set()
         self.sources: dict[int, dict[str, Any]] = {
             1: {
                 "id": 1,
@@ -178,6 +179,14 @@ class FakeProjection:
                 "center_status": "reported",
                 "center_source_id": "center-source-4",
             },
+            5: {
+                "id": 5,
+                "title": "Virtual Fixture",
+                "source_kind": "movie",
+                "status": "active",
+                "center_status": "local",
+                "center_source_id": "",
+            },
         }
 
     def summary(self) -> dict[str, Any]:
@@ -192,6 +201,66 @@ class FakeProjection:
         self.calls.append(("get_local_source", source_id))
         value = self.sources.get(source_id)
         return dict(value) if value is not None else None
+
+    def source_registration_snapshot(self, source_id: int) -> dict[str, Any] | None:
+        self.calls.append(("source_registration_snapshot", source_id))
+        value = self.sources.get(source_id)
+        if value is None:
+            return None
+        sha1 = f"{source_id:X}" * 40
+        is_episode = str(value.get("source_kind") or "") == "episode"
+        source = {
+            **value,
+            "source_key": f"fixture-source-{source_id}",
+            "tmdb_id": str(100 + source_id),
+            "item_type": "Episode" if is_episode else "Movie",
+            "parent_series_tmdb_id": str(200 + source_id) if is_episode else None,
+            "season_number": 1 if is_episode else None,
+            "episode_number": source_id if is_episode else None,
+            "source_provider": "manual_rapid",
+            "sha1": sha1,
+            "file_name": f"Fixture {source_id}.mkv",
+            "size": 1024,
+        }
+        file = {
+            "id": source_id * 10,
+            "local_source_id": source_id,
+            "fid": f"fid-{source_id}",
+            "pick_code": "" if source_id == 5 else f"pc-{source_id}",
+            "sha1": sha1,
+            "preid": f"preid-{source_id}",
+            "size": 1024,
+            "file_name": f"Fixture {source_id}.mkv",
+            "tmdb_id": source["tmdb_id"],
+            "item_type": source["item_type"],
+            "season_number": source["season_number"],
+            "episode_number": source["episode_number"],
+            "rapid_meta_json": {"fid": f"fid-{source_id}", "pick_code": "" if source_id == 5 else f"pc-{source_id}"},
+            "media_signature_json": {"resolution": "4K", "video_codec": "hevc"},
+            "local_sign_holder": source_id != 5,
+            "local_sign_holder_account_id": "1" if source_id != 5 else "",
+            "local_sign_holder_pick_code": f"pc-{source_id}" if source_id != 5 else "",
+        }
+        raw = {
+            "format": {"size": "1024", "bit_rate": "1000000"},
+            "streams": [{"codec_type": "video", "codec_name": "hevc", "width": 3840, "height": 2160}],
+        }
+        formatted = [
+            {
+                "MediaSourceInfo": {
+                    "Container": "mkv",
+                    "Size": 1024,
+                    "MediaStreams": [{"Type": "Video", "Codec": "hevc", "Width": 3840, "Height": 2160}],
+                }
+            }
+        ]
+        return {
+            "source": source,
+            "files": [file],
+            "raw_by_sha1": {sha1: raw},
+            "formatted_by_sha1": {sha1: formatted},
+            "adult_block_reason": "adult rating XXX: Fixture" if source_id in self.adult_source_ids else "",
+        }
 
     def disable_local_source(
         self,
@@ -394,6 +463,16 @@ class FakeOperations:
     def reserve(self, intent: Any) -> Any:
         operation, _replayed = self.reserve_with_replay(intent)
         return operation
+
+    def reserve_prerequisite_chain(
+        self,
+        *,
+        dependent_intent: Any,
+        prerequisite_intent: Any,
+    ) -> tuple[Any, Any, bool]:
+        dependent, replayed = self.reserve_with_replay(dependent_intent)
+        prerequisite, _prerequisite_replayed = self.reserve_with_replay(prerequisite_intent)
+        return dependent, prerequisite, replayed
 
     def read(self, operation_id: Any) -> Any | None:
         return self.by_id.get(operation_id)
@@ -661,6 +740,109 @@ def test_native_local_source_lifecycle_handles_identity_drift_aliases_and_termin
             "message": "共享操作结果不确定，请人工核对后再处理",
         }
     ]
+
+
+def test_native_source_registration_routes_stage_raw_prerequisite_without_request_thread_writes() -> None:
+    app, center, _app_settings, operations = _build_app()
+    app.state.sharing_projection.adult_source_ids.add(3)
+    with TestClient(app) as client:
+        denied = client.post("/api/shared/resources/shares/1/reregister")
+        _set_admin(client)
+        staged = client.post(
+            "/api/shared/resources/shares/1/reregister",
+            json={},
+            headers={"Idempotency-Key": "fixture-reregister"},
+        )
+        replayed = client.post(
+            "/api/shared/resources/shares/1/reregister",
+            json={},
+            headers={"Idempotency-Key": "fixture-reregister"},
+        )
+        reported = client.post(
+            "/api/shared/resources/shares/2/report-center",
+            headers={"Idempotency-Key": "fixture-report"},
+        )
+        adult = client.post(
+            "/api/shared/resources/shares/3/reregister",
+            json={},
+            headers={"Idempotency-Key": "fixture-adult"},
+        )
+        missing = client.post("/api/shared/resources/shares/999/reregister", json={})
+        invalid = client.post("/api/shared/resources/shares/not-an-id/reregister", json={})
+
+    assert denied.status_code == 403
+    assert staged.status_code == 202
+    assert staged.json()["accepted"] is True
+    assert staged.json()["status"] == "ready"
+    assert staged.json()["operation_id"] != staged.json()["prerequisite_operation_id"]
+    assert replayed.status_code == 202
+    assert replayed.json()["operation_id"] == staged.json()["operation_id"]
+    assert replayed.json()["replayed"] is True
+    assert reported.status_code == 202
+    assert adult.status_code == 400
+    assert adult.json()["adult_blocked"] is True
+    assert missing.status_code == 404
+    assert invalid.status_code == 404
+    assert center.calls == []
+    assert [intent.request["action"] for intent in operations.intents] == [
+        "register_source",
+        "upload_raw_ffprobe",
+        "register_source",
+        "upload_raw_ffprobe",
+    ]
+    first_registration, first_raw = operations.intents[:2]
+    assert first_registration.request["blocked_by_operation_id"] == str(first_raw.id)
+    assert first_raw.request["local_continuation"] == {
+        "type": "release_dependent_operation",
+        "operation_id": str(first_registration.id),
+    }
+    assert first_registration.request["local_continuation"]["type"] == "confirm_local_source_registration"
+    assert first_registration.request["readback"]["match_fields"] == {"source_id": "center-source-1"}
+    assert first_registration.request["payload"]["body"]["source_provider"] == "manual_rapid"
+    assert first_raw.request["payload"]["raw_reference"]["sha1"] == "1" * 40
+    assert "raw_ffprobe_json" not in first_raw.request["payload"]
+
+
+def test_native_source_reregister_batch_preserves_partial_missing_skip_and_occurrence_replay() -> None:
+    app, center, _app_settings, operations = _build_app()
+    with TestClient(app) as client:
+        _set_admin(client)
+        staged = client.post(
+            "/api/shared/resources/shares/reregister-batch",
+            json={"ids": [4, 4, 5, 999]},
+            headers={"Idempotency-Key": "fixture-reregister-batch"},
+        )
+        replayed = client.post(
+            "/api/shared/resources/shares/reregister-batch",
+            json={"ids": [4, 4, 5, 999]},
+            headers={"Idempotency-Key": "fixture-reregister-batch"},
+        )
+        alias = client.post(
+            "/api/shared/resources/shares/reregister-batch",
+            json={"ids": [], "source_ids": [5]},
+        )
+        empty = client.post("/api/shared/resources/shares/reregister-batch", json={"ids": []})
+        wrong_type = client.post(
+            "/api/shared/resources/shares/reregister-batch",
+            content="[]",
+            headers={"content-type": "application/json"},
+        )
+
+    assert staged.status_code == 202
+    assert staged.json()["success"] is True
+    assert staged.json()["partial"] is True
+    assert len(staged.json()["operation_ids"]) == 1
+    assert staged.json()["missing"] == [999]
+    assert [item["id"] for item in staged.json()["skipped"]] == [5]
+    assert replayed.status_code == 202
+    assert replayed.json()["operation_ids"] == staged.json()["operation_ids"]
+    assert replayed.json()["items"][0]["replayed"] is True
+    assert alias.status_code == 400
+    assert alias.json()["skipped"][0]["reason"] == "missing_pick_code_virtual_library"
+    assert empty.status_code == 400
+    assert wrong_type.status_code == 400
+    assert center.calls == []
+    assert len(operations.intents) == 2
 
 
 def test_native_sharing_routes_reject_malformed_json_and_secret_payloads() -> None:

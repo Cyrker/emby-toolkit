@@ -106,6 +106,37 @@ def test_shared_center_maps_success_and_rejection_without_leaking_payload() -> N
     assert rejected.payload is None
 
 
+def test_shared_center_raw_upload_and_readback_use_typed_endpoints() -> None:
+    sha1 = "A" * 40
+    client = FakeClient(
+        [
+            _response(200, {"ok": True, "sha1": sha1}),
+            _response(200, {"item": {"sha1": sha1}}),
+        ]
+    )
+    adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(),
+    )
+
+    uploaded = adapter.upload_raw_ffprobe(
+        {
+            "sha1": sha1,
+            "size": 1024,
+            "raw_ffprobe_json": {"format": {"size": "1024"}, "streams": []},
+            "summary_json": {"resolution": "4K"},
+        }
+    )
+    readback = adapter.get_raw_ffprobe(sha1)
+
+    assert uploaded.disposition is ProviderDisposition.CONFIRMED
+    assert readback.disposition is ProviderDisposition.CONFIRMED
+    assert client.calls[0][0:2] == ("POST", "https://center.fixture/api/v1/rawffprobe/upload")
+    assert client.calls[0][2]["json"]["sha1"] == sha1
+    assert client.calls[1][0:2] == ("GET", f"https://center.fixture/api/v1/rawffprobe/{sha1}")
+
+
 def test_shared_center_reads_standalone_runtime_configuration() -> None:
     client = FakeClient([_response(200, {"ok": True, "items": []})])
     adapter = HttpxSharedCenterAdapter(

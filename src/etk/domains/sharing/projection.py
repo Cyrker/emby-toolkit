@@ -10,6 +10,8 @@ from sqlalchemy import text
 
 from etk.platform.db import SqlAlchemyUnitOfWork
 
+from .source_registration import source_registration_state_hash
+
 _VIDEO_SUFFIXES = {
     ".3gp",
     ".asf",
@@ -209,6 +211,160 @@ class SqlAlchemySharingProjectionRepository:
                 .one_or_none()
             )
         return _decorate_local_source(_row(value)) if value is not None else None
+
+    def source_registration_snapshot(self, source_id: int) -> dict[str, Any] | None:
+        normalized_id = int(source_id)
+        if normalized_id < 1:
+            raise ValueError("source_id must be positive")
+        with self._unit_of_work() as uow:
+            source_value = (
+                uow.session.execute(
+                    text("SELECT * FROM shared_rapid_sources WHERE id = :id"),
+                    {"id": normalized_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if source_value is None:
+                return None
+            source = _row(source_value)
+            files = [
+                _row(value)
+                for value in (
+                    uow.session.execute(
+                        text(
+                            """
+                            SELECT *
+                            FROM shared_rapid_source_files
+                            WHERE local_source_id = :id
+                            ORDER BY id ASC
+                            """
+                        ),
+                        {"id": normalized_id},
+                    )
+                    .mappings()
+                    .all()
+                )
+            ]
+            sha1s = list(dict.fromkeys(value for value in (_sha1(file.get("sha1")) for file in files) if value))
+            source_sha1 = _sha1(source.get("sha1"))
+            if source_sha1 and source_sha1 not in sha1s:
+                sha1s.append(source_sha1)
+            account_id = str(self._account_id() or "").strip()
+            holder_by_sha1: dict[str, str] = {}
+            if account_id.isdigit() and sha1s:
+                holder_rows = (
+                    uow.session.execute(
+                        text(
+                            """
+                            SELECT pick_code, upper(sha1) AS sha1
+                            FROM p115_filesystem_cache
+                            WHERE account_id = :account_id
+                              AND (entry_kind = 'file' OR entry_kind IS NULL)
+                              AND upper(sha1) = ANY(CAST(:sha1s AS text[]))
+                              AND NULLIF(BTRIM(pick_code), '') IS NOT NULL
+                            ORDER BY id DESC
+                            """
+                        ),
+                        {"account_id": account_id, "sha1s": sha1s},
+                    )
+                    .mappings()
+                    .all()
+                )
+                for value in holder_rows:
+                    holder_sha1 = _sha1(value.get("sha1"))
+                    holder_pick_code = str(value.get("pick_code") or "").strip()
+                    if holder_sha1 and holder_pick_code:
+                        holder_by_sha1.setdefault(holder_sha1, holder_pick_code)
+            for file in files:
+                sha1 = _sha1(file.get("sha1"))
+                holder_pick_code = holder_by_sha1.get(sha1, "")
+                file["local_sign_holder"] = bool(holder_pick_code)
+                if holder_pick_code:
+                    file["local_sign_holder_account_id"] = account_id
+                    file["local_sign_holder_pick_code"] = holder_pick_code
+            if not files:
+                holder_pick_code = holder_by_sha1.get(source_sha1, "")
+                source["local_sign_holder"] = bool(holder_pick_code)
+                if holder_pick_code:
+                    source["local_sign_holder_account_id"] = account_id
+                    source["local_sign_holder_pick_code"] = holder_pick_code
+            adult_row = (
+                uow.session.execute(
+                    text(
+                        """
+                        SELECT title, tmdb_id
+                        FROM media_metadata
+                        WHERE (
+                                (:item_type = 'Movie' AND item_type = 'Movie' AND tmdb_id = :movie_tmdb_id)
+                             OR (:item_type <> 'Movie' AND (
+                                    (item_type = 'Series' AND tmdb_id = :parent_tmdb_id)
+                                 OR (item_type IN ('Season','Episode')
+                                     AND COALESCE(NULLIF(parent_series_tmdb_id, ''), tmdb_id) = :parent_tmdb_id
+                                     AND (CAST(:season_number AS integer) IS NULL
+                                          OR season_number = CAST(:season_number AS integer))
+                                     AND (CAST(:episode_number AS integer) IS NULL OR item_type <> 'Episode'
+                                          OR episode_number = CAST(:episode_number AS integer)))
+                                ))
+                        )
+                          AND (
+                                upper(COALESCE(NULLIF(custom_rating, ''), '')) = 'XXX'
+                             OR upper(COALESCE(official_rating_json->>'US', official_rating_json->>'us', '')) = 'XXX'
+                          )
+                        LIMIT 1
+                        """
+                    ),
+                    {
+                        "item_type": str(source.get("item_type") or "").strip().title(),
+                        "movie_tmdb_id": str(source.get("tmdb_id") or "").strip(),
+                        "parent_tmdb_id": str(
+                            source.get("parent_series_tmdb_id") or source.get("tmdb_id") or ""
+                        ).strip(),
+                        "season_number": _optional_integer(source.get("season_number")),
+                        "episode_number": _optional_integer(source.get("episode_number")),
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
+            raw_by_sha1: dict[str, dict[str, Any]] = {}
+            formatted_by_sha1: dict[str, Any] = {}
+            cache_revisions: dict[str, int] = {}
+            if sha1s:
+                cache_rows = (
+                    uow.session.execute(
+                        text(
+                            """
+                            SELECT sha1, raw_ffprobe_json, mediainfo_json, cache_revision
+                            FROM p115_mediainfo_cache
+                            WHERE upper(sha1) = ANY(CAST(:sha1s AS text[]))
+                            """
+                        ),
+                        {"sha1s": sha1s},
+                    )
+                    .mappings()
+                    .all()
+                )
+                for value in cache_rows:
+                    sha1 = _sha1(value.get("sha1"))
+                    raw = value.get("raw_ffprobe_json")
+                    if sha1 and isinstance(raw, Mapping):
+                        raw_by_sha1[sha1] = dict(raw)
+                    if sha1 and value.get("mediainfo_json") is not None:
+                        formatted_by_sha1[sha1] = _json_value(value.get("mediainfo_json"))
+                    if sha1:
+                        cache_revisions[sha1] = _integer(value.get("cache_revision"))
+        return {
+            "source": source,
+            "files": files,
+            "raw_by_sha1": raw_by_sha1,
+            "formatted_by_sha1": formatted_by_sha1,
+            "cache_revisions": cache_revisions,
+            "source_state_hash": source_registration_state_hash(source, files),
+            "adult_block_reason": (
+                f"adult rating XXX: {adult_row.get('title') or adult_row.get('tmdb_id')}" if adult_row else ""
+            ),
+        }
 
     def disable_local_source(
         self,

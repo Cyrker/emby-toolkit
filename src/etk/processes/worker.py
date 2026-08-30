@@ -919,6 +919,7 @@ class WorkerRuntime:
                     configuration=lambda: app_settings.load("hdhive_config"),
                 )
                 telegram = HttpxTelegramBotAdapter(settings_provider)
+                p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
                 sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
                 sharing_operation_executor = SharingOperationExecutor(
                     sharing_operations,
@@ -926,6 +927,7 @@ class WorkerRuntime:
                         shared_center=shared_center,
                         hdhive=hdhive,
                         telegram=telegram,
+                        raw_ffprobe_loader=partial(_load_sharing_raw_ffprobe, p115_mediainfo_repository),
                     ),
                     max_attempts=4,
                 )
@@ -975,7 +977,6 @@ class WorkerRuntime:
                     executor=playback_executor,
                 )
                 playback_gateway = NativePlaybackCompatibilityGateway(lambda: playback_service)
-                p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
                 bridge_client = HttpxEmbyBridgeClient(settings_provider)
                 p115_fingerprint_repair = P115FingerprintRepairService(
                     credentials=p115_credentials,
@@ -1405,6 +1406,7 @@ class WorkerRuntime:
                     shared_center=shared_center,
                     hdhive=hdhive,
                     telegram=telegram,
+                    raw_ffprobe_loader=partial(_load_sharing_raw_ffprobe, p115_mediainfo_repository),
                 ),
                 max_attempts=4,
             )
@@ -2861,6 +2863,14 @@ def request_worker_shutdown() -> None:
 
 def worker_shutdown_requested() -> bool:
     return _PROCESS_SHUTDOWN_REQUESTED
+
+
+def _load_sharing_raw_ffprobe(
+    repository: SqlAlchemyP115MediaInfoRepository,
+    sha1: str,
+) -> Mapping[str, Any] | None:
+    record = repository.find_by_sha1(sha1)
+    return dict(record.raw) if record is not None and isinstance(record.raw, Mapping) else None
 
 
 def _task_fixture() -> Path:

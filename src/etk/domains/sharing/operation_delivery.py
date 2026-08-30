@@ -24,8 +24,10 @@ from etk.platform.jobs.json_payload import canonical_json, normalize_durable_jso
 
 from .execution import SharingDeliveryOutcome, SharingOperationDeliveryPort
 from .operations import SharingOperation
+from .source_registration import freeze_shared_raw_ffprobe, resolve_shared_raw_ffprobe_reference
 
 _READBACK_COLLECTION_KEYS = ("items", "sources", "subscriptions", "results", "data")
+_READBACK_OBJECT_KEYS = ("item", "source", "raw", "data")
 
 
 class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
@@ -49,10 +51,12 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
         shared_center: SharedCenterPort,
         hdhive: HDHivePort,
         telegram: TelegramBotPort | None = None,
+        raw_ffprobe_loader: Callable[[str], Mapping[str, Any] | None] | None = None,
     ) -> None:
         self._shared_center = shared_center
         self._hdhive = hdhive
         self._telegram = telegram
+        self._raw_ffprobe_loader = raw_ffprobe_loader
 
     def supports_authoritative_readback(self, operation: SharingOperation) -> bool:
         spec = _readback_spec(operation)
@@ -68,6 +72,8 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
     ) -> SharingDeliveryOutcome:
         provider, action, payload = _request_parts(operation)
         try:
+            if provider == "shared_center" and action == "upload_raw_ffprobe":
+                payload = _materialize_raw_upload_payload(payload, self._raw_ffprobe_loader)
             call = _request_callable(self._shared_center, self._hdhive, self._telegram, provider, action)
             if call is None:
                 return SharingDeliveryOutcome.rejected(
@@ -110,12 +116,20 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
         except ExternalAdapterError as exc:
             return _exception_outcome(exc)
         outcome = _response_outcome(response)
-        if outcome.disposition.value == "confirmed" and not _readback_matches(spec, response.payload):
+        if outcome.disposition.value != "confirmed":
+            return outcome
+        matched = _matched_readback_item(spec, response.payload)
+        if matched is None:
             return SharingDeliveryOutcome.retryable(
                 {"type": "provider_state_not_confirmed", "provider": provider, "action": action},
                 retry_after_seconds=response.retry_after_seconds,
             )
-        return outcome
+        result = dict(outcome.result or {})
+        result["authoritative_readback"] = True
+        safe_match = _safe_provider_result(matched)
+        if safe_match:
+            result["provider_result"] = safe_match
+        return SharingDeliveryOutcome.confirmed(result)
 
 
 def _request_parts(operation: SharingOperation) -> tuple[str, str, dict[str, Any]]:
@@ -131,6 +145,31 @@ def _request_parts(operation: SharingOperation) -> tuple[str, str, dict[str, Any
     return provider, action, normalized
 
 
+def _materialize_raw_upload_payload(
+    payload: Mapping[str, Any],
+    loader: Callable[[str], Mapping[str, Any] | None] | None,
+) -> dict[str, Any]:
+    normalized = dict(payload)
+    reference = normalized.get("raw_reference")
+    if isinstance(reference, Mapping):
+        sha1 = _text(normalized.get("sha1"), "sha1").upper()
+        if _text(reference.get("sha1"), "raw_reference.sha1").upper() != sha1:
+            raise ValueError("raw reference sha1 does not match upload payload")
+        if loader is None:
+            raise ValueError("raw ffprobe loader is unavailable")
+        raw = loader(sha1)
+        if not isinstance(raw, Mapping) or not raw:
+            raise ValueError("raw ffprobe cache entry is unavailable")
+        normalized["raw_ffprobe_json"] = resolve_shared_raw_ffprobe_reference(reference, raw)
+        normalized.pop("raw_reference", None)
+        return normalized
+    raw = normalized.get("raw_ffprobe_json")
+    if isinstance(raw, Mapping) and raw:
+        sanitized, _digest, _size_bytes = freeze_shared_raw_ffprobe(raw)
+        normalized["raw_ffprobe_json"] = sanitized
+    return normalized
+
+
 def _request_callable(
     center: SharedCenterPort,
     hdhive: HDHivePort,
@@ -142,6 +181,7 @@ def _request_callable(
         method = {
             "register_device": "register_device",
             "register_source": "register_source",
+            "upload_raw_ffprobe": "upload_raw_ffprobe",
             "disable_source": "disable_source",
             "acquire_transfer_lease": "acquire_transfer_lease",
             "report_transfer": "report_transfer",
@@ -176,11 +216,14 @@ def _readback_callable(
     provider = str(spec.get("provider") or "").strip()
     action = str(spec.get("action") or "").strip()
     if provider == "shared_center":
-        return {
-            "list_sources": center.list_sources,
-            "list_share_requests": center.list_share_requests,
-            "device_status": center.device_status,
+        method = {
+            "list_sources": "list_sources",
+            "list_share_requests": "list_share_requests",
+            "device_status": "device_status",
+            "get_raw_ffprobe": "get_raw_ffprobe",
         }.get(action)
+        call = getattr(center, method, None) if method is not None else None
+        return cast(Callable[..., ProviderResponse[Any]], call) if callable(call) else None
     if provider == "hdhive":
         return {
             "check_subscription": hdhive.check_subscription,
@@ -203,6 +246,8 @@ def _request_invocation(
         name = str(payload.get("name") or "ETK Device")
         server_id_hash = _text(payload.get("server_id_hash"), "server_id_hash")
         return lambda: call(name=name, server_id_hash=server_id_hash)
+    if action == "upload_raw_ffprobe":
+        return lambda: call(dict(payload))
     if action == "disable_source":
         source_kind = _text(payload.get("source_kind"), "source_kind")
         source_id = _text(payload.get("source_id"), "source_id")
@@ -274,6 +319,8 @@ def _invoke_readback(
         return call(**dict(query))
     if action == "device_status":
         return call()
+    if action == "get_raw_ffprobe":
+        return call(_text(query.get("sha1"), "sha1"))
     if action == "check_subscription":
         return call(_text(query.get("target_type"), "target_type"), _text(query.get("target_key"), "target_key"))
     if action == "get_resources":
@@ -309,24 +356,11 @@ def _safe_payload(value: Any, details: dict[str, Any]) -> dict[str, Any]:
         details["provider_result_hash"] = hashlib.sha256(
             canonical_json(normalized, field="sharing provider result").encode("utf-8")
         ).hexdigest()
-        safe = {
-            key: normalized[key]
-            for key in (
-                "code",
-                "errno",
-                "accepted",
-                "cost",
-                "device_id",
-                "group_id",
-                "id",
-                "lease_id",
-                "operation_id",
-                "source_id",
-                "status",
-                "subscription_id",
-            )
-            if key in normalized and type(normalized[key]) in {bool, int, str}
-        }
+        safe = _safe_provider_result(normalized)
+        for key in _READBACK_OBJECT_KEYS:
+            nested = normalized.get(key)
+            if isinstance(nested, Mapping):
+                safe = {**safe, **_safe_provider_result(nested)}
         if safe:
             details["provider_result"] = safe
     return details
@@ -338,21 +372,38 @@ def _readback_spec(operation: SharingOperation) -> Mapping[str, Any] | None:
 
 
 def _readback_matches(spec: Mapping[str, Any], payload: Any) -> bool:
-    key, expected, collection_key = _match_spec(spec)
-    if isinstance(payload, Mapping):
-        if _mapping_matches(payload, key, expected):
-            return True
-        collection_key = collection_key or next(
-            (candidate for candidate in _READBACK_COLLECTION_KEYS if candidate in payload), None
-        )
-        if collection_key is not None:
-            items = payload.get(collection_key)
-            if isinstance(items, list):
-                return any(isinstance(item, Mapping) and _mapping_matches(item, key, expected) for item in items)
-        return False
+    return _matched_readback_item(spec, payload) is not None
+
+
+def _matched_readback_item(spec: Mapping[str, Any], payload: Any) -> Mapping[str, Any] | None:
+    fields = _match_fields(spec)
+    matches = [
+        candidate
+        for candidate in _readback_candidates(spec, payload)
+        if all(_mapping_matches(candidate, key, expected) for key, expected in fields.items())
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _readback_candidates(spec: Mapping[str, Any], payload: Any) -> list[Mapping[str, Any]]:
     if isinstance(payload, list):
-        return any(isinstance(item, Mapping) and _mapping_matches(item, key, expected) for item in payload)
-    return False
+        return [item for item in payload if isinstance(item, Mapping)]
+    if not isinstance(payload, Mapping):
+        return []
+    candidates: list[Mapping[str, Any]] = [payload]
+    collection_key = str(spec.get("collection_key") or "").strip() or next(
+        (candidate for candidate in _READBACK_COLLECTION_KEYS if isinstance(payload.get(candidate), list)),
+        "",
+    )
+    if collection_key:
+        values = payload.get(collection_key)
+        if isinstance(values, list):
+            candidates.extend(item for item in values if isinstance(item, Mapping))
+    for key in _READBACK_OBJECT_KEYS:
+        value = payload.get(key)
+        if isinstance(value, Mapping) and value not in candidates:
+            candidates.append(value)
+    return candidates
 
 
 def _mapping_matches(value: Mapping[str, Any], key: str, expected: Any) -> bool:
@@ -361,15 +412,37 @@ def _mapping_matches(value: Mapping[str, Any], key: str, expected: Any) -> bool:
         if not isinstance(current, Mapping) or segment not in current:
             return False
         current = current[segment]
-    return current == expected
+    if current == expected:
+        return True
+    if type(current) in {str, int, float} and type(expected) in {str, int, float}:
+        return str(current).strip().casefold() == str(expected).strip().casefold()
+    return False
 
 
 def _valid_match_spec(spec: Mapping[str, Any]) -> bool:
     try:
-        _match_spec(spec)
+        _match_fields(spec)
     except ValueError:
         return False
     return True
+
+
+def _match_fields(spec: Mapping[str, Any]) -> dict[str, Any]:
+    raw_fields = spec.get("match_fields")
+    if raw_fields is not None:
+        if not isinstance(raw_fields, Mapping) or not raw_fields:
+            raise ValueError("readback.match_fields must be a non-empty object")
+        fields: dict[str, Any] = {}
+        for raw_key, expected in raw_fields.items():
+            key = str(raw_key or "").strip()
+            if not key or any(not segment for segment in key.split(".")):
+                raise ValueError("readback.match_fields contains an invalid path")
+            if isinstance(expected, (Mapping, list)):
+                raise ValueError("readback.match_fields values must be scalar")
+            fields[key] = expected
+        return fields
+    key, expected, _collection_key = _match_spec(spec)
+    return {key: expected}
 
 
 def _match_spec(spec: Mapping[str, Any]) -> tuple[str, Any, str | None]:
@@ -389,6 +462,32 @@ def _match_spec(spec: Mapping[str, Any]) -> tuple[str, Any, str | None]:
         if collection_key not in _READBACK_COLLECTION_KEYS:
             raise ValueError("readback.match_list_key is unsupported")
     return key.strip(), spec["match_value"], collection_key
+
+
+def _safe_provider_result(value: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        key: value[key]
+        for key in (
+            "code",
+            "errno",
+            "accepted",
+            "cost",
+            "device_id",
+            "episode_number",
+            "group_id",
+            "id",
+            "lease_id",
+            "operation_id",
+            "season_number",
+            "sha1",
+            "source_id",
+            "source_kind",
+            "status",
+            "subscription_id",
+            "tmdb_id",
+        )
+        if key in value and type(value[key]) in {bool, int, str}
+    }
 
 
 def _text(value: object, field: str) -> str:

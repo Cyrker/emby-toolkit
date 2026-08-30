@@ -139,6 +139,10 @@ class SharingOperationStateError(SharingOperationError):
     pass
 
 
+class SharingOperationPreconditionError(SharingOperationStateError):
+    pass
+
+
 def sharing_operation_key(
     *,
     kind: SharingOperationKind | str,
