@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 279
-EXPECTED_OPERATIONS = 330
+EXPECTED_PATHS = 281
+EXPECTED_OPERATIONS = 332
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -251,6 +251,12 @@ P9_SHARING_RESPONSES = {
     ("post", "/api/shared/resources/share-requests/quote"): {"200", "400", "403", "415", "503"},
     ("get", "/api/shared/resources/share-requests/param-options"): {"200", "403"},
     ("get", "/api/shared/resources/share-requests/tmdb/search"): {"200", "400", "403", "503"},
+    ("post", "/api/shared/resources/share-requests/{group_id}/co-request"): {
+        "200", "202", "400", "403", "409", "415", "422", "503"
+    },
+    ("post", "/api/shared/resources/share-requests/{group_id}/cancel"): {
+        "200", "202", "400", "403", "409", "415", "422", "503"
+    },
     ("get", "/api/shared/resources/share-requests"): {"200", "403", "503"},
     ("post", "/api/shared/resources/share-requests"): {"200", "202", "400", "403", "409", "415", "503"},
     ("get", "/api/shared/resources/operations/{operation_id}/status"): {"200", "403", "404", "422", "503"},
@@ -264,11 +270,15 @@ P9_SHARING_BODY_OPERATIONS = {
     ("post", "/api/shared/resources/transfers/report"),
     ("post", "/api/shared/resources/share-requests/quote"),
     ("post", "/api/shared/resources/share-requests"),
+    ("post", "/api/shared/resources/share-requests/{group_id}/co-request"),
+    ("post", "/api/shared/resources/share-requests/{group_id}/cancel"),
 }
 P9_SHARING_422_OPERATIONS = {
     ("get", "/api/shared/resources/operations/{operation_id}/status"),
     ("post", "/api/shared/resources/shares/{source_id}/check"),
     ("post", "/api/shared/resources/shares/{source_id}/share/cancel"),
+    ("post", "/api/shared/resources/share-requests/{group_id}/co-request"),
+    ("post", "/api/shared/resources/share-requests/{group_id}/cancel"),
 }
 
 

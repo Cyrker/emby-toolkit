@@ -6098,40 +6098,42 @@
       "contract_id": "route-binding-83e657561efb",
       "decorator_contract_id": "route-decorator-1ceee7ce86af",
       "endpoint": "api_share_request_cancel",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing router stages remote share-request cancellation as a durable SHARE_REQUEST operation distinct from local operation cancellation.",
       "path": "/api/shared/resources/share-requests/<group_id>/cancel",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:3034",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-participant-http-adapter-postgres18-operation-replay",
+      "validation_owner": "sharing/operations"
     },
     {
       "application": "api",
       "contract_id": "route-binding-6e5f2283ef00",
       "decorator_contract_id": "route-decorator-2e5733ee32da",
       "endpoint": "api_share_request_co",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing router stages co-request participant mutations as durable SHARE_REQUEST operations; request threads never call Shared Center.",
       "path": "/api/shared/resources/share-requests/<group_id>/co-request",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:3024",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-participant-http-adapter-postgres18-operation-replay",
+      "validation_owner": "sharing/operations"
     },
     {
       "application": "api",
@@ -14468,22 +14470,23 @@
       "contract_id": "route-decorator-1ceee7ce86af",
       "declared_path": "/share-requests/<group_id>/cancel",
       "endpoint": "api_share_request_cancel",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing router owns remote share-request cancellation through typed single-shot provider delivery and durable no-resend fencing.",
       "path": "/api/shared/resources/share-requests/<group_id>/cancel",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:3034",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-participant-http-adapter-postgres18-operation-replay",
+      "validation_owner": "sharing/operations"
     },
     {
       "application": "api",
@@ -14491,22 +14494,23 @@
       "contract_id": "route-decorator-2e5733ee32da",
       "declared_path": "/share-requests/<group_id>/co-request",
       "endpoint": "api_share_request_co",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 native sharing router owns co-request participation through typed single-shot provider delivery and durable no-resend fencing.",
       "path": "/api/shared/resources/share-requests/<group_id>/co-request",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:3024",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-participant-http-adapter-postgres18-operation-replay",
+      "validation_owner": "sharing/operations"
     },
     {
       "application": "api",

@@ -20,6 +20,7 @@ from etk.domains.sharing import (
     SharingOperation,
     SharingOperationExecutor,
     SharingServerIdentity,
+    SharingService,
 )
 from etk.domains.sharing.operations import (
     SharingOperationConflictError,
@@ -361,6 +362,94 @@ def test_postgres_sharing_operation_replay_and_identity_scope_conflicts(p9_runti
         )
     assert operation_count == 1
     assert outbox_count == 1
+
+
+def test_postgres_share_request_participant_operations_replay_conflict_and_terminalize(p9_runtime) -> None:
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingService(
+        PostgresContributionLedger(p9_runtime.unit_of_work),
+        object(),
+        repository,
+        unit_of_work=p9_runtime.unit_of_work,
+    )
+
+    joined = service.co_request_share_request(
+        "group-participant",
+        {},
+        principal_id="principal-participant",
+        idempotency_key="participant-occurrence",
+    )
+    replayed = service.co_request_share_request(
+        "group-participant",
+        {},
+        principal_id="principal-participant",
+        idempotency_key="participant-occurrence",
+    )
+    conflict = service.cancel_share_request(
+        "group-participant",
+        {},
+        principal_id="principal-participant",
+        idempotency_key="participant-occurrence",
+    )
+
+    assert joined.status_code == 202
+    assert replayed.status_code == 202
+    assert replayed.payload["replayed"] is True
+    assert conflict.status_code == 409
+    joined_id = UUID(str(joined.payload["operation_id"]))
+    confirmed_join = SharingOperationExecutor(
+        repository,
+        _Delivery([SharingDeliveryOutcome.confirmed({"group_id": "group-participant"})], supports_readback=False),
+    ).execute(joined_id, worker_id="participant-worker", lease_seconds=60)
+    assert confirmed_join is not None
+    assert confirmed_join.operation.status.value == "confirmed"
+
+    cancelled = service.cancel_share_request(
+        "group-participant",
+        {"reason": "fixture"},
+        principal_id="principal-participant",
+        idempotency_key="participant-cancel",
+    )
+    assert cancelled.status_code == 202
+    cancelled_id = UUID(str(cancelled.payload["operation_id"]))
+    confirmed_cancel = SharingOperationExecutor(
+        repository,
+        _Delivery([SharingDeliveryOutcome.confirmed({"group_id": "group-participant"})], supports_readback=False),
+    ).execute(cancelled_id, worker_id="participant-worker", lease_seconds=60)
+    assert confirmed_cancel is not None
+    assert confirmed_cancel.operation.status.value == "confirmed"
+
+    with p9_runtime.engine.connect() as connection:
+        rows = (
+            connection.execute(
+                text(
+                    """
+                SELECT request_json->>'action' AS action, status
+                FROM sharing_operations
+                WHERE scope_key = :scope_key
+                ORDER BY event_sequence
+                """
+                ),
+                {"scope_key": "share-request-participant:group-participant:principal-participant"},
+            )
+            .mappings()
+            .all()
+        )
+        pending_outbox = connection.scalar(
+            text(
+                """
+                SELECT COUNT(*) FROM outbox_events
+                WHERE aggregate_id = ANY(CAST(:operation_ids AS text[]))
+                  AND status <> 'processed'
+                """
+            ),
+            {"operation_ids": [str(joined_id), str(cancelled_id)]},
+        )
+    assert [dict(row) for row in rows] == [
+        {"action": "co_request_share_request", "status": "confirmed"},
+        {"action": "cancel_share_request", "status": "confirmed"},
+    ]
+    assert pending_outbox == 0
 
 
 def test_postgres_confirmed_device_enables_config_in_terminal_uow(p9_runtime) -> None:

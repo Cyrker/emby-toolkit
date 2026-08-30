@@ -48,6 +48,8 @@
     {"method": "POST", "path": "/api/shared/resources/share-requests/quote", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 400, 403, 415, 503]},
     {"method": "GET", "path": "/api/shared/resources/share-requests/param-options", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": false, "response_statuses": [200, 403]},
     {"method": "GET", "path": "/api/shared/resources/share-requests/tmdb/search", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": false, "response_statuses": [200, 400, 403, 503]},
+    {"method": "POST", "path": "/api/shared/resources/share-requests/{group_id}/co-request", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 409, 415, 422, 503]},
+    {"method": "POST", "path": "/api/shared/resources/share-requests/{group_id}/cancel", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 409, 415, 422, 503]},
     {"method": "GET", "path": "/api/shared/resources/share-requests", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 503]},
     {"method": "POST", "path": "/api/shared/resources/share-requests", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 409, 415, 503]},
     {"method": "GET", "path": "/api/shared/resources/operations/{operation_id}/status", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 404, 422, 503]},

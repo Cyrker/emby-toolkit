@@ -114,6 +114,14 @@ class FakeSharedCenter:
             {"group_id": "group-1", "token": "must-not-persist"},
         )
 
+    def co_request_share_request(self, group_id: str, payload: dict[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        self.calls.append(("co_request_share_request", {"group_id": group_id, "payload": payload}))
+        return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"group_id": group_id, "joined_by_me": True})
+
+    def cancel_share_request(self, group_id: str, payload: dict[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        self.calls.append(("cancel_share_request", {"group_id": group_id, "payload": payload}))
+        return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"group_id": group_id, "joined_by_me": False})
+
     def list_sources(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
         self.calls.append(("readback", query))
         return ProviderResponse(
@@ -519,6 +527,42 @@ def test_sharing_delivery_keeps_share_request_group_id_without_secret_fields() -
     assert outcome.result is not None
     assert outcome.result["provider_result"] == {"group_id": "group-1"}
     assert "must-not-persist" not in repr(outcome.result)
+
+
+@pytest.mark.parametrize(
+    ("action", "expected_call"),
+    [
+        ("co_request_share_request", "co_request_share_request"),
+        ("cancel_share_request", "cancel_share_request"),
+    ],
+)
+def test_sharing_delivery_dispatches_share_request_participant_mutations(
+    action: str,
+    expected_call: str,
+) -> None:
+    center = FakeSharedCenter()
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, center),
+        hdhive=cast(Any, FakeHDHive()),
+    )
+    checkpoints: list[bool] = []
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "provider": "shared_center",
+                "action": action,
+                "payload": {"group_id": "group-1", "body": {"reason": "fixture"}},
+            }
+        ),
+    )
+
+    outcome = delivery.request(operation, checkpoint=lambda: checkpoints.append(True))
+
+    assert outcome.disposition is SharingDeliveryDisposition.CONFIRMED
+    assert checkpoints == [True]
+    assert center.calls == [(expected_call, {"group_id": "group-1", "payload": {"reason": "fixture"}})]
+    assert delivery.supports_authoritative_readback(operation) is False
 
 
 def test_sharing_delivery_authoritative_readback_requires_expected_identity() -> None:

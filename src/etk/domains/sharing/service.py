@@ -626,6 +626,68 @@ class SharingService(SharingLedgerService):
             accepted_message="求共享任务已提交，等待后台确认",
         )
 
+    def co_request_share_request(
+        self,
+        group_id: str,
+        payload: Mapping[str, Any],
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        return self._stage_share_request_participant_operation(
+            "co_request_share_request",
+            group_id,
+            payload,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            accepted_message="同求任务已提交，等待后台确认",
+        )
+
+    def cancel_share_request(
+        self,
+        group_id: str,
+        payload: Mapping[str, Any],
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        return self._stage_share_request_participant_operation(
+            "cancel_share_request",
+            group_id,
+            payload,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            accepted_message="取消求共享任务已提交，等待后台确认",
+        )
+
+    def _stage_share_request_participant_operation(
+        self,
+        action: str,
+        group_id: str,
+        payload: Mapping[str, Any],
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+        accepted_message: str,
+    ) -> SharingHttpResult:
+        normalized_group = _required(group_id, "group_id")
+        if len(normalized_group) > 200:
+            raise ValueError("group_id is too long")
+        normalized_principal = _required(principal_id, "principal_id")
+        normalized = normalize_durable_json_object(dict(payload), field="share-request participant payload")
+        return self._stage_provider_operation(
+            kind=SharingOperationKind.SHARE_REQUEST,
+            scope_key=f"share-request-participant:{normalized_group}:{normalized_principal}",
+            principal_id=normalized_principal,
+            idempotency_key=idempotency_key,
+            request={
+                "provider": "shared_center",
+                "action": action,
+                "payload": {"group_id": normalized_group, "body": normalized},
+            },
+            accepted_message=accepted_message,
+        )
+
     def _stage_provider_operation(
         self,
         *,

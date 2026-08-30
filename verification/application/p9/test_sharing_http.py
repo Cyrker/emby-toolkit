@@ -373,6 +373,26 @@ def test_native_sharing_routes_require_admin_and_cover_core_contracts() -> None:
         quoted = client.post("/api/shared/resources/share-requests/quote", json={"tmdb_id": "101"})
         listed = client.get("/api/shared/resources/share-requests")
         created = client.post("/api/shared/resources/share-requests", json={"tmdb_id": "101"})
+        co_requested = client.post(
+            "/api/shared/resources/share-requests/group-co/co-request",
+            json={},
+            headers={"Idempotency-Key": "co-request-fixture"},
+        )
+        co_replay = client.post(
+            "/api/shared/resources/share-requests/group-co/co-request",
+            json={},
+            headers={"Idempotency-Key": "co-request-fixture"},
+        )
+        cancelled_request = client.post(
+            "/api/shared/resources/share-requests/group-cancel/cancel",
+            json={"reason": "fixture"},
+            headers={"Idempotency-Key": "cancel-request-fixture"},
+        )
+        conflicting_action = client.post(
+            "/api/shared/resources/share-requests/group-co/cancel",
+            json={},
+            headers={"Idempotency-Key": "co-request-fixture"},
+        )
         operation_status = client.get(f"/api/shared/resources/operations/{registered.json()['operation_id']}/status")
 
     assert balance.json()["credit"] == 5
@@ -389,6 +409,11 @@ def test_native_sharing_routes_require_admin_and_cover_core_contracts() -> None:
     assert quoted.json()["cost"] == 1
     assert listed.status_code == 200
     assert created.status_code == 202
+    assert co_requested.status_code == 202
+    assert co_replay.status_code == 202
+    assert co_replay.json()["replayed"] is True
+    assert cancelled_request.status_code == 202
+    assert conflicting_action.status_code == 409
     assert operation_status.status_code == 200
     assert operation_status.json()["operation"]["status"] == "ready"
     assert [name for name, _payload in center.calls] == [
@@ -401,7 +426,14 @@ def test_native_sharing_routes_require_admin_and_cover_core_contracts() -> None:
         "acquire_transfer_lease",
         "report_transfer",
         "create_share_request",
+        "co_request_share_request",
+        "cancel_share_request",
     ]
+    assert operations.intents[-2].request["payload"] == {"group_id": "group-co", "body": {}}
+    assert operations.intents[-1].request["payload"] == {
+        "group_id": "group-cancel",
+        "body": {"reason": "fixture"},
+    }
     assert center.calls[0][1]["limit"] == 2
     assert center.calls[0][1]["offset"] == 3
 

@@ -147,6 +147,8 @@ def _request_callable(
             "share_sync_heartbeat": center.share_sync_heartbeat,
             "run_maintenance": center.run_maintenance,
             "create_share_request": center.create_share_request,
+            "co_request_share_request": center.co_request_share_request,
+            "cancel_share_request": center.cancel_share_request,
         }.get(action)
     if provider == "hdhive":
         return {
@@ -198,6 +200,13 @@ def _request_invocation(
         name = str(payload.get("name") or "ETK Device")
         server_id_hash = _text(payload.get("server_id_hash"), "server_id_hash")
         return lambda: call(name=name, server_id_hash=server_id_hash)
+    if action in {"co_request_share_request", "cancel_share_request"}:
+        group_id = _text(payload.get("group_id"), "group_id")
+        body = payload.get("body", {})
+        if not isinstance(body, Mapping):
+            raise ValueError("share-request participant body must be an object")
+        normalized_body = dict(body)
+        return lambda: call(group_id, normalized_body)
     if action == "send_message":
         chat_id = _text(payload.get("chat_id"), "chat_id")
         message = _text(payload.get("text"), "text")

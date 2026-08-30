@@ -16117,6 +16117,188 @@
         ]
       }
     },
+    "/api/shared/resources/share-requests/{group_id}/cancel": {
+      "post": {
+        "operationId": "cancel_share_request_api_shared_resources_share_requests__group_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Share Request Api Shared Resources Share Requests  Group Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Cancel Share Request Api Shared Resources Share Requests  Group Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation queued"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Cancel Share Request Api Shared Resources Share Requests  Group Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Cancel Share Request",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/share-requests/{group_id}/co-request": {
+      "post": {
+        "operationId": "co_request_share_request_api_shared_resources_share_requests__group_id__co_request_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Co Request Share Request Api Shared Resources Share Requests  Group Id  Co Request Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Co Request Share Request Api Shared Resources Share Requests  Group Id  Co Request Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation queued"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Co Request Share Request Api Shared Resources Share Requests  Group Id  Co Request Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "provider unavailable"
+          }
+        },
+        "summary": "Co Request Share Request",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
     "/api/shared/resources/shares": {
       "get": {
         "operationId": "list_local_sources_api_shared_resources_shares_get",

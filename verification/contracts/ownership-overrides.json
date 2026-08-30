@@ -3468,6 +3468,24 @@
         "status": "new",
         "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
         "validation_owner": "sharing/projection"
+      },
+      "route-binding-6e5f2283ef00": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing router stages co-request participant mutations as durable SHARE_REQUEST operations; request threads never call Shared Center.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-participant-http-adapter-postgres18-operation-replay",
+        "validation_owner": "sharing/operations"
+      },
+      "route-binding-83e657561efb": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing router stages remote share-request cancellation as a durable SHARE_REQUEST operation distinct from local operation cancellation.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-participant-http-adapter-postgres18-operation-replay",
+        "validation_owner": "sharing/operations"
       }
     },
     "route_decorators": {
@@ -6170,6 +6188,24 @@
         "status": "new",
         "validation_method": "pytest-p11-sharing-projection-http-postgres18-and-openapi",
         "validation_owner": "sharing/projection"
+      },
+      "route-decorator-2e5733ee32da": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing router owns co-request participation through typed single-shot provider delivery and durable no-resend fencing.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-participant-http-adapter-postgres18-operation-replay",
+        "validation_owner": "sharing/operations"
+      },
+      "route-decorator-1ceee7ce86af": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 native sharing router owns remote share-request cancellation through typed single-shot provider delivery and durable no-resend fencing.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-participant-http-adapter-postgres18-operation-replay",
+        "validation_owner": "sharing/operations"
       }
     },
     "settings": {

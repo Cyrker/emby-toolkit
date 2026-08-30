@@ -657,6 +657,60 @@ def search_share_request_tmdb(request: Request) -> Response:
     )
 
 
+async def _share_request_participant_mutation(request: Request, group_id: str, *, cancel: bool) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _json_object(request)
+    if error is not None:
+        return error
+    assert payload is not None
+    service = _service(request)
+    action = service.cancel_share_request if cancel else service.co_request_share_request
+    try:
+        result = await run_in_threadpool(
+            action,
+            group_id,
+            payload,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    except (TypeError, ValueError):
+        message = "取消求共享请求无效" if cancel else "同求请求无效"
+        return fastapi_json_response({"success": False, "message": message}, status_code=400)
+    return _response(result)
+
+
+_SHARE_REQUEST_PARTICIPANT_RESPONSES: dict[int | str, dict[str, Any]] = {
+    202: {"description": "operation queued", "model": dict[str, Any]},
+    400: {"description": "invalid request"},
+    403: {"description": "admin required"},
+    409: {"description": "operation conflict", "model": dict[str, Any]},
+    415: {"description": "JSON required"},
+    503: {"description": "provider unavailable"},
+}
+
+
+@router.post(
+    "/share-requests/{group_id}/co-request",
+    response_model=dict[str, Any],
+    responses=_SHARE_REQUEST_PARTICIPANT_RESPONSES,
+    openapi_extra=_JSON_OBJECT_REQUEST_BODY,
+)
+async def co_request_share_request(request: Request, group_id: str) -> Response:
+    return await _share_request_participant_mutation(request, group_id, cancel=False)
+
+
+@router.post(
+    "/share-requests/{group_id}/cancel",
+    response_model=dict[str, Any],
+    responses=_SHARE_REQUEST_PARTICIPANT_RESPONSES,
+    openapi_extra=_JSON_OBJECT_REQUEST_BODY,
+)
+async def cancel_share_request(request: Request, group_id: str) -> Response:
+    return await _share_request_participant_mutation(request, group_id, cancel=True)
+
+
 async def _share_requests(request: Request) -> Response:
     denied = _admin_denial(request)
     if denied is not None:

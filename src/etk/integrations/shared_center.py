@@ -75,6 +75,12 @@ class SharedCenterPort(Protocol):
 
     def create_share_request(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
 
+    def co_request_share_request(
+        self, group_id: str, payload: Mapping[str, Any]
+    ) -> ProviderResponse[dict[str, Any]]: ...
+
+    def cancel_share_request(self, group_id: str, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
+
     def list_share_requests(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
 
     def upload_intro_chapters(
@@ -294,6 +300,24 @@ class HttpxSharedCenterAdapter:
     def create_share_request(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:
         return self.request_json(
             "POST", "/api/v1/share-requests", operation="create_share_request", json=_object(payload, "share request")
+        )
+
+    def co_request_share_request(self, group_id: str, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        identifier = _segment(group_id, "group_id")
+        return self.request_json(
+            "POST",
+            f"/api/v1/share-requests/{quote(identifier, safe='')}/co-request",
+            operation="co_request_share_request",
+            json=_object(payload, "co-request payload"),
+        )
+
+    def cancel_share_request(self, group_id: str, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        identifier = _segment(group_id, "group_id")
+        return self.request_json(
+            "POST",
+            f"/api/v1/share-requests/{quote(identifier, safe='')}/cancel",
+            operation="cancel_share_request",
+            json=_object(payload, "cancel share-request payload"),
         )
 
     def list_share_requests(self, **query: Any) -> ProviderResponse[dict[str, Any]]:

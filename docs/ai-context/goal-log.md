@@ -4838,6 +4838,60 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Sharing-Participation
+
+Stage / Batch: P11 / durable share-request participation
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `1471c43e` (`refactor(p11): migrate shared resource projections`).
+- Target checkpoint message: `refactor(p11): persist share request participation`.
+
+Implemented:
+
+- Converted Shared Center co-request participation and remote share-request cancellation into typed,
+  single-shot provider deliveries reserved as durable `SHARE_REQUEST` operations plus Outbox; request
+  threads no longer call those provider mutations directly.
+- Scoped operations by group and authenticated principal, preserved stable idempotency replay and
+  cross-action conflict behavior, and retained no-resend `INDETERMINATE` semantics because no frozen
+  authoritative participant readback contract exists.
+- Added the two native FastAPI routes, regenerated OpenAPI/TypeScript contracts and promoted exactly
+  those verified ownership entries. Route ownership is now `302 new / 41 legacy` decorators and
+  `323 new / 44 legacy` method bindings.
+- Updated the Shared Resource UI to retain the occurrence key across uncertain retries, wait for
+  `CONFIRMED`, show terminal success text, and preserve explicit indeterminate/error reasons.
+
+Targeted gate:
+
+- Scoped Ruff/format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`.
+- P9 application -> `85 passed`; disposable PostgreSQL 18 P9 scope -> `40 passed`.
+- P1 import/CLI plus OpenAPI contract -> `5 passed`; compileall, `uv lock --check` and
+  `git diff --check` -> clean.
+- Frontend typecheck/build/API boundary passed; Vitest -> `7 passed`; build retained only the
+  existing large-chunk warning. Manifest, OpenAPI and all three fixture/contract secret scans are
+  clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-sharing-participation-20260830/summary.md`.
+
+Focused review:
+
+- Closed two UI P2 findings: queued text was no longer presented as terminal success, and polling
+  failures no longer discard the explicit indeterminate reason.
+- Checkpoint ordering, unknown/no-resend behavior, scope/replay conflicts, terminal Outbox UoW and
+  remote-group versus local-operation cancellation semantics were reviewed. No deterministic
+  P0/P1/P2 remains in this slice.
+
+Pending:
+
+- Shared Resource source lifecycle, center import, virtual effects, credit refresh and maintenance
+  routes remain, along with all unavailable native tasks and Route/Table/Config ownership.
+- Pre-removal inventory, controlled legacy-runtime removal and all P11 NFR/security/SBOM/
+  vulnerability/License gates remain pending. P11 stays `DOING`; P12 stays `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -4857,8 +4911,8 @@ Read first:
 
 Next:
 
-- Migrate the remaining synchronous Shared Center mutations into the durable sharing operation /
-  authoritative-readback runtime, then continue the local Shared Resource projections and
-  `auto-subscribe` source execution. Close all remaining Task, Route, Table and Config ownership
-  before controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are
-  complete; keep all Live Acceptance items pending.
+- Continue the remaining Shared Resource source lifecycle, center import, virtual effects, credit
+  refresh and maintenance routes, then resume native-only task execution beginning with the smallest
+  evidence-backed slice. Close all remaining Route, Task, Table and Config ownership before
+  controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete; keep
+  all Live Acceptance items pending.

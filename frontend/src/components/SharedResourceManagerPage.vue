@@ -587,6 +587,7 @@ const dialog = useDialog();
 const themeVars = useThemeVars();
 const centerTransferButtonColor = computed(() => themeVars.value.primaryColor || '#e91e63');
 const sharingOperationPollControllers = new Set<AbortController>();
+const shareRequestParticipantOperationKeys = new Map<string, string>();
 
 const waitForSharingOperation = async (response, pendingMessage) => {
   const initial = response?.data || {};
@@ -4017,12 +4018,21 @@ const confirmCoRequest = (row) => {
     positiveText: '确认同求',
     negativeText: '取消',
     onPositiveClick: async () => {
+      const key = `co:${row.group_id}`;
+      const operationKey = shareRequestParticipantOperationKeys.get(key) || crypto.randomUUID();
+      shareRequestParticipantOperationKeys.set(key, operationKey);
       try {
-        const res = await apiClient.post(apiPath('api_shared_resources_share_requests_param_co_request_1b737567', [row.group_id]), {});
-        message.success(res.data?.message || '同求成功');
+        const res = await apiClient.post(
+          apiPath('api_shared_resources_share_requests_param_co_request_1b737567', [row.group_id]),
+          {},
+          { headers: { 'Idempotency-Key': operationKey } },
+        );
+        await waitForSharingOperation(res, '同求任务已提交，正在等待中心确认');
+        shareRequestParticipantOperationKeys.delete(key);
+        message.success('同求成功');
         await Promise.allSettled([loadShareRequests(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || '同求失败');
+        message.error(e.response?.data?.message || e.message || '同求失败');
       }
     }
   });
@@ -4035,12 +4045,21 @@ const confirmCancelShareRequest = (row) => {
     positiveText: '取消求共享',
     negativeText: '保留',
     onPositiveClick: async () => {
+      const key = `cancel:${row.group_id}`;
+      const operationKey = shareRequestParticipantOperationKeys.get(key) || crypto.randomUUID();
+      shareRequestParticipantOperationKeys.set(key, operationKey);
       try {
-        const res = await apiClient.post(apiPath('api_shared_resources_share_requests_param_cancel_8a4c528b', [row.group_id]), {});
-        message.success(res.data?.message || '已取消求共享');
+        const res = await apiClient.post(
+          apiPath('api_shared_resources_share_requests_param_cancel_8a4c528b', [row.group_id]),
+          {},
+          { headers: { 'Idempotency-Key': operationKey } },
+        );
+        await waitForSharingOperation(res, '取消求共享任务已提交，正在等待中心确认');
+        shareRequestParticipantOperationKeys.delete(key);
+        message.success('已取消求共享');
         await Promise.allSettled([loadShareRequests(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || '取消求共享失败');
+        message.error(e.response?.data?.message || e.message || '取消求共享失败');
       }
     }
   });

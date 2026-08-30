@@ -251,6 +251,32 @@ def test_shared_center_quote_is_a_retryable_read_only_post() -> None:
     assert raised.value.disposition is ProviderDisposition.RETRYABLE
 
 
+def test_shared_center_share_request_participant_mutations_use_exact_single_shot_contracts() -> None:
+    client = FakeClient(
+        [
+            _response(200, {"ok": True, "group_id": "group-1", "joined_by_me": True}),
+            _response(200, {"ok": True, "group_id": "group-1", "joined_by_me": False}),
+        ]
+    )
+    adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(attempts=4),
+    )
+
+    joined = adapter.co_request_share_request("group-1", {"bounty": 2})
+    cancelled = adapter.cancel_share_request("group-1", {"reason": "fixture"})
+
+    assert joined.disposition is ProviderDisposition.CONFIRMED
+    assert cancelled.disposition is ProviderDisposition.CONFIRMED
+    assert [call[0:2] for call in client.calls] == [
+        ("POST", "https://center.fixture/api/v1/share-requests/group-1/co-request"),
+        ("POST", "https://center.fixture/api/v1/share-requests/group-1/cancel"),
+    ]
+    assert client.calls[0][2]["json"] == {"bounty": 2}
+    assert client.calls[1][2]["json"] == {"reason": "fixture"}
+
+
 def test_shared_intro_upload_uses_exact_single_shot_contract() -> None:
     client = FakeClient([_response(200, {"ok": True})])
     adapter = HttpxSharedCenterAdapter(
