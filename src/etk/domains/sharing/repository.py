@@ -33,6 +33,7 @@ _ACTIVE_STATUSES = (
 )
 _CLAIMABLE_STATUSES = ("ready", "retryable", "awaiting_readback")
 _TERMINAL_STATUSES = ("confirmed", "rejected", "indeterminate")
+DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS = 4
 
 
 class PostgresSharingOperationRepository:
@@ -331,40 +332,52 @@ class PostgresSharingOperationRepository:
             complete=True,
         )
 
-    def expire_stale_claims(self, *, limit: int = 100, now: datetime | None = None) -> int:
+    def expire_stale_claims(
+        self,
+        *,
+        limit: int = 100,
+        max_attempts: int = DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS,
+        now: datetime | None = None,
+    ) -> int:
         bounded = max(1, min(int(limit), 1000))
+        attempt_limit = _attempt_limit(max_attempts)
         timestamp = _aware(now)
         with self._unit_of_work() as uow:
             result = uow.session.execute(
                 text(
                     """
                         WITH stale AS (
-                            SELECT * FROM sharing_operations
-                            WHERE status IN ('claimed','requesting') AND lease_expires_at <= :now
+                            SELECT id, attempts
+                            FROM sharing_operations
+                            WHERE status = 'claimed'
+                              AND step_started_at IS NULL
+                              AND lease_expires_at <= :now
                             ORDER BY event_sequence ASC LIMIT :limit FOR UPDATE SKIP LOCKED
                         )
                         UPDATE sharing_operations AS operation
                         SET status = CASE
-                                WHEN stale.status = 'claimed' THEN 'retryable'
-                                ELSE 'indeterminate'
+                                WHEN stale.attempts >= :max_attempts THEN 'rejected'
+                                ELSE 'retryable'
                             END,
                             available_at = CASE
-                                WHEN stale.status = 'claimed' THEN :now
+                                WHEN stale.attempts < :max_attempts THEN :now
                                 ELSE operation.available_at
                             END,
                             finished_at = CASE
-                                WHEN stale.status = 'requesting' THEN :now
+                                WHEN stale.attempts >= :max_attempts THEN :now
                                 ELSE operation.finished_at
                             END,
                             claimed_by = NULL, claim_token = NULL, claimed_at = NULL,
-                            lease_expires_at = NULL, step_started_at = NULL,
+                            lease_expires_at = NULL,
+                            step_started_at = NULL,
                             error_json = jsonb_build_object(
                                 'type', CASE
-                                    WHEN stale.status = 'claimed'
-                                        THEN 'sharing_claim_expired'
-                                    ELSE 'sharing_request_claim_expired'
+                                    WHEN stale.attempts >= :max_attempts
+                                        THEN 'sharing_claim_recovery_exhausted'
+                                    ELSE 'sharing_claim_expired'
                                 END,
-                                'provider_may_have_been_called', stale.status = 'requesting'
+                                'provider_may_have_been_called', FALSE,
+                                'attempts', stale.attempts
                             ),
                             state_revision = operation.state_revision + 1, updated_at = :now
                         FROM stale
@@ -375,6 +388,7 @@ class PostgresSharingOperationRepository:
                 {
                     "now": timestamp,
                     "limit": bounded,
+                    "max_attempts": attempt_limit,
                 },
             )
             rows = result.mappings().all()
@@ -388,6 +402,80 @@ class PostgresSharingOperationRepository:
             uow.commit()
             return count
 
+    def requeue_stale_readback_claims(
+        self,
+        *,
+        limit: int = 100,
+        max_attempts: int = DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS,
+        now: datetime | None = None,
+    ) -> int:
+        bounded = max(1, min(int(limit), 1000))
+        attempt_limit = _attempt_limit(max_attempts)
+        timestamp = _aware(now)
+        with self._unit_of_work() as uow:
+            rows = (
+                uow.session.execute(
+                    text(
+                        """
+                        WITH stale AS (
+                            SELECT id, attempts
+                            FROM sharing_operations
+                            WHERE status IN ('claimed', 'requesting')
+                              AND step_started_at IS NOT NULL
+                              AND lease_expires_at <= :now
+                            ORDER BY event_sequence ASC
+                            LIMIT :limit
+                            FOR UPDATE SKIP LOCKED
+                        )
+                        UPDATE sharing_operations AS operation
+                        SET status = CASE
+                                WHEN stale.attempts >= :max_attempts THEN 'indeterminate'
+                                ELSE 'awaiting_readback'
+                            END,
+                            available_at = :now,
+                            finished_at = CASE
+                                WHEN stale.attempts >= :max_attempts THEN :now
+                                ELSE operation.finished_at
+                            END,
+                            claimed_by = NULL,
+                            claim_token = NULL,
+                            claimed_at = NULL,
+                            lease_expires_at = NULL,
+                            error_json = jsonb_build_object(
+                                'type', CASE
+                                    WHEN stale.attempts >= :max_attempts
+                                        THEN 'authoritative_readback_exhausted'
+                                    ELSE 'sharing_request_claim_expired'
+                                END,
+                                'provider_may_have_been_called', TRUE,
+                                'authoritative_readback_required', TRUE,
+                                'attempts', stale.attempts
+                            ),
+                            state_revision = operation.state_revision + 1,
+                            updated_at = :now
+                        FROM stale
+                        WHERE operation.id = stale.id
+                        RETURNING operation.*
+                        """
+                    ),
+                    {
+                        "now": timestamp,
+                        "limit": bounded,
+                        "max_attempts": attempt_limit,
+                    },
+                )
+                .mappings()
+                .all()
+            )
+            for row in rows:
+                operation = _operation(row)
+                if operation.status is SharingOperationStatus.AWAITING_READBACK:
+                    self._stage_outbox(uow, operation)
+                else:
+                    self._complete_outbox(uow, operation.id)
+            uow.commit()
+            return len(rows)
+
     def reject_dead_dispatches(self, *, limit: int = 100) -> int:
         bounded = max(1, min(int(limit), 1000))
         with self._unit_of_work() as uow:
@@ -395,24 +483,41 @@ class PostgresSharingOperationRepository:
                 text(
                     """
                         WITH dead AS (
-                            SELECT aggregate_id::uuid AS id
-                            FROM outbox_events
-                            WHERE topic = :topic AND aggregate_type = :aggregate_type AND status = 'dead'
-                            ORDER BY created_at ASC LIMIT :limit
+                            SELECT operation.id, operation.status
+                            FROM sharing_operations AS operation
+                            JOIN outbox_events AS outbox
+                              ON outbox.aggregate_id = operation.id::text
+                            WHERE outbox.topic = :topic
+                              AND outbox.aggregate_type = :aggregate_type
+                              AND outbox.status = 'dead'
+                              AND operation.status IN ('ready','retryable','awaiting_readback')
+                              AND operation.claim_token IS NULL
+                            ORDER BY outbox.created_at ASC
+                            LIMIT :limit
+                            FOR UPDATE OF operation SKIP LOCKED
                         )
-                        UPDATE sharing_operations
-                        SET status = 'indeterminate', finished_at = NOW(),
-                            error_json = CAST(:error_json AS jsonb),
-                            state_revision = state_revision + 1, updated_at = NOW()
-                        WHERE id IN (SELECT id FROM dead)
-                          AND status NOT IN ('confirmed','rejected','indeterminate')
+                        UPDATE sharing_operations AS operation
+                        SET status = CASE
+                                WHEN dead.status = 'awaiting_readback' THEN 'indeterminate'
+                                ELSE 'rejected'
+                            END,
+                            finished_at = NOW(),
+                            claimed_by = NULL, claim_token = NULL, claimed_at = NULL,
+                            lease_expires_at = NULL,
+                            error_json = jsonb_build_object(
+                                'type', 'sharing_dispatch_dead',
+                                'provider_may_have_been_called', dead.status = 'awaiting_readback'
+                            ),
+                            state_revision = operation.state_revision + 1,
+                            updated_at = NOW()
+                        FROM dead
+                        WHERE operation.id = dead.id
                         """
                 ),
                 {
                     "topic": SHARING_OPERATION_TOPIC,
                     "aggregate_type": SHARING_OPERATION_AGGREGATE_TYPE,
                     "limit": bounded,
-                    "error_json": json.dumps({"type": "sharing_dispatch_dead"}),
                 },
             )
             count = int(getattr(result, "rowcount", 0) or 0)
@@ -431,6 +536,7 @@ class PostgresSharingOperationRepository:
         complete: bool = False,
     ) -> SharingOperation:
         token = claim_token
+        transition_at = _aware(params.get("now"))
         allowed_values = [status.value for status in allowed]
         with self._unit_of_work() as uow:
             current = (
@@ -444,16 +550,21 @@ class PostgresSharingOperationRepository:
             if current is None:
                 raise SharingOperationStateError("sharing operation was not found")
             current_operation = _operation(current)
-            if current_operation.status.value not in allowed_values or current_operation.claim_token != token:
+            if (
+                current_operation.status.value not in allowed_values
+                or current_operation.claim_token != token
+                or current_operation.lease_expires_at is None
+                or current_operation.lease_expires_at <= transition_at
+            ):
                 raise SharingOperationStateError("sharing operation claim is no longer valid")
-            values = {"id": operation_id, "claim_token": token, **dict(params)}
+            values = {"id": operation_id, "claim_token": token, **dict(params), "now": transition_at}
             row = (
                 uow.session.execute(
                     text(
                         f"""
                         UPDATE sharing_operations
                         SET {assignments}, state_revision = state_revision + 1, updated_at = COALESCE(:now, NOW())
-                        WHERE id = :id AND claim_token = :claim_token
+                        WHERE id = :id AND claim_token = :claim_token AND lease_expires_at > :now
                         RETURNING *
                         """
                     ),
@@ -595,6 +706,12 @@ def _nonnegative_seconds(value: float) -> float:
     return result
 
 
+def _attempt_limit(value: int) -> int:
+    if isinstance(value, bool) or int(value) < 2:
+        raise ValueError("sharing operation max_attempts must be at least two")
+    return int(value)
+
+
 def _aware(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
@@ -605,4 +722,4 @@ def _nullable_time(value: Any) -> datetime | None:
     return _aware(value) if value is not None else None
 
 
-__all__ = ["PostgresSharingOperationRepository"]
+__all__ = ["DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS", "PostgresSharingOperationRepository"]

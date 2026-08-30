@@ -4407,6 +4407,55 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Sharing-Operation-Recovery
+
+Stage / Batch: P11 / durable sharing operation execution and recovery foundation
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `5a983bd7` (`fix(p11): prevent stale sharing write replay`).
+- Target checkpoint message: `refactor(p11): define sharing operation recovery`.
+
+Implemented:
+
+- Added a typed `SharingOperationExecutor` with an explicit provider-write checkpoint, authoritative
+  readback-only recovery and fail-closed `indeterminate` handling when readback is unavailable.
+- Split stale recovery into mutually exclusive paths: only proven pre-write claims can rearm the
+  provider request; any claim carrying `step_started_at` can only re-enter authoritative readback.
+- Added claim-token plus lease fencing to every state transition, a shared attempt ceiling,
+  dead-dispatch fencing, deep durable-JSON outcome validation and atomic operation/Outbox updates.
+- Kept the slice intentionally unwired from production providers, Worker routing and ownership
+  manifests. It is recovery infrastructure, not evidence that `auto-subscribe` is native-only.
+
+Targeted gate:
+
+- Scoped Ruff and format -> clean (`5 files already formatted`); scoped Pyright ->
+  `0 errors, 0 warnings, 0 informations`; `uv lock --check`, scoped compilation,
+  manifest currentness and `git diff --check` -> clean.
+- P9 application scope -> `40 passed`.
+- Disposable PostgreSQL 18 sharing ledger/executor scope -> `17 passed`, including duplicate
+  Workers, checkpoint commit acknowledgement loss, expired-token fencing, pre-write attempt
+  exhaustion, stale readback recovery, no-resend and Outbox terminal/rearm state.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-sharing-recovery-20260830/`.
+
+Focused review:
+
+- Initial review identified stale readback replay, competing recovery paths, missing lease fencing,
+  checkpoint commit ambiguity, dead-dispatch fencing, attempt ceiling and malformed outcome gaps.
+  The final rereview found no remaining deterministic P0/P1/P2 in this foundation.
+
+Pending:
+
+- Implement production Fake/Stub-backed Shared Center, HDHive and Telegram delivery adapters,
+  recovery coordinator, Outbox/Worker wiring and `auto-subscribe` native-only execution before
+  changing task ownership. Remaining task/route/table/config ownership, controlled removal and all
+  P11 NFR gates remain pending; P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

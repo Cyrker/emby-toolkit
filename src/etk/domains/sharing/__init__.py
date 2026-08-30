@@ -1,5 +1,12 @@
 """P9 sharing domain: durable contribution ledger and external-effects seams."""
 
+from .execution import (
+    SharingDeliveryDisposition,
+    SharingDeliveryOutcome,
+    SharingOperationDeliveryPort,
+    SharingOperationExecution,
+    SharingOperationExecutor,
+)
 from .intro_effects import SHARED_INTRO_EXPORT_EFFECT, SharedIntroExportEffectDelivery
 from .ledger import (
     ContributionLedger,
@@ -18,7 +25,7 @@ from .operations import (
     SharingOperationKind,
     SharingOperationStatus,
 )
-from .repository import PostgresSharingOperationRepository
+from .repository import DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS, PostgresSharingOperationRepository
 from .router import router
 from .service import SharingLedgerService, SharingService
 
@@ -34,7 +41,13 @@ __all__ = [
     "SHARED_INTRO_EXPORT_EFFECT",
     "SHARING_OPERATION_AGGREGATE_TYPE",
     "SHARING_OPERATION_TOPIC",
+    "DEFAULT_SHARING_OPERATION_MAX_ATTEMPTS",
     "SharingLedgerService",
+    "SharingDeliveryDisposition",
+    "SharingDeliveryOutcome",
+    "SharingOperationDeliveryPort",
+    "SharingOperationExecution",
+    "SharingOperationExecutor",
     "SharedIntroExportEffectDelivery",
     "SharingService",
     "SharingOperation",

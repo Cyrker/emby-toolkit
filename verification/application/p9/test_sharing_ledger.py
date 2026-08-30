@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, cast
 
 import pytest
 
@@ -8,6 +9,8 @@ from etk.domains.sharing import (
     InMemoryContributionLedger,
     InsufficientContributionError,
     LedgerIdempotencyConflictError,
+    SharingDeliveryDisposition,
+    SharingDeliveryOutcome,
     SharingLedgerService,
 )
 from etk.domains.sharing.operations import SharingOperationIntent, SharingOperationKind
@@ -104,3 +107,32 @@ def test_service_reserve_transfer_returns_a_stable_ledger_reference() -> None:
     assert result.payload["success"] is True
     assert result.payload["credit"] == 25
     assert result.payload["ledger_entry_id"]
+
+
+@pytest.mark.parametrize(
+    "values, error",
+    [
+        ({"disposition": cast(Any, "confirmed")}, TypeError),
+        ({"disposition": SharingDeliveryDisposition.CONFIRMED, "result": cast(Any, ["invalid"])}, TypeError),
+        (
+            {
+                "disposition": SharingDeliveryDisposition.RETRYABLE,
+                "retry_after_seconds": cast(Any, "invalid"),
+            },
+            ValueError,
+        ),
+        (
+            {
+                "disposition": SharingDeliveryDisposition.CONFIRMED,
+                "result": {"nested": cast(Any, object())},
+            },
+            ValueError,
+        ),
+    ],
+)
+def test_sharing_delivery_outcome_rejects_malformed_runtime_values(
+    values: dict[str, Any],
+    error: type[Exception],
+) -> None:
+    with pytest.raises(error):
+        SharingDeliveryOutcome(**values)
