@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 281
-EXPECTED_OPERATIONS = 332
+EXPECTED_PATHS = 285
+EXPECTED_OPERATIONS = 337
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -233,6 +233,21 @@ P9_SHARING_RESPONSES = {
     ("get", "/api/shared/resources/shares"): {"200", "403", "503"},
     ("post", "/api/shared/resources/shares/{source_id}/check"): {"200", "403", "404", "422", "503"},
     ("post", "/api/shared/resources/shares/{source_id}/share/cancel"): {"200", "403", "404", "410", "422"},
+    ("post", "/api/shared/resources/shares/{source_id}/cancel"): {
+        "200", "202", "400", "403", "404", "409", "422", "503"
+    },
+    ("post", "/api/shared/resources/shares/{source_id}/delete"): {
+        "200", "202", "400", "403", "404", "409", "422", "503"
+    },
+    ("delete", "/api/shared/resources/shares/{source_id}/delete"): {
+        "200", "202", "400", "403", "404", "409", "422", "503"
+    },
+    ("post", "/api/shared/resources/shares/cancel-batch"): {
+        "200", "202", "400", "403", "404", "409", "415", "503"
+    },
+    ("post", "/api/shared/resources/shares/delete-batch"): {
+        "200", "202", "400", "403", "404", "409", "415", "503"
+    },
     ("get", "/api/shared/resources/media/search"): {"200", "403", "503"},
     ("post", "/api/shared/resources/shares/manual-validate"): {"200", "400", "403", "415", "503"},
     ("get", "/api/shared/resources/virtual-imports"): {"200", "403", "503"},
@@ -272,6 +287,8 @@ P9_SHARING_BODY_OPERATIONS = {
     ("post", "/api/shared/resources/share-requests"),
     ("post", "/api/shared/resources/share-requests/{group_id}/co-request"),
     ("post", "/api/shared/resources/share-requests/{group_id}/cancel"),
+    ("post", "/api/shared/resources/shares/cancel-batch"),
+    ("post", "/api/shared/resources/shares/delete-batch"),
 }
 P9_SHARING_422_OPERATIONS = {
     ("get", "/api/shared/resources/operations/{operation_id}/status"),
@@ -279,6 +296,9 @@ P9_SHARING_422_OPERATIONS = {
     ("post", "/api/shared/resources/shares/{source_id}/share/cancel"),
     ("post", "/api/shared/resources/share-requests/{group_id}/co-request"),
     ("post", "/api/shared/resources/share-requests/{group_id}/cancel"),
+    ("post", "/api/shared/resources/shares/{source_id}/cancel"),
+    ("post", "/api/shared/resources/shares/{source_id}/delete"),
+    ("delete", "/api/shared/resources/shares/{source_id}/delete"),
 }
 
 

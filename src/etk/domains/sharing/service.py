@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, cast
 from uuid import UUID
@@ -300,6 +300,219 @@ class SharingService(SharingLedgerService):
                 "message": "Rapid v2 本地源无需 115 分享审核",
                 "item": item,
             }
+        )
+
+    def disable_local_source(
+        self,
+        source_id: int,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        return self._local_source_lifecycle(
+            source_id,
+            delete=False,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def delete_local_source(
+        self,
+        source_id: int,
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        return self._local_source_lifecycle(
+            source_id,
+            delete=True,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def disable_local_sources(
+        self,
+        source_ids: Sequence[int],
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        return self._local_source_lifecycle_batch(
+            source_ids,
+            delete=False,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def delete_local_sources(
+        self,
+        source_ids: Sequence[int],
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        return self._local_source_lifecycle_batch(
+            source_ids,
+            delete=True,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+        )
+
+    def _local_source_lifecycle(
+        self,
+        source_id: int,
+        *,
+        delete: bool,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        if self._projection is None:
+            return SharingHttpResult({"success": False, "message": "共享资源本地投影不可用"}, 503)
+        normalized_id = int(source_id)
+        if normalized_id < 1:
+            raise ValueError("source_id must be positive")
+        item = self._projection.get_local_source(normalized_id)
+        if item is None:
+            return SharingHttpResult({"success": False, "message": "本地共享源不存在"}, 404)
+        if not _source_requires_center_disable(item):
+            mutation = self._projection.delete_local_source if delete else self._projection.disable_local_source
+            saved = mutation(
+                normalized_id,
+                expected_center_source_id=str(item.get("center_source_id") or ""),
+                expected_status=str(item.get("status") or ""),
+                expected_center_status=str(item.get("center_status") or ""),
+            )
+            if saved is not None:
+                return SharingHttpResult(
+                    {
+                        "success": True,
+                        "accepted": False,
+                        "status": "confirmed",
+                        "source_id": normalized_id,
+                        "item": saved,
+                        "message": "已删除本地共享记录" if delete else "已停用本地共享源",
+                    }
+                )
+            item = self._projection.get_local_source(normalized_id)
+            if item is None:
+                return SharingHttpResult({"success": False, "message": "本地共享源不存在"}, 404)
+            if not _source_requires_center_disable(item):
+                return SharingHttpResult(
+                    {"success": False, "message": "本地共享源状态已变化，请刷新后重试"},
+                    409,
+                )
+        source_kind = _required(item.get("source_kind"), "source_kind")
+        center_source_id = _required(item.get("center_source_id"), "center_source_id")
+        result = self._stage_provider_operation(
+            kind=SharingOperationKind.REGISTER_SOURCE,
+            scope_key=f"local-source-lifecycle:{normalized_id}",
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            request={
+                "provider": "shared_center",
+                "action": "disable_source",
+                "payload": {
+                    "source_kind": source_kind,
+                    "source_id": center_source_id,
+                    "message": "local delete" if delete else "local disabled",
+                },
+                "local_continuation": {
+                    "type": "delete_local_source" if delete else "disable_local_source",
+                    "source_id": normalized_id,
+                    "expected_source_kind": source_kind,
+                    "expected_center_source_id": center_source_id,
+                },
+            },
+            accepted_message=(
+                "中心取消登记任务已提交，确认后删除本地共享源" if delete else "中心停用任务已提交，确认后停用本地共享源"
+            ),
+        )
+        payload: dict[str, Any] = dict(result.payload) if isinstance(result.payload, Mapping) else {"success": False}
+        payload["source_id"] = normalized_id
+        return SharingHttpResult(payload, result.status_code, result.headers)
+
+    def _local_source_lifecycle_batch(
+        self,
+        source_ids: Sequence[int],
+        *,
+        delete: bool,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        normalized_ids = list(dict.fromkeys(int(value) for value in source_ids if int(value) > 0))
+        if not normalized_ids:
+            raise ValueError("source_ids must not be empty")
+        if len(normalized_ids) > 200:
+            raise ValueError("source_ids exceeds 200 items")
+        results: list[dict[str, Any]] = []
+        operation_ids: list[str] = []
+        missing: list[int] = []
+        failed: list[dict[str, Any]] = []
+        completed = 0
+        for source_id in normalized_ids:
+            item_key = f"{idempotency_key}:{source_id}" if idempotency_key else None
+            result = self._local_source_lifecycle(
+                source_id,
+                delete=delete,
+                principal_id=principal_id,
+                idempotency_key=item_key,
+            )
+            payload = dict(result.payload) if isinstance(result.payload, Mapping) else {}
+            if result.status_code == 404:
+                missing.append(source_id)
+                continue
+            if result.status_code >= 400:
+                failed.append({"id": source_id, "message": payload.get("message") or "共享源操作失败"})
+                continue
+            operation_id = str(payload.get("operation_id") or "").strip()
+            status = str(payload.get("status") or "").strip().casefold()
+            if (
+                operation_id
+                and payload.get("accepted") is True
+                and status
+                not in {
+                    "confirmed",
+                    "rejected",
+                    "indeterminate",
+                    "cancelled",
+                }
+            ):
+                operation_ids.append(operation_id)
+            elif status == "confirmed":
+                completed += 1
+            elif operation_id or status in {"rejected", "indeterminate", "cancelled"}:
+                failed.append(
+                    {
+                        "id": source_id,
+                        "operation_id": operation_id or None,
+                        "status": status or "failed",
+                        "message": payload.get("message") or "共享源操作未确认",
+                    }
+                )
+                continue
+            else:
+                completed += 1
+            results.append(payload)
+        accepted = len(operation_ids)
+        action_text = "删除" if delete else "停用"
+        parts = [f"已确认 {completed} 个，已提交 {accepted} 个{action_text}任务"]
+        if missing:
+            parts.append(f"{len(missing)} 个不存在")
+        if failed:
+            parts.append(f"{len(failed)} 个提交失败")
+        status_code = 202 if operation_ids else (409 if failed and not results else 200)
+        return SharingHttpResult(
+            {
+                "success": not failed,
+                "accepted": bool(operation_ids),
+                "partial": bool(failed and results),
+                "message": "，".join(parts),
+                "operation_ids": operation_ids,
+                "items": results,
+                "missing": missing,
+                "failed": failed,
+            },
+            status_code,
         )
 
     def virtual_imports(self, **query: Any) -> SharingHttpResult:
@@ -1215,6 +1428,24 @@ def _scope_digest(value: Mapping[str, Any]) -> str:
 def _identity_scope(prefix: str, value: Mapping[str, Any], fields: tuple[str, ...]) -> str:
     identity = {field: value[field] for field in fields if field in value and value[field] not in (None, "", [], {})}
     return f"{prefix}:{_scope_digest(identity or value)}"
+
+
+def _source_requires_center_disable(value: Mapping[str, Any]) -> bool:
+    if not str(value.get("center_source_id") or "").strip():
+        return False
+    status = str(value.get("status") or "").strip().casefold()
+    center_status = str(value.get("center_status") or "").strip().casefold()
+    inactive = {"disabled", "cancelled", "canceled", "deleted"}
+    dirty = {"dirty_raw", "dirty_summary", "dirty_meta"}
+    if status in inactive or center_status in inactive | dirty:
+        return False
+    return status in {"active", "available", "updating", "pending", ""} or center_status in {
+        "reported",
+        "partial",
+        "local",
+        "pending",
+        "",
+    }
 
 
 def _operation_occurrence(

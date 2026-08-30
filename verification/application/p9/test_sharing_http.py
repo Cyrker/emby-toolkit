@@ -113,6 +113,12 @@ class FakeCenter:
         self.calls.append(("register_source", (source_kind, dict(payload))))
         return ProviderResponse(ProviderDisposition.CONFIRMED, 201, {"source_id": "source-1"})
 
+    def disable_source(
+        self, source_kind: str, source_id: str, *, message: str = ""
+    ) -> ProviderResponse[dict[str, Any]]:
+        self.calls.append(("disable_source", {"source_kind": source_kind, "source_id": source_id, "message": message}))
+        return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"source_id": source_id, "status": "disabled"})
+
     def acquire_transfer_lease(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:
         self.calls.append(("acquire_transfer_lease", dict(payload)))
         return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"lease": "lease-1"})
@@ -137,6 +143,41 @@ class FakeCenter:
 class FakeProjection:
     def __init__(self) -> None:
         self.calls: list[tuple[str, Any]] = []
+        self.drift_source_ids: set[int] = set()
+        self.sources: dict[int, dict[str, Any]] = {
+            1: {
+                "id": 1,
+                "title": "Fixture",
+                "source_kind": "movie",
+                "status": "active",
+                "center_status": "reported",
+                "center_source_id": "center-source-1",
+            },
+            2: {
+                "id": 2,
+                "title": "Local Fixture",
+                "source_kind": "movie",
+                "status": "pending",
+                "center_status": "local",
+                "center_source_id": "",
+            },
+            3: {
+                "id": 3,
+                "title": "Delete Fixture",
+                "source_kind": "episode",
+                "status": "available",
+                "center_status": "reported",
+                "center_source_id": "center-source-3",
+            },
+            4: {
+                "id": 4,
+                "title": "Delete Fixture 2",
+                "source_kind": "movie",
+                "status": "active",
+                "center_status": "reported",
+                "center_source_id": "center-source-4",
+            },
+        }
 
     def summary(self) -> dict[str, Any]:
         self.calls.append(("summary", {}))
@@ -148,7 +189,55 @@ class FakeProjection:
 
     def get_local_source(self, source_id: int) -> dict[str, Any] | None:
         self.calls.append(("get_local_source", source_id))
-        return {"id": 1, "title": "Fixture"} if source_id == 1 else None
+        value = self.sources.get(source_id)
+        return dict(value) if value is not None else None
+
+    def disable_local_source(
+        self,
+        source_id: int,
+        *,
+        expected_center_source_id: str,
+        expected_status: str,
+        expected_center_status: str,
+    ) -> dict[str, Any] | None:
+        self.calls.append(("disable_local_source", source_id))
+        value = self.sources.get(source_id)
+        if value is None:
+            return None
+        if source_id in self.drift_source_ids:
+            self.drift_source_ids.remove(source_id)
+            value.update(center_source_id=f"center-source-{source_id}", center_status="reported")
+        if (
+            str(value.get("center_source_id") or "") != expected_center_source_id
+            or str(value.get("status") or "") != expected_status
+            or str(value.get("center_status") or "") != expected_center_status
+        ):
+            return None
+        value.update(status="disabled", center_status="disabled")
+        return dict(value)
+
+    def delete_local_source(
+        self,
+        source_id: int,
+        *,
+        expected_center_source_id: str,
+        expected_status: str,
+        expected_center_status: str,
+    ) -> dict[str, Any] | None:
+        self.calls.append(("delete_local_source", source_id))
+        value = self.sources.get(source_id)
+        if value is None:
+            return None
+        if source_id in self.drift_source_ids:
+            self.drift_source_ids.remove(source_id)
+            value.update(center_source_id=f"center-source-{source_id}", center_status="reported")
+        if (
+            str(value.get("center_source_id") or "") != expected_center_source_id
+            or str(value.get("status") or "") != expected_status
+            or str(value.get("center_status") or "") != expected_center_status
+        ):
+            return None
+        return dict(self.sources.pop(source_id))
 
     def list_virtual_imports(self, **query: Any) -> dict[str, Any]:
         self.calls.append(("list_virtual_imports", dict(query)))
@@ -436,6 +525,115 @@ def test_native_sharing_routes_require_admin_and_cover_core_contracts() -> None:
     }
     assert center.calls[0][1]["limit"] == 2
     assert center.calls[0][1]["offset"] == 3
+
+
+def test_native_local_source_lifecycle_routes_stage_provider_work_and_apply_local_only_changes() -> None:
+    app, center, _app_settings, operations = _build_app()
+    with TestClient(app) as client:
+        _set_admin(client)
+        disabled = client.post(
+            "/api/shared/resources/shares/1/cancel",
+            headers={"Idempotency-Key": "disable-source-1"},
+        )
+        replayed = client.post(
+            "/api/shared/resources/shares/1/cancel",
+            headers={"Idempotency-Key": "disable-source-1"},
+        )
+        conflicting = client.post(
+            "/api/shared/resources/shares/1/delete",
+            headers={"Idempotency-Key": "disable-source-1"},
+        )
+        deleted_post = client.post(
+            "/api/shared/resources/shares/3/delete",
+            headers={"Idempotency-Key": "delete-source-3"},
+        )
+        deleted_http = client.delete(
+            "/api/shared/resources/shares/4/delete",
+            headers={"Idempotency-Key": "delete-source-4"},
+        )
+        local_batch = client.post(
+            "/api/shared/resources/shares/cancel-batch",
+            json={"ids": [2, 2, 999]},
+            headers={"Idempotency-Key": "disable-local-batch"},
+        )
+        local_delete = client.post(
+            "/api/shared/resources/shares/delete-batch",
+            json={"source_ids": [2]},
+            headers={"Idempotency-Key": "delete-local-batch"},
+        )
+        missing = client.post("/api/shared/resources/shares/999/cancel")
+        invalid_batch = client.post("/api/shared/resources/shares/delete-batch", json={"ids": []})
+
+    assert disabled.status_code == 202
+    assert replayed.status_code == 202
+    assert replayed.json()["replayed"] is True
+    assert conflicting.status_code == 409
+    assert deleted_post.status_code == 202
+    assert deleted_http.status_code == 202
+    assert local_batch.status_code == 200
+    assert local_batch.json()["missing"] == [999]
+    assert local_batch.json()["operation_ids"] == []
+    assert local_delete.status_code == 200
+    assert missing.status_code == 404
+    assert invalid_batch.status_code == 400
+    assert center.calls == []
+    assert [intent.request["action"] for intent in operations.intents] == [
+        "disable_source",
+        "disable_source",
+        "disable_source",
+    ]
+    assert [intent.request["local_continuation"]["type"] for intent in operations.intents] == [
+        "disable_local_source",
+        "delete_local_source",
+        "delete_local_source",
+    ]
+
+
+def test_native_local_source_lifecycle_handles_identity_drift_aliases_and_terminal_batch_replay() -> None:
+    app, _center, _app_settings, operations = _build_app()
+    projection = app.state.sharing_projection
+    projection.drift_source_ids.add(2)
+    with TestClient(app) as client:
+        _set_admin(client)
+        drifted = client.post(
+            "/api/shared/resources/shares/2/delete",
+            headers={"Idempotency-Key": "drifted-source"},
+        )
+        alias = client.post(
+            "/api/shared/resources/shares/cancel-batch",
+            json={"ids": [], "source_ids": [999]},
+        )
+        staged = client.post(
+            "/api/shared/resources/shares/cancel-batch",
+            json={"ids": [1]},
+            headers={"Idempotency-Key": "terminal-batch"},
+        )
+        operation_id = staged.json()["operation_ids"][0]
+        operations.by_id[
+            next(key for key in operations.by_id if str(key) == operation_id)
+        ].status = SharingOperationStatus.INDETERMINATE
+        replayed = client.post(
+            "/api/shared/resources/shares/cancel-batch",
+            json={"ids": [1]},
+            headers={"Idempotency-Key": "terminal-batch"},
+        )
+
+    assert drifted.status_code == 202
+    assert projection.sources[2]["center_source_id"] == "center-source-2"
+    assert operations.intents[0].request["local_continuation"]["expected_center_source_id"] == "center-source-2"
+    assert alias.status_code == 200
+    assert alias.json()["missing"] == [999]
+    assert replayed.status_code == 409
+    assert replayed.json()["success"] is False
+    assert replayed.json()["operation_ids"] == []
+    assert replayed.json()["failed"] == [
+        {
+            "id": 1,
+            "operation_id": operation_id,
+            "status": "indeterminate",
+            "message": "共享操作结果不确定，请人工核对后再处理",
+        }
+    ]
 
 
 def test_native_sharing_routes_reject_malformed_json_and_secret_payloads() -> None:

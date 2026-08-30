@@ -16328,6 +16328,152 @@
         ]
       }
     },
+    "/api/shared/resources/shares/cancel-batch": {
+      "post": {
+        "operationId": "disable_local_sources_batch_api_shared_resources_shares_cancel_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Disable Local Sources Batch Api Shared Resources Shares Cancel Batch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Disable Local Sources Batch Api Shared Resources Shares Cancel Batch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "provider operation queued"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Disable Local Sources Batch Api Shared Resources Shares Cancel Batch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Disable Local Sources Batch",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/shares/delete-batch": {
+      "post": {
+        "operationId": "delete_local_sources_batch_api_shared_resources_shares_delete_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Local Sources Batch Api Shared Resources Shares Delete Batch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Delete Local Sources Batch Api Shared Resources Shares Delete Batch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "provider operation queued"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Delete Local Sources Batch Api Shared Resources Shares Delete Batch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
+          },
+          "415": {
+            "description": "JSON required"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Delete Local Sources Batch",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
     "/api/shared/resources/shares/manual-create": {
       "post": {
         "operationId": "register_source_api_shared_resources_shares_manual_create_post",
@@ -16444,6 +16590,86 @@
         ]
       }
     },
+    "/api/shared/resources/shares/{source_id}/cancel": {
+      "post": {
+        "operationId": "disable_local_source_api_shared_resources_shares__source_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Disable Local Source Api Shared Resources Shares  Source Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Disable Local Source Api Shared Resources Shares  Source Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "provider operation queued"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Disable Local Source Api Shared Resources Shares  Source Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Disable Local Source",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
     "/api/shared/resources/shares/{source_id}/check": {
       "post": {
         "operationId": "check_local_source_api_shared_resources_shares__source_id__check_post",
@@ -16492,6 +16718,164 @@
           }
         },
         "summary": "Check Local Source",
+        "tags": [
+          "sharing"
+        ]
+      }
+    },
+    "/api/shared/resources/shares/{source_id}/delete": {
+      "delete": {
+        "operationId": "delete_local_source_delete_api_shared_resources_shares__source_id__delete_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Local Source Delete Api Shared Resources Shares  Source Id  Delete Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Delete Local Source Delete Api Shared Resources Shares  Source Id  Delete Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "provider operation queued"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Delete Local Source Delete Api Shared Resources Shares  Source Id  Delete Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Delete Local Source Delete",
+        "tags": [
+          "sharing"
+        ]
+      },
+      "post": {
+        "operationId": "delete_local_source_post_api_shared_resources_shares__source_id__delete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Local Source Post Api Shared Resources Shares  Source Id  Delete Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Delete Local Source Post Api Shared Resources Shares  Source Id  Delete Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "provider operation queued"
+          },
+          "400": {
+            "description": "invalid request"
+          },
+          "403": {
+            "description": "admin required"
+          },
+          "404": {
+            "description": "source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Delete Local Source Post Api Shared Resources Shares  Source Id  Delete Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "sharing runtime unavailable"
+          }
+        },
+        "summary": "Delete Local Source Post",
         "tags": [
           "sharing"
         ]

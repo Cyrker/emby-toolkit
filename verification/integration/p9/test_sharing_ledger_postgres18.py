@@ -21,6 +21,7 @@ from etk.domains.sharing import (
     SharingOperationExecutor,
     SharingServerIdentity,
     SharingService,
+    SqlAlchemySharingProjectionRepository,
 )
 from etk.domains.sharing.operations import (
     SharingOperationConflictError,
@@ -449,6 +450,162 @@ def test_postgres_share_request_participant_operations_replay_conflict_and_termi
         {"action": "co_request_share_request", "status": "confirmed"},
         {"action": "cancel_share_request", "status": "confirmed"},
     ]
+    assert pending_outbox == 0
+
+
+def test_postgres_local_source_lifecycle_applies_only_after_provider_confirmation(p9_runtime) -> None:
+    with p9_runtime.engine.begin() as connection:
+        source_ids = {}
+        for key, center_id in (
+            ("disable", "center-disable"),
+            ("delete", "center-delete"),
+            ("unknown", "center-unknown"),
+            ("local", ""),
+        ):
+            source_ids[key] = int(
+                connection.scalar(
+                    text(
+                        """
+                        INSERT INTO shared_rapid_sources(
+                            source_key, source_kind, center_source_id, tmdb_id, item_type,
+                            title, status, center_status, raw_json
+                        ) VALUES (
+                            :source_key, 'movie', :center_source_id, :tmdb_id, 'Movie',
+                            :title, 'active', :center_status, '{}'::jsonb
+                        )
+                        RETURNING id
+                        """
+                    ),
+                    {
+                        "source_key": f"lifecycle-{key}",
+                        "center_source_id": center_id,
+                        "tmdb_id": str(900 + len(source_ids)),
+                        "title": f"Lifecycle {key}",
+                        "center_status": "reported" if center_id else "local",
+                    },
+                )
+            )
+        connection.execute(
+            text(
+                """
+                INSERT INTO shared_rapid_source_files(local_source_id, fid, sha1, file_name, raw_json)
+                VALUES (:source_id, 'file-delete', :sha1, 'delete.mkv', '{}'::jsonb)
+                """
+            ),
+            {"source_id": source_ids["delete"], "sha1": "D" * 40},
+        )
+
+    operations = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingService(
+        PostgresContributionLedger(p9_runtime.unit_of_work),
+        object(),
+        operations,
+        unit_of_work=p9_runtime.unit_of_work,
+        projection=SqlAlchemySharingProjectionRepository(p9_runtime.unit_of_work),
+    )
+
+    staged_disable = service.disable_local_source(
+        source_ids["disable"],
+        principal_id="lifecycle-principal",
+        idempotency_key="lifecycle-disable",
+    )
+    staged_delete = service.delete_local_source(
+        source_ids["delete"],
+        principal_id="lifecycle-principal",
+        idempotency_key="lifecycle-delete",
+    )
+    staged_unknown = service.disable_local_source(
+        source_ids["unknown"],
+        principal_id="lifecycle-principal",
+        idempotency_key="lifecycle-unknown",
+    )
+    local_delete = service.delete_local_source(
+        source_ids["local"],
+        principal_id="lifecycle-principal",
+        idempotency_key="lifecycle-local",
+    )
+
+    assert staged_disable.status_code == 202
+    assert staged_delete.status_code == 202
+    assert staged_unknown.status_code == 202
+    assert local_delete.status_code == 200
+    disable_id = UUID(str(staged_disable.payload["operation_id"]))
+    delete_id = UUID(str(staged_delete.payload["operation_id"]))
+    unknown_id = UUID(str(staged_unknown.payload["operation_id"]))
+
+    confirmed_disable = SharingOperationExecutor(
+        operations,
+        _Delivery([SharingDeliveryOutcome.confirmed({"source_id": "center-disable"})], supports_readback=False),
+    ).execute(disable_id, worker_id="lifecycle-worker", lease_seconds=60)
+    confirmed_delete = SharingOperationExecutor(
+        operations,
+        _Delivery([SharingDeliveryOutcome.confirmed({"source_id": "center-delete"})], supports_readback=False),
+    ).execute(delete_id, worker_id="lifecycle-worker", lease_seconds=60)
+    unknown_delivery = _Delivery(
+        [SharingDeliveryOutcome.indeterminate({"type": "transport_unknown"})],
+        supports_readback=False,
+    )
+    unknown_executor = SharingOperationExecutor(operations, unknown_delivery)
+    indeterminate = unknown_executor.execute(
+        unknown_id,
+        worker_id="lifecycle-worker",
+        lease_seconds=60,
+    )
+    replayed_unknown = unknown_executor.execute(
+        unknown_id,
+        worker_id="replacement-lifecycle-worker",
+        lease_seconds=60,
+    )
+
+    assert confirmed_disable is not None and confirmed_disable.operation.status.value == "confirmed"
+    assert confirmed_delete is not None and confirmed_delete.operation.status.value == "confirmed"
+    assert indeterminate is not None and indeterminate.operation.status.value == "indeterminate"
+    assert replayed_unknown is not None and replayed_unknown.operation.status.value == "indeterminate"
+    assert unknown_delivery.request_calls == 1
+    assert unknown_delivery.readback_calls == 0
+
+    with p9_runtime.engine.connect() as connection:
+        disabled = (
+            connection.execute(
+                text("SELECT status, center_status, raw_json FROM shared_rapid_sources WHERE id = :id"),
+                {"id": source_ids["disable"]},
+            )
+            .mappings()
+            .one()
+        )
+        deleted_count = connection.scalar(
+            text("SELECT COUNT(*) FROM shared_rapid_sources WHERE id = :id"),
+            {"id": source_ids["delete"]},
+        )
+        deleted_file_count = connection.scalar(
+            text("SELECT COUNT(*) FROM shared_rapid_source_files WHERE local_source_id = :id"),
+            {"id": source_ids["delete"]},
+        )
+        unknown_status = connection.scalar(
+            text("SELECT status FROM shared_rapid_sources WHERE id = :id"),
+            {"id": source_ids["unknown"]},
+        )
+        local_count = connection.scalar(
+            text("SELECT COUNT(*) FROM shared_rapid_sources WHERE id = :id"),
+            {"id": source_ids["local"]},
+        )
+        pending_outbox = connection.scalar(
+            text(
+                """
+                SELECT COUNT(*) FROM outbox_events
+                WHERE aggregate_id = ANY(CAST(:operation_ids AS text[]))
+                  AND status <> 'processed'
+                """
+            ),
+            {"operation_ids": [str(disable_id), str(delete_id), str(unknown_id)]},
+        )
+    assert disabled["status"] == "disabled"
+    assert disabled["center_status"] == "disabled"
+    assert disabled["raw_json"]["lifecycle_operation_id"] == str(disable_id)
+    assert deleted_count == 0
+    assert deleted_file_count == 0
+    assert unknown_status == "active"
+    assert local_count == 0
     assert pending_outbox == 0
 
 

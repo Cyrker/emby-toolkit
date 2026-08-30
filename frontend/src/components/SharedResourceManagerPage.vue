@@ -588,6 +588,7 @@ const themeVars = useThemeVars();
 const centerTransferButtonColor = computed(() => themeVars.value.primaryColor || '#e91e63');
 const sharingOperationPollControllers = new Set<AbortController>();
 const shareRequestParticipantOperationKeys = new Map<string, string>();
+const localSourceLifecycleOperationKeys = new Map<string, string>();
 
 const waitForSharingOperation = async (response, pendingMessage) => {
   const initial = response?.data || {};
@@ -619,6 +620,28 @@ const waitForSharingOperation = async (response, pendingMessage) => {
   } finally {
     sharingOperationPollControllers.delete(controller);
   }
+};
+
+const waitForSharingOperations = async (response, pendingMessage) => {
+  const initial = response?.data || {};
+  const operationIds = Array.isArray(initial.operation_ids)
+    ? initial.operation_ids.map((value) => String(value || '').trim()).filter(Boolean)
+    : [];
+  const singleId = String(initial.operation_id || '').trim();
+  if (singleId && !operationIds.includes(singleId)) operationIds.push(singleId);
+  await Promise.all(
+    operationIds.map((operationId) => waitForSharingOperation(
+      { data: { operation_id: operationId, status: 'ready', message: initial.message } },
+      pendingMessage,
+    )),
+  );
+  if (initial.success === false) {
+    const detail = Array.isArray(initial.failed) && initial.failed.length
+      ? initial.failed.map((item) => item?.message || item?.id).filter(Boolean).join('；')
+      : '';
+    throw new Error(detail || initial.message || '部分共享源操作未提交');
+  }
+  return initial;
 };
 
 const isMobile = ref(false);
@@ -4406,16 +4429,30 @@ const cancelShare = (row) => {
     positiveText: '停用共享',
     negativeText: '保留',
     onPositiveClick: async () => {
+      const operationScope = `disable:${(isBatch ? ids : [row.id]).map(String).sort().join(',')}`;
+      const operationKey = localSourceLifecycleOperationKeys.get(operationScope) || crypto.randomUUID();
+      localSourceLifecycleOperationKeys.set(operationScope, operationKey);
       try {
+        let res;
         if (isBatch) {
-          await apiClient.post(apiPath('api_shared_resources_shares_cancel_batch_b084e3bb'), { ids });
+          res = await apiClient.post(
+            apiPath('api_shared_resources_shares_cancel_batch_b084e3bb'),
+            { ids },
+            { headers: { 'Idempotency-Key': operationKey } },
+          );
         } else {
-          await apiClient.post(apiPath('api_shared_resources_shares_param_cancel_918c2130', [row.id]));
+          res = await apiClient.post(
+            apiPath('api_shared_resources_shares_param_cancel_918c2130', [row.id]),
+            {},
+            { headers: { 'Idempotency-Key': operationKey } },
+          );
         }
+        await waitForSharingOperations(res, '共享源停用任务已提交，正在等待中心确认');
+        localSourceLifecycleOperationKeys.delete(operationScope);
         message.success('已停用共享源');
         await Promise.allSettled([loadShares(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || '停用失败');
+        message.error(e.response?.data?.message || e.message || '停用失败');
       }
     }
   });
@@ -4436,16 +4473,30 @@ const deleteShare = (row) => {
     positiveText: alreadyDisabled ? '删除本地数据' : '取消登记并删除',
     negativeText: '保留',
     onPositiveClick: async () => {
+      const operationScope = `delete:${(isBatch ? ids : [row.id]).map(String).sort().join(',')}`;
+      const operationKey = localSourceLifecycleOperationKeys.get(operationScope) || crypto.randomUUID();
+      localSourceLifecycleOperationKeys.set(operationScope, operationKey);
       try {
+        let res;
         if (isBatch) {
-          await apiClient.post(apiPath('api_shared_resources_shares_delete_batch_0c935516'), { ids });
+          res = await apiClient.post(
+            apiPath('api_shared_resources_shares_delete_batch_0c935516'),
+            { ids },
+            { headers: { 'Idempotency-Key': operationKey } },
+          );
         } else {
-          await apiClient.post(apiPath('api_shared_resources_shares_param_delete_45317615', [row.id]));
+          res = await apiClient.post(
+            apiPath('api_shared_resources_shares_param_delete_45317615', [row.id]),
+            {},
+            { headers: { 'Idempotency-Key': operationKey } },
+          );
         }
+        await waitForSharingOperations(res, '共享源删除任务已提交，正在等待中心确认');
+        localSourceLifecycleOperationKeys.delete(operationScope);
         message.success(alreadyDisabled ? '已删除本地共享记录' : '已取消登记并删除共享记录');
         await Promise.allSettled([loadShares(), loadCenterSources(), loadSummary(), loadLedger()]);
       } catch (e) {
-        message.error(e.response?.data?.message || '删除失败');
+        message.error(e.response?.data?.message || e.message || '删除失败');
       }
     }
   });

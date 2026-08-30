@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, cast
 
 from etk.integrations import (
     HDHivePort,
@@ -139,17 +139,20 @@ def _request_callable(
     action: str,
 ) -> Callable[..., ProviderResponse[Any]] | None:
     if provider == "shared_center":
-        return {
-            "register_device": center.register_device,
-            "register_source": center.register_source,
-            "acquire_transfer_lease": center.acquire_transfer_lease,
-            "report_transfer": center.report_transfer,
-            "share_sync_heartbeat": center.share_sync_heartbeat,
-            "run_maintenance": center.run_maintenance,
-            "create_share_request": center.create_share_request,
-            "co_request_share_request": center.co_request_share_request,
-            "cancel_share_request": center.cancel_share_request,
+        method = {
+            "register_device": "register_device",
+            "register_source": "register_source",
+            "disable_source": "disable_source",
+            "acquire_transfer_lease": "acquire_transfer_lease",
+            "report_transfer": "report_transfer",
+            "share_sync_heartbeat": "share_sync_heartbeat",
+            "run_maintenance": "run_maintenance",
+            "create_share_request": "create_share_request",
+            "co_request_share_request": "co_request_share_request",
+            "cancel_share_request": "cancel_share_request",
         }.get(action)
+        call = getattr(center, method, None) if method is not None else None
+        return cast(Callable[..., ProviderResponse[Any]], call) if callable(call) else None
     if provider == "hdhive":
         return {
             "unlock": hdhive.unlock,
@@ -200,6 +203,11 @@ def _request_invocation(
         name = str(payload.get("name") or "ETK Device")
         server_id_hash = _text(payload.get("server_id_hash"), "server_id_hash")
         return lambda: call(name=name, server_id_hash=server_id_hash)
+    if action == "disable_source":
+        source_kind = _text(payload.get("source_kind"), "source_kind")
+        source_id = _text(payload.get("source_id"), "source_id")
+        message = str(payload.get("message") or "")
+        return lambda: call(source_kind, source_id, message=message)
     if action in {"co_request_share_request", "cancel_share_request"}:
         group_id = _text(payload.get("group_id"), "group_id")
         body = payload.get("body", {})

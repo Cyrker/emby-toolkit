@@ -33,7 +33,7 @@ _VIDEO_SUFFIXES = {
 
 
 class SqlAlchemySharingProjectionRepository:
-    """Read-only projections over the existing P9 local sharing tables."""
+    """Native projections and local lifecycle mutations for P9 sharing tables."""
 
     def __init__(
         self,
@@ -212,6 +212,80 @@ class SqlAlchemySharingProjectionRepository:
                 .one_or_none()
             )
         return _decorate_local_source(_row(value)) if value is not None else None
+
+    def disable_local_source(
+        self,
+        source_id: int,
+        *,
+        expected_center_source_id: str,
+        expected_status: str,
+        expected_center_status: str,
+    ) -> dict[str, Any] | None:
+        with self._unit_of_work() as uow:
+            value = (
+                uow.session.execute(
+                    text(
+                        """
+                        UPDATE shared_rapid_sources
+                        SET status = 'disabled', center_status = 'disabled',
+                            disabled_at = COALESCE(disabled_at, NOW()), updated_at = NOW()
+                        WHERE id = :id
+                          AND COALESCE(center_source_id, '') = :expected_center_source_id
+                          AND COALESCE(status, '') = :expected_status
+                          AND COALESCE(center_status, '') = :expected_center_status
+                        RETURNING *
+                        """
+                    ),
+                    {
+                        "id": int(source_id),
+                        "expected_center_source_id": expected_center_source_id,
+                        "expected_status": expected_status,
+                        "expected_center_status": expected_center_status,
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
+            uow.commit()
+        return _decorate_local_source(_row(value)) if value is not None else None
+
+    def delete_local_source(
+        self,
+        source_id: int,
+        *,
+        expected_center_source_id: str,
+        expected_status: str,
+        expected_center_status: str,
+    ) -> dict[str, Any] | None:
+        with self._unit_of_work() as uow:
+            value = (
+                uow.session.execute(
+                    text("SELECT * FROM shared_rapid_sources WHERE id = :id FOR UPDATE"),
+                    {"id": int(source_id)},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if value is None:
+                uow.commit()
+                return None
+            if (
+                str(value.get("center_source_id") or "") != expected_center_source_id
+                or str(value.get("status") or "") != expected_status
+                or str(value.get("center_status") or "") != expected_center_status
+            ):
+                uow.commit()
+                return None
+            uow.session.execute(
+                text("DELETE FROM shared_rapid_source_files WHERE local_source_id = :id"),
+                {"id": int(source_id)},
+            )
+            uow.session.execute(
+                text("DELETE FROM shared_rapid_sources WHERE id = :id"),
+                {"id": int(source_id)},
+            )
+            uow.commit()
+        return _decorate_local_source(_row(value))
 
     def list_virtual_imports(
         self,

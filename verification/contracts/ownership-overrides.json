@@ -3486,6 +3486,51 @@
         "status": "new",
         "validation_method": "pytest-p11-sharing-participant-http-adapter-postgres18-operation-replay",
         "validation_owner": "sharing/operations"
+      },
+      "route-binding-3c5aa0deca3f": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 stages source disable as a durable no-resend operation; the confirmed terminal transition updates the local source in the same UoW.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+        "validation_owner": "sharing/source-lifecycle"
+      },
+      "route-binding-9e402a9fb594": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 POST source deletion first confirms the durable center disable and deletes local source plus files only in the terminal UoW.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+        "validation_owner": "sharing/source-lifecycle"
+      },
+      "route-binding-1a04a4a4252a": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 DELETE source deletion shares the same durable center-disable and terminal local-delete contract as the POST compatibility method.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+        "validation_owner": "sharing/source-lifecycle"
+      },
+      "route-binding-967b28fb987a": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 batch source disable creates deterministic per-source durable operations and reports missing or conflicting items explicitly.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+        "validation_owner": "sharing/source-lifecycle"
+      },
+      "route-binding-20d4832ec127": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 batch source deletion preserves per-source operation identity and never deletes center-linked local state before confirmation.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+        "validation_owner": "sharing/source-lifecycle"
       }
     },
     "route_decorators": {
@@ -6206,6 +6251,42 @@
         "status": "new",
         "validation_method": "pytest-p11-sharing-participant-http-adapter-postgres18-operation-replay",
         "validation_owner": "sharing/operations"
+      },
+      "route-decorator-5331f4c01711": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 owns source disable through durable provider delivery and a confirmed local continuation.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+        "validation_owner": "sharing/source-lifecycle"
+      },
+      "route-decorator-e176914b40cc": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 owns both POST and DELETE source deletion methods through one durable lifecycle use case.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+        "validation_owner": "sharing/source-lifecycle"
+      },
+      "route-decorator-9549bf849c1a": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 owns batch source disable through deterministic per-source durable operations.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+        "validation_owner": "sharing/source-lifecycle"
+      },
+      "route-decorator-442a69a1217d": {
+        "fixture": "verification/fixtures/http/p9-sharing.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.sharing.router",
+        "notes": "P11 owns batch source deletion through deterministic per-source durable operations and confirmed terminal local cleanup.",
+        "status": "new",
+        "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+        "validation_owner": "sharing/source-lifecycle"
       }
     },
     "settings": {

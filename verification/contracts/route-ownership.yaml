@@ -6224,20 +6224,21 @@
       "contract_id": "route-binding-3c5aa0deca3f",
       "decorator_contract_id": "route-decorator-5331f4c01711",
       "endpoint": "api_disable_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 stages source disable as a durable no-resend operation; the confirmed terminal transition updates the local source in the same UoW.",
       "path": "/api/shared/resources/shares/<int:source_id>/cancel",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1132",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+      "validation_owner": "sharing/source-lifecycle"
     },
     {
       "application": "api",
@@ -6265,40 +6266,42 @@
       "contract_id": "route-binding-1a04a4a4252a",
       "decorator_contract_id": "route-decorator-e176914b40cc",
       "endpoint": "api_delete_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 DELETE source deletion shares the same durable center-disable and terminal local-delete contract as the POST compatibility method.",
       "path": "/api/shared/resources/shares/<int:source_id>/delete",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1191",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+      "validation_owner": "sharing/source-lifecycle"
     },
     {
       "application": "api",
       "contract_id": "route-binding-9e402a9fb594",
       "decorator_contract_id": "route-decorator-e176914b40cc",
       "endpoint": "api_delete_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 POST source deletion first confirms the durable center disable and deletes local source plus files only in the terminal UoW.",
       "path": "/api/shared/resources/shares/<int:source_id>/delete",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1191",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+      "validation_owner": "sharing/source-lifecycle"
     },
     {
       "application": "api",
@@ -6366,40 +6369,42 @@
       "contract_id": "route-binding-967b28fb987a",
       "decorator_contract_id": "route-decorator-9549bf849c1a",
       "endpoint": "api_disable_local_sources_batch",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 batch source disable creates deterministic per-source durable operations and reports missing or conflicting items explicitly.",
       "path": "/api/shared/resources/shares/cancel-batch",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1148",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+      "validation_owner": "sharing/source-lifecycle"
     },
     {
       "application": "api",
       "contract_id": "route-binding-20d4832ec127",
       "decorator_contract_id": "route-decorator-442a69a1217d",
       "endpoint": "api_delete_local_sources_batch",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 batch source deletion preserves per-source operation identity and never deletes center-linked local state before confirmation.",
       "path": "/api/shared/resources/shares/delete-batch",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1205",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+      "validation_owner": "sharing/source-lifecycle"
     },
     {
       "application": "api",
@@ -14614,22 +14619,23 @@
       "contract_id": "route-decorator-5331f4c01711",
       "declared_path": "/shares/<int:source_id>/cancel",
       "endpoint": "api_disable_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 owns source disable through durable provider delivery and a confirmed local continuation.",
       "path": "/api/shared/resources/shares/<int:source_id>/cancel",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1132",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+      "validation_owner": "sharing/source-lifecycle"
     },
     {
       "application": "api",
@@ -14661,23 +14667,24 @@
       "contract_id": "route-decorator-e176914b40cc",
       "declared_path": "/shares/<int:source_id>/delete",
       "endpoint": "api_delete_local_source",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST",
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 owns both POST and DELETE source deletion methods through one durable lifecycle use case.",
       "path": "/api/shared/resources/shares/<int:source_id>/delete",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1191",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+      "validation_owner": "sharing/source-lifecycle"
     },
     {
       "application": "api",
@@ -14755,22 +14762,23 @@
       "contract_id": "route-decorator-9549bf849c1a",
       "declared_path": "/shares/cancel-batch",
       "endpoint": "api_disable_local_sources_batch",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 owns batch source disable through deterministic per-source durable operations.",
       "path": "/api/shared/resources/shares/cancel-batch",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1148",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+      "validation_owner": "sharing/source-lifecycle"
     },
     {
       "application": "api",
@@ -14778,22 +14786,23 @@
       "contract_id": "route-decorator-442a69a1217d",
       "declared_path": "/shares/delete-batch",
       "endpoint": "api_delete_local_sources_batch",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p9-sharing.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.router",
+      "notes": "P11 owns batch source deletion through deterministic per-source durable operations and confirmed terminal local cleanup.",
       "path": "/api/shared/resources/shares/delete-batch",
       "retirement_approval": null,
       "source": "routes/shared_resource.py:1205",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "sharing"
+      "validation_method": "pytest-p11-sharing-source-lifecycle-http-postgres18-and-worker-delivery",
+      "validation_owner": "sharing/source-lifecycle"
     },
     {
       "application": "api",

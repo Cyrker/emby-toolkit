@@ -764,8 +764,16 @@ def _apply_confirmed_local_continuation(
     if not isinstance(continuation, Mapping):
         raise SharingOperationStateError("sharing local continuation must be an object")
     continuation_type = str(continuation.get("type") or "").strip()
-    if continuation_type != "enable_shared_resource":
-        raise SharingOperationStateError(f"sharing local continuation type {continuation_type!r} is unsupported")
+    if continuation_type == "enable_shared_resource":
+        _enable_shared_resource(uow)
+        return
+    if continuation_type in {"disable_local_source", "delete_local_source"}:
+        _apply_local_source_lifecycle(uow, operation, continuation, delete=continuation_type == "delete_local_source")
+        return
+    raise SharingOperationStateError(f"sharing local continuation type {continuation_type!r} is unsupported")
+
+
+def _enable_shared_resource(uow: SqlAlchemyUnitOfWork) -> None:
     uow.session.execute(
         text(
             """
@@ -797,6 +805,67 @@ def _apply_confirmed_local_continuation(
         ),
         {"value_json": json.dumps(payload, ensure_ascii=False)},
     )
+
+
+def _apply_local_source_lifecycle(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SharingOperation,
+    continuation: Mapping[str, Any],
+    *,
+    delete: bool,
+) -> None:
+    source_id = continuation.get("source_id")
+    if isinstance(source_id, bool):
+        raise SharingOperationStateError("sharing local source id is invalid")
+    try:
+        normalized_id = int(str(source_id).strip())
+    except (TypeError, ValueError) as exc:
+        raise SharingOperationStateError("sharing local source id is invalid") from exc
+    if normalized_id < 1:
+        raise SharingOperationStateError("sharing local source id is invalid")
+    expected_kind = _required(continuation.get("expected_source_kind"), "local source kind")
+    expected_center_id = _required(continuation.get("expected_center_source_id"), "local center source id")
+    row = (
+        uow.session.execute(
+            text("SELECT * FROM shared_rapid_sources WHERE id = :id FOR UPDATE"),
+            {"id": normalized_id},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise SharingOperationStateError("sharing local source no longer exists")
+    if (
+        str(row.get("source_kind") or "").strip() != expected_kind
+        or str(row.get("center_source_id") or "").strip() != expected_center_id
+    ):
+        raise SharingOperationStateError("sharing local source identity changed before confirmation")
+    if delete:
+        uow.session.execute(
+            text("DELETE FROM shared_rapid_source_files WHERE local_source_id = :id"),
+            {"id": normalized_id},
+        )
+        result = uow.session.execute(
+            text("DELETE FROM shared_rapid_sources WHERE id = :id"),
+            {"id": normalized_id},
+        )
+    else:
+        result = uow.session.execute(
+            text(
+                """
+                UPDATE shared_rapid_sources
+                SET status = 'disabled', center_status = 'disabled',
+                    disabled_at = COALESCE(disabled_at, NOW()),
+                    raw_json = COALESCE(raw_json, '{}'::jsonb)
+                        || jsonb_build_object('lifecycle_operation_id', CAST(:operation_id AS text)),
+                    updated_at = NOW()
+                WHERE id = :id
+                """
+            ),
+            {"id": normalized_id, "operation_id": str(operation.id)},
+        )
+    if int(getattr(result, "rowcount", 0) or 0) != 1:
+        raise SharingOperationStateError("sharing local source continuation was not applied")
 
 
 def _apply_escrow_compensation(

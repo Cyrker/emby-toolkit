@@ -251,6 +251,25 @@ def test_shared_center_quote_is_a_retryable_read_only_post() -> None:
     assert raised.value.disposition is ProviderDisposition.RETRYABLE
 
 
+def test_shared_center_disable_source_uses_exact_single_shot_contract() -> None:
+    client = FakeClient([_response(200, {"ok": True, "source_id": "source-3", "status": "disabled"})])
+    adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(attempts=4),
+    )
+
+    result = adapter.disable_source("episode", "source-3", message="local delete")
+
+    assert result.disposition is ProviderDisposition.CONFIRMED
+    assert len(client.calls) == 1
+    assert client.calls[0][0:2] == (
+        "POST",
+        "https://center.fixture/api/v1/sources/episode/source-3/disable",
+    )
+    assert client.calls[0][2]["json"] == {"message": "local delete"}
+
+
 def test_shared_center_share_request_participant_mutations_use_exact_single_shot_contracts() -> None:
     client = FakeClient(
         [

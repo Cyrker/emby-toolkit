@@ -100,6 +100,20 @@ def _positive_path_int(value: object) -> int | None:
     return normalized if normalized > 0 else None
 
 
+def _source_ids(payload: Mapping[str, Any]) -> list[int]:
+    raw = payload.get("ids") or payload.get("source_ids") or []
+    if not isinstance(raw, list):
+        return []
+    result: list[int] = []
+    for value in raw:
+        if isinstance(value, bool):
+            continue
+        normalized = _positive_path_int(value)
+        if normalized is not None and normalized not in result:
+            result.append(normalized)
+    return result
+
+
 def _bool_query(request: Request, *keys: str, default: bool = False) -> bool:
     value: object = None
     for key in keys:
@@ -233,6 +247,112 @@ def check_local_source(request: Request, source_id: str) -> Response:
     if normalized_id is None:
         return denied or fastapi_json_response({"success": False, "message": "本地共享源不存在"}, status_code=404)
     return denied or _response(_service(request).local_source_check(normalized_id))
+
+
+_SOURCE_LIFECYCLE_RESPONSES: dict[int | str, dict[str, Any]] = {
+    202: {"description": "provider operation queued", "model": dict[str, Any]},
+    400: {"description": "invalid request"},
+    403: {"description": "admin required"},
+    404: {"description": "source not found"},
+    409: {"description": "operation conflict", "model": dict[str, Any]},
+    503: {"description": "sharing runtime unavailable"},
+}
+
+
+@router.post(
+    "/shares/{source_id}/cancel",
+    response_model=dict[str, Any],
+    responses=_SOURCE_LIFECYCLE_RESPONSES,
+)
+def disable_local_source(request: Request, source_id: str) -> Response:
+    denied = _admin_denial(request)
+    normalized_id = _positive_path_int(source_id)
+    if normalized_id is None:
+        return denied or fastapi_json_response({"success": False, "message": "本地共享源不存在"}, status_code=404)
+    return denied or _response(
+        _service(request).disable_local_source(
+            normalized_id,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    )
+
+
+def _delete_local_source(request: Request, source_id: str) -> Response:
+    denied = _admin_denial(request)
+    normalized_id = _positive_path_int(source_id)
+    if normalized_id is None:
+        return denied or fastapi_json_response({"success": False, "message": "本地共享源不存在"}, status_code=404)
+    return denied or _response(
+        _service(request).delete_local_source(
+            normalized_id,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    )
+
+
+@router.post(
+    "/shares/{source_id}/delete",
+    response_model=dict[str, Any],
+    responses=_SOURCE_LIFECYCLE_RESPONSES,
+)
+def delete_local_source_post(request: Request, source_id: str) -> Response:
+    return _delete_local_source(request, source_id)
+
+
+@router.delete(
+    "/shares/{source_id}/delete",
+    response_model=dict[str, Any],
+    responses=_SOURCE_LIFECYCLE_RESPONSES,
+)
+def delete_local_source_delete(request: Request, source_id: str) -> Response:
+    return _delete_local_source(request, source_id)
+
+
+async def _local_source_lifecycle_batch(request: Request, *, delete: bool) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _json_object(request)
+    if error is not None:
+        return error
+    assert payload is not None
+    source_ids = _source_ids(payload)
+    if not source_ids:
+        message = "缺少要删除的本地源 ID" if delete else "缺少要停用的本地源 ID"
+        return fastapi_json_response({"success": False, "message": message}, status_code=400)
+    action = _service(request).delete_local_sources if delete else _service(request).disable_local_sources
+    try:
+        result = await run_in_threadpool(
+            action,
+            source_ids,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
+    except (TypeError, ValueError):
+        return fastapi_json_response({"success": False, "message": "共享源批量请求无效"}, status_code=400)
+    return _response(result)
+
+
+@router.post(
+    "/shares/cancel-batch",
+    response_model=dict[str, Any],
+    responses={**_SOURCE_LIFECYCLE_RESPONSES, 415: {"description": "JSON required"}},
+    openapi_extra=_JSON_OBJECT_REQUEST_BODY,
+)
+async def disable_local_sources_batch(request: Request) -> Response:
+    return await _local_source_lifecycle_batch(request, delete=False)
+
+
+@router.post(
+    "/shares/delete-batch",
+    response_model=dict[str, Any],
+    responses={**_SOURCE_LIFECYCLE_RESPONSES, 415: {"description": "JSON required"}},
+    openapi_extra=_JSON_OBJECT_REQUEST_BODY,
+)
+async def delete_local_sources_batch(request: Request) -> Response:
+    return await _local_source_lifecycle_batch(request, delete=True)
 
 
 @router.post(

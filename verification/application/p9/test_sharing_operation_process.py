@@ -102,6 +102,16 @@ class FakeSharedCenter:
         self.calls.append(("register_source", {"source_kind": source_kind, "payload": payload}))
         return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"source_id": "source-1"})
 
+    def disable_source(
+        self, source_kind: str, source_id: str, *, message: str = ""
+    ) -> ProviderResponse[dict[str, Any]]:
+        self.calls.append(("disable_source", {"source_kind": source_kind, "source_id": source_id, "message": message}))
+        return ProviderResponse(
+            ProviderDisposition.CONFIRMED,
+            200,
+            {"source_id": source_id, "status": "disabled", "token": "must-not-persist"},
+        )
+
     report_transfer = acquire_transfer_lease
     share_sync_heartbeat = acquire_transfer_lease
     run_maintenance = acquire_transfer_lease
@@ -527,6 +537,42 @@ def test_sharing_delivery_keeps_share_request_group_id_without_secret_fields() -
     assert outcome.result is not None
     assert outcome.result["provider_result"] == {"group_id": "group-1"}
     assert "must-not-persist" not in repr(outcome.result)
+
+
+def test_sharing_delivery_checkpoints_before_disabling_a_center_source() -> None:
+    center = FakeSharedCenter()
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, center),
+        hdhive=cast(Any, FakeHDHive()),
+    )
+    checkpoints: list[bool] = []
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "provider": "shared_center",
+                "action": "disable_source",
+                "payload": {
+                    "source_kind": "episode",
+                    "source_id": "source-3",
+                    "message": "local delete",
+                },
+            }
+        ),
+    )
+
+    outcome = delivery.request(operation, checkpoint=lambda: checkpoints.append(True))
+
+    assert outcome.disposition is SharingDeliveryDisposition.CONFIRMED
+    assert checkpoints == [True]
+    assert center.calls == [
+        (
+            "disable_source",
+            {"source_kind": "episode", "source_id": "source-3", "message": "local delete"},
+        )
+    ]
+    assert "must-not-persist" not in repr(outcome.result)
+    assert delivery.supports_authoritative_readback(operation) is False
 
 
 @pytest.mark.parametrize(

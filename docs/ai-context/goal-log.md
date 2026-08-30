@@ -4892,6 +4892,58 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Shared-Source-Lifecycle
+
+Stage / Batch: P11 / durable local shared-source disable and delete
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `e4c9d9f5` (`refactor(p11): persist share request participation`).
+- Target checkpoint message: `refactor(p11): persist shared source lifecycle`.
+
+Implemented:
+
+- Migrated single and batch local-source disable/delete routes, including both POST and DELETE
+  compatibility methods. Center-linked sources now reserve a typed, single-shot `disable_source`
+  operation; local source/file state changes only after provider confirmation.
+- Kept operation terminal state, local disable/delete and Outbox completion in one PostgreSQL UoW.
+  Provider unknown becomes `INDETERMINATE`, is not resent and leaves local state unchanged.
+- Kept local-only/already-inactive mutations local, but added expected identity/status guards and a
+  fail-closed reread so concurrent center registration cannot be overwritten or deleted.
+- Added per-source batch occurrences, terminal/partial failure classification and frontend polling
+  for every queued operation. Route ownership is now `306 new / 37 legacy` decorators and
+  `328 new / 39 legacy` method bindings.
+
+Targeted gate:
+
+- Scoped Ruff/format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`.
+- P9 application -> `89 passed`; disposable PostgreSQL 18 P9 scope -> `41 passed`.
+- P1 import/CLI plus OpenAPI contract -> `5 passed`; compileall, `uv lock --check` and
+  `git diff --check` -> clean.
+- Frontend typecheck/build/API boundary passed; Vitest -> `7 passed`; build retained only the
+  existing large-chunk warning. Manifest, `285 paths / 337 operations` OpenAPI and all three secret
+  scans are clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-sharing-source-lifecycle-20260830/summary.md`.
+
+Focused review:
+
+- Closed the review-discovered TOCTOU, terminal batch misclassification, alias fallback and overly
+  broad center-disable predicate findings with application and PostgreSQL 18 regressions.
+- Final transaction and HTTP/UI rereviews found no deterministic P0/P1/P2 in this slice.
+
+Pending:
+
+- Shared Resource re-registration/reporting, center import, virtual effects, credit refresh and
+  maintenance routes remain, along with unavailable native tasks and Route/Table/Config ownership.
+- Pre-removal inventory, controlled legacy-runtime removal and all P11 NFR/security/SBOM/
+  vulnerability/License gates remain pending. P11 stays `DOING`; P12 stays `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -4911,8 +4963,8 @@ Read first:
 
 Next:
 
-- Continue the remaining Shared Resource source lifecycle, center import, virtual effects, credit
-  refresh and maintenance routes, then resume native-only task execution beginning with the smallest
+- Continue Shared Resource re-registration/reporting, center import, virtual effects, credit refresh
+  and maintenance routes, then resume native-only task execution beginning with the smallest
   evidence-backed slice. Close all remaining Route, Task, Table and Config ownership before
   controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete; keep
   all Live Acceptance items pending.
