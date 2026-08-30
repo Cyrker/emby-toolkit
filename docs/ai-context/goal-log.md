@@ -4256,6 +4256,56 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Auto-Subscribe-Foundation
+
+Stage / Batch: P11 / processor-free auto-subscribe policy and worklist repository foundation
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `69ff456b` (`refactor(p11): execute native manual subscriptions`).
+- Target checkpoint message: `refactor(p11): isolate auto subscription policy`.
+
+Implemented:
+
+- Isolated the auto-subscribe policy behind typed settings, worklist, quota, MoviePilot, ordered
+  source and notification ports without importing legacy task/database/handler modules.
+- Preserved Movie/Season worklist ordering and missing-episode aggregation, PENDING promotion,
+  movie revive/pause repair, WANTED-only release/quota protection, non-WANTED MP fencing, configured
+  source order, legacy result counters and best-effort notification aggregation.
+- Added an explicit indeterminate source disposition that stops fallback, while confirmed later
+  sources can supersede an earlier rejected MP attempt. Cancellation checkpoints now surround
+  item/source/provider, delay and notification boundaries.
+- Added a SQLAlchemy repository for lifecycle projections and the exact Movie/Season worklist SQL.
+  This foundation is intentionally not wired to Worker and does not change task ownership yet;
+  stable item claims/occurrences and production shared/HDHive/TG adapters remain the next batch.
+
+Targeted gate:
+
+- Scoped Ruff and format -> clean; scoped Pyright -> `0 errors, 0 warnings, 0 informations`;
+  `git diff --check` -> clean.
+- Auto-subscribe policy application matrix -> `11 passed`.
+- Disposable PostgreSQL 18 worklist/lifecycle repository matrix -> `2 passed`.
+
+Focused review:
+
+- Initial review found MP fallback termination, untyped source exceptions, disabled-maintenance
+  parsing, delay-on-skip parity and pre-promotion cancellation defects; all were fixed with
+  regressions. It also identified the required production cutover boundary: no Worker promotion
+  before a stable per-item claim/occurrence and replay-safe source delivery exists.
+
+Pending:
+
+- Add the durable item claim/receipt boundary, production shared/HDHive/TG and notification adapters,
+  explicit Job identity binding, native-only Worker wiring, PG18 provider/projection recovery and
+  Redis/Celery duplicate/replacement evidence. Until then `auto-subscribe` remains a legacy
+  execution owner and cannot be added to the native-only allowlist.
+- All other P11 ownership, controlled removal and NFR gates remain pending. P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -4275,6 +4325,7 @@ Read first:
 
 Next:
 
-- Continue processor-free task execution ownership, beginning with `auto-subscribe`; then close the
-  remaining task, Route, Table and Config ownership before controlled removal. Do not start P12
-  until P11 ownership, removal and NFR gates are complete. Keep all Live Acceptance items pending.
+- Continue `auto-subscribe` with stable item claims and replay-safe production source adapters before
+  Worker promotion; then close the remaining task, Route, Table and Config ownership before
+  controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete.
+  Keep all Live Acceptance items pending.
