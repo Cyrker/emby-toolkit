@@ -36,7 +36,7 @@ def test_subscription_runtime_migration_is_current_single_head_and_adds_only_nat
         "subscription_runtime_states",
     }
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0022_p11_identity_user_expiry"]
+    assert scripts.get_heads() == ["0023_p11_sharing_device_kind"]
 
 
 def test_subscription_runtime_repository_owns_quota_lock_and_state_cas_without_legacy_business_imports() -> None:

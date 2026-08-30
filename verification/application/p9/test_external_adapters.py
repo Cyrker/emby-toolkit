@@ -225,6 +225,32 @@ def test_shared_center_retries_idempotent_reads_but_invalid_json_is_safe() -> No
     assert mutation_raised.value.disposition is ProviderDisposition.INDETERMINATE
 
 
+def test_shared_center_quote_is_a_retryable_read_only_post() -> None:
+    client = FakeClient([_response(503, {"detail": "busy"}), _response(200, {"cost": 2})])
+    adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(attempts=2),
+    )
+
+    result = adapter.quote_share_request({"tmdb_id": "101"})
+
+    assert result.disposition is ProviderDisposition.CONFIRMED
+    assert result.payload == {"cost": 2}
+    assert len(client.calls) == 2
+    assert all(call[0] == "POST" for call in client.calls)
+
+    invalid_client = FakeClient([_response(200, {}, text="not-json")])
+    invalid_adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(invalid_client),
+        policy=_policy(),
+    )
+    with pytest.raises(SharedCenterError) as raised:
+        invalid_adapter.quote_share_request({"tmdb_id": "101"})
+    assert raised.value.disposition is ProviderDisposition.RETRYABLE
+
+
 def test_shared_intro_upload_uses_exact_single_shot_contract() -> None:
     client = FakeClient([_response(200, {"ok": True})])
     adapter = HttpxSharedCenterAdapter(

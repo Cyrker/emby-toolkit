@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from copy import deepcopy
+from types import SimpleNamespace
 from typing import Any, cast
 
 import httpx
@@ -12,8 +13,9 @@ from fastapi.testclient import TestClient
 
 from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.sharing import SharingConfigurationService, SharingServerIdentity, SharingService
+from etk.domains.sharing.operations import SharingOperationStatus
 from etk.domains.sharing.router import router
-from etk.integrations import ProviderDisposition, ProviderResponse
+from etk.integrations import ProviderDisposition
 from etk.integrations.http_policy import ExternalAdapterError, HttpTransportPolicy, RetryPolicy
 from etk.platform import AppContainer, Settings
 from etk.platform.web import CookieSessionMiddleware
@@ -181,13 +183,31 @@ class Permissions:
         return user_id == "admin"
 
 
-class RecordingCenter:
+class MemoryOperations:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, Any]] = []
+        self.intents: list[Any] = []
+        self.by_key: dict[str, Any] = {}
 
-    def register_device(self, *, name: str, server_id_hash: str) -> ProviderResponse[dict[str, Any]]:
-        self.calls.append((name, server_id_hash))
-        return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"device": {"id": "device-1"}})
+    def reserve_with_replay(self, intent: Any) -> tuple[Any, bool]:
+        existing = self.by_key.get(intent.operation_key)
+        if existing is not None:
+            return existing, True
+        operation = SimpleNamespace(
+            id=intent.id,
+            operation_key=intent.operation_key,
+            kind=intent.kind,
+            scope_key=intent.scope_key,
+            status=SharingOperationStatus.READY,
+            attempts=0,
+            state_revision=0,
+            available_at=intent.available_at,
+            finished_at=None,
+            result=None,
+            error=None,
+        )
+        self.intents.append(intent)
+        self.by_key[intent.operation_key] = operation
+        return operation, False
 
 
 class StaticIdentity:
@@ -202,10 +222,11 @@ def test_register_device_uses_backend_identity_and_accepts_empty_body() -> None:
         Settings(auth_enabled=True),
         repository_providers={"identity": lambda _: Permissions()},
     )
-    center = RecordingCenter()
+    operations = MemoryOperations()
     app.state.sharing_service = SharingService(
         object(),  # type: ignore[arg-type]
-        center,
+        object(),
+        operations,
         configuration=SharingConfigurationService(settings),
         identity=StaticIdentity(),  # type: ignore[arg-type]
     )
@@ -219,53 +240,20 @@ def test_register_device_uses_backend_identity_and_accepts_empty_body() -> None:
             "/api/shared/resources/center/device/register",
             json={"name": "fixture-device", "server_id_hash": "attacker-controlled"},
         )
+        replay = client.post(
+            "/api/shared/resources/center/device/register",
+            json={"name": "fixture-device", "server_id_hash": "different-attacker-value"},
+        )
 
-    assert response.status_code == 200
-    assert center.calls == [("fixture-device", "a" * 64)]
-    assert response.json()["configuration_saved"] is True
-    assert settings.load("shared_resource_config")["p115_shared_resource_enabled"] is True
-
-
-class FailingEnableSettings(MemorySettings):
-    def save(self, key: str, value: Any) -> None:
-        if key == "shared_resource_config":
-            raise RuntimeError("fixture local projection failure")
-        super().save(key, value)
-
-
-def test_register_device_does_not_invite_provider_replay_when_local_enable_save_fails() -> None:
-    center = RecordingCenter()
-    result = SharingService(
-        object(),  # type: ignore[arg-type]
-        center,
-        configuration=SharingConfigurationService(FailingEnableSettings()),
-        identity=StaticIdentity(),  # type: ignore[arg-type]
-    ).register_device(name="fixture-device")
-
-    assert result.status_code == 200
-    assert result.payload["success"] is True
-    assert result.payload["configuration_saved"] is False
-    assert result.payload["data"] is None
-    assert center.calls == [("fixture-device", "a" * 64)]
-
-
-class IndeterminateCenter(RecordingCenter):
-    def register_device(self, *, name: str, server_id_hash: str) -> ProviderResponse[dict[str, Any]]:
-        self.calls.append((name, server_id_hash))
-        return ProviderResponse(ProviderDisposition.INDETERMINATE, 200)
-
-
-def test_register_device_surfaces_indeterminate_provider_result_as_202() -> None:
-    center = IndeterminateCenter()
-    settings = MemorySettings()
-    result = SharingService(
-        object(),  # type: ignore[arg-type]
-        center,
-        configuration=SharingConfigurationService(settings),
-        identity=StaticIdentity(),  # type: ignore[arg-type]
-    ).register_device(name="fixture-device")
-
-    assert result.status_code == 202
-    assert result.payload["status"] == "indeterminate"
-    assert settings.load("shared_resource_config") is None
-    assert center.calls == [("fixture-device", "a" * 64)]
+    assert response.status_code == 202
+    assert replay.status_code == 202
+    assert response.json()["operation_id"] == replay.json()["operation_id"]
+    assert response.json()["replayed"] is False
+    assert replay.json()["replayed"] is True
+    assert len(operations.intents) == 1
+    request = operations.intents[0].request
+    assert request["payload"] == {"name": "fixture-device", "server_id_hash": "a" * 64}
+    assert request["readback"]["match_value"] == "a" * 64
+    assert request["local_continuation"] == {"type": "enable_shared_resource"}
+    assert "attacker" not in repr(request)
+    assert settings.load("shared_resource_config")["p115_shared_resource_enabled"] is False

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -8,14 +9,20 @@ from uuid import UUID
 
 from etk.integrations.http_policy import ExternalAdapterError, ProviderDisposition, ProviderResponse
 from etk.platform.db import SqlAlchemyUnitOfWork
-from etk.platform.jobs.json_payload import normalize_durable_json_object
+from etk.platform.jobs.json_payload import canonical_json, normalize_durable_json_object
 
 from .configuration import SharingConfigurationService, SharingServerIdentity
 from .ledger import (
     ContributionLedger,
     ContributionLedgerEntry,
 )
-from .operations import SharingOperationIntent, SharingOperationKind
+from .operations import (
+    SharingOperationConflictError,
+    SharingOperationIntent,
+    SharingOperationKind,
+    SharingOperationScopeBusyError,
+    SharingOperationStatus,
+)
 
 _DISPLAY_TAG_FALLBACK = [
     {"label": "已完结", "value": "completed_certified"},
@@ -132,6 +139,7 @@ class SharingLedgerService:
         """Reserve a transfer and atomically debit its escrow when supported."""
 
         normalized_source = _required(source_id, "source_id")
+        debit_key = f"transfer:{idempotency_key}"
         normalized_request = normalize_durable_json_object(
             {
                 "account_id": _account(account_id),
@@ -153,6 +161,13 @@ class SharingLedgerService:
                     "provider": "shared_center",
                     "action": "acquire_transfer_lease",
                     "payload": normalized_request,
+                    "ledger_compensation": {
+                        "type": "release_transfer_escrow",
+                        "account_id": normalized_request["account_id"],
+                        "amount": amount,
+                        "debit_idempotency_key": debit_key,
+                        "reference": normalized_source,
+                    },
                 },
                 idempotency_key=idempotency_key,
             )
@@ -176,7 +191,7 @@ class SharingLedgerService:
                         uow,
                         account_id,
                         amount,
-                        idempotency_key=f"transfer:{idempotency_key}",
+                        idempotency_key=debit_key,
                         reason="transfer_escrow",
                         reference=normalized_source,
                         operation_id=operation_id,
@@ -193,7 +208,7 @@ class SharingLedgerService:
             entry = self.debit(
                 account_id,
                 amount,
-                idempotency_key=f"transfer:{idempotency_key}",
+                idempotency_key=debit_key,
                 reason="transfer_escrow",
                 reference=normalized_source,
                 operation_id=operation_id,
@@ -215,10 +230,9 @@ class SharingLedgerService:
 class SharingService(SharingLedgerService):
     """Native sharing application service over the typed provider ports.
 
-    Read-only provider calls are retried by their adapter.  Mutations are
-    intentionally delegated once to the adapter; an indeterminate provider
-    result is surfaced as a durable-looking ``202`` response instead of being
-    replayed by the request thread.
+    Read-only provider calls are retried by their adapter. Provider mutations
+    are reserved as durable operations and return a queryable ``202`` handle;
+    the request thread never performs the external write.
     """
 
     def __init__(
@@ -301,39 +315,41 @@ class SharingService(SharingLedgerService):
         response = self._provider_call(call, **query)
         return _provider_http_result(_map_confirmed_payload(response, _display_detail_payload))
 
-    def register_device(self, *, name: str) -> SharingHttpResult:
+    def register_device(
+        self,
+        *,
+        name: str,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
         if self._identity is None:
             return SharingHttpResult({"success": False, "message": "Emby ServerID 不可用"}, 400)
         try:
             server_id_hash = self._identity.server_id_hash()
         except ExternalAdapterError as exc:
             return _provider_http_result(ProviderResponse(exc.disposition, exc.status_code))
-        response = self._provider_call(self._center.register_device, name=name, server_id_hash=server_id_hash)
-        if response.disposition is not ProviderDisposition.CONFIRMED:
-            return _provider_http_result(response)
-        payload = dict(response.payload) if isinstance(response.payload, Mapping) else {}
-        configuration_saved = False
-        saved: dict[str, Any] | None = None
-        if self._configuration is not None:
-            try:
-                saved = self._configuration.enable()
-                configuration_saved = True
-            except Exception:
-                # The provider mutation is already confirmed. Do not turn a
-                # local projection failure into a retryable registration.
-                pass
-        return SharingHttpResult(
-            {
-                "success": True,
-                "message": (
-                    "共享资源中心已按 ServerID 重新连接，监听已刷新"
-                    if configuration_saved
-                    else "共享资源中心已连接，但本地启用状态保存失败，请重新保存配置"
-                ),
-                "data": saved,
-                "device": payload,
-                "configuration_saved": configuration_saved,
-            }
+        return self._stage_provider_operation(
+            kind=SharingOperationKind.REGISTER_DEVICE,
+            scope_key=f"device-registration:{server_id_hash}",
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            request={
+                "provider": "shared_center",
+                "action": "register_device",
+                "payload": {
+                    "name": str(name or "ETK Device").strip() or "ETK Device",
+                    "server_id_hash": server_id_hash,
+                },
+                "readback": {
+                    "provider": "shared_center",
+                    "action": "device_status",
+                    "query": {},
+                    "match_key": "device.server_id_hash",
+                    "match_value": server_id_hash,
+                },
+                "local_continuation": {"type": "enable_shared_resource"},
+            },
+            accepted_message="共享资源中心连接任务已提交，等待后台确认",
         )
 
     def device_status(self) -> SharingHttpResult:
@@ -379,26 +395,103 @@ class SharingService(SharingLedgerService):
         source_kind: str,
         payload: Mapping[str, Any],
         *,
+        principal_id: str,
         idempotency_key: str | None = None,
     ) -> SharingHttpResult:
-        del idempotency_key
         normalized_kind = str(source_kind or "").strip().lower()
         normalized_payload = normalize_durable_json_object(dict(payload), field="sharing source payload")
-        response = self._provider_call(self._center.register_source, normalized_kind, normalized_payload)
-        return _provider_http_result(response, accepted_status=201)
-
-    def acquire_transfer_lease(self, payload: Mapping[str, Any]) -> SharingHttpResult:
-        response = self._provider_call(
-            self._center.acquire_transfer_lease,
-            normalize_durable_json_object(dict(payload), field="sharing transfer lease"),
+        return self._stage_provider_operation(
+            kind=SharingOperationKind.REGISTER_SOURCE,
+            scope_key=_identity_scope(
+                f"source-registration:{normalized_kind}",
+                normalized_payload,
+                ("source_id", "root_fid", "pick_code", "sha1", "tmdb_id", "season_number"),
+            ),
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            request={
+                "provider": "shared_center",
+                "action": "register_source",
+                "payload": {"source_kind": normalized_kind, "body": normalized_payload},
+            },
+            accepted_message="共享资源登记任务已提交，等待后台确认",
         )
-        return _provider_http_result(response, accepted_status=202)
 
-    def report_transfer(self, payload: Mapping[str, Any]) -> SharingHttpResult:
-        response = self._provider_call(
-            self._center.report_transfer, normalize_durable_json_object(dict(payload), field="sharing transfer report")
+    def acquire_transfer_lease(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        normalized = normalize_durable_json_object(dict(payload), field="sharing transfer lease")
+        scope_key = _identity_scope(
+            "transfer-lease",
+            normalized,
+            ("lease_id", "transfer_id", "source_id", "root_fid"),
         )
-        return _provider_http_result(response)
+        occurrence = _operation_occurrence(
+            idempotency_key,
+            kind=SharingOperationKind.TRANSFER,
+            principal_id=_required(principal_id, "principal_id"),
+            scope_key=scope_key,
+            request={"provider": "shared_center", "action": "acquire_transfer_lease", "payload": normalized},
+        )
+        amount = _positive_optional_int(normalized.get("amount") or normalized.get("cost"))
+        source_id = str(normalized.get("source_id") or "").strip()
+        if amount is not None and source_id:
+            try:
+                reserved = self.reserve_transfer(
+                    account_id=str(normalized.get("account_id") or principal_id),
+                    source_id=source_id,
+                    amount=amount,
+                    principal_id=principal_id,
+                    idempotency_key=occurrence,
+                    request=normalized,
+                )
+            except (SharingOperationConflictError, SharingOperationScopeBusyError):
+                return SharingHttpResult(
+                    {"success": False, "status": "conflict", "message": "同一转存租约仍在处理中"},
+                    409,
+                )
+            return SharingHttpResult(
+                {
+                    **dict(reserved.payload),
+                    "message": "转存租约任务已提交，等待后台确认",
+                    "idempotency_key": occurrence,
+                },
+                reserved.status_code,
+                reserved.headers,
+            )
+        return self._stage_provider_operation(
+            kind=SharingOperationKind.TRANSFER,
+            scope_key=scope_key,
+            principal_id=principal_id,
+            idempotency_key=occurrence,
+            request={"provider": "shared_center", "action": "acquire_transfer_lease", "payload": normalized},
+            accepted_message="转存租约任务已提交，等待后台确认",
+        )
+
+    def report_transfer(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        normalized = normalize_durable_json_object(dict(payload), field="sharing transfer report")
+        return self._stage_provider_operation(
+            kind=SharingOperationKind.TRANSFER,
+            scope_key=_identity_scope(
+                "transfer-report",
+                normalized,
+                ("report_id", "transfer_id", "lease_id", "source_id"),
+            ),
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            request={"provider": "shared_center", "action": "report_transfer", "payload": normalized},
+            accepted_message="转存结果上报任务已提交，等待后台确认",
+        )
 
     def quote_share_request(self, payload: Mapping[str, Any]) -> SharingHttpResult:
         response = self._provider_call(
@@ -411,11 +504,100 @@ class SharingService(SharingLedgerService):
         response = self._provider_call(self._center.list_share_requests, **query)
         return _provider_http_result(response)
 
-    def create_share_request(self, payload: Mapping[str, Any]) -> SharingHttpResult:
-        response = self._provider_call(
-            self._center.create_share_request, normalize_durable_json_object(dict(payload), field="sharing request")
+    def create_share_request(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        principal_id: str,
+        idempotency_key: str | None,
+    ) -> SharingHttpResult:
+        normalized = normalize_durable_json_object(dict(payload), field="sharing request")
+        return self._stage_provider_operation(
+            kind=SharingOperationKind.SHARE_REQUEST,
+            scope_key=_identity_scope(
+                "share-request",
+                normalized,
+                (
+                    "group_id",
+                    "request_id",
+                    "tmdb_id",
+                    "media_type",
+                    "target_type",
+                    "season_number",
+                    "episode_number",
+                    "episode_numbers",
+                ),
+            ),
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            request={"provider": "shared_center", "action": "create_share_request", "payload": normalized},
+            accepted_message="求共享任务已提交，等待后台确认",
         )
-        return _provider_http_result(response, accepted_status=202)
+
+    def _stage_provider_operation(
+        self,
+        *,
+        kind: SharingOperationKind,
+        scope_key: str,
+        principal_id: str,
+        idempotency_key: str | None,
+        request: Mapping[str, Any],
+        accepted_message: str,
+    ) -> SharingHttpResult:
+        if self._operations is None:
+            return SharingHttpResult({"success": False, "message": "共享操作运行时不可用"}, 503)
+        normalized_principal = _required(principal_id, "principal_id")
+        occurrence = _operation_occurrence(
+            idempotency_key,
+            kind=kind,
+            principal_id=normalized_principal,
+            scope_key=scope_key,
+            request=request,
+        )
+        intent = SharingOperationIntent.create(
+            kind=kind,
+            scope_key=scope_key,
+            principal_id=normalized_principal,
+            request=request,
+            idempotency_key=occurrence,
+        )
+        try:
+            reserve_with_replay = getattr(self._operations, "reserve_with_replay", None)
+            if callable(reserve_with_replay):
+                operation, replayed = cast(
+                    Callable[[SharingOperationIntent], tuple[Any, bool]],
+                    reserve_with_replay,
+                )(intent)
+            else:
+                operation = self._operations.reserve(intent)
+                replayed = operation.status is not SharingOperationStatus.READY or operation.attempts > 0
+        except (SharingOperationConflictError, SharingOperationScopeBusyError):
+            return SharingHttpResult(
+                {"success": False, "status": "conflict", "message": "同一共享操作仍在处理中"},
+                409,
+            )
+        status = operation.status
+        payload: dict[str, Any] = {
+            "success": status not in {SharingOperationStatus.REJECTED, SharingOperationStatus.INDETERMINATE},
+            "accepted": not status.terminal,
+            "message": accepted_message,
+            "operation_id": str(operation.id),
+            "status": status.value,
+            "idempotency_key": occurrence,
+            "replayed": replayed,
+        }
+        if status is SharingOperationStatus.CONFIRMED:
+            payload["message"] = "共享操作已确认"
+            payload["result"] = dict(operation.result or {})
+            return SharingHttpResult(payload)
+        if status is SharingOperationStatus.REJECTED:
+            payload["message"] = "共享中心拒绝了操作"
+            payload["error"] = dict(operation.error or {})
+            return SharingHttpResult(payload, 409)
+        if status is SharingOperationStatus.INDETERMINATE:
+            payload["message"] = "共享操作结果不确定，请人工核对后再处理"
+            payload["error"] = dict(operation.error or {})
+        return SharingHttpResult(payload, 202)
 
     def operation_status(self, operation_id: str) -> SharingHttpResult:
         try:
@@ -811,6 +993,55 @@ def _account(value: object) -> str:
     if not normalized:
         raise ValueError("account_id must not be empty")
     return normalized
+
+
+def _scope_digest(value: Mapping[str, Any]) -> str:
+    normalized = normalize_durable_json_object(dict(value), field="sharing operation scope")
+    return hashlib.sha256(canonical_json(normalized, field="sharing operation scope").encode("utf-8")).hexdigest()
+
+
+def _identity_scope(prefix: str, value: Mapping[str, Any], fields: tuple[str, ...]) -> str:
+    identity = {field: value[field] for field in fields if field in value and value[field] not in (None, "", [], {})}
+    return f"{prefix}:{_scope_digest(identity or value)}"
+
+
+def _operation_occurrence(
+    value: str | None,
+    *,
+    kind: SharingOperationKind,
+    principal_id: str,
+    scope_key: str,
+    request: Mapping[str, Any],
+) -> str:
+    supplied = str(value or "").strip()
+    if supplied:
+        if len(supplied) > 256:
+            raise ValueError("sharing operation idempotency key is too long")
+        return supplied
+    normalized = normalize_durable_json_object(dict(request), field="sharing operation occurrence")
+    material = "\0".join(
+        (
+            kind.value,
+            principal_id,
+            scope_key,
+            canonical_json(normalized, field="sharing operation occurrence"),
+        )
+    )
+    return f"auto:{hashlib.sha256(material.encode('utf-8')).hexdigest()}"
+
+
+def _positive_optional_int(value: object) -> int | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        raise ValueError("sharing transfer amount must be a positive integer")
+    try:
+        result = int(str(value).strip())
+    except (TypeError, ValueError) as exc:
+        raise ValueError("sharing transfer amount must be a positive integer") from exc
+    if result < 1:
+        raise ValueError("sharing transfer amount must be a positive integer")
+    return result
 
 
 def _required(value: object, field: str) -> str:

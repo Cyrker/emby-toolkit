@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -21,8 +22,10 @@ from etk.domains.sharing import (
     SharingServerIdentity,
 )
 from etk.domains.sharing.operations import (
+    SharingOperationConflictError,
     SharingOperationIntent,
     SharingOperationKind,
+    SharingOperationScopeBusyError,
     SharingOperationStateError,
 )
 from etk.domains.sharing.repository import PostgresSharingOperationRepository
@@ -204,6 +207,13 @@ def test_postgres_transfer_operation_ledger_and_outbox_share_one_uow(p9_runtime)
             "source_id": "source-transfer",
             "amount": 3,
         },
+        "ledger_compensation": {
+            "type": "release_transfer_escrow",
+            "account_id": "device-transfer",
+            "amount": 3,
+            "debit_idempotency_key": "transfer:transfer-uow",
+            "reference": "source-transfer",
+        },
     }
     with p9_runtime.engine.connect() as connection:
         outbox = connection.execute(
@@ -211,6 +221,351 @@ def test_postgres_transfer_operation_ledger_and_outbox_share_one_uow(p9_runtime)
             {"operation_id": str(operation_id)},
         ).scalar_one()
     assert outbox == "pending"
+
+
+def test_postgres_sharing_device_kind_is_on_the_single_migration_head(p9_runtime) -> None:
+    with p9_runtime.engine.connect() as connection:
+        head = connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version"))
+        constraint = connection.scalar(
+            text(
+                """
+                SELECT pg_get_constraintdef(oid)
+                FROM pg_constraint
+                WHERE conname = 'ck_sharing_operation_kind'
+                """
+            )
+        )
+
+    assert head == "0023_p11_sharing_device_kind"
+    assert "register_device" in str(constraint)
+
+
+def test_postgres_sharing_operation_replay_and_identity_scope_conflicts(p9_runtime) -> None:
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    intent = SharingOperationIntent.create(
+        kind=SharingOperationKind.REGISTER_SOURCE,
+        scope_key="source-registration:fixture-root",
+        principal_id="principal-source",
+        request={"provider": "shared_center", "action": "register_source", "payload": {"root_fid": "root-1"}},
+        idempotency_key="source-registration-1",
+    )
+
+    operation, replayed = repository.reserve_with_replay(intent)
+    replay, replayed_again = repository.reserve_with_replay(intent)
+
+    assert replay == operation
+    assert replayed is False
+    assert replayed_again is True
+    with pytest.raises(SharingOperationConflictError):
+        repository.reserve(
+            SharingOperationIntent.create(
+                kind=SharingOperationKind.REGISTER_SOURCE,
+                scope_key=intent.scope_key,
+                principal_id="principal-source",
+                request={
+                    "provider": "shared_center",
+                    "action": "register_source",
+                    "payload": {"root_fid": "root-1", "title": "changed"},
+                },
+                idempotency_key="source-registration-1",
+            )
+        )
+    with pytest.raises(SharingOperationScopeBusyError):
+        repository.reserve(
+            SharingOperationIntent.create(
+                kind=SharingOperationKind.REGISTER_SOURCE,
+                scope_key=intent.scope_key,
+                principal_id="principal-source",
+                request={
+                    "provider": "shared_center",
+                    "action": "register_source",
+                    "payload": {"root_fid": "root-1", "title": "changed"},
+                },
+                idempotency_key="source-registration-2",
+            )
+        )
+
+    with p9_runtime.engine.connect() as connection:
+        operation_count = connection.scalar(
+            text("SELECT COUNT(*) FROM sharing_operations WHERE scope_key = :scope_key"),
+            {"scope_key": intent.scope_key},
+        )
+        outbox_count = connection.scalar(
+            text("SELECT COUNT(*) FROM outbox_events WHERE aggregate_id = :operation_id"),
+            {"operation_id": str(operation.id)},
+        )
+    assert operation_count == 1
+    assert outbox_count == 1
+
+
+def test_postgres_confirmed_device_enables_config_in_terminal_uow(p9_runtime) -> None:
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    with p9_runtime.engine.connect() as connection:
+        previous = (
+            connection.execute(
+                text(
+                    """
+                SELECT value_json, last_updated_at
+                FROM app_settings
+                WHERE setting_key = 'shared_resource_config'
+                """
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+    try:
+        with p9_runtime.engine.begin() as connection:
+            connection.execute(text("DELETE FROM app_settings WHERE setting_key = 'shared_resource_config'"))
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO app_settings(setting_key, value_json)
+                    VALUES ('shared_resource_config', '{"p115_shared_resource_enabled": false, "keep": "value"}'::jsonb)
+                    """
+                )
+            )
+        operation = repository.reserve(
+            SharingOperationIntent.create(
+                kind=SharingOperationKind.REGISTER_DEVICE,
+                scope_key="device-registration:fixture-hash",
+                principal_id="principal-device",
+                request={
+                    "provider": "shared_center",
+                    "action": "register_device",
+                    "payload": {"name": "Fixture", "server_id_hash": "a" * 64},
+                    "local_continuation": {"type": "enable_shared_resource"},
+                },
+                idempotency_key="device-registration-1",
+            )
+        )
+        execution = SharingOperationExecutor(
+            repository,
+            _Delivery([SharingDeliveryOutcome.confirmed({"device_id": "device-1"})]),
+        ).execute(operation.id, worker_id="device-worker", lease_seconds=60)
+
+        assert execution is not None
+        assert execution.operation.status.value == "confirmed"
+        with p9_runtime.engine.connect() as connection:
+            config = connection.scalar(
+                text("SELECT value_json FROM app_settings WHERE setting_key = 'shared_resource_config'")
+            )
+            outbox = connection.execute(
+                text("SELECT status, processed_at FROM outbox_events WHERE aggregate_id = :operation_id"),
+                {"operation_id": str(operation.id)},
+            ).one()
+        assert config == {"p115_shared_resource_enabled": True, "keep": "value"}
+        assert outbox[0] == "processed"
+        assert outbox[1] is not None
+    finally:
+        with p9_runtime.engine.begin() as connection:
+            connection.execute(text("DELETE FROM app_settings WHERE setting_key = 'shared_resource_config'"))
+            if previous is not None:
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO app_settings(setting_key, value_json, last_updated_at)
+                        VALUES ('shared_resource_config', CAST(:value_json AS jsonb), :last_updated_at)
+                        """
+                    ),
+                    {
+                        "value_json": json.dumps(previous["value_json"], ensure_ascii=False),
+                        "last_updated_at": previous["last_updated_at"],
+                    },
+                )
+
+
+def test_postgres_unsupported_local_continuation_rolls_back_terminal_transition(p9_runtime) -> None:
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    operation = repository.reserve(
+        SharingOperationIntent.create(
+            kind=SharingOperationKind.REGISTER_DEVICE,
+            scope_key="device-registration:unsupported-continuation",
+            principal_id="principal-device",
+            request={
+                "provider": "shared_center",
+                "action": "register_device",
+                "payload": {"name": "Fixture", "server_id_hash": "b" * 64},
+                "local_continuation": {"type": "unsupported"},
+            },
+            idempotency_key="device-registration-unsupported",
+        )
+    )
+    claimed = repository.claim_by_id(operation.id, worker_id="device-worker", lease_seconds=60)
+    assert claimed is not None and claimed.claim_token is not None
+    requesting = repository.mark_requesting(operation.id, claimed.claim_token)
+
+    with pytest.raises(SharingOperationStateError, match="unsupported"):
+        repository.mark_confirmed(operation.id, claimed.claim_token, result={"device_id": "device-1"})
+
+    rolled_back = repository.read(operation.id)
+    assert rolled_back is not None
+    assert rolled_back.status.value == "requesting"
+    assert rolled_back.state_revision == requesting.state_revision
+    assert rolled_back.result is None
+
+
+def test_postgres_compensation_without_matching_debit_fails_closed(p9_runtime) -> None:
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    ledger = PostgresContributionLedger(p9_runtime.unit_of_work)
+    ledger.ensure_account("device-missing-debit", 0)
+    operation = repository.reserve(
+        SharingOperationIntent.create(
+            kind=SharingOperationKind.TRANSFER,
+            scope_key="transfer:missing-debit",
+            principal_id="principal-missing-debit",
+            request={
+                "provider": "shared_center",
+                "action": "acquire_transfer_lease",
+                "payload": {"source_id": "source-missing-debit"},
+                "ledger_compensation": {
+                    "type": "release_transfer_escrow",
+                    "account_id": "device-missing-debit",
+                    "amount": 2,
+                    "debit_idempotency_key": "transfer:missing-debit",
+                    "reference": "source-missing-debit",
+                },
+            },
+            idempotency_key="transfer-missing-debit",
+        )
+    )
+    claimed = repository.claim_by_id(operation.id, worker_id="transfer-worker", lease_seconds=60)
+    assert claimed is not None and claimed.claim_token is not None
+    requesting = repository.mark_requesting(operation.id, claimed.claim_token)
+
+    with pytest.raises(SharingOperationStateError, match="matching transfer escrow debit"):
+        repository.mark_rejected(operation.id, claimed.claim_token, error={"type": "provider_rejected"})
+
+    rolled_back = repository.read(operation.id)
+    assert rolled_back is not None
+    assert rolled_back.status.value == "requesting"
+    assert rolled_back.state_revision == requesting.state_revision
+    assert ledger.balance("device-missing-debit") == 0
+
+
+def test_postgres_rejected_transfer_compensates_once_but_indeterminate_retains_escrow(p9_runtime) -> None:
+    ledger = PostgresContributionLedger(p9_runtime.unit_of_work)
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingLedgerService(ledger, repository, unit_of_work=p9_runtime.unit_of_work)
+    ledger.ensure_account("device-compensation", 10)
+
+    rejected = service.reserve_transfer(
+        account_id="device-compensation",
+        source_id="source-rejected",
+        amount=3,
+        principal_id="principal-compensation",
+        idempotency_key="transfer-rejected",
+    )
+    rejected_id = UUID(rejected.payload["operation_id"])
+    rejected_execution = SharingOperationExecutor(
+        repository,
+        _Delivery([SharingDeliveryOutcome.rejected({"type": "provider_rejected"})]),
+    ).execute(rejected_id, worker_id="transfer-worker", lease_seconds=60)
+
+    assert rejected_execution is not None
+    assert rejected_execution.operation.status.value == "rejected"
+    assert ledger.balance("device-compensation") == 10
+    replay = SharingOperationExecutor(repository, _Delivery([])).execute(
+        rejected_id,
+        worker_id="replacement-worker",
+        lease_seconds=60,
+    )
+    assert replay is not None and replay.claimed is False
+    assert ledger.balance("device-compensation") == 10
+
+    indeterminate = service.reserve_transfer(
+        account_id="device-compensation",
+        source_id="source-indeterminate",
+        amount=4,
+        principal_id="principal-compensation",
+        idempotency_key="transfer-indeterminate",
+    )
+    indeterminate_id = UUID(indeterminate.payload["operation_id"])
+    indeterminate_execution = SharingOperationExecutor(
+        repository,
+        _Delivery([SharingDeliveryOutcome.indeterminate({"type": "transport_unknown"})], supports_readback=False),
+    ).execute(indeterminate_id, worker_id="transfer-worker-2", lease_seconds=60)
+
+    assert indeterminate_execution is not None
+    assert indeterminate_execution.operation.status.value == "indeterminate"
+    assert ledger.balance("device-compensation") == 6
+    entries = ledger.entries("device-compensation", limit=20)
+    assert [entry.delta for entry in entries] == [-4, 3, -3]
+
+
+def test_postgres_dead_prewrite_transfer_dispatch_compensates_exactly_once(p9_runtime) -> None:
+    ledger = PostgresContributionLedger(p9_runtime.unit_of_work)
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingLedgerService(ledger, repository, unit_of_work=p9_runtime.unit_of_work)
+    ledger.ensure_account("device-dead-dispatch", 5)
+    reserved = service.reserve_transfer(
+        account_id="device-dead-dispatch",
+        source_id="source-dead-dispatch",
+        amount=2,
+        principal_id="principal-dead-dispatch",
+        idempotency_key="transfer-dead-dispatch",
+    )
+    operation_id = UUID(reserved.payload["operation_id"])
+    with p9_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                UPDATE outbox_events
+                SET status = 'dead', last_error = 'publish_exhausted'
+                WHERE aggregate_id = :operation_id
+                """
+            ),
+            {"operation_id": str(operation_id)},
+        )
+
+    assert ledger.balance("device-dead-dispatch") == 3
+    assert repository.reject_dead_dispatches() == 1
+    assert repository.reject_dead_dispatches() == 0
+    assert ledger.balance("device-dead-dispatch") == 5
+    operation = repository.read(operation_id)
+    assert operation is not None
+    assert operation.status.value == "rejected"
+    assert [entry.delta for entry in ledger.entries("device-dead-dispatch", limit=10)] == [2, -2]
+
+
+def test_postgres_exhausted_prewrite_transfer_claim_compensates_escrow(p9_runtime) -> None:
+    ledger = PostgresContributionLedger(p9_runtime.unit_of_work)
+    repository = PostgresSharingOperationRepository(p9_runtime.unit_of_work)
+    service = SharingLedgerService(ledger, repository, unit_of_work=p9_runtime.unit_of_work)
+    ledger.ensure_account("device-expired-claim", 5)
+    reserved = service.reserve_transfer(
+        account_id="device-expired-claim",
+        source_id="source-expired-claim",
+        amount=2,
+        principal_id="principal-expired-claim",
+        idempotency_key="transfer-expired-claim",
+    )
+    operation_id = UUID(reserved.payload["operation_id"])
+    claim_time = datetime.now(UTC)
+    first = repository.claim_by_id(
+        operation_id,
+        worker_id="crashing-transfer-worker-1",
+        lease_seconds=1,
+        now=claim_time,
+    )
+    assert first is not None and first.lease_expires_at is not None
+    first_expiry = first.lease_expires_at + timedelta(seconds=1)
+    assert repository.expire_stale_claims(now=first_expiry, max_attempts=2) == 1
+    second = repository.claim_by_id(
+        operation_id,
+        worker_id="crashing-transfer-worker-2",
+        lease_seconds=1,
+        now=first_expiry,
+    )
+    assert second is not None and second.lease_expires_at is not None
+    second_expiry = second.lease_expires_at + timedelta(seconds=1)
+
+    assert repository.expire_stale_claims(now=second_expiry, max_attempts=2) == 1
+    assert ledger.balance("device-expired-claim") == 5
+    terminal = repository.read(operation_id)
+    assert terminal is not None
+    assert terminal.status.value == "rejected"
+    assert [entry.delta for entry in ledger.entries("device-expired-claim", limit=10)] == [2, -2]
 
 
 def test_postgres_transfer_reservation_rolls_back_when_ledger_rejects(p9_runtime) -> None:

@@ -586,6 +586,39 @@ const message = useMessage();
 const dialog = useDialog();
 const themeVars = useThemeVars();
 const centerTransferButtonColor = computed(() => themeVars.value.primaryColor || '#e91e63');
+const sharingOperationPollControllers = new Set<AbortController>();
+
+const waitForSharingOperation = async (response, pendingMessage) => {
+  const initial = response?.data || {};
+  const operationId = String(initial.operation_id || '').trim();
+  const initialStatus = String(initial.status || '').trim().toLowerCase();
+  if (!operationId || initialStatus === 'confirmed') return initial;
+  if (initialStatus === 'rejected' || initialStatus === 'indeterminate') {
+    throw new Error(initial.message || '共享操作未能确认');
+  }
+  message.info(initial.message || pendingMessage);
+  const controller = new AbortController();
+  sharingOperationPollControllers.add(controller);
+  try {
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 750));
+      const polled = await apiClient.get(
+        apiPath('api_shared_resources_operations_param_status_4f7d0b42', [operationId]),
+        { signal: controller.signal },
+      );
+      const operation = polled.data?.operation || {};
+      const status = String(operation.status || '').trim().toLowerCase();
+      if (status === 'confirmed') return operation;
+      if (status === 'rejected' || status === 'indeterminate') {
+        const detail = operation.error?.message || operation.error?.type || '共享操作未能确认';
+        throw new Error(detail);
+      }
+    }
+    throw new Error('共享操作仍在后台处理中，请稍后刷新状态');
+  } finally {
+    sharingOperationPollControllers.delete(controller);
+  }
+};
 
 const isMobile = ref(false);
 const checkMobile = () => { isMobile.value = window.innerWidth <= 768; };
@@ -604,6 +637,9 @@ const refreshingCredit = ref(false);
 const registeringDevice = ref(false);
 const shareAllLoading = ref(false);
 const manualCreating = ref(false);
+const centerDeviceOperationKey = ref('');
+const manualShareOperationKey = ref('');
+const shareRequestOperationKey = ref('');
 const showSharedConfigModal = ref(false);
 const sharedConfigLoading = ref(false);
 const sharedConfigSaving = ref(false);
@@ -3867,6 +3903,7 @@ const scheduleShareRequestQuote = () => {
 };
 
 const resetShareRequestForm = () => {
+  shareRequestOperationKey.value = '';
   selectedShareRequestMedia.value = null;
   shareRequestSearchItems.value = [];
   shareRequestSearchKeyword.value = '';
@@ -3906,6 +3943,7 @@ const searchShareRequestTmdb = async () => {
 };
 
 const chooseShareRequestMedia = async (row) => {
+  shareRequestOperationKey.value = '';
   selectedShareRequestMedia.value = row;
   const mediaType = row.media_type === 'movie' ? 'movie' : 'tv';
   Object.assign(shareRequestForm, {
@@ -3952,13 +3990,20 @@ const submitShareRequest = async () => {
   shareRequestSubmitting.value = true;
   try {
     const payload = buildShareRequestPayload();
-    const res = await apiClient.post(apiPath('api_shared_resources_share_requests_3abaa4b4'), payload);
+    shareRequestOperationKey.value ||= crypto.randomUUID();
+    const res = await apiClient.post(
+      apiPath('api_shared_resources_share_requests_3abaa4b4'),
+      payload,
+      { headers: { 'Idempotency-Key': shareRequestOperationKey.value } },
+    );
+    await waitForSharingOperation(res, '求共享任务已提交，正在等待中心确认');
+    shareRequestOperationKey.value = '';
     message.success(res.data?.message || '求共享已发布');
     showShareRequestModal.value = false;
     activeTab.value = 'requests';
     await Promise.allSettled([loadShareRequests(), loadSummary(), loadLedger()]);
   } catch (e) {
-    message.error(e.response?.data?.message || '发布求共享失败');
+    message.error(e.response?.data?.message || e.message || '发布求共享失败');
   } finally {
     shareRequestSubmitting.value = false;
   }
@@ -4080,11 +4125,18 @@ const setupCenterInfiniteObserver = () => {
 const registerCenterDevice = async () => {
   registeringDevice.value = true;
   try {
-    const res = await apiClient.post(apiPath('api_shared_resources_center_device_register_66b8d121'), {});
+    centerDeviceOperationKey.value ||= crypto.randomUUID();
+    const res = await apiClient.post(
+      apiPath('api_shared_resources_center_device_register_66b8d121'),
+      {},
+      { headers: { 'Idempotency-Key': centerDeviceOperationKey.value } },
+    );
+    await waitForSharingOperation(res, '中心连接任务已提交，正在等待确认');
+    centerDeviceOperationKey.value = '';
     message.success(res.data?.message || (centerDeviceId.value ? '共享资源中心已重新连接' : '共享资源中心已连接'));
     await Promise.allSettled([loadSharedConfig(), loadCenterDeviceStatus(), loadSummary(), loadLedger(), loadCenterSources()]);
   } catch (e) {
-    message.error(e.response?.data?.message || '注册/恢复中心设备失败');
+    message.error(e.response?.data?.message || e.message || '注册/恢复中心设备失败');
   } finally {
     registeringDevice.value = false;
   }
@@ -4108,6 +4160,7 @@ const refreshCredit = async () => {
 };
 
 const resetManualShareForm = () => {
+  manualShareOperationKey.value = '';
   manualShareValidationSeq += 1;
   manualShareValidation.value = null;
   manualShareValidationLoading.value = false;
@@ -4208,6 +4261,7 @@ const chooseMediaCandidate = (row) => {
   if (!row?.resolvable || !row.root_fid) {
     return message.warning(row?.message || '该媒体暂时无法自动定位 115 目录/FID');
   }
+  manualShareOperationKey.value = '';
   manualShareValidationSeq += 1;
   manualShareValidation.value = null;
   manualShareValidationLoading.value = false;
@@ -4270,7 +4324,14 @@ const manualCreateShare = async () => {
   manualCreating.value = true;
   try {
     const payload = buildManualSharePayload();
-    await apiClient.post(apiPath('api_shared_resources_shares_manual_create_6d51a8dd'), payload);
+    manualShareOperationKey.value ||= crypto.randomUUID();
+    const res = await apiClient.post(
+      apiPath('api_shared_resources_shares_manual_create_6d51a8dd'),
+      payload,
+      { headers: { 'Idempotency-Key': manualShareOperationKey.value } },
+    );
+    await waitForSharingOperation(res, '共享源登记任务已提交，正在等待中心确认');
+    manualShareOperationKey.value = '';
     message.success('资源索引已登记中心');
     showManualShareModal.value = false;
     activeLocalShareRequest.value = null;
@@ -4278,7 +4339,7 @@ const manualCreateShare = async () => {
     activeTab.value = 'shares';
     await Promise.allSettled([loadShares(), loadCenterSources(), loadSummary(), loadLedger()]);
   } catch (e) {
-    message.error(e.response?.data?.message || '登记资源失败');
+    message.error(e.response?.data?.message || e.message || '登记资源失败');
   } finally { manualCreating.value = false; }
 };
 
@@ -4401,6 +4462,8 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile);
   disconnectCenterInfiniteObserver();
+  sharingOperationPollControllers.forEach((controller) => controller.abort());
+  sharingOperationPollControllers.clear();
 });
 </script>
 

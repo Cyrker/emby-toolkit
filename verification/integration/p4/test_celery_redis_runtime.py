@@ -360,6 +360,17 @@ def _start_sharing_operation_stub() -> tuple[
                 )
             if path == "/api/v1/transfers/lease":
                 payload = {"ok": True, "lease_id": "fixture-lease"}
+            elif path == "/api/v1/devices/register":
+                payload = {"ok": True, "device_id": "fixture-device"}
+            elif path == "/api/v1/transfers/report":
+                payload = {"detail": "fixture unknown write"}
+                encoded = json.dumps(payload, separators=(",", ":")).encode()
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+                return
             elif path == "/api/hdhive/checkin":
                 payload = {"success": True, "id": "fixture-checkin"}
             elif path == "/botfixture-bot-token/sendMessage":
@@ -5087,6 +5098,35 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
             idempotency_key=f"lease-{fixture}",
         )
         operation_ids.append(UUID(str(reserved.payload["operation_id"])))
+        device_operation = operations.reserve(
+            SharingOperationIntent.create(
+                kind=SharingOperationKind.REGISTER_DEVICE,
+                scope_key=f"device-registration:{fixture}",
+                principal_id=f"principal-{fixture}",
+                request={
+                    "provider": "shared_center",
+                    "action": "register_device",
+                    "payload": {"name": "Fixture Device", "server_id_hash": "a" * 64},
+                    "local_continuation": {"type": "enable_shared_resource"},
+                },
+                idempotency_key=f"device-{fixture}",
+            )
+        )
+        operation_ids.append(device_operation.id)
+        unknown_report = operations.reserve(
+            SharingOperationIntent.create(
+                kind=SharingOperationKind.TRANSFER,
+                scope_key=f"transfer-report:{fixture}",
+                principal_id=f"principal-{fixture}",
+                request={
+                    "provider": "shared_center",
+                    "action": "report_transfer",
+                    "payload": {"transfer_id": f"transfer-{fixture}", "result": "ok"},
+                },
+                idempotency_key=f"report-{fixture}",
+            )
+        )
+        operation_ids.append(unknown_report.id)
         for kind, scope, request in (
             (
                 SharingOperationKind.HDHIVE_CHECKIN,
@@ -5147,7 +5187,7 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
             timeout=30,
         )
 
-        def operations_confirmed() -> bool:
+        def operations_terminal() -> bool:
             with p4_runtime.engine.connect() as connection:
                 rows = connection.execute(
                     text(
@@ -5159,9 +5199,14 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
                     ),
                     {"ids": operation_ids},
                 ).all()
-            return len(rows) == len(operation_ids) and all(status == "confirmed" for _, status in rows)
+            status_by_id = {operation_id: status for operation_id, status in rows}
+            return len(rows) == len(operation_ids) and all(
+                status_by_id.get(operation_id)
+                == ("indeterminate" if operation_id == unknown_report.id else "confirmed")
+                for operation_id in operation_ids
+            )
 
-        _wait_until(operations_confirmed, description="sharing operation confirmations", timeout=45)
+        _wait_until(operations_terminal, description="sharing operation terminal states", timeout=45)
         for operation_id in operation_ids:
             _send_sharing_operation(worker_environment.config, operation_id, count=2)
         time.sleep(1)
@@ -5179,6 +5224,8 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
         assert sorted(request["path"] for request in stub.requests) == sorted(
             [
                 "/api/v1/transfers/lease",
+                "/api/v1/devices/register",
+                "/api/v1/transfers/report",
                 "/api/hdhive/checkin",
                 "/botfixture-bot-token/sendMessage",
             ]
@@ -5201,8 +5248,20 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
                 ),
                 {"ids": operation_ids},
             ).all()
-        assert rows == [(operation_id, "confirmed", "processed") for operation_id in operation_ids]
+        assert rows == [
+            (
+                operation_id,
+                "indeterminate" if operation_id == unknown_report.id else "confirmed",
+                "processed",
+            )
+            for operation_id in operation_ids
+        ]
         assert ledger.balance(account_id) == 4
+        with p4_runtime.engine.connect() as connection:
+            shared_config = connection.scalar(
+                text("SELECT value_json FROM app_settings WHERE setting_key = 'shared_resource_config'")
+            )
+        assert shared_config["p115_shared_resource_enabled"] is True
     finally:
         if coordinator is not None:
             assert coordinator.stop() == 128 + signal.SIGTERM

@@ -12,6 +12,7 @@ from sqlalchemy import text
 from etk.platform.db import SqlAlchemyUnitOfWork
 from etk.platform.jobs.json_payload import canonical_json, normalize_durable_json_object
 
+from .ledger import apply_contribution_in_uow, normalize_contribution_idempotency_key
 from .operations import (
     SHARING_OPERATION_AGGREGATE_TYPE,
     SHARING_OPERATION_TOPIC,
@@ -44,11 +45,25 @@ class PostgresSharingOperationRepository:
 
     def reserve(self, intent: SharingOperationIntent) -> SharingOperation:
         with self._unit_of_work() as uow:
-            operation = self.reserve_in_uow(uow, intent)
+            operation, _replayed = self._reserve_in_uow(uow, intent)
             uow.commit()
             return operation
 
+    def reserve_with_replay(self, intent: SharingOperationIntent) -> tuple[SharingOperation, bool]:
+        with self._unit_of_work() as uow:
+            operation, replayed = self._reserve_in_uow(uow, intent)
+            uow.commit()
+            return operation, replayed
+
     def reserve_in_uow(self, uow: SqlAlchemyUnitOfWork, intent: SharingOperationIntent) -> SharingOperation:
+        operation, _replayed = self._reserve_in_uow(uow, intent)
+        return operation
+
+    def _reserve_in_uow(
+        self,
+        uow: SqlAlchemyUnitOfWork,
+        intent: SharingOperationIntent,
+    ) -> tuple[SharingOperation, bool]:
         request = normalize_durable_json_object(dict(intent.request), field="sharing operation request")
         request_hash = bytes.fromhex(_sha256_json(request))
         if request_hash != bytes(intent.request_hash):
@@ -69,7 +84,7 @@ class PostgresSharingOperationRepository:
                 or current.scope_key != intent.scope_key
             ):
                 raise SharingOperationConflictError("sharing operation identity changed for idempotency key")
-            return current
+            return current, True
         active = (
             uow.session.execute(
                 text(
@@ -117,7 +132,7 @@ class PostgresSharingOperationRepository:
         )
         operation = _operation(row)
         self._stage_outbox(uow, operation)
-        return operation
+        return operation, False
 
     def read(self, operation_id: UUID) -> SharingOperation | None:
         with self._unit_of_work() as uow:
@@ -397,6 +412,7 @@ class PostgresSharingOperationRepository:
                 if operation.status is SharingOperationStatus.RETRYABLE:
                     self._stage_outbox(uow, operation)
                 else:
+                    _apply_rejected_local_compensation(uow, operation)
                     self._complete_outbox(uow, operation.id)
             count = len(rows)
             uow.commit()
@@ -479,9 +495,10 @@ class PostgresSharingOperationRepository:
     def reject_dead_dispatches(self, *, limit: int = 100) -> int:
         bounded = max(1, min(int(limit), 1000))
         with self._unit_of_work() as uow:
-            result = uow.session.execute(
-                text(
-                    """
+            rows = (
+                uow.session.execute(
+                    text(
+                        """
                         WITH dead AS (
                             SELECT operation.id, operation.status
                             FROM sharing_operations AS operation
@@ -512,17 +529,24 @@ class PostgresSharingOperationRepository:
                             updated_at = NOW()
                         FROM dead
                         WHERE operation.id = dead.id
+                        RETURNING operation.*
                         """
-                ),
-                {
-                    "topic": SHARING_OPERATION_TOPIC,
-                    "aggregate_type": SHARING_OPERATION_AGGREGATE_TYPE,
-                    "limit": bounded,
-                },
+                    ),
+                    {
+                        "topic": SHARING_OPERATION_TOPIC,
+                        "aggregate_type": SHARING_OPERATION_AGGREGATE_TYPE,
+                        "limit": bounded,
+                    },
+                )
+                .mappings()
+                .all()
             )
-            count = int(getattr(result, "rowcount", 0) or 0)
+            for row in rows:
+                operation = _operation(row)
+                if operation.status is SharingOperationStatus.REJECTED:
+                    _apply_rejected_local_compensation(uow, operation)
             uow.commit()
-            return count
+            return len(rows)
 
     def _claimed_update(
         self,
@@ -582,6 +606,10 @@ class PostgresSharingOperationRepository:
             }:
                 self._stage_outbox(uow, operation)
             if complete:
+                if operation.status is SharingOperationStatus.CONFIRMED:
+                    _apply_confirmed_local_continuation(uow, current_operation)
+                elif operation.status is SharingOperationStatus.REJECTED:
+                    _apply_rejected_local_compensation(uow, current_operation)
                 self._complete_outbox(uow, operation.id)
             uow.commit()
             return operation
@@ -644,6 +672,112 @@ class PostgresSharingOperationRepository:
                 "aggregate_id": str(operation_id),
             },
         )
+
+
+def _apply_confirmed_local_continuation(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SharingOperation,
+) -> None:
+    continuation = operation.request.get("local_continuation")
+    if continuation is None:
+        return
+    if not isinstance(continuation, Mapping):
+        raise SharingOperationStateError("sharing local continuation must be an object")
+    continuation_type = str(continuation.get("type") or "").strip()
+    if continuation_type != "enable_shared_resource":
+        raise SharingOperationStateError(f"sharing local continuation type {continuation_type!r} is unsupported")
+    uow.session.execute(
+        text(
+            """
+            INSERT INTO app_settings(setting_key, value_json, last_updated_at)
+            VALUES ('shared_resource_config', '{}'::jsonb, NOW())
+            ON CONFLICT (setting_key) DO NOTHING
+            """
+        )
+    )
+    current = uow.session.scalar(
+        text(
+            """
+            SELECT value_json
+            FROM app_settings
+            WHERE setting_key = 'shared_resource_config'
+            FOR UPDATE
+            """
+        )
+    )
+    payload = dict(current) if isinstance(current, Mapping) else {}
+    payload["p115_shared_resource_enabled"] = True
+    uow.session.execute(
+        text(
+            """
+            UPDATE app_settings
+            SET value_json = CAST(:value_json AS jsonb), last_updated_at = NOW()
+            WHERE setting_key = 'shared_resource_config'
+            """
+        ),
+        {"value_json": json.dumps(payload, ensure_ascii=False)},
+    )
+
+
+def _apply_rejected_local_compensation(
+    uow: SqlAlchemyUnitOfWork,
+    operation: SharingOperation,
+) -> None:
+    compensation = operation.request.get("ledger_compensation")
+    if compensation is None:
+        return
+    if not isinstance(compensation, Mapping):
+        raise SharingOperationStateError("sharing ledger compensation must be an object")
+    if str(compensation.get("type") or "").strip() != "release_transfer_escrow":
+        raise SharingOperationStateError("sharing ledger compensation type is unsupported")
+    account_id = _required(compensation.get("account_id"), "ledger compensation account_id")
+    debit_key = _required(compensation.get("debit_idempotency_key"), "ledger compensation debit key")
+    reference = _required(compensation.get("reference"), "ledger compensation reference")
+    amount = compensation.get("amount")
+    if isinstance(amount, bool):
+        raise SharingOperationStateError("sharing ledger compensation amount is invalid")
+    try:
+        normalized_amount = int(str(amount).strip())
+    except (TypeError, ValueError) as exc:
+        raise SharingOperationStateError("sharing ledger compensation amount is invalid") from exc
+    if normalized_amount < 1:
+        raise SharingOperationStateError("sharing ledger compensation amount is invalid")
+    debit = (
+        uow.session.execute(
+            text(
+                """
+                SELECT delta, reason, reference, operation_id
+                FROM sharing_credit_ledger
+                WHERE account_id = :account_id AND idempotency_key = :idempotency_key
+                FOR UPDATE
+                """
+            ),
+            {
+                "account_id": account_id,
+                "idempotency_key": normalize_contribution_idempotency_key(debit_key),
+            },
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if (
+        debit is None
+        or int(debit["delta"]) != -normalized_amount
+        or str(debit["reason"]) != "transfer_escrow"
+        or str(debit["reference"] or "") != reference
+        or str(debit["operation_id"] or "") != str(operation.id)
+    ):
+        raise SharingOperationStateError("sharing ledger compensation has no matching transfer escrow debit")
+    apply_contribution_in_uow(
+        uow,
+        account_id,
+        normalized_amount,
+        idempotency_key=f"compensation:{debit_key}",
+        reason="transfer_escrow_released",
+        reference=reference,
+        operation_id=operation.id,
+        metadata={"compensates": debit_key, "source_id": reference},
+    )
 
 
 def _operation(row: Mapping[Any, Any]) -> SharingOperation:

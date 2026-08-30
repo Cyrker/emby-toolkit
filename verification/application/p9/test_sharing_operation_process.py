@@ -18,6 +18,7 @@ from etk.domains.sharing.operations import (
     SHARING_OPERATION_TOPICS,
 )
 from etk.integrations import ProviderDisposition, ProviderResponse
+from etk.integrations.http_policy import ExternalAdapterError
 from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus, PublishBatchResult
 from etk.processes.celery_app import EXECUTE_SHARING_OPERATION_TASK, create_celery_app
 from etk.processes.coordinator import CoordinatorRuntime
@@ -86,12 +87,32 @@ class FakeSharedCenter:
         self.calls.append(("lease", payload))
         return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"lease_id": "lease-1"})
 
-    register_device = acquire_transfer_lease
-    register_source = acquire_transfer_lease
+    def validate_configuration(self) -> None:
+        return None
+
+    def register_device(self, *, name: str, server_id_hash: str) -> ProviderResponse[dict[str, Any]]:
+        self.calls.append(("register_device", {"name": name, "server_id_hash": server_id_hash}))
+        return ProviderResponse(
+            ProviderDisposition.CONFIRMED,
+            200,
+            {"device_id": "device-1", "token": "must-not-persist"},
+        )
+
+    def register_source(self, source_kind: str, payload: dict[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        self.calls.append(("register_source", {"source_kind": source_kind, "payload": payload}))
+        return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"source_id": "source-1"})
+
     report_transfer = acquire_transfer_lease
     share_sync_heartbeat = acquire_transfer_lease
     run_maintenance = acquire_transfer_lease
-    create_share_request = acquire_transfer_lease
+
+    def create_share_request(self, payload: dict[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        self.calls.append(("create_share_request", payload))
+        return ProviderResponse(
+            ProviderDisposition.CONFIRMED,
+            200,
+            {"group_id": "group-1", "token": "must-not-persist"},
+        )
 
     def list_sources(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
         self.calls.append(("readback", query))
@@ -104,7 +125,12 @@ class FakeSharedCenter:
     list_share_requests = list_sources
 
     def device_status(self) -> ProviderResponse[dict[str, Any]]:
-        return self.list_sources()
+        self.calls.append(("device_status", {}))
+        return ProviderResponse(
+            ProviderDisposition.CONFIRMED,
+            200,
+            {"device": {"id": "device-1", "server_id_hash": "a" * 64}},
+        )
 
 
 class FakeHDHive:
@@ -374,6 +400,125 @@ def test_sharing_delivery_rejects_invalid_payload_before_provider_checkpoint() -
 
     assert checkpoints == []
     assert outcome.disposition is SharingDeliveryDisposition.REJECTED
+
+
+def test_sharing_delivery_rejects_shared_center_configuration_before_checkpoint() -> None:
+    class MisconfiguredCenter(FakeSharedCenter):
+        def validate_configuration(self) -> None:
+            raise ExternalAdapterError(
+                "fixture Shared Center URL is unavailable",
+                disposition=ProviderDisposition.REJECTED,
+                system="shared_center",
+                operation="configuration",
+            )
+
+    center = MisconfiguredCenter()
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, center),
+        hdhive=cast(Any, FakeHDHive()),
+    )
+    checkpoints: list[bool] = []
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "provider": "shared_center",
+                "action": "report_transfer",
+                "payload": {"transfer_id": "transfer-1", "result": "ok"},
+            }
+        ),
+    )
+
+    outcome = delivery.request(operation, checkpoint=lambda: checkpoints.append(True))
+
+    assert outcome.disposition is SharingDeliveryDisposition.REJECTED
+    assert checkpoints == []
+    assert center.calls == []
+
+
+def test_sharing_delivery_matches_nested_device_identity_and_keeps_safe_receipt() -> None:
+    center = FakeSharedCenter()
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, center),
+        hdhive=cast(Any, FakeHDHive()),
+    )
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "provider": "shared_center",
+                "action": "register_device",
+                "payload": {"name": "Fixture Device", "server_id_hash": "a" * 64},
+                "readback": {
+                    "provider": "shared_center",
+                    "action": "device_status",
+                    "query": {},
+                    "match_key": "device.server_id_hash",
+                    "match_value": "a" * 64,
+                },
+            }
+        ),
+    )
+
+    requested = delivery.request(operation, checkpoint=lambda: None)
+    readback = delivery.readback(operation)
+
+    assert requested.disposition is SharingDeliveryDisposition.CONFIRMED
+    assert requested.result is not None
+    assert requested.result["provider_result"] == {"device_id": "device-1"}
+    assert "must-not-persist" not in repr(requested.result)
+    assert delivery.supports_authoritative_readback(operation) is True
+    assert readback.disposition is SharingDeliveryDisposition.CONFIRMED
+
+
+def test_sharing_delivery_does_not_confirm_wrong_nested_device_identity() -> None:
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, FakeSharedCenter()),
+        hdhive=cast(Any, FakeHDHive()),
+    )
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "provider": "shared_center",
+                "action": "register_device",
+                "payload": {"name": "Fixture Device", "server_id_hash": "b" * 64},
+                "readback": {
+                    "provider": "shared_center",
+                    "action": "device_status",
+                    "query": {},
+                    "match_key": "device.server_id_hash",
+                    "match_value": "b" * 64,
+                },
+            }
+        ),
+    )
+
+    assert delivery.readback(operation).disposition is SharingDeliveryDisposition.RETRYABLE
+
+
+def test_sharing_delivery_keeps_share_request_group_id_without_secret_fields() -> None:
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, FakeSharedCenter()),
+        hdhive=cast(Any, FakeHDHive()),
+    )
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "provider": "shared_center",
+                "action": "create_share_request",
+                "payload": {"tmdb_id": "101"},
+            }
+        ),
+    )
+
+    outcome = delivery.request(operation, checkpoint=lambda: None)
+
+    assert outcome.disposition is SharingDeliveryDisposition.CONFIRMED
+    assert outcome.result is not None
+    assert outcome.result["provider_result"] == {"group_id": "group-1"}
+    assert "must-not-persist" not in repr(outcome.result)
 
 
 def test_sharing_delivery_authoritative_readback_requires_expected_identity() -> None:

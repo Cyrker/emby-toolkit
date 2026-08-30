@@ -366,7 +366,32 @@ class PostgresContributionLedger:
                 .mappings()
                 .all()
             )
-        return tuple(_entry(row) for row in rows)
+            return tuple(_entry(row) for row in rows)
+
+
+def apply_contribution_in_uow(
+    uow: SqlAlchemyUnitOfWork,
+    account_id: str,
+    delta: int,
+    *,
+    idempotency_key: str,
+    reason: str,
+    reference: str | None = None,
+    operation_id: UUID | None = None,
+    metadata: Mapping[str, Any] | None = None,
+) -> ContributionLedgerEntry:
+    if isinstance(delta, bool) or not isinstance(delta, int) or delta == 0:
+        raise ValueError("contribution delta must be a non-zero integer")
+    return PostgresContributionLedger._apply_in_uow(
+        uow,
+        account_id,
+        delta,
+        idempotency_key=idempotency_key,
+        reason=reason,
+        reference=reference,
+        operation_id=operation_id,
+        metadata=metadata,
+    )
 
 
 def _entry(row: Mapping[Any, Any]) -> ContributionLedgerEntry:
@@ -413,11 +438,15 @@ def _account_id(value: object) -> str:
     return normalized
 
 
-def _key(value: object) -> str:
+def normalize_contribution_idempotency_key(value: object) -> str:
     normalized = str(value or "").strip()
     if not normalized:
         raise ValueError("ledger idempotency_key must not be empty")
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _key(value: object) -> str:
+    return normalize_contribution_idempotency_key(value)
 
 
 def _reason(value: object) -> str:
@@ -458,4 +487,6 @@ __all__ = [
     "InsufficientContributionError",
     "LedgerIdempotencyConflictError",
     "PostgresContributionLedger",
+    "apply_contribution_in_uow",
+    "normalize_contribution_idempotency_key",
 ]

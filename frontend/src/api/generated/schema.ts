@@ -17435,12 +17435,16 @@ export interface operations {
                     };
                 };
             };
-            /** @description registration outcome indeterminate */
+            /** @description registration queued */
             202: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description invalid request */
             400: {
@@ -17455,6 +17459,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description operation conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description JSON required */
             415: {
@@ -17966,7 +17981,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description invalid request */
             400: {
@@ -17981,6 +18000,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description operation conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description JSON required */
             415: {
@@ -18023,13 +18053,6 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
-            };
-            /** @description quote outcome indeterminate */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description invalid request */
             400: {
@@ -18087,19 +18110,16 @@ export interface operations {
                     };
                 };
             };
-            /** @description source registered */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description registration outcome indeterminate */
+            /** @description registration queued */
             202: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description invalid request */
             400: {
@@ -18114,6 +18134,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description operation conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description JSON required */
             415: {
@@ -18162,7 +18193,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description invalid request */
             400: {
@@ -18177,6 +18212,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description operation conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description JSON required */
             415: {
@@ -18220,12 +18266,16 @@ export interface operations {
                     };
                 };
             };
-            /** @description report outcome indeterminate */
+            /** @description report queued */
             202: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description invalid request */
             400: {
@@ -18240,6 +18290,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description operation conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description JSON required */
             415: {

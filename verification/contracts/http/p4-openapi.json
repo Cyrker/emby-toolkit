@@ -15413,13 +15413,34 @@
             "description": "Successful Response"
           },
           "202": {
-            "description": "registration outcome indeterminate"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Register Center Device Api Shared Resources Center Device Register Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "registration queued"
           },
           "400": {
             "description": "invalid request"
           },
           "403": {
             "description": "admin required"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Register Center Device Api Shared Resources Center Device Register Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
           },
           "415": {
             "description": "JSON required"
@@ -15844,6 +15865,15 @@
             "description": "Successful Response"
           },
           "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Create Share Request Api Shared Resources Share Requests Post",
+                  "type": "object"
+                }
+              }
+            },
             "description": "request queued"
           },
           "400": {
@@ -15851,6 +15881,18 @@
           },
           "403": {
             "description": "admin required"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Create Share Request Api Shared Resources Share Requests Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
           },
           "415": {
             "description": "JSON required"
@@ -15891,9 +15933,6 @@
               }
             },
             "description": "Successful Response"
-          },
-          "202": {
-            "description": "quote outcome indeterminate"
           },
           "400": {
             "description": "invalid request"
@@ -15941,17 +15980,35 @@
             },
             "description": "Successful Response"
           },
-          "201": {
-            "description": "source registered"
-          },
           "202": {
-            "description": "registration outcome indeterminate"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Register Source Api Shared Resources Shares Manual Create Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "registration queued"
           },
           "400": {
             "description": "invalid request"
           },
           "403": {
             "description": "admin required"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Register Source Api Shared Resources Shares Manual Create Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
           },
           "415": {
             "description": "JSON required"
@@ -15994,6 +16051,15 @@
             "description": "Successful Response"
           },
           "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Acquire Transfer Lease Api Shared Resources Transfers Lease Post",
+                  "type": "object"
+                }
+              }
+            },
             "description": "transfer queued"
           },
           "400": {
@@ -16001,6 +16067,18 @@
           },
           "403": {
             "description": "admin required"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Acquire Transfer Lease Api Shared Resources Transfers Lease Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
           },
           "415": {
             "description": "JSON required"
@@ -16043,13 +16121,34 @@
             "description": "Successful Response"
           },
           "202": {
-            "description": "report outcome indeterminate"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 202 Report Transfer Api Shared Resources Transfers Report Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "report queued"
           },
           "400": {
             "description": "invalid request"
           },
           "403": {
             "description": "admin required"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 409 Report Transfer Api Shared Resources Transfers Report Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "operation conflict"
           },
           "415": {
             "description": "JSON required"

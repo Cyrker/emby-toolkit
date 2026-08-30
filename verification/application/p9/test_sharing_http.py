@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from types import SimpleNamespace
 from typing import Any
 
 from fastapi import FastAPI
@@ -12,6 +13,13 @@ from etk.domains.sharing import (
     SharingConfigurationService,
     SharingServerIdentity,
     SharingService,
+)
+from etk.domains.sharing.operations import (
+    SharingOperationConflictError,
+    SharingOperationKind,
+    SharingOperationScopeBusyError,
+    SharingOperationStatus,
+    sharing_operation_key,
 )
 from etk.domains.sharing.router import router
 from etk.integrations import ProviderDisposition, ProviderResponse
@@ -91,6 +99,7 @@ class FakeCenter:
             {
                 "device": {
                     "id": "device-1",
+                    "server_id_hash": "13bbd32d4a8d08f48cf9aa2169adc4163f008e9dd115a201f64f4e6a182acba1",
                     "share_heartbeat_meta_json": {"forced_offline": True, "ban_reason": "fixture"},
                 }
             },
@@ -187,9 +196,59 @@ class FakeAppSettings:
         self.values[key] = value
 
 
-def _build_app() -> tuple[FastAPI, FakeCenter, FakeAppSettings]:
+class FakeOperations:
+    def __init__(self) -> None:
+        self.intents: list[Any] = []
+        self.by_key: dict[str, Any] = {}
+        self.by_id: dict[Any, Any] = {}
+
+    def reserve_with_replay(self, intent: Any) -> tuple[Any, bool]:
+        existing = self.by_key.get(intent.operation_key)
+        if existing is not None:
+            if (
+                existing.request_hash != intent.request_hash
+                or existing.kind is not intent.kind
+                or existing.scope_key != intent.scope_key
+            ):
+                raise SharingOperationConflictError("fixture operation identity changed")
+            return existing, True
+        if any(
+            operation.scope_key == intent.scope_key and not operation.status.terminal
+            for operation in self.by_id.values()
+        ):
+            raise SharingOperationScopeBusyError("fixture operation scope is busy")
+        operation = SimpleNamespace(
+            id=intent.id,
+            operation_key=intent.operation_key,
+            request_hash=intent.request_hash,
+            kind=intent.kind,
+            scope_key=intent.scope_key,
+            request=intent.request,
+            status=SharingOperationStatus.READY,
+            attempts=0,
+            state_revision=0,
+            available_at=intent.available_at,
+            finished_at=None,
+            result=None,
+            error=None,
+        )
+        self.intents.append(intent)
+        self.by_key[intent.operation_key] = operation
+        self.by_id[intent.id] = operation
+        return operation, False
+
+    def reserve(self, intent: Any) -> Any:
+        operation, _replayed = self.reserve_with_replay(intent)
+        return operation
+
+    def read(self, operation_id: Any) -> Any | None:
+        return self.by_id.get(operation_id)
+
+
+def _build_app() -> tuple[FastAPI, FakeCenter, FakeAppSettings, FakeOperations]:
     center = FakeCenter()
     app_settings = FakeAppSettings()
+    operations = FakeOperations()
     app = FastAPI()
     app.state.container = AppContainer(
         Settings(auth_enabled=True),
@@ -198,12 +257,13 @@ def _build_app() -> tuple[FastAPI, FakeCenter, FakeAppSettings]:
     app.state.sharing_service = SharingService(
         InMemoryContributionLedger({"admin": 5}),
         center,
+        operations,
         configuration=SharingConfigurationService(app_settings),
         identity=SharingServerIdentity({}, app_settings),
     )
     app.add_middleware(CookieSessionMiddleware, codec_provider=lambda: LegacySessionCodec.from_secret_key(SECRET_KEY))
     app.include_router(router)
-    return app, center, app_settings
+    return app, center, app_settings, operations
 
 
 def _set_admin(client: TestClient) -> None:
@@ -212,7 +272,7 @@ def _set_admin(client: TestClient) -> None:
 
 
 def test_native_sharing_routes_require_admin_and_cover_core_contracts() -> None:
-    app, center, _app_settings = _build_app()
+    app, center, _app_settings, operations = _build_app()
     with TestClient(app) as client:
         assert client.get("/api/shared/resources/credit/balance").status_code == 403
         _set_admin(client)
@@ -228,6 +288,7 @@ def test_native_sharing_routes_require_admin_and_cover_core_contracts() -> None:
         quoted = client.post("/api/shared/resources/share-requests/quote", json={"tmdb_id": "101"})
         listed = client.get("/api/shared/resources/share-requests")
         created = client.post("/api/shared/resources/share-requests", json={"tmdb_id": "101"})
+        operation_status = client.get(f"/api/shared/resources/operations/{registered.json()['operation_id']}/status")
 
     assert balance.json()["credit"] == 5
     assert ledger.json()["count"] == 0
@@ -237,19 +298,23 @@ def test_native_sharing_routes_require_admin_and_cover_core_contracts() -> None:
     assert source["is_completed_certified"] is True
     assert source["has_children"] is True
     assert "children" not in source
-    assert registered.status_code == 201
-    assert lease.status_code == 200
-    assert report.status_code == 200
+    assert registered.status_code == 202
+    assert lease.status_code == 202
+    assert report.status_code == 202
     assert quoted.json()["cost"] == 1
     assert listed.status_code == 200
     assert created.status_code == 202
+    assert operation_status.status_code == 200
+    assert operation_status.json()["operation"]["status"] == "ready"
     assert [name for name, _payload in center.calls] == [
         "list_display_sources",
+        "quote_share_request",
+        "list_share_requests",
+    ]
+    assert [intent.request["action"] for intent in operations.intents] == [
         "register_source",
         "acquire_transfer_lease",
         "report_transfer",
-        "quote_share_request",
-        "list_share_requests",
         "create_share_request",
     ]
     assert center.calls[0][1]["limit"] == 2
@@ -257,7 +322,7 @@ def test_native_sharing_routes_require_admin_and_cover_core_contracts() -> None:
 
 
 def test_native_sharing_routes_reject_malformed_json_and_secret_payloads() -> None:
-    app, center, _app_settings = _build_app()
+    app, center, _app_settings, operations = _build_app()
     with TestClient(app) as client:
         _set_admin(client)
         malformed = client.post(
@@ -269,14 +334,59 @@ def test_native_sharing_routes_reject_malformed_json_and_secret_payloads() -> No
             "/api/shared/resources/shares/manual-create",
             json={"source_kind": "movie", "api_key": "must-not-persist"},
         )
+        oversized_key = client.post(
+            "/api/shared/resources/center/device/register",
+            json={},
+            headers={"Idempotency-Key": "x" * 257},
+        )
 
     assert malformed.status_code == 400
     assert secret.status_code == 400
+    assert oversized_key.status_code == 400
     assert [name for name, _payload in center.calls] == []
+    assert operations.intents == []
+
+
+def test_native_sharing_mutations_replay_and_reject_identity_or_scope_conflicts() -> None:
+    app, center, _app_settings, operations = _build_app()
+    headers = {"Idempotency-Key": "fixture-source-registration"}
+    payload = {"source_kind": "movie", "root_fid": "root-1", "tmdb_id": "101", "title": "Fixture"}
+    with TestClient(app) as client:
+        _set_admin(client)
+        created = client.post(
+            "/api/shared/resources/shares/manual-create?account_id=attacker-controlled",
+            json=payload,
+            headers=headers,
+        )
+        replay = client.post("/api/shared/resources/shares/manual-create", json=payload, headers=headers)
+        identity_conflict = client.post(
+            "/api/shared/resources/shares/manual-create",
+            json={**payload, "title": "Changed"},
+            headers=headers,
+        )
+        scope_conflict = client.post(
+            "/api/shared/resources/shares/manual-create",
+            json={**payload, "title": "Changed"},
+            headers={"Idempotency-Key": "fixture-source-registration-2"},
+        )
+
+    assert created.status_code == 202
+    assert replay.status_code == 202
+    assert replay.json()["operation_id"] == created.json()["operation_id"]
+    assert replay.json()["replayed"] is True
+    assert identity_conflict.status_code == 409
+    assert scope_conflict.status_code == 409
+    assert len(operations.intents) == 1
+    assert operations.intents[0].operation_key == sharing_operation_key(
+        kind=SharingOperationKind.REGISTER_SOURCE,
+        principal_id="admin",
+        idempotency_key="fixture-source-registration",
+    )
+    assert center.calls == []
 
 
 def test_native_sharing_config_device_identity_and_display_browse_contracts() -> None:
-    app, center, app_settings = _build_app()
+    app, center, app_settings, operations = _build_app()
     with TestClient(app) as client:
         _set_admin(client)
         initial = client.get("/api/shared/resources/config")
@@ -309,13 +419,15 @@ def test_native_sharing_config_device_identity_and_display_browse_contracts() ->
     assert saved_config["p115_shared_resource_mode"] == "rapid"
     assert saved_config["p115_shared_virtual_auto_promote_movie_percent"] == 100
     assert "p115_shared_max_active_shares" not in saved_config
-    assert registered.status_code == 200
-    assert registered.json()["data"]["p115_shared_resource_enabled"] is True
-    assert center.calls[0] == (
-        "register_device",
-        ("ETK Device", "13bbd32d4a8d08f48cf9aa2169adc4163f008e9dd115a201f64f4e6a182acba1"),
+    assert registered.status_code == 202
+    assert registered.json()["status"] == "ready"
+    assert len(operations.intents) == 1
+    device_request = operations.intents[0].request
+    assert device_request["action"] == "register_device"
+    assert device_request["payload"]["server_id_hash"] == (
+        "13bbd32d4a8d08f48cf9aa2169adc4163f008e9dd115a201f64f4e6a182acba1"
     )
-    assert status.json()["local_server_id_hash"] == center.calls[0][1][1]
+    assert status.json()["local_server_id_hash"] == device_request["payload"]["server_id_hash"]
     assert status.json()["device"]["forced_offline"] is True
     assert status.json()["device"]["forced_offline_reason"] == "fixture"
     assert tags.json()["items"] == [{"label": "4K", "value": "4k"}]
@@ -325,6 +437,7 @@ def test_native_sharing_config_device_identity_and_display_browse_contracts() ->
     assert detail.json()["data"]["resources"][0]["id"] == "resource-1"
     assert detail.json()["children"] == []
     assert app_settings.values["shared_resource_config"]["p115_shared_resource_enabled"] is True
+    assert "register_device" not in [name for name, _payload in center.calls]
 
     calls = {name: payload for name, payload in center.calls[2:]}
     assert calls["list_display_home"]["limit_per_section"] == 3

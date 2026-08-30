@@ -20,7 +20,7 @@ from etk.integrations import (
     TelegramBotPort,
 )
 from etk.integrations.http_policy import ExternalAdapterError
-from etk.platform.jobs.json_payload import canonical_json, normalize_durable_json_object
+from etk.platform.jobs.json_payload import canonical_json, normalize_durable_json_object, normalize_json_object
 
 from .execution import SharingDeliveryOutcome, SharingOperationDeliveryPort
 from .operations import SharingOperation
@@ -74,6 +74,10 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
                     {"type": "unsupported_sharing_provider_action", "provider": provider, "action": action}
                 )
             invoke = _request_invocation(call, action, payload)
+            if provider == "shared_center":
+                validate = getattr(self._shared_center, "validate_configuration", None)
+                if callable(validate):
+                    validate()
             # No external mutation may happen before this durable transition.
             checkpoint()
             response = invoke()
@@ -284,7 +288,7 @@ def _exception_outcome(exc: ExternalAdapterError) -> SharingDeliveryOutcome:
 
 def _safe_payload(value: Any, details: dict[str, Any]) -> dict[str, Any]:
     if isinstance(value, Mapping):
-        normalized = normalize_durable_json_object(dict(value), field="sharing provider result")
+        normalized = normalize_json_object(dict(value), field="sharing provider result")
         details["provider_result_hash"] = hashlib.sha256(
             canonical_json(normalized, field="sharing provider result").encode("utf-8")
         ).hexdigest()
@@ -293,6 +297,10 @@ def _safe_payload(value: Any, details: dict[str, Any]) -> dict[str, Any]:
             for key in (
                 "code",
                 "errno",
+                "accepted",
+                "cost",
+                "device_id",
+                "group_id",
                 "id",
                 "lease_id",
                 "operation_id",
@@ -315,7 +323,7 @@ def _readback_spec(operation: SharingOperation) -> Mapping[str, Any] | None:
 def _readback_matches(spec: Mapping[str, Any], payload: Any) -> bool:
     key, expected, collection_key = _match_spec(spec)
     if isinstance(payload, Mapping):
-        if key in payload and payload[key] == expected:
+        if _mapping_matches(payload, key, expected):
             return True
         collection_key = collection_key or next(
             (candidate for candidate in _READBACK_COLLECTION_KEYS if candidate in payload), None
@@ -323,11 +331,20 @@ def _readback_matches(spec: Mapping[str, Any], payload: Any) -> bool:
         if collection_key is not None:
             items = payload.get(collection_key)
             if isinstance(items, list):
-                return any(isinstance(item, Mapping) and item.get(key, object()) == expected for item in items)
+                return any(isinstance(item, Mapping) and _mapping_matches(item, key, expected) for item in items)
         return False
     if isinstance(payload, list):
-        return any(isinstance(item, Mapping) and item.get(key, object()) == expected for item in payload)
+        return any(isinstance(item, Mapping) and _mapping_matches(item, key, expected) for item in payload)
     return False
+
+
+def _mapping_matches(value: Mapping[str, Any], key: str, expected: Any) -> bool:
+    current: Any = value
+    for segment in key.split("."):
+        if not isinstance(current, Mapping) or segment not in current:
+            return False
+        current = current[segment]
+    return current == expected
 
 
 def _valid_match_spec(spec: Mapping[str, Any]) -> bool:
@@ -342,6 +359,8 @@ def _match_spec(spec: Mapping[str, Any]) -> tuple[str, Any, str | None]:
     key = spec.get("match_key")
     if not isinstance(key, str) or not key.strip():
         raise ValueError("readback.match_key must be a non-empty string")
+    if any(not segment for segment in key.strip().split(".")):
+        raise ValueError("readback.match_key contains an empty path segment")
     if "match_value" not in spec:
         raise ValueError("readback.match_value is required")
     collection_key = spec.get("match_list_key")

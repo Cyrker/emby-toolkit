@@ -30,6 +30,8 @@ from .http_policy import (
 
 
 class SharedCenterPort(Protocol):
+    def validate_configuration(self) -> None: ...
+
     def health(self) -> ProviderResponse[dict[str, Any]]: ...
 
     def register_device(self, *, name: str, server_id_hash: str) -> ProviderResponse[dict[str, Any]]: ...
@@ -108,6 +110,10 @@ class HttpxSharedCenterAdapter:
         self._server_id_hash_provider = server_id_hash
         self._client_factory = client_factory or self._default_client
         self._policy = policy or HttpTransportPolicy(system=self.system)
+
+    def validate_configuration(self) -> None:
+        self._base_url()
+        self._headers()
 
     def health(self) -> ProviderResponse[dict[str, Any]]:
         return self.request_json("GET", "/api/v1/health", operation="health", retryable=True)
@@ -281,6 +287,8 @@ class HttpxSharedCenterAdapter:
             "/api/v1/share-requests/quote",
             operation="quote_share_request",
             json=_object(payload, "quote payload"),
+            retryable=True,
+            mutation=False,
         )
 
     def create_share_request(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:
@@ -300,9 +308,11 @@ class HttpxSharedCenterAdapter:
         params: Mapping[str, Any] | None = None,
         json: Mapping[str, Any] | None = None,
         retryable: bool = False,
+        mutation: bool | None = None,
     ) -> ProviderResponse[dict[str, Any]]:
         base_url = self._base_url()
         normalized_method = str(method or "GET").upper()
+        is_mutation = normalized_method not in {"GET", "HEAD"} if mutation is None else bool(mutation)
         url = f"{base_url}/{str(path).lstrip('/')}"
         try:
             response = self._policy.request(
@@ -323,7 +333,7 @@ class HttpxSharedCenterAdapter:
                 operation=operation,
                 status_code=exc.status_code,
             ) from exc
-        disposition = classify_status(response.status_code, mutation=normalized_method not in {"GET", "HEAD"})
+        disposition = classify_status(response.status_code, mutation=is_mutation)
         if disposition is not ProviderDisposition.CONFIRMED:
             return ProviderResponse(disposition, response.status_code, None, _retry_after(response))
         try:
@@ -331,11 +341,7 @@ class HttpxSharedCenterAdapter:
         except ExternalAdapterError as exc:
             raise SharedCenterError(
                 str(exc),
-                disposition=(
-                    ProviderDisposition.INDETERMINATE
-                    if normalized_method not in {"GET", "HEAD"}
-                    else ProviderDisposition.RETRYABLE
-                ),
+                disposition=(ProviderDisposition.INDETERMINATE if is_mutation else ProviderDisposition.RETRYABLE),
                 system=self.system,
                 operation=operation,
                 status_code=response.status_code,

@@ -4623,6 +4623,66 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, shared center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Shared-Center-Mutations
+
+Stage / Batch: P11 / durable Shared Center core mutations
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `a26b37ff` (`refactor(p11): migrate shared center browsing`).
+- Target checkpoint message: `refactor(p11): persist shared center mutations`.
+
+Implemented:
+
+- Converted device/source registration, transfer lease/report and share-request creation from
+  synchronous request-thread provider writes to durable `sharing_operations` plus Outbox delivery;
+  the quote endpoint remains a retryable read-only query.
+- Added authenticated principals, stable scope identity, deterministic or explicit idempotency,
+  conflict responses, device authoritative readback and safe provider receipts. The frontend now
+  retains one UUID across uncertain retries and polls the durable operation to terminal state.
+- Added atomic device-enable continuation and transfer escrow compensation for provider rejection,
+  dead dispatch and exhausted pre-write claims. Compensation requires the exact original debit,
+  commits exactly once and never releases an indeterminate escrow.
+- Added the explicit `register_device` kind in the single Alembic head
+  `0023_p11_sharing_device_kind`; regenerated Manifest, OpenAPI and the TypeScript schema.
+
+Targeted gate:
+
+- P9 application -> `81 passed`; scoped Ruff/format -> clean; scoped Pyright ->
+  `0 errors, 0 warnings, 0 informations`; compileall, `uv lock --check` and `git diff --check` ->
+  clean.
+- Disposable PostgreSQL 18 sharing ledger/operation scope -> `28 passed`. The initial three
+  compensation failures were traced to the ledger's SHA-256 idempotency-key normalization; the
+  shared normalization repair retained strict debit identity checks and the focused rerun passed
+  `4` cases.
+- Disposable PostgreSQL 18 + Redis/Celery through native-only and compatibility-enabled Worker
+  profiles -> `2 passed, 33 deselected`.
+- Frontend typecheck and build passed; Vitest -> `7 passed`; API-boundary -> clean. Manifest,
+  OpenAPI, single Alembic head and all three fixture/contract secret scans are clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-sharing-mutations-20260830/summary.md`.
+
+Focused review:
+
+- Request threads reserve operations only; operation/Outbox/debit share one UoW; terminal local
+  continuation and compensation roll back with the terminal transition on failure.
+- Missing or mismatched debit fails closed, compensation is exactly once, indeterminate retains
+  escrow, and a checkpointed provider request can only reconcile without resend.
+- Session principal, stable scope conflict, safe receipt filtering, frontend idempotency retention
+  and migration single-head boundaries are covered. No deterministic P0/P1/P2 remains in this
+  slice.
+
+Pending:
+
+- Sharing operation cancellation, remaining Shared Resource projections/UI routes and background
+  tasks remain, followed by the other unavailable native tasks and Route/Table/Config ownership.
+- Pre-removal evidence, controlled legacy removal and all P11 NFR/security/SBOM/License gates remain
+  pending. P12 remains `TODO`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

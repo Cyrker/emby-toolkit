@@ -80,6 +80,10 @@ def _account_id(request: Request) -> str:
     return str(get_request_session(request).get("emby_user_id") or "local").strip() or "local"
 
 
+def _principal_id(request: Request) -> str:
+    return str(get_request_session(request).get("emby_user_id") or "local").strip() or "local"
+
+
 def _int_query(request: Request, key: str, default: int, minimum: int, maximum: int) -> int:
     try:
         value = int(request.query_params.get(key, default))
@@ -315,9 +319,10 @@ def center_source_detail(request: Request) -> Response:
     "/center/device/register",
     response_model=dict[str, Any],
     responses={
-        202: {"description": "registration outcome indeterminate"},
+        202: {"description": "registration queued", "model": dict[str, Any]},
         400: {"description": "invalid request"},
         403: {"description": "admin required"},
+        409: {"description": "operation conflict", "model": dict[str, Any]},
         415: {"description": "JSON required"},
         503: {"description": "provider unavailable"},
     },
@@ -332,12 +337,16 @@ async def register_center_device(request: Request) -> Response:
         return error
     assert payload is not None
     name = str(payload.get("name") or "ETK Device").strip() or "ETK Device"
-    return _response(
-        await run_in_threadpool(
+    try:
+        result = await run_in_threadpool(
             _service(request).register_device,
             name=name,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
         )
-    )
+    except (TypeError, ValueError):
+        return fastapi_json_response({"success": False, "message": "中心设备登记请求无效"}, status_code=400)
+    return _response(result)
 
 
 @router.get(
@@ -354,10 +363,10 @@ def center_device_status(request: Request) -> Response:
     "/shares/manual-create",
     response_model=dict[str, Any],
     responses={
-        201: {"description": "source registered"},
-        202: {"description": "registration outcome indeterminate"},
+        202: {"description": "registration queued", "model": dict[str, Any]},
         400: {"description": "invalid request"},
         403: {"description": "admin required"},
+        409: {"description": "operation conflict", "model": dict[str, Any]},
         415: {"description": "JSON required"},
         503: {"description": "provider unavailable"},
     },
@@ -377,6 +386,7 @@ async def register_source(request: Request) -> Response:
             _service(request).register_source,
             kind,
             payload,
+            principal_id=_principal_id(request),
             idempotency_key=request.headers.get("idempotency-key"),
         )
     except (TypeError, ValueError):
@@ -388,9 +398,10 @@ async def register_source(request: Request) -> Response:
     "/transfers/lease",
     response_model=dict[str, Any],
     responses={
-        202: {"description": "transfer queued"},
+        202: {"description": "transfer queued", "model": dict[str, Any]},
         400: {"description": "invalid request"},
         403: {"description": "admin required"},
+        409: {"description": "operation conflict", "model": dict[str, Any]},
         415: {"description": "JSON required"},
         503: {"description": "provider unavailable"},
     },
@@ -405,7 +416,12 @@ async def acquire_transfer_lease(request: Request) -> Response:
         return error
     assert payload is not None
     try:
-        result = await run_in_threadpool(_service(request).acquire_transfer_lease, payload)
+        result = await run_in_threadpool(
+            _service(request).acquire_transfer_lease,
+            payload,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
     except (TypeError, ValueError):
         return fastapi_json_response({"success": False, "message": "转存租约请求无效"}, status_code=400)
     return _response(result)
@@ -415,9 +431,10 @@ async def acquire_transfer_lease(request: Request) -> Response:
     "/transfers/report",
     response_model=dict[str, Any],
     responses={
-        202: {"description": "report outcome indeterminate"},
+        202: {"description": "report queued", "model": dict[str, Any]},
         400: {"description": "invalid request"},
         403: {"description": "admin required"},
+        409: {"description": "operation conflict", "model": dict[str, Any]},
         415: {"description": "JSON required"},
         503: {"description": "provider unavailable"},
     },
@@ -432,7 +449,12 @@ async def report_transfer(request: Request) -> Response:
         return error
     assert payload is not None
     try:
-        result = await run_in_threadpool(_service(request).report_transfer, payload)
+        result = await run_in_threadpool(
+            _service(request).report_transfer,
+            payload,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
     except (TypeError, ValueError):
         return fastapi_json_response({"success": False, "message": "转存报告请求无效"}, status_code=400)
     return _response(result)
@@ -442,7 +464,6 @@ async def report_transfer(request: Request) -> Response:
     "/share-requests/quote",
     response_model=dict[str, Any],
     responses={
-        202: {"description": "quote outcome indeterminate"},
         400: {"description": "invalid request"},
         403: {"description": "admin required"},
         415: {"description": "JSON required"},
@@ -488,7 +509,12 @@ async def _share_requests(request: Request) -> Response:
         return error
     assert payload is not None
     try:
-        result = await run_in_threadpool(service.create_share_request, payload)
+        result = await run_in_threadpool(
+            service.create_share_request,
+            payload,
+            principal_id=_principal_id(request),
+            idempotency_key=request.headers.get("idempotency-key"),
+        )
     except (TypeError, ValueError):
         return fastapi_json_response({"success": False, "message": "求共享请求无效"}, status_code=400)
     return _response(result)
@@ -509,9 +535,10 @@ async def list_share_requests(request: Request) -> Response:
     response_model=dict[str, Any],
     name="create_share_request",
     responses={
-        202: {"description": "request queued"},
+        202: {"description": "request queued", "model": dict[str, Any]},
         400: {"description": "invalid request"},
         403: {"description": "admin required"},
+        409: {"description": "operation conflict", "model": dict[str, Any]},
         415: {"description": "JSON required"},
         503: {"description": "provider unavailable"},
     },

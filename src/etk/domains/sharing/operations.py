@@ -16,6 +16,7 @@ SHARING_OPERATION_TOPICS = (SHARING_OPERATION_TOPIC,)
 
 
 class SharingOperationKind(StrEnum):
+    REGISTER_DEVICE = "register_device"
     REGISTER_SOURCE = "register_source"
     TRANSFER = "transfer"
     SHARE_REQUEST = "share_request"

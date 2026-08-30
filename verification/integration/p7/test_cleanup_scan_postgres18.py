@@ -240,7 +240,7 @@ def test_cleanup_config_cutover_runs_through_alembic_and_preserves_one_way_downg
         with p7_runtime.engine.begin() as connection:
             connection.execute(text(f"ALTER TABLE app_settings DROP CONSTRAINT {_CUTOVER_CONSTRAINT}"))
         command.upgrade(config, "head")
-        assert _alembic_head(p7_runtime) == "0022_p11_identity_user_expiry"
+        assert _alembic_head(p7_runtime) == "0023_p11_sharing_device_kind"
         assert _setting_value(p7_runtime, "media_cleanup_config") == migrated
 
         command.downgrade(config, "0019_p9_proxy_leases")

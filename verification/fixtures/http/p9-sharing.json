@@ -15,8 +15,9 @@
   "boundaries": [
     "sharing routes require the local administrator permission policy",
     "provider calls use typed Shared Center ports and Fake/Stub responses",
-    "mutation payloads are validated as JSON objects and never persisted in task payloads",
-    "indeterminate synchronous provider mutations return 202 without automatic request-thread replay; durable operation migration remains explicit P11 work",
+    "mutation payloads are validated as JSON objects and persisted only in the durable sharing operation record; Outbox and Celery payloads contain identifiers only",
+    "Shared Center mutations return a durable operation handle and never call the provider in the request thread; quote remains a bounded synchronous query",
+    "operation status is read through /api/shared/resources/operations/{operation_id}/status; duplicate identity replays and active scope conflicts are fenced",
     "real Shared Center, Emby, Telegram and HDHive acceptance remains HUMAN_PENDING"
   ],
   "routes": [
@@ -29,14 +30,14 @@
     {"method": "GET", "path": "/api/shared/resources/center/sources/home", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 503]},
     {"method": "GET", "path": "/api/shared/resources/center/sources/children", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 503]},
     {"method": "GET", "path": "/api/shared/resources/center/sources/detail", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 503]},
-    {"method": "POST", "path": "/api/shared/resources/center/device/register", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 415, 503]},
+    {"method": "POST", "path": "/api/shared/resources/center/device/register", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 409, 415, 503]},
     {"method": "GET", "path": "/api/shared/resources/center/device/status", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 503]},
-    {"method": "POST", "path": "/api/shared/resources/shares/manual-create", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 201, 202, 400, 403, 415, 503]},
-    {"method": "POST", "path": "/api/shared/resources/transfers/lease", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 415, 503]},
-    {"method": "POST", "path": "/api/shared/resources/transfers/report", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 415, 503]},
-    {"method": "POST", "path": "/api/shared/resources/share-requests/quote", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 415, 503]},
+    {"method": "POST", "path": "/api/shared/resources/shares/manual-create", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 409, 415, 503]},
+    {"method": "POST", "path": "/api/shared/resources/transfers/lease", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 409, 415, 503]},
+    {"method": "POST", "path": "/api/shared/resources/transfers/report", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 409, 415, 503]},
+    {"method": "POST", "path": "/api/shared/resources/share-requests/quote", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 400, 403, 415, 503]},
     {"method": "GET", "path": "/api/shared/resources/share-requests", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 503]},
-    {"method": "POST", "path": "/api/shared/resources/share-requests", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 415, 503]},
+    {"method": "POST", "path": "/api/shared/resources/share-requests", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 403, 409, 415, 503]},
     {"method": "GET", "path": "/api/shared/resources/operations/{operation_id}/status", "owner": "etk.domains.sharing.router", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 404, 422, 503]}
   ]
 }
