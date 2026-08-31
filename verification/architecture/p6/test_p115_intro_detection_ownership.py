@@ -12,6 +12,7 @@ from etk.processes.p6_intro_detection import EXECUTE_P115_INTRO_DETECTION_OPERAT
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 INTRO_FIXTURE = "verification/fixtures/http/p6-p115-intro-sync.json"
+INTRO_BACKFILL_FIXTURE = "verification/fixtures/http/p11-p115-intro-backfill.json"
 LEGACY_INTRO_TABLES = {
     "p115_intro_detection_failures",
     "p115_intro_fingerprint_cache",
@@ -140,6 +141,26 @@ def test_intro_task_and_legacy_tables_have_native_p6_10_ownership_without_contra
         entry["fixture"] == "verification/integration/p6/test_p115_intro_detection_postgres18.py"
         for entry in owned.values()
     )
+
+
+def test_intro_backfill_http_binding_is_native_and_only_submits_the_durable_task() -> None:
+    routes = _contract("verification/contracts/route-ownership.yaml")
+    bindings = [
+        entry
+        for entry in routes["method_bindings"]  # type: ignore[index]
+        if entry["method"] == "POST" and entry["path"] == "/api/emby/intro-detection/backfill"
+    ]
+    assert len(bindings) == 1
+    assert bindings[0]["status"] == "new"
+    assert bindings[0]["new_owner"] == "etk.domains.p115.intro_backfill_router"
+    assert bindings[0]["fixture"] == INTRO_BACKFILL_FIXTURE
+
+    route = _source("src/etk/domains/p115/intro_backfill_router.py")
+    assert '"intro-fingerprint-backfill"' in route
+    assert '{"force": False}' in route
+    assert "enqueue_active_backfill" not in route
+    assert "handler" not in route
+    assert "tasks." not in route
 
 
 def test_intro_sync_owns_two_native_auth_none_contracts_with_fixture_and_optional_item_id() -> None:

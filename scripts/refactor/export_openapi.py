@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 301
-EXPECTED_OPERATIONS = 353
+EXPECTED_PATHS = 302
+EXPECTED_OPERATIONS = 354
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -176,6 +176,9 @@ P6_8_UPLOAD_MONITOR_RESPONSES = {
 P6_10_INTRO_SYNC_RESPONSES = {
     ("post", "/api/p115/mediainfo/{pick_code}/intro-sync"): {"200", "404"},
     ("post", "/api/p115/mediainfo/sha1/{sha1}/intro-sync"): {"200"},
+}
+P11_INTRO_BACKFILL_RESPONSES = {
+    ("post", "/api/emby/intro-detection/backfill"): {"202", "503"},
 }
 P6_9_PLAYBACK_OPERATIONS = {
     ("get", "/api/p115/play/{pick_code}"),
@@ -546,6 +549,16 @@ def _validate_schema(schema: dict[str, Any]) -> None:
             raise RuntimeError(f"P6.10 intro-sync query field changed: {method} {path}")
         if query_parameters[0].get("required") is not False:
             raise RuntimeError(f"P6.10 intro-sync query unexpectedly became required: {method} {path}")
+    for (method, path), expected_statuses in P11_INTRO_BACKFILL_RESPONSES.items():
+        operation = paths.get(path, {}).get(method)
+        if operation is None:
+            raise RuntimeError(f"P11 intro-backfill operation missing: {method} {path}")
+        if operation.get("requestBody"):
+            raise RuntimeError(f"P11 intro-backfill unexpectedly declares a request body: {method} {path}")
+        if set(operation.get("responses", {})) != expected_statuses:
+            raise RuntimeError(f"P11 intro-backfill response statuses changed: {method} {path}")
+        if "422" in operation.get("responses", {}):
+            raise RuntimeError(f"P11 intro-backfill exposes automatic 422: {method} {path}")
     observed_playback = {
         (method, path)
         for path, methods in paths.items()

@@ -221,6 +221,7 @@ from etk.domains.p115 import (
     SqlAlchemyP115WashingPriorityRepository,
     select_intro_provider_identity,
 )
+from etk.domains.p115.intro_backfill_router import router as p115_intro_backfill_router
 from etk.domains.p115.playback_native import (
     NativeP115DirectLinkGateway,
     NativeP115PlaybackProvider,
@@ -518,6 +519,7 @@ def create_app(
     app.include_router(media_image_editing_router)
     app.include_router(media_cast_editor_router)
     app.include_router(media_image_proxy_router)
+    app.include_router(p115_intro_backfill_router)
     app.include_router(p115_router)
     app.include_router(p115_playback_router)
     app.include_router(actor_subscription_router)

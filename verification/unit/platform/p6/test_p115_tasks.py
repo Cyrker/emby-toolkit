@@ -71,10 +71,10 @@ class FakePlaybackMaintenance:
 class FakeIntroBackfill:
     def __init__(self, outcome: TaskOutcome | None = None) -> None:
         self.outcome = outcome or TaskOutcome.succeeded("fixture intro backfill", {"count": 2})
-        self.calls: list[P115TaskProgress] = []
+        self.calls: list[dict[str, Any]] = []
 
-    def execute(self, progress: P115TaskProgress) -> TaskOutcome:
-        self.calls.append(progress)
+    def execute(self, progress: P115TaskProgress, *, force: bool = True) -> TaskOutcome:
+        self.calls.append({"progress": progress, "force": force})
         return self.outcome
 
 
@@ -604,14 +604,36 @@ def test_intro_backfill_keeps_frozen_watchlist_processor_and_native_empty_payloa
         "native_handler": "P6P115TaskRouter",
         "compatibility_fallback": False,
     }
-    assert intro.calls == [progress]
+    assert intro.calls == [{"progress": progress, "force": True}]
+
+
+def test_intro_backfill_accepts_explicit_non_forced_route_submission() -> None:
+    intro = FakeIntroBackfill()
+    router = P6P115TaskRouter(
+        FakeDirectorySync(),
+        FakeOrganizeExecution(),
+        intro_backfill=intro,
+    )
+    progress = FakeProgress()
+
+    outcome = router.execute(
+        _message(
+            "intro-fingerprint-backfill",
+            processor=ProcessorIdentity.WATCHLIST,
+            payload={"force": False},
+        ),
+        progress,
+    )
+
+    assert outcome.status is TaskOutcomeStatus.SUCCEEDED
+    assert intro.calls == [{"progress": progress, "force": False}]
 
 
 @pytest.mark.parametrize(
     ("processor", "payload", "error"),
     [
         (ProcessorIdentity.MEDIA, None, "watchlist processor identity"),
-        (ProcessorIdentity.WATCHLIST, {"limit": 10}, "does not accept parameters"),
+        (ProcessorIdentity.WATCHLIST, {"limit": 10}, "unsupported parameters"),
     ],
 )
 def test_intro_backfill_rejects_processor_or_payload_drift(

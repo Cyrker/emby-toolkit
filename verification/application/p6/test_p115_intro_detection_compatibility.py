@@ -193,6 +193,14 @@ def test_backfill_task_forces_favorite_scope_without_changing_off_or_playback_po
     assert calls == [(50, True)]
     assert outcome.details["forced_backfill"] is True
 
+    non_forced = P115IntroBackfillTaskService(cast(Any, _Gateway())).execute(
+        cast(Any, _Progress()),
+        force=False,
+    )
+
+    assert calls == [(50, True), (50, False)]
+    assert non_forced.details["forced_backfill"] is False
+
 
 def test_installed_gateway_prevents_legacy_intro_queue_or_daemon_start(monkeypatch) -> None:
     from handler import intro_detection_service

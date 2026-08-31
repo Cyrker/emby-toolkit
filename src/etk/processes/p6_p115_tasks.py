@@ -31,7 +31,7 @@ class _PlaybackMaintenanceUseCase(Protocol):
 
 
 class _IntroBackfillUseCase(Protocol):
-    def execute(self, progress: P115TaskProgress) -> TaskOutcome: ...
+    def execute(self, progress: P115TaskProgress, *, force: bool = True) -> TaskOutcome: ...
 
 
 class _OrganizeRecordTmdbBackfillUseCase(Protocol):
@@ -253,11 +253,15 @@ class P6P115TaskRouter:
         )
 
     def _execute_intro_backfill(self, message: TaskMessage, progress: P115TaskProgress) -> TaskOutcome:
-        if message.payload.data:
-            raise ValueError(f"task {message.task_key!r} does not accept parameters")
+        parameters = dict(message.payload.data)
+        if set(parameters) - {"force"}:
+            raise ValueError(f"task {message.task_key!r} contains unsupported parameters")
+        force = parameters.get("force", True)
+        if not isinstance(force, bool):
+            raise TypeError(f"task {message.task_key!r} force must be boolean")
         if self._intro_backfill is None:
             raise RuntimeError("P6 intro detection backfill use case is unavailable")
-        result = self._intro_backfill.execute(progress)
+        result = self._intro_backfill.execute(progress, force=force)
         return TaskOutcome(
             result.status,
             result.message,

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "kind": "isolated-legacy-static-source",
+    "captured_live": false,
+    "legacy_source": "routes/webhook.py:2121",
+    "external_systems_used": false
+  },
+  "route": {
+    "method": "POST",
+    "path": "/api/emby/intro-detection/backfill"
+  },
+  "success": {
+    "request": {
+      "method": "POST",
+      "path": "/api/emby/intro-detection/backfill"
+    },
+    "response": {
+      "status": 202,
+      "body": {
+        "ok": true,
+        "submitted": true,
+        "job_id": "00000000-0000-0000-0000-000000001151"
+      }
+    }
+  },
+  "failure": {
+    "request": {
+      "method": "POST",
+      "path": "/api/emby/intro-detection/backfill"
+    },
+    "response": {
+      "status": 503,
+      "body": {
+        "ok": false,
+        "submitted": false,
+        "reason": "persistent_submit_failed"
+      }
+    }
+  }
+}

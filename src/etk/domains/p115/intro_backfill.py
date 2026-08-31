@@ -17,11 +17,11 @@ class P115IntroBackfillTaskService:
         self._gateway = gateway
         self._limit = max(1, min(int(limit), 200))
 
-    def execute(self, progress: P115TaskProgress) -> TaskOutcome:
+    def execute(self, progress: P115TaskProgress, *, force: bool = True) -> TaskOutcome:
         progress.checkpoint()
         progress.update(0, "=== 开始提交片头片尾提取任务 ===")
-        result = dict(self._gateway.enqueue_active_backfill(limit=self._limit, force=True))
-        details = {**result, "native_intro_detection": True, "forced_backfill": True}
+        result = dict(self._gateway.enqueue_active_backfill(limit=self._limit, force=force))
+        details = {**result, "native_intro_detection": True, "forced_backfill": force}
         if not result.get("ok"):
             message = "片头片尾提取任务提交失败"
             progress.update(-1, message)

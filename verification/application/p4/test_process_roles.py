@@ -481,6 +481,8 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert state._media_effects._delivery.effect_types == {
         "emby.chapters.update",
         "emby.mediainfo.apply",
+        "emby.studio-image.reconcile",
+        "emby.tags.apply",
         "daily-theme.replenishment",
         "sharing.intro.export",
     }

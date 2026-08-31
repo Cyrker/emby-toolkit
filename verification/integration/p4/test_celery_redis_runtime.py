@@ -1323,12 +1323,14 @@ def test_old_season_backfill_executes_once_through_real_worker_profiles(
     [False, True],
     ids=["native-only", "compatibility-enabled"],
 )
+@pytest.mark.parametrize("force", [True, False], ids=["forced", "policy-bound"])
 def test_intro_backfill_skips_without_legacy_or_provider_effects_through_real_worker_profiles(
     p4_store: PostgresJobStore,
     p4_runtime: DatabaseRuntime,
     p4_runtime_environment: RuntimeEnvironment,
     tmp_path: Path,
     compatibility_enabled: bool,
+    force: bool,
 ) -> None:
     prior_settings = _snapshot_app_settings(p4_runtime, ("watchlist_config",))
     with p4_runtime.engine.begin() as connection:
@@ -1367,7 +1369,7 @@ def test_intro_backfill_skips_without_legacy_or_provider_effects_through_real_wo
         max_attempts=1,
         payload={
             "payload_version": 1,
-            "parameters": {},
+            "parameters": {} if force else {"force": False},
             "processor_type": "watchlist",
             "display_name": "P11 native intro backfill disabled fixture",
             "silent": True,
@@ -1450,7 +1452,7 @@ if guard_file:
             "skipped": True,
             "reason": "disabled",
             "native_intro_detection": True,
-            "forced_backfill": True,
+            "forced_backfill": force,
             "task_key": "intro-fingerprint-backfill",
             "native_handler": "P6P115TaskRouter",
             "compatibility_fallback": False,

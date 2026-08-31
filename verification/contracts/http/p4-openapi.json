@@ -7361,6 +7361,43 @@
         ]
       }
     },
+    "/api/emby/intro-detection/backfill": {
+      "post": {
+        "description": "Submit the opt-in intro fallback without scanning in the request process.",
+        "operationId": "trigger_emby_intro_detection_backfill_api_emby_intro_detection_backfill_post",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Trigger Emby Intro Detection Backfill Api Emby Intro Detection Backfill Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response 503 Trigger Emby Intro Detection Backfill Api Emby Intro Detection Backfill Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Trigger Emby Intro Detection Backfill",
+        "tags": [
+          "p115",
+          "intro-detection"
+        ]
+      }
+    },
     "/api/emby/metadata": {
       "get": {
         "operationId": "metadata_api_emby_metadata_get",

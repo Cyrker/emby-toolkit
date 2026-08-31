@@ -3182,22 +3182,23 @@
       "contract_id": "route-binding-132b8000102c",
       "decorator_contract_id": "route-decorator-88157e51d5a8",
       "endpoint": "trigger_emby_intro_detection_backfill",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p11-p115-intro-backfill.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.intro_backfill_router",
+      "notes": "P11 native FastAPI route submits the existing intro-fingerprint-backfill Job with force disabled; the request process performs no Emby or provider scan.",
       "path": "/api/emby/intro-detection/backfill",
       "retirement_approval": null,
       "source": "routes/webhook.py:2121",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "ingestion",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-p11-intro-backfill-http-native-worker-and-openapi",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "application": "api",
@@ -11411,24 +11412,25 @@
       "contract_id": "route-decorator-88157e51d5a8",
       "declared_path": "/api/emby/intro-detection/backfill",
       "endpoint": "trigger_emby_intro_detection_backfill",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p11-p115-intro-backfill.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.intro_backfill_router",
+      "notes": "P11 native FastAPI route submits the existing intro-fingerprint-backfill Job with force disabled; the request process performs no Emby or provider scan.",
       "path": "/api/emby/intro-detection/backfill",
       "retirement_approval": null,
       "source": "routes/webhook.py:2121",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "ingestion",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-p11-intro-backfill-http-native-worker-and-openapi",
+      "validation_owner": "p115/intro-detection"
     },
     {
       "application": "api",

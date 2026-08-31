@@ -5529,3 +5529,54 @@ Safety boundary:
 
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
+### P11-Intro-Backfill-Route
+
+Stage / Batch: P11 / native intro backfill HTTP submission
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `ea926357` (`refactor(p11): execute native P8 media tasks`).
+- Target checkpoint message: `refactor(p11): cut over intro backfill route`.
+
+Implemented:
+
+- Added a native FastAPI owner for `POST /api/emby/intro-detection/backfill`. The request process
+  submits `intro-fingerprint-backfill` with `force=false`, `max_attempts=1`, and the current trace
+  identity; it does not scan Emby or resolve an intro/provider gateway.
+- Extended the existing processor-free P6 task owner to validate the optional boolean `force`
+  parameter while preserving the empty-payload `force=true` catalog behavior.
+- Preserved the compatibility HTTP envelopes: accepted submission is `202` with `job_id`; every
+  persistent submission failure is `503` with `reason=persistent_submit_failed`.
+- Regenerated Route ownership, OpenAPI and the TypeScript client. Route ownership is now
+  `323 new / 20 legacy` decorators and `345 new / 22 legacy` bindings; OpenAPI is
+  `302 paths / 354 operations`.
+- Updated the native Worker process-role assertion to include the two P8 media effect kinds already
+  wired by checkpoint `ea926357`.
+
+Targeted gate:
+
+- Full P6 application/unit/architecture gate -> `933 passed`.
+- P4 Worker outcomes, OpenAPI and static Manifest gate -> `74 passed`; focused HTTP/ownership
+  rerun -> `18 passed`; native process-role gate -> `38 passed` with the existing Starlette WSGI
+  deprecation warning.
+- Disposable PostgreSQL 18 + Redis/Celery explicit `force=true/false` delivery through native-only
+  and compatibility Worker profiles -> `4 passed`, `37 deselected`.
+- Frontend client generation, typecheck, API-boundary and production build passed; build retained
+  only the existing large-chunk warning.
+- Scoped Ruff/format and Pyright -> clean; compileall, `uv lock --check`, Manifest/OpenAPI
+  currentness, three fixture/contract secret scans and `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-intro-backfill-route-20260901/summary.md`.
+
+Pending:
+
+- Complete the remaining 20 processor-free task owners and exact 20/22 legacy Route bindings,
+  then Table/Config/Frontend ownership, pre-removal, controlled removal and every P11
+  NFR/security/SBOM/vulnerability/License gate.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
