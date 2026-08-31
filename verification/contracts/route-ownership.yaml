@@ -4216,20 +4216,21 @@
       "contract_id": "route-binding-197a683b2945",
       "decorator_contract_id": "route-decorator-b82d7ad37b5e",
       "endpoint": "create_115_directory",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native mkdir submits a single-attempt persistent operation and confirms the exact provider result without request-thread mutation.",
       "path": "/api/p115/mkdir",
       "retirement_approval": null,
       "source": "routes/p115.py:1263",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -4635,20 +4636,21 @@
       "contract_id": "route-binding-ede1ccad0a9a",
       "decorator_contract_id": "route-decorator-191ebd1ddbab",
       "endpoint": "quick_deploy_115",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 Quick Deploy freezes provider identities, persists one native operation attempt, reconciles unknown effects without resend, and streams the durable terminal result.",
       "path": "/api/p115/quick_deploy",
       "retirement_approval": null,
       "source": "routes/p115.py:1942",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -4697,20 +4699,21 @@
       "contract_id": "route-binding-53318de3f2eb",
       "decorator_contract_id": "route-decorator-72015555a0c6",
       "endpoint": "empty_recycle_bin",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native recycle-bin empty submits one bounded persistent provider operation and returns its confirmed terminal envelope.",
       "path": "/api/p115/recycle_bin/empty",
       "retirement_approval": null,
       "source": "routes/p115.py:3338",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -4780,40 +4783,42 @@
       "contract_id": "route-binding-191bfa941fbe",
       "decorator_contract_id": "route-decorator-76e3ff5a8d4b",
       "endpoint": "export_rename_config_to_mp",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 MoviePilot rename export freezes configuration revision and performs provider writes only in the single-attempt native Worker operation.",
       "path": "/api/p115/rename_config/mp/export",
       "retirement_approval": null,
       "source": "routes/p115.py:3089",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
       "contract_id": "route-binding-42d611f933a0",
       "decorator_contract_id": "route-decorator-3bf3040b0442",
       "endpoint": "import_rename_config_from_mp",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 MoviePilot rename import is a typed read-only gateway that preserves the legacy response envelope and template aliases.",
       "path": "/api/p115/rename_config/mp/import",
       "retirement_approval": null,
       "source": "routes/p115.py:3055",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -4904,20 +4909,21 @@
       "contract_id": "route-binding-eb66cd6b44dc",
       "decorator_contract_id": "route-decorator-0461dd43ca2f",
       "endpoint": "speedtest_115_download",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 speedtest reads an account-bound local sample and uses bounded native direct-URL and download adapters without mutating provider state.",
       "path": "/api/p115/speedtest",
       "retirement_approval": null,
       "source": "routes/p115.py:1110",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -5008,20 +5014,21 @@
       "contract_id": "route-binding-c874743c8067",
       "decorator_contract_id": "route-decorator-386038274a92",
       "endpoint": "empty_unrecognized_files",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 unrecognized cleanup freezes account and target identity, deletes only confirmed provider files, and atomically removes matching local facts.",
       "path": "/api/p115/unrecognized/empty",
       "retirement_approval": null,
       "source": "routes/p115.py:3353",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -12539,22 +12546,23 @@
       "contract_id": "route-decorator-b82d7ad37b5e",
       "declared_path": "/mkdir",
       "endpoint": "create_115_directory",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native mkdir submits a single-attempt persistent operation and confirms the exact provider result without request-thread mutation.",
       "path": "/api/p115/mkdir",
       "retirement_approval": null,
       "source": "routes/p115.py:1263",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -12972,22 +12980,23 @@
       "contract_id": "route-decorator-191ebd1ddbab",
       "declared_path": "/quick_deploy",
       "endpoint": "quick_deploy_115",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 Quick Deploy freezes provider identities, persists one native operation attempt, reconciles unknown effects without resend, and streams the durable terminal result.",
       "path": "/api/p115/quick_deploy",
       "retirement_approval": null,
       "source": "routes/p115.py:1942",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -13043,22 +13052,23 @@
       "contract_id": "route-decorator-72015555a0c6",
       "declared_path": "/recycle_bin/empty",
       "endpoint": "empty_recycle_bin",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 native recycle-bin empty submits one bounded persistent provider operation and returns its confirmed terminal envelope.",
       "path": "/api/p115/recycle_bin/empty",
       "retirement_approval": null,
       "source": "routes/p115.py:3338",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -13115,22 +13125,23 @@
       "contract_id": "route-decorator-76e3ff5a8d4b",
       "declared_path": "/rename_config/mp/export",
       "endpoint": "export_rename_config_to_mp",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 MoviePilot rename export freezes configuration revision and performs provider writes only in the single-attempt native Worker operation.",
       "path": "/api/p115/rename_config/mp/export",
       "retirement_approval": null,
       "source": "routes/p115.py:3089",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -13138,22 +13149,23 @@
       "contract_id": "route-decorator-3bf3040b0442",
       "declared_path": "/rename_config/mp/import",
       "endpoint": "import_rename_config_from_mp",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 MoviePilot rename import is a typed read-only gateway that preserves the legacy response envelope and template aliases.",
       "path": "/api/p115/rename_config/mp/import",
       "retirement_approval": null,
       "source": "routes/p115.py:3055",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -13234,22 +13246,23 @@
       "contract_id": "route-decorator-0461dd43ca2f",
       "declared_path": "/speedtest",
       "endpoint": "speedtest_115_download",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 speedtest reads an account-bound local sample and uses bounded native direct-URL and download adapters without mutating provider state.",
       "path": "/api/p115/speedtest",
       "retirement_approval": null,
       "source": "routes/p115.py:1110",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",
@@ -13353,22 +13366,23 @@
       "contract_id": "route-decorator-386038274a92",
       "declared_path": "/unrecognized/empty",
       "endpoint": "empty_unrecognized_files",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.router",
+      "notes": "P11 unrecognized cleanup freezes account and target identity, deletes only confirmed provider files, and atomically removes matching local facts.",
       "path": "/api/p115/unrecognized/empty",
       "retirement_approval": null,
       "source": "routes/p115.py:3353",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "p115"
       ],
       "target_stage": "P6",
-      "validation_method": "static-route-contract",
-      "validation_owner": "p115"
+      "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+      "validation_owner": "p115/maintenance"
     },
     {
       "application": "api",

@@ -44,113 +44,129 @@ class SqlAlchemyP115WashingPriorityRepository:
         groups: Sequence[object],
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         with self._unit_of_work() as uow:
-            _lock(uow)
-            old_groups = [
-                dict(row)
-                for row in uow.session.execute(
-                    text(
-                        """
-                        SELECT id, name, media_type, target_cids, priorities, sort_order
-                        FROM washing_priority_groups
-                        ORDER BY sort_order ASC
-                        FOR UPDATE
-                        """
-                    )
-                ).mappings()
-            ]
-            affected_scope = build_washing_priority_recalculate_scope(old_groups, list(groups))
-            current_state = _locked_setting(uow, P115_WASHING_PRIORITY_RECALCULATE_SETTING)
-            pending_state = merge_washing_priority_recalculate_state(current_state, affected_scope)
-
-            uow.session.execute(text("DELETE FROM washing_priority_groups"))
-            for index, raw_group in enumerate(groups):
-                if not isinstance(raw_group, Mapping):
-                    raise TypeError("washing priority group must be an object")
-                uow.session.execute(
-                    text(
-                        """
-                        INSERT INTO washing_priority_groups (
-                            name,
-                            media_type,
-                            target_cids,
-                            priorities,
-                            sort_order
-                        )
-                        VALUES (
-                            :name,
-                            :media_type,
-                            CAST(:target_cids AS jsonb),
-                            CAST(:priorities AS jsonb),
-                            :sort_order
-                        )
-                        """
-                    ),
-                    {
-                        "name": raw_group["name"],
-                        "media_type": raw_group["media_type"],
-                        "target_cids": json.dumps(
-                            raw_group.get("target_cids", []),
-                            ensure_ascii=False,
-                        ),
-                        "priorities": json.dumps(
-                            raw_group.get("priorities", []),
-                            ensure_ascii=False,
-                        ),
-                        "sort_order": index,
-                    },
-                )
-            if affected_scope:
-                _save_setting(uow, P115_WASHING_PRIORITY_RECALCULATE_SETTING, pending_state)
+            result = self.replace_groups_in_uow(uow, groups)
             uow.commit()
+        return result
+
+    @staticmethod
+    def replace_groups_in_uow(
+        uow: SqlAlchemyUnitOfWork,
+        groups: Sequence[object],
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        _lock(uow)
+        old_groups = [
+            dict(row)
+            for row in uow.session.execute(
+                text(
+                    """
+                    SELECT id, name, media_type, target_cids, priorities, sort_order
+                    FROM washing_priority_groups
+                    ORDER BY sort_order ASC
+                    FOR UPDATE
+                    """
+                )
+            ).mappings()
+        ]
+        affected_scope = build_washing_priority_recalculate_scope(old_groups, list(groups))
+        current_state = _locked_setting(uow, P115_WASHING_PRIORITY_RECALCULATE_SETTING)
+        pending_state = merge_washing_priority_recalculate_state(current_state, affected_scope)
+
+        uow.session.execute(text("DELETE FROM washing_priority_groups"))
+        for index, raw_group in enumerate(groups):
+            if not isinstance(raw_group, Mapping):
+                raise TypeError("washing priority group must be an object")
+            uow.session.execute(
+                text(
+                    """
+                    INSERT INTO washing_priority_groups (
+                        name,
+                        media_type,
+                        target_cids,
+                        priorities,
+                        sort_order
+                    )
+                    VALUES (
+                        :name,
+                        :media_type,
+                        CAST(:target_cids AS jsonb),
+                        CAST(:priorities AS jsonb),
+                        :sort_order
+                    )
+                    """
+                ),
+                {
+                    "name": raw_group["name"],
+                    "media_type": raw_group["media_type"],
+                    "target_cids": json.dumps(
+                        raw_group.get("target_cids", []),
+                        ensure_ascii=False,
+                    ),
+                    "priorities": json.dumps(
+                        raw_group.get("priorities", []),
+                        ensure_ascii=False,
+                    ),
+                    "sort_order": index,
+                },
+            )
+        if affected_scope:
+            _save_setting(uow, P115_WASHING_PRIORITY_RECALCULATE_SETTING, pending_state)
         return affected_scope, dict(pending_state.get("media_types", {}))
 
     def save_config(self, value: Mapping[str, Any]) -> dict[str, Any]:
         with self._unit_of_work() as uow:
-            _lock(uow)
-            rows = uow.session.execute(
-                text(
-                    """
-                    SELECT setting_key, value_json
-                    FROM app_settings
-                    WHERE setting_key = ANY(:keys)
-                    """
-                ),
-                {
-                    "keys": [
-                        P115_WASHING_PRIORITY_CONFIG_SETTING,
-                        "p115_rename_config",
-                    ]
-                },
-            ).mappings()
-            values = {str(row["setting_key"]): row["value_json"] for row in rows}
-            current, _migrated = effective_washing_priority_config(
-                values.get(P115_WASHING_PRIORITY_CONFIG_SETTING),
-                values.get("p115_rename_config"),
-            )
-            clean_config = normalize_washing_priority_config_for_save(value, current)
-            slots_changed = (
-                bool(current.get("version_slots_enabled")) != clean_config["version_slots_enabled"]
-                or current.get("version_slots", []) != clean_config["version_slots"]
-            )
-            _save_setting(uow, P115_WASHING_PRIORITY_CONFIG_SETTING, clean_config)
-            if slots_changed:
-                current_state = _locked_setting(
-                    uow,
-                    P115_WASHING_PRIORITY_RECALCULATE_SETTING,
-                )
-                pending_state = merge_washing_priority_recalculate_state(
-                    current_state,
-                    {
-                        "Movie": {"all": True, "target_cids": []},
-                        "Series": {"all": True, "target_cids": []},
-                    },
-                )
-                _save_setting(
-                    uow,
-                    P115_WASHING_PRIORITY_RECALCULATE_SETTING,
-                    pending_state,
-                )
+            clean_config = self.save_config_in_uow(uow, value)
             uow.commit()
+        return clean_config
+
+    @staticmethod
+    def save_config_in_uow(
+        uow: SqlAlchemyUnitOfWork,
+        value: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        _lock(uow)
+        rows = uow.session.execute(
+            text(
+                """
+                SELECT setting_key, value_json
+                FROM app_settings
+                WHERE setting_key = ANY(:keys)
+                """
+            ),
+            {
+                "keys": [
+                    P115_WASHING_PRIORITY_CONFIG_SETTING,
+                    "p115_rename_config",
+                ]
+            },
+        ).mappings()
+        values = {str(row["setting_key"]): row["value_json"] for row in rows}
+        current, _migrated = effective_washing_priority_config(
+            values.get(P115_WASHING_PRIORITY_CONFIG_SETTING),
+            values.get("p115_rename_config"),
+        )
+        clean_config = normalize_washing_priority_config_for_save(value, current)
+        slots_changed = (
+            bool(current.get("version_slots_enabled")) != clean_config["version_slots_enabled"]
+            or current.get("version_slots", []) != clean_config["version_slots"]
+        )
+        _save_setting(uow, P115_WASHING_PRIORITY_CONFIG_SETTING, clean_config)
+        if slots_changed:
+            current_state = _locked_setting(
+                uow,
+                P115_WASHING_PRIORITY_RECALCULATE_SETTING,
+            )
+            pending_state = merge_washing_priority_recalculate_state(
+                current_state,
+                {
+                    "Movie": {"all": True, "target_cids": []},
+                    "Series": {"all": True, "target_cids": []},
+                },
+            )
+            _save_setting(
+                uow,
+                P115_WASHING_PRIORITY_RECALCULATE_SETTING,
+                pending_state,
+            )
         return clean_config
 
     def load_recalculate_state(self) -> dict[str, Any]:

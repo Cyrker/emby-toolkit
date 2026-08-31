@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
-from collections.abc import Mapping
+import secrets
+import time
+from collections.abc import AsyncIterator, Mapping
 from functools import partial
 from typing import Any, Literal
 from uuid import UUID
@@ -10,13 +13,13 @@ from uuid import UUID
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, RootModel, ValidationError
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import HTMLResponse, JSONResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from werkzeug.exceptions import BadRequest, InternalServerError, UnsupportedMediaType
 
 from etk.compatibility.response_contract import fastapi_json_response
 from etk.domains.media.models import MediaIdentity, MediaItemType, ServiceResult
 from etk.domains.operations.jobs import JobSubmissionService, TaskBusyError
-from etk.platform.jobs import IdempotencyConflictError, InvalidJsonPayloadError
+from etk.platform.jobs import IdempotencyConflictError, InvalidJsonPayloadError, JobProjection, JobStatus
 from etk.platform.web import PermissionPolicy, get_request_session
 
 from .auth_directory import P115AuthDirectoryService
@@ -26,6 +29,7 @@ from .intro_sync import P115IntroSyncNotFound, P115IntroSyncService
 from .item_ready import P115ItemReadyService
 from .local_config_service import P115LocalSettingsService
 from .local_directories import P115LocalDirectoryService
+from .maintenance import P115MaintenanceIntentService, P115SpeedtestService
 from .media_info import (
     P115MediaInfoCacheService,
     P115MediaInfoIdentity,
@@ -44,7 +48,9 @@ from .organize_execution import (
 )
 from .organize_plan import P115OrganizePlanService
 from .organize_records import P115OrganizeRecordsService
+from .quick_deploy import P115QuickDeployIntentService
 from .rename_config import P115RenameConfigService
+from .rename_moviepilot import P115RenameMoviePilotService
 from .sorting_rules import P115SortingRulesService
 from .strm_sync import P115StrmReplaceService
 from .upload_monitor import P115UploadMonitorConfigService
@@ -193,6 +199,16 @@ def _rename_config_service(request: Request) -> P115RenameConfigService:
     return value
 
 
+def _rename_moviepilot_service(request: Request) -> P115RenameMoviePilotService:
+    direct = getattr(request.app.state, "p115_rename_moviepilot_service", None)
+    if isinstance(direct, P115RenameMoviePilotService):
+        return direct
+    value = request.app.state.container.use_case("p115.rename-moviepilot")
+    if not isinstance(value, P115RenameMoviePilotService):
+        raise TypeError("p115.rename-moviepilot provider returned an invalid service")
+    return value
+
+
 def _episode_regex_service(request: Request) -> P115EpisodeRegexService:
     direct = getattr(request.app.state, "p115_episode_regex_service", None)
     if isinstance(direct, P115EpisodeRegexService):
@@ -334,6 +350,36 @@ def _job_submission_service(request: Request) -> JobSubmissionService:
     value = request.app.state.container.use_case("operations.jobs")
     if not isinstance(value, JobSubmissionService):
         raise TypeError("operations.jobs provider returned an invalid service")
+    return value
+
+
+def _maintenance_intents(request: Request) -> P115MaintenanceIntentService:
+    direct = getattr(request.app.state, "p115_maintenance_intent_service", None)
+    if isinstance(direct, P115MaintenanceIntentService):
+        return direct
+    value = request.app.state.container.use_case("p115.maintenance-intents")
+    if not isinstance(value, P115MaintenanceIntentService):
+        raise TypeError("p115.maintenance-intents provider returned an invalid service")
+    return value
+
+
+def _speedtest_service(request: Request) -> P115SpeedtestService:
+    direct = getattr(request.app.state, "p115_speedtest_service", None)
+    if isinstance(direct, P115SpeedtestService):
+        return direct
+    value = request.app.state.container.use_case("p115.speedtest")
+    if not isinstance(value, P115SpeedtestService):
+        raise TypeError("p115.speedtest provider returned an invalid service")
+    return value
+
+
+def _quick_deploy_intent(request: Request) -> P115QuickDeployIntentService:
+    direct = getattr(request.app.state, "p115_quick_deploy_intent_service", None)
+    if isinstance(direct, P115QuickDeployIntentService):
+        return direct
+    value = request.app.state.container.use_case("p115.quick-deploy-intent")
+    if not isinstance(value, P115QuickDeployIntentService):
+        raise TypeError("p115.quick-deploy-intent provider returned an invalid service")
     return value
 
 
@@ -985,6 +1031,34 @@ async def status(request: Request) -> Response:
 
 
 @router.get(
+    "/speedtest",
+    response_model=ExternalObjectResponse,
+    responses={
+        400: {"model": ExternalObjectResponse},
+        403: {"model": ExternalObjectResponse},
+        500: {"model": ExternalObjectResponse},
+    },
+    openapi_extra=_query_parameters("max_mb", "seconds"),
+)
+async def speedtest_115_download(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    try:
+        result = await run_in_threadpool(
+            partial(
+                _speedtest_service(request).run,
+                max_mb=request.query_params.get("max_mb"),
+                seconds=request.query_params.get("seconds"),
+                user_agent=request.headers.get("user-agent"),
+            )
+        )
+    except Exception as exc:
+        return fastapi_json_response({"status": "error", "message": str(exc)}, status_code=500)
+    return _response(result)
+
+
+@router.get(
     "/upload_monitor/config",
     response_model=ExternalObjectResponse,
     responses={403: {"model": ExternalObjectResponse}, 500: {"model": ExternalObjectResponse}},
@@ -1083,6 +1157,248 @@ async def list_directories(request: Request) -> Response:
             cid_value=request.query_params.get("cid", "0"),
             search=str(request.query_params.get("search") or ""),
         )
+    )
+
+
+@router.post(
+    "/mkdir",
+    response_model=ExternalObjectResponse,
+    responses={
+        400: {
+            "content": {
+                "application/json": {"schema": ExternalObjectResponse.model_json_schema()},
+                "text/html": {"schema": {"type": "string"}},
+            }
+        },
+        403: {"model": ExternalObjectResponse},
+        409: {"model": ExternalObjectResponse},
+        415: {"content": {"text/html": {"schema": {"type": "string"}}}},
+        500: {"model": ExternalObjectResponse},
+        503: {"model": ExternalObjectResponse},
+    },
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "pid": {"type": "string"},
+                            "cid": {"type": "string"},
+                            "name": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
+async def create_115_directory(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, error = await _legacy_json_object(request)
+    if error is not None:
+        return error
+    assert payload is not None
+    try:
+        parameters = await run_in_threadpool(
+            _maintenance_intents(request).mkdir_parameters,
+            payload.get("pid") or payload.get("cid"),
+            payload.get("name"),
+        )
+    except ValueError as exc:
+        return fastapi_json_response({"status": "error", "message": str(exc)}, status_code=400)
+    submitted = await _submit_p115_native_operation(
+        request,
+        "p115.mkdir",
+        parameters,
+        display_name="创建 115 目录",
+        timeout_seconds=60,
+        idempotency_scope="api.p115.mkdir",
+    )
+    if isinstance(submitted, Response):
+        return submitted
+    projection = await _await_p115_operation(_job_submission_service(request), submitted.job.id, timeout_seconds=65)
+    if projection is None:
+        return fastapi_json_response(
+            {
+                "status": "error",
+                "operation_status": "indeterminate",
+                "message": "创建 115 目录任务未在限定时间内完成，请通过 job_id 查询最终状态",
+                "job_id": str(submitted.job.id),
+            },
+            status_code=503,
+        )
+    if projection.job.status is not JobStatus.SUCCEEDED:
+        return _native_operation_failure(projection, legacy_status_key=True)
+    result = dict(projection.job.result or {})
+    provider_response = result.get("provider_response")
+    if not isinstance(provider_response, Mapping):
+        return fastapi_json_response(
+            {"status": "error", "message": "创建 115 目录任务返回了无效结果"},
+            status_code=500,
+        )
+    return fastapi_json_response({"status": "success", "data": dict(provider_response)})
+
+
+@router.post(
+    "/recycle_bin/empty",
+    response_model=ExternalObjectResponse,
+    responses={
+        400: {"model": ExternalObjectResponse},
+        403: {"model": ExternalObjectResponse},
+        409: {"model": ExternalObjectResponse},
+        500: {"model": ExternalObjectResponse},
+        503: {"model": ExternalObjectResponse},
+    },
+)
+async def empty_recycle_bin(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    try:
+        parameters = await run_in_threadpool(_maintenance_intents(request).recycle_bin_parameters)
+    except ValueError as exc:
+        return fastapi_json_response({"success": False, "message": str(exc)}, status_code=500)
+    submitted = await _submit_p115_native_operation(
+        request,
+        "p115.recycle-bin-empty",
+        parameters,
+        display_name="清空 115 回收站",
+        timeout_seconds=90,
+        idempotency_scope="api.p115.recycle-bin-empty",
+    )
+    if isinstance(submitted, Response):
+        return submitted
+    projection = await _await_p115_operation(_job_submission_service(request), submitted.job.id, timeout_seconds=95)
+    if projection is None:
+        return fastapi_json_response(
+            {
+                "success": False,
+                "operation_status": "indeterminate",
+                "message": "清空 115 回收站任务未在限定时间内完成，请通过 job_id 查询最终状态",
+                "job_id": str(submitted.job.id),
+            },
+            status_code=503,
+        )
+    if projection.job.status is not JobStatus.SUCCEEDED:
+        return _native_operation_failure(projection)
+    return fastapi_json_response({"success": True, "message": "回收站已彻底清空！"})
+
+
+@router.post(
+    "/unrecognized/empty",
+    response_model=ExternalObjectResponse,
+    responses={
+        400: {"model": ExternalObjectResponse},
+        403: {"model": ExternalObjectResponse},
+        409: {"model": ExternalObjectResponse},
+        503: {"model": ExternalObjectResponse},
+    },
+)
+async def empty_unrecognized_files(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    try:
+        parameters = await run_in_threadpool(
+            _maintenance_intents(request).unrecognized_parameters,
+            request.app.state.container.settings.p115_unrecognized_cid,
+        )
+    except ValueError as exc:
+        status_code = 200 if "未配置未识别目录" in str(exc) else 400
+        return fastapi_json_response({"success": False, "message": str(exc)}, status_code=status_code)
+    submitted = await _submit_p115_native_operation(
+        request,
+        "p115.empty-unrecognized",
+        parameters,
+        display_name="清空 115 未识别目录",
+        timeout_seconds=1800,
+        idempotency_scope="api.p115.empty-unrecognized",
+    )
+    if isinstance(submitted, Response):
+        return submitted
+    job_id = str(submitted.job.id)
+    return fastapi_json_response(
+        {
+            "success": True,
+            "message": "未识别目录清空任务已提交",
+            "job_id": job_id,
+            "data": {"accepted": True, "job_id": job_id},
+        }
+    )
+
+
+@router.post(
+    "/quick_deploy",
+    response_model=ExternalObjectResponse,
+    responses={
+        200: {
+            "content": {
+                "application/json": {"schema": ExternalObjectResponse.model_json_schema()},
+                "application/x-ndjson": {"schema": {"type": "string"}},
+            }
+        },
+        400: {"model": ExternalObjectResponse},
+        403: {"model": ExternalObjectResponse},
+        409: {"model": ExternalObjectResponse},
+        500: {"model": ExternalObjectResponse},
+        503: {"model": ExternalObjectResponse},
+    },
+    openapi_extra=_query_parameters("stream"),
+)
+async def quick_deploy_115(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    try:
+        parameters = await run_in_threadpool(_quick_deploy_intent(request).parameters)
+    except (RuntimeError, ValueError) as exc:
+        return fastapi_json_response({"success": False, "message": str(exc)}, status_code=400)
+    submitted = await _submit_p115_native_operation(
+        request,
+        "p115.quick-deploy",
+        parameters,
+        display_name="一键部署 115 基础配置",
+        timeout_seconds=1800,
+        idempotency_scope="api.p115.quick-deploy",
+    )
+    if isinstance(submitted, Response):
+        return submitted
+    jobs = _job_submission_service(request)
+    if request.query_params.get("stream") == "1":
+        return StreamingResponse(
+            _quick_deploy_events(request, jobs, submitted),
+            media_type="application/x-ndjson",
+            headers={
+                "cache-control": "no-cache",
+                "x-accel-buffering": "no",
+                "x-etk-job-id": str(submitted.job.id),
+            },
+        )
+
+    completed = await _await_p115_operation(jobs, submitted.job.id, timeout_seconds=1805)
+    if completed is None:
+        return fastapi_json_response(
+            {
+                "success": False,
+                "operation_status": "indeterminate",
+                "message": "一键部署任务未在限定时间内完成，请通过 job_id 查询最终状态",
+                "job_id": str(submitted.job.id),
+            },
+            status_code=503,
+        )
+    event = await _quick_deploy_terminal_event(request, completed)
+    if event.get("success") is not True:
+        return fastapi_json_response(event, status_code=500)
+    return fastapi_json_response(
+        {
+            "success": True,
+            "message": "115 网盘基础配置已部署完成",
+            "data": event.get("data") or {},
+        }
     )
 
 
@@ -1208,6 +1524,92 @@ async def preview_rename_config(request: Request) -> Response:
     if invalid is not None:
         return invalid
     return _response(await run_in_threadpool(_rename_config_service(request).preview_config, payload))
+
+
+@router.get(
+    "/rename_config/mp/import",
+    response_model=ExternalObjectResponse,
+    responses={
+        400: {"model": ExternalObjectResponse},
+        403: {"model": ExternalObjectResponse},
+        500: {"model": ExternalObjectResponse},
+    },
+)
+async def import_rename_config_from_mp(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    return _response(await run_in_threadpool(_rename_moviepilot_service(request).import_templates))
+
+
+@router.post(
+    "/rename_config/mp/export",
+    response_model=ExternalObjectResponse,
+    responses={
+        400: {
+            "content": {
+                "application/json": {"schema": ExternalObjectResponse.model_json_schema()},
+                "text/html": {"schema": {"type": "string"}},
+            }
+        },
+        403: {"model": ExternalObjectResponse},
+        409: {"model": ExternalObjectResponse},
+        415: {"content": {"text/html": {"schema": {"type": "string"}}}},
+        500: {"model": ExternalObjectResponse},
+        503: {"model": ExternalObjectResponse},
+    },
+    openapi_extra=_JSON_VALUE_BODY,
+)
+async def export_rename_config_to_mp(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    payload, invalid = await _legacy_json_value(request)
+    if invalid is not None:
+        return invalid
+    prepared = await run_in_threadpool(_rename_moviepilot_service(request).export_parameters, payload)
+    if prepared.status_code != 200 or not isinstance(prepared.payload, Mapping):
+        return _response(prepared)
+    parameters = prepared.payload.get("data")
+    if not isinstance(parameters, Mapping):
+        return fastapi_json_response(
+            {"success": False, "message": "MoviePilot 模板导出参数无效"},
+            status_code=500,
+        )
+    submitted = await _submit_p115_native_operation(
+        request,
+        "p115.moviepilot-rename-export",
+        dict(parameters),
+        display_name="导出重命名模板到 MoviePilot",
+        timeout_seconds=90,
+        idempotency_scope="api.p115.rename-config-moviepilot-export",
+    )
+    if isinstance(submitted, Response):
+        return submitted
+    projection = await _await_p115_operation(_job_submission_service(request), submitted.job.id, timeout_seconds=95)
+    if projection is None:
+        return fastapi_json_response(
+            {
+                "success": False,
+                "operation_status": "indeterminate",
+                "message": "MoviePilot 模板导出任务未在限定时间内完成，请通过 job_id 查询最终状态",
+                "job_id": str(submitted.job.id),
+            },
+            status_code=503,
+        )
+    if projection.job.status is not JobStatus.SUCCEEDED:
+        return _native_operation_failure(projection)
+    result = dict(projection.job.result or {})
+    return fastapi_json_response(
+        {
+            "success": True,
+            "message": "已把当前模板写入 MoviePilot",
+            "data": {
+                "mp_movie_template": result.get("mp_movie_template"),
+                "mp_tv_template": result.get("mp_tv_template"),
+            },
+        }
+    )
 
 
 @router.get(
@@ -1823,6 +2225,264 @@ def _media_service_response(result: ServiceResult) -> Response:
         status_code=result.status_code,
         headers=dict(result.headers or {}),
     )
+
+
+async def _quick_deploy_events(
+    request: Request,
+    jobs: JobSubmissionService,
+    initial: JobProjection,
+) -> AsyncIterator[str]:
+    yield _ndjson({"type": "accepted", "job_id": str(initial.job.id)})
+    submitted_at = time.monotonic()
+    stream_timeout_seconds = max(
+        35.0,
+        float(getattr(initial.job, "timeout_seconds", None) or 1800) + 5.0,
+    )
+    last_progress: tuple[int, str | None] | None = None
+    cancellation_requested = False
+    cancellation_requested_at: float | None = None
+    while True:
+        projection = await run_in_threadpool(jobs.get, initial.job.id)
+        if projection is None:
+            yield _ndjson(
+                {
+                    "type": "done",
+                    "success": False,
+                    "status": "indeterminate",
+                    "message": "持久任务状态已丢失",
+                    "job_id": str(initial.job.id),
+                }
+            )
+            return
+        job = projection.job
+        if (
+            not cancellation_requested
+            and job.status in {JobStatus.QUEUED, JobStatus.RETRY_WAIT}
+            and time.monotonic() - submitted_at >= 30
+        ):
+            cancellation_requested = True
+            try:
+                projection = await run_in_threadpool(jobs.cancel, job.id)
+            except Exception as exc:
+                yield _ndjson(
+                    {
+                        "type": "done",
+                        "success": False,
+                        "status": "indeterminate",
+                        "message": f"一键部署任务取消结果无法确认: {exc}",
+                        "job_id": str(job.id),
+                    }
+                )
+                return
+            job = projection.job
+            if job.status is JobStatus.CANCELLED:
+                yield _ndjson(
+                    {
+                        "type": "done",
+                        "success": False,
+                        "status": "cancelled",
+                        "message": "一键部署任务未在限定时间内开始，请检查 Coordinator 和 Worker 状态",
+                        "job_id": str(job.id),
+                    }
+                )
+                return
+            if job.status.terminal:
+                yield _ndjson(await _quick_deploy_terminal_event(request, projection))
+                return
+            if job.status not in {JobStatus.RUNNING, JobStatus.CANCEL_REQUESTED}:
+                yield _ndjson(
+                    {
+                        "type": "done",
+                        "success": False,
+                        "status": "indeterminate",
+                        "message": "一键部署任务取消后状态无法确认",
+                        "job_id": str(job.id),
+                    }
+                )
+                return
+            cancellation_requested_at = time.monotonic()
+        current_progress = (int(job.progress), job.progress_message)
+        if job.progress_message and current_progress != last_progress:
+            last_progress = current_progress
+            yield _ndjson(
+                {
+                    "type": "progress",
+                    "percent": int(job.progress),
+                    "message": job.progress_message,
+                }
+            )
+        if job.status.terminal:
+            yield _ndjson(await _quick_deploy_terminal_event(request, projection))
+            return
+        if cancellation_requested_at is not None:
+            if time.monotonic() - cancellation_requested_at >= 30:
+                yield _ndjson(
+                    {
+                        "type": "done",
+                        "success": False,
+                        "status": "indeterminate",
+                        "message": "一键部署任务取消后仍未到达终态，请通过 job_id 查询最终状态",
+                        "job_id": str(job.id),
+                    }
+                )
+                return
+        elif time.monotonic() - submitted_at >= stream_timeout_seconds:
+            yield _ndjson(
+                {
+                    "type": "done",
+                    "success": False,
+                    "status": "indeterminate",
+                    "message": "一键部署任务仍在运行或状态无法推进，请通过 job_id 查询最终状态",
+                    "job_id": str(job.id),
+                }
+            )
+            return
+        await asyncio.sleep(0.25)
+
+
+async def _quick_deploy_terminal_event(request: Request, projection: JobProjection) -> dict[str, Any]:
+    job = projection.job
+    if job.status is JobStatus.SUCCEEDED:
+        result = dict(job.result or {})
+        if not isinstance(result.get("config"), Mapping):
+            return {
+                "type": "done",
+                "success": False,
+                "status": "indeterminate",
+                "message": "一键部署任务缺少可重载的配置结果",
+                "job_id": str(job.id),
+            }
+        synchronizer = getattr(request.app.state, "configuration_synchronizer", None)
+        if synchronizer is not None:
+            try:
+                await run_in_threadpool(synchronizer.synchronize)
+            except Exception as exc:
+                return {
+                    "type": "done",
+                    "success": False,
+                    "status": "confirmed",
+                    "message": f"一键部署已执行，但 API 配置重载失败: {exc}",
+                    "job_id": str(job.id),
+                    "data": result,
+                }
+        return {
+            "type": "done",
+            "success": True,
+            "status": "confirmed",
+            "message": "115 网盘基础配置已部署完成",
+            "job_id": str(job.id),
+            "data": result,
+        }
+    error = dict(job.error_summary or {})
+    error_type = str(error.get("type") or "")
+    status = (
+        "indeterminate"
+        if error_type in {"PersistentEffectIndeterminate", "PersistentExecutionInterruptedAfterEffect"}
+        else ("cancelled" if job.status is JobStatus.CANCELLED else "rejected")
+    )
+    return {
+        "type": "done",
+        "success": False,
+        "status": status,
+        "message": str(error.get("message") or job.progress_message or "一键部署任务失败"),
+        "job_id": str(job.id),
+    }
+
+
+def _ndjson(payload: Mapping[str, Any]) -> str:
+    return json.dumps(dict(payload), ensure_ascii=False, separators=(",", ":")) + "\n"
+
+
+async def _submit_p115_native_operation(
+    request: Request,
+    operation_key: str,
+    parameters: Mapping[str, Any],
+    *,
+    display_name: str,
+    timeout_seconds: int,
+    idempotency_scope: str,
+) -> JobProjection | Response:
+    idempotency_key = _idempotency_key(request) or secrets.token_urlsafe(24)
+    if idempotency_key is not None and (
+        len(idempotency_key) > 255 or not idempotency_key.isascii() or not idempotency_key.isprintable()
+    ):
+        return fastapi_json_response(
+            {"success": False, "message": "Idempotency-Key 必须是 1-255 个可打印 ASCII 字符"},
+            status_code=400,
+        )
+    session = get_request_session(request)
+    try:
+        submitted = await run_in_threadpool(
+            partial(
+                _job_submission_service(request).submit_native_operation,
+                operation_key,
+                parameters,
+                display_name=display_name,
+                trigger_type="manual",
+                requested_by_user_id=str(session.get("emby_user_id") or "").strip() or None,
+                idempotency_key=idempotency_key,
+                idempotency_scope=idempotency_scope if idempotency_key is not None else None,
+                max_attempts=1,
+                timeout_seconds=timeout_seconds,
+                trace_id=str(getattr(request.state, "trace_id", "") or "").strip() or None,
+                reject_when_busy=False,
+            )
+        )
+    except IdempotencyConflictError as exc:
+        return fastapi_json_response({"success": False, "message": str(exc)}, status_code=409)
+    except TaskBusyError:
+        return fastapi_json_response(
+            {"success": False, "message": "后台有任务正在运行，请稍后再试。"},
+            status_code=503,
+        )
+    except (InvalidJsonPayloadError, TypeError, ValueError) as exc:
+        return fastapi_json_response({"success": False, "message": str(exc)}, status_code=400)
+    except Exception as exc:
+        return fastapi_json_response(
+            {"success": False, "message": f"持久任务提交失败: {exc}"},
+            status_code=503,
+        )
+    return submitted.projection
+
+
+async def _await_p115_operation(
+    jobs: JobSubmissionService,
+    job_id: UUID,
+    *,
+    timeout_seconds: float,
+) -> JobProjection | None:
+    deadline = time.monotonic() + max(0.1, float(timeout_seconds))
+    while True:
+        projection = await run_in_threadpool(jobs.get, job_id)
+        if projection is None or projection.job.status.terminal:
+            return projection
+        if time.monotonic() >= deadline:
+            return None
+        await asyncio.sleep(0.25)
+
+
+def _native_operation_failure(
+    projection: JobProjection,
+    *,
+    legacy_status_key: bool = False,
+) -> Response:
+    error = dict(projection.job.error_summary or {})
+    error_type = str(error.get("type") or "")
+    indeterminate = error_type in {
+        "PersistentEffectIndeterminate",
+        "PersistentExecutionInterruptedAfterEffect",
+    }
+    payload: dict[str, Any] = {
+        "message": str(error.get("message") or projection.job.progress_message or "持久任务失败"),
+        "job_id": str(projection.job.id),
+    }
+    if legacy_status_key:
+        payload["status"] = "error"
+    else:
+        payload["success"] = False
+    if indeterminate:
+        payload["operation_status"] = "indeterminate"
+    return fastapi_json_response(payload, status_code=500)
 
 
 def _uuid(value: str) -> UUID | None:

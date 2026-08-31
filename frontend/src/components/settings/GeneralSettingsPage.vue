@@ -2127,7 +2127,7 @@ import {
 import { useConfig } from '../../composables/useConfig.ts';
 import {
   assertQuickDeployResponse,
-  clearQuickDeployIntent,
+  finalizeQuickDeployIntent,
   getQuickDeployIntent
 } from './quickDeployIntent.ts';
 import RenameConfigModal from './RenameConfigModal.vue';
@@ -3472,7 +3472,7 @@ const handleQuickDeploy115 = () => {
         if (event.type === 'done') finalEvent = event;
       }
 
-      if (finalEvent) clearQuickDeployIntent();
+      if (finalEvent) finalizeQuickDeployIntent(finalEvent.status);
       if (!finalEvent?.success) {
         throw new Error(finalEvent?.message || '一键部署失败');
       }

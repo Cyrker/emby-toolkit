@@ -41,6 +41,23 @@ class SqlAlchemyAppSettingsRepository:
             values = {str(row["setting_key"]): deepcopy(row["value_json"]) for row in rows}
         return {key: values.get(key) for key in normalized}
 
+    def revision(self, key: str) -> str:
+        normalized = str(key or "").strip()
+        if not normalized:
+            raise ValueError("setting key is required")
+        with self._unit_of_work() as uow:
+            value = uow.session.scalar(
+                text(
+                    """
+                    SELECT COALESCE(last_updated_at::text, '')
+                    FROM app_settings
+                    WHERE setting_key = :key
+                    """
+                ),
+                {"key": normalized},
+            )
+        return str(value or "")
+
     def save(self, key: str, value: Any) -> None:
         self.save_many({key: value})
 
@@ -97,6 +114,59 @@ class SqlAlchemyAppSettingsRepository:
                 ),
                 {
                     "key": key,
+                    "value": json.dumps(merged, ensure_ascii=False),
+                },
+            )
+            uow.commit()
+        return deepcopy(merged)
+
+    def merge_mapping_if_revision(
+        self,
+        key: str,
+        updates: Mapping[str, Any],
+        *,
+        expected_revision: str,
+        remove_keys: Sequence[str] = (),
+    ) -> Mapping[str, Any]:
+        normalized = str(key or "").strip()
+        if not normalized:
+            raise ValueError("setting key is required")
+        with self._unit_of_work() as uow:
+            row = (
+                uow.session.execute(
+                    text(
+                        """
+                    SELECT value_json, COALESCE(last_updated_at::text, '') AS revision
+                    FROM app_settings
+                    WHERE setting_key = :key
+                    FOR UPDATE
+                    """
+                    ),
+                    {"key": normalized},
+                )
+                .mappings()
+                .first()
+            )
+            actual_revision = str(row.get("revision") or "") if row is not None else ""
+            if actual_revision != str(expected_revision or ""):
+                raise RuntimeError(f"setting {normalized!r} changed after the operation was submitted")
+            current = row.get("value_json") if row is not None else None
+            merged = dict(current) if isinstance(current, Mapping) else {}
+            for removed in remove_keys:
+                merged.pop(removed, None)
+            merged.update(updates)
+            uow.session.execute(
+                text(
+                    """
+                    INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                    VALUES (:key, CAST(:value AS jsonb), NOW())
+                    ON CONFLICT (setting_key) DO UPDATE SET
+                        value_json = EXCLUDED.value_json,
+                        last_updated_at = NOW()
+                    """
+                ),
+                {
+                    "key": normalized,
                     "value": json.dumps(merged, ensure_ascii=False),
                 },
             )

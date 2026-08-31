@@ -108,7 +108,10 @@ class PostgresJobStore:
             "workflow_step": workflow_step,
             "dispatch": dispatch,
         }
-        request_hash = canonical_json_hash(request_envelope, field="job request")
+        request_hash = canonical_json_hash(
+            _idempotency_request_envelope(task_key, request_envelope),
+            field="job request",
+        )
         scope: str | None = None
         key_hash: bytes | None = None
         if idempotency_key is not None:
@@ -201,6 +204,10 @@ class PostgresJobStore:
                     return ResumeJobResult(
                         projection=_require_projection(repository.projection(job_id), job_id),
                         resumed=False,
+                    )
+                if str(job["task_key"]).startswith("native-operation:"):
+                    raise InvalidStateTransitionError(
+                        "native operation Jobs cannot be resumed after a terminal outcome"
                     )
                 current_attempt = _require_attempt(
                     repository.get_current_attempt_row(
@@ -576,17 +583,38 @@ class PostgresJobStore:
             for row in rows:
                 lost += 1
                 job_was_cancelled = JobStatus(row["job_status"]) is JobStatus.CANCEL_REQUESTED
-                can_retry = not job_was_cancelled and int(row["attempt_no"]) < int(row["max_attempts"])
+                native_operation, identity_error = _native_operation_recovery_identity(row)
+                can_retry = (
+                    not job_was_cancelled
+                    and not native_operation
+                    and identity_error is None
+                    and int(row["attempt_no"]) < int(row["max_attempts"])
+                )
+                error_type = (
+                    "NativeOperationIdentityMismatch"
+                    if identity_error is not None
+                    else ("PersistentEffectIndeterminate" if native_operation else "worker_lost")
+                )
+                error_message = (
+                    identity_error
+                    if identity_error is not None
+                    else (
+                        "native operation worker lease expired after execution started; "
+                        "external effect outcome is unknown"
+                        if native_operation
+                        else "worker heartbeat lease expired"
+                    )
+                )
                 repository.mark_attempt_terminal(
                     row["attempt_id"],
                     AttemptStatus.LOST,
                     retryable=can_retry,
-                    error_type="worker_lost",
-                    error_message="worker heartbeat lease expired",
+                    error_type=error_type,
+                    error_message=error_message,
                     error_details_json=canonical_json({"worker_id": row["worker_id"]}),
                     result_json=None,
                 )
-                if job_was_cancelled:
+                if job_was_cancelled and not native_operation:
                     repository.mark_job_terminal(row["job_id"], JobStatus.CANCELLED)
                     cancelled += 1
                 elif can_retry:
@@ -603,7 +631,13 @@ class PostgresJobStore:
                     repository.mark_job_terminal(
                         row["job_id"],
                         JobStatus.FAILED,
-                        error_summary_json=canonical_json({"type": "worker_lost", "retry_exhausted": True}),
+                        error_summary_json=canonical_json(
+                            {
+                                "type": error_type,
+                                "message": error_message,
+                                "retry_exhausted": True,
+                            }
+                        ),
                     )
                     failed += 1
             uow.commit()
@@ -861,6 +895,54 @@ def _nonempty(value: str, field: str) -> str:
     if not normalized:
         raise ValueError(f"{field} must not be empty")
     return normalized
+
+
+def _native_operation_recovery_identity(row: Mapping[Any, Any]) -> tuple[bool, str | None]:
+    """Classify stale work without allowing an identity mismatch to retry."""
+
+    task_key = str(row.get("task_key") or "").strip()
+    payload_value: object = row.get("request_payload_json")
+    if isinstance(payload_value, str):
+        try:
+            payload_value = json.loads(payload_value)
+        except (TypeError, ValueError):
+            payload_value = None
+    payload = payload_value if isinstance(payload_value, Mapping) else {}
+    native_value = payload.get("native_operation")
+    native_key = str(native_value or "").strip().lower() if isinstance(native_value, str) else ""
+    has_native_field = "native_operation" in payload
+    has_native_task = task_key.startswith("native-operation:")
+    native_indicated = has_native_field or has_native_task
+
+    if not native_indicated:
+        return False, None
+    if has_native_field and (not isinstance(native_value, str) or not native_key):
+        return True, "native operation identity is missing or invalid"
+    if native_key and task_key != f"native-operation:{native_key}":
+        return True, "native operation payload does not match task key"
+    if has_native_task and task_key != f"native-operation:{native_key}":
+        return True, "native operation task key does not match payload identity"
+    return True, None
+
+
+def _idempotency_request_envelope(task_key: str, request_envelope: Mapping[str, Any]) -> dict[str, Any]:
+    """Exclude only execution-time fencing from quick-deploy replay identity."""
+
+    if task_key != "native-operation:p115.quick-deploy":
+        return dict(request_envelope)
+    payload = request_envelope.get("payload")
+    if not isinstance(payload, Mapping):
+        return dict(request_envelope)
+    parameters = payload.get("parameters")
+    if not isinstance(parameters, Mapping) or "dynamic_config_revision" not in parameters:
+        return dict(request_envelope)
+    replay_payload = dict(payload)
+    replay_parameters = dict(parameters)
+    replay_parameters.pop("dynamic_config_revision", None)
+    replay_payload["parameters"] = replay_parameters
+    replay_envelope = dict(request_envelope)
+    replay_envelope["payload"] = replay_payload
+    return replay_envelope
 
 
 def _positive(value: float, field: str) -> None:

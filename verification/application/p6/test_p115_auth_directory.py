@@ -492,18 +492,16 @@ def test_committed_ownership_and_openapi_cover_only_auth_directory_slice() -> No
         operation = schema["paths"][path][method.lower()]
         assert "422" not in operation["responses"], (method, path)
 
-    not_yet_owned = {
+    maintenance_owned_later = {
         ("POST", "/api/p115/mkdir"),
         ("GET", "/api/p115/speedtest"),
     }
-    assert not_yet_owned.isdisjoint(
-        {(method.upper(), path) for path, operations in schema["paths"].items() for method in operations}
-    )
     ownership_by_operation = {(row["method"], row["path"]): row for row in ownership["method_bindings"]}
     assert all(
-        ownership_by_operation[operation]["status"] == "legacy"
-        and ownership_by_operation[operation]["new_owner"] is None
-        for operation in not_yet_owned
+        ownership_by_operation[operation]["status"] == "new"
+        and ownership_by_operation[operation]["new_owner"] == "etk.domains.p115.router"
+        and ownership_by_operation[operation]["fixture"] == "verification/fixtures/http/p6-p115-maintenance.json"
+        for operation in maintenance_owned_later
     )
     playback_owned_later = {
         ("GET", "/api/p115/play_pool"),

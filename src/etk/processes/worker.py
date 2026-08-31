@@ -113,6 +113,7 @@ from etk.domains.p115 import (
     EmbyPathChangeEffectDelivery,
     HttpxEmbyIntroFavoriteGateway,
     HttpxEmbyPathChangeGateway,
+    HttpxEmbyQuickDeployGateway,
     HttpxP115DirectoryTreeGateway,
     HttpxP115EpisodeRuntimeGateway,
     HttpxP115FingerprintRemoteGateway,
@@ -135,13 +136,20 @@ from etk.domains.p115 import (
     P115FingerprintRepairService,
     P115IntroBackfillTaskService,
     P115IntroFingerprintAdapter,
+    P115MkdirOperation,
+    P115MoviePilotRenameExportOperation,
     P115OrganizeExecutionService,
     P115OrganizeRecordTmdbBackfillService,
     P115PlaybackConfigService,
     P115PlaybackService,
+    P115PrimaryOperationsGateway,
+    P115QuickDeployLock,
+    P115QuickDeployOperation,
+    P115RecycleBinEmptyOperation,
     P115SdkDirectUrlGateway,
     P115StrmMediaInfoEnrichmentService,
     P115StrmSyncService,
+    P115UnrecognizedEmptyOperation,
     P115WashingPriorityRecalculationService,
     PostgresP115IntroDetectionRepository,
     PostgresP115IntroRuntimeSource,
@@ -149,10 +157,12 @@ from etk.domains.p115 import (
     PostgresP115StrmSyncCoordinator,
     SqlAlchemyP115CredentialRepository,
     SqlAlchemyP115DirectoryCacheRepository,
+    SqlAlchemyP115MaintenanceRepository,
     SqlAlchemyP115MediaInfoRepository,
     SqlAlchemyP115OrganizeExecutionRepository,
     SqlAlchemyP115OrganizePlanRepository,
     SqlAlchemyP115OrganizeRecordsRepository,
+    SqlAlchemyP115QuickDeployConfigurationRepository,
     SqlAlchemyP115RenameConfigRepository,
     SqlAlchemyP115SortingRulesRepository,
     SqlAlchemyP115StrmSyncRepository,
@@ -262,6 +272,7 @@ from etk.platform.tasks.catalog import (
     P9_NATIVE_TASK_KEYS,
 )
 
+from .native_operations import NativeOperationRouter
 from .p5_media_tasks import LegacyP5MediaCompatibilityGateway, P5MediaTaskRouter
 from .p6_ingestion import (
     INGESTION_CLAIM_LEASE_SECONDS,
@@ -329,6 +340,42 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "update-daily-theme",
     }
 )
+
+
+def _p115_native_operation_router(
+    database: Any,
+    credentials: SqlAlchemyP115CredentialRepository,
+    app_settings: SqlAlchemyAppSettingsRepository,
+    settings_provider: Callable[[], Any],
+) -> NativeOperationRouter:
+    provider = P115PrimaryOperationsGateway(
+        credentials=credentials,
+        priority=lambda: settings_provider().p115_api_priority,
+    )
+    facts = SqlAlchemyP115MaintenanceRepository(database.unit_of_work)
+    return NativeOperationRouter(
+        {
+            "p115.mkdir": P115MkdirOperation(provider),
+            "p115.recycle-bin-empty": P115RecycleBinEmptyOperation(provider),
+            "p115.empty-unrecognized": P115UnrecognizedEmptyOperation(
+                provider=provider,
+                facts=facts,
+            ),
+            "p115.moviepilot-rename-export": P115MoviePilotRenameExportOperation(
+                gateway=ConfiguredMoviePilotGateway(app_settings),
+                settings=app_settings,
+            ),
+            "p115.quick-deploy": P115QuickDeployOperation(
+                settings=settings_provider,
+                credentials=credentials,
+                provider=provider,
+                account_lock=P115QuickDeployLock(database.raw_pool.connection),
+                app_settings=app_settings,
+                local_configuration=SqlAlchemyP115QuickDeployConfigurationRepository(database.unit_of_work),
+                emby=HttpxEmbyQuickDeployGateway(settings_provider),
+            ),
+        }
+    )
 
 
 class _CooperativeTimeout(RuntimeError):
@@ -733,6 +780,7 @@ class WorkerRuntime:
         self._p7_subscription_tasks: P7SubscriptionTaskRouter | None = None
         self._p8_effect_tasks: P8EffectTaskRouter | None = None
         self._p9_sharing_tasks: P9SharingTaskRouter | None = None
+        self._native_operations: NativeOperationRouter | None = None
         self._p7_cleanup_executor: CleanupExecutionService | None = None
         self._p7_cleanup_repository: SqlAlchemyCleanupExecutionRepository | None = None
         self._ingestion_executor: IngestionMonitorExecutor | None = None
@@ -808,6 +856,12 @@ class WorkerRuntime:
                 p115_credentials = SqlAlchemyP115CredentialRepository(
                     database.unit_of_work,
                     on_change=invalidate_legacy_p115_credential_clients,
+                )
+                native_operations = _p115_native_operation_router(
+                    database,
+                    p115_credentials,
+                    app_settings,
+                    settings_provider,
                 )
                 install_persistent_p115_credential_gateway(p115_credentials)
                 p115_credential_gateway_installed = True
@@ -1309,6 +1363,7 @@ class WorkerRuntime:
             self._p7_subscription_tasks = p7_subscription_tasks
             self._p8_effect_tasks = p8_effect_tasks
             self._p9_sharing_tasks = p9_sharing_tasks
+            self._native_operations = native_operations
             self._p7_cleanup_executor = cleanup_executor
             self._p7_cleanup_repository = cleanup_repository
             self._ingestion_executor = ingestion_executor
@@ -1353,6 +1408,12 @@ class WorkerRuntime:
             p115_credentials = SqlAlchemyP115CredentialRepository(
                 database.unit_of_work,
                 on_change=invalidate_legacy_p115_credential_clients,
+            )
+            native_operations = _p115_native_operation_router(
+                database,
+                p115_credentials,
+                app_settings,
+                settings_provider,
             )
             install_persistent_p115_credential_gateway(p115_credentials)
             washing_priority_repository = SqlAlchemyP115WashingPriorityRepository(database.unit_of_work)
@@ -1672,6 +1733,7 @@ class WorkerRuntime:
         self._p7_subscription_tasks = p7_subscription_tasks
         self._p8_effect_tasks = p8_effect_tasks
         self._p9_sharing_tasks = p9_sharing_tasks
+        self._native_operations = native_operations
         self._ingestion_ingress = ingestion_ingress
         self._subscription_executor = subscription_executor
         self._identity_executor = identity_executor
@@ -1791,6 +1853,7 @@ class WorkerRuntime:
             self._p7_subscription_tasks = None
             self._p8_effect_tasks = None
             self._p9_sharing_tasks = None
+            self._native_operations = None
             self._p7_cleanup_executor = None
             self._p7_cleanup_repository = None
             self._ingestion_executor = None
@@ -2278,10 +2341,47 @@ class WorkerRuntime:
             worker_id=self._worker_id,
             lease_seconds=self.config.lease_seconds,
         )
-        if self._native_only and (
+        try:
+            envelope = _request_envelope(job.request_payload)
+        except Exception as exc:
+            safe_error = _error_summary(exc)
+            store.fail_attempt(
+                job_id=job.id,
+                attempt_id=attempt.id,
+                worker_id=self._worker_id,
+                error_type=type(exc).__name__,
+                error_message=str(safe_error["message"]),
+                error_details=safe_error,
+                retryable=False,
+                honor_cancel_request=False,
+            )
+            return
+
+        # Processor-free operations intentionally do not live in the legacy
+        # task catalog.  Their bounded key is carried by the validated
+        # envelope and dispatched through the explicit native router below.
+        native_operation_key = _native_operation_key_from_envelope(envelope)
+        native_identity_error = _native_operation_identity_error(job.task_key, envelope)
+        if native_identity_error is not None:
+            store.fail_attempt(
+                job_id=job.id,
+                attempt_id=attempt.id,
+                worker_id=self._worker_id,
+                error_type="NativeOperationIdentityMismatch",
+                error_message=native_identity_error,
+                error_details={
+                    "task_key": job.task_key,
+                    "native_operation": envelope.get("native_operation"),
+                },
+                retryable=False,
+                honor_cancel_request=False,
+            )
+            return
+        native_task_unavailable = not native_operation_key and (
             job.task_key in P8_REVIEW_TASK_KEYS
             or (definition is not None and definition.key not in _NATIVE_ONLY_EXECUTABLE_TASK_KEYS)
-        ):
+        )
+        if self._native_only and native_task_unavailable:
             unavailable_key = definition.key if definition is not None else job.task_key
             store.fail_attempt(
                 job_id=job.id,
@@ -2294,7 +2394,6 @@ class WorkerRuntime:
                 honor_cancel_request=False,
             )
             return
-        envelope = _request_envelope(job.request_payload)
         processor_identity = ProcessorIdentity(envelope["processor_type"])
         processor = (
             None
@@ -2322,8 +2421,13 @@ class WorkerRuntime:
             or envelope.get("call_style") == "direct"
             else _processor(processor_identity)
         )
-        if adapter is None and (
-            definition is None or (definition.key not in NATIVE_TASK_KEYS and job.task_key not in P8_REVIEW_TASK_KEYS)
+        if (
+            adapter is None
+            and (
+                definition is None
+                or (definition.key not in NATIVE_TASK_KEYS and job.task_key not in P8_REVIEW_TASK_KEYS)
+            )
+            and not native_operation_key
         ):
             store.fail_attempt(
                 job_id=job.id,
@@ -2374,7 +2478,15 @@ class WorkerRuntime:
         failure: Exception | None = None
         p4_terminalization_reported = False
         try:
-            if definition is not None and definition.key in P4_NATIVE_TASK_KEYS:
+            if native_operation_key:
+                if self._native_operations is None:
+                    raise RuntimeError("native operation router is unavailable")
+                result = self._native_operations.execute(
+                    native_operation_key,
+                    envelope["parameters"],
+                    progress,
+                )
+            elif definition is not None and definition.key in P4_NATIVE_TASK_KEYS:
                 result = self._execute_chain(projection)
             elif definition is not None and definition.key in P5_NATIVE_TASK_KEYS:
                 message = registry.create_message(
@@ -2973,6 +3085,27 @@ def _request_envelope(value: Mapping[str, Any]) -> dict[str, Any]:
     payload["processor_type"] = processor.value
     payload["payload_version"] = version
     return payload
+
+
+def _native_operation_key_from_envelope(envelope: Mapping[str, Any]) -> str:
+    value = envelope.get("native_operation")
+    return str(value or "").strip().lower() if isinstance(value, str) else ""
+
+
+def _native_operation_identity_error(task_key: str, envelope: Mapping[str, Any]) -> str | None:
+    task = str(task_key or "").strip()
+    native_value = envelope.get("native_operation")
+    native_key = _native_operation_key_from_envelope(envelope)
+    has_native_field = "native_operation" in envelope
+    has_native_task = task.startswith("native-operation:")
+
+    if has_native_field and (not isinstance(native_value, str) or not native_key):
+        return "native operation identity is missing or invalid"
+    if native_key and task != f"native-operation:{native_key}":
+        return "native operation payload does not match task key"
+    if has_native_task and task != f"native-operation:{native_key}":
+        return "native operation task key does not match payload identity"
+    return None
 
 
 def _processor(identity: ProcessorIdentity) -> Any:

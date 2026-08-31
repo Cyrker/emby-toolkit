@@ -493,3 +493,59 @@ def test_configuration_and_status_values_fail_before_provider_io() -> None:
     with pytest.raises(ValueError, match="P, R, or S"):
         _gateway(handler).update_subscription_status(101, "invalid")
     assert provider_calls == 0
+
+
+def test_system_setting_write_uses_scalar_json_and_confirms_readback() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/api/v1/login/access-token":
+            return _login(request)
+        assert request.url.path == "/api/v1/system/setting/MOVIE_RENAME_FORMAT"
+        if request.method == "POST":
+            assert json.loads(request.content) == "{{ title }}/{{ name }}{{ fileExt }}"
+            return httpx.Response(200)
+        assert request.method == "GET"
+        return httpx.Response(200, json={"data": {"value": "{{ title }}/{{ name }}{{ fileExt }}"}})
+
+    result = _gateway(handler).set_system_setting(
+        "MOVIE_RENAME_FORMAT",
+        "{{ title }}/{{ name }}{{ fileExt }}",
+    )
+
+    assert result.confirmed is True
+    assert [request.method for request in requests] == ["POST", "POST", "GET"]
+
+
+def test_system_setting_readback_mismatch_is_indeterminate() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/login/access-token":
+            return _login(request)
+        if request.method == "POST":
+            return httpx.Response(204)
+        return httpx.Response(200, json={"data": "old-template"})
+
+    with pytest.raises(MoviePilotProviderError) as raised:
+        _gateway(handler).set_system_setting("TV_RENAME_FORMAT", "new-template")
+
+    assert raised.value.kind is MoviePilotProviderErrorKind.INVALID_RESPONSE
+    assert raised.value.outcome is MoviePilotWriteOutcome.INDETERMINATE
+
+
+def test_system_setting_timeout_is_indeterminate_without_write_replay() -> None:
+    write_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal write_count
+        if request.url.path == "/api/v1/login/access-token":
+            return _login(request)
+        write_count += 1
+        raise httpx.ReadTimeout("fixture timeout", request=request)
+
+    with pytest.raises(MoviePilotProviderError) as raised:
+        _gateway(handler).set_system_setting("TV_RENAME_FORMAT", "new-template")
+
+    assert raised.value.kind is MoviePilotProviderErrorKind.TIMEOUT
+    assert raised.value.outcome is MoviePilotWriteOutcome.INDETERMINATE
+    assert write_count == 1

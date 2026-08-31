@@ -5167,6 +5167,58 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-P115-Maintenance-Operations
+
+Stage / Batch: P11 / P115 maintenance routes and native operations
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `5ebac4a0` (`refactor(p11): persist shared virtual imports`).
+- Target checkpoint message: `refactor(p11): migrate p115 maintenance operations`.
+
+Implemented:
+
+- Migrated speedtest, mkdir, recycle-bin empty, unrecognized empty, Quick Deploy and MoviePilot
+  rename import/export to native FastAPI ownership and bounded processor-free operations.
+- Enforced task-key/payload identity, one attempt, stale-worker fail-closed recovery and no terminal
+  resume. HTTP timeout paths retain the durable `job_id` and report `indeterminate`.
+- Quick Deploy freezes P115/Emby identity, performs authoritative readback without resend, commits
+  all local configuration in one UoW, returns only allowlisted config and has finite NDJSON
+  deadlines. Stale execution remains an original-Job/manual-reconciliation boundary.
+- Regenerated manifests, OpenAPI and TypeScript schema. Route ownership is `322 new / 21 legacy`
+  decorators and `344 new / 23 legacy` bindings; OpenAPI is `301 paths / 353 operations`.
+
+Targeted gate:
+
+- Scoped Ruff/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`).
+- P115 application/repository/native Worker scope -> `210 passed`; disposable PostgreSQL 18 Job
+  and maintenance scope -> `20 passed`.
+- P1 import/CLI plus OpenAPI contract -> `5 passed`.
+- Frontend generation, typecheck, unit, build and API boundary passed; Vitest -> `15 passed`; build
+  retained only the existing large-chunk warning.
+- Manifest/OpenAPI currentness, compileall, `uv lock --check`, three secret scans and
+  `git diff --check` -> clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-p115-maintenance-20260831/summary.md`.
+
+Focused review:
+
+- Final state-machine/HTTP/frontend/OpenAPI/ownership rereview found no deterministic P0/P1/P2.
+- One inherited inventory Subagent exceeded its read-only boundary; provenance was bounded and all
+  affected checks were rerun serially from the final stable worktree.
+
+Pending:
+
+- Native-only Worker remains `24 executable / 26 unavailable`; 21 route decorators, 23 method
+  bindings, 12 tables and remaining config/frontend ownership still require migration.
+- Complete `play-pool-daily-speedtest` and the remaining native graph, then pre-removal, controlled
+  legacy removal and the full P11 NFR/security/SBOM/vulnerability/License gates. P11 stays `DOING`;
+  P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -5186,7 +5238,8 @@ Read first:
 
 Next:
 
-- Resume the 26 unavailable native-only task keys and the exact 28/30 Route bindings from the latest
+- Resume the 26 unavailable native-only task keys, beginning with the processor-free
+  `play-pool-daily-speedtest` graph, and the exact 21/23 legacy Route bindings from the latest
   manifests/runtime call graph. Close Route, Task, Table, Config and Frontend ownership before
   controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete;
   keep all Live Acceptance items pending.

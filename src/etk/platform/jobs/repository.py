@@ -600,7 +600,8 @@ class SqlAlchemyJobRepository:
                     """
                 SELECT
                     a.id AS attempt_id, a.job_id, a.attempt_no, a.worker_id,
-                    j.status AS job_status, j.max_attempts, j.current_attempt
+                    j.status AS job_status, j.task_key, j.request_payload_json,
+                    j.max_attempts, j.current_attempt
                 FROM job_attempts AS a
                 JOIN job_runs AS j ON j.id = a.job_id
                 WHERE a.status IN ('claimed', 'running')

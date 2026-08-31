@@ -161,6 +161,7 @@ from etk.domains.p115 import (
     AtomicP115LocalStrmLibraryGateway,
     HttpxEmbyIntroFavoriteGateway,
     HttpxP115AuthorizationGateway,
+    HttpxP115BoundedDownloadGateway,
     HttpxP115BridgeEmbyGateway,
     HttpxP115OrganizeMutationGateway,
     IntroDetectionSubmissionService,
@@ -188,6 +189,7 @@ from etk.domains.p115 import (
     P115ItemReadyService,
     P115LocalDirectoryService,
     P115LocalSettingsService,
+    P115MaintenanceIntentService,
     P115MediaInfoCacheService,
     P115OrganizeExecutionService,
     P115OrganizePlanService,
@@ -195,8 +197,13 @@ from etk.domains.p115 import (
     P115PlaybackConfigService,
     P115PlaybackQrService,
     P115PlaybackService,
+    P115PrimaryOperationsGateway,
+    P115QuickDeployIntentService,
     P115RenameConfigService,
+    P115RenameMoviePilotService,
+    P115SdkDirectUrlGateway,
     P115SortingRulesService,
+    P115SpeedtestService,
     P115StrmReplaceService,
     P115WashingPriorityService,
     PostgresP115IntroDetectionRepository,
@@ -206,6 +213,7 @@ from etk.domains.p115 import (
     SqlAlchemyP115CredentialRepository,
     SqlAlchemyP115DeepDeleteSnapshotRepository,
     SqlAlchemyP115EpisodeRegexRepository,
+    SqlAlchemyP115MaintenanceRepository,
     SqlAlchemyP115MediaInfoRepository,
     SqlAlchemyP115OrganizeExecutionRepository,
     SqlAlchemyP115OrganizePlanRepository,
@@ -1145,6 +1153,10 @@ def _register_p115_providers(container: AppContainer) -> None:
         "p115.playback",
         lambda current: PostgresP115PlaybackRepository(current.database.unit_of_work),
     )
+    container.register_repository(
+        "p115.maintenance",
+        lambda current: SqlAlchemyP115MaintenanceRepository(current.database.unit_of_work),
+    )
     container.register_client(
         "ingestion.pending-bindings",
         lambda current: PersistentPendingBindingGateway(
@@ -1184,6 +1196,24 @@ def _register_p115_providers(container: AppContainer) -> None:
     container.register_client(
         "p115.directory-tree",
         lambda _: LegacyP115DirectoryTreeGateway(),
+    )
+    container.register_client(
+        "p115.maintenance-operations",
+        lambda current: P115PrimaryOperationsGateway(
+            credentials=current.repository("p115.credentials"),
+            priority=lambda: current.settings.p115_api_priority,
+        ),
+    )
+    container.register_client(
+        "p115.maintenance-direct-urls",
+        lambda current: P115SdkDirectUrlGateway(
+            credentials=current.repository("p115.credentials"),
+            priority=lambda: current.settings.p115_api_priority,
+        ),
+    )
+    container.register_client(
+        "p115.maintenance-downloads",
+        lambda _: HttpxP115BoundedDownloadGateway(),
     )
     container.register_repository(
         "p115.sorting-rules",
@@ -1389,12 +1419,44 @@ def _register_p115_providers(container: AppContainer) -> None:
         ),
     )
     container.register_use_case(
+        "p115.rename-moviepilot",
+        lambda current: P115RenameMoviePilotService(
+            gateway=ConfiguredMoviePilotGateway(current.repository("app-settings")),
+            settings=current.repository("app-settings"),
+        ),
+    )
+    container.register_use_case(
         "p115.local-settings",
         lambda current: P115LocalSettingsService(current.repository("app-settings")),
     )
     container.register_use_case(
         "p115.local-directories",
         lambda _current: P115LocalDirectoryService(OsP115LocalDirectoryBrowser()),
+    )
+    container.register_use_case(
+        "p115.maintenance-intents",
+        lambda current: P115MaintenanceIntentService(
+            credentials=current.repository("p115.credentials"),
+            priority=lambda: current.settings.p115_api_priority,
+        ),
+    )
+    container.register_use_case(
+        "p115.quick-deploy-intent",
+        lambda current: P115QuickDeployIntentService(
+            settings=lambda: current.settings,
+            credentials=current.repository("p115.credentials"),
+            app_settings=current.repository("app-settings"),
+            priority=lambda: current.settings.p115_api_priority,
+        ),
+    )
+    container.register_use_case(
+        "p115.speedtest",
+        lambda current: P115SpeedtestService(
+            credentials=current.repository("p115.credentials"),
+            facts=current.repository("p115.maintenance"),
+            direct_urls=current.client("p115.maintenance-direct-urls"),
+            downloads=current.client("p115.maintenance-downloads"),
+        ),
     )
     container.register_use_case(
         "p115.episode-regex",

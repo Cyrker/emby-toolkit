@@ -192,6 +192,42 @@ def _projection(task_key: str = "sync-115-directory-tree") -> Any:
 
 
 @pytest.mark.parametrize(
+    ("task_key", "native_operation"),
+    [
+        ("populate-metadata", "p115.quick-deploy"),
+        ("native-operation:p115.quick-deploy", None),
+    ],
+    ids=["payload-task-mismatch", "missing-native-payload"],
+)
+def test_worker_rejects_native_identity_mismatch_before_legacy_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+    task_key: str,
+    native_operation: str | None,
+) -> None:
+    projection = _projection(task_key)
+    if native_operation is not None:
+        projection.job.request_payload["native_operation"] = native_operation
+    store = ExecutionStore(projection)
+    runtime = WorkerRuntime(config=TaskRuntimeConfig(heartbeat_seconds=60, lease_seconds=120))
+    state = cast(Any, runtime)
+    state._store = store
+    state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
+    state._adapter = None
+    monkeypatch.setattr(
+        worker_module,
+        "_processor",
+        lambda _identity: (_ for _ in ()).throw(AssertionError("identity mismatch resolved a legacy processor")),
+    )
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == ["failed"]
+    failure = store.terminals[0][1]
+    assert failure["error_type"] == "NativeOperationIdentityMismatch"
+    assert failure["retryable"] is False
+
+
+@pytest.mark.parametrize(
     "task_key",
     [
         "backfill-organize-record-tmdb-ids",

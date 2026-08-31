@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -213,6 +214,62 @@ class JobSubmissionService:
         )
         return SubmittedJob(result.projection, result.reused)
 
+    def submit_native_operation(
+        self,
+        operation_key: str,
+        parameters: Mapping[str, Any] | None = None,
+        *,
+        display_name: str,
+        trigger_type: str = "manual",
+        requested_by_user_id: str | None = None,
+        idempotency_key: str | None = None,
+        idempotency_scope: str | None = None,
+        max_attempts: int = 1,
+        timeout_seconds: int | None = None,
+        trace_id: str | None = None,
+        reject_when_busy: bool = False,
+        queue_name: str = "legacy.serial",
+    ) -> SubmittedJob:
+        """Submit one explicitly registered processor-free operation.
+
+        The bounded operation key is persisted instead of a module/qualname
+        pair. A Worker must own an explicit dispatcher entry for the key, so
+        execution never depends on dynamic runtime imports.
+        """
+
+        key = _native_operation_key(operation_key)
+        if max_attempts != 1:
+            raise ValueError("native operations must use exactly one delivery attempt")
+        if reject_when_busy and self._store.has_active_job():
+            raise TaskBusyError("another job is active")
+        payload = {
+            "payload_version": 1,
+            "parameters": normalize_json_object(dict(parameters or {}), field="parameters"),
+            "processor_type": ProcessorIdentity.MEDIA.value,
+            "display_name": str(display_name or key).strip()[:255] or key,
+            "silent": True,
+            "call_style": "direct",
+            "native_operation": key,
+        }
+        try:
+            result = self._store.create_job(
+                task_key=f"native-operation:{key}",
+                payload=payload,
+                queue_name=queue_name,
+                trigger_type=trigger_type,
+                max_attempts=max_attempts,
+                timeout_seconds=timeout_seconds,
+                requested_by_user_id=requested_by_user_id,
+                trace_id=trace_id,
+                idempotency_key=idempotency_key,
+                idempotency_scope=(
+                    idempotency_scope or f"native-operation:{key}" if idempotency_key is not None else None
+                ),
+            )
+        except ActiveJobConflictError as exc:
+            raise TaskBusyError("another job is active") from exc
+        return SubmittedJob(result.projection, result.reused)
+
     def is_busy(self) -> bool:
         return self._store.has_active_job()
 
@@ -393,6 +450,13 @@ def _operation_key(module: str, qualname: str, *, prefix: str = "legacy-operatio
     identity = f"{module}:{qualname}"
     digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20]
     return f"{prefix}:{digest}"
+
+
+def _native_operation_key(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", normalized) is None:
+        raise ValueError("native operation key must be a stable lowercase identifier")
+    return normalized
 
 
 def _importable_identity(function: Callable[..., Any]) -> tuple[str, str]:

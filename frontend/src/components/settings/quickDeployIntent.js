@@ -16,6 +16,10 @@ export const clearQuickDeployIntent = (storage = globalThis.localStorage) => {
   storage.removeItem(QUICK_DEPLOY_INTENT_STORAGE_KEY);
 };
 
+export const finalizeQuickDeployIntent = (status, storage = globalThis.localStorage) => {
+  if (status !== 'indeterminate') clearQuickDeployIntent(storage);
+};
+
 export const assertQuickDeployResponse = async (response, storage = globalThis.localStorage) => {
   if (response.ok && response.body) return;
   let serverMessage = '';
@@ -25,9 +29,9 @@ export const assertQuickDeployResponse = async (response, storage = globalThis.l
   } catch {
     // Keep the deterministic status fallback for empty/non-JSON responses.
   }
-  if (response.status === 409) {
+  if ([400, 403, 409].includes(response.status)) {
     clearQuickDeployIntent(storage);
-    throw new Error(serverMessage || '部署目标已变化，请重新确认');
+    throw new Error(serverMessage || (response.status === 409 ? '部署目标已变化，请重新确认' : '部署请求已被拒绝'));
   }
   throw new Error(serverMessage || `请求失败: HTTP ${response.status}`);
 };

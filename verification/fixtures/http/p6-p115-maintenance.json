@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "kind": "p11-p115-maintenance-native-operation-contract",
+  "captured_live": false,
+  "routes": [
+    {"method": "GET", "path": "/api/p115/speedtest"},
+    {"method": "POST", "path": "/api/p115/mkdir"},
+    {"method": "POST", "path": "/api/p115/quick_deploy"},
+    {"method": "POST", "path": "/api/p115/recycle_bin/empty"},
+    {"method": "GET", "path": "/api/p115/rename_config/mp/import"},
+    {"method": "POST", "path": "/api/p115/rename_config/mp/export"},
+    {"method": "POST", "path": "/api/p115/unrecognized/empty"}
+  ],
+  "golden_cases": [
+    {
+      "case_id": "speedtest-account-bound-sample",
+      "request": {"method": "GET", "path": "/api/p115/speedtest", "query": {"max_mb": 1, "seconds": 3}},
+      "response": {"status": 200, "body": {"status": "success"}}
+    },
+    {
+      "case_id": "mkdir-single-attempt-native-operation",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/mkdir",
+        "headers": {"Idempotency-Key": "fixture-mkdir-key"},
+        "body": {"pid": "100", "name": "电影"}
+      },
+      "job": {"task_key": "native-operation:p115.mkdir", "max_attempts": 1},
+      "response": {"status": 200, "body": {"status": "success"}}
+    },
+    {
+      "case_id": "quick-deploy-terminal-stream",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/quick_deploy",
+        "headers": {"Idempotency-Key": "fixture-quick-deploy-key"},
+        "query": {"stream": 1}
+      },
+      "job": {"task_key": "native-operation:p115.quick-deploy", "max_attempts": 1},
+      "response": {"status": 200, "terminal_status": "confirmed"}
+    },
+    {
+      "case_id": "recycle-bin-single-attempt-native-operation",
+      "request": {"method": "POST", "path": "/api/p115/recycle_bin/empty"},
+      "job": {"task_key": "native-operation:p115.recycle-bin-empty", "max_attempts": 1},
+      "response": {"status": 200, "body": {"success": true}}
+    },
+    {
+      "case_id": "moviepilot-import-read-only",
+      "request": {"method": "GET", "path": "/api/p115/rename_config/mp/import"},
+      "response": {"status": 200, "body": {"success": true}}
+    },
+    {
+      "case_id": "moviepilot-export-single-attempt-native-operation",
+      "request": {
+        "method": "POST",
+        "path": "/api/p115/rename_config/mp/export",
+        "headers": {"Idempotency-Key": "fixture-moviepilot-export-key"}
+      },
+      "job": {"task_key": "native-operation:p115.moviepilot-rename-export", "max_attempts": 1},
+      "response": {"status": 200, "body": {"success": true}}
+    },
+    {
+      "case_id": "unrecognized-empty-single-attempt-native-operation",
+      "request": {"method": "POST", "path": "/api/p115/unrecognized/empty"},
+      "job": {"task_key": "native-operation:p115.empty-unrecognized", "max_attempts": 1},
+      "response": {"status": 200, "body": {"success": true}}
+    }
+  ],
+  "limitations": [
+    "All provider and Emby behavior is exercised with local Fake or httpx MockTransport adapters.",
+    "PostgreSQL 18 tests cover account-scoped facts, atomic local configuration, stale-worker terminalization, and no-resume behavior.",
+    "No real 115, Emby, MoviePilot, production database, deployment, or external write is used; Live Acceptance remains HUMAN_PENDING."
+  ]
+}

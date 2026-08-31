@@ -252,10 +252,6 @@ class SqlAlchemyP115SortingRulesRepository:
         *,
         account_id: str,
     ) -> P115SortingRulesSnapshot:
-        normalized_account_id = str(account_id or "").strip()
-        if normalized_account_id and not normalized_account_id.isdigit():
-            raise ValueError("sorting rules account ID must be numeric when present")
-        normalized_rules = tuple(deepcopy(dict(rule)) for rule in rules)
         with self._unit_of_work() as uow:
             uow.session.execute(
                 text("SELECT pg_advisory_xact_lock(:namespace, :lock_key)"),
@@ -264,23 +260,38 @@ class SqlAlchemyP115SortingRulesRepository:
                     "lock_key": P115_AUTH_LOCK_KEY,
                 },
             )
-            persisted_account_id = str(
-                uow.session.scalar(
-                    text(
-                        """
-                        SELECT value_json ->> 'account_id'
-                        FROM app_settings
-                        WHERE setting_key = 'p115_auth_tokens'
-                        """
-                    )
-                )
-                or ""
-            ).strip()
-            if normalized_account_id and persisted_account_id != normalized_account_id:
-                raise RuntimeError("115 账号在分类规则提交前发生变化，事务已回滚")
-            _upsert_setting(uow, P115_SORTING_RULES_KEY, list(normalized_rules))
-            _upsert_setting(uow, P115_SORTING_RULES_ACCOUNT_KEY, normalized_account_id)
+            snapshot = self.save_in_uow(uow, rules, account_id=account_id)
             uow.commit()
+        return snapshot
+
+    def save_in_uow(
+        self,
+        uow: SqlAlchemyUnitOfWork,
+        rules: Sequence[Mapping[str, Any]],
+        *,
+        account_id: str,
+    ) -> P115SortingRulesSnapshot:
+        """Write into an existing transaction whose caller owns auth serialization."""
+        normalized_account_id = str(account_id or "").strip()
+        if normalized_account_id and not normalized_account_id.isdigit():
+            raise ValueError("sorting rules account ID must be numeric when present")
+        normalized_rules = tuple(deepcopy(dict(rule)) for rule in rules)
+        persisted_account_id = str(
+            uow.session.scalar(
+                text(
+                    """
+                    SELECT value_json ->> 'account_id'
+                    FROM app_settings
+                    WHERE setting_key = 'p115_auth_tokens'
+                    """
+                )
+            )
+            or ""
+        ).strip()
+        if normalized_account_id and persisted_account_id != normalized_account_id:
+            raise RuntimeError("115 账号在分类规则提交前发生变化，事务已回滚")
+        _upsert_setting(uow, P115_SORTING_RULES_KEY, list(normalized_rules))
+        _upsert_setting(uow, P115_SORTING_RULES_ACCOUNT_KEY, normalized_account_id)
         return P115SortingRulesSnapshot(normalized_rules, normalized_account_id)
 
 
@@ -307,10 +318,18 @@ class SqlAlchemyP115RenameConfigRepository:
         return P115RenameConfigSnapshot(dict(value) if isinstance(value, Mapping) else {})
 
     def save(self, config: Mapping[str, Any]) -> P115RenameConfigSnapshot:
-        normalized = deepcopy(dict(config))
         with self._unit_of_work() as uow:
-            _upsert_setting(uow, P115_RENAME_CONFIG_KEY, normalized)
+            snapshot = self.save_in_uow(uow, config)
             uow.commit()
+        return snapshot
+
+    @staticmethod
+    def save_in_uow(
+        uow: SqlAlchemyUnitOfWork,
+        config: Mapping[str, Any],
+    ) -> P115RenameConfigSnapshot:
+        normalized = deepcopy(dict(config))
+        _upsert_setting(uow, P115_RENAME_CONFIG_KEY, normalized)
         return P115RenameConfigSnapshot(normalized)
 
 

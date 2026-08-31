@@ -13,6 +13,7 @@ from etk.platform.jobs import (
     AttemptStatus,
     IdempotencyConflictError,
     InvalidJsonPayloadError,
+    InvalidStateTransitionError,
     JobStatus,
     OutboxStatus,
     PostgresJobStore,
@@ -525,6 +526,64 @@ def test_stale_attempt_recovery_marks_lost_and_requeues(
     assert projection is not None
     assert projection.job.status is JobStatus.RETRY_WAIT
     assert projection.current_attempt.status is AttemptStatus.LOST
+
+
+def test_stale_native_operation_is_indeterminate_and_never_requeued(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+) -> None:
+    created = p4_store.create_job(
+        task_key="native-operation:p115.quick-deploy",
+        payload={"native_operation": "p115.quick-deploy", "parameters": {}},
+        max_attempts=2,
+    )
+    p4_store.claim_attempt(
+        job_id=created.job.id,
+        attempt_id=created.attempt.id,
+        worker_id="lost-native-worker",
+        lease_seconds=30,
+    )
+    with p4_runtime.engine.begin() as connection:
+        connection.execute(
+            text("UPDATE job_attempts SET lease_expires_at = NOW() - interval '1 second' WHERE id = :id"),
+            {"id": created.attempt.id},
+        )
+
+    recovery = p4_store.recover_stale_attempts()
+    projection = p4_store.get_job(created.job.id)
+
+    assert recovery.lost_attempts == 1
+    assert recovery.requeued_jobs == 0
+    assert recovery.failed_jobs == 1
+    assert projection is not None
+    assert projection.job.status is JobStatus.FAILED
+    assert projection.current_attempt.status is AttemptStatus.LOST
+    assert projection.current_attempt.retryable is False
+    assert projection.current_attempt.error_type == "PersistentEffectIndeterminate"
+    assert projection.job.error_summary == {
+        "type": "PersistentEffectIndeterminate",
+        "message": "native operation worker lease expired after execution started; external effect outcome is unknown",
+        "retry_exhausted": True,
+    }
+
+    with pytest.raises(InvalidStateTransitionError, match="cannot be resumed"):
+        p4_store.resume_terminal_job(created.job.id)
+
+    with p4_runtime.engine.connect() as connection:
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM job_attempts WHERE job_id = :job_id"),
+                {"job_id": created.job.id},
+            )
+            == 1
+        )
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM outbox_events WHERE aggregate_id = :attempt_id"),
+                {"attempt_id": str(created.attempt.id)},
+            )
+            == 1
+        )
 
 
 class FailingPublisher:

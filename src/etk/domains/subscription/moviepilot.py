@@ -13,6 +13,7 @@ _CREATE_STATUS_CODES = frozenset({200, 201, 204})
 _WRITE_STATUS_CODES = frozenset({200, 204})
 _STATUS_STATES = frozenset({"P", "R", "S"})
 _DEFAULT_TIMEOUT_SECONDS = 20.0
+_MISSING = object()
 
 
 class MoviePilotProviderErrorKind(StrEnum):
@@ -378,6 +379,78 @@ class HttpxMoviePilotGateway:
         )
         return self._confirmed_write(response, operation, frozenset({200, 201, 202}))
 
+    def get_system_setting(self, key: str) -> Any:
+        return self._read_system_setting(key)
+
+    def set_system_setting(self, key: str, value: Any) -> MoviePilotWriteResult:
+        normalized_key = self._system_setting_key(key)
+        operation = f"set-system-setting:{normalized_key}"
+        response = self._authorized_request(
+            operation,
+            "POST",
+            f"/api/v1/system/setting/{quote(normalized_key, safe='')}",
+            json_body=value,
+            write=True,
+        )
+        self._expect_status(response, operation, frozenset({200, 201, 204}), write=True)
+        confirmed = self._read_system_setting(
+            normalized_key,
+            operation=operation,
+            outcome=MoviePilotWriteOutcome.INDETERMINATE,
+        )
+        if confirmed != value:
+            raise MoviePilotProviderError(
+                MoviePilotProviderErrorKind.INVALID_RESPONSE,
+                operation,
+                f"MoviePilot {operation} readback did not match the requested value",
+                status_code=response.status_code,
+                outcome=MoviePilotWriteOutcome.INDETERMINATE,
+            )
+        return MoviePilotWriteResult(operation, response.status_code)
+
+    def _read_system_setting(
+        self,
+        key: str,
+        *,
+        operation: str | None = None,
+        outcome: MoviePilotWriteOutcome | None = None,
+    ) -> Any:
+        normalized_key = self._system_setting_key(key)
+        resolved_operation = operation or f"get-system-setting:{normalized_key}"
+        response = self._authorized_request(
+            resolved_operation,
+            "GET",
+            f"/api/v1/system/setting/{quote(normalized_key, safe='')}",
+            write=outcome is not None,
+        )
+        self._expect_status(
+            response,
+            resolved_operation,
+            {200},
+            write=outcome is not None,
+            outcome=outcome,
+        )
+        try:
+            decoded = response.json()
+        except ValueError as exc:
+            raise MoviePilotProviderError(
+                MoviePilotProviderErrorKind.INVALID_RESPONSE,
+                resolved_operation,
+                f"MoviePilot {resolved_operation} returned invalid JSON",
+                status_code=response.status_code,
+                outcome=outcome,
+            ) from exc
+        value = self._system_setting_value(decoded)
+        if value is _MISSING:
+            raise MoviePilotProviderError(
+                MoviePilotProviderErrorKind.INVALID_RESPONSE,
+                resolved_operation,
+                f"MoviePilot {resolved_operation} returned no setting value",
+                status_code=response.status_code,
+                outcome=outcome,
+            )
+        return value
+
     def _authorized_request(
         self,
         operation: str,
@@ -385,7 +458,7 @@ class HttpxMoviePilotGateway:
         path: str,
         *,
         params: Mapping[str, str | int] | None = None,
-        json_body: Mapping[str, Any] | None = None,
+        json_body: Any = None,
         write: bool = False,
     ) -> httpx.Response:
         access_token = self._access_token()
@@ -471,7 +544,7 @@ class HttpxMoviePilotGateway:
         headers: Mapping[str, str] | None = None,
         params: Mapping[str, str | int] | None = None,
         data: Mapping[str, str] | None = None,
-        json_body: Mapping[str, Any] | None = None,
+        json_body: Any = None,
         write: bool = False,
     ) -> httpx.Response:
         try:
@@ -482,7 +555,7 @@ class HttpxMoviePilotGateway:
                     headers=dict(headers or {}),
                     params=dict(params or {}),
                     data=dict(data) if data is not None else None,
-                    json=dict(json_body) if json_body is not None else None,
+                    json=json_body,
                     timeout=self._timeout_seconds,
                 )
         except httpx.TimeoutException as exc:
@@ -663,6 +736,29 @@ class HttpxMoviePilotGateway:
         normalized_tmdb_id = self._identifier(tmdb_id, "TMDb id")
         media_identity = quote(f"tmdb:{normalized_tmdb_id}", safe=":")
         return f"/api/v1/subscribe/media/{media_identity}"
+
+    @staticmethod
+    def _system_setting_key(value: Any) -> str:
+        normalized = str(value or "").strip()
+        if not normalized or not all(character.isalnum() or character == "_" for character in normalized):
+            raise ValueError("MoviePilot system setting key is invalid")
+        return normalized
+
+    @staticmethod
+    def _system_setting_value(value: Any) -> Any:
+        if not isinstance(value, Mapping):
+            return _MISSING
+        data = value.get("data", _MISSING)
+        if isinstance(data, Mapping):
+            for key in ("value", "data", "setting"):
+                if key in data:
+                    return data[key]
+        if data is not _MISSING:
+            return data
+        for key in ("value", "setting"):
+            if key in value:
+                return value[key]
+        return _MISSING
 
     def _season_params(self, season: int | None) -> Mapping[str, int] | None:
         normalized_season = self._optional_non_negative_integer(season, "season")

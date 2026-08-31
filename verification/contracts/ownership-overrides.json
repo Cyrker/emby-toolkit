@@ -3612,6 +3612,69 @@
         "status": "new",
         "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
         "validation_owner": "sharing/source-registration"
+      },
+      "route-binding-197a683b2945": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native mkdir submits a single-attempt persistent operation and confirms the exact provider result without request-thread mutation.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-binding-ede1ccad0a9a": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 Quick Deploy freezes provider identities, persists one native operation attempt, reconciles unknown effects without resend, and streams the durable terminal result.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-binding-53318de3f2eb": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native recycle-bin empty submits one bounded persistent provider operation and returns its confirmed terminal envelope.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-binding-191bfa941fbe": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 MoviePilot rename export freezes configuration revision and performs provider writes only in the single-attempt native Worker operation.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-binding-42d611f933a0": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 MoviePilot rename import is a typed read-only gateway that preserves the legacy response envelope and template aliases.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-binding-eb66cd6b44dc": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 speedtest reads an account-bound local sample and uses bounded native direct-URL and download adapters without mutating provider state.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-binding-c874743c8067": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 unrecognized cleanup freezes account and target identity, deletes only confirmed provider files, and atomically removes matching local facts.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
       }
     },
     "route_decorators": {
@@ -6449,6 +6512,69 @@
         "status": "new",
         "validation_method": "pytest-p11-sharing-source-registration-http-postgres18-readback-and-replay",
         "validation_owner": "sharing/source-registration"
+      },
+      "route-decorator-b82d7ad37b5e": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native mkdir submits a single-attempt persistent operation and confirms the exact provider result without request-thread mutation.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-decorator-191ebd1ddbab": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 Quick Deploy freezes provider identities, persists one native operation attempt, reconciles unknown effects without resend, and streams the durable terminal result.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-decorator-72015555a0c6": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 native recycle-bin empty submits one bounded persistent provider operation and returns its confirmed terminal envelope.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-decorator-76e3ff5a8d4b": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 MoviePilot rename export freezes configuration revision and performs provider writes only in the single-attempt native Worker operation.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-decorator-3bf3040b0442": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 MoviePilot rename import is a typed read-only gateway that preserves the legacy response envelope and template aliases.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-decorator-0461dd43ca2f": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 speedtest reads an account-bound local sample and uses bounded native direct-URL and download adapters without mutating provider state.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
+      },
+      "route-decorator-386038274a92": {
+        "fixture": "verification/fixtures/http/p6-p115-maintenance.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.p115.router",
+        "notes": "P11 unrecognized cleanup freezes account and target identity, deletes only confirmed provider files, and atomically removes matching local facts.",
+        "status": "new",
+        "validation_method": "pytest-p11-p115-maintenance-http-postgres18-native-operation-and-openapi",
+        "validation_owner": "p115/maintenance"
       }
     },
     "settings": {

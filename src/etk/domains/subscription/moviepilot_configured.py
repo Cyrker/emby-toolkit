@@ -88,6 +88,12 @@ class ConfiguredMoviePilotGateway:
     def redo_transfer_history(self, history_ids: Sequence[int]) -> MoviePilotWriteResult:
         return self._gateway().redo_transfer_history(history_ids)
 
+    def get_system_setting(self, key: str) -> Any:
+        return self._gateway().get_system_setting(key)
+
+    def set_system_setting(self, key: str, value: Any) -> MoviePilotWriteResult:
+        return self._gateway().set_system_setting(key, value)
+
     def _gateway(self) -> HttpxMoviePilotGateway:
         value = self._settings.load(MOVIEPILOT_CONFIG_SETTING)
         config = dict(value) if isinstance(value, Mapping) else {}
