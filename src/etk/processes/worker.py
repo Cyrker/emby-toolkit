@@ -58,6 +58,11 @@ from etk.domains.collection.effect_adapters import (
 from etk.domains.collection.operation_execution import CollectionOperationExecutor
 from etk.domains.collection.operation_repository import PostgresCollectionOperationRepository
 from etk.domains.collection.operations import CollectionOperation
+from etk.domains.collection.refresh import (
+    NativeCollectionRefreshService,
+    SqlAlchemyNativeCollectionRefreshRepository,
+)
+from etk.domains.collection.refresh_adapter import HttpxNativeCollectionRefreshAdapter
 from etk.domains.identity.effect_adapters import HttpxEmbyIdentityEffectsAdapter
 from etk.domains.identity.effect_execution import (
     IdentityOperationExecutor,
@@ -78,6 +83,12 @@ from etk.domains.identity.user_expiry import IdentityUserExpiryService
 from etk.domains.identity.user_sync import SqlAlchemyUserSyncRepository, UserSyncService
 from etk.domains.identity.user_sync_adapter import HttpxEmbyUserSyncAdapter
 from etk.domains.ingestion import MonitorItemProjection, PostgresIngestionMonitorLedger
+from etk.domains.media.auto_tagging import AutoTaggingService
+from etk.domains.media.auto_tagging_adapter import (
+    HttpxAutoTaggingAdapter,
+    PersistentAutoTaggingEffects,
+    PostgresAutoTaggingItemLock,
+)
 from etk.domains.media.bridge_client import HttpxEmbyBridgeClient
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
 from etk.domains.media.compatibility import LegacyP5MediaEventGateway
@@ -89,6 +100,8 @@ from etk.domains.media.discover_compatibility import LegacyDiscoverDefaults
 from etk.domains.media.editing_effects import BridgeMediaEffectDelivery, PersistentMediaInfoCommandGateway
 from etk.domains.media.effect_execution import PersistentMediaEffectExecutor, RoutedMediaEffectDelivery
 from etk.domains.media.effects import MediaEffectProjection, PostgresMediaEffectLedger
+from etk.domains.media.embeddings import MediaEmbeddingService, SqlAlchemyMediaEmbeddingRepository
+from etk.domains.media.embeddings_adapter import ConfiguredMediaEmbeddingProvider
 from etk.domains.media.event_effects import P5MediaEventEffectDelivery
 from etk.domains.media.final_refresh_effects import (
     EmbyMetadataRefreshEffectDelivery,
@@ -97,6 +110,12 @@ from etk.domains.media.final_refresh_effects import (
 )
 from etk.domains.media.image_editing_compatibility import LegacyMediaImageEditingGateway
 from etk.domains.media.image_editing_effects import ManualImageEffectDelivery
+from etk.domains.media.studio_images import StudioImageService
+from etk.domains.media.studio_images_adapter import (
+    HttpxStudioImageAdapter,
+    PersistentStudioImageEffects,
+    studio_image_claim_lease_seconds,
+)
 from etk.domains.media.subscription_projection import SqlAlchemySubscriptionMediaProjection
 from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
 from etk.domains.operations.database_maintenance import (
@@ -349,7 +368,10 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "auto-subscribe",
         "backfill-organize-record-tmdb-ids",
         "check-expired-users",
+        "execute-auto-tagging-rules",
+        "fill-studio-images",
         "full-sync-strm",
+        "generate_embeddings",
         "intro-fingerprint-backfill",
         "manual-correct-organize-records",
         "manual_subscribe_batch",
@@ -357,6 +379,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "play-pool-daily-speedtest",
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
+        "refresh-collections",
         "restore_mediainfo",
         "scan-cleanup-issues",
         "scan-organize-115",
@@ -367,6 +390,11 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "update-daily-theme",
     }
 )
+
+
+def _app_setting_flag(repository: SqlAlchemyAppSettingsRepository, key: str, field: str) -> bool:
+    value = repository.load(key)
+    return bool(value.get(field, False)) if isinstance(value, Mapping) else False
 
 
 def _p115_native_operation_router(
@@ -972,22 +1000,11 @@ class WorkerRuntime:
                     SqlAlchemyDailyThemeRepository(database.unit_of_work),
                     LegacyDiscoverDefaults(),
                 )
-                p8_effect_tasks = P8EffectTaskRouter(
-                    LegacyP8EffectsCompatibilityGateway(),
-                    UserSyncService(
-                        HttpxEmbyUserSyncAdapter(settings_provider),
-                        SqlAlchemyUserSyncRepository(database.unit_of_work),
-                    ),
-                    cleanup_scan,
-                    IdentityUserExpiryService(
-                        identity_operations,
-                        identity_mutations,
-                        lease_seconds=lambda: identity_operation_claim_lease_seconds(
-                            settings_provider().emby_api_timeout
-                        ),
-                    ),
-                    daily_theme=daily_theme,
+                auto_tagging_delivery = HttpxAutoTaggingAdapter(
+                    settings_provider,
+                    item_lock=PostgresAutoTaggingItemLock(database.engine),
                 )
+                studio_images_delivery = HttpxStudioImageAdapter(settings_provider)
                 sharing_identity = SharingServerIdentity(settings_provider, app_settings)
                 shared_center = HttpxSharedCenterAdapter(
                     settings_provider,
@@ -1306,8 +1323,9 @@ class WorkerRuntime:
                     ),
                     LegacyUserEventEffectsAdapter(settings_provider),
                 )
+                media_effects_ledger = PostgresMediaEffectLedger(database.unit_of_work)
                 media_effects = PersistentMediaEffectExecutor(
-                    PostgresMediaEffectLedger(database.unit_of_work),
+                    media_effects_ledger,
                     RoutedMediaEffectDelivery(
                         [
                             BridgeMediaEffectDelivery(bridge_client),
@@ -1321,10 +1339,50 @@ class WorkerRuntime:
                                 settings_provider,
                                 HttpxEmbyPathChangeGateway(),
                             ),
+                            auto_tagging_delivery,
+                            studio_images_delivery,
                         ]
                     ),
                     worker_id=f"{self._worker_id}:media-effect",
-                    lease_seconds=lambda: max(float(config_adapter.load().emby_api_timeout) + 30, 90),
+                    lease_seconds=lambda: studio_image_claim_lease_seconds(config_adapter.load().emby_api_timeout),
+                )
+                p8_effect_tasks = P8EffectTaskRouter(
+                    LegacyP8EffectsCompatibilityGateway(),
+                    UserSyncService(
+                        HttpxEmbyUserSyncAdapter(settings_provider),
+                        SqlAlchemyUserSyncRepository(database.unit_of_work),
+                    ),
+                    cleanup_scan,
+                    IdentityUserExpiryService(
+                        identity_operations,
+                        identity_mutations,
+                        lease_seconds=lambda: identity_operation_claim_lease_seconds(
+                            settings_provider().emby_api_timeout
+                        ),
+                    ),
+                    daily_theme=daily_theme,
+                    media_embeddings=MediaEmbeddingService(
+                        SqlAlchemyMediaEmbeddingRepository(database.unit_of_work),
+                        ConfiguredMediaEmbeddingProvider(settings_provider),
+                        enabled=lambda: bool(settings_provider().ai_vector),
+                    ),
+                    native_collection_refresh=NativeCollectionRefreshService(
+                        HttpxNativeCollectionRefreshAdapter(settings_provider),
+                        SqlAlchemyNativeCollectionRefreshRepository(database.unit_of_work),
+                        auto_subscribe=lambda: _app_setting_flag(
+                            app_settings, "native_collections_config", "auto_sub_enabled"
+                        ),
+                    ),
+                    auto_tagging=AutoTaggingService(
+                        app_settings,
+                        auto_tagging_delivery,
+                        PersistentAutoTaggingEffects(media_effects_ledger, media_effects),
+                    ),
+                    studio_images=StudioImageService(
+                        app_settings,
+                        studio_images_delivery,
+                        PersistentStudioImageEffects(media_effects_ledger, media_effects),
+                    ),
                 )
                 ingestion_binding = PersistentPendingBindingGateway(
                     ledger=ingestion_ledger,
@@ -1719,6 +1777,11 @@ class WorkerRuntime:
                 SqlAlchemyDailyThemeRepository(database.unit_of_work),
                 LegacyDiscoverDefaults(),
             )
+            auto_tagging_delivery = HttpxAutoTaggingAdapter(
+                settings_provider,
+                item_lock=PostgresAutoTaggingItemLock(database.engine),
+            )
+            studio_images_delivery = HttpxStudioImageAdapter(settings_provider)
             media_effects = PersistentMediaEffectExecutor(
                 PostgresMediaEffectLedger(database.unit_of_work),
                 RoutedMediaEffectDelivery(
@@ -1726,10 +1789,12 @@ class WorkerRuntime:
                         BridgeMediaEffectDelivery(bridge_client),
                         SharedIntroExportEffectDelivery(app_settings, shared_center),
                         DailyThemeReplenishmentEffectDelivery(daily_theme),
+                        auto_tagging_delivery,
+                        studio_images_delivery,
                     ]
                 ),
                 worker_id=f"{self._worker_id}:media-effect",
-                lease_seconds=lambda: max(float(config_adapter.load().emby_api_timeout) + 30, 90),
+                lease_seconds=lambda: studio_image_claim_lease_seconds(config_adapter.load().emby_api_timeout),
             )
             p115_fingerprint_repair = P115FingerprintRepairService(
                 credentials=p115_credentials,
@@ -1883,6 +1948,34 @@ class WorkerRuntime:
                     lease_seconds=lambda: identity_operation_claim_lease_seconds(settings_provider().emby_api_timeout),
                 ),
                 daily_theme=daily_theme,
+                media_embeddings=MediaEmbeddingService(
+                    SqlAlchemyMediaEmbeddingRepository(database.unit_of_work),
+                    ConfiguredMediaEmbeddingProvider(settings_provider),
+                    enabled=lambda: bool(settings_provider().ai_vector),
+                ),
+                native_collection_refresh=NativeCollectionRefreshService(
+                    HttpxNativeCollectionRefreshAdapter(settings_provider),
+                    SqlAlchemyNativeCollectionRefreshRepository(database.unit_of_work),
+                    auto_subscribe=lambda: _app_setting_flag(
+                        app_settings, "native_collections_config", "auto_sub_enabled"
+                    ),
+                ),
+                auto_tagging=AutoTaggingService(
+                    app_settings,
+                    auto_tagging_delivery,
+                    PersistentAutoTaggingEffects(
+                        PostgresMediaEffectLedger(database.unit_of_work),
+                        media_effects,
+                    ),
+                ),
+                studio_images=StudioImageService(
+                    app_settings,
+                    studio_images_delivery,
+                    PersistentStudioImageEffects(
+                        PostgresMediaEffectLedger(database.unit_of_work),
+                        media_effects,
+                    ),
+                ),
             )
             p9_sharing_tasks = P9SharingTaskRouter(
                 shared_center=shared_center,

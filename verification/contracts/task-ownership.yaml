@@ -347,12 +347,11 @@
       "help": "执行自动打标规则，根据媒体参数、路径、类型等条件批量添加标签。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free AutoTaggingService rules through stable media-effect identities, transactional Outbox, provider readback, and terminal indeterminate no-resend handling without the legacy task callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.media.auto_tagging.AutoTaggingService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -365,8 +364,8 @@
       ],
       "target_stage": "P8",
       "task_key": "execute-auto-tagging-rules",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "operations/p8-effects",
+      "validation_method": "ordered-task-registry-native-auto-tagging-readback-postgres18-redis-celery-and-import-sentinel",
+      "validation_owner": "media/auto-tagging",
       "visible_in": [
         "all"
       ]
@@ -381,12 +380,11 @@
       "help": "补全制作公司/工作室图标，让媒体详情页展示更完整。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free StudioImageService mapping and bounded image preparation through durable media effects, authoritative Thumb and Primary readback, and terminal indeterminate no-resend handling without the legacy task callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.media.studio_images.StudioImageService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -399,8 +397,8 @@
       ],
       "target_stage": "P8",
       "task_key": "fill-studio-images",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "operations/p8-effects",
+      "validation_method": "ordered-task-registry-native-studio-image-readback-postgres18-redis-celery-and-import-sentinel",
+      "validation_owner": "media/studio-images",
       "visible_in": [
         "all"
       ]
@@ -521,12 +519,11 @@
       "help": "为媒体生成向量索引，用于语义搜索、相似推荐等智能功能。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free MediaEmbeddingService keyset batches with reusable configured provider clients, finite-vector validation, and overview/in-library compare-and-swap persistence without the legacy task callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.media.embeddings.MediaEmbeddingService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -539,8 +536,8 @@
       ],
       "target_stage": "P8",
       "task_key": "generate_embeddings",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "operations/p8-effects",
+      "validation_method": "ordered-task-registry-native-embedding-provider-cas-postgres18-redis-celery-and-import-sentinel",
+      "validation_owner": "media/embeddings",
       "visible_in": [
         "all",
         "chain",
@@ -990,12 +987,11 @@
       "help": "刷新 TMDb 原生合集信息，让电影系列合集保持最新。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P11 native-only and compatibility Workers execute the processor-free NativeCollectionRefreshService after an authoritative Emby scan; each PostgreSQL collection publication and its missing-subscription transitions are atomic with hard-ignore fencing and no legacy task callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.collection.refresh.NativeCollectionRefreshService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -1008,8 +1004,8 @@
       ],
       "target_stage": "P8",
       "task_key": "refresh-collections",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "operations/p8-effects",
+      "validation_method": "ordered-task-registry-native-collection-refresh-http-postgres18-redis-celery-and-import-sentinel",
+      "validation_owner": "collection/native-refresh",
       "visible_in": [
         "all"
       ]

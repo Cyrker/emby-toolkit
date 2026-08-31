@@ -5474,3 +5474,58 @@ Next:
 - Continue the exact 24 unavailable native-only task keys and 21/23 legacy Route bindings from the
   current manifests/runtime call graph; do not begin P12 before P11 ownership, removal and NFR
   closure. Keep all Live Acceptance items pending.
+
+### P11-Native-P8-Media-Tasks
+
+Stage / Batch: P11 / processor-free P8 media task execution
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `9d519de6` (`refactor(p11): execute native auto subscriptions`).
+- Target checkpoint message: `refactor(p11): execute native P8 media tasks`.
+
+Implemented:
+
+- Replaced `generate_embeddings`, `refresh-collections`, `execute-auto-tagging-rules` and
+  `fill-studio-images` compatibility callables with processor-free services in both Worker
+  profiles. Native-only Worker ownership is now `30 executable / 20 unavailable`; the task
+  manifest records `28` native/typed owners plus two Worker-owned chain keys.
+- Added keyset/CAS embedding persistence and bounded reusable AI clients; authoritative native
+  collection reconcile with atomic movie/source publication and hard-ignore fencing; durable
+  Auto-tagging and Studio image effects with provider readback, no-resend ambiguity and bounded
+  image decoding.
+- Serialized Auto-tagging read-modify-write per Emby Item with PostgreSQL advisory locks across
+  direct and Outbox execution. Compatibility and native-only profiles each construct one media
+  effect executor; claimed effects are reported as indeterminate rather than failed.
+- Closed review findings for active collections with NULL Emby identity, future hard-ignore
+  revival, concurrent tag loss, empty `ImageTags` fallback, Studio request identity drift, TMDb
+  fallback/status classification, lease duration, cancellation checkpoints and effect markers.
+
+Targeted gate:
+
+- Full P8 application -> `209 passed`; Worker outcomes/P8 ownership/static manifests ->
+  `79 passed`.
+- Disposable PostgreSQL 18 native-owner/CAS/advisory-lock scope -> `5 passed`.
+- Redis/Celery compatibility and native-only Worker profiles -> `2 passed`, `37 deselected`.
+- Scoped Ruff/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`).
+- Manifest currentness, compileall, `uv lock --check`, three secret scans and `git diff --check`
+  -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-native-p8-media-tasks-20260901/summary.md`.
+
+Focused review:
+
+- Two findings-first read-only review rounds closed six initial P2 findings and the follow-up
+  cross-effect Auto-tagging lost-update finding. Final rereview found no deterministic P0/P1/P2.
+
+Pending:
+
+- Complete the remaining 20 processor-free task owners and exact 21/23 legacy Route bindings,
+  then Table/Config/Frontend ownership, pre-removal, controlled removal and every P11
+  NFR/security/SBOM/vulnerability/License gate.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.

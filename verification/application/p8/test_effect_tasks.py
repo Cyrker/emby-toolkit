@@ -78,10 +78,57 @@ class FakeDailyTheme:
         return TaskOutcome.succeeded("published", {"publication_revision": 3})
 
 
+class FakeMediaEmbeddings:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def execute(self, progress: P8TaskProgress) -> TaskOutcome:
+        self.calls += 1
+        progress.update(100, "embedded")
+        return TaskOutcome.succeeded("embedded", {"generated": 4})
+
+
+class FakeNativeCollectionRefresh:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def execute(self, progress: P8TaskProgress) -> TaskOutcome:
+        self.calls += 1
+        progress.update(100, "refreshed")
+        return TaskOutcome.succeeded("refreshed", {"refreshed": 3})
+
+
+class FakeAutoTagging:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def execute(
+        self,
+        progress: P8TaskProgress,
+        *,
+        operation_key: str,
+        parameters: Mapping[str, Any],
+    ) -> TaskOutcome:
+        self.calls.append((operation_key, dict(parameters)))
+        progress.update(100, "tagged")
+        return TaskOutcome.succeeded("tagged", {"confirmed": 2})
+
+
+class FakeStudioImages:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def execute(self, progress: P8TaskProgress, *, operation_key: str) -> TaskOutcome:
+        self.calls.append(operation_key)
+        progress.update(100, "studio images")
+        return TaskOutcome.succeeded("studio images", {"confirmed": 3})
+
+
 class FakeProgress:
     def __init__(self) -> None:
         self.last_progress: int | None = None
         self.checkpoints = 0
+        self.effects: list[tuple[str, str]] = []
 
     def update(self, progress: int, message: str) -> None:
         del message
@@ -92,6 +139,15 @@ class FakeProgress:
 
     def success_reported(self) -> bool:
         return self.last_progress == 100
+
+    def record_started_effect(self, label: str) -> None:
+        self.effects.append(("started", label))
+
+    def record_committed_effect(self, label: str) -> None:
+        self.effects.append(("committed", label))
+
+    def record_abandoned_effect(self, label: str) -> None:
+        self.effects.append(("abandoned", label))
 
 
 def _message(
@@ -136,9 +192,9 @@ def test_none_result_requires_explicit_terminal_progress() -> None:
     router, _gateway, _sync = _router(FakeCompatibility(None))
     progress = FakeProgress()
 
-    failed = router.execute(_message("refresh-collections"), object(), progress)
+    failed = router.execute(_message("custom-collections"), object(), progress)
     progress.update(100, "legacy terminal")
-    succeeded = router.execute(_message("refresh-collections"), object(), progress)
+    succeeded = router.execute(_message("custom-collections"), object(), progress)
 
     assert failed.status is TaskOutcomeStatus.FAILED
     assert succeeded.status is TaskOutcomeStatus.SUCCEEDED
@@ -220,7 +276,19 @@ def test_user_expiry_is_processor_free_and_requires_worker_owned_metadata() -> N
 def test_processor_free_router_does_not_require_a_compatibility_gateway() -> None:
     sync = FakeUserSync()
     daily_theme = FakeDailyTheme()
-    router = P8EffectTaskRouter(None, cast(UserSyncService, sync), daily_theme=daily_theme)
+    embeddings = FakeMediaEmbeddings()
+    collection_refresh = FakeNativeCollectionRefresh()
+    auto_tagging = FakeAutoTagging()
+    studio_images = FakeStudioImages()
+    router = P8EffectTaskRouter(
+        None,
+        cast(UserSyncService, sync),
+        daily_theme=daily_theme,
+        media_embeddings=embeddings,
+        native_collection_refresh=collection_refresh,
+        auto_tagging=auto_tagging,
+        studio_images=studio_images,
+    )
 
     synced = router.execute(_message("sync-all-user-data"), None, FakeProgress())
     disabled_update = router.execute(_message("system-auto-update"), None, FakeProgress())
@@ -232,20 +300,63 @@ def test_processor_free_router_does_not_require_a_compatibility_gateway() -> Non
         None,
         FakeProgress(),
     )
+    embedded = router.execute(_message("generate_embeddings"), None, FakeProgress())
+    refreshed = router.execute(_message("refresh-collections"), None, FakeProgress())
+    tagged = router.execute(
+        _message(
+            "execute-auto-tagging-rules",
+            {"operation": "add", "tags": ["A"]},
+            metadata={"job_id": "00000000-0000-0000-0000-000000000294"},
+        ),
+        None,
+        FakeProgress(),
+    )
+    studio_images_outcome = router.execute(
+        _message(
+            "fill-studio-images",
+            metadata={"job_id": "00000000-0000-0000-0000-000000000295"},
+        ),
+        None,
+        FakeProgress(),
+    )
 
     assert synced.status is TaskOutcomeStatus.SUCCEEDED
     assert disabled_update.status is TaskOutcomeStatus.SKIPPED
     assert published.status is TaskOutcomeStatus.SUCCEEDED
+    assert embedded.status is TaskOutcomeStatus.SUCCEEDED
+    assert embedded.details["generated"] == 4
+    assert refreshed.status is TaskOutcomeStatus.SUCCEEDED
+    assert refreshed.details["refreshed"] == 3
+    assert tagged.status is TaskOutcomeStatus.SUCCEEDED
+    assert tagged.details["confirmed"] == 2
+    assert studio_images_outcome.status is TaskOutcomeStatus.SUCCEEDED
+    assert studio_images_outcome.details["confirmed"] == 3
     assert published.details["publication_revision"] == 3
     assert published.details["compatibility_fallback"] is False
     assert sync.calls == 1
     assert daily_theme.calls == ["daily"]
+    assert embeddings.calls == 1
+    assert collection_refresh.calls == 1
+    assert auto_tagging.calls == [
+        (
+            "auto-tagging:00000000-0000-0000-0000-000000000294",
+            {"operation": "add", "library_ids": None, "tags": ["A"], "rating_filters": None},
+        )
+    ]
+    assert studio_images.calls == ["studio-images:00000000-0000-0000-0000-000000000295"]
     with pytest.raises(RuntimeError, match="compatibility execution is unavailable"):
-        router.execute(_message("refresh-collections"), object(), FakeProgress())
+        router.execute(_message("custom-collections"), object(), FakeProgress())
 
 
 def test_manual_auto_tagging_payload_is_strict_and_server_selected() -> None:
-    router, gateway, _sync = _router()
+    gateway = FakeCompatibility()
+    sync = FakeUserSync()
+    auto_tagging = FakeAutoTagging()
+    router = P8EffectTaskRouter(
+        cast(P8EffectsCompatibilityGateway, gateway),
+        cast(UserSyncService, sync),
+        auto_tagging=auto_tagging,
+    )
 
     outcome = router.execute(
         _message(
@@ -256,19 +367,25 @@ def test_manual_auto_tagging_payload_is_strict_and_server_selected() -> None:
                 "tags": ["tag-a"],
                 "rating_filters": ["PG-13"],
             },
+            metadata={"job_id": "00000000-0000-0000-0000-000000000001"},
         ),
         object(),
         FakeProgress(),
     )
 
     assert outcome.status is TaskOutcomeStatus.SUCCEEDED
-    assert gateway.calls[0][0] == "execute-auto-tagging-rules"
-    assert gateway.calls[0][2] == {
-        "operation": "add",
-        "library_ids": ["library-a"],
-        "tags": ["tag-a"],
-        "rating_filters": ["PG-13"],
-    }
+    assert auto_tagging.calls == [
+        (
+            "auto-tagging:00000000-0000-0000-0000-000000000001",
+            {
+                "operation": "add",
+                "library_ids": ["library-a"],
+                "tags": ["tag-a"],
+                "rating_filters": ["PG-13"],
+            },
+        )
+    ]
+    assert gateway.calls == []
     with pytest.raises(ValueError, match="requires tags"):
         router.execute(
             _message("execute-auto-tagging-rules", {"operation": "add", "tags": []}),

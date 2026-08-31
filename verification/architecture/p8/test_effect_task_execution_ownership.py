@@ -15,7 +15,30 @@ USER_EXPIRY = REPO_ROOT / "src/etk/domains/identity/user_expiry.py"
 DAILY_THEME = REPO_ROOT / "src/etk/domains/media/daily_theme.py"
 DAILY_THEME_REPOSITORY = REPO_ROOT / "src/etk/domains/media/daily_theme_repository.py"
 P8_ROUTER = REPO_ROOT / "src/etk/processes/p8_effect_tasks.py"
+WORKER = REPO_ROOT / "src/etk/processes/worker.py"
 LEGACY_IMPORT_ROOTS = {"database", "extensions", "handler", "task_manager", "tasks"}
+P11_NATIVE_EFFECT_TASKS = {
+    "execute-auto-tagging-rules": (
+        "etk.domains.media.auto_tagging.AutoTaggingService",
+        REPO_ROOT / "src/etk/domains/media/auto_tagging.py",
+        '"execute-auto-tagging-rules": ("tasks.media"',
+    ),
+    "fill-studio-images": (
+        "etk.domains.media.studio_images.StudioImageService",
+        REPO_ROOT / "src/etk/domains/media/studio_images.py",
+        '"fill-studio-images": ("tasks.media"',
+    ),
+    "generate_embeddings": (
+        "etk.domains.media.embeddings.MediaEmbeddingService",
+        REPO_ROOT / "src/etk/domains/media/embeddings.py",
+        '"generate_embeddings": ("tasks.vector_tasks"',
+    ),
+    "refresh-collections": (
+        "etk.domains.collection.refresh.NativeCollectionRefreshService",
+        REPO_ROOT / "src/etk/domains/collection/refresh.py",
+        '"refresh-collections": ("tasks.tmdb_collections"',
+    ),
+}
 
 
 def _task(task_key: str) -> dict[str, object]:
@@ -94,3 +117,29 @@ def test_daily_theme_has_native_atomic_execution_ownership_and_no_legacy_imports
         assert not any(module.split(".")[0] in LEGACY_IMPORT_ROOTS for module in imports)
     router_source = P8_ROUTER.read_text(encoding="utf-8")
     assert '"update-daily-theme": ("tasks.discover"' not in router_source
+
+
+def test_p11_effect_tasks_have_native_execution_ownership_and_no_legacy_fallback() -> None:
+    router_source = P8_ROUTER.read_text(encoding="utf-8")
+    for task_key, (owner, path, forbidden_fallback) in P11_NATIVE_EFFECT_TASKS.items():
+        assert P8_NATIVE_EXECUTION_OWNERS[task_key] == owner
+        task = _task(task_key)
+        assert task["ownership_layers"] == {
+            "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
+            "execution_kind": "native-use-case",
+            "execution_owner": owner,
+        }
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        imports = {alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names}
+        imports.update(
+            node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module is not None
+        )
+        assert not any(module.split(".")[0] in LEGACY_IMPORT_ROOTS for module in imports)
+        assert forbidden_fallback not in router_source
+
+
+def test_worker_profiles_each_build_one_media_effect_executor() -> None:
+    worker_source = WORKER.read_text(encoding="utf-8")
+
+    assert worker_source.count("PersistentMediaEffectExecutor(") == 2
+    assert "p8_media_effects_executor" not in worker_source

@@ -7292,10 +7292,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+        "notes": "P11 native-only and compatibility Workers execute the processor-free NativeCollectionRefreshService after an authoritative Emby scan; each PostgreSQL collection publication and its missing-subscription transitions are atomic with hard-ignore fencing and no legacy task callable.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "operations/p8-effects"
+        "validation_method": "ordered-task-registry-native-collection-refresh-http-postgres18-redis-celery-and-import-sentinel",
+        "validation_owner": "collection/native-refresh"
       },
       "task-4e6faee8f971": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -7409,10 +7409,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free AutoTaggingService rules through stable media-effect identities, transactional Outbox, provider readback, and terminal indeterminate no-resend handling without the legacy task callable.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "operations/p8-effects"
+        "validation_method": "ordered-task-registry-native-auto-tagging-readback-postgres18-redis-celery-and-import-sentinel",
+        "validation_owner": "media/auto-tagging"
       },
       "task-8ab73d6b43de": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -7463,10 +7463,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free MediaEmbeddingService keyset batches with reusable configured provider clients, finite-vector validation, and overview/in-library compare-and-swap persistence without the legacy task callable.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "operations/p8-effects"
+        "validation_method": "ordered-task-registry-native-embedding-provider-cas-postgres18-redis-celery-and-import-sentinel",
+        "validation_owner": "media/embeddings"
       },
       "task-b96e91eb5abd": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -7589,10 +7589,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free StudioImageService mapping and bounded image preparation through durable media effects, authoritative Thumb and Primary readback, and terminal indeterminate no-resend handling without the legacy task callable.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "operations/p8-effects"
+        "validation_method": "ordered-task-registry-native-studio-image-readback-postgres18-redis-celery-and-import-sentinel",
+        "validation_owner": "media/studio-images"
       },
       "task-e1f087f98f07": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

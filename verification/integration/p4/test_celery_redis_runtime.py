@@ -130,6 +130,51 @@ class SharingOperationStubState:
     requests: list[dict[str, Any]]
 
 
+@dataclass(slots=True)
+class NativeP8TaskStubState:
+    requests: list[str]
+
+
+def _start_native_p8_task_stub() -> tuple[
+    ThreadingHTTPServer,
+    threading.Thread,
+    NativeP8TaskStubState,
+]:
+    state = NativeP8TaskStubState(requests=[])
+    lock = threading.Lock()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            path = urlsplit(self.path).path
+            with lock:
+                state.requests.append(path)
+            if self.headers.get("X-Emby-Token") != "fixture-p8-token":
+                self.send_response(403)
+                self.end_headers()
+                return
+            if path == "/Library/VirtualFolders":
+                payload = b"[]"
+            elif path == "/System/Info":
+                payload = b'{"Id":"fixture-server","Version":"4.8.0.0"}'
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, format: str, *args: object) -> None:
+            del format, args
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, name="etk-native-p8-task-stub", daemon=True)
+    thread.start()
+    return server, thread, state
+
+
 def _start_identity_expiry_emby_stub(
     user_id: str,
 ) -> tuple[ThreadingHTTPServer, threading.Thread, IdentityExpiryEmbyStubState]:
@@ -1004,6 +1049,129 @@ def test_duplicate_celery_delivery_for_same_attempt_executes_once(
         assert attempts == [(1, "succeeded")]
     finally:
         assert worker.stop() == 0
+
+
+@pytest.mark.parametrize(
+    "compatibility_enabled",
+    [False, True],
+    ids=["native-only", "compatibility-enabled"],
+)
+def test_native_p8_task_owners_execute_through_real_worker_profiles(
+    p4_store: PostgresJobStore,
+    p4_runtime: DatabaseRuntime,
+    p4_runtime_environment: RuntimeEnvironment,
+    tmp_path: Path,
+    compatibility_enabled: bool,
+) -> None:
+    setting_keys = (
+        "auto_tagging_rules",
+        "studio_mapping",
+        "native_collections_config",
+        "dynamic_app_config",
+    )
+    prior_settings = _snapshot_app_settings(p4_runtime, setting_keys)
+    server, thread, stub_state = _start_native_p8_task_stub()
+    with p4_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                VALUES
+                    ('auto_tagging_rules', CAST(:auto_tagging_rules AS jsonb), NOW()),
+                    ('studio_mapping', CAST(:studio_mapping AS jsonb), NOW()),
+                    ('native_collections_config', CAST(:native_collections_config AS jsonb), NOW()),
+                    ('dynamic_app_config', CAST(:dynamic_app_config AS jsonb), NOW())
+                ON CONFLICT (setting_key) DO UPDATE SET
+                    value_json = EXCLUDED.value_json,
+                    last_updated_at = NOW()
+                """
+            ),
+            {
+                "auto_tagging_rules": "[]",
+                "studio_mapping": '{"items":[]}',
+                "native_collections_config": '{"auto_sub_enabled":false}',
+                "dynamic_app_config": json.dumps(
+                    {
+                        "emby_server_url": f"http://127.0.0.1:{server.server_port}",
+                        "emby_api_key": "fixture-p8-token",
+                        "emby_user_id": "fixture-p8-user",
+                        "ai_vector": False,
+                    },
+                    separators=(",", ":"),
+                ),
+            },
+        )
+    worker: ManagedProcess | None = None
+    try:
+        environment_values = dict(p4_runtime_environment.environment)
+        environment_values.update(
+            {
+                "EMBY_SERVER_URL": f"http://127.0.0.1:{server.server_port}",
+                "EMBY_API_KEY": "fixture-p8-token",
+                "EMBY_USER_ID": "fixture-p8-user",
+                "AI_VECTOR": "false",
+            }
+        )
+        if compatibility_enabled:
+            environment_values["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
+        else:
+            environment_values.pop("ETK_ENABLE_LEGACY_COMPATIBILITY", None)
+        worker_environment = RuntimeEnvironment(
+            environment=environment_values,
+            config=p4_runtime_environment.config,
+            data_dir=p4_runtime_environment.data_dir,
+            queue_name=p4_runtime_environment.queue_name,
+        )
+        expected_statuses = {
+            "generate_embeddings": "skipped",
+            "execute-auto-tagging-rules": "skipped",
+            "fill-studio-images": "skipped",
+            "refresh-collections": "succeeded",
+        }
+        created_jobs = {
+            task_key: p4_store.create_job(
+                task_key=task_key,
+                queue_name=worker_environment.queue_name,
+                max_attempts=1,
+                payload={
+                    "payload_version": 1,
+                    "parameters": {},
+                    "processor_type": "media",
+                    "display_name": f"P11 {task_key} fixture",
+                    "silent": True,
+                },
+            ).projection
+            for task_key in expected_statuses
+        }
+        worker = _start_worker(worker_environment, tmp_path / f"native-p8-worker-{compatibility_enabled}")
+        _wait_for_worker(worker, worker_environment.config)
+        for task_key, created in created_jobs.items():
+            _send_delivery(
+                worker_environment.config,
+                created.job.id,
+                created.current_attempt.id,
+                count=2,
+            )
+            completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=30)
+            assert completed.current_attempt.status is AttemptStatus.SUCCEEDED
+            assert completed.job.result is not None
+            assert completed.job.result["status"] == expected_statuses[task_key]
+            assert completed.job.result["details"]["task_key"] == task_key
+            assert completed.job.result["details"]["compatibility_fallback"] is False
+        _wait_until(
+            lambda: worker is not None and worker.read_log().count("Duplicate or stale delivery skipped") >= 4,
+            description="duplicate P8 task deliveries to be skipped",
+            timeout=20,
+        )
+        assert stub_state.requests.count("/Library/VirtualFolders") == 1
+        assert set(stub_state.requests) <= {"/System/Info", "/Library/VirtualFolders"}
+    finally:
+        if worker is not None and worker.process.poll() is None:
+            assert worker.stop() == 0
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+        _restore_app_settings(p4_runtime, prior_settings, setting_keys)
 
 
 @pytest.mark.parametrize(

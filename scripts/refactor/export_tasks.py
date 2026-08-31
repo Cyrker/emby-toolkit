@@ -108,6 +108,10 @@ P8_TASKS = {
 }
 P8_NATIVE_EXECUTION_OWNERS = {
     "check-expired-users": "etk.domains.identity.user_expiry.IdentityUserExpiryService",
+    "execute-auto-tagging-rules": "etk.domains.media.auto_tagging.AutoTaggingService",
+    "fill-studio-images": "etk.domains.media.studio_images.StudioImageService",
+    "generate_embeddings": "etk.domains.media.embeddings.MediaEmbeddingService",
+    "refresh-collections": "etk.domains.collection.refresh.NativeCollectionRefreshService",
     "scan-cleanup-issues": "etk.domains.subscription.cleanup_scan.CleanupScanService",
     "sync-all-user-data": "etk.domains.identity.user_sync.UserSyncService",
     "system-auto-update": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",

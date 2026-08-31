@@ -39,14 +39,10 @@ _DISPLAY_NAMES = {
 
 _LEGACY_HANDLERS = {
     "custom-collections": ("tasks.custom_collections", "task_process_all_custom_collections"),
-    "execute-auto-tagging-rules": ("tasks.media", "task_execute_auto_tagging_rules"),
-    "fill-studio-images": ("tasks.media", "task_fill_studio_images"),
     "generate-all-covers": ("tasks.covers", "task_generate_all_covers"),
     "generate-custom-collection-covers": ("tasks.covers", "task_generate_all_custom_collection_covers"),
-    "generate_embeddings": ("tasks.vector_tasks", "task_generate_embeddings"),
     "process-single-custom-collection": ("tasks.custom_collections", "process_single_custom_collection"),
     "process_all_custom_collections": ("tasks.custom_collections", "task_process_all_custom_collections"),
-    "refresh-collections": ("tasks.tmdb_collections", "task_refresh_collections"),
     "scan-cleanup-issues": ("tasks.cleanup", "task_scan_for_cleanup_issues"),
     REVIEW_REPROCESS_ONE_TASK_KEY: ("tasks.media", "task_reprocess_single_item"),
     REVIEW_REPROCESS_ALL_TASK_KEY: ("tasks.media", "task_reprocess_all_review_items"),
@@ -59,6 +55,12 @@ class P8TaskProgress(Protocol):
     def checkpoint(self) -> None: ...
 
     def success_reported(self) -> bool: ...
+
+    def record_started_effect(self, label: str) -> None: ...
+
+    def record_committed_effect(self, label: str) -> None: ...
+
+    def record_abandoned_effect(self, label: str) -> None: ...
 
 
 class P8EffectsCompatibilityGateway(Protocol):
@@ -100,6 +102,33 @@ class P8DailyTheme(Protocol):
     ) -> TaskOutcome: ...
 
 
+class P8MediaEmbeddings(Protocol):
+    def execute(self, progress: P8TaskProgress) -> TaskOutcome: ...
+
+
+class P8NativeCollectionRefresh(Protocol):
+    def execute(self, progress: P8TaskProgress) -> TaskOutcome: ...
+
+
+class P8AutoTagging(Protocol):
+    def execute(
+        self,
+        progress: P8TaskProgress,
+        *,
+        operation_key: str,
+        parameters: Mapping[str, Any],
+    ) -> TaskOutcome: ...
+
+
+class P8StudioImages(Protocol):
+    def execute(
+        self,
+        progress: P8TaskProgress,
+        *,
+        operation_key: str,
+    ) -> TaskOutcome: ...
+
+
 class LegacyP8EffectsCompatibilityGateway:
     """Worker-only allowlist around established P8 task implementations."""
 
@@ -133,12 +162,20 @@ class P8EffectTaskRouter:
         cleanup_scan: P8CleanupScan | None = None,
         user_expiry: P8UserExpiry | None = None,
         daily_theme: P8DailyTheme | None = None,
+        media_embeddings: P8MediaEmbeddings | None = None,
+        native_collection_refresh: P8NativeCollectionRefresh | None = None,
+        auto_tagging: P8AutoTagging | None = None,
+        studio_images: P8StudioImages | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._user_sync = user_sync
         self._cleanup_scan = cleanup_scan
         self._user_expiry = user_expiry
         self._daily_theme = daily_theme
+        self._media_embeddings = media_embeddings
+        self._native_collection_refresh = native_collection_refresh
+        self._auto_tagging = auto_tagging
+        self._studio_images = studio_images
 
     def execute(
         self,
@@ -202,6 +239,49 @@ class P8EffectTaskRouter:
                 progress,
                 publication_id=str(_metadata_uuid(message.metadata.get("job_id"), "job_id")),
                 mode=str(parameters.get("mode") or "daily"),
+            )
+            return TaskOutcome(
+                outcome.status,
+                outcome.message,
+                {**outcome.details, **_details(message.task_key, compatibility=False)},
+            )
+        if message.task_key == "generate_embeddings":
+            if self._media_embeddings is None:
+                raise RuntimeError("P8 media-embedding execution is unavailable")
+            outcome = self._media_embeddings.execute(progress)
+            return TaskOutcome(
+                outcome.status,
+                outcome.message,
+                {**outcome.details, **_details(message.task_key, compatibility=False)},
+            )
+        if message.task_key == "refresh-collections":
+            if self._native_collection_refresh is None:
+                raise RuntimeError("P8 native-collection refresh execution is unavailable")
+            outcome = self._native_collection_refresh.execute(progress)
+            return TaskOutcome(
+                outcome.status,
+                outcome.message,
+                {**outcome.details, **_details(message.task_key, compatibility=False)},
+            )
+        if message.task_key == "execute-auto-tagging-rules":
+            if self._auto_tagging is None:
+                raise RuntimeError("P8 auto-tagging execution is unavailable")
+            outcome = self._auto_tagging.execute(
+                progress,
+                operation_key=f"auto-tagging:{_metadata_uuid(message.metadata.get('job_id'), 'job_id')}",
+                parameters=parameters,
+            )
+            return TaskOutcome(
+                outcome.status,
+                outcome.message,
+                {**outcome.details, **_details(message.task_key, compatibility=False)},
+            )
+        if message.task_key == "fill-studio-images":
+            if self._studio_images is None:
+                raise RuntimeError("P8 studio-image execution is unavailable")
+            outcome = self._studio_images.execute(
+                progress,
+                operation_key=f"studio-images:{_metadata_uuid(message.metadata.get('job_id'), 'job_id')}",
             )
             return TaskOutcome(
                 outcome.status,
@@ -373,11 +453,15 @@ def _details(task_key: str, *, compatibility: bool) -> dict[str, str | bool]:
 
 __all__ = [
     "LegacyP8EffectsCompatibilityGateway",
+    "P8AutoTagging",
     "P8_COMPATIBILITY_FALLBACK_UNTIL",
     "P8CleanupScan",
     "P8DailyTheme",
     "P8EffectTaskRouter",
     "P8EffectsCompatibilityGateway",
+    "P8MediaEmbeddings",
+    "P8NativeCollectionRefresh",
+    "P8StudioImages",
     "P8TaskProgress",
     "P8UserExpiry",
 ]
