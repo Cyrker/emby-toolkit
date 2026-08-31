@@ -9,7 +9,7 @@ call; recovery accepts only an explicitly declared, read-only readback.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, cast
 
 from etk.integrations import (
@@ -56,6 +56,7 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
         raw_ffprobe_loader: Callable[[str], Mapping[str, Any] | None] | None = None,
         virtual_imports: VirtualImportOperationDelivery | None = None,
         rapid_transfers: RapidTransferOperationDelivery | None = None,
+        extra_deliveries: Sequence[SharingOperationDeliveryPort] = (),
     ) -> None:
         self._shared_center = shared_center
         self._hdhive = hdhive
@@ -63,8 +64,11 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
         self._raw_ffprobe_loader = raw_ffprobe_loader
         self._virtual_imports = virtual_imports
         self._rapid_transfers = rapid_transfers
+        self._extra_deliveries = tuple(extra_deliveries)
 
     def supports_authoritative_readback(self, operation: SharingOperation) -> bool:
+        if extra := self._extra_delivery(operation):
+            return extra.supports_authoritative_readback(operation)
         if self._virtual_imports is not None and self._virtual_imports.supports(operation):
             return True
         if self._rapid_transfers is not None and self._rapid_transfers.supports(operation):
@@ -80,6 +84,8 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
         *,
         checkpoint: Callable[[], None],
     ) -> SharingDeliveryOutcome:
+        if extra := self._extra_delivery(operation):
+            return extra.request(operation, checkpoint=checkpoint)
         if self._virtual_imports is not None and self._virtual_imports.supports(operation):
             return self._virtual_imports.request(operation, checkpoint=checkpoint)
         if self._rapid_transfers is not None and self._rapid_transfers.supports(operation):
@@ -110,6 +116,8 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
         return _response_outcome(response)
 
     def readback(self, operation: SharingOperation) -> SharingDeliveryOutcome:
+        if extra := self._extra_delivery(operation):
+            return extra.readback(operation)
         if self._virtual_imports is not None and self._virtual_imports.supports(operation):
             return self._virtual_imports.readback(operation)
         if self._rapid_transfers is not None and self._rapid_transfers.supports(operation):
@@ -148,6 +156,13 @@ class SharingProviderOperationDelivery(SharingOperationDeliveryPort):
         if safe_match:
             result["provider_result"] = safe_match
         return SharingDeliveryOutcome.confirmed(result)
+
+    def _extra_delivery(self, operation: SharingOperation) -> SharingOperationDeliveryPort | None:
+        for delivery in self._extra_deliveries:
+            supports = getattr(delivery, "supports", None)
+            if callable(supports) and bool(supports(operation)):
+                return delivery
+        return None
 
 
 def _request_parts(operation: SharingOperation) -> tuple[str, str, dict[str, Any]]:

@@ -226,6 +226,7 @@ def test_callable_sources_normalize_results_and_fail_closed() -> None:
         {
             "confirmed": confirmed,
             "retryable": lambda _context: {"status": "retryable"},
+            "pending": lambda _context: {"status": "pending"},
             "rejected": lambda _context: ProviderResponse(ProviderDisposition.REJECTED, 400),
             "unknown": lambda _context: (_ for _ in ()).throw(RuntimeError("unknown")),
         },
@@ -239,6 +240,7 @@ def test_callable_sources_normalize_results_and_fail_closed() -> None:
     assert sources.attempt("missing", context, progress).disposition is AutoSourceDisposition.MISS
     assert sources.attempt("confirmed", context, progress).disposition is AutoSourceDisposition.CONFIRMED
     assert sources.attempt("retryable", context, progress).disposition is AutoSourceDisposition.RETRYABLE
+    assert sources.attempt("pending", context, progress).disposition is AutoSourceDisposition.PENDING
     assert sources.attempt("rejected", context, progress).disposition is AutoSourceDisposition.REJECTED
     with pytest.raises(AutoSourceError) as raised:
         sources.attempt("unknown", context, progress)

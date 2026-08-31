@@ -35,6 +35,8 @@ from etk.compatibility.playback import (
     install_persistent_playback_gateway,
 )
 from etk.compatibility.response_contract import fastapi_json_response
+from etk.compatibility.tg_control_bridge import TelegramControlBridge
+from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
 from etk.domains.collection import (
     CollectionService,
     P8LocalCollectionGateway,
@@ -973,7 +975,14 @@ def _register_sharing_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "sharing.telegram-userbot",
-        lambda _: DurableTelegramUserBotAdapter(),
+        lambda current: DurableTelegramUserBotAdapter(
+            TelegramControlBridge(
+                connection_factory=current.database.raw_pool.connection,
+                resource_secrets=TelegramResourceSecretStore(
+                    PostgresRuntimeStateBackend(current.database.raw_pool.connection)
+                ),
+            )
+        ),
     )
     container.register_client(
         "sharing.hdhive",

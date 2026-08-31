@@ -66,8 +66,8 @@ def test_exclusive_strm_create_loses_a_path_race_without_overwriting(
     original_link = os.link
 
     def racing_link(
-        source: object,
-        target: object,
+        source: str,
+        target: str,
         *,
         src_dir_fd: int | None = None,
         dst_dir_fd: int | None = None,

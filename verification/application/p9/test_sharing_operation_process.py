@@ -349,11 +349,22 @@ def test_native_coordinator_tick_dispatches_without_legacy_runtime_hooks() -> No
     runtime._process_telegram_commands = lambda: (_ for _ in ()).throw(  # type: ignore[method-assign]
         AssertionError("native Coordinator called legacy Telegram runtime")
     )
+    runtime._process_native_telegram_search_commands = (  # type: ignore[method-assign]
+        lambda: calls.append("telegram-search")
+    )
 
     runtime._tick(compatibility=False)
 
     assert runtime._last_settings is settings
-    assert calls == ["settings", "enqueue", "recover", "requeue", "publish", "sharing"]
+    assert calls == [
+        "telegram-search",
+        "settings",
+        "enqueue",
+        "recover",
+        "requeue",
+        "publish",
+        "sharing",
+    ]
 
 
 def test_native_coordinator_closes_container_when_startup_initialization_fails(

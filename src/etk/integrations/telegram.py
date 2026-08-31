@@ -9,12 +9,15 @@ to claim/retry independently of the API process.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from typing import Any, Protocol
 
 import httpx
 
-from etk.compatibility.tg_control_bridge import TelegramControlBridge
+from etk.compatibility.tg_control_bridge import (
+    TelegramCommandIdempotencyConflictError,
+    TelegramControlBridge,
+)
 from etk.platform import Settings
 from etk.platform.jobs import normalize_json_object
 
@@ -52,7 +55,22 @@ class TelegramBotPort(Protocol):
 class TelegramUserBotPort(Protocol):
     def enqueue(self, command_type: str, payload: Mapping[str, Any] | None = None) -> str: ...
 
-    def claim_next(self, owner_id: str, *, lease_seconds: int = 60) -> Mapping[str, Any] | None: ...
+    def enqueue_once(
+        self,
+        command_type: str,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        idempotency_key: str,
+        result_owner_key: str | None = None,
+    ) -> str: ...
+
+    def claim_next(
+        self,
+        owner_id: str,
+        *,
+        lease_seconds: int = 60,
+        command_types: Collection[str] | None = None,
+    ) -> Mapping[str, Any] | None: ...
 
     def complete(
         self, command_id: str, owner_id: str, result: Mapping[str, Any] | None = None
@@ -60,9 +78,25 @@ class TelegramUserBotPort(Protocol):
 
     def fail(self, command_id: str, owner_id: str, error: str) -> Mapping[str, Any]: ...
 
+    def get_command(self, command_id: str) -> Mapping[str, Any] | None: ...
+
+    def consume_resource_secret(self, reference: str, owner_key: str) -> Mapping[str, Any]: ...
+
+    def wait(
+        self,
+        command_id: str,
+        *,
+        timeout_seconds: float = 45,
+        poll_seconds: float = 0.1,
+    ) -> Mapping[str, Any]: ...
+
 
 class TelegramAdapterError(ExternalAdapterError):
     """Safe alias for API-layer exception mapping."""
+
+
+class TelegramUserBotIdempotencyConflictError(RuntimeError):
+    pass
 
 
 class HttpxTelegramBotAdapter:
@@ -270,8 +304,39 @@ class DurableTelegramUserBotAdapter:
         normalized = normalize_json_object(dict(payload or {}), field="telegram command payload")
         return self._bridge.enqueue(command_type, normalized)
 
-    def claim_next(self, owner_id: str, *, lease_seconds: int = 60) -> Mapping[str, Any] | None:
-        return self._bridge.claim_next(owner_id, lease_seconds=lease_seconds)
+    def enqueue_once(
+        self,
+        command_type: str,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        idempotency_key: str,
+        result_owner_key: str | None = None,
+    ) -> str:
+        normalized = normalize_json_object(dict(payload or {}), field="telegram command payload")
+        try:
+            return self._bridge.enqueue_once(
+                command_type,
+                normalized,
+                idempotency_key=idempotency_key,
+                result_owner_key=result_owner_key,
+            )
+        except TelegramCommandIdempotencyConflictError as exc:
+            raise TelegramUserBotIdempotencyConflictError(str(exc)) from exc
+
+    def claim_next(
+        self,
+        owner_id: str,
+        *,
+        lease_seconds: int = 60,
+        command_types: Collection[str] | None = None,
+    ) -> Mapping[str, Any] | None:
+        if command_types is None:
+            return self._bridge.claim_next(owner_id, lease_seconds=lease_seconds)
+        return self._bridge.claim_next(
+            owner_id,
+            lease_seconds=lease_seconds,
+            command_types=command_types,
+        )
 
     def complete(self, command_id: str, owner_id: str, result: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         return self._bridge.complete(
@@ -282,6 +347,25 @@ class DurableTelegramUserBotAdapter:
 
     def fail(self, command_id: str, owner_id: str, error: str) -> Mapping[str, Any]:
         return self._bridge.fail(command_id, owner_id, str(error or "Telegram command failed")[:500])
+
+    def get_command(self, command_id: str) -> Mapping[str, Any] | None:
+        return self._bridge.get_command(command_id)
+
+    def consume_resource_secret(self, reference: str, owner_key: str) -> Mapping[str, Any]:
+        return self._bridge.consume_resource_secret(reference, owner_key)
+
+    def wait(
+        self,
+        command_id: str,
+        *,
+        timeout_seconds: float = 45,
+        poll_seconds: float = 0.1,
+    ) -> Mapping[str, Any]:
+        return self._bridge.wait(
+            command_id,
+            timeout_seconds=timeout_seconds,
+            poll_seconds=poll_seconds,
+        )
 
 
 def _setting(source: Any, *keys: str, default: Any = None) -> Any:
@@ -345,5 +429,6 @@ __all__ = [
     "TelegramBotAdapter",
     "TelegramBotPort",
     "TelegramUserBotAdapter",
+    "TelegramUserBotIdempotencyConflictError",
     "TelegramUserBotPort",
 ]

@@ -514,6 +514,16 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
         "P115WashingPriorityRecalculationService"
     )
     assert type(state._p7_subscription_tasks._old_season_backfill).__name__ == "OldSeasonBackfillService"
+    assert type(state._p7_subscription_tasks._auto_subscribe).__name__ == "AutoSubscribeService"
+    assert type(state._p7_subscription_tasks._auto_subscribe._sources).__name__ == (
+        "PersistentOrderedAutoSubscriptionSources"
+    )
+    assert type(state._p7_subscription_tasks._auto_subscribe._sources._telegram).__name__ == (
+        "DurableTelegramUserBotAdapter"
+    )
+    assert type(state._p7_subscription_tasks._auto_subscribe._repository).__name__ == (
+        "SqlAlchemyAutoSubscriptionRepository"
+    )
     assert type(state._p8_effect_tasks).__name__ == "P8EffectTaskRouter"
     assert state._p8_effect_tasks._compatibility is None
     assert type(state._p8_effect_tasks._cleanup_scan).__name__ == "CleanupScanService"
@@ -1105,3 +1115,29 @@ def test_coordinator_tick_filters_recovery_and_publish_to_job_dispatch_topic(mon
         "topics": ("job.dispatch.requested",),
     }
     assert store.publisher is runtime._publisher
+
+
+def test_native_coordinator_tick_consumes_telegram_search_commands(monkeypatch) -> None:
+    store = RecordingCoordinatorStore()
+    runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
+    runtime.config = TaskRuntimeConfig(
+        lease_seconds=30,
+        outbox_batch_size=7,
+        outbox_claim_timeout_seconds=11,
+    )
+    runtime._store = cast(Any, store)
+    runtime._publisher = cast(Any, object())
+    runtime._publisher_id = "fixture-native-coordinator"
+    runtime._config_adapter = cast(Any, SimpleNamespace(load=lambda: SimpleNamespace()))
+    events: list[str] = []
+    monkeypatch.setattr(
+        runtime,
+        "_process_native_telegram_search_commands",
+        lambda: events.append("telegram-search"),
+    )
+
+    runtime._tick(compatibility=False)
+
+    assert events == ["telegram-search"]
+    assert store.publish_options is not None
+    assert store.publish_options["topics"] == ("job.dispatch.requested",)

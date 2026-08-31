@@ -7382,10 +7382,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 native-only and compatibility Workers execute the processor-free AutoSubscribeService with durable item/source claims, MoviePilot operations, stable Telegram search commands, Sharing provider operations, credential fencing, no-resend recovery, native notifications, and no legacy task callable.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "subscription/task-envelope"
+        "validation_method": "ordered-task-registry-native-auto-subscribe-sources-operation-replay-worker-outcome-postgres18-redis-celery-and-import-sentinel",
+        "validation_owner": "subscription/auto-subscribe"
       },
       "task-72ac8db63252": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

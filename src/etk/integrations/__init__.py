@@ -29,6 +29,7 @@ from .telegram import (
     TelegramBotAdapter,
     TelegramBotPort,
     TelegramUserBotAdapter,
+    TelegramUserBotIdempotencyConflictError,
     TelegramUserBotPort,
 )
 
@@ -55,5 +56,6 @@ __all__ = [
     "TelegramBotAdapter",
     "TelegramBotPort",
     "TelegramUserBotAdapter",
+    "TelegramUserBotIdempotencyConflictError",
     "TelegramUserBotPort",
 ]

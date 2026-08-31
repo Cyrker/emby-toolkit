@@ -70,6 +70,32 @@ class CaptureGateway:
         )
         return True
 
+    def submit_key(
+        self,
+        task_key: str,
+        task_name: str,
+        processor_type: str,
+        parameters: dict[str, Any],
+        *,
+        silent: bool,
+        max_attempts: int = 1,
+        idempotency_key: str | None = None,
+        idempotency_scope: str | None = None,
+    ) -> bool:
+        self.calls.append(
+            {
+                "task_key": task_key,
+                "task_name": task_name,
+                "processor_type": processor_type,
+                "parameters": parameters,
+                "silent": silent,
+                "max_attempts": max_attempts,
+                "idempotency_key": idempotency_key,
+                "idempotency_scope": idempotency_scope,
+            }
+        )
+        return True
+
     @staticmethod
     def is_busy() -> bool:
         return False

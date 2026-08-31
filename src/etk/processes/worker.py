@@ -44,6 +44,8 @@ from etk.compatibility.playback import (
     clear_persistent_playback_gateway,
     install_persistent_playback_gateway,
 )
+from etk.compatibility.tg_control_bridge import TelegramControlBridge
+from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
 from etk.compatibility.upload_monitor import (
     clear_persistent_upload_source_cleanup,
     install_persistent_upload_source_cleanup,
@@ -214,6 +216,15 @@ from etk.domains.subscription.assistant import (
     SqlAlchemyAssistantMaintenanceRepository,
     SubscribeAssistantMaintenanceService,
 )
+from etk.domains.subscription.auto_subscribe import AutoSubscribeService
+from etk.domains.subscription.auto_subscribe_adapters import (
+    AutoSubscriptionMoviePilotGateway,
+    TelegramAutoSubscriptionNotifications,
+)
+from etk.domains.subscription.auto_subscribe_repository import (
+    SqlAlchemyAutoSubscriptionNotificationDirectory,
+    SqlAlchemyAutoSubscriptionRepository,
+)
 from etk.domains.subscription.cleanup_adapters import (
     ConfiguredCleanupEmbyGateway,
     HttpxCleanupEmbyInventoryGateway,
@@ -247,6 +258,7 @@ from etk.domains.subscription.runtime_repository import PostgresSubscriptionRunt
 from etk.domains.subscription.watchlist import OldSeasonBackfillService
 from etk.domains.system import SqlAlchemyAppSettingsRepository
 from etk.integrations import (
+    DurableTelegramUserBotAdapter,
     HttpxHDHiveAdapter,
     HttpxSharedCenterAdapter,
     HttpxTelegramBotAdapter,
@@ -295,6 +307,11 @@ from .p6_intro_detection import P115IntroDetectionOperationExecutor
 from .p6_p115_tasks import P6P115TaskRouter
 from .p6_playback import P115PlaybackOperationExecutor
 from .p6_upload_monitor import P115UploadOperationExecutor
+from .p7_auto_subscribe_sources import (
+    AutoSubscriptionTransferOperationDelivery,
+    NativeP115ResourceTransferGateway,
+    PersistentOrderedAutoSubscriptionSources,
+)
 from .p7_cleanup import clear_cleanup_executor, install_cleanup_executor
 from .p7_resubscribe_cleanup import PersistentResubscribeCleanupGateway
 from .p7_subscription import SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS
@@ -329,6 +346,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     | P6_INGESTION_NATIVE_TASK_KEYS
     | P9_NATIVE_TASK_KEYS
     | {
+        "auto-subscribe",
         "backfill-organize-record-tmdb-ids",
         "check-expired-users",
         "full-sync-strm",
@@ -949,18 +967,6 @@ class WorkerRuntime:
                         SettingsCleanupExecutionPolicy(settings_provider),
                     )
                 )
-                p7_subscription_tasks = P7SubscriptionTaskRouter(
-                    LegacyP7SubscriptionCompatibilityGateway(),
-                    SubscribeAssistantMaintenanceService(
-                        SqlAlchemyAssistantMaintenanceRepository(database.unit_of_work),
-                        LegacySubscribeAssistantMaintenanceGateway(),
-                    ),
-                    moviepilot_effects,
-                    resubscribe_cleanup,
-                    washing_recalculation,
-                    OldSeasonBackfillService(SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)),
-                    manual_batch=manual_batch,
-                )
                 daily_theme = DailyThemeService(
                     HttpxDiscoverProviderAdapter(settings_provider),
                     SqlAlchemyDailyThemeRepository(database.unit_of_work),
@@ -993,6 +999,15 @@ class WorkerRuntime:
                     configuration=lambda: app_settings.load("hdhive_config"),
                 )
                 telegram = HttpxTelegramBotAdapter(settings_provider)
+                telegram_resource_secrets = TelegramResourceSecretStore(
+                    PostgresRuntimeStateBackend(database.raw_pool.connection)
+                )
+                telegram_userbot = DurableTelegramUserBotAdapter(
+                    TelegramControlBridge(
+                        connection_factory=database.raw_pool.connection,
+                        resource_secrets=telegram_resource_secrets,
+                    )
+                )
                 p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
                 sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
                 virtual_imports = VirtualImportService(
@@ -1003,6 +1018,12 @@ class WorkerRuntime:
                         libraries=AtomicP115LocalStrmLibraryGateway(),
                     ),
                     configuration=lambda: app_settings.load("shared_resource_config"),
+                )
+                auto_transfer_delivery = AutoSubscriptionTransferOperationDelivery(
+                    repository=sharing_operations,
+                    hdhive=hdhive,
+                    telegram=telegram_userbot,
+                    p115=NativeP115ResourceTransferGateway(p115_credentials, settings_provider),
                 )
                 sharing_operation_executor = SharingOperationExecutor(
                     sharing_operations,
@@ -1027,8 +1048,51 @@ class WorkerRuntime:
                                 target_cid=lambda: str(settings_provider().p115_save_path_cid),
                             ),
                         ),
+                        extra_deliveries=(auto_transfer_delivery,),
                     ),
                     max_attempts=4,
+                )
+                auto_tmdb = HttpxManualSubscriptionTmdbAdapter(settings_provider)
+                auto_subscribe = AutoSubscribeService(
+                    SqlAlchemyAutoSubscriptionRepository(
+                        database.unit_of_work,
+                        SqlAlchemySubscriptionMediaProjection(),
+                    ),
+                    app_settings,
+                    auto_tmdb,
+                    ManualSubscriptionQuotaLedger(PostgresSubscriptionRuntimeRepository(database.unit_of_work)),
+                    AutoSubscriptionMoviePilotGateway(moviepilot_effects, app_settings, auto_tmdb),
+                    PersistentOrderedAutoSubscriptionSources(
+                        center=shared_center,
+                        hdhive=hdhive,
+                        telegram=telegram_userbot,
+                        operations=sharing_operations,
+                        executor=sharing_operation_executor,
+                        virtual_imports=virtual_imports,
+                        shared_configuration=lambda: app_settings.load("shared_resource_config"),
+                        telegram_configuration=lambda: app_settings.load("tg_userbot_config"),
+                        worker_id=self._worker_id,
+                        lease_seconds=SHARING_OPERATION_CLAIM_LEASE_SECONDS,
+                    ),
+                    TelegramAutoSubscriptionNotifications(
+                        SqlAlchemyAutoSubscriptionNotificationDirectory(database.unit_of_work),
+                        telegram,
+                    ),
+                )
+                p7_subscription_tasks = P7SubscriptionTaskRouter(
+                    compatibility=LegacyP7SubscriptionCompatibilityGateway(),
+                    assistant=SubscribeAssistantMaintenanceService(
+                        SqlAlchemyAssistantMaintenanceRepository(database.unit_of_work),
+                        LegacySubscribeAssistantMaintenanceGateway(),
+                    ),
+                    moviepilot_effects=moviepilot_effects,
+                    resubscribe_cleanup=resubscribe_cleanup,
+                    washing_recalculation=washing_recalculation,
+                    old_season_backfill=OldSeasonBackfillService(
+                        SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
+                    ),
+                    manual_batch=manual_batch,
+                    auto_subscribe=auto_subscribe,
                 )
                 p9_sharing_tasks = P9SharingTaskRouter(
                     shared_center=shared_center,
@@ -1529,6 +1593,15 @@ class WorkerRuntime:
                 configuration=lambda: app_settings.load("hdhive_config"),
             )
             telegram = HttpxTelegramBotAdapter(settings_provider)
+            telegram_resource_secrets = TelegramResourceSecretStore(
+                PostgresRuntimeStateBackend(database.raw_pool.connection)
+            )
+            telegram_userbot = DurableTelegramUserBotAdapter(
+                TelegramControlBridge(
+                    connection_factory=database.raw_pool.connection,
+                    resource_secrets=telegram_resource_secrets,
+                )
+            )
             playback_users = SqlAlchemyP115PlaybackUserGateway(
                 SqlAlchemyP115PlaybackRewardRepository(database.unit_of_work),
                 telegram,
@@ -1581,6 +1654,12 @@ class WorkerRuntime:
                 ),
                 configuration=lambda: app_settings.load("shared_resource_config"),
             )
+            auto_transfer_delivery = AutoSubscriptionTransferOperationDelivery(
+                repository=sharing_operations,
+                hdhive=hdhive,
+                telegram=telegram_userbot,
+                p115=NativeP115ResourceTransferGateway(p115_credentials, settings_provider),
+            )
             sharing_operation_executor = SharingOperationExecutor(
                 sharing_operations,
                 SharingProviderOperationDelivery(
@@ -1604,8 +1683,36 @@ class WorkerRuntime:
                             target_cid=lambda: str(settings_provider().p115_save_path_cid),
                         ),
                     ),
+                    extra_deliveries=(auto_transfer_delivery,),
                 ),
                 max_attempts=4,
+            )
+            auto_tmdb = HttpxManualSubscriptionTmdbAdapter(settings_provider)
+            auto_subscribe = AutoSubscribeService(
+                SqlAlchemyAutoSubscriptionRepository(
+                    database.unit_of_work,
+                    SqlAlchemySubscriptionMediaProjection(),
+                ),
+                app_settings,
+                auto_tmdb,
+                ManualSubscriptionQuotaLedger(PostgresSubscriptionRuntimeRepository(database.unit_of_work)),
+                AutoSubscriptionMoviePilotGateway(moviepilot_effects, app_settings, auto_tmdb),
+                PersistentOrderedAutoSubscriptionSources(
+                    center=shared_center,
+                    hdhive=hdhive,
+                    telegram=telegram_userbot,
+                    operations=sharing_operations,
+                    executor=sharing_operation_executor,
+                    virtual_imports=virtual_imports,
+                    shared_configuration=lambda: app_settings.load("shared_resource_config"),
+                    telegram_configuration=lambda: app_settings.load("tg_userbot_config"),
+                    worker_id=self._worker_id,
+                    lease_seconds=SHARING_OPERATION_CLAIM_LEASE_SECONDS,
+                ),
+                TelegramAutoSubscriptionNotifications(
+                    SqlAlchemyAutoSubscriptionNotificationDirectory(database.unit_of_work),
+                    telegram,
+                ),
             )
             daily_theme = DailyThemeService(
                 HttpxDiscoverProviderAdapter(settings_provider),
@@ -1761,6 +1868,7 @@ class WorkerRuntime:
                     SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
                 ),
                 manual_batch=manual_batch,
+                auto_subscribe=auto_subscribe,
             )
             p8_effect_tasks = P8EffectTaskRouter(
                 None,
@@ -2481,6 +2589,7 @@ class WorkerRuntime:
                         definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
                         or definition.key
                         in {
+                            "auto-subscribe",
                             "check-expired-users",
                             "manual_subscribe_batch",
                             "recalculate_library_washing_priorities",

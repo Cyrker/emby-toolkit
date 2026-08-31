@@ -133,6 +133,7 @@ class SharingOperationExecutor:
         *,
         worker_id: str,
         lease_seconds: float,
+        before_request: Callable[[], None] | None = None,
     ) -> SharingOperationExecution | None:
         claimed = self._repository.claim_by_id(
             operation_id,
@@ -170,11 +171,18 @@ class SharingOperationExecutor:
         current = claimed
         checkpointed = False
         lost_claim: SharingOperation | None = None
+        before_request_error: BaseException | None = None
 
         def checkpoint() -> None:
-            nonlocal checkpointed, current, lost_claim
+            nonlocal checkpointed, current, lost_claim, before_request_error
             if checkpointed:
                 raise RuntimeError("sharing delivery invoked the provider checkpoint more than once")
+            if before_request is not None:
+                try:
+                    before_request()
+                except BaseException as exc:
+                    before_request_error = exc
+                    raise
             checkpointed = True
             try:
                 current = self._repository.mark_requesting(claimed.id, token)
@@ -227,6 +235,8 @@ class SharingOperationExecutor:
                 )
             return SharingOperationExecution(completed, claimed=True)
         except Exception as exc:
+            if exc is before_request_error:
+                raise
             if lost_claim is not None:
                 return SharingOperationExecution(lost_claim, claimed=True)
             error = {"type": "sharing_delivery_error", "error_class": type(exc).__name__}

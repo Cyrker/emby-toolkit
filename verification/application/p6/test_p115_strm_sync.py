@@ -203,6 +203,12 @@ class FakeLibrary:
             self.versions[relative_path] = self.versions.get(relative_path, 0) + 1
         return P115LocalWriteResult(changed, self.absolute_path(relative_path))
 
+    def create_strm(self, relative_path: str, content: str) -> P115LocalWriteResult:
+        self.adapter_calls.append("create_strm")
+        if relative_path in self.existing:
+            raise FileExistsError(relative_path)
+        return self.write_strm(relative_path, content)
+
     def write_subtitle(self, relative_path: str, content: bytes) -> P115LocalWriteResult:
         self.adapter_calls.append("write_subtitle")
         self.subtitle_writes.append((relative_path, content))

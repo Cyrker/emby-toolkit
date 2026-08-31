@@ -5409,3 +5409,68 @@ Next:
   latest manifests/runtime call graph. Close Route, Task, Table, Config and Frontend ownership
   before controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are
   complete; keep all Live Acceptance items pending.
+
+### P11-Native-AutoSubscribe
+
+Stage / Batch: P11 / native AutoSubscribe execution
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `fa7ceb37` (`refactor(p11): cut over interactive playback`).
+- Target checkpoint message: `refactor(p11): execute native auto subscriptions`.
+
+Implemented:
+
+- Replaced the `auto-subscribe` compatibility callable in both Worker profiles with the
+  processor-free `AutoSubscribeService`, durable parent/source claims and MoviePilot execution
+  bound to the current Job attempt.
+- Added durable Shared Center, HDHive and Telegram source operations with stable occurrence,
+  provider/config/credential fences, parent cancellation handling and no-resend recovery.
+- Added replay-safe Telegram `enqueue_once`, owner-bound opaque search-result storage and a native
+  Coordinator search consumer. Raw links/codes/text do not enter command receipts or Sharing
+  operations; virtual-import aliases and serialized sensitive payloads fail closed.
+- Fenced AutoSubscription mutations with claim token, Job, attempt, worker and live lease identity.
+
+Targeted gate:
+
+- Scoped Ruff/format over 32 changed Python files and Pyright -> clean (`0 errors`).
+- Full P4/P7/P9 application gate -> `836 passed`, with the existing Starlette WSGI deprecation
+  warning.
+- Disposable PostgreSQL 18 Telegram bridge plus AutoSubscribe lifecycle -> `22 passed`.
+- Redis/Celery native-only and compatibility Worker profiles -> `2 passed`, `35 deselected`.
+- Manifest currentness, compileall, `uv lock --check`, three secret scans and `git diff --check` ->
+  clean. Task ownership is now `26 executable / 24 unavailable`.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-native-auto-subscribe-20260831/summary.md`.
+
+Focused review:
+
+- Final read-only review found no deterministic P0/P1/P2 in native Telegram search consumption,
+  sensitive-alias rejection or parent claim/lease fencing.
+- Native-only Telegram intentionally consumes only `search` and requires an existing authorized
+  session; real Telegram and full legacy/custom-regex parity remain Live `HUMAN_PENDING` evidence.
+
+Pending:
+
+- Complete the remaining 24 native-only unavailable task keys and exact 21/23 legacy Route
+  bindings, then Table/Config/Frontend ownership, pre-removal, controlled removal and P11 NFR gates.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
+## Handoff
+
+Read first:
+
+- `goal-tasks.md`
+- `goal-log.md`
+- `p11-p12-final-completion-handoff.md`
+
+Next:
+
+- Continue the exact 24 unavailable native-only task keys and 21/23 legacy Route bindings from the
+  current manifests/runtime call graph; do not begin P12 before P11 ownership, removal and NFR
+  closure. Keep all Live Acceptance items pending.

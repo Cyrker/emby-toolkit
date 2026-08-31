@@ -311,6 +311,7 @@ def _source_result(source_type: str, value: object) -> AutoSourceResult:
         "confirmed": AutoSourceDisposition.CONFIRMED,
         "rejected": AutoSourceDisposition.REJECTED,
         "retryable": AutoSourceDisposition.RETRYABLE,
+        "pending": AutoSourceDisposition.PENDING,
         "indeterminate": AutoSourceDisposition.INDETERMINATE,
     }.get(raw, AutoSourceDisposition.MISS)
     error = None

@@ -242,6 +242,9 @@ class SqlAlchemyAutoSubscriptionRepository:
             normalized_phase,
             AutoSubscriptionClaimDisposition.ACQUIRED,
             claim_token=token,
+            job_id=execution.job_id,
+            attempt_id=execution.attempt_id,
+            worker_id=execution.worker_id,
         )
 
     def begin_source(
@@ -253,6 +256,12 @@ class SqlAlchemyAutoSubscriptionRepository:
         execution: AutoSubscriptionExecution,
     ) -> None:
         source = _required_text(source_type, "source_type")
+        if (claim.job_id, claim.attempt_id, claim.worker_id) != (
+            execution.job_id,
+            execution.attempt_id,
+            execution.worker_id,
+        ):
+            raise RuntimeError("auto-subscribe item claim execution identity changed")
         now = datetime.now(UTC)
         lease_expires_at = now + timedelta(seconds=max(float(execution.lease_seconds), 1.0))
         with self._unit_of_work() as uow:
@@ -466,7 +475,16 @@ class SqlAlchemyAutoSubscriptionRepository:
         if row is None:
             raise RuntimeError("auto-subscribe item claim disappeared")
         state = _state(row, occurrence=claim.occurrence, phase=claim.phase)
-        if str(state.get("claim_token") or "") != claim.claim_token or str(state.get("status") or "") not in allowed:
+        lease_expires_at = _optional_datetime(state.get("lease_expires_at"))
+        if (
+            str(state.get("claim_token") or "") != claim.claim_token
+            or str(state.get("job_id") or "") != claim.job_id
+            or str(state.get("attempt_id") or "") != claim.attempt_id
+            or str(state.get("claimed_by") or "") != claim.worker_id
+            or lease_expires_at is None
+            or lease_expires_at <= datetime.now(UTC)
+            or str(state.get("status") or "") not in allowed
+        ):
             raise RuntimeError("auto-subscribe item claim is no longer valid")
         return state
 

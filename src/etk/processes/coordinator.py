@@ -20,7 +20,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 
-from etk.bootstrap.app_factory import _create_default_container
+from etk.bootstrap.app_factory import _create_default_container, _resolve_data_dir
 from etk.bootstrap.runtime_supervisor import RuntimeRole, RuntimeSupervisor
 from etk.compatibility.ingestion_monitor import (
     clear_persistent_ingestion_ingress,
@@ -56,6 +56,8 @@ from etk.domains.sharing.repository import PostgresSharingOperationRepository
 from etk.domains.subscription.cleanup_runtime_repository import SqlAlchemyCleanupExecutionRepository
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
+from etk.domains.system import SqlAlchemyAppSettingsRepository
+from etk.integrations.telegram_userbot import NativeTelegramSearchManager
 from etk.platform.jobs import OutboxClaim, PostgresJobStore
 from etk.platform.tasks import TaskRegistry
 
@@ -502,6 +504,7 @@ class CoordinatorRuntime:
         self._sharing_operation_publisher = CelerySharingOperationPublisher(self.config)
         self._sharing_operation_coordinator: SharingOperationCoordinator | None = None
         self._cleanup_execution_repository: SqlAlchemyCleanupExecutionRepository | None = None
+        self._native_telegram_search_manager: NativeTelegramSearchManager | None = None
         self._publisher_id = f"{socket.gethostname()}:{os.getpid()}"
         self._last_settings_refresh = 0.0
         self._last_settings: Any = None
@@ -677,6 +680,12 @@ class CoordinatorRuntime:
             self._store = store
             self._service = service
             self._cleanup_execution_repository = cleanup_execution_repository
+            app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
+            self._native_telegram_search_manager = NativeTelegramSearchManager(
+                lambda: app_settings.load("tg_userbot_config"),
+                config_adapter.load,
+                _resolve_data_dir(None) / "tg_userbot.session",
+            )
             self._media_effect_dispatcher = MediaEffectOutboxDispatcher(
                 store,
                 PostgresMediaEffectLedger(database.unit_of_work),
@@ -896,8 +905,10 @@ class CoordinatorRuntime:
         if compatibility:
             self._refresh_settings()
             self._process_telegram_commands()
-        elif self._config_adapter is not None:
-            self._last_settings = self._config_adapter.load()
+        else:
+            self._process_native_telegram_search_commands()
+            if self._config_adapter is not None:
+                self._last_settings = self._config_adapter.load()
         cleanup = getattr(self, "_cleanup_execution_repository", None)
         if cleanup is not None:
             cleanup.protect_stale_post_effect_cancellations()
@@ -1098,15 +1109,45 @@ class CoordinatorRuntime:
                 raise RuntimeError("Sharing operation Outbox dispatch is degraded")
 
     def _process_telegram_commands(self) -> None:
+        from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
         from etk.compatibility.tg_control_bridge import TelegramCommandExecutor, TelegramControlBridge
+        from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
         from handler.tg_userbot import TGUserBotManager
 
+        container = self._container
+        if container is None or container.database.raw_pool is None:
+            raise RuntimeError("Coordinator Telegram command database is unavailable")
+        connection_factory = container.database.raw_pool.connection
         executor = TelegramCommandExecutor(
-            TelegramControlBridge(),
+            TelegramControlBridge(
+                connection_factory=connection_factory,
+                resource_secrets=TelegramResourceSecretStore(PostgresRuntimeStateBackend(connection_factory)),
+            ),
             owner_id=self._publisher_id,
             lease_seconds=max(60, int(self.config.coordinator_interval_seconds * 3)),
         )
         executor.process_pending(TGUserBotManager.get_instance(), limit=8)
+
+    def _process_native_telegram_search_commands(self) -> None:
+        from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
+        from etk.compatibility.tg_control_bridge import TelegramCommandExecutor, TelegramControlBridge
+        from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
+
+        container = self._container
+        manager = self._native_telegram_search_manager
+        if container is None or container.database.raw_pool is None or manager is None:
+            raise RuntimeError("Native Coordinator Telegram search runtime is unavailable")
+        connection_factory = container.database.raw_pool.connection
+        executor = TelegramCommandExecutor(
+            TelegramControlBridge(
+                connection_factory=connection_factory,
+                resource_secrets=TelegramResourceSecretStore(PostgresRuntimeStateBackend(connection_factory)),
+            ),
+            owner_id=f"{self._publisher_id}:telegram-search",
+            lease_seconds=max(60, int(self.config.coordinator_interval_seconds * 3)),
+            command_types=("search",),
+        )
+        executor.process_pending(manager, limit=8)
 
     def _refresh_settings(self, *, force: bool = False) -> None:
         now = time.monotonic()

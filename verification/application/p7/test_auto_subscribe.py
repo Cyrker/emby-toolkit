@@ -14,7 +14,10 @@ from etk.domains.subscription.auto_subscribe import (
     AutoSubscriptionClaimDisposition,
     AutoSubscriptionExecution,
     AutoSubscriptionItemResult,
+    AutoSubscriptionResult,
 )
+from etk.platform.tasks import ProcessorIdentity, TaskMessage, TaskOutcomeStatus
+from etk.processes.p7_subscription_tasks import P7SubscriptionTaskRouter
 
 
 class _Settings:
@@ -36,6 +39,11 @@ class _Repository:
         self.revived: list[str] = []
         self.paused: list[tuple[str, int]] = []
         self.subscribed: list[dict[str, Any]] = []
+        self.claim_executions: list[AutoSubscriptionExecution] = []
+        self.source_begins: list[str] = []
+        self.source_finishes: list[AutoSourceDisposition] = []
+        self.releases: list[AutoSubscriptionClaim] = []
+        self.indeterminates: list[Mapping[str, Any]] = []
 
     def promote_pending_to_wanted(self) -> int:
         self.promotion_calls += 1
@@ -70,7 +78,7 @@ class _Repository:
         phase: str,
         execution: AutoSubscriptionExecution,
     ) -> AutoSubscriptionClaim:
-        del execution
+        self.claim_executions.append(execution)
         occurrence = f"{phase}:{item.get('item_type', 'Movie')}:{item.get('tmdb_id')}"
         return AutoSubscriptionClaim(
             occurrence,
@@ -78,6 +86,9 @@ class _Repository:
             phase,
             AutoSubscriptionClaimDisposition.ACQUIRED,
             claim_token=f"token:{occurrence}",
+            job_id=execution.job_id,
+            attempt_id=execution.attempt_id,
+            worker_id=execution.worker_id,
         )
 
     def begin_source(
@@ -88,7 +99,8 @@ class _Repository:
         replay_safe: bool,
         execution: AutoSubscriptionExecution,
     ) -> None:
-        del claim, source_type, replay_safe, execution
+        del claim, replay_safe, execution
+        self.source_begins.append(source_type)
 
     def finish_source(
         self,
@@ -96,10 +108,11 @@ class _Repository:
         *,
         disposition: AutoSourceDisposition,
     ) -> None:
-        del claim, disposition
+        del claim
+        self.source_finishes.append(disposition)
 
     def release(self, claim: AutoSubscriptionClaim) -> None:
-        del claim
+        self.releases.append(claim)
 
     def mark_indeterminate(
         self,
@@ -108,7 +121,8 @@ class _Repository:
         source_type: str,
         error: Mapping[str, Any],
     ) -> None:
-        del claim, source_type, error
+        del claim, source_type
+        self.indeterminates.append(dict(error))
 
     def complete_subscription(
         self,
@@ -230,10 +244,11 @@ class _Notifications:
 
 
 class _Progress:
-    def __init__(self, *, fail_checkpoint: int | None = None) -> None:
+    def __init__(self, *, fail_checkpoint: int | None = None, lease_seconds: int = 37) -> None:
         self.updates: list[tuple[int, str]] = []
         self.checkpoints = 0
         self.fail_checkpoint = fail_checkpoint
+        self.lease_seconds = lease_seconds
 
     def update(self, progress: int, message: str) -> None:
         self.updates.append((progress, message))
@@ -492,6 +507,46 @@ def test_indeterminate_source_stops_fallback_and_is_reported() -> None:
     assert moviepilot.item_calls == []
 
 
+def test_pending_source_stops_fallback_releases_parent_and_reports_retryable() -> None:
+    repository = _Repository()
+    repository.items = [
+        {
+            "tmdb_id": "411",
+            "item_type": "Movie",
+            "title": "Pending transfer",
+            "subscription_status": "WANTED",
+        }
+    ]
+    tmdb = _Tmdb()
+    tmdb.movies[411] = _released_movie()
+    sources = _Sources(
+        {
+            "hdhive": [
+                AutoSourceResult(
+                    AutoSourceDisposition.PENDING,
+                    "影巢",
+                    {"action": "影巢", "error_type": "sharing_operation_retryable", "retryable": True},
+                )
+            ]
+        }
+    )
+    service, _repository, _tmdb, _quota, moviepilot, sources, _notifications = _service(
+        repository=repository,
+        settings={"subscription_strategy_config": {"subscription_sources": ["hdhive", "mp"]}},
+        tmdb=tmdb,
+        sources=sources,
+    )
+
+    result = service.execute(_Progress(), _execution())
+
+    assert result.status == "failed"
+    assert result.details()["retryable"] is True
+    assert [call[0] for call in sources.calls] == ["hdhive"]
+    assert moviepilot.item_calls == []
+    assert repository.source_finishes == [AutoSourceDisposition.PENDING]
+    assert len(repository.releases) == 1
+
+
 def test_unknown_source_exception_is_indeterminate_and_stops_fallback() -> None:
     repository = _Repository()
     repository.items = [
@@ -518,6 +573,34 @@ def test_unknown_source_exception_is_indeterminate_and_stops_fallback() -> None:
     assert result.provider_failures[0]["error_type"] == "RuntimeError"
     assert result.provider_failures[0]["indeterminate"] is True
     assert moviepilot.item_calls == []
+
+
+def test_persistent_source_interruption_is_not_converted_to_indeterminate() -> None:
+    from etk.platform.jobs import PersistentExecutionCancelled
+
+    repository = _Repository()
+    repository.items = [
+        {
+            "tmdb_id": "421",
+            "item_type": "Movie",
+            "title": "Interrupted source",
+            "subscription_status": "WANTED",
+        }
+    ]
+    tmdb = _Tmdb()
+    tmdb.movies[421] = _released_movie()
+    sources = _Sources({"hdhive": [PersistentExecutionCancelled("cancelled fixture")]})
+    service, *_rest = _service(
+        repository=repository,
+        settings={"subscription_strategy_config": {"subscription_sources": ["hdhive", "mp"]}},
+        tmdb=tmdb,
+        sources=sources,
+    )
+
+    with pytest.raises(PersistentExecutionCancelled):
+        service.execute(_Progress(), _execution())
+
+    assert repository.indeterminates == []
 
 
 def test_moviepilot_rejection_falls_through_and_is_discarded_after_later_success() -> None:
@@ -640,3 +723,52 @@ def test_request_delay_has_checkpoints_on_both_sides() -> None:
 
     assert result.processed == 0
     assert progress.checkpoints == 4
+
+
+def test_router_executes_auto_subscribe_without_processor_or_compatibility() -> None:
+    service, *_rest = _service()
+    router = P7SubscriptionTaskRouter(None, None, auto_subscribe=service)
+    message = TaskMessage.create(
+        task_key="auto-subscribe",
+        processor=ProcessorIdentity.MEDIA,
+        payload={},
+        metadata={
+            "job_id": "00000000-0000-0000-0000-000000000201",
+            "attempt_id": "00000000-0000-0000-0000-000000000202",
+            "worker_id": "fixture-worker",
+        },
+    )
+
+    outcome = router.execute(message, None, _Progress())
+
+    assert outcome.status is TaskOutcomeStatus.SUCCEEDED
+    assert outcome.details["compatibility_fallback"] is False
+    assert outcome.details["requested"] == 0
+    assert outcome.details["retryable"] is False
+
+
+def test_router_passes_the_real_worker_lease_to_auto_subscribe_claims() -> None:
+    captured: list[AutoSubscriptionExecution] = []
+
+    class Service:
+        def execute(self, progress: Any, execution: AutoSubscriptionExecution) -> AutoSubscriptionResult:
+            del progress
+            captured.append(execution)
+            return AutoSubscriptionResult(0, 0, 0, (), False, 0, 0, 0, "done")
+
+    router = P7SubscriptionTaskRouter(None, None, auto_subscribe=Service())  # type: ignore[arg-type]
+    message = TaskMessage.create(
+        task_key="auto-subscribe",
+        processor=ProcessorIdentity.MEDIA,
+        payload={},
+        metadata={
+            "job_id": "00000000-0000-0000-0000-000000000211",
+            "attempt_id": "00000000-0000-0000-0000-000000000212",
+            "worker_id": "fixture-worker",
+        },
+    )
+
+    outcome = router.execute(message, None, _Progress(lease_seconds=53))
+
+    assert outcome.status is TaskOutcomeStatus.SUCCEEDED
+    assert captured[0].lease_seconds == 53

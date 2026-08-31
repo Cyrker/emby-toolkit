@@ -30,10 +30,31 @@ _SENSITIVE_KEYS = frozenset(
         "api_key",
         "authorization",
         "cookie",
+        "ed2k",
+        "full_url",
+        "magnet",
+        "magnet_url",
         "password",
+        "receive_code",
         "refresh_token",
+        "share_code",
         "secret",
+        "target_link",
         "token",
+        "url",
+        "urls",
+    }
+)
+_SENSITIVE_COMPACT_KEYS = frozenset(
+    {
+        "code",
+        "extractcode",
+        "p115sharecode",
+        "passcode",
+        "receivecode",
+        "sharecode",
+        "sharelink",
+        "shareurl",
     }
 )
 _MAX_FILES = 2_000
@@ -42,7 +63,8 @@ _MAX_SOURCE_STRING_BYTES = 4 * 1024
 _INTENT_HASH_KEY = "_etk_virtual_intent_hash"
 _BUNDLE_HASH_KEY = "_etk_virtual_bundle_hash"
 _SENSITIVE_VALUE = re.compile(
-    r"(?:https?|ftp|file)://|(?:^|[?&])(?:access_?token|api_?key|password|secret|token)="
+    r"(?:https?|ftp|file)://|magnet:\?|ed2k://|115(?:cdn)?\.com/s/"
+    r"|(?:^|[?&])(?:access_?token|api_?key|password|secret|token)="
     r"|(?:^|[\\/])(?:Users|home|tmp|var/folders|Volumes)[\\/]"
     r"|(?:^|\s)Bearer\s+",
     re.IGNORECASE,
@@ -1004,7 +1026,12 @@ def _reject_sensitive(value: Any) -> None:
     if isinstance(value, Mapping):
         for key, item in value.items():
             normalized_key = str(key).strip().lower().replace("-", "_")
-            if normalized_key in _SENSITIVE_KEYS or normalized_key.endswith(("_token", "_secret", "_password")):
+            compact_key = re.sub(r"[^a-z0-9]+", "", normalized_key)
+            if (
+                normalized_key in _SENSITIVE_KEYS
+                or compact_key in _SENSITIVE_COMPACT_KEYS
+                or normalized_key.endswith(("_token", "_secret", "_password"))
+            ):
                 raise ValueError("中心源包含敏感字段，不能进入持久操作")
             _reject_sensitive(item)
     elif isinstance(value, list):
@@ -1013,6 +1040,15 @@ def _reject_sensitive(value: Any) -> None:
     elif isinstance(value, str):
         if len(value.encode("utf-8")) > _MAX_SOURCE_STRING_BYTES:
             raise ValueError("中心源字符串超过持久化上限")
+        stripped = value.strip()
+        if stripped.startswith(("{", "[")):
+            try:
+                decoded = json.loads(stripped)
+            except (TypeError, ValueError):
+                pass
+            else:
+                if isinstance(decoded, Mapping | list):
+                    _reject_sensitive(decoded)
         if _SENSITIVE_VALUE.search(value):
             raise ValueError("中心源包含 URL、临时路径或凭据形态值，不能进入持久操作")
 

@@ -9,6 +9,8 @@ from enum import StrEnum
 from typing import Any, Protocol
 from zoneinfo import ZoneInfo
 
+from etk.platform.jobs import PersistentExecutionControlError
+
 
 class AutoSubscriptionSettingsPort(Protocol):
     def load(self, key: str) -> Any: ...
@@ -119,6 +121,7 @@ class AutoSourceDisposition(StrEnum):
     CONFIRMED = "confirmed"
     REJECTED = "rejected"
     RETRYABLE = "retryable"
+    PENDING = "pending"
     INDETERMINATE = "indeterminate"
 
 
@@ -133,6 +136,10 @@ class AutoSourceError(RuntimeError):
         super().__init__(message)
         self.disposition = disposition
         self.error = dict(error or {})
+
+
+class AutoSubscriptionInterrupted(RuntimeError):
+    """A cooperative parent execution checkpoint interrupted source processing."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,8 +213,17 @@ class AutoSubscriptionClaim:
     phase: str
     disposition: AutoSubscriptionClaimDisposition
     claim_token: str | None = None
+    job_id: str = ""
+    attempt_id: str = ""
+    worker_id: str = ""
     action_type: str = ""
     error: Mapping[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        if self.disposition is AutoSubscriptionClaimDisposition.ACQUIRED:
+            for field in ("claim_token", "job_id", "attempt_id", "worker_id"):
+                if not str(getattr(self, field) or "").strip():
+                    raise ValueError(f"acquired auto-subscribe claim {field} must not be empty")
 
     @property
     def acquired(self) -> bool:
@@ -242,7 +258,7 @@ class AutoSubscriptionResult:
             "promoted": self.promoted,
             "revived": self.revived,
             "paused": self.paused,
-            "retryable": False,
+            "retryable": any(item.get("retryable") is True for item in self.provider_failures),
         }
 
 
@@ -347,6 +363,15 @@ class AutoSubscribeService:
                 execution=execution,
             )
             if claim.disposition is AutoSubscriptionClaimDisposition.BUSY:
+                failures.append(
+                    {
+                        "action": "auto-subscribe",
+                        "tmdb_id": str(item.get("tmdb_id") or ""),
+                        "item_type": item_type,
+                        "error_type": "auto_subscription_item_busy",
+                        "retryable": True,
+                    }
+                )
                 continue
             if claim.disposition is AutoSubscriptionClaimDisposition.REPLAYED:
                 continue
@@ -382,6 +407,8 @@ class AutoSubscribeService:
                 if source_type == "mp":
                     try:
                         result = self._moviepilot.subscribe_item(context, _NestedProgress(progress))
+                    except PersistentExecutionControlError:
+                        raise
                     except Exception as exc:
                         source_result = AutoSourceResult(
                             AutoSourceDisposition.INDETERMINATE,
@@ -421,6 +448,10 @@ class AutoSubscribeService:
                 else:
                     try:
                         source_result = self._sources.attempt(source_type, context, progress)
+                    except AutoSubscriptionInterrupted:
+                        raise
+                    except PersistentExecutionControlError:
+                        raise
                     except AutoSourceError as exc:
                         source_result = AutoSourceResult(exc.disposition, source_type, exc.error)
                     except Exception as exc:
@@ -462,6 +493,30 @@ class AutoSubscribeService:
                     )
                     terminal_claim = True
                     break
+                if source_result.disposition is AutoSourceDisposition.PENDING:
+                    item_failures.append(
+                        source_result.error
+                        or {
+                            "action": source_type,
+                            "tmdb_id": str(item.get("tmdb_id") or ""),
+                            "item_type": item_type,
+                            "error_type": "source_operation_pending",
+                            "retryable": True,
+                        }
+                    )
+                    self._repository.finish_source(claim, disposition=source_result.disposition)
+                    break
+                if source_result.disposition is AutoSourceDisposition.RETRYABLE:
+                    item_failures.append(
+                        source_result.error
+                        or {
+                            "action": source_type,
+                            "tmdb_id": str(item.get("tmdb_id") or ""),
+                            "item_type": item_type,
+                            "error_type": "source_discovery_retryable",
+                            "retryable": True,
+                        }
+                    )
                 self._repository.finish_source(claim, disposition=source_result.disposition)
 
             if not success and item_failures:

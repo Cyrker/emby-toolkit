@@ -12,6 +12,7 @@ from etk.domains.subscription.assistant import (
     AssistantMaintenanceSession,
     SubscribeAssistantMaintenanceService,
 )
+from etk.domains.subscription.auto_subscribe import AutoSubscribeService, AutoSubscriptionExecution
 from etk.domains.subscription.manual_batch import ManualSubscriptionBatchService
 from etk.platform.jobs import normalize_json_object
 from etk.platform.tasks import ProcessorIdentity, TaskMessage, TaskOutcome, TaskOutcomeStatus, TaskPayload
@@ -245,6 +246,7 @@ class P7SubscriptionTaskRouter:
         washing_recalculation: P7WashingRecalculation | None = None,
         old_season_backfill: P7OldSeasonBackfill | None = None,
         manual_batch: ManualSubscriptionBatchService | None = None,
+        auto_subscribe: AutoSubscribeService | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._assistant = assistant
@@ -253,6 +255,7 @@ class P7SubscriptionTaskRouter:
         self._washing_recalculation = washing_recalculation
         self._old_season_backfill = old_season_backfill
         self._manual_batch = manual_batch
+        self._auto_subscribe = auto_subscribe
 
     def execute(
         self,
@@ -271,6 +274,39 @@ class P7SubscriptionTaskRouter:
             raise ValueError(f"task {message.task_key!r} payload version is not supported")
         payload = TaskPayload.create(message.payload.data, version=message.payload.version).data
         parameters = _normalize_parameters(message.task_key, payload)
+        if message.task_key == "auto-subscribe":
+            if self._auto_subscribe is None:
+                raise RuntimeError("P7 auto-subscribe use case is unavailable")
+            job_id = _metadata_uuid(message.metadata, "job_id")
+            attempt_id = _metadata_uuid(message.metadata, "attempt_id")
+            worker_id = _metadata_text(message.metadata, "worker_id")
+            with bind_moviepilot_execution(
+                job_id=str(job_id),
+                attempt_id=str(attempt_id),
+                worker_id=worker_id,
+                task_key=message.task_key,
+                checkpoint=progress.checkpoint,
+            ):
+                run = self._auto_subscribe.execute(
+                    progress,
+                    AutoSubscriptionExecution(
+                        str(job_id),
+                        str(attempt_id),
+                        worker_id,
+                        lease_seconds=float(getattr(progress, "lease_seconds", 1_800)),
+                    ),
+                )
+            details = {
+                "task_key": message.task_key,
+                "native_handler": type(self).__name__,
+                "compatibility_fallback": False,
+                **run.details(),
+            }
+            if run.status == TaskOutcomeStatus.PARTIAL.value:
+                return TaskOutcome.partial(run.message, details)
+            if run.status == TaskOutcomeStatus.FAILED.value:
+                return TaskOutcome.failed(run.message, details)
+            return TaskOutcome.succeeded(run.message, details)
         if message.task_key == "manual_subscribe_batch":
             if self._manual_batch is None:
                 raise RuntimeError("P7 manual subscription batch use case is unavailable")

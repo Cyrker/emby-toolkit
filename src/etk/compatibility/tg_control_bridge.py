@@ -5,11 +5,11 @@ import json
 import os
 import re
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from etk.compatibility import tg_resource_effects
 from etk.platform.jobs import normalize_json_object
@@ -19,6 +19,9 @@ _STATE_VERSION = 1
 _TERMINAL_STATES = frozenset({"succeeded", "failed"})
 _COMMAND_TYPES = frozenset({"send_code", "login", "logout", "clear_session", "search"})
 _MAX_TERMINAL_COMMANDS = 200
+_MAX_IDEMPOTENCY_RECORDS = 2_000
+_AUTO_SEARCH_SECRET_TTL_SECONDS = 7 * 24 * 60 * 60
+_MAX_AUTO_SEARCH_RESULT_BYTES = 2 * 1024 * 1024
 _RESOURCE_ACTION_VERSION = 1
 _RESOURCE_ACTIONS = frozenset(
     {
@@ -81,6 +84,10 @@ class TelegramCommandFailedError(RuntimeError):
     pass
 
 
+class TelegramCommandIdempotencyConflictError(RuntimeError):
+    pass
+
+
 class PersistentTaskGatewayUnavailableError(RuntimeError):
     pass
 
@@ -93,6 +100,7 @@ class TelegramControlBridge:
         *,
         connection_factory: Callable[[], AbstractContextManager[Any]] | None = None,
         clock: Callable[[], datetime] | None = None,
+        resource_secrets: tg_resource_effects.TelegramResourceSecretStore | None = None,
     ) -> None:
         if connection_factory is None:
             from database.connection import get_db_connection
@@ -100,6 +108,7 @@ class TelegramControlBridge:
             connection_factory = get_db_connection
         self._connection_factory = connection_factory
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._resource_secrets = resource_secrets or tg_resource_effects.TelegramResourceSecretStore()
 
     def enqueue(self, command_type: str, payload: Mapping[str, Any] | None = None) -> str:
         command_type = str(command_type or "").strip().casefold()
@@ -130,18 +139,134 @@ class TelegramControlBridge:
         self._mutate(mutate)
         return command_id
 
-    def claim_next(self, owner_id: str, *, lease_seconds: int = 60) -> dict[str, Any] | None:
+    def enqueue_once(
+        self,
+        command_type: str,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        idempotency_key: str,
+        result_owner_key: str | None = None,
+    ) -> str:
+        command_type = str(command_type or "").strip().casefold()
+        if command_type not in _COMMAND_TYPES:
+            raise ValueError(f"unsupported Telegram command: {command_type!r}")
+        normalized_payload = normalize_json_object(dict(payload or {}), field="telegram_command.payload")
+        normalized_key = str(idempotency_key or "").strip()
+        if not normalized_key:
+            raise ValueError("Telegram command idempotency_key is required")
+        if len(normalized_key.encode("utf-8")) > 512:
+            raise ValueError("Telegram command idempotency_key is too long")
+        normalized_result_owner = str(result_owner_key or "").strip().casefold()
+        if command_type == "search" and not re.fullmatch(r"[0-9a-f]{64}", normalized_result_owner):
+            raise ValueError("replay-safe Telegram search requires a SHA256 result_owner_key")
+        if command_type != "search" and normalized_result_owner:
+            raise ValueError("Telegram result_owner_key is only supported for search commands")
+        key_hash = hashlib.sha256(normalized_key.encode("utf-8")).hexdigest()
+        request_hash = _canonical_hash(
+            {
+                "type": command_type,
+                "payload": normalized_payload,
+                "result_owner_key": normalized_result_owner,
+            }
+        )
+        command_id = str(uuid5(NAMESPACE_URL, f"etk:telegram-command:{key_hash}"))
+        now = self._now()
+
+        def pending_command() -> dict[str, Any]:
+            return {
+                "id": command_id,
+                "type": command_type,
+                "payload": normalized_payload,
+                "status": "pending",
+                "created_at": now.isoformat(),
+                "claimed_at": None,
+                "claimed_by": "",
+                "lease_expires_at": None,
+                "completed_at": None,
+                "result": {},
+                "error": "",
+                "idempotency_key_hash": key_hash,
+                "request_hash": request_hash,
+                "result_owner_key": normalized_result_owner,
+            }
+
+        def mutate(state: dict[str, Any]) -> bool:
+            records = state.setdefault("idempotency", [])
+            if not isinstance(records, list):
+                raise ValueError("Telegram control bridge idempotency state is invalid")
+            matching = next(
+                (item for item in records if isinstance(item, Mapping) and str(item.get("key_hash") or "") == key_hash),
+                None,
+            )
+            if matching is not None:
+                if (
+                    str(matching.get("command_type") or "") != command_type
+                    or str(matching.get("request_hash") or "") != request_hash
+                    or str(matching.get("command_id") or "") != command_id
+                ):
+                    raise TelegramCommandIdempotencyConflictError(
+                        "Telegram command idempotency key was already used for another request"
+                    )
+                return False
+            existing_command = next(
+                (
+                    item
+                    for item in state["commands"]
+                    if isinstance(item, Mapping) and str(item.get("id") or "") == command_id
+                ),
+                None,
+            )
+            if existing_command is not None and (
+                str(existing_command.get("type") or "") != command_type
+                or str(existing_command.get("request_hash") or "") != request_hash
+            ):
+                raise TelegramCommandIdempotencyConflictError(
+                    "Telegram command idempotency key was already used for another request"
+                )
+            if existing_command is None:
+                state["commands"].append(pending_command())
+            records.append(
+                {
+                    "key_hash": key_hash,
+                    "command_id": command_id,
+                    "command_type": command_type,
+                    "request_hash": request_hash,
+                    "created_at": now.isoformat(),
+                }
+            )
+            self._trim_terminal_commands(state)
+            self._trim_idempotency_records(state)
+            return True
+
+        self._mutate(mutate)
+        return command_id
+
+    def claim_next(
+        self,
+        owner_id: str,
+        *,
+        lease_seconds: int = 60,
+        command_types: Collection[str] | None = None,
+    ) -> dict[str, Any] | None:
         owner_id = str(owner_id or "").strip()
         if not owner_id:
             raise ValueError("Telegram command owner_id is required")
         if lease_seconds <= 0:
             raise ValueError("Telegram command lease_seconds must be positive")
+        allowed_types = None
+        if command_types is not None:
+            allowed_types = {str(value or "").strip().casefold() for value in command_types}
+            if not allowed_types or not allowed_types <= _COMMAND_TYPES:
+                raise ValueError("Telegram command type filter is invalid")
         now = self._now()
         claimed: dict[str, Any] | None = None
 
-        def mutate(state: dict[str, Any]) -> None:
+        def mutate(state: dict[str, Any]) -> bool:
             nonlocal claimed
+            changed = False
             for command in state["commands"]:
+                if allowed_types is not None and str(command.get("type") or "") not in allowed_types:
+                    continue
                 if command.get("status") != "claimed":
                     continue
                 if self._expired(command.get("lease_expires_at"), now):
@@ -153,7 +278,10 @@ class TelegramControlBridge:
                             "lease_expires_at": None,
                         }
                     )
+                    changed = True
             for command in state["commands"]:
+                if allowed_types is not None and str(command.get("type") or "") not in allowed_types:
+                    continue
                 if command.get("status") != "pending":
                     continue
                 command.update(
@@ -165,7 +293,9 @@ class TelegramControlBridge:
                     }
                 )
                 claimed = normalize_json_object(dict(command), field="telegram_command")
+                changed = True
                 break
+            return changed
 
         self._mutate(mutate)
         return claimed
@@ -184,6 +314,10 @@ class TelegramControlBridge:
             if command.get("id") == command_id:
                 return normalize_json_object(dict(command), field="telegram_command")
         return None
+
+    def consume_resource_secret(self, reference: str, owner_key: str) -> dict[str, Any]:
+        record = self._resource_secrets.consume(reference, owner_key)
+        return normalize_json_object(dict(record.payload), field="telegram resource secret")
 
     def wait(self, command_id: str, *, timeout_seconds: float = 45, poll_seconds: float = 0.1) -> dict[str, Any]:
         if timeout_seconds <= 0 or poll_seconds <= 0:
@@ -236,13 +370,21 @@ class TelegramControlBridge:
                     continue
                 if command.get("status") != "claimed" or command.get("claimed_by") != owner_id:
                     raise RuntimeError("Telegram command is not claimed by this owner")
+                safe_result = result
+                if status == "succeeded" and command.get("type") == "search" and command.get("idempotency_key_hash"):
+                    safe_result = _externalize_auto_search_result(
+                        result,
+                        command_id=command_id,
+                        owner_key=str(command.get("result_owner_key") or ""),
+                        secrets_store=self._resource_secrets,
+                    )
                 command.update(
                     {
                         "status": status,
                         "completed_at": self._now().isoformat(),
                         "lease_expires_at": None,
                         "payload": {},
-                        "result": result,
+                        "result": safe_result,
                         "error": error,
                     }
                 )
@@ -263,7 +405,7 @@ class TelegramControlBridge:
                 row = cursor.fetchone()
         return self._decode_state(self._row_value(row) if row else None)
 
-    def _mutate(self, mutation: Callable[[dict[str, Any]], None]) -> None:
+    def _mutate(self, mutation: Callable[[dict[str, Any]], bool | None]) -> None:
         with self._connection_factory() as connection:
             with connection.cursor() as cursor:
                 initial = json.dumps(self._initial_state(), ensure_ascii=False, separators=(",", ":"))
@@ -281,7 +423,10 @@ class TelegramControlBridge:
                 )
                 row = cursor.fetchone()
                 state = self._decode_state(self._row_value(row) if row else None)
-                mutation(state)
+                changed = mutation(state)
+                if changed is False:
+                    connection.commit()
+                    return
                 state["revision"] = int(state.get("revision") or 0) + 1
                 normalized = normalize_json_object(state, field="telegram_bridge_state")
                 cursor.execute(
@@ -306,6 +451,7 @@ class TelegramControlBridge:
             "version": _STATE_VERSION,
             "revision": 0,
             "commands": [],
+            "idempotency": [],
             "runtime_status": {"status": "stopped", "msg": "Coordinator 尚未上报状态", "updated_at": None},
         }
 
@@ -318,7 +464,12 @@ class TelegramControlBridge:
         if type(raw) is not dict or raw.get("version") != _STATE_VERSION:
             raise ValueError("Telegram control bridge state is invalid or unsupported")
         state = normalize_json_object(raw, field="telegram_bridge_state")
-        if not isinstance(state.get("commands"), list) or not isinstance(state.get("runtime_status"), dict):
+        state.setdefault("idempotency", [])
+        if (
+            not isinstance(state.get("commands"), list)
+            or not isinstance(state.get("idempotency"), list)
+            or not isinstance(state.get("runtime_status"), dict)
+        ):
             raise ValueError("Telegram control bridge state has an invalid shape")
         return state
 
@@ -346,19 +497,54 @@ class TelegramControlBridge:
             removed = set(terminal_indexes[:remove_count])
             state["commands"] = [item for index, item in enumerate(commands) if index not in removed]
 
+    @staticmethod
+    def _trim_idempotency_records(state: dict[str, Any]) -> None:
+        records = state["idempotency"]
+        remove_count = max(0, len(records) - _MAX_IDEMPOTENCY_RECORDS)
+        if not remove_count:
+            return
+        active_ids = {
+            str(item.get("id") or "")
+            for item in state["commands"]
+            if isinstance(item, Mapping) and item.get("status") not in _TERMINAL_STATES
+        }
+        retained: list[Any] = []
+        for item in records:
+            command_id = str(item.get("command_id") or "") if isinstance(item, Mapping) else ""
+            if remove_count and command_id not in active_ids:
+                remove_count -= 1
+                continue
+            retained.append(item)
+        state["idempotency"] = retained
+
 
 class TelegramCommandExecutor:
     """Execute persisted commands through a Coordinator-owned manager port."""
 
-    def __init__(self, bridge: TelegramControlBridge, *, owner_id: str, lease_seconds: int = 60) -> None:
+    def __init__(
+        self,
+        bridge: TelegramControlBridge,
+        *,
+        owner_id: str,
+        lease_seconds: int = 60,
+        command_types: Collection[str] | None = None,
+    ) -> None:
         self._bridge = bridge
         self._owner_id = owner_id
         self._lease_seconds = lease_seconds
+        self._command_types = tuple(command_types) if command_types is not None else None
 
     def process_pending(self, manager: Any, *, limit: int = 8) -> int:
         processed = 0
         for _ in range(max(0, limit)):
-            command = self._bridge.claim_next(self._owner_id, lease_seconds=self._lease_seconds)
+            if self._command_types is None:
+                command = self._bridge.claim_next(self._owner_id, lease_seconds=self._lease_seconds)
+            else:
+                command = self._bridge.claim_next(
+                    self._owner_id,
+                    lease_seconds=self._lease_seconds,
+                    command_types=self._command_types,
+                )
             if command is None:
                 break
             try:
@@ -598,6 +784,63 @@ def _canonical_hash(value: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
+def _externalize_auto_search_result(
+    result: Mapping[str, Any],
+    *,
+    command_id: str,
+    owner_key: str,
+    secrets_store: tg_resource_effects.TelegramResourceSecretStore,
+) -> dict[str, Any]:
+    normalized_owner = str(owner_key or "").strip().casefold()
+    if not re.fullmatch(r"[0-9a-f]{64}", normalized_owner):
+        raise ValueError("Telegram auto-subscribe search result owner is invalid")
+    normalized = normalize_json_object(dict(result), field="telegram auto-subscribe search result")
+    if normalized.get("ok") is not True:
+        return {"ok": False, "error_type": "telegram_search_rejected"}
+    encoded = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
+    if len(encoded) > _MAX_AUTO_SEARCH_RESULT_BYTES:
+        raise ValueError("Telegram auto-subscribe search result exceeds the durable secret limit")
+    result_hash = _canonical_hash(normalized)
+    reference = _canonical_hash(
+        {
+            "kind": "auto-subscribe-telegram-search-result",
+            "command_id": command_id,
+        }
+    )
+    secrets_store.create(
+        normalized,
+        reference=reference,
+        owner_key=normalized_owner,
+        ttl_seconds=_AUTO_SEARCH_SECRET_TTL_SECONDS,
+    )
+    return {
+        "ok": True,
+        "search_result_ref": reference,
+        "search_result_hash": result_hash,
+        "candidate_count": _candidate_count(normalized),
+    }
+
+
+def _candidate_count(result: Mapping[str, Any]) -> int:
+    queue: list[Any] = [result]
+    seen: set[int] = set()
+    while queue:
+        value = queue.pop(0)
+        if id(value) in seen:
+            continue
+        seen.add(id(value))
+        if isinstance(value, (list, tuple)):
+            rows = [item for item in value if isinstance(item, Mapping)]
+            if rows:
+                return len(rows)
+        if isinstance(value, Mapping):
+            for key in ("results", "items", "data"):
+                nested = value.get(key)
+                if isinstance(nested, (Mapping, list, tuple)):
+                    queue.append(nested)
+    return 0
+
+
 def _delivery_already_bound(delivery_key: str, action: str, semantic_source_hash: str) -> bool:
     binding = tg_resource_effects.read_effect_binding(delivery_key)
     if binding is None:
@@ -750,6 +993,7 @@ __all__ = [
     "PersistentTaskGatewayUnavailableError",
     "TelegramCommandExecutor",
     "TelegramCommandFailedError",
+    "TelegramCommandIdempotencyConflictError",
     "TelegramCommandTimeoutError",
     "TelegramControlBridge",
     "normalize_telegram_resource_action",

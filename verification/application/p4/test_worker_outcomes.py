@@ -484,6 +484,7 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
 @pytest.mark.parametrize(
     ("task_key", "router_field"),
     [
+        ("auto-subscribe", "_p7_subscription_tasks"),
         ("check-expired-users", "_p8_effect_tasks"),
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
         ("scan-cleanup-issues", "_p8_effect_tasks"),
@@ -561,6 +562,7 @@ def test_native_worker_routes_manual_subscription_without_legacy_runtime(
 @pytest.mark.parametrize(
     ("task_key", "router_field"),
     [
+        ("auto-subscribe", "_p7_subscription_tasks"),
         ("check-expired-users", "_p8_effect_tasks"),
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
         ("scan-cleanup-issues", "_p8_effect_tasks"),
@@ -914,6 +916,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
     assert _NATIVE_ONLY_EXECUTABLE_TASK_KEYS == (
         P4_NATIVE_TASK_KEYS
         | {
+            "auto-subscribe",
             "backfill-organize-record-tmdb-ids",
             "check-expired-users",
             "full-sync-strm",

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from typing import Any
 
 import httpx
@@ -502,7 +502,25 @@ class FakeUserBotBridge:
         self.calls.append(("enqueue", command_type, dict(payload or {})))
         return "command-1"
 
-    def claim_next(self, owner_id: str, *, lease_seconds: int = 60) -> Mapping[str, Any] | None:
+    def enqueue_once(
+        self,
+        command_type: str,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        idempotency_key: str,
+        result_owner_key: str | None = None,
+    ) -> str:
+        self.calls.append(("enqueue_once", command_type, dict(payload or {}), idempotency_key, result_owner_key))
+        return "command-once"
+
+    def claim_next(
+        self,
+        owner_id: str,
+        *,
+        lease_seconds: int = 60,
+        command_types: Collection[str] | None = None,
+    ) -> Mapping[str, Any] | None:
+        assert command_types is None
         self.calls.append(("claim", owner_id, lease_seconds))
         return {"id": "command-1", "status": "claimed"}
 
@@ -519,6 +537,24 @@ class FakeUserBotBridge:
         self.calls.append(("fail", command_id, owner_id, error))
         return {"id": command_id, "status": "failed"}
 
+    def get_command(self, command_id: str) -> Mapping[str, Any] | None:
+        self.calls.append(("get_command", command_id))
+        return {"id": command_id, "status": "succeeded"}
+
+    def consume_resource_secret(self, reference: str, owner_key: str) -> Mapping[str, Any]:
+        self.calls.append(("consume_resource_secret", reference, owner_key))
+        return {"ok": True, "results": []}
+
+    def wait(
+        self,
+        command_id: str,
+        *,
+        timeout_seconds: float = 45,
+        poll_seconds: float = 0.1,
+    ) -> Mapping[str, Any]:
+        self.calls.append(("wait", command_id, timeout_seconds, poll_seconds))
+        return {"id": command_id, "status": "succeeded"}
+
 
 def test_userbot_facade_uses_durable_claim_complete_fail_bridge() -> None:
     bridge = FakeUserBotBridge()
@@ -533,4 +569,33 @@ def test_userbot_facade_uses_durable_claim_complete_fail_bridge() -> None:
         ("claim", "worker-1", 60),
         ("complete", "command-1", "worker-1", {"items": []}),
         ("fail", "command-1", "worker-1", "failed"),
+    ]
+
+
+def test_userbot_facade_exposes_replay_safe_search_and_readback() -> None:
+    bridge = FakeUserBotBridge()
+    adapter = DurableTelegramUserBotAdapter(bridge)
+
+    command_id = adapter.enqueue_once(
+        "search",
+        {"query": "fixture"},
+        idempotency_key="auto-subscribe:fixture:search",
+        result_owner_key="a" * 64,
+    )
+
+    assert command_id == "command-once"
+    assert adapter.get_command(command_id) == {"id": command_id, "status": "succeeded"}
+    assert adapter.wait(command_id, timeout_seconds=5, poll_seconds=0.5)["status"] == "succeeded"
+    assert adapter.consume_resource_secret("b" * 64, "a" * 64) == {"ok": True, "results": []}
+    assert bridge.calls == [
+        (
+            "enqueue_once",
+            "search",
+            {"query": "fixture"},
+            "auto-subscribe:fixture:search",
+            "a" * 64,
+        ),
+        ("get_command", "command-once"),
+        ("wait", "command-once", 5, 0.5),
+        ("consume_resource_secret", "b" * 64, "a" * 64),
     ]
