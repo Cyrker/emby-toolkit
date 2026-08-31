@@ -27,6 +27,8 @@ from .maintenance_transport import (
     P115PinnedOperationsClient,
     P115PrimaryOperationsGateway,
     item_is_directory,
+    provider_succeeded,
+    response_ids,
 )
 from .media_info_adapters import BoundedRangeReader, PreIdCandidates, resolve_cached_preid
 from .models import P115CredentialSnapshot
@@ -134,6 +136,8 @@ class P115PoolPlaybackClient(Protocol):
         sign_val: str = "",
     ) -> RapidUploadOutcome: ...
 
+    def copy_source(self, source_fid: str, target_cid: str) -> Mapping[str, Any]: ...
+
     def resolve_download(self, pick_code: str, user_agent: str) -> str: ...
 
     def measure(self, url: str, user_agent: str) -> Mapping[str, Any]: ...
@@ -149,6 +153,8 @@ class P115PoolPlaybackClientFactory(Protocol):
 
 class P115RapidSigner(Protocol):
     def sign(self, source: Mapping[str, Any], sign_check: str) -> str: ...
+
+    def preid(self, source: Mapping[str, Any]) -> str: ...
 
 
 class P115PlayPoolCredentialStore(P115CredentialStore):
@@ -220,6 +226,59 @@ class P115PlayPoolCredentialStore(P115CredentialStore):
     @staticmethod
     def app_label(app_type: str) -> str:
         return str(app_type or "web")
+
+
+class _PinnedPrimaryCredentialStore(P115CredentialStore):
+    def __init__(
+        self,
+        credentials: P115CredentialStore,
+        *,
+        account_id: str,
+        backend: str,
+        expected_fingerprint: str,
+    ) -> None:
+        self._credentials = credentials
+        self._account_id = str(account_id or "").strip()
+        self._backend = str(backend or "").strip().casefold()
+        self._expected_fingerprint = str(expected_fingerprint or "").strip().casefold()
+        if not self._account_id or self._backend not in {"openapi", "cookie"}:
+            raise ValueError("primary playback credential identity is invalid")
+        if re.fullmatch(r"[0-9a-f]{64}", self._expected_fingerprint) is None:
+            raise ValueError("primary playback credential fingerprint is invalid")
+
+    def load(self) -> P115CredentialSnapshot:
+        snapshot = self._credentials.load()
+        if str(snapshot.account_id or "").strip() != self._account_id:
+            raise P115PlaybackCredentialChanged("primary account changed after reservation")
+        actual = pool_credential_fingerprint(
+            {
+                "access_token": snapshot.access_token,
+                "cookie": snapshot.cookie,
+                "app_type": snapshot.app_type,
+            },
+            self._backend,
+        )
+        if actual != self._expected_fingerprint:
+            raise P115PlaybackCredentialChanged("primary credential changed after reservation")
+        return snapshot
+
+    def save_openapi(
+        self,
+        access_token: str | None,
+        refresh_token: str | None,
+        *,
+        account_id: str,
+        expected_access_token: str | None = None,
+    ) -> None:
+        del access_token, refresh_token, account_id, expected_access_token
+        raise P115PlaybackCredentialChanged("primary OpenAPI replacement requires a new intent")
+
+    def save_cookie(self, cookie: str, app_type: str) -> None:
+        del cookie, app_type
+        raise P115PlaybackCredentialChanged("primary Cookie replacement requires a new intent")
+
+    def app_label(self, app_type: str) -> str:
+        return self._credentials.app_label(app_type)
 
 
 class SqlAlchemyP115PlaybackSourceGateway:
@@ -347,7 +406,21 @@ class SqlAlchemyP115PlaybackSourceGateway:
         if not account_id.isdigit():
             raise P115PlaybackStateError("主号缺少稳定的 115 holder 身份")
         backend = "openapi" if snapshot.access_token else "cookie" if snapshot.cookie else ""
-        return {"account_id": account_id, "provider_backend": backend}
+        credential_hash = ""
+        if backend:
+            credential_hash = pool_credential_fingerprint(
+                {
+                    "access_token": snapshot.access_token,
+                    "cookie": snapshot.cookie,
+                    "app_type": snapshot.app_type,
+                },
+                backend,
+            )
+        return {
+            "account_id": account_id,
+            "provider_backend": backend,
+            "credential_hash": credential_hash,
+        }
 
     def _primary_account_id(self) -> str:
         if self._primary_credentials is None:
@@ -410,20 +483,28 @@ class NativeP115PlaybackRapidSigner:
         start, end = (int(value) for value in match.groups())
         if end < start or end - start + 1 > 16 * 1024 * 1024:
             raise ValueError("rapid sign_check exceeds the bounded Range limit")
+        return self._range_sha1(source, start=start, length=end - start + 1)
+
+    def preid(self, source: Mapping[str, Any]) -> str:
+        size = _positive_int(source.get("size"))
+        if size <= 0:
+            raise P115PlaybackStateError("播放源缺少有效 size，无法计算 preid")
+        return self._range_sha1(source, start=0, length=min(size, 128 * 1024))
+
+    def _range_sha1(self, source: Mapping[str, Any], *, start: int, length: int) -> str:
         account_id = str(source.get("holder_account_id") or "").strip()
         if not account_id.isdigit():
-            raise P115PlaybackStateError("测速源缺少稳定的主号 holder 身份")
+            raise P115PlaybackStateError("播放源缺少稳定的主号 holder 身份")
         expected = self._credentials.load()
         if str(expected.account_id or "").strip() != account_id:
-            raise P115PlaybackStateError("测速源 holder 与当前主号身份不一致")
+            raise P115PlaybackStateError("播放源 holder 与当前主号身份不一致")
         resolved = self._direct_urls.resolve(
             str(source.get("pick_code") or ""),
             expected_account_id=account_id,
             user_agent=_DEFAULT_USER_AGENT,
         )
         if resolved is None:
-            raise P115PlaybackStateError("无法为测速源解析主号 holder 直链")
-        length = end - start + 1
+            raise P115PlaybackStateError("无法为播放源解析主号 holder 直链")
         reader = self._reader_factory(
             resolved.url,
             headers={"User-Agent": resolved.user_agent or _DEFAULT_USER_AGENT},
@@ -452,23 +533,38 @@ class NativeP115PoolPlaybackClientFactory:
         self,
         config: P115PlaybackConfigService,
         *,
+        primary_credentials: P115CredentialStore | None = None,
         downloads: HttpxP115BoundedDownloadGateway | None = None,
         http_client_factory: Callable[..., httpx.Client] = httpx.Client,
     ) -> None:
         self._config = config
+        self._primary_credentials = primary_credentials
         self._downloads = downloads or HttpxP115BoundedDownloadGateway()
         self._http_client_factory = http_client_factory
 
     def open(self, operation: PlaybackOperation) -> P115PoolPlaybackClient:
         credential_hash = str(operation.request.get("credential_hash") or "").strip()
-        account_revision = str(operation.request.get("account_revision") or "").strip()
-        store = P115PlayPoolCredentialStore(
-            self._config,
-            account_id=operation.account_id,
-            backend=operation.provider_backend,
-            expected_fingerprint=credential_hash,
-            expected_account_revision=account_revision,
-        )
+        account_kind = str(operation.request.get("account_kind") or "").strip().casefold()
+        if account_kind == "pool":
+            account_revision = str(operation.request.get("account_revision") or "").strip()
+            store: P115CredentialStore = P115PlayPoolCredentialStore(
+                self._config,
+                account_id=operation.account_id,
+                backend=operation.provider_backend,
+                expected_fingerprint=credential_hash,
+                expected_account_revision=account_revision,
+            )
+        elif account_kind == "primary":
+            if self._primary_credentials is None:
+                raise P115PlaybackNotFoundError("主号客户端未初始化")
+            store = _PinnedPrimaryCredentialStore(
+                self._primary_credentials,
+                account_id=operation.account_id,
+                backend=operation.provider_backend,
+                expected_fingerprint=credential_hash,
+            )
+        else:
+            raise P115PlaybackStateError("播放 operation 缺少固定的账号类型")
         store.load()
 
         def priority() -> str:
@@ -510,6 +606,7 @@ class NativeP115PoolPlaybackClientFactory:
             rapid=rapid,
             direct_urls=direct_urls,
             downloads=self._downloads,
+            source_kind="speedtest" if operation.kind is PlaybackOperationKind.SPEEDTEST else "playback",
         )
 
 
@@ -520,11 +617,12 @@ class _NativeP115PoolPlaybackClient:
         account_id: str,
         backend: str,
         credential_hash: str,
-        credentials: P115PlayPoolCredentialStore,
+        credentials: P115CredentialStore,
         operations: P115PinnedOperationsClient,
         rapid: NativeP115RapidTransferGateway,
         direct_urls: P115SdkDirectUrlGateway,
         downloads: HttpxP115BoundedDownloadGateway,
+        source_kind: str,
     ) -> None:
         self._account_id = account_id
         self._backend = backend
@@ -534,6 +632,7 @@ class _NativeP115PoolPlaybackClient:
         self._rapid = rapid
         self._direct_urls = direct_urls
         self._downloads = downloads
+        self._source_kind = source_kind
 
     def find_directory(self, name: str) -> str:
         wanted = str(name or "").strip()
@@ -582,6 +681,9 @@ class _NativeP115PoolPlaybackClient:
             sign_val=sign_val,
         )
 
+    def copy_source(self, source_fid: str, target_cid: str) -> Mapping[str, Any]:
+        return self._operations.copy_files([str(source_fid)], str(target_cid))
+
     def resolve_download(self, pick_code: str, user_agent: str) -> str:
         resolved = self._direct_urls.resolve_backend(
             pick_code,
@@ -618,7 +720,15 @@ class _NativeP115PoolPlaybackClient:
         wanted = str(remote_fid or "").strip()
         if not wanted or not str(target_cid or "").strip():
             return None
-        return any(_item_id(item) == wanted for item in self._operations.list_children(str(target_cid)))
+        try:
+            response = self._operations.file_info(wanted)
+        except Exception:
+            return None
+        if _file_info_missing(response):
+            return False
+        if provider_succeeded(response) and wanted in response_ids(response):
+            return True
+        return None
 
     def delete_remote(self, remote_fid: str, target_cid: str) -> bool | None:
         try:
@@ -644,7 +754,7 @@ class _NativeP115PoolPlaybackClient:
                     "size": _positive_int(source.get("size")),
                     "file_name": str(source.get("file_name") or ""),
                     "preid": normalize_sha1(source.get("preid")),
-                    "source_kind": "speedtest",
+                    "source_kind": self._source_kind,
                     "source_id": str(source.get("fid") or source.get("sha1") or ""),
                 }
             ],
@@ -652,7 +762,7 @@ class _NativeP115PoolPlaybackClient:
 
 
 class NativeP115PlaybackProvider(P115PlaybackProvider):
-    """Processor-free daily speedtest provider with readback-only crash recovery."""
+    """Processor-free playback provider with readback-only crash recovery."""
 
     def __init__(self, clients: P115PoolPlaybackClientFactory, signer: P115RapidSigner) -> None:
         self._clients = clients
@@ -665,10 +775,21 @@ class NativeP115PlaybackProvider(P115PlaybackProvider):
         checkpoint: Callable[[Mapping[str, Any]], None],
     ) -> PlaybackProviderOutcome:
         if operation.kind not in {
+            PlaybackOperationKind.PREPARE,
             PlaybackOperationKind.ENSURE_TEMP_DIR,
             PlaybackOperationKind.SPEEDTEST,
+            PlaybackOperationKind.RECLAIM,
         }:
-            return _unsupported_native_recovery(operation)
+            return _rejected("unsupported_native_playback_operation", operation.kind.value)
+        if operation.kind is PlaybackOperationKind.RECLAIM and operation.request.get("created_remote") is not True:
+            remote_fid = str(operation.request.get("remote_fid") or "").strip()
+            if not remote_fid:
+                return _rejected("reclaim_fid_missing", "播放临时文件回收缺少 remote_fid")
+            return _confirmed(
+                {"deleted": False, "released": True, "remote_fid": remote_fid},
+                request_sent=False,
+                readback={"owned_remote": False},
+            )
         request_sent = operation.provider_request_started_at is not None
         latest_session = dict(operation.provider_session or {}) or None
 
@@ -680,10 +801,14 @@ class NativeP115PlaybackProvider(P115PlaybackProvider):
 
         try:
             client = self._clients.open(operation)
+            if operation.kind is PlaybackOperationKind.PREPARE:
+                return self._prepare(operation, client, durable_checkpoint)
             if operation.kind is PlaybackOperationKind.ENSURE_TEMP_DIR:
                 return self._ensure_temp_dir(operation, client, durable_checkpoint)
             if operation.kind is PlaybackOperationKind.SPEEDTEST:
                 return self._speedtest(operation, client, durable_checkpoint)
+            if operation.kind is PlaybackOperationKind.RECLAIM:
+                return self._reclaim(operation, client, durable_checkpoint)
             return _rejected("unsupported_native_playback_operation", operation.kind.value)
         except P115PlaybackCredentialChanged as exc:
             if request_sent:
@@ -700,23 +825,48 @@ class NativeP115PlaybackProvider(P115PlaybackProvider):
 
     def readback(self, operation: PlaybackOperation) -> PlaybackProviderOutcome:
         if operation.kind not in {
+            PlaybackOperationKind.PREPARE,
             PlaybackOperationKind.ENSURE_TEMP_DIR,
             PlaybackOperationKind.SPEEDTEST,
+            PlaybackOperationKind.RECLAIM,
         }:
-            return _unsupported_native_recovery(operation)
+            return _rejected("unsupported_native_playback_readback", operation.kind.value)
         session = dict(operation.provider_session or {})
+        if operation.kind is PlaybackOperationKind.RECLAIM and operation.request.get("created_remote") is not True:
+            remote_fid = str(operation.request.get("remote_fid") or "").strip()
+            if not remote_fid:
+                return _indeterminate("reclaim_readback_fid_missing", "删除回读缺少固定 remote_fid", session=session)
+            return _confirmed(
+                {"deleted": False, "released": True, "remote_fid": remote_fid},
+                request_sent=False,
+                session=session,
+                readback={"owned_remote": False},
+            )
         phase = str(session.get("phase") or "").strip()
         try:
             client = self._clients.open(operation)
+            if operation.kind is PlaybackOperationKind.PREPARE:
+                return self._prepare_readback(operation, client, session)
             if operation.kind is PlaybackOperationKind.ENSURE_TEMP_DIR:
                 cid = client.find_directory(str(operation.request.get("temp_dir_name") or "ETK临时目录"))
                 if cid:
                     return _confirmed({"cid": cid, "created_remote": False}, request_sent=True)
                 return _indeterminate("mkdir_readback_missing", "小号临时目录回读未确认", session=session)
+            if operation.kind is PlaybackOperationKind.RECLAIM:
+                return self._reclaim_readback(operation, client, session)
             if operation.kind is not PlaybackOperationKind.SPEEDTEST:
                 return _rejected("unsupported_native_playback_readback", operation.kind.value)
             if phase in {"rapid_upload", "rapid_sign_finalize"}:
-                found = client.readback_source(_operation_source(operation), _target_cid(operation))
+                source = _operation_source(operation)
+                source_preid = normalize_sha1(source.get("preid")) or normalize_sha1(session.get("source_preid"))
+                if not source_preid:
+                    return _indeterminate(
+                        "rapid_readback_preid_missing",
+                        "测速恢复缺少冻结的 PREID",
+                        session=session,
+                    )
+                source["preid"] = source_preid
+                found = client.readback_source(source, _target_cid(operation))
                 if found:
                     return PlaybackProviderOutcome(
                         PlaybackProviderDisposition.RETRYABLE,
@@ -745,6 +895,243 @@ class NativeP115PlaybackProvider(P115PlaybackProvider):
             del exc
             return _indeterminate("native_playback_readback_failed", "原生小号维护回读失败", session=session)
 
+    def _prepare(
+        self,
+        operation: PlaybackOperation,
+        client: P115PoolPlaybackClient,
+        checkpoint: Callable[[Mapping[str, Any]], None],
+    ) -> PlaybackProviderOutcome:
+        session = dict(operation.provider_session or {})
+        phase = str(session.get("phase") or "").strip()
+        if phase in {"copy", "rapid_upload", "rapid_sign_finalize"}:
+            return self._prepare_readback(operation, client, session)
+        if operation.provider_request_started_at is not None:
+            return _indeterminate(
+                "prepare_readback_phase_missing",
+                "播放临时文件恢复阶段缺失",
+                session=session,
+            )
+        source = _operation_source(operation)
+        durable_preid = ""
+        if not normalize_sha1(source.get("preid")):
+            durable_preid = normalize_sha1(self._signer.preid(source))
+            if not durable_preid:
+                return _rejected("prepare_preid_missing", "播放源缺少有效的 PREID")
+            source["preid"] = durable_preid
+        existing = client.readback_source(source, _target_cid(operation))
+        if existing is not None:
+            return _prepare_confirmed(operation, existing, created_remote=False, request_sent=False)
+        if operation.mode is PlaybackMode.COPY:
+            return self._copy_prepare(operation, client, checkpoint, source, durable_preid=durable_preid)
+        if operation.mode in {PlaybackMode.POOL, PlaybackMode.VIRTUAL}:
+            return self._rapid_prepare(operation, client, checkpoint, source, durable_preid=durable_preid)
+        return _rejected("prepare_mode_invalid", "播放临时文件模式不受支持")
+
+    def _rapid_prepare(
+        self,
+        operation: PlaybackOperation,
+        client: P115PoolPlaybackClient,
+        checkpoint: Callable[[Mapping[str, Any]], None],
+        source: Mapping[str, Any],
+        *,
+        durable_preid: str,
+    ) -> PlaybackProviderOutcome:
+        target_cid = _target_cid(operation)
+        rapid_session = {**_session(operation, phase="rapid_upload"), "preflight_absent": True}
+        if durable_preid:
+            rapid_session["source_preid"] = durable_preid
+        checkpoint(rapid_session)
+        outcome = client.rapid_upload(source, target_cid)
+        if outcome.status == "sign_required":
+            signed_session = {**rapid_session, "phase": "rapid_sign_finalize"}
+            checkpoint(signed_session)
+            sign_val = self._signer.sign(source, outcome.sign_check)
+            outcome = client.rapid_upload(
+                source,
+                target_cid,
+                sign_key=outcome.sign_key,
+                sign_val=sign_val,
+            )
+            rapid_session = signed_session
+        if outcome.status == "rejected":
+            return PlaybackProviderOutcome(
+                PlaybackProviderDisposition.REJECTED,
+                request_sent=True,
+                session=rapid_session,
+                error={"type": "rapid_prepare_rejected", "message": "115 明确拒绝创建播放临时文件"},
+            )
+        if outcome.status != "confirmed":
+            return _indeterminate("rapid_prepare_unknown", "115 播放秒传结果未知", session=rapid_session)
+        found = client.readback_source(source, target_cid)
+        if found is None:
+            return _indeterminate(
+                "rapid_prepare_readback_missing",
+                "播放秒传后权威回读未找到临时文件",
+                session=rapid_session,
+            )
+        return _prepare_confirmed(operation, found, created_remote=True, request_sent=True, session=rapid_session)
+
+    @staticmethod
+    def _copy_prepare(
+        operation: PlaybackOperation,
+        client: P115PoolPlaybackClient,
+        checkpoint: Callable[[Mapping[str, Any]], None],
+        source: Mapping[str, Any],
+        *,
+        durable_preid: str,
+    ) -> PlaybackProviderOutcome:
+        source_fid = str(source.get("fid") or "").strip()
+        target_cid = _target_cid(operation)
+        if not source_fid:
+            return _rejected("copy_source_incomplete", "复制播放缺少源 FID")
+        copy_session = {**_session(operation, phase="copy"), "preflight_absent": True}
+        if durable_preid:
+            copy_session["source_preid"] = durable_preid
+        checkpoint(copy_session)
+        response = client.copy_source(source_fid, target_cid)
+        if _provider_rejected(response):
+            return PlaybackProviderOutcome(
+                PlaybackProviderDisposition.REJECTED,
+                request_sent=True,
+                session=copy_session,
+                error={"type": "copy_prepare_rejected", "message": "115 明确拒绝复制播放临时文件"},
+            )
+        found = client.readback_source(source, target_cid)
+        if found is not None:
+            return _prepare_confirmed(operation, found, created_remote=True, request_sent=True, session=copy_session)
+        return _indeterminate(
+            "copy_prepare_readback_missing",
+            "复制后权威回读未找到播放临时文件",
+            session=copy_session,
+        )
+
+    @staticmethod
+    def _prepare_readback(
+        operation: PlaybackOperation,
+        client: P115PoolPlaybackClient,
+        session: Mapping[str, Any],
+    ) -> PlaybackProviderOutcome:
+        source = _operation_source(operation)
+        source_preid = normalize_sha1(source.get("preid")) or normalize_sha1(session.get("source_preid"))
+        if not source_preid:
+            return _indeterminate(
+                "prepare_readback_preid_missing",
+                "播放临时文件恢复缺少冻结的 PREID",
+                session=session,
+            )
+        source["preid"] = source_preid
+        found = client.readback_source(source, _target_cid(operation))
+        if found is None:
+            return _indeterminate(
+                "prepare_readback_missing",
+                "播放临时文件尚未权威确认",
+                session=session,
+            )
+        return _prepare_confirmed(
+            operation,
+            found,
+            created_remote=False,
+            request_sent=True,
+            session=session,
+        )
+
+    def _reclaim(
+        self,
+        operation: PlaybackOperation,
+        client: P115PoolPlaybackClient,
+        checkpoint: Callable[[Mapping[str, Any]], None],
+    ) -> PlaybackProviderOutcome:
+        session = dict(operation.provider_session or {})
+        phase = str(session.get("phase") or "").strip()
+        if phase == "delete":
+            return self._reclaim_readback(operation, client, session)
+        if operation.provider_request_started_at is not None:
+            return _indeterminate(
+                "reclaim_readback_phase_missing",
+                "播放临时文件删除恢复阶段缺失",
+                session=session,
+            )
+        remote_fid = str(operation.request.get("remote_fid") or "").strip()
+        if not remote_fid:
+            return _rejected("reclaim_fid_missing", "播放临时文件回收缺少 remote_fid")
+        if operation.request.get("created_remote") is not True:
+            return _confirmed(
+                {"deleted": False, "released": True, "remote_fid": remote_fid},
+                request_sent=False,
+                readback={"owned_remote": False},
+            )
+        exists = client.remote_exists(remote_fid, _target_cid(operation))
+        if exists is False:
+            return _confirmed(
+                {"deleted": True, "remote_fid": remote_fid},
+                request_sent=False,
+                readback={"deleted": True},
+            )
+        if exists is None:
+            return PlaybackProviderOutcome(
+                PlaybackProviderDisposition.RETRYABLE,
+                request_sent=False,
+                error={"type": "reclaim_preflight_unknown", "message": "无法确认播放临时文件当前状态"},
+            )
+        delete_session = {**_session(operation, phase="delete"), "remote_fid": remote_fid}
+        checkpoint(delete_session)
+        deleted = client.delete_remote(remote_fid, _target_cid(operation))
+        if deleted is True:
+            return _confirmed(
+                {"deleted": True, "remote_fid": remote_fid},
+                request_sent=True,
+                session=delete_session,
+                readback={"deleted": True},
+            )
+        if deleted is False:
+            return PlaybackProviderOutcome(
+                PlaybackProviderDisposition.REJECTED,
+                request_sent=True,
+                session=delete_session,
+                error={"type": "reclaim_rejected", "message": "115 明确拒绝删除播放临时文件"},
+            )
+        return _indeterminate(
+            "reclaim_delete_unknown",
+            "播放临时文件删除结果未知",
+            session=delete_session,
+        )
+
+    @staticmethod
+    def _reclaim_readback(
+        operation: PlaybackOperation,
+        client: P115PoolPlaybackClient,
+        session: Mapping[str, Any],
+    ) -> PlaybackProviderOutcome:
+        remote_fid = str(session.get("remote_fid") or operation.request.get("remote_fid") or "").strip()
+        if not remote_fid:
+            return _indeterminate("reclaim_readback_fid_missing", "删除回读缺少固定 remote_fid", session=session)
+        if operation.request.get("created_remote") is not True:
+            return _confirmed(
+                {"deleted": False, "released": True, "remote_fid": remote_fid},
+                request_sent=False,
+                session=session,
+                readback={"owned_remote": False},
+            )
+        exists = client.remote_exists(remote_fid, _target_cid(operation))
+        if exists is False:
+            return _confirmed(
+                {"deleted": True, "remote_fid": remote_fid},
+                request_sent=True,
+                session=session,
+                readback={"deleted": True},
+            )
+        if exists is True:
+            return _retryable(
+                "reclaim_delete_not_applied",
+                "权威回读确认播放临时文件仍存在",
+                session=session,
+            )
+        return _indeterminate(
+            "reclaim_delete_readback_unknown",
+            "无法确认播放临时文件是否已删除",
+            session=session,
+        )
+
     def _ensure_temp_dir(
         self,
         operation: PlaybackOperation,
@@ -752,10 +1139,17 @@ class NativeP115PlaybackProvider(P115PlaybackProvider):
         checkpoint: Callable[[Mapping[str, Any]], None],
     ) -> PlaybackProviderOutcome:
         name = str(operation.request.get("temp_dir_name") or "ETK临时目录")
+        phase = str((operation.provider_session or {}).get("phase") or "").strip()
+        if operation.provider_request_started_at is not None and phase != "mkdir":
+            return _indeterminate(
+                "mkdir_readback_phase_missing",
+                "小号临时目录恢复阶段缺失",
+                session=operation.provider_session,
+            )
         existing = client.find_directory(name)
         if existing:
             return _confirmed({"cid": existing, "created_remote": False}, request_sent=False)
-        if str((operation.provider_session or {}).get("phase") or "") == "mkdir":
+        if phase == "mkdir":
             return _indeterminate(
                 "mkdir_readback_missing",
                 "小号临时目录创建结果无法确认",
@@ -787,9 +1181,21 @@ class NativeP115PlaybackProvider(P115PlaybackProvider):
         checkpoint: Callable[[Mapping[str, Any]], None],
     ) -> PlaybackProviderOutcome:
         source = _operation_source(operation)
+        request_preid = normalize_sha1(source.get("preid"))
         target_cid = _target_cid(operation)
         session = dict(operation.provider_session or {})
         phase = str(session.get("phase") or "")
+        if operation.provider_request_started_at is not None and phase not in {
+            "rapid_upload",
+            "rapid_sign_finalize",
+            "speedtest",
+            "delete",
+        }:
+            return _indeterminate(
+                "speedtest_readback_phase_missing",
+                "测速恢复阶段缺失",
+                session=session,
+            )
         if phase == "delete":
             return self._delete_readback(operation, client, session)
         if phase == "speedtest":
@@ -806,15 +1212,30 @@ class NativeP115PlaybackProvider(P115PlaybackProvider):
                 session=cleanup_session,
             )
 
+        source_preid = request_preid or normalize_sha1(session.get("source_preid"))
+        if not source_preid:
+            if phase in {"rapid_upload", "rapid_sign_finalize"}:
+                return _indeterminate(
+                    "rapid_readback_preid_missing",
+                    "测速恢复缺少冻结的 PREID",
+                    session=session,
+                )
+            source_preid = normalize_sha1(self._signer.preid(source))
+            if not source_preid:
+                return _rejected("speedtest_preid_missing", "测速源缺少有效的 PREID")
+        source["preid"] = source_preid
+
         found = client.readback_source(source, target_cid)
         if found is None:
             if phase in {"rapid_upload", "rapid_sign_finalize"}:
                 return _indeterminate("rapid_readback_missing", "测速临时文件尚未权威确认", session=session)
             rapid_session = _session(operation, phase="rapid_upload")
+            if not request_preid:
+                rapid_session["source_preid"] = source_preid
             checkpoint(rapid_session)
             initial = client.rapid_upload(source, target_cid)
             if initial.status == "sign_required":
-                signed_session = _session(operation, phase="rapid_sign_finalize")
+                signed_session = {**rapid_session, "phase": "rapid_sign_finalize"}
                 checkpoint(signed_session)
                 sign_val = self._signer.sign(source, initial.sign_check)
                 initial = client.rapid_upload(
@@ -944,6 +1365,39 @@ def _session(operation: PlaybackOperation, *, phase: str) -> dict[str, Any]:
     }
 
 
+def _prepare_confirmed(
+    operation: PlaybackOperation,
+    found: Mapping[str, Any],
+    *,
+    created_remote: bool,
+    request_sent: bool,
+    session: Mapping[str, Any] | None = None,
+) -> PlaybackProviderOutcome:
+    target_cid = str(found.get("target_cid") or operation.request.get("target_cid") or "").strip()
+    remote_fid = str(found.get("remote_fid") or "").strip()
+    remote_pick_code = str(found.get("remote_pick_code") or "").strip()
+    file_name = str(found.get("file_name") or operation.request.get("file_name") or "").strip()
+    if not target_cid or not remote_fid or not remote_pick_code or not file_name:
+        return _indeterminate(
+            "prepare_remote_identity_missing",
+            "播放临时文件权威身份不完整",
+            session=session,
+            request_sent=request_sent,
+        )
+    return _confirmed(
+        {
+            "target_cid": target_cid,
+            "remote_fid": remote_fid,
+            "remote_pick_code": remote_pick_code,
+            "file_name": file_name,
+            "created_remote": created_remote,
+        },
+        request_sent=request_sent,
+        session=session,
+        readback={"found": True},
+    )
+
+
 def _confirmed(
     receipt: Mapping[str, Any],
     *,
@@ -968,27 +1422,16 @@ def _rejected(error_type: str, message: str) -> PlaybackProviderOutcome:
     )
 
 
-def _unsupported_native_recovery(operation: PlaybackOperation) -> PlaybackProviderOutcome:
-    return PlaybackProviderOutcome(
-        PlaybackProviderDisposition.INDETERMINATE,
-        request_sent=False,
-        session=dict(operation.provider_session or {}) or None,
-        error={
-            "type": "native_playback_recovery_unsupported",
-            "message": f"原生 Worker 未执行 {operation.kind.value} provider 写入，操作需保守对账",
-        },
-    )
-
-
 def _indeterminate(
     error_type: str,
     message: str,
     *,
     session: Mapping[str, Any] | None = None,
+    request_sent: bool = True,
 ) -> PlaybackProviderOutcome:
     return PlaybackProviderOutcome(
         PlaybackProviderDisposition.INDETERMINATE,
-        request_sent=True,
+        request_sent=request_sent,
         session=dict(session) if session is not None else None,
         error={"type": error_type, "message": str(message)[:500]},
     )
@@ -1010,6 +1453,21 @@ def _retryable(
 
 def _item_id(item: Mapping[str, Any]) -> str:
     return str(item.get("fid") or item.get("file_id") or item.get("cid") or item.get("id") or "").strip()
+
+
+def _file_info_missing(value: Mapping[str, Any]) -> bool:
+    code = str(value.get("code") or value.get("errno") or value.get("errNo") or "").strip().casefold()
+    message = str(value.get("message") or value.get("error_msg") or value.get("error") or "").casefold()
+    return code in {"404", "20018", "not_found", "file_not_found"} or any(
+        marker in message for marker in ("not found", "不存在", "已删除")
+    )
+
+
+def _provider_rejected(value: Mapping[str, Any]) -> bool:
+    if value.get("state") is False or value.get("success") is False:
+        return True
+    code = str(value.get("code") or "").strip()
+    return bool(code and code not in {"0", "200"})
 
 
 def _positive_int(value: Any) -> int:

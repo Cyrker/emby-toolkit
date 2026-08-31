@@ -469,6 +469,69 @@ class PostgresP115PlaybackRepository:
             row = _artifact_row(uow, artifact_id)
             return _artifact_projection(row) if row is not None else None
 
+    def mark_artifact_indeterminate(
+        self,
+        artifact_id: UUID,
+        *,
+        expected_state_revision: int,
+        reason: str,
+    ) -> PlaybackArtifact:
+        revision = int(expected_state_revision)
+        if revision < 0:
+            raise ValueError("expected_state_revision must be non-negative")
+        marker = safe_playback_json(
+            {
+                "reconciliation_required": True,
+                "reconciliation_reason": str(reason or "provider_identity_missing")[:128],
+            },
+            field="playback artifact reconciliation",
+        )
+        with self._uow_factory() as uow:
+            row = (
+                uow.session.execute(
+                    text(
+                        """
+                        UPDATE p115_playback_artifacts AS artifact
+                        SET status = 'indeterminate',
+                            remote_receipt_json = COALESCE(remote_receipt_json, '{}'::jsonb)
+                                || CAST(:marker_json AS jsonb),
+                            state_revision = state_revision + 1, updated_at = NOW()
+                        WHERE artifact.id = :artifact_id
+                          AND artifact.status = 'available'
+                          AND artifact.state_revision = :expected_state_revision
+                          AND NOT EXISTS (
+                              SELECT 1 FROM p115_playback_leases AS lease
+                              WHERE lease.artifact_id = artifact.id AND lease.status = 'active'
+                                AND lease.expires_at > NOW()
+                          )
+                          AND NOT EXISTS (
+                              SELECT 1 FROM p115_playback_leases AS lease
+                              WHERE lease.artifact_id = artifact.id
+                                AND lease.cleanup_not_before > NOW()
+                          )
+                        RETURNING artifact.*
+                        """
+                    ),
+                    {
+                        "artifact_id": artifact_id,
+                        "expected_state_revision": revision,
+                        "marker_json": canonical_json(marker, field="playback artifact reconciliation"),
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None:
+                current = _artifact_row(uow, artifact_id)
+                if current is None:
+                    raise P115PlaybackNotFoundError("playback artifact not found")
+                if str(current["status"]) == PlaybackArtifactStatus.INDETERMINATE.value:
+                    return _artifact_projection(current)
+                raise P115PlaybackConflictError("playback artifact changed before reconciliation fencing")
+            uow.commit()
+            return _artifact_projection(row)
+        raise AssertionError("unreachable")
+
     def latest_artifact_generation(self, artifact_key: str) -> int:
         key = _digest(artifact_key, "artifact_key")
         with self._uow_factory() as uow:

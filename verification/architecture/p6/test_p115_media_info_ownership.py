@@ -275,7 +275,7 @@ def test_mediainfo_and_intro_use_native_sdk_direct_urls_in_both_worker_profiles(
     assert ".download_url_app(" in transport
     assert ".download_url_open(" not in transport
     assert ".download_url(" not in transport
-    assert worker.count("P115SdkDirectUrlGateway(") == 4
+    assert worker.count("P115SdkDirectUrlGateway(") == 6
 
 
 def test_legacy_webhook_and_consistency_seams_only_submit_the_p6_native_repair_task() -> None:

@@ -7,11 +7,18 @@ from uuid import uuid4
 
 import pytest
 
-from etk.domains.p115.maintenance_transport import HttpxP115BoundedDownloadGateway
+import etk.domains.p115.playback_native as playback_native_module
+from etk.domains.p115.maintenance_transport import (
+    HttpxP115BoundedDownloadGateway,
+    P115MaintenanceTransportError,
+    P115PinnedOperationsClient,
+)
 from etk.domains.p115.media_info_adapters import P115DirectUrl
 from etk.domains.p115.models import P115CredentialSnapshot
 from etk.domains.p115.playback import (
     P115PlaybackConfigService,
+    P115PlaybackNotFoundError,
+    P115PlaybackStateError,
     PlaybackMode,
     PlaybackOperation,
     PlaybackOperationKind,
@@ -19,10 +26,12 @@ from etk.domains.p115.playback import (
     PlaybackProviderDisposition,
     normalize_pool_config,
     play_pool_business_date,
+    pool_credential_fingerprint,
 )
 from etk.domains.p115.playback_native import (
     NativeP115PlaybackProvider,
     NativeP115PlaybackRapidSigner,
+    NativeP115PoolPlaybackClientFactory,
     P115PlaybackCredentialChanged,
     P115PlayPoolCredentialStore,
     P115PoolPlaybackClient,
@@ -40,6 +49,204 @@ SOURCE = {
     "preid": "B" * 40,
     "file_name": "Fixture.mkv",
 }
+
+
+class MutableCredentials:
+    def __init__(self) -> None:
+        self.snapshot = P115CredentialSnapshot(
+            access_token="fixture-access-token",
+            refresh_token="fixture-refresh-token",
+            account_id="115001",
+        )
+        self.saved = 0
+
+    def load(self) -> P115CredentialSnapshot:
+        return self.snapshot
+
+    def save_openapi(self, *_args: Any, **_kwargs: Any) -> None:
+        self.saved += 1
+
+    def save_cookie(self, *_args: Any, **_kwargs: Any) -> None:
+        self.saved += 1
+
+    @staticmethod
+    def app_label(app_type: str) -> str:
+        return app_type
+
+
+class FakePinnedSdk:
+    def __init__(self, after_request: Any = None) -> None:
+        self.after_request = after_request
+        self.copy_calls: list[tuple[list[str], str, float]] = []
+        self.info_calls: list[tuple[str, float]] = []
+        self.skim_calls: list[tuple[str, float]] = []
+
+    def fs_copy(self, file_ids: list[str], pid: str, **kwargs: Any) -> Mapping[str, Any]:
+        self.copy_calls.append((list(file_ids), pid, float(kwargs["timeout"])))
+        if self.after_request is not None:
+            self.after_request()
+        return {"state": True}
+
+    def fs_info(self, file_id: str, **kwargs: Any) -> Mapping[str, Any]:
+        self.info_calls.append((file_id, float(kwargs["timeout"])))
+        if self.after_request is not None:
+            self.after_request()
+        return {"state": True, "data": {"file_id": file_id}}
+
+    def fs_file_skim(self, file_id: str, **kwargs: Any) -> Mapping[str, Any]:
+        self.skim_calls.append((file_id, float(kwargs["timeout"])))
+        if self.after_request is not None:
+            self.after_request()
+        return {"state": True, "data": [{"file_id": file_id}]}
+
+
+def _pinned_operations(
+    credentials: MutableCredentials,
+    sdk: FakePinnedSdk,
+    *,
+    backend: str = "openapi",
+) -> P115PinnedOperationsClient:
+    return P115PinnedOperationsClient(
+        credentials=cast(Any, credentials),
+        snapshot=credentials.snapshot,
+        backend=backend,
+        sdk_factory=cast(Any, lambda _snapshot, _backend: sdk),
+        directory=cast(Any, object()),
+        timeout_seconds=9,
+    )
+
+
+def test_pinned_operations_use_real_sdk_copy_and_info_methods() -> None:
+    credentials = MutableCredentials()
+    sdk = FakePinnedSdk()
+    operations = _pinned_operations(credentials, sdk)
+
+    assert operations.copy_files(["source", "source"], "target") == {"state": True}
+    assert operations.file_info("remote") == {"state": True, "data": {"file_id": "remote"}}
+    assert sdk.copy_calls == [(["source"], "target", 9.0)]
+    assert sdk.info_calls == [("remote", 9.0)]
+
+    cookie_credentials = MutableCredentials()
+    cookie_credentials.snapshot = P115CredentialSnapshot(
+        cookie="UID=fixture",
+        app_type="alipaymini",
+        account_id="115001",
+    )
+    cookie_sdk = FakePinnedSdk()
+    cookie_operations = _pinned_operations(cookie_credentials, cookie_sdk, backend="cookie")
+    assert cookie_operations.file_info("cookie-remote") == {
+        "state": True,
+        "data": [{"file_id": "cookie-remote"}],
+    }
+    assert cookie_sdk.skim_calls == [("cookie-remote", 9.0)]
+    assert cookie_sdk.info_calls == []
+
+
+@pytest.mark.parametrize("method", ["copy", "info"])
+def test_pinned_operations_fence_credential_drift_after_provider_call(method: str) -> None:
+    credentials = MutableCredentials()
+
+    def rotate() -> None:
+        credentials.snapshot = P115CredentialSnapshot(
+            access_token="rotated-access-token",
+            refresh_token="fixture-refresh-token",
+            account_id="115001",
+        )
+
+    operations = _pinned_operations(credentials, FakePinnedSdk(rotate))
+
+    with pytest.raises(P115MaintenanceTransportError, match="credential changed"):
+        if method == "copy":
+            operations.copy_files(["source"], "target")
+        else:
+            operations.file_info("remote")
+
+
+def test_pinned_primary_credentials_forbid_rotation_inside_one_intent() -> None:
+    credentials = MutableCredentials()
+    pinned_type = cast(Any, playback_native_module.__dict__["_PinnedPrimaryCredentialStore"])
+    store = pinned_type(
+        credentials,
+        account_id="115001",
+        backend="openapi",
+        expected_fingerprint=pool_credential_fingerprint(
+            {"access_token": "fixture-access-token", "cookie": "", "app_type": ""},
+            "openapi",
+        ),
+    )
+
+    assert store.load().account_id == "115001"
+    with pytest.raises(P115PlaybackCredentialChanged, match="new intent"):
+        store.save_openapi(
+            "rotated-access-token",
+            "rotated-refresh-token",
+            account_id="115001",
+            expected_access_token="fixture-access-token",
+        )
+    assert credentials.saved == 0
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        ({"state": True, "data": {"file_id": "remote"}}, True),
+        ({"state": True, "data": [{"file_id": "remote"}]}, True),
+        ({"state": True, "data": {}}, None),
+        ({"state": True, "data": {"file_id": "other"}}, None),
+        ({"state": True, "data": [{"file_id": "other"}]}, None),
+        ({"state": False, "code": 404}, False),
+        ({"state": False}, None),
+    ],
+)
+def test_native_remote_existence_uses_fixed_fid_even_after_directory_move(
+    response: dict[str, Any],
+    expected: bool | None,
+) -> None:
+    class FileInfoOnlyOperations:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def file_info(self, file_id: str) -> Mapping[str, Any]:
+            self.calls.append(file_id)
+            return response
+
+        def list_children(self, _parent_id: str) -> tuple[dict[str, Any], ...]:
+            raise AssertionError("fixed-FID reclaim must not infer deletion from a parent listing")
+
+    operations = FileInfoOnlyOperations()
+    client_type = cast(Any, playback_native_module.__dict__["_NativeP115PoolPlaybackClient"])
+    client = client_type(
+        account_id="115001",
+        backend="openapi",
+        credential_hash="c" * 64,
+        credentials=cast(Any, object()),
+        operations=cast(Any, operations),
+        rapid=cast(Any, object()),
+        direct_urls=cast(Any, object()),
+        downloads=cast(Any, object()),
+        source_kind="playback",
+    )
+
+    assert client.remote_exists("remote", "original-parent") is expected
+    assert operations.calls == ["remote"]
+
+
+@pytest.mark.parametrize(
+    ("request_patch", "error"),
+    [
+        ({"account_kind": ""}, P115PlaybackStateError),
+        ({"account_kind": "primary"}, P115PlaybackNotFoundError),
+        ({"account_kind": "pool", "credential_hash": "", "account_revision": ""}, ValueError),
+    ],
+)
+def test_native_client_factory_rejects_missing_pinned_identity_before_provider_io(
+    request_patch: dict[str, Any],
+    error: type[Exception],
+) -> None:
+    factory = NativeP115PoolPlaybackClientFactory(cast(Any, object()))
+
+    with pytest.raises(error):
+        factory.open(_operation(request_patch=request_patch))
 
 
 def test_play_pool_daily_traffic_uses_the_shanghai_business_date() -> None:
@@ -68,24 +275,34 @@ def _operation(
     *,
     session: dict[str, Any] | None = None,
     kind: PlaybackOperationKind = PlaybackOperationKind.SPEEDTEST,
+    mode: PlaybackMode | None = None,
+    request_patch: Mapping[str, Any] | None = None,
+    request_started: bool | None = None,
+    include_created_remote: bool = True,
 ) -> PlaybackOperation:
     now = datetime.now(UTC)
+    request = {
+        "account_kind": "pool",
+        "target_cid": "target-cid",
+        "credential_hash": "c" * 64,
+        "account_revision": "d" * 64,
+        "file_name": SOURCE["file_name"],
+        "remote_fid": "remote-fid",
+        "source": SOURCE,
+    }
+    if kind is PlaybackOperationKind.RECLAIM and include_created_remote:
+        request["created_remote"] = True
+    request.update(dict(request_patch or {}))
     return PlaybackOperation(
         id=uuid4(),
         sequence=1,
         operation_key="1" * 64,
         request_hash=b"r" * 32,
         kind=kind,
-        mode=PlaybackMode.MAINTENANCE,
+        mode=mode or (PlaybackMode.MAINTENANCE if kind is PlaybackOperationKind.SPEEDTEST else PlaybackMode.POOL),
         account_id="local-pool-account-uuid",
         provider_backend="openapi",
-        request={
-            "account_kind": "pool",
-            "target_cid": "target-cid",
-            "credential_hash": "c" * 64,
-            "account_revision": "d" * 64,
-            "source": SOURCE,
-        },
+        request=request,
         status=PlaybackOperationStatus.CLAIMED,
         state_revision=1,
         attempts=1,
@@ -94,7 +311,9 @@ def _operation(
         claim_token=uuid4(),
         claimed_at=now,
         lease_expires_at=now,
-        provider_request_started_at=now if session else None,
+        provider_request_started_at=(
+            now if (request_started if request_started is not None else session is not None) else None
+        ),
         provider_session=session,
         remote_receipt=None,
         readback=None,
@@ -108,7 +327,7 @@ def _operation(
 
 class FakeClient:
     def __init__(self) -> None:
-        self.exists = False
+        self.exists: bool | None = False
         self.rapid_calls: list[tuple[str, str]] = []
         self.resolve_calls = 0
         self.measure_calls = 0
@@ -117,6 +336,8 @@ class FakeClient:
         self.require_sign = False
         self.measure_exception = False
         self.delete_result: bool | None = True
+        self.copy_result: dict[str, Any] = {"state": True}
+        self.copy_calls: list[tuple[str, str]] = []
 
     def find_directory(self, name: str) -> str:
         del name
@@ -152,6 +373,12 @@ class FakeClient:
             return RapidUploadOutcome("sign_required", sign_key="ephemeral-key", sign_check="0-3")
         self.exists = True
         return RapidUploadOutcome("confirmed")
+
+    def copy_source(self, source_fid: str, target_cid: str) -> Mapping[str, Any]:
+        self.copy_calls.append((source_fid, target_cid))
+        if self.copy_result.get("state") is True:
+            self.exists = True
+        return dict(self.copy_result)
 
     def resolve_download(self, pick_code: str, user_agent: str) -> str:
         del pick_code, user_agent
@@ -194,6 +421,10 @@ class FakeSigner:
         self.calls.append((dict(source), sign_check))
         return "D" * 40
 
+    def preid(self, source: Mapping[str, Any]) -> str:
+        self.calls.append((dict(source), "preid"))
+        return "B" * 40
+
 
 def _provider(client: FakeClient, signer: FakeSigner | None = None) -> NativeP115PlaybackProvider:
     return NativeP115PlaybackProvider(FakeFactory(client), signer or FakeSigner())
@@ -224,24 +455,454 @@ def test_native_speedtest_signed_finalize_keeps_secrets_out_of_durable_state() -
     assert "token=secret" not in repr(outcome)
 
 
-@pytest.mark.parametrize("kind", [PlaybackOperationKind.PREPARE, PlaybackOperationKind.RECLAIM])
-def test_native_daily_provider_fails_closed_without_opening_unsupported_recovery_clients(
-    kind: PlaybackOperationKind,
-) -> None:
-    class FailIfOpenedFactory:
-        def open(self, _operation: PlaybackOperation) -> P115PoolPlaybackClient:
-            raise AssertionError("unsupported recovery must not open a provider client")
+def test_native_speedtest_checkpoints_computed_preid_before_rapid_mutation() -> None:
+    class PreidSpeedtestClient(FakeClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.readback_preids: list[str] = []
 
-    provider = NativeP115PlaybackProvider(cast(Any, FailIfOpenedFactory()), FakeSigner())
+        def readback_source(self, source: Mapping[str, Any], target_cid: str) -> dict[str, Any] | None:
+            self.readback_preids.append(str(source.get("preid") or ""))
+            return super().readback_source(source, target_cid)
 
-    outcome = provider.execute(_operation(kind=kind), checkpoint=lambda _value: None)
+    client = PreidSpeedtestClient()
+    signer = FakeSigner()
+    checkpoints: list[dict[str, Any]] = []
+    source = {**SOURCE, "preid": ""}
+
+    outcome = _provider(client, signer).execute(
+        _operation(request_patch={"source": source}),
+        checkpoint=lambda value: checkpoints.append(dict(value)),
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert signer.calls == [(source, "preid")]
+    assert checkpoints[0]["phase"] == "rapid_upload"
+    assert checkpoints[0]["source_preid"] == "B" * 40
+    assert client.readback_preids == ["B" * 40, "B" * 40]
+
+
+def test_native_speedtest_readback_uses_checkpointed_preid_without_recomputing() -> None:
+    class PreidReadbackClient(FakeClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.readback_preids: list[str] = []
+
+        def readback_source(self, source: Mapping[str, Any], target_cid: str) -> dict[str, Any] | None:
+            self.readback_preids.append(str(source.get("preid") or ""))
+            return super().readback_source(source, target_cid)
+
+    client = PreidReadbackClient()
+    client.exists = True
+    signer = FakeSigner()
+
+    outcome = _provider(client, signer).readback(
+        _operation(
+            request_patch={"source": {**SOURCE, "preid": ""}},
+            session={"phase": "rapid_upload", "source_preid": "B" * 40},
+        )
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.RETRYABLE
+    assert client.readback_preids == ["B" * 40]
+    assert signer.calls == []
+
+
+def test_native_rapid_prepare_checkpoints_once_and_projects_authoritative_identity() -> None:
+    client = FakeClient()
+    checkpoints: list[dict[str, Any]] = []
+
+    outcome = _provider(client).execute(
+        _operation(kind=PlaybackOperationKind.PREPARE),
+        checkpoint=lambda value: checkpoints.append(dict(value)),
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert [value["phase"] for value in checkpoints] == ["rapid_upload"]
+    assert client.rapid_calls == [("", "")]
+    assert client.copy_calls == []
+    assert outcome.receipt == {
+        "target_cid": "target-cid",
+        "remote_fid": "remote-fid",
+        "remote_pick_code": "remote-pick",
+        "file_name": "Fixture.mkv",
+        "created_remote": True,
+    }
+
+
+def test_native_prepare_checkpoint_recovery_is_readback_only() -> None:
+    client = FakeClient()
+
+    outcome = _provider(client).execute(
+        _operation(kind=PlaybackOperationKind.PREPARE, session={"phase": "rapid_upload"}),
+        checkpoint=lambda _value: None,
+    )
 
     assert outcome.disposition is PlaybackProviderDisposition.INDETERMINATE
-    assert outcome.request_sent is False
-    assert outcome.error == {
-        "type": "native_playback_recovery_unsupported",
-        "message": f"原生 Worker 未执行 {kind.value} provider 写入，操作需保守对账",
+    assert client.rapid_calls == []
+    assert client.copy_calls == []
+
+
+def test_native_prepare_checkpoint_recovery_adopts_readback_without_claiming_remote_ownership() -> None:
+    client = FakeClient()
+    client.exists = True
+    provider = _provider(client)
+    operation = _operation(
+        kind=PlaybackOperationKind.PREPARE,
+        session={"phase": "rapid_upload", "preflight_absent": True},
+    )
+
+    outcome = provider.readback(operation)
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert outcome.receipt == {
+        "target_cid": "target-cid",
+        "remote_fid": "remote-fid",
+        "remote_pick_code": "remote-pick",
+        "file_name": "Fixture.mkv",
+        "created_remote": False,
     }
+    assert client.rapid_calls == []
+    assert client.copy_calls == []
+
+
+def test_native_prepare_historical_readback_never_claims_remote_ownership_without_preflight_evidence() -> None:
+    client = FakeClient()
+    client.exists = True
+
+    outcome = _provider(client).readback(
+        _operation(kind=PlaybackOperationKind.PREPARE, session={"phase": "rapid_upload"})
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert outcome.receipt is not None
+    assert outcome.receipt["created_remote"] is False
+
+
+def test_native_prepare_recovery_uses_checkpointed_preid_without_recomputing_or_resending() -> None:
+    class PreidReadbackClient(FakeClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.readback_preids: list[str] = []
+
+        def readback_source(self, source: Mapping[str, Any], target_cid: str) -> dict[str, Any] | None:
+            self.readback_preids.append(str(source.get("preid") or ""))
+            return super().readback_source(source, target_cid)
+
+    client = PreidReadbackClient()
+    client.exists = True
+    signer = FakeSigner()
+    source = {**SOURCE, "preid": ""}
+
+    outcome = _provider(client, signer).readback(
+        _operation(
+            kind=PlaybackOperationKind.PREPARE,
+            request_patch={"source": source},
+            session={"phase": "rapid_upload", "source_preid": "B" * 40},
+        )
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert outcome.receipt is not None and outcome.receipt["created_remote"] is False
+    assert client.readback_preids == ["B" * 40]
+    assert signer.calls == []
+
+
+def test_native_prepare_invalid_preflight_marker_never_claims_remote_ownership() -> None:
+    client = FakeClient()
+    client.exists = True
+
+    outcome = _provider(client).readback(
+        _operation(
+            kind=PlaybackOperationKind.PREPARE,
+            session={"phase": "rapid_upload", "preflight_absent": "false"},
+        )
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert outcome.receipt is not None
+    assert outcome.receipt["created_remote"] is False
+
+
+def test_native_prepare_checkpoint_transport_unknown_never_resends() -> None:
+    class UnknownReadbackClient(FakeClient):
+        def readback_source(self, source: Mapping[str, Any], target_cid: str) -> dict[str, Any] | None:
+            del source, target_cid
+            raise RuntimeError("fixture readback transport unknown")
+
+    client = UnknownReadbackClient()
+    outcome = _provider(client).execute(
+        _operation(kind=PlaybackOperationKind.PREPARE, session={"phase": "copy"}),
+        checkpoint=lambda _value: None,
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.INDETERMINATE
+    assert client.rapid_calls == []
+    assert client.copy_calls == []
+
+
+def test_native_copy_prepare_uses_one_pinned_copy_then_authoritative_readback() -> None:
+    client = FakeClient()
+    checkpoints: list[dict[str, Any]] = []
+
+    outcome = _provider(client).execute(
+        _operation(
+            kind=PlaybackOperationKind.PREPARE,
+            mode=PlaybackMode.COPY,
+            request_patch={"account_kind": "primary", "account_revision": ""},
+        ),
+        checkpoint=lambda value: checkpoints.append(dict(value)),
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert [value["phase"] for value in checkpoints] == ["copy"]
+    assert client.copy_calls == [("source-fid", "target-cid")]
+    assert client.rapid_calls == []
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        ({}, PlaybackProviderDisposition.INDETERMINATE),
+        ({"state": False, "code": 50001}, PlaybackProviderDisposition.REJECTED),
+    ],
+)
+def test_native_copy_prepare_distinguishes_unknown_from_explicit_rejection(
+    response: dict[str, Any],
+    expected: PlaybackProviderDisposition,
+) -> None:
+    client = FakeClient()
+    client.copy_result = response
+
+    outcome = _provider(client).execute(
+        _operation(
+            kind=PlaybackOperationKind.PREPARE,
+            mode=PlaybackMode.COPY,
+            request_patch={"account_kind": "primary", "account_revision": ""},
+        ),
+        checkpoint=lambda _value: None,
+    )
+
+    assert outcome.disposition is expected
+    assert outcome.request_sent is True
+    assert client.copy_calls == [("source-fid", "target-cid")]
+
+
+def test_native_copy_rejection_cannot_claim_a_matching_preexisting_file() -> None:
+    class RejectedWithLateMatchClient(FakeClient):
+        def __init__(self) -> None:
+            super().__init__()
+            self.readback_calls = 0
+            self.copy_result = {"state": False, "code": 50001}
+
+        def readback_source(self, source: Mapping[str, Any], target_cid: str) -> dict[str, Any] | None:
+            self.readback_calls += 1
+            if self.readback_calls == 1:
+                return None
+            return super().readback_source(source, target_cid)
+
+        def copy_source(self, source_fid: str, target_cid: str) -> Mapping[str, Any]:
+            self.exists = True
+            return super().copy_source(source_fid, target_cid)
+
+    client = RejectedWithLateMatchClient()
+    outcome = _provider(client).execute(
+        _operation(
+            kind=PlaybackOperationKind.PREPARE,
+            mode=PlaybackMode.COPY,
+            request_patch={"account_kind": "primary", "account_revision": ""},
+        ),
+        checkpoint=lambda _value: None,
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.REJECTED
+    assert client.copy_calls == [("source-fid", "target-cid")]
+    assert client.readback_calls == 1
+
+
+def test_native_rapid_prepare_computes_missing_preid_before_provider_checkpoint() -> None:
+    client = FakeClient()
+    signer = FakeSigner()
+    checkpoints: list[dict[str, Any]] = []
+    source = {**SOURCE, "preid": ""}
+
+    outcome = _provider(client, signer).execute(
+        _operation(
+            kind=PlaybackOperationKind.PREPARE,
+            request_patch={"source": source},
+        ),
+        checkpoint=lambda value: checkpoints.append(dict(value)),
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert signer.calls == [(source, "preid")]
+    assert checkpoints == [
+        {
+            "phase": "rapid_upload",
+            "account_id": "local-pool-account-uuid",
+            "backend": "openapi",
+            "kind": "prepare",
+            "preflight_absent": True,
+            "source_preid": "B" * 40,
+        }
+    ]
+
+
+def test_native_reclaim_preflight_missing_confirms_without_delete() -> None:
+    client = FakeClient()
+    checkpoints: list[dict[str, Any]] = []
+
+    outcome = _provider(client).execute(
+        _operation(kind=PlaybackOperationKind.RECLAIM),
+        checkpoint=lambda value: checkpoints.append(dict(value)),
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert outcome.request_sent is False
+    assert outcome.receipt == {"deleted": True, "remote_fid": "remote-fid"}
+    assert client.delete_calls == 0
+    assert checkpoints == []
+
+
+def test_native_reclaim_releases_unowned_artifact_without_remote_delete() -> None:
+    client = FakeClient()
+    client.exists = True
+
+    outcome = _provider(client).execute(
+        _operation(
+            kind=PlaybackOperationKind.RECLAIM,
+            request_patch={"created_remote": False},
+        ),
+        checkpoint=lambda _value: None,
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert outcome.request_sent is False
+    assert outcome.receipt == {"deleted": False, "released": True, "remote_fid": "remote-fid"}
+    assert client.delete_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("include_created_remote", "created_remote"),
+    [(False, None), (True, None), (True, "false")],
+)
+def test_native_reclaim_never_deletes_without_explicit_boolean_ownership(
+    include_created_remote: bool,
+    created_remote: object,
+) -> None:
+    client = FakeClient()
+    client.exists = True
+    request_patch = {"created_remote": created_remote} if include_created_remote else {}
+
+    outcome = _provider(client).execute(
+        _operation(
+            kind=PlaybackOperationKind.RECLAIM,
+            request_patch=request_patch,
+            include_created_remote=include_created_remote,
+        ),
+        checkpoint=lambda _value: None,
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert outcome.receipt == {"deleted": False, "released": True, "remote_fid": "remote-fid"}
+    assert client.delete_calls == 0
+
+
+def test_native_unowned_reclaim_with_missing_remote_fid_rejects_before_provider_io() -> None:
+    client = FakeClient()
+
+    outcome = _provider(client).execute(
+        _operation(
+            kind=PlaybackOperationKind.RECLAIM,
+            request_patch={"remote_fid": ""},
+            include_created_remote=False,
+        ),
+        checkpoint=lambda _value: None,
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.REJECTED
+    assert outcome.error is not None and outcome.error["type"] == "reclaim_fid_missing"
+    assert client.delete_calls == 0
+
+
+def test_native_reclaim_delete_and_checkpoint_recovery_never_resend() -> None:
+    client = FakeClient()
+    client.exists = True
+    checkpoints: list[dict[str, Any]] = []
+
+    confirmed = _provider(client).execute(
+        _operation(kind=PlaybackOperationKind.RECLAIM),
+        checkpoint=lambda value: checkpoints.append(dict(value)),
+    )
+
+    assert confirmed.disposition is PlaybackProviderDisposition.CONFIRMED
+    assert [value["phase"] for value in checkpoints] == ["delete"]
+    assert client.delete_calls == 1
+
+    client.exists = True
+    replay = _provider(client).execute(
+        _operation(
+            kind=PlaybackOperationKind.RECLAIM,
+            session={"phase": "delete", "remote_fid": "remote-fid"},
+        ),
+        checkpoint=lambda _value: None,
+    )
+
+    assert replay.disposition is PlaybackProviderDisposition.RETRYABLE
+    assert client.delete_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("exists", "expected"),
+    [
+        (False, PlaybackProviderDisposition.CONFIRMED),
+        (True, PlaybackProviderDisposition.RETRYABLE),
+        (None, PlaybackProviderDisposition.INDETERMINATE),
+    ],
+)
+def test_native_reclaim_checkpoint_readback_is_fixed_fid_and_read_only(
+    exists: bool | None,
+    expected: PlaybackProviderDisposition,
+) -> None:
+    client = FakeClient()
+    client.exists = exists
+
+    outcome = _provider(client).readback(
+        _operation(
+            kind=PlaybackOperationKind.RECLAIM,
+            session={"phase": "delete", "remote_fid": "remote-fid"},
+        )
+    )
+
+    assert outcome.disposition is expected
+    assert client.delete_calls == 0
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        PlaybackOperationKind.PREPARE,
+        PlaybackOperationKind.ENSURE_TEMP_DIR,
+        PlaybackOperationKind.SPEEDTEST,
+        PlaybackOperationKind.RECLAIM,
+    ],
+)
+@pytest.mark.parametrize("session", [None, {"phase": "invalid"}])
+def test_native_provider_timestamp_without_valid_phase_never_resends_mutation(
+    kind: PlaybackOperationKind,
+    session: dict[str, Any] | None,
+) -> None:
+    client = FakeClient()
+    client.exists = True
+    outcome = _provider(client).execute(
+        _operation(kind=kind, session=session, request_started=True),
+        checkpoint=lambda _value: None,
+    )
+
+    assert outcome.disposition is PlaybackProviderDisposition.INDETERMINATE
+    assert client.rapid_calls == []
+    assert client.copy_calls == []
+    assert client.delete_calls == 0
 
 
 def test_native_speedtest_rapid_checkpoint_recovery_never_resends_upload() -> None:

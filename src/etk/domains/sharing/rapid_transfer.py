@@ -146,6 +146,8 @@ class NativeP115RapidTransferGateway:
         offset = 0
         for _page in range(_MAX_PAGES):
             response = client.list_page(cid=target_cid, limit=_PAGE_SIZE, offset=offset)
+            if response.get("state") is not True or response.get("_etk_authoritative_list_payload") is not True:
+                raise RuntimeError("115 transfer readback was not authoritative")
             items = _page_items(response)
             candidates.extend(items)
             offset += len(items)
@@ -163,8 +165,8 @@ class NativeP115RapidTransferGateway:
             sha1 = _sha1(file.get("sha1"))
             size = _positive_int(file.get("size"), "file size")
             matches = [item for item in candidates if _item_sha1(item) == sha1 and _item_size(item) == size]
-            if str(file.get("source_kind") or "").strip() == "speedtest":
-                expected_name = _text(file.get("file_name"), "speedtest file name", limit=512)
+            if str(file.get("source_kind") or "").strip() in {"playback", "speedtest"}:
+                expected_name = _text(file.get("file_name"), "playback file name", limit=512)
                 matches = [item for item in matches if _item_name(item) == expected_name]
             if not matches:
                 missing += 1

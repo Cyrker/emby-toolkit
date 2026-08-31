@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
@@ -11,6 +12,7 @@ from .playback import (
     PLAYBACK_LEASE_TTL_SECONDS,
     P115DirectLinkGateway,
     P115PlaybackConfigService,
+    P115PlaybackConflictError,
     P115PlaybackNotFoundError,
     P115PlaybackRepository,
     P115PlaybackSourceGateway,
@@ -59,6 +61,10 @@ _IN_FLIGHT_OPERATION_STATUSES = frozenset(
 )
 _OPERATION_WAIT_ATTEMPTS = 50
 _OPERATION_WAIT_SECONDS = 0.1
+
+
+class _PlaybackArtifactIdentityMissing(P115PlaybackStateError):
+    pass
 
 
 class PlaybackOperationExecutor(Protocol):
@@ -235,7 +241,20 @@ class P115PlaybackService:
         self._repository.expire_leases(limit=500)
         removed = 0
         for artifact in self._repository.reclaimable_artifacts(limit=500):
-            operation = self._reserve_reclamation(artifact)
+            try:
+                operation = self._reserve_reclamation(artifact)
+            except _PlaybackArtifactIdentityMissing:
+                try:
+                    self._repository.mark_artifact_indeterminate(
+                        artifact.id,
+                        expected_state_revision=artifact.state_revision,
+                        reason="provider_identity_missing",
+                    )
+                except P115PlaybackConflictError:
+                    pass
+                continue
+            except P115PlaybackConflictError:
+                continue
             if operation.status is PlaybackOperationStatus.CONFIRMED:
                 removed += 1
         return removed
@@ -335,8 +354,11 @@ class P115PlaybackService:
         primary = dict(self._sources.primary_account())
         account_id = str(primary.get("account_id") or "").strip()
         backend = str(primary.get("provider_backend") or "").strip()
+        credential_hash = str(primary.get("credential_hash") or "").strip().casefold()
         if not account_id or backend not in {"openapi", "cookie"}:
             raise P115PlaybackStateError("115 客户端未初始化，请先配置 115 Cookie/OpenAPI")
+        if re.fullmatch(r"[0-9a-f]{64}", credential_hash) is None:
+            raise P115PlaybackStateError("115 主号凭据身份缺失")
         current = self._config.temp_config()
         cleanup_cron = (
             str(payload.get("cleanup_cron") or "").strip()
@@ -345,11 +367,14 @@ class P115PlaybackService:
         )
         request = {
             "account_kind": "primary",
+            "credential_hash": credential_hash,
             "temp_dir_name": "ETK临时目录",
             "cleanup_cron": cleanup_cron,
         }
         operation = self._ensure_temp_dir_operation(
-            semantic_base=(f"ensure-temp:primary:{account_id}:{backend}:ETK临时目录:{sha256_text(cleanup_cron)}"),
+            semantic_base=(
+                f"ensure-temp:primary:{account_id}:{backend}:{credential_hash}:ETK临时目录:{sha256_text(cleanup_cron)}"
+            ),
             account_id=account_id,
             backend=backend,
             request=request,
@@ -418,15 +443,27 @@ class P115PlaybackService:
             account_id = account["id"]
             backend = account_backend(account)
             target_cid = str(account.get("temp_cid") or "")
+            provider_identity = {
+                "account_kind": "pool",
+                "credential_hash": pool_credential_fingerprint(account, backend),
+                "account_revision": pool_account_revision(account, backend),
+            }
         else:
             primary = dict(self._sources.primary_account())
             account_id = str(primary.get("account_id") or "").strip()
             backend = str(primary.get("provider_backend") or "").strip()
+            credential_hash = str(primary.get("credential_hash") or "").strip().casefold()
             target_cid = str(self._config.temp_config().get("cid") or "").strip()
             if not account_id or backend not in {"openapi", "cookie"}:
                 raise P115PlaybackStateError("115 Client not initialized")
+            if re.fullmatch(r"[0-9a-f]{64}", credential_hash) is None:
+                raise P115PlaybackStateError("115 主号凭据身份缺失")
             if not target_cid:
                 raise P115PlaybackStateError("115 临时目录 CID 未配置")
+            provider_identity = {
+                "account_kind": "primary",
+                "credential_hash": credential_hash,
+            }
         digest = artifact_key(
             mode=request.mode,
             account_id=account_id,
@@ -465,6 +502,7 @@ class P115PlaybackService:
                 target_cid=target_cid,
                 digest=digest,
                 previous=artifact,
+                provider_identity=provider_identity,
             )
         if artifact.status is not PlaybackArtifactStatus.AVAILABLE:
             raise P115PlaybackStateError(f"播放临时文件状态为 {artifact.status.value}")
@@ -714,6 +752,7 @@ class P115PlaybackService:
         target_cid: str,
         digest: str,
         previous: PlaybackArtifact | None,
+        provider_identity: Mapping[str, Any],
     ) -> PlaybackArtifact:
         generation = self._repository.latest_artifact_generation(digest)
         if previous is not None:
@@ -739,6 +778,7 @@ class P115PlaybackService:
                     "target_cid": target_cid,
                     "file_name": str(request.file_name or source.get("file_name") or ""),
                     "source": dict(source),
+                    **dict(provider_identity),
                 },
                 artifact_key=digest,
                 artifact_generation=generation,
@@ -776,6 +816,8 @@ class P115PlaybackService:
         )
 
     def _reserve_reclamation(self, artifact: PlaybackArtifact) -> PlaybackOperation:
+        identity = self._artifact_provider_identity(artifact)
+        receipt = artifact.remote_receipt if isinstance(artifact.remote_receipt, Mapping) else {}
         intent = PlaybackOperationIntent.create(
             semantic_key=f"reclaim:{artifact.id}:{artifact.state_revision}",
             kind=PlaybackOperationKind.RECLAIM,
@@ -789,6 +831,8 @@ class P115PlaybackService:
                 "target_cid": artifact.target_cid,
                 "remote_fid": artifact.remote_fid,
                 "remote_pick_code": artifact.remote_pick_code,
+                "created_remote": receipt.get("created_remote") is True,
+                **identity,
                 "source": {
                     "sha1": artifact.source_sha1,
                     "size": artifact.source_size,
@@ -801,6 +845,25 @@ class P115PlaybackService:
             artifact_generation=artifact.generation,
         )
         return self._reserve_and_execute(intent)
+
+    @staticmethod
+    def _artifact_provider_identity(artifact: PlaybackArtifact) -> dict[str, str]:
+        receipt = artifact.remote_receipt if isinstance(artifact.remote_receipt, Mapping) else {}
+        expected_kind = "pool" if artifact.mode is PlaybackMode.POOL else "primary"
+        account_kind = str(receipt.get("account_kind") or "").strip().casefold()
+        credential_hash = str(receipt.get("credential_hash") or "").strip().casefold()
+        if account_kind != expected_kind or re.fullmatch(r"[0-9a-f]{64}", credential_hash) is None:
+            raise _PlaybackArtifactIdentityMissing("播放临时文件缺少冻结的 provider 凭据身份，需人工对账")
+        identity = {
+            "account_kind": account_kind,
+            "credential_hash": credential_hash,
+        }
+        if account_kind == "pool":
+            account_revision = str(receipt.get("account_revision") or "").strip().casefold()
+            if re.fullmatch(r"[0-9a-f]{64}", account_revision) is None:
+                raise _PlaybackArtifactIdentityMissing("小号播放临时文件缺少冻结的账号版本，需人工对账")
+            identity["account_revision"] = account_revision
+        return identity
 
     def _ensure_temp_dir_operation(
         self,

@@ -257,13 +257,16 @@ class P115PlaybackOperationExecutor:
             }
             return self._repository.mark_confirmed(operation.id, token, result=result).operation
         if operation.kind is PlaybackOperationKind.RECLAIM:
-            if not bool(receipt.get("deleted")):
-                raise RuntimeError("confirmed playback reclamation did not prove deletion")
+            deleted = bool(receipt.get("deleted"))
+            released = bool(receipt.get("released"))
+            if not deleted and not released:
+                raise RuntimeError("confirmed playback reclamation did not prove deletion or safe release")
             return self._repository.mark_confirmed(
                 operation.id,
                 token,
                 result={
-                    "deleted": True,
+                    "deleted": deleted,
+                    "released": released,
                     "artifact_id": str(operation.request.get("artifact_id") or ""),
                     "readback": dict(operation.readback or {}),
                 },
@@ -285,6 +288,11 @@ class P115PlaybackOperationExecutor:
         remote_pick_code = str(receipt.get("remote_pick_code") or "").strip()
         if not artifact_key or generation <= 0 or not target_cid or not remote_fid or not remote_pick_code:
             raise RuntimeError("playback artifact receipt is incomplete")
+        artifact_receipt = dict(receipt)
+        for field in ("account_kind", "credential_hash", "account_revision"):
+            value = operation.request.get(field)
+            if value not in (None, ""):
+                artifact_receipt[field] = value
         return PlaybackArtifactIntent(
             artifact_key=artifact_key,
             generation=generation,
@@ -300,7 +308,7 @@ class P115PlaybackOperationExecutor:
             file_name=str(
                 receipt.get("file_name") or operation.request.get("file_name") or source.get("file_name") or ""
             ),
-            receipt=dict(receipt),
+            receipt=artifact_receipt,
             reclaim_not_before=datetime.now(UTC),
         )
 
@@ -352,8 +360,6 @@ class P115PlaybackOperationExecutor:
                 readback=outcome.readback,
             ).operation
         error = dict(outcome.error or {"type": "playback_provider_failure"})
-        if error.get("type") == "native_playback_recovery_unsupported" and not outcome.request_sent:
-            return self._repository.mark_indeterminate(operation.id, token, error=error).operation
         if outcome.disposition is PlaybackProviderDisposition.REJECTED:
             return self._repository.mark_rejected(operation.id, token, error=error).operation
         if not outcome.request_sent and outcome.disposition in {

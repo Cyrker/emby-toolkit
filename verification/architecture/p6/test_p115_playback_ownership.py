@@ -255,7 +255,17 @@ def test_p9_effects_and_proxy_transport_stay_outside_native_playback_core() -> N
 
 def test_native_daily_speedtest_wiring_is_processor_free_and_import_clean() -> None:
     worker = _source("src/etk/processes/worker.py")
+    app_factory = _source("src/etk/bootstrap/app_factory.py")
+    provider = _source("src/etk/domains/p115/playback_native.py")
+    maintenance_transport = _source("src/etk/domains/p115/maintenance_transport.py")
     assert '"play-pool-daily-speedtest"' in worker
+    assert "native_playback_recovery_unsupported" not in provider
+    assert "LegacyP115PlaybackProvider" not in worker
+    assert "LegacyP115PlaybackProvider" not in app_factory
+    for operation_kind in ("PREPARE", "ENSURE_TEMP_DIR", "SPEEDTEST", "RECLAIM"):
+        assert f"PlaybackOperationKind.{operation_kind}" in provider
+    assert 'refresh_token=""' in maintenance_transport
+    assert "refresh_token=snapshot.refresh_token" not in maintenance_transport
     for symbol in (
         "NativeP115PlaybackProvider",
         "NativeP115PlaybackRapidSigner",

@@ -172,7 +172,6 @@ from etk.domains.p115 import (
     LegacyP115IntroSnapshotExporter,
     LegacyP115IntroSyncFeature,
     LegacyP115PlanNamingGateway,
-    LegacyP115PlaybackProvider,
     LegacyP115PlaybackSourceGateway,
     LegacyP115PlaybackUserGateway,
     LegacyP115RenamePreviewGateway,
@@ -222,6 +221,11 @@ from etk.domains.p115 import (
     SqlAlchemyP115SortingRulesRepository,
     SqlAlchemyP115WashingPriorityRepository,
     select_intro_provider_identity,
+)
+from etk.domains.p115.playback_native import (
+    NativeP115PlaybackProvider,
+    NativeP115PlaybackRapidSigner,
+    NativeP115PoolPlaybackClientFactory,
 )
 from etk.domains.p115.playback_router import router as p115_playback_router
 from etk.domains.p115.router import router as p115_router
@@ -1362,7 +1366,19 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "p115.playback-provider",
-        lambda current: LegacyP115PlaybackProvider(current.use_case("p115.playback-config")),
+        lambda current: NativeP115PlaybackProvider(
+            NativeP115PoolPlaybackClientFactory(
+                current.use_case("p115.playback-config"),
+                primary_credentials=current.repository("p115.credentials"),
+            ),
+            NativeP115PlaybackRapidSigner(
+                P115SdkDirectUrlGateway(
+                    credentials=current.repository("p115.credentials"),
+                    priority=lambda: str(current.settings.p115_api_priority),
+                ),
+                current.repository("p115.credentials"),
+            ),
+        ),
     )
     container.register_client(
         "p115.playback-direct-links",

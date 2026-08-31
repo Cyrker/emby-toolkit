@@ -15,7 +15,13 @@ from .models import P115CredentialSnapshot
 class _P115SdkClient(Protocol):
     def fs_mkdir(self, name: str, pid: str, **kwargs: Any) -> object: ...
 
+    def fs_copy(self, file_ids: list[str], pid: str, **kwargs: Any) -> object: ...
+
     def fs_delete(self, file_ids: list[str], **kwargs: Any) -> object: ...
+
+    def fs_info(self, file_id: str, **kwargs: Any) -> object: ...
+
+    def fs_file_skim(self, file_id: str, **kwargs: Any) -> object: ...
 
     def recyclebin_clean(self, payload: object = ..., **kwargs: Any) -> object: ...
 
@@ -124,14 +130,14 @@ class P115PinnedOperationsClient:
         credentials: P115CredentialStore,
         snapshot: P115CredentialSnapshot,
         backend: str,
-        sdk: _P115SdkClient,
+        sdk_factory: SdkClientFactory,
         directory: P115DirectoryTreeClient,
         timeout_seconds: float,
     ) -> None:
         self._credentials = credentials
         self._snapshot = snapshot
         self._backend = backend
-        self._sdk = sdk
+        self._sdk_factory = sdk_factory
         self._directory = directory
         self._timeout_seconds = max(1.0, float(timeout_seconds))
 
@@ -175,7 +181,7 @@ class P115PinnedOperationsClient:
     def create_directory(self, parent_id: str, name: str) -> Mapping[str, Any]:
         self._assert_credentials()
         try:
-            value = self._sdk.fs_mkdir(
+            value = self._sdk_factory(self._snapshot, self._backend).fs_mkdir(
                 str(name),
                 str(parent_id),
                 timeout=self._timeout_seconds,
@@ -184,21 +190,58 @@ class P115PinnedOperationsClient:
             self._assert_credentials()
         return _mapping(value, "115 mkdir")
 
+    def copy_files(self, file_ids: list[str], parent_id: str) -> Mapping[str, Any]:
+        normalized = list(dict.fromkeys(str(value or "").strip() for value in file_ids if str(value or "").strip()))
+        target = str(parent_id or "").strip()
+        if not normalized or not target:
+            raise ValueError("115 copy requires source file IDs and a target directory")
+        self._assert_credentials()
+        try:
+            value = self._sdk_factory(self._snapshot, self._backend).fs_copy(
+                normalized,
+                target,
+                timeout=self._timeout_seconds,
+            )
+        finally:
+            self._assert_credentials()
+        return _mapping(value, "115 copy")
+
     def delete_files(self, file_ids: list[str]) -> Mapping[str, Any]:
         normalized = list(dict.fromkeys(str(value or "").strip() for value in file_ids if str(value or "").strip()))
         if not normalized:
             return {"state": True}
         self._assert_credentials()
         try:
-            value = self._sdk.fs_delete(normalized, timeout=self._timeout_seconds)
+            value = self._sdk_factory(self._snapshot, self._backend).fs_delete(
+                normalized,
+                timeout=self._timeout_seconds,
+            )
         finally:
             self._assert_credentials()
         return _mapping(value, "115 delete")
 
+    def file_info(self, file_id: str) -> Mapping[str, Any]:
+        normalized = str(file_id or "").strip()
+        if not normalized:
+            raise ValueError("115 file ID is required")
+        self._assert_credentials()
+        try:
+            sdk = self._sdk_factory(self._snapshot, self._backend)
+            if self._backend == "openapi":
+                value = sdk.fs_info(normalized, timeout=self._timeout_seconds)
+            else:
+                value = sdk.fs_file_skim(normalized, timeout=self._timeout_seconds)
+        finally:
+            self._assert_credentials()
+        return _mapping(value, "115 file info")
+
     def clear_recycle_bin(self) -> Mapping[str, Any]:
         self._assert_credentials()
         try:
-            value = self._sdk.recyclebin_clean({}, timeout=self._timeout_seconds)
+            value = self._sdk_factory(self._snapshot, self._backend).recyclebin_clean(
+                {},
+                timeout=self._timeout_seconds,
+            )
         finally:
             self._assert_credentials()
         return _mapping(value, "115 recycle-bin clean")
@@ -206,7 +249,7 @@ class P115PinnedOperationsClient:
     def recycle_bin_empty(self) -> bool | None:
         self._assert_credentials()
         try:
-            value = self._sdk.recyclebin_list(
+            value = self._sdk_factory(self._snapshot, self._backend).recyclebin_list(
                 {"offset": 0, "limit": 1},
                 timeout=self._timeout_seconds,
             )
@@ -276,7 +319,7 @@ class P115PrimaryOperationsGateway:
             credentials=self._credentials,
             snapshot=snapshot,
             backend=backend,
-            sdk=self._sdk_factory(snapshot, backend),
+            sdk_factory=self._sdk_factory,
             directory=directory,
             timeout_seconds=self._timeout_seconds,
         )
@@ -290,7 +333,7 @@ def _default_sdk_client(snapshot: P115CredentialSnapshot, backend: str) -> _P115
             _P115SdkClient,
             P115OpenClient(
                 access_token=snapshot.access_token,
-                refresh_token=snapshot.refresh_token,
+                refresh_token="",
                 console_qrcode=False,
             ),
         )
@@ -390,6 +433,28 @@ def response_id(value: Mapping[str, Any]) -> str:
     return _item_id(data) if isinstance(data, Mapping) else ""
 
 
+def response_ids(value: Mapping[str, Any]) -> frozenset[str]:
+    values = {_item_id(value), response_id(value)}
+    data: object = value.get("data")
+    items: list[object]
+    if isinstance(data, Mapping):
+        nested = next(
+            (data.get(key) for key in ("list", "items", "data") if isinstance(data.get(key), list)),
+            None,
+        )
+        items = list(nested) if isinstance(nested, list) else [data]
+    elif isinstance(data, list):
+        items = list(data)
+    else:
+        nested = next(
+            (value.get(key) for key in ("list", "items") if isinstance(value.get(key), list)),
+            None,
+        )
+        items = list(nested) if isinstance(nested, list) else []
+    values.update(_item_id(item) for item in items if isinstance(item, Mapping))
+    return frozenset(item for item in values if item)
+
+
 def _human_bytes(value: int) -> str:
     size = float(max(0, value))
     units = ("B", "KB", "MB", "GB", "TB")
@@ -409,4 +474,5 @@ __all__ = [
     "item_name",
     "provider_succeeded",
     "response_id",
+    "response_ids",
 ]

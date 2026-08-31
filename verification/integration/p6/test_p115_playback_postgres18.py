@@ -35,6 +35,7 @@ from etk.domains.p115.playback import (
     PlaybackQrStatus,
     operation_id,
 )
+from etk.domains.p115.playback_native import NativeP115PlaybackProvider
 from etk.domains.p115.playback_repository import PostgresP115PlaybackRepository
 from etk.domains.p115.playback_service import P115PlaybackService
 from etk.platform.db import DatabaseRuntime
@@ -102,7 +103,11 @@ class FakeSources:
         }
 
     def primary_account(self) -> dict[str, Any]:
-        return {"account_id": "fixture-primary", "provider_backend": "openapi"}
+        return {
+            "account_id": "fixture-primary",
+            "provider_backend": "openapi",
+            "credential_hash": "c" * 64,
+        }
 
 
 class FakeDirectLinks:
@@ -299,7 +304,18 @@ def _artifact_intent(
     artifact_key: str | None = None,
     generation: int | None = None,
     remote_suffix: str = "fixture",
+    include_identity: bool = True,
+    created_remote: bool = True,
 ) -> PlaybackArtifactIntent:
+    provider_identity = (
+        {
+            "account_kind": "pool",
+            "credential_hash": "c" * 64,
+            "account_revision": "d" * 64,
+        }
+        if operation.mode is PlaybackMode.POOL
+        else {"account_kind": "primary", "credential_hash": "c" * 64}
+    )
     return PlaybackArtifactIntent(
         artifact_key=artifact_key or str(operation.artifact_key or ""),
         generation=generation or int(operation.artifact_generation or 0),
@@ -318,7 +334,8 @@ def _artifact_intent(
             "remote_fid": f"fixture-remote-fid-{remote_suffix}",
             "remote_pick_code": f"fixture-remote-pick-{remote_suffix}",
             "file_name": "Fixture.mkv",
-            "created_remote": True,
+            "created_remote": created_remote,
+            **(provider_identity if include_identity else {}),
         },
         reclaim_not_before=datetime.now(UTC) - timedelta(seconds=1),
     )
@@ -331,6 +348,8 @@ def _commit_artifact(
     artifact_key: str,
     generation: int,
     remote_suffix: str,
+    include_identity: bool = True,
+    created_remote: bool = True,
 ) -> PlaybackArtifact:
     operation = repository.reserve(_prepare_intent(semantic_key, artifact_key, generation)).operation
     claimed = repository.claim_by_id(operation.id, worker_id=f"fixture-{remote_suffix}", lease_seconds=30)
@@ -339,7 +358,12 @@ def _commit_artifact(
         claimed.id,
         claimed.claim_token,
         result={"artifact_key": artifact_key, "artifact_generation": generation},
-        artifact=_artifact_intent(claimed, remote_suffix=remote_suffix),
+        artifact=_artifact_intent(
+            claimed,
+            remote_suffix=remote_suffix,
+            include_identity=include_identity,
+            created_remote=created_remote,
+        ),
     )
     artifact = repository.artifact_by_key(artifact_key)
     assert artifact is not None and artifact.generation == generation
@@ -1156,6 +1180,153 @@ def test_known_rejected_temp_dir_can_retry_once_without_replaying_indeterminate_
             .all()
         )
     assert statuses == ["rejected", "confirmed"]
+
+
+def test_primary_temp_dir_operation_freezes_non_secret_credential_identity(
+    p6_runtime: DatabaseRuntime,
+) -> None:
+    provider = RecordingProvider()
+    service = _service(p6_runtime, provider, worker_id="fixture-primary-worker")
+
+    saved = service.save_temp_config({"cleanup_cron": "15 * * * *"})
+
+    assert saved["cid"] == "fixture-temp-cid"
+    with p6_runtime.engine.connect() as connection:
+        request = connection.execute(
+            text(
+                "SELECT request_json FROM p115_playback_operations "
+                "WHERE kind = 'ensure_temp_dir' ORDER BY event_sequence DESC LIMIT 1"
+            )
+        ).scalar_one()
+    assert request["account_kind"] == "primary"
+    assert request["credential_hash"] == "c" * 64
+    assert request["cleanup_cron"] == "15 * * * *"
+    assert "access_token" not in request
+    assert "refresh_token" not in request
+    assert "cookie" not in request
+
+
+def test_cleanup_fences_historical_identity_gap_and_continues_owned_reclamation(
+    p6_runtime: DatabaseRuntime,
+) -> None:
+    repository = _repository(p6_runtime)
+    historical = _commit_artifact(
+        repository,
+        semantic_key="fixture-historical-artifact",
+        artifact_key="8" * 64,
+        generation=1,
+        remote_suffix="historical",
+        include_identity=False,
+    )
+    owned = _commit_artifact(
+        repository,
+        semantic_key="fixture-owned-artifact",
+        artifact_key="9" * 64,
+        generation=1,
+        remote_suffix="owned",
+    )
+    provider = RecordingProvider()
+    service = _service(p6_runtime, provider, worker_id="fixture-cleanup-worker")
+
+    removed = service.cleanup()
+
+    historical_after = repository.artifact(historical.id)
+    owned_after = repository.artifact(owned.id)
+    assert removed == 1
+    assert historical_after is not None
+    assert historical_after.status is PlaybackArtifactStatus.INDETERMINATE
+    assert historical_after.remote_receipt is not None
+    assert historical_after.remote_receipt["reconciliation_required"] is True
+    assert historical_after.remote_receipt["reconciliation_reason"] == "provider_identity_missing"
+    assert owned_after is not None and owned_after.status is PlaybackArtifactStatus.RECLAIMED
+    assert provider.reclaim_writes == 1
+
+
+def test_cleanup_continues_when_historical_fence_loses_revision(
+    p6_runtime: DatabaseRuntime,
+) -> None:
+    repository = _repository(p6_runtime)
+    historical = _commit_artifact(
+        repository,
+        semantic_key="fixture-raced-historical-artifact",
+        artifact_key="6" * 64,
+        generation=1,
+        remote_suffix="raced-historical",
+        include_identity=False,
+    )
+    owned = _commit_artifact(
+        repository,
+        semantic_key="fixture-raced-owned-artifact",
+        artifact_key="5" * 64,
+        generation=1,
+        remote_suffix="raced-owned",
+    )
+    provider = RecordingProvider()
+    service = _service(p6_runtime, provider, worker_id="fixture-raced-cleanup-worker")
+
+    def lose_revision(*_args: Any, **_kwargs: Any) -> PlaybackArtifact:
+        raise P115PlaybackConflictError("fixture concurrent artifact change")
+
+    cast(Any, service)._repository.mark_artifact_indeterminate = lose_revision
+
+    removed = service.cleanup()
+
+    assert removed == 1
+    assert repository.artifact(historical.id).status is PlaybackArtifactStatus.AVAILABLE  # type: ignore[union-attr]
+    assert repository.artifact(owned.id).status is PlaybackArtifactStatus.RECLAIMED  # type: ignore[union-attr]
+    assert provider.reclaim_writes == 1
+
+
+def test_cleanup_safely_releases_unowned_artifact_without_remote_delete(
+    p6_runtime: DatabaseRuntime,
+) -> None:
+    class NoRemoteCallsClient:
+        def remote_exists(self, _remote_fid: str, _target_cid: str) -> bool | None:
+            raise AssertionError("an adopted playback artifact must not be checked for deletion")
+
+        def delete_remote(self, _remote_fid: str, _target_cid: str) -> bool | None:
+            raise AssertionError("an adopted playback artifact must not be deleted")
+
+    class ClientFactory:
+        def __init__(self) -> None:
+            self.open_calls = 0
+
+        def open(self, _operation: PlaybackOperation) -> NoRemoteCallsClient:
+            self.open_calls += 1
+            return NoRemoteCallsClient()
+
+    repository = _repository(p6_runtime)
+    artifact = _commit_artifact(
+        repository,
+        semantic_key="fixture-adopted-artifact",
+        artifact_key="7" * 64,
+        generation=1,
+        remote_suffix="adopted",
+        created_remote=False,
+    )
+    clients = ClientFactory()
+    provider = NativeP115PlaybackProvider(cast(Any, clients), cast(Any, object()))
+    service = _service(
+        p6_runtime,
+        cast(Any, provider),
+        worker_id="fixture-safe-release-worker",
+    )
+
+    removed = service.cleanup()
+
+    artifact_after = repository.artifact(artifact.id)
+    assert removed == 1
+    assert clients.open_calls == 0
+    assert artifact_after is not None and artifact_after.status is PlaybackArtifactStatus.RECLAIMED
+    with p6_runtime.engine.connect() as connection:
+        operation = (
+            connection.execute(text("SELECT status, result_json FROM p115_playback_operations WHERE kind = 'reclaim'"))
+            .mappings()
+            .one()
+        )
+    assert operation["status"] == "confirmed"
+    assert operation["result_json"]["deleted"] is False
+    assert operation["result_json"]["released"] is True
 
 
 class ReadbackAfterCrashProvider:

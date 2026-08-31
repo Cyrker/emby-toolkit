@@ -454,6 +454,14 @@ class P115PlaybackRepository(Protocol):
 
     def artifact(self, artifact_id: UUID) -> PlaybackArtifact | None: ...
 
+    def mark_artifact_indeterminate(
+        self,
+        artifact_id: UUID,
+        *,
+        expected_state_revision: int,
+        reason: str,
+    ) -> PlaybackArtifact: ...
+
     def latest_artifact_generation(self, artifact_key: str) -> int: ...
 
     def reserve_lease(self, intent: PlaybackLeaseIntent) -> PlaybackLeaseReservation: ...

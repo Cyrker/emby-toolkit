@@ -124,7 +124,6 @@ from etk.domains.p115 import (
     IntroDetectionOperation,
     IntroDetectionSubmissionService,
     LegacyP115DirectLinkGateway,
-    LegacyP115PlaybackProvider,
     LegacyP115PlaybackSourceGateway,
     LegacyP115PlaybackUserGateway,
     LegacyP115StrmSyncGateway,
@@ -1068,7 +1067,19 @@ class WorkerRuntime:
                 )
                 playback_executor = P115PlaybackOperationExecutor(
                     repository=playback_repository,
-                    provider=LegacyP115PlaybackProvider(playback_config),
+                    provider=NativeP115PlaybackProvider(
+                        NativeP115PoolPlaybackClientFactory(
+                            playback_config,
+                            primary_credentials=p115_credentials,
+                        ),
+                        NativeP115PlaybackRapidSigner(
+                            P115SdkDirectUrlGateway(
+                                credentials=p115_credentials,
+                                priority=lambda: str(settings_provider().p115_api_priority),
+                            ),
+                            p115_credentials,
+                        ),
+                    ),
                     config=playback_config,
                     worker_id=f"{self._worker_id}:p115-playback",
                 )
@@ -1521,7 +1532,10 @@ class WorkerRuntime:
             playback_executor = P115PlaybackOperationExecutor(
                 repository=playback_repository,
                 provider=NativeP115PlaybackProvider(
-                    NativeP115PoolPlaybackClientFactory(playback_config),
+                    NativeP115PoolPlaybackClientFactory(
+                        playback_config,
+                        primary_credentials=p115_credentials,
+                    ),
                     NativeP115PlaybackRapidSigner(
                         P115SdkDirectUrlGateway(
                             credentials=p115_credentials,

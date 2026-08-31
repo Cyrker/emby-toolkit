@@ -5282,6 +5282,61 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Native-Playback-Recovery
+
+Stage / Batch: P11 / native interactive playback operation recovery
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `089fca88` (`refactor(p11): execute native play pool speedtest`).
+- Target checkpoint message: `refactor(p11): recover native playback operations`.
+
+Implemented:
+
+- Made Native playback own `PREPARE` and `RECLAIM` in API and compatibility Worker wiring, with
+  frozen primary/pool credential identity and fresh pinned SDK clients per provider operation.
+- Added exact fixed-FID OpenAPI/Cookie readback and checkpoint-after-mutation no-resend for
+  PREPARE, RECLAIM, ENSURE_TEMP_DIR and SPEEDTEST.
+- Persisted computed PREID before Rapid/COPY mutation and reused it during recovery. Response-lost
+  PREPARE may adopt a unique remote match but never claims deletion ownership.
+- Required exact boolean `created_remote=true` before any remote delete. Missing, false or malformed
+  ownership safely releases locally before provider client creation.
+- Fenced historical artifacts with missing provider identity as `INDETERMINATE`; cleanup treats
+  artifact revision/lease conflicts as per-item races and continues processing the batch.
+
+Targeted gate:
+
+- Focused P6/P9/P6-architecture gate -> `182 passed`.
+- Full P6/P9/P4 application gate -> `1302 passed`, with the existing Starlette WSGI deprecation
+  warning.
+- Disposable PostgreSQL 18 playback gate -> `31 passed`.
+- Scoped Ruff/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`).
+- Compileall, `uv lock --check`, Manifest/OpenAPI currentness, three fixture/contract secret scans
+  and `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-native-playback-recovery-20260831/summary.md`.
+
+Focused review:
+
+- Closed fixed-FID response normalization, COPY rejection/adoption ordering, historical identity
+  fencing, phase-missing resend, recovery ownership race, missing-PREID durability, malformed
+  ownership deletion and per-artifact cleanup conflict findings.
+- Final scoped review found no deterministic P0/P1/P2 in this recovery slice.
+
+Pending:
+
+- Complete native interactive source/direct-URL/streaming ownership and the remaining 25 native-only
+  unavailable task keys.
+- Close the 21/23 legacy Route bindings, 12 legacy tables, 82 dynamic config keys, seven bootstrap
+  keys, 11 standalone settings and Frontend ownership before pre-removal, controlled legacy removal
+  and the P11 NFR/security/SBOM/vulnerability/License gates.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -5301,8 +5356,8 @@ Read first:
 
 Next:
 
-- Resume the 26 unavailable native-only task keys, beginning with the processor-free
-  `play-pool-daily-speedtest` graph, and the exact 21/23 legacy Route bindings from the latest
+- Complete native interactive playback source/direct-URL/streaming ownership, then resume the 25
+  unavailable native-only task keys and exact 21/23 legacy Route bindings from the latest
   manifests/runtime call graph. Close Route, Task, Table, Config and Frontend ownership before
   controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete;
   keep all Live Acceptance items pending.

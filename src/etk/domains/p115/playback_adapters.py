@@ -13,6 +13,7 @@ from .playback import (
     P115PlaybackNotFoundError,
     P115PlaybackProvider,
     P115PlaybackSourceGateway,
+    P115PlaybackStateError,
     P115PlaybackUserGateway,
     PlaybackArtifact,
     PlaybackMode,
@@ -24,6 +25,7 @@ from .playback import (
     PlaybackUpstreamStream,
     human_bytes,
     normalize_sha1,
+    pool_credential_fingerprint,
     safe_playback_json,
 )
 
@@ -101,10 +103,12 @@ class LegacyP115PlaybackSourceGateway(P115PlaybackSourceGateway):
                 request.source_pick_code,
                 request.file_name,
             )
-            return _source_snapshot(
-                row,
-                fallback_pick_code=request.source_pick_code,
-                fallback_name=request.file_name,
+            return self._bind_primary_holder(
+                _source_snapshot(
+                    row,
+                    fallback_pick_code=request.source_pick_code,
+                    fallback_name=request.file_name,
+                )
             )
         if request.mode is PlaybackMode.COPY:
             from handler.p115_service import P115CacheManager
@@ -133,7 +137,21 @@ class LegacyP115PlaybackSourceGateway(P115PlaybackSourceGateway):
             backend = "cookie"
         else:
             backend = ""
-        return {"account_id": account_id, "provider_backend": backend}
+        credential_hash = ""
+        if backend:
+            credential_hash = pool_credential_fingerprint(
+                {
+                    "access_token": access_token,
+                    "cookie": cookie,
+                    "app_type": _app_type,
+                },
+                backend,
+            )
+        return {
+            "account_id": account_id,
+            "provider_backend": backend,
+            "credential_hash": credential_hash,
+        }
 
     @staticmethod
     def _speedtest() -> Mapping[str, Any]:
@@ -146,7 +164,9 @@ class LegacyP115PlaybackSourceGateway(P115PlaybackSourceGateway):
         from handler.p115_play_pool import _get_source_row_from_mediainfo_cache
 
         row = _get_source_row_from_mediainfo_cache("", pick_code, _VIDEO_SAMPLE_NAME)
-        return _source_snapshot(row, fallback_pick_code=pick_code, fallback_name=_VIDEO_SAMPLE_NAME)
+        return LegacyP115PlaybackSourceGateway._bind_primary_holder(
+            _source_snapshot(row, fallback_pick_code=pick_code, fallback_name=_VIDEO_SAMPLE_NAME)
+        )
 
     @staticmethod
     def _virtual(request: PlaybackPrepareRequest) -> Mapping[str, Any]:
@@ -175,7 +195,22 @@ class LegacyP115PlaybackSourceGateway(P115PlaybackSourceGateway):
                 )[:255],
             }
         )
-        return safe_playback_json(snapshot, field="virtual playback source")
+        return LegacyP115PlaybackSourceGateway._bind_primary_holder(
+            safe_playback_json(snapshot, field="virtual playback source")
+        )
+
+    @staticmethod
+    def _bind_primary_holder(source: Mapping[str, Any]) -> dict[str, Any]:
+        snapshot = dict(source)
+        holder = str(snapshot.get("holder_account_id") or "").strip()
+        if not holder.isdigit():
+            from handler.p115_service import get_115_account_id
+
+            holder = str(get_115_account_id() or "").strip()
+        if not holder.isdigit():
+            raise P115PlaybackStateError("播放源缺少稳定的主号 holder 身份")
+        snapshot["holder_account_id"] = holder
+        return safe_playback_json(snapshot, field="playback holder source")
 
 
 class LegacyP115PlaybackProvider(P115PlaybackProvider):
@@ -473,6 +508,12 @@ class LegacyP115PlaybackProvider(P115PlaybackProvider):
         remote_fid = str(operation.request.get("remote_fid") or "").strip()
         if not remote_fid:
             return _rejected("reclaim_fid_missing", "播放临时文件回收缺少 remote_fid")
+        if operation.request.get("created_remote") is False:
+            return _confirmed(
+                {"deleted": False, "released": True, "remote_fid": remote_fid},
+                request_sent=False,
+                readback={"owned_remote": False},
+            )
         exists = self._remote_exists(operation, remote_fid)
         if exists is False:
             return _confirmed({"deleted": True, "remote_fid": remote_fid}, request_sent=False)
@@ -509,6 +550,12 @@ class LegacyP115PlaybackProvider(P115PlaybackProvider):
         ).strip()
         if not remote_fid:
             return _indeterminate("delete_readback_fid_missing", "删除回读缺少固定 remote_fid")
+        if operation.request.get("created_remote") is False:
+            return _confirmed(
+                {"deleted": False, "released": True, "remote_fid": remote_fid},
+                request_sent=False,
+                readback={"owned_remote": False},
+            )
         exists = self._remote_exists(operation, remote_fid)
         if exists is None:
             return _indeterminate("delete_readback_unknown", "无法确认播放临时文件是否仍存在")
@@ -860,6 +907,9 @@ def _source_snapshot(
             row.get("pick_code") or row.get("pickcode") or row.get("pc") or fallback_pick_code or ""
         ).strip(),
         "fid": str(row.get("fid") or row.get("file_id") or row.get("id") or "").strip(),
+        "holder_account_id": str(
+            row.get("holder_account_id") or row.get("local_sign_holder_account_id") or row.get("account_id") or ""
+        ).strip(),
         "file_name": str(row.get("file_name") or row.get("name") or row.get("n") or fallback_name or "").strip(),
     }
     return safe_playback_json(snapshot, field="playback source snapshot")

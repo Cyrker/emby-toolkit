@@ -233,7 +233,12 @@ class DirectoryClient:
 
     def list_page(self, *, cid: str, limit: int, offset: int) -> Mapping[str, Any]:
         assert (cid, limit) == ("target-fixture", 1000)
-        return {"count": len(self.items), "data": self.items[offset : offset + limit]}
+        return {
+            "state": True,
+            "_etk_authoritative_list_payload": True,
+            "count": len(self.items),
+            "data": self.items[offset : offset + limit],
+        }
 
 
 class Directory:
@@ -358,6 +363,41 @@ def test_native_speedtest_readback_requires_its_operation_scoped_file_name() -> 
 
     assert missing.status == "partial"
     assert missing.missing_count == 1
+
+
+def test_native_rapid_readback_rejects_non_authoritative_missing_result() -> None:
+    identity = {
+        "account_id": "115001",
+        "backend": "openapi",
+        "credential_hash": hashlib.sha256(b"openapi\0\0fixture-token").hexdigest(),
+        "target_cid": "target-fixture",
+        "files": [_source()],
+    }
+
+    class NonAuthoritativeDirectoryClient:
+        def list_page(self, *, cid: str, limit: int, offset: int) -> Mapping[str, Any]:
+            assert (cid, limit, offset) == ("target-fixture", 1000, 0)
+            return {"state": False, "data": []}
+
+    class NonAuthoritativeDirectory:
+        def open(
+            self,
+            *,
+            expected_account_id: str,
+            expected_backend: str | None = None,
+        ) -> NonAuthoritativeDirectoryClient:
+            assert (expected_account_id, expected_backend) == ("115001", "openapi")
+            return NonAuthoritativeDirectoryClient()
+
+    gateway = NativeP115RapidTransferGateway(
+        credentials=cast(Any, Credentials()),
+        priority=lambda: "openapi",
+        target_cid=lambda: "target-fixture",
+        directory=cast(Any, NonAuthoritativeDirectory()),
+    )
+
+    with pytest.raises(RuntimeError, match="not authoritative"):
+        gateway.readback(identity)
 
 
 def test_rapid_transfer_rejects_missing_preid_before_checkpoint() -> None:
