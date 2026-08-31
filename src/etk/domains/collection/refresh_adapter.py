@@ -8,6 +8,11 @@ import httpx
 
 from etk.platform import Settings
 
+from .activation import (
+    CollectionActivationNotFoundError,
+    CollectionActivationProviderRejectedError,
+    CollectionActivationProviderUnavailableError,
+)
 from .refresh import NativeCollectionReference
 
 
@@ -86,25 +91,43 @@ class HttpxNativeCollectionRefreshAdapter:
         return tuple(unique.values())
 
     def collection_details(self, tmdb_collection_id: str) -> Mapping[str, Any]:
-        settings = self._settings()
-        base_url = settings.tmdb_api_base_url.strip().rstrip("/")
-        api_key = settings.tmdb_api_key.get_secret_value().strip()
-        if not base_url or not api_key:
-            raise RuntimeError("TMDb is not configured")
         try:
+            settings = self._settings()
+            base_url = settings.tmdb_api_base_url.strip().rstrip("/")
+            api_key = settings.tmdb_api_key.get_secret_value().strip()
+            if not base_url or not api_key:
+                raise CollectionActivationProviderUnavailableError("TMDb is not configured")
             with self._client_factory() as client:
                 response = client.get(
                     f"{base_url}/collection/{quote(str(tmdb_collection_id), safe='')}",
                     params={"api_key": api_key, "language": "zh-CN"},
                     headers={"Accept": "application/json"},
                 )
-                if response.status_code != 200:
-                    raise RuntimeError("TMDb collection query was rejected")
+                if response.status_code == 404:
+                    raise CollectionActivationNotFoundError("TMDb collection was not found")
+                if 300 <= response.status_code < 400 or response.status_code in {408, 425, 429}:
+                    raise CollectionActivationProviderUnavailableError(
+                        f"TMDb collection query returned transient HTTP {response.status_code}"
+                    )
+                if 400 <= response.status_code < 500:
+                    raise CollectionActivationProviderRejectedError(
+                        f"TMDb collection query was rejected with HTTP {response.status_code}"
+                    )
+                if response.status_code >= 500:
+                    raise CollectionActivationProviderUnavailableError(
+                        f"TMDb collection query returned HTTP {response.status_code}"
+                    )
                 payload: Any = response.json()
-        except (httpx.HTTPError, TypeError, ValueError) as exc:
-            raise RuntimeError("TMDb collection query is unavailable") from exc
+        except (
+            CollectionActivationNotFoundError,
+            CollectionActivationProviderRejectedError,
+            CollectionActivationProviderUnavailableError,
+        ):
+            raise
+        except (httpx.HTTPError, OSError, RuntimeError, TypeError, ValueError) as exc:
+            raise CollectionActivationProviderUnavailableError("TMDb collection query is unavailable") from exc
         if not isinstance(payload, Mapping):
-            raise RuntimeError("TMDb collection query returned an invalid payload")
+            raise CollectionActivationProviderUnavailableError("TMDb collection query returned an invalid payload")
         return dict(payload)
 
     @staticmethod

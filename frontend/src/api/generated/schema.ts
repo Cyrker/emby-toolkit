@@ -2001,6 +2001,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/emby/collections/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Activate Emby Collection */
+        post: operations["api_activate_emby_collection_api_emby_collections_activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/emby/events": {
         parameters: {
             query?: never;
@@ -11387,6 +11404,62 @@ export interface operations {
             };
             /** @description Legacy-compatible P8 discover response */
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_activate_emby_collection_api_emby_collections_activate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Legacy-compatible P8 collection response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Legacy-compatible P8 collection response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Legacy-compatible P8 collection response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Legacy-compatible P8 collection response */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

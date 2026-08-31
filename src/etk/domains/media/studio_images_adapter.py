@@ -18,7 +18,7 @@ from .effect_execution import (
     MediaEffectDeliveryRetryable,
     PersistentMediaEffectExecutor,
 )
-from .effects import MediaEffectProjection, PostgresMediaEffectLedger
+from .effects import MediaEffectProjection
 from .studio_images import STUDIO_IMAGE_EFFECT_TYPE
 
 _MAX_IMAGE_BYTES = 8 * 1024 * 1024
@@ -307,8 +307,7 @@ class HttpxStudioImageAdapter:
 
 
 class PersistentStudioImageEffects:
-    def __init__(self, ledger: PostgresMediaEffectLedger, executor: PersistentMediaEffectExecutor) -> None:
-        self._ledger = ledger
+    def __init__(self, executor: PersistentMediaEffectExecutor) -> None:
         self._executor = executor
 
     def reconcile(
@@ -319,7 +318,7 @@ class PersistentStudioImageEffects:
         logo_path: str | None,
         logo_source: str | None,
     ) -> MediaEffectProjection:
-        reservation = self._ledger.reserve(
+        return self._executor.reserve_and_execute(
             effect_key=effect_key,
             effect_type=STUDIO_IMAGE_EFFECT_TYPE,
             aggregate_type="emby_studio",
@@ -329,7 +328,6 @@ class PersistentStudioImageEffects:
                 "logo_path": logo_path,
             },
         )
-        return self._executor.execute(reservation.effect.id)
 
 
 def _logo_path(value: object) -> str | None:

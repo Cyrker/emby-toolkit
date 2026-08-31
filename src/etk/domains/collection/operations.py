@@ -16,6 +16,7 @@ COLLECTION_OPERATION_TOPICS = (COLLECTION_OPERATION_TOPIC,)
 
 
 class CollectionOperationKind(StrEnum):
+    ACTIVATION_REFRESH = "collection.activation.refresh"
     NATIVE_DELETE = "collection.native.delete"
     CUSTOM_DELETE = "collection.custom.delete"
     MISSING_CLEANUP = "collection.missing.cleanup"

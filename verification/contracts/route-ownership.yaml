@@ -3137,22 +3137,23 @@
       "contract_id": "route-binding-011753ae8a9a",
       "decorator_contract_id": "route-decorator-46d1f8f59ad1",
       "endpoint": "activate_emby_collection",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P11 native collection activation atomically persists the plugin binding, durable targeted refresh operation and identifier-only Outbox; provider reads and subscription publication execute in the Worker.",
       "path": "/api/emby/collections/activate",
       "retirement_approval": null,
       "source": "routes/webhook.py:1908",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "ingestion",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-p11-collection-activation-http-postgres18-redis-celery-and-openapi",
+      "validation_owner": "collection/activation"
     },
     {
       "application": "api",
@@ -11361,24 +11362,25 @@
       "contract_id": "route-decorator-46d1f8f59ad1",
       "declared_path": "/api/emby/collections/activate",
       "endpoint": "activate_emby_collection",
-      "fixture": "verification/fixtures/http/bridge-validation-errors.json",
+      "fixture": "verification/fixtures/http/p8-collection-cover.json",
       "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.router",
+      "notes": "P11 native collection activation atomically persists the plugin binding, durable targeted refresh operation and identifier-only Outbox; provider reads and subscription publication execute in the Worker.",
       "path": "/api/emby/collections/activate",
       "retirement_approval": null,
       "source": "routes/webhook.py:1908",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "ingestion",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-p11-collection-activation-http-postgres18-redis-celery-and-openapi",
+      "validation_owner": "collection/activation"
     },
     {
       "application": "api",

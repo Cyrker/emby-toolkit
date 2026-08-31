@@ -3684,6 +3684,15 @@
         "status": "new",
         "validation_method": "pytest-p11-intro-backfill-http-native-worker-and-openapi",
         "validation_owner": "p115/intro-detection"
+      },
+      "route-binding-011753ae8a9a": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P11 native collection activation atomically persists the plugin binding, durable targeted refresh operation and identifier-only Outbox; provider reads and subscription publication execute in the Worker.",
+        "status": "new",
+        "validation_method": "pytest-p11-collection-activation-http-postgres18-redis-celery-and-openapi",
+        "validation_owner": "collection/activation"
       }
     },
     "route_decorators": {
@@ -6593,6 +6602,15 @@
         "status": "new",
         "validation_method": "pytest-p11-intro-backfill-http-native-worker-and-openapi",
         "validation_owner": "p115/intro-detection"
+      },
+      "route-decorator-46d1f8f59ad1": {
+        "fixture": "verification/fixtures/http/p8-collection-cover.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.collection.router",
+        "notes": "P11 native collection activation atomically persists the plugin binding, durable targeted refresh operation and identifier-only Outbox; provider reads and subscription publication execute in the Worker.",
+        "status": "new",
+        "validation_method": "pytest-p11-collection-activation-http-postgres18-redis-celery-and-openapi",
+        "validation_owner": "collection/activation"
       }
     },
     "settings": {

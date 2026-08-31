@@ -108,19 +108,51 @@ class PersistentMediaEffectExecutor:
             raise MediaEffectExecutionUnavailable(
                 f"media effect type {current.effect_type!r} is unavailable in this Worker profile"
             )
-        lease_seconds = float(self._lease_seconds())
-        if lease_seconds <= 0:
-            raise ValueError("media effect lease must be positive")
         claimed = self._ledger.claim_by_id(
             effect_id,
             worker_id=self._worker_id,
-            lease_seconds=lease_seconds,
+            lease_seconds=self._claim_lease_seconds(),
         )
         if claimed is None:
             current = self._ledger.read_by_id(effect_id)
             if current is None:
                 raise MediaEffectNotFoundError(f"media effect {effect_id} was not found")
             return current
+        return self._deliver_claimed(claimed)
+
+    def reserve_and_execute(
+        self,
+        *,
+        effect_key: str,
+        effect_type: str,
+        aggregate_type: str,
+        aggregate_id: str,
+        payload: Mapping[str, Any],
+    ) -> MediaEffectProjection:
+        if effect_type not in self._delivery.effect_types:
+            raise MediaEffectExecutionUnavailable(
+                f"media effect type {effect_type!r} is unavailable in this Worker profile"
+            )
+        reservation = self._ledger.reserve_and_claim(
+            effect_key=effect_key,
+            effect_type=effect_type,
+            aggregate_type=aggregate_type,
+            aggregate_id=aggregate_id,
+            payload=payload,
+            worker_id=self._worker_id,
+            lease_seconds=self._claim_lease_seconds(),
+        )
+        if not reservation.claimed:
+            return reservation.effect
+        return self._deliver_claimed(reservation.effect)
+
+    def _claim_lease_seconds(self) -> float:
+        lease_seconds = float(self._lease_seconds())
+        if lease_seconds <= 0:
+            raise ValueError("media effect lease must be positive")
+        return lease_seconds
+
+    def _deliver_claimed(self, claimed: MediaEffectProjection) -> MediaEffectProjection:
         assert claimed.claim_token is not None
         try:
             result = self._delivery.deliver(claimed)

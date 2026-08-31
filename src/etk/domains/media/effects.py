@@ -83,6 +83,12 @@ class ReserveMediaEffectResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ReserveClaimedMediaEffectResult:
+    effect: MediaEffectProjection
+    claimed: bool
+
+
+@dataclass(frozen=True, slots=True)
 class MediaEffectIntentReservation:
     effect_id: UUID
     created: bool
@@ -419,6 +425,68 @@ class PostgresMediaEffectLedger:
             )
             uow.commit()
             return result
+
+    def reserve_and_claim(
+        self,
+        *,
+        effect_key: str,
+        effect_type: str,
+        aggregate_type: str,
+        aggregate_id: str,
+        payload: Mapping[str, Any],
+        worker_id: str,
+        lease_seconds: float,
+        max_publish_attempts: int = 20,
+    ) -> ReserveClaimedMediaEffectResult:
+        worker = _nonempty(worker_id, "worker_id")
+        _positive(lease_seconds, "lease_seconds")
+        claim_token = uuid4()
+        with self._uow_factory() as uow:
+            reservation = SqlAlchemyMediaEffectRepository(uow.session).reserve(
+                effect_key=effect_key,
+                effect_type=effect_type,
+                aggregate_type=aggregate_type,
+                aggregate_id=aggregate_id,
+                payload=payload,
+                max_publish_attempts=max_publish_attempts,
+            )
+            row = (
+                uow.session.execute(
+                    text(
+                        """
+                        UPDATE media_effects
+                        SET status = 'claimed', claimed_by = :worker_id,
+                            claim_token = :claim_token, claimed_at = NOW(),
+                            lease_expires_at = NOW() + make_interval(secs => :lease_seconds),
+                            attempts = attempts + 1, last_attempt_at = NOW(), updated_at = NOW()
+                        WHERE id = :effect_id
+                          AND status IN ('pending', 'retryable')
+                          AND available_at <= NOW()
+                        RETURNING *
+                        """
+                    ),
+                    {
+                        "effect_id": reservation.effect.id,
+                        "worker_id": worker,
+                        "claim_token": claim_token,
+                        "lease_seconds": lease_seconds,
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None:
+                row = (
+                    uow.session.execute(
+                        text("SELECT * FROM media_effects WHERE id = :effect_id"),
+                        {"effect_id": reservation.effect.id},
+                    )
+                    .mappings()
+                    .one()
+                )
+            projection = _projection(row)
+            uow.commit()
+        return ReserveClaimedMediaEffectResult(effect=projection, claimed=projection.claim_token == claim_token)
 
     def read(self, effect_key: str) -> MediaEffectProjection | None:
         key = _nonempty(effect_key, "effect_key", maximum=512)
@@ -1026,6 +1094,7 @@ __all__ = [
     "MediaEffectStatus",
     "MediaEffectTransition",
     "PostgresMediaEffectLedger",
+    "ReserveClaimedMediaEffectResult",
     "ReserveMediaEffectResult",
     "SqlAlchemyMediaEffectRepository",
     "media_effect_event_key",

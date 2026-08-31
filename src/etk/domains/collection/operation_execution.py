@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from .activation import (
+    CollectionActivationCompletion,
+    CollectionActivationDetailsProvider,
+    CollectionActivationNotFoundError,
+    CollectionActivationProviderRejectedError,
+    CollectionActivationProviderUnavailableError,
+)
 from .effects import (
     CollectionAssetEffectsPort,
     CollectionDeletionSuppressionPort,
@@ -80,12 +88,15 @@ class CollectionOperationExecutor:
     def __init__(
         self,
         repository: PostgresCollectionOperationRepository,
-        remote: CollectionRemoteEffectsPort,
-        assets: CollectionAssetEffectsPort,
-        suppression: CollectionDeletionSuppressionPort,
+        remote: CollectionRemoteEffectsPort | None = None,
+        assets: CollectionAssetEffectsPort | None = None,
+        suppression: CollectionDeletionSuppressionPort | None = None,
         *,
         worker_id: str,
         lease_seconds: float | Callable[[], float],
+        activation_provider: CollectionActivationDetailsProvider | None = None,
+        activation_completion: CollectionActivationCompletion | None = None,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         readback_attempts: int = COLLECTION_OPERATION_READBACK_ATTEMPTS,
         retry_delay_seconds: float = COLLECTION_OPERATION_RETRY_DELAY_SECONDS,
     ) -> None:
@@ -95,6 +106,9 @@ class CollectionOperationExecutor:
         self._suppression = suppression
         self._worker_id = _required_text(worker_id, "worker_id")
         self._lease_seconds = lease_seconds
+        self._activation_provider = activation_provider
+        self._activation_completion = activation_completion
+        self._clock = clock
         self._readback_attempts = max(1, int(readback_attempts))
         self._retry_delay_seconds = max(0.0, float(retry_delay_seconds))
 
@@ -116,6 +130,8 @@ class CollectionOperationExecutor:
         if token is None:
             raise RuntimeError("claimed collection operation is missing its claim token")
         try:
+            if claimed.kind is CollectionOperationKind.ACTIVATION_REFRESH:
+                return self._execute_activation_refresh(claimed, token)
             if claimed.kind is CollectionOperationKind.NATIVE_DELETE:
                 return self._execute_native_delete(claimed, token)
             if claimed.kind is CollectionOperationKind.CUSTOM_DELETE:
@@ -172,6 +188,62 @@ class CollectionOperationExecutor:
                 error=_error("invalid_operation", exc),
             )
 
+    def _execute_activation_refresh(
+        self,
+        operation: CollectionOperation,
+        token: UUID,
+    ) -> CollectionOperation:
+        provider = self._activation_provider
+        completion = self._activation_completion
+        if provider is None or completion is None:
+            raise ValueError("collection activation refresh executor is not configured")
+        tmdb_id = _request_text(operation, "tmdb_collection_id")
+        try:
+            details = provider.collection_details(tmdb_id)
+        except (CollectionActivationNotFoundError, CollectionActivationProviderRejectedError) as exc:
+            return self._repository.mark_rejected(
+                operation.id,
+                token,
+                state=operation.state,
+                error=_error("activation_provider_rejected", exc),
+            )
+        except CollectionActivationProviderUnavailableError as exc:
+            if operation.attempts >= COLLECTION_OPERATION_TOTAL_ATTEMPTS:
+                return self._repository.mark_rejected(
+                    operation.id,
+                    token,
+                    state=operation.state,
+                    error=_error("activation_provider_exhausted", exc, attempts=operation.attempts),
+                )
+            return self._repository.mark_retryable(
+                operation.id,
+                token,
+                state=operation.state,
+                error=_error("activation_provider_unavailable", exc),
+                retry_after_seconds=self._retry_delay_seconds,
+            )
+        return completion.complete(
+            operation.id,
+            token,
+            details,
+            today=self._clock().date(),
+        )
+
+    def _remote_effects(self) -> CollectionRemoteEffectsPort:
+        if self._remote is None:
+            raise ValueError("collection remote effects are not configured")
+        return self._remote
+
+    def _asset_effects(self) -> CollectionAssetEffectsPort:
+        if self._assets is None:
+            raise ValueError("collection asset effects are not configured")
+        return self._assets
+
+    def _deletion_suppression(self) -> CollectionDeletionSuppressionPort:
+        if self._suppression is None:
+            raise ValueError("collection deletion suppression is not configured")
+        return self._suppression
+
     def _execute_native_delete(
         self,
         operation: CollectionOperation,
@@ -184,7 +256,7 @@ class CollectionOperationExecutor:
                 return self._native_delete_readback(operation, token, collection_id, expected_tmdb_id)
             if operation.current_step is CollectionOperationStep.REMOVE_MEMBERS:
                 try:
-                    remote = self._remote.read_collection(collection_id)
+                    remote = self._remote_effects().read_collection(collection_id)
                 except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
                     return self._defer_post_checkpoint(operation, token, exc)
                 if remote is None:
@@ -210,12 +282,12 @@ class CollectionOperationExecutor:
                 error={"type": "unsupported_provider_checkpoint", "step": operation.current_step.value},
             )
 
-        remote = self._remote.read_collection(collection_id)
+        remote = self._remote_effects().read_collection(collection_id)
         if remote is None:
             return self._complete_native_delete(operation, token, collection_id, recovered=False)
         if not _matches_expected_tmdb(remote, expected_tmdb_id):
             raise CollectionRemoteRejected("Emby collection TMDb identity does not match the delete request")
-        self._suppression.suppress(collection_id, ttl_seconds=10)
+        self._deletion_suppression().suppress(collection_id, ttl_seconds=10)
         state = {
             "emby_collection_id": collection_id,
             "expected_tmdb_collection_id": expected_tmdb_id,
@@ -229,7 +301,7 @@ class CollectionOperationExecutor:
         )
         warnings = _warnings(requesting)
         try:
-            self._remote.empty_collection(remote)
+            self._remote_effects().empty_collection(remote)
         except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
             warnings.append(_error("remove_members_failed", exc))
         continued = self._repository.continue_claim(
@@ -247,7 +319,7 @@ class CollectionOperationExecutor:
         collection_id: str,
         expected_tmdb_id: str | None,
     ) -> CollectionOperation:
-        self._suppression.suppress(collection_id, ttl_seconds=10)
+        self._deletion_suppression().suppress(collection_id, ttl_seconds=10)
         requesting = self._repository.begin_provider_step(
             operation.id,
             token,
@@ -256,7 +328,7 @@ class CollectionOperationExecutor:
         )
         explicit_rejection: CollectionRemoteRejected | None = None
         try:
-            self._remote.delete_collection(collection_id)
+            self._remote_effects().delete_collection(collection_id)
         except CollectionRemoteRejected as exc:
             explicit_rejection = exc
         except CollectionRemoteIndeterminate:
@@ -279,7 +351,7 @@ class CollectionOperationExecutor:
         explicit_rejection: CollectionRemoteRejected | None = None,
     ) -> CollectionOperation:
         try:
-            remote = self._remote.read_collection(collection_id)
+            remote = self._remote_effects().read_collection(collection_id)
         except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
             return self._defer_post_checkpoint(operation, token, exc)
         if remote is None:
@@ -333,7 +405,7 @@ class CollectionOperationExecutor:
         warnings = _warnings(operation)
         if collection_id and operation.step_started_at is not None:
             try:
-                remote = self._remote.read_collection(collection_id)
+                remote = self._remote_effects().read_collection(collection_id)
                 if remote is not None and remote.member_ids:
                     warnings.append({"type": "custom_empty_unconfirmed", "remaining_members": len(remote.member_ids)})
             except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
@@ -343,11 +415,11 @@ class CollectionOperationExecutor:
         if collection_id:
             remote: RemoteCollectionState | None = None
             try:
-                remote = self._remote.read_collection(collection_id)
+                remote = self._remote_effects().read_collection(collection_id)
             except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
                 warnings.append(_error("custom_collection_read_failed", exc))
             if remote is not None:
-                self._suppression.suppress(collection_id, ttl_seconds=20)
+                self._deletion_suppression().suppress(collection_id, ttl_seconds=20)
                 requesting = self._repository.begin_provider_step(
                     operation.id,
                     token,
@@ -355,11 +427,11 @@ class CollectionOperationExecutor:
                     state={**dict(operation.state), "warnings": warnings},
                 )
                 try:
-                    self._remote.empty_collection(remote)
+                    self._remote_effects().empty_collection(remote)
                 except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
                     warnings.append(_error("custom_empty_failed", exc))
                 try:
-                    readback = self._remote.read_collection(collection_id)
+                    readback = self._remote_effects().read_collection(collection_id)
                     if readback is not None and readback.member_ids:
                         warnings.append(
                             {"type": "custom_empty_unconfirmed", "remaining_members": len(readback.member_ids)}
@@ -388,7 +460,7 @@ class CollectionOperationExecutor:
             if tmdb_id in cleaned:
                 continue
             try:
-                if not self._assets.cleanup_placeholder(tmdb_id):
+                if not self._asset_effects().cleanup_placeholder(tmdb_id):
                     raise RuntimeError("placeholder cleanup did not confirm completion")
             except Exception as exc:
                 state = {
@@ -453,7 +525,7 @@ class CollectionOperationExecutor:
             warnings = _warnings(continued)
             matches: Sequence[RemoteCollectionState] = ()
             try:
-                matches = self._remote.list_native_collections(tmdb_id)
+                matches = self._remote_effects().list_native_collections(tmdb_id)
             except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
                 warnings.append(_error("remote_collection_discovery_failed", exc))
             verified_ids: list[str] = []
@@ -519,7 +591,7 @@ class CollectionOperationExecutor:
             else []
         )
         try:
-            discarded = self._assets.discard_unreferenced_sources(source_urls)
+            discarded = self._asset_effects().discard_unreferenced_sources(source_urls)
         except Exception as exc:
             if operation.attempts < COLLECTION_OPERATION_TOTAL_ATTEMPTS:
                 return self._repository.mark_retryable(
@@ -603,7 +675,7 @@ class CollectionOperationExecutor:
                 },
             )
             try:
-                archived = self._assets.archive_image(source_url)
+                archived = self._asset_effects().archive_image(source_url)
             except Exception as exc:
                 archived = self._safe_image_readback(source_url)
                 if archived is None:
@@ -634,7 +706,7 @@ class CollectionOperationExecutor:
                 str(receipt.get("source_url") or "") for receipt in receipts.values() if receipt.get("archived")
             ]
             try:
-                self._assets.discard_unreferenced_sources(archived_sources)
+                self._asset_effects().discard_unreferenced_sources(archived_sources)
             except Exception as exc:
                 state = {"receipts": receipts, "warnings": warnings, "stale_snapshot": True}
                 if operation.attempts >= COLLECTION_OPERATION_TOTAL_ATTEMPTS:
@@ -677,7 +749,7 @@ class CollectionOperationExecutor:
             next_step=CollectionOperationStep.SURVIVAL_READBACK,
             state=operation.state,
         )
-        remote = self._remote.read_collection(collection_id)
+        remote = self._remote_effects().read_collection(collection_id)
         survived = remote is not None
         return self._repository.complete_survival_check(
             operation.id,
@@ -722,7 +794,7 @@ class CollectionOperationExecutor:
 
     def _safe_image_readback(self, source_url: str) -> Mapping[str, Any] | None:
         try:
-            return self._assets.read_archived_image(source_url)
+            return self._asset_effects().read_archived_image(source_url)
         except Exception:
             return None
 

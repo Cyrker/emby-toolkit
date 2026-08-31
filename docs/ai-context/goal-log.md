@@ -5580,3 +5580,63 @@ Safety boundary:
 
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
+### P11-Collection-Activation
+
+Stage / Batch: P11 / durable native Collection activation
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `da95a377` (`refactor(p11): cut over intro backfill route`).
+- Target checkpoint message: `refactor(p11): persist collection activation`.
+
+Implemented:
+
+- Added the native `POST /api/emby/collections/activate` callback owner. One PostgreSQL UoW now
+  binds the plugin-created BoxSet, reserves `collection.activation.refresh` and writes its
+  identifier-only Outbox; provider reads remain Worker-only.
+- Added targeted TMDb classification, atomic movie/subscription/collection publication, released
+  and future hard-ignore fencing, claim-loss recovery, stale full-refresh snapshot fencing and a
+  lossy-downgrade refusal for migration `0025_p11_collection_activation`.
+- Replaced the legacy Collection asset gateway in both Worker profiles with the native
+  `media_image_cache`/placeholder adapter and aligned its default data root with application
+  `local_data` semantics.
+- Closed the remaining P8 review findings: active rows with NULL Emby identity are reconciled;
+  Auto-tagging uses one authoritative full-item snapshot; P8 inline Media Effects atomically
+  reserve and claim before their Outbox is visible, so Auto-tagging/Studio tasks cannot race their
+  own delivery or resend after an ambiguous crash.
+- Regenerated Route ownership, OpenAPI and the TypeScript client. Route ownership is now
+  `324 new / 19 legacy` decorators and `346 new / 21 legacy` bindings; OpenAPI is
+  `303 paths / 355 operations`.
+
+Targeted gate:
+
+- Full P8 application/architecture -> `232 passed`; disposable PostgreSQL 18 P8 integration ->
+  `155 passed`; focused PostgreSQL 18 platform/collection migration/effects -> `31 passed`.
+- Redis/Celery compatibility and native-only Worker profiles -> `2 passed`, `39 deselected`.
+- P1 import/runtime, P4 process roles/Worker outcomes and OpenAPI -> `130 passed`. Pytest retained
+  only the existing Starlette WSGI deprecation warning.
+- Frontend generation, typecheck, `15` unit tests, build and API boundary passed; build retained
+  only the existing large-chunk warning.
+- Scoped Ruff/format, Pyright (`0 errors, 0 warnings, 0 informations`), compileall,
+  `uv lock --check`, Manifest/OpenAPI currentness, contract tooling, three secret scans and
+  `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-collection-activation-20260901/summary.md`.
+
+Focused review:
+
+- Final transaction/HTTP/OpenAPI/ownership rereview found no deterministic P0/P1/P2 after closing
+  missing-TMDb configuration recovery, default asset-root drift and Media Effect first-claim race.
+
+Pending:
+
+- Complete the remaining 20 processor-free task owners and exact 19/21 legacy Route bindings,
+  then Table/Config/Frontend ownership, pre-removal, controlled removal and every P11
+  NFR/security/SBOM/vulnerability/License gate.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.

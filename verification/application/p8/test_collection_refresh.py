@@ -33,8 +33,8 @@ class FakeRepository:
         self.reconciled: list[tuple[str, ...]] = []
         self.published: list[tuple[str, bool, str]] = []
 
-    def reconcile_active(self, emby_collection_ids: Sequence[str]) -> int:
-        self.reconciled.append(tuple(emby_collection_ids))
+    def reconcile_active(self, emby_collection_ids: Sequence[str], *, observed_at: datetime) -> int:
+        self.reconciled.append((*tuple(emby_collection_ids), observed_at.isoformat()))
         return 2
 
     def publish(
@@ -44,8 +44,10 @@ class FakeRepository:
         *,
         auto_subscribe: bool,
         today: Any,
+        observed_at: datetime,
     ) -> NativeCollectionPublishResult:
         assert str(details["id"]) == reference.tmdb_collection_id
+        assert observed_at.tzinfo is not None
         self.published.append((reference.emby_collection_id, auto_subscribe, today.isoformat()))
         return NativeCollectionPublishResult(movie_count=3, subscription_candidates=2)
 
@@ -87,7 +89,7 @@ def test_native_collection_refresh_reconciles_authoritative_emby_scan_and_publis
         "subscription_candidates": 4,
         "failed": [],
     }
-    assert repository.reconciled == [("emby-1", "emby-2")]
+    assert repository.reconciled == [("emby-1", "emby-2", "2026-09-01T00:00:00+00:00")]
     assert repository.published == [
         ("emby-1", True, "2026-09-01"),
         ("emby-2", True, "2026-09-01"),
@@ -116,7 +118,7 @@ def test_native_collection_refresh_retains_failed_collection_and_reports_partial
             "error_type": "RuntimeError",
         }
     ]
-    assert repository.reconciled == [("emby-1", "emby-2")]
+    assert repository.reconciled[0][:2] == ("emby-1", "emby-2")
     assert repository.published[0][:2] == ("emby-1", False)
 
 
@@ -132,4 +134,5 @@ def test_native_collection_refresh_can_authoritatively_deactivate_all() -> None:
     assert outcome.status is TaskOutcomeStatus.SUCCEEDED
     assert outcome.details["collections"] == 0
     assert outcome.details["deactivated"] == 2
-    assert repository.reconciled == [()]
+    assert len(repository.reconciled) == 1
+    assert len(repository.reconciled[0]) == 1

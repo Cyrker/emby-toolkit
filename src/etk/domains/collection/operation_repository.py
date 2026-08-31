@@ -450,6 +450,41 @@ class PostgresCollectionOperationRepository:
             now=now,
         )
 
+    def require_live_claim_in_uow(
+        self,
+        uow: UnitOfWork,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        now: datetime | None = None,
+    ) -> CollectionOperation:
+        return self._require_live_claim(uow, operation_id, claim_token, _utc(now))
+
+    def mark_confirmed_in_uow(
+        self,
+        uow: UnitOfWork,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        state: Mapping[str, Any],
+        result: Mapping[str, Any],
+        now: datetime | None = None,
+    ) -> CollectionOperation:
+        timestamp = _utc(now)
+        self._require_live_claim(uow, operation_id, claim_token, timestamp)
+        row = self._terminal_update(
+            uow,
+            operation_id,
+            claim_token,
+            status=CollectionOperationStatus.CONFIRMED,
+            state=state,
+            result=result,
+            error=None,
+            now=timestamp,
+        )
+        self._complete_outbox(uow, operation_id)
+        return _operation(row)
+
     def mark_rejected(
         self,
         operation_id: UUID,

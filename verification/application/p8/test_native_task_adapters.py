@@ -8,6 +8,11 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
+from etk.domains.collection.activation import (
+    CollectionActivationNotFoundError,
+    CollectionActivationProviderRejectedError,
+    CollectionActivationProviderUnavailableError,
+)
 from etk.domains.collection.refresh_adapter import HttpxNativeCollectionRefreshAdapter
 from etk.domains.media.auto_tagging_adapter import HttpxAutoTaggingAdapter
 from etk.domains.media.effect_execution import (
@@ -212,6 +217,39 @@ def test_collection_refresh_adapter_projects_identity_and_tmdb_details() -> None
     assert references[0].tmdb_collection_id == "999"
     assert references[0].library_id == "library-1"
     assert details == {"id": 999, "parts": []}
+
+
+@pytest.mark.parametrize(
+    ("status_code", "error_type"),
+    [
+        (404, CollectionActivationNotFoundError),
+        (401, CollectionActivationProviderRejectedError),
+        (429, CollectionActivationProviderUnavailableError),
+        (503, CollectionActivationProviderUnavailableError),
+    ],
+)
+def test_collection_refresh_adapter_classifies_targeted_activation_failures(
+    status_code: int,
+    error_type: type[BaseException],
+) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status_code, json={})
+
+    adapter = HttpxNativeCollectionRefreshAdapter(_settings, client_factory=_client_factory(handler))
+
+    with pytest.raises(error_type):
+        adapter.collection_details("999")
+
+
+def test_collection_refresh_adapter_classifies_missing_tmdb_configuration_as_unavailable() -> None:
+    settings = Settings(tmdb_api_base_url="", tmdb_api_key=SecretStr(""))
+    adapter = HttpxNativeCollectionRefreshAdapter(
+        lambda: settings,
+        client_factory=lambda: pytest.fail("missing configuration must not construct an HTTP client"),
+    )
+
+    with pytest.raises(CollectionActivationProviderUnavailableError, match="TMDb is not configured"):
+        adapter.collection_details("999")
 
 
 def test_collection_refresh_adapter_rejects_ambiguous_tmdb_identity_before_reconcile() -> None:

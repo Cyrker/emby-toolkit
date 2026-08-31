@@ -15,6 +15,7 @@ from werkzeug.http import http_date
 from etk.compatibility.response_contract import fastapi_json_response
 from etk.platform.web import PermissionPolicy, get_request_session
 
+from .activation import CollectionActivationService
 from .service import CollectionHttpResult, CollectionService
 
 router = APIRouter(tags=["collections"])
@@ -71,6 +72,16 @@ def _service(request: Request) -> CollectionService:
     value = request.app.state.container.use_case("collection")
     if not isinstance(value, CollectionService):
         raise TypeError("collection provider returned an invalid service")
+    return value
+
+
+def _activation_service(request: Request) -> CollectionActivationService:
+    direct = getattr(request.app.state, "collection_activation_service", None)
+    if isinstance(direct, CollectionActivationService):
+        return direct
+    value = request.app.state.container.use_case("collection.activation")
+    if not isinstance(value, CollectionActivationService):
+        raise TypeError("collection.activation provider returned an invalid service")
     return value
 
 
@@ -134,6 +145,20 @@ async def _json_value(request: Request) -> tuple[Any, Response | None]:
         return None, _html_error(BadRequest())
 
 
+async def _silent_json_value(request: Request) -> Any:
+    """Match Flask's silent JSON parsing used by the plugin callback."""
+
+    content_type = request.headers.get("content-type", "").partition(";")[0].strip().casefold()
+    if content_type != "application/json" and not (
+        content_type.startswith("application/") and content_type.endswith("+json")
+    ):
+        return {}
+    try:
+        return await request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+
+
 def _html_error(error: BadRequest | NotFound | UnsupportedMediaType) -> Response:
     headers = dict(error.get_headers())
     return Response(
@@ -161,6 +186,18 @@ async def _body_call(
     if error is not None:
         return error
     return _response(await run_in_threadpool(method, *args, payload))
+
+
+@router.post(
+    "/api/emby/collections/activate",
+    response_model=dict[str, Any],
+    responses=_responses(400, 404, 409, 500),
+    openapi_extra=_OBJECT_BODY,
+)
+async def api_activate_emby_collection(request: Request) -> Response:
+    payload = await _silent_json_value(request)
+    body, status_code = await run_in_threadpool(_activation_service(request).activate, payload)
+    return fastapi_json_response(body, status_code=status_code)
 
 
 @effects_router.get(

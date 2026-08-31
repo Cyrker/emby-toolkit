@@ -18,7 +18,7 @@ from .effect_execution import (
     MediaEffectDeliveryRetryable,
     PersistentMediaEffectExecutor,
 )
-from .effects import MediaEffectProjection, PostgresMediaEffectLedger
+from .effects import MediaEffectProjection
 
 _TRANSIENT_HTTP_STATUSES = frozenset({408, 425, 429})
 
@@ -228,12 +228,7 @@ class HttpxAutoTaggingAdapter:
 
 
 class PersistentAutoTaggingEffects:
-    def __init__(
-        self,
-        ledger: PostgresMediaEffectLedger,
-        executor: PersistentMediaEffectExecutor,
-    ) -> None:
-        self._ledger = ledger
+    def __init__(self, executor: PersistentMediaEffectExecutor) -> None:
         self._executor = executor
 
     def apply(
@@ -244,14 +239,13 @@ class PersistentAutoTaggingEffects:
         operation: str,
         tags: Sequence[str],
     ) -> MediaEffectProjection:
-        reservation = self._ledger.reserve(
+        return self._executor.reserve_and_execute(
             effect_key=effect_key,
             effect_type=AUTO_TAGGING_EFFECT_TYPE,
             aggregate_type="emby_item",
             aggregate_id=str(item_id),
             payload={"item_id": str(item_id), "operation": str(operation), "tags": list(tags)},
         )
-        return self._executor.execute(reservation.effect.id)
 
 
 def _strings(value: object) -> tuple[str, ...]:

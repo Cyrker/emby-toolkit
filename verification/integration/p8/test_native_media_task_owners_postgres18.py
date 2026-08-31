@@ -5,9 +5,9 @@ import time
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
-from threading import Barrier, Lock
+from threading import Barrier, Event, Lock
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 import httpx
 from pydantic import SecretStr
@@ -17,12 +17,14 @@ from etk.domains.collection.refresh import (
     NativeCollectionReference,
     SqlAlchemyNativeCollectionRefreshRepository,
 )
+from etk.domains.media.auto_tagging import AUTO_TAGGING_EFFECT_TYPE
 from etk.domains.media.auto_tagging_adapter import (
     HttpxAutoTaggingAdapter,
     PersistentAutoTaggingEffects,
     PostgresAutoTaggingItemLock,
 )
-from etk.domains.media.effects import MediaEffectProjection, PostgresMediaEffectLedger
+from etk.domains.media.effect_execution import PersistentMediaEffectExecutor
+from etk.domains.media.effects import MediaEffectProjection, MediaEffectStatus, PostgresMediaEffectLedger
 from etk.domains.media.embeddings import SqlAlchemyMediaEmbeddingRepository
 from etk.domains.media.studio_images_adapter import PersistentStudioImageEffects
 from etk.platform import Settings
@@ -37,6 +39,9 @@ class ReadOnlyEffectExecutor:
         effect = self._ledger.read_by_id(effect_id)  # type: ignore[arg-type]
         assert effect is not None
         return effect
+
+    def reserve_and_execute(self, **values: Any) -> MediaEffectProjection:
+        return self._ledger.reserve(**values).effect
 
 
 def test_pg18_embedding_repository_fences_changed_overview(p8_runtime: DatabaseRuntime) -> None:
@@ -231,9 +236,9 @@ def test_pg18_auto_tagging_and_studio_effects_reuse_stable_reservations(
     p8_runtime: DatabaseRuntime,
 ) -> None:
     ledger = PostgresMediaEffectLedger(p8_runtime.unit_of_work)
-    executor = cast(object, ReadOnlyEffectExecutor(ledger))
-    auto_tagging = PersistentAutoTaggingEffects(ledger, executor)  # type: ignore[arg-type]
-    studio_images = PersistentStudioImageEffects(ledger, executor)  # type: ignore[arg-type]
+    executor = cast(PersistentMediaEffectExecutor, ReadOnlyEffectExecutor(ledger))
+    auto_tagging = PersistentAutoTaggingEffects(executor)
+    studio_images = PersistentStudioImageEffects(executor)
 
     first_tag = auto_tagging.apply(
         effect_key="auto-tagging:job-1:item:item-1",
@@ -266,6 +271,65 @@ def test_pg18_auto_tagging_and_studio_effects_reuse_stable_reservations(
     with p8_runtime.engine.connect() as connection:
         assert connection.scalar(text("SELECT COUNT(*) FROM media_effects")) == 2
         assert connection.scalar(text("SELECT COUNT(*) FROM outbox_events WHERE topic = 'media.effect.requested'")) == 2
+
+
+def test_pg18_inline_media_effect_claim_precedes_outbox_execution(p8_runtime: DatabaseRuntime) -> None:
+    entered = Event()
+    release = Event()
+
+    class BlockingDelivery:
+        effect_types = frozenset({AUTO_TAGGING_EFFECT_TYPE})
+        calls = 0
+
+        def deliver(self, effect: MediaEffectProjection) -> Mapping[str, Any]:
+            assert effect.effect_type == AUTO_TAGGING_EFFECT_TYPE
+            self.calls += 1
+            entered.set()
+            assert release.wait(5)
+            return {"readback": "confirmed"}
+
+    ledger = PostgresMediaEffectLedger(p8_runtime.unit_of_work)
+    delivery = BlockingDelivery()
+    inline = PersistentMediaEffectExecutor(ledger, delivery, worker_id="inline-owner", lease_seconds=30)
+    outbox = PersistentMediaEffectExecutor(ledger, delivery, worker_id="outbox-owner", lease_seconds=30)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(
+            inline.reserve_and_execute,
+            effect_key="auto-tagging:job-inline:item:item-1",
+            effect_type=AUTO_TAGGING_EFFECT_TYPE,
+            aggregate_type="emby_item",
+            aggregate_id="item-1",
+            payload={"item_id": "item-1", "operation": "add", "tags": ["Fixture"]},
+        )
+        assert entered.wait(5)
+        with p8_runtime.engine.connect() as connection:
+            effect_id = connection.scalar(
+                text("SELECT id FROM media_effects WHERE effect_key = 'auto-tagging:job-inline:item:item-1'")
+            )
+        competing = outbox.execute(effect_id)
+        assert competing.status is MediaEffectStatus.CLAIMED
+        assert delivery.calls == 1
+        release.set()
+        terminal = future.result(timeout=5)
+
+    assert terminal.status is MediaEffectStatus.CONFIRMED
+    assert delivery.calls == 1
+    with p8_runtime.engine.connect() as connection:
+        assert (
+            connection.scalar(
+                text(
+                    """
+                SELECT status
+                FROM outbox_events
+                WHERE topic = 'media.effect.requested'
+                  AND aggregate_id = :effect_id
+                """
+                ),
+                {"effect_id": str(effect_id)},
+            )
+            == "processed"
+        )
 
 
 def test_pg18_auto_tagging_serializes_same_item_read_modify_write(

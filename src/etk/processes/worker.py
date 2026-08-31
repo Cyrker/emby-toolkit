@@ -50,10 +50,11 @@ from etk.compatibility.upload_monitor import (
     clear_persistent_upload_source_cleanup,
     install_persistent_upload_source_cleanup,
 )
+from etk.domains.collection.activation import PostgresCollectionActivationRepository
 from etk.domains.collection.effect_adapters import (
     HttpxCollectionRemoteEffectsAdapter,
-    LegacyCollectionAssetEffectsAdapter,
     PersistentCollectionDeletionSuppression,
+    SqlAlchemyCollectionAssetEffectsAdapter,
 )
 from etk.domains.collection.operation_execution import CollectionOperationExecutor
 from etk.domains.collection.operation_repository import PostgresCollectionOperationRepository
@@ -1302,10 +1303,19 @@ class WorkerRuntime:
                         blueprint_specs=(("routes.webhook", "webhook_bp"),),
                     )
                 )
+                collection_operations = PostgresCollectionOperationRepository(database.unit_of_work)
+                collection_activation = PostgresCollectionActivationRepository(
+                    database.unit_of_work,
+                    collection_operations,
+                )
                 collection_operation_executor = CollectionOperationExecutor(
-                    PostgresCollectionOperationRepository(database.unit_of_work),
+                    collection_operations,
                     HttpxCollectionRemoteEffectsAdapter(settings_provider),
-                    LegacyCollectionAssetEffectsAdapter(),
+                    SqlAlchemyCollectionAssetEffectsAdapter(
+                        database.unit_of_work,
+                        settings_provider,
+                        data_root=_worker_data_root(config_adapter),
+                    ),
                     PersistentCollectionDeletionSuppression(
                         PersistentRuntimeStateStore(PostgresRuntimeStateBackend(database.raw_pool.connection))
                     ),
@@ -1313,6 +1323,8 @@ class WorkerRuntime:
                     lease_seconds=lambda: collection_operation_claim_lease_seconds(
                         config_adapter.load().emby_api_timeout,
                     ),
+                    activation_provider=HttpxNativeCollectionRefreshAdapter(settings_provider),
+                    activation_completion=collection_activation,
                 )
                 user_activity_provider = HttpxEmbyUserActivityAdapter(settings_provider)
                 user_event_delivery = P8UserEventEffectDelivery(
@@ -1376,12 +1388,12 @@ class WorkerRuntime:
                     auto_tagging=AutoTaggingService(
                         app_settings,
                         auto_tagging_delivery,
-                        PersistentAutoTaggingEffects(media_effects_ledger, media_effects),
+                        PersistentAutoTaggingEffects(media_effects),
                     ),
                     studio_images=StudioImageService(
                         app_settings,
                         studio_images_delivery,
-                        PersistentStudioImageEffects(media_effects_ledger, media_effects),
+                        PersistentStudioImageEffects(media_effects),
                     ),
                 )
                 ingestion_binding = PersistentPendingBindingGateway(
@@ -1560,6 +1572,29 @@ class WorkerRuntime:
             registry = TaskRegistry.from_fixture(_task_fixture())
             service = JobSubmissionService(store, registry)
             app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
+            collection_operations = PostgresCollectionOperationRepository(database.unit_of_work)
+            collection_activation = PostgresCollectionActivationRepository(
+                database.unit_of_work,
+                collection_operations,
+            )
+            collection_operation_executor = CollectionOperationExecutor(
+                collection_operations,
+                HttpxCollectionRemoteEffectsAdapter(settings_provider),
+                SqlAlchemyCollectionAssetEffectsAdapter(
+                    database.unit_of_work,
+                    settings_provider,
+                    data_root=_worker_data_root(config_adapter),
+                ),
+                PersistentCollectionDeletionSuppression(
+                    PersistentRuntimeStateStore(PostgresRuntimeStateBackend(database.raw_pool.connection))
+                ),
+                worker_id=f"{self._worker_id}:collection-operation",
+                lease_seconds=lambda: collection_operation_claim_lease_seconds(
+                    config_adapter.load().emby_api_timeout,
+                ),
+                activation_provider=HttpxNativeCollectionRefreshAdapter(settings_provider),
+                activation_completion=collection_activation,
+            )
             p115_credentials = SqlAlchemyP115CredentialRepository(
                 database.unit_of_work,
                 on_change=invalidate_legacy_p115_credential_clients,
@@ -1963,18 +1998,12 @@ class WorkerRuntime:
                 auto_tagging=AutoTaggingService(
                     app_settings,
                     auto_tagging_delivery,
-                    PersistentAutoTaggingEffects(
-                        PostgresMediaEffectLedger(database.unit_of_work),
-                        media_effects,
-                    ),
+                    PersistentAutoTaggingEffects(media_effects),
                 ),
                 studio_images=StudioImageService(
                     app_settings,
                     studio_images_delivery,
-                    PersistentStudioImageEffects(
-                        PostgresMediaEffectLedger(database.unit_of_work),
-                        media_effects,
-                    ),
+                    PersistentStudioImageEffects(media_effects),
                 ),
             )
             p9_sharing_tasks = P9SharingTaskRouter(
@@ -2013,6 +2042,7 @@ class WorkerRuntime:
         self._native_operations = native_operations
         self._ingestion_ingress = ingestion_ingress
         self._subscription_executor = subscription_executor
+        self._collection_operation_executor = collection_operation_executor
         self._identity_executor = identity_executor
         self._database_maintenance_executor = database_maintenance_executor
         self._sharing_operation_executor = sharing_operation_executor
@@ -3512,6 +3542,16 @@ def _reported_failure_is_retryable(result: Any) -> bool:
         return retryable
     legacy = result.details.get("legacy_result")
     return not (isinstance(legacy, Mapping) and legacy.get("retryable") is False)
+
+
+def _worker_data_root(config_adapter: Any) -> Path:
+    config_path = getattr(config_adapter, "config_path", None)
+    if isinstance(config_path, Path):
+        return config_path.parent.resolve()
+    configured = str(os.environ.get("APP_DATA_DIR") or os.environ.get("CONFIG_DIR") or "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return Path(__file__).resolve().parents[3] / "local_data"
 
 
 def _legacy_compatibility_enabled() -> bool:

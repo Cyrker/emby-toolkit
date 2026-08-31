@@ -38,7 +38,7 @@ from etk.processes.coordinator import (
     PersistentScheduleManager,
 )
 from etk.processes.runtime_config import TaskRuntimeConfig
-from etk.processes.worker import WorkerRuntime, WorkerShutdownRequested, _raise_for_reported_failure
+from etk.processes.worker import WorkerRuntime, WorkerShutdownRequested, _raise_for_reported_failure, _worker_data_root
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EVENT_ID = UUID("00000000-0000-0000-0000-000000000010")
@@ -59,6 +59,13 @@ RUNTIME_ENVIRONMENT = (
     "ETK_JOB_TERMINATION_GRACE_SECONDS",
     "ETK_COORDINATOR_SCHEDULES_ENABLED",
 )
+
+
+def test_worker_data_root_matches_the_application_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("APP_DATA_DIR", raising=False)
+    monkeypatch.delenv("CONFIG_DIR", raising=False)
+
+    assert _worker_data_root(SimpleNamespace()) == REPO_ROOT / "local_data"
 
 
 class FakeSendApp:

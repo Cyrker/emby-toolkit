@@ -7287,6 +7287,52 @@
         ]
       }
     },
+    "/api/emby/collections/activate": {
+      "post": {
+        "operationId": "api_activate_emby_collection_api_emby_collections_activate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Api Activate Emby Collection Api Emby Collections Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "404": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "409": {
+            "description": "Legacy-compatible P8 collection response"
+          },
+          "500": {
+            "description": "Legacy-compatible P8 collection response"
+          }
+        },
+        "summary": "Api Activate Emby Collection",
+        "tags": [
+          "collections"
+        ]
+      }
+    },
     "/api/emby/events": {
       "post": {
         "operationId": "events_api_emby_events_post",

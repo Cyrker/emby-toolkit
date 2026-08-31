@@ -370,13 +370,13 @@ def _set_user(client: TestClient, user_id: str) -> None:
     client.cookies.set("session", codec.dumps({"emby_user_id": user_id}))
 
 
-def test_fixture_freezes_47_local_routes_request_bodies_and_nonempty_success_schemas() -> None:
+def test_fixture_freezes_48_local_routes_request_bodies_and_nonempty_success_schemas() -> None:
     app, *_ = _build_app()
     paths = app.openapi()["paths"]
     expected = {(route["method"].lower(), route["path"]) for route in FIXTURE["routes"]}
     actual = {(method, path) for path, operations in paths.items() for method in operations}
 
-    assert len(expected) == 47
+    assert len(expected) == 48
     assert actual == expected
     for route in FIXTURE["routes"]:
         operation = paths[route["path"]][route["method"].lower()]

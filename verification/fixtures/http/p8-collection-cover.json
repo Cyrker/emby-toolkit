@@ -9,7 +9,8 @@
     "sources": [
       "routes/tmdb_collections.py",
       "routes/custom_collections.py",
-      "routes/cover_generator_config.py"
+      "routes/cover_generator_config.py",
+      "routes/webhook.py"
     ]
   },
   "boundaries": [
@@ -18,6 +19,18 @@
     "422 is not a legacy runtime outcome and is excluded from the frozen response statuses"
   ],
   "routes": [
+    {
+      "method": "POST",
+      "path": "/api/emby/collections/activate",
+      "request_body": true,
+      "response_statuses": [
+        200,
+        400,
+        404,
+        409,
+        500
+      ]
+    },
     {
       "method": "GET",
       "path": "/api/collections/status",

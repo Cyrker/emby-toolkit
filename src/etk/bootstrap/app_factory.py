@@ -38,9 +38,11 @@ from etk.compatibility.response_contract import fastapi_json_response
 from etk.compatibility.tg_control_bridge import TelegramControlBridge
 from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
 from etk.domains.collection import (
+    CollectionActivationService,
     CollectionService,
     P8LocalCollectionGateway,
     PillowCoverPreviewRenderer,
+    PostgresCollectionActivationRepository,
     SqlAlchemyCollectionRepository,
 )
 from etk.domains.collection.effect_adapters import (
@@ -778,6 +780,17 @@ def _register_collection_providers(container: AppContainer) -> None:
             current.repository("collection.operations"),
             HttpxCollectionRemoteEffectsAdapter(lambda: current.settings),
         ),
+    )
+    container.register_repository(
+        "collection.activation",
+        lambda current: PostgresCollectionActivationRepository(
+            current.database.unit_of_work,
+            current.repository("collection.operations"),
+        ),
+    )
+    container.register_use_case(
+        "collection.activation",
+        lambda current: CollectionActivationService(current.repository("collection.activation")),
     )
     container.register_repository(
         "collection-user-projection",

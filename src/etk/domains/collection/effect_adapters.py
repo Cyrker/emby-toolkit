@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
+import json
+import mimetypes
+import os
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import httpx
+from sqlalchemy import text
 
 from etk.compatibility.persistent_runtime_state import PersistentRuntimeStateStore
 from etk.platform import Settings
+from etk.platform.db import SqlAlchemyUnitOfWork
 
 from .effects import (
     CollectionRemoteIndeterminate,
@@ -246,6 +253,291 @@ class LegacyCollectionAssetEffectsAdapter:
         return len(normalized)
 
 
+class SqlAlchemyCollectionAssetEffectsAdapter:
+    """Processor-free owner for the collection image cache and placeholders."""
+
+    _MAX_IMAGE_BYTES = 32 * 1024 * 1024
+    _MIME_EXTENSIONS = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+        "image/avif": ".avif",
+        "image/svg+xml": ".svg",
+    }
+
+    def __init__(
+        self,
+        unit_of_work: Callable[[], SqlAlchemyUnitOfWork],
+        settings: Callable[[], Settings],
+        *,
+        data_root: Path,
+        client_factory: Callable[[], httpx.Client] | None = None,
+    ) -> None:
+        self._unit_of_work = unit_of_work
+        self._settings = settings
+        self._data_root = data_root.expanduser().resolve()
+        self._client_factory = client_factory or self._default_client
+
+    def read_archived_image(self, source_url: str) -> Mapping[str, Any] | None:
+        source = _required_text(source_url, "source_url")
+        with self._unit_of_work() as uow:
+            row = (
+                uow.session.execute(
+                    text(
+                        """
+                        SELECT source_url, content_hash, relative_path, mime_type, byte_size
+                        FROM media_image_cache
+                        WHERE source_url = :source_url
+                        """
+                    ),
+                    {"source_url": source},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is not None:
+                uow.session.execute(
+                    text("UPDATE media_image_cache SET last_accessed_at = NOW() WHERE source_url = :source_url"),
+                    {"source_url": source},
+                )
+            uow.commit()
+        if row is None:
+            return None
+        path = self._cached_path(str(row["relative_path"]))
+        expected_hash = str(row["content_hash"]).strip().casefold()
+        expected_size = int(row["byte_size"])
+        if path is None or not path.is_file() or path.stat().st_size != expected_size:
+            return None
+        with path.open("rb") as handle:
+            actual_hash = hashlib.file_digest(handle, "sha256").hexdigest()
+        if actual_hash != expected_hash:
+            return None
+        return {
+            "source_url": source,
+            "content_hash": actual_hash,
+            "relative_path": str(row["relative_path"]),
+            "mime_type": str(row["mime_type"]),
+            "byte_size": expected_size,
+        }
+
+    def archive_image(self, source_url: str) -> Mapping[str, Any] | None:
+        source = _required_text(source_url, "source_url")
+        if not bool(self._settings().media_image_archive_enabled):
+            return None
+        cached = self.read_archived_image(source)
+        if cached is not None:
+            return cached
+        parsed = urlparse(source)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("collection image source URL is invalid")
+        _reject_private_literal(parsed.hostname)
+        chunks: list[bytes] = []
+        size = 0
+        with self._client_factory() as client:
+            with client.stream(
+                "GET",
+                source,
+                headers={
+                    "Accept": "image/*",
+                    "User-Agent": str(getattr(self._settings(), "user_agent", "") or "ETK/collection-image"),
+                },
+            ) as response:
+                if response.status_code != 200:
+                    raise RuntimeError(f"collection image download returned HTTP {response.status_code}")
+                content_length = response.headers.get("Content-Length")
+                if content_length and int(content_length) > self._MAX_IMAGE_BYTES:
+                    raise ValueError("collection image exceeds the size limit")
+                mime_type = str(response.headers.get("Content-Type") or "").partition(";")[0].strip().casefold()
+                if not mime_type.startswith("image/"):
+                    mime_type = str(mimetypes.guess_type(parsed.path)[0] or "").casefold()
+                if not mime_type.startswith("image/"):
+                    raise ValueError("collection image response is not an image")
+                for chunk in response.iter_bytes(128 * 1024):
+                    if not chunk:
+                        continue
+                    size += len(chunk)
+                    if size > self._MAX_IMAGE_BYTES:
+                        raise ValueError("collection image exceeds the size limit")
+                    chunks.append(chunk)
+        if not chunks:
+            raise ValueError("collection image response is empty")
+        content = b"".join(chunks)
+        content_hash = hashlib.sha256(content).hexdigest()
+        extension = self._MIME_EXTENSIONS.get(mime_type) or mimetypes.guess_extension(mime_type) or ".img"
+        relative_path = f"{content_hash[:2]}/{content_hash}{extension}"
+        final_path = self._cached_path(relative_path)
+        if final_path is None:
+            raise ValueError("collection image cache path is invalid")
+        final_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_dir = self._archive_root() / ".tmp"
+        temporary_dir.mkdir(parents=True, exist_ok=True)
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=temporary_dir, prefix="collection-", delete=False) as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+                temporary_path = Path(handle.name)
+            if not final_path.exists():
+                os.replace(temporary_path, final_path)
+                temporary_path = None
+            with self._unit_of_work() as uow:
+                uow.session.execute(
+                    text(
+                        """
+                        INSERT INTO media_image_cache (
+                            source_url, content_hash, relative_path, mime_type, byte_size
+                        ) VALUES (
+                            :source_url, :content_hash, :relative_path, :mime_type, :byte_size
+                        )
+                        ON CONFLICT (source_url) DO UPDATE SET
+                            content_hash = EXCLUDED.content_hash,
+                            relative_path = EXCLUDED.relative_path,
+                            mime_type = EXCLUDED.mime_type,
+                            byte_size = EXCLUDED.byte_size,
+                            last_accessed_at = NOW()
+                        """
+                    ),
+                    {
+                        "source_url": source,
+                        "content_hash": content_hash,
+                        "relative_path": relative_path,
+                        "mime_type": mime_type,
+                        "byte_size": size,
+                    },
+                )
+                uow.commit()
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+        return self.read_archived_image(source)
+
+    def cleanup_placeholder(self, tmdb_id: str) -> bool:
+        normalized = _required_text(tmdb_id, "tmdb_id")
+        if not normalized.isdigit():
+            raise ValueError("placeholder TMDb identity is invalid")
+        with self._unit_of_work() as uow:
+            active = uow.session.scalar(
+                text(
+                    """
+                    SELECT EXISTS(
+                        SELECT 1 FROM media_metadata
+                        WHERE tmdb_id = :tmdb_id
+                          AND subscription_status IN ('WANTED','SUBSCRIBED','PENDING_RELEASE','PAUSED')
+                    )
+                    """
+                ),
+                {"tmdb_id": normalized},
+            )
+            uow.commit()
+        if active:
+            return True
+        directory = (self._data_root / "cache" / "missing_posters").resolve()
+        if not directory.is_relative_to(self._data_root) or not directory.is_dir():
+            return True
+        for path in directory.glob(f"{normalized}_*.jpg"):
+            path.unlink(missing_ok=True)
+        return True
+
+    def discard_unreferenced_sources(self, source_urls: Sequence[str]) -> int:
+        discarded = 0
+        for source in dict.fromkeys(str(value).strip() for value in source_urls if str(value).strip()):
+            relative_path: str | None = None
+            content_hash: str | None = None
+            remove_file = False
+            with self._unit_of_work() as uow:
+                referenced = uow.session.scalar(
+                    text(
+                        """
+                        SELECT EXISTS(
+                            SELECT 1 FROM media_image_policy_cache
+                            WHERE images_json @> CAST(:needle AS jsonb)
+                        )
+                        """
+                    ),
+                    {
+                        "needle": json.dumps(
+                            [{"source_url": source}],
+                            ensure_ascii=False,
+                            separators=(",", ":"),
+                        )
+                    },
+                )
+                if referenced:
+                    uow.commit()
+                    continue
+                row = (
+                    uow.session.execute(
+                        text(
+                            """
+                            DELETE FROM media_image_cache
+                            WHERE source_url = :source_url
+                            RETURNING content_hash, relative_path
+                            """
+                        ),
+                        {"source_url": source},
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                if row is not None:
+                    content_hash = str(row["content_hash"]).strip().casefold()
+                    relative_path = str(row["relative_path"])
+                    token = f"etk-cache://{content_hash}"
+                    still_referenced = uow.session.scalar(
+                        text(
+                            """
+                            SELECT EXISTS(
+                                SELECT 1 FROM media_image_cache WHERE content_hash = :content_hash
+                                UNION ALL
+                                SELECT 1 FROM media_metadata
+                                WHERE screenshot_hash = :content_hash
+                                   OR poster_path = :token OR backdrop_path = :token
+                                   OR logo_path = :token OR thumb_path = :token
+                            )
+                            """
+                        ),
+                        {"content_hash": content_hash, "token": token},
+                    )
+                    remove_file = not bool(still_referenced)
+                    discarded += 1
+                uow.commit()
+            if remove_file and relative_path is not None:
+                path = self._cached_path(relative_path)
+                if path is not None:
+                    path.unlink(missing_ok=True)
+        return discarded
+
+    def _archive_root(self) -> Path:
+        configured = str(self._settings().media_image_archive_path or "").strip()
+        if configured:
+            candidate = Path(os.path.expandvars(os.path.expanduser(configured)))
+            if not candidate.is_absolute():
+                candidate = self._data_root / candidate
+        else:
+            candidate = self._data_root / "media_images"
+        return candidate.resolve()
+
+    def _cached_path(self, relative_path: str) -> Path | None:
+        relative = Path(str(relative_path).replace("\\", "/"))
+        if relative.is_absolute():
+            return None
+        root = self._archive_root()
+        path = (root / relative).resolve()
+        return path if path.is_relative_to(root) else None
+
+    def _default_client(self) -> httpx.Client:
+        settings = self._settings()
+        proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
+        return httpx.Client(
+            proxy=proxy or None,
+            timeout=httpx.Timeout(90.0, connect=15.0),
+            follow_redirects=False,
+            trust_env=False,
+        )
+
+
 class PersistentCollectionDeletionSuppression:
     def __init__(self, store: PersistentRuntimeStateStore) -> None:
         self._store = store
@@ -271,8 +563,18 @@ def _required_text(value: Any, field: str) -> str:
     return normalized
 
 
+def _reject_private_literal(hostname: str) -> None:
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        return
+    if not address.is_global:
+        raise ValueError("collection image source cannot use a non-public literal address")
+
+
 __all__ = [
     "HttpxCollectionRemoteEffectsAdapter",
     "LegacyCollectionAssetEffectsAdapter",
     "PersistentCollectionDeletionSuppression",
+    "SqlAlchemyCollectionAssetEffectsAdapter",
 ]

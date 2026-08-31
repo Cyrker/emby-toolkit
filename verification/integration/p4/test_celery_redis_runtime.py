@@ -23,6 +23,7 @@ from pydantic import SecretStr
 from redis import Redis
 from sqlalchemy import text
 
+from etk.domains.collection.activation import PostgresCollectionActivationRepository
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
 from etk.domains.media.daily_theme_repository import SqlAlchemyDailyThemeRepository
 from etk.domains.media.effects import PostgresMediaEffectLedger, SqlAlchemyMediaEffectRepository
@@ -37,6 +38,7 @@ from etk.platform import Settings
 from etk.platform.db import DatabaseRuntime
 from etk.platform.jobs import AttemptStatus, JobProjection, JobStatus, PostgresJobStore
 from etk.processes.celery_app import (
+    EXECUTE_COLLECTION_OPERATION_TASK,
     EXECUTE_JOB_TASK,
     EXECUTE_MEDIA_EFFECT_TASK,
     EXECUTE_SHARING_OPERATION_TASK,
@@ -148,12 +150,43 @@ def _start_native_p8_task_stub() -> tuple[
             path = urlsplit(self.path).path
             with lock:
                 state.requests.append(path)
+            if path == "/collection/25":
+                query = parse_qs(urlsplit(self.path).query)
+                if query.get("api_key") != ["fixture-tmdb-key"]:
+                    self.send_response(403)
+                    self.end_headers()
+                    return
+                payload = json.dumps(
+                    {
+                        "id": 25,
+                        "name": "Fixture Activated Collection",
+                        "parts": [
+                            {
+                                "id": 2501,
+                                "title": "Fixture Activated Movie",
+                                "release_date": "2026-01-01",
+                                "poster_path": "/2501.jpg",
+                            }
+                        ],
+                    },
+                    separators=(",", ":"),
+                ).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
             if self.headers.get("X-Emby-Token") != "fixture-p8-token":
                 self.send_response(403)
                 self.end_headers()
                 return
             if path == "/Library/VirtualFolders":
-                payload = b"[]"
+                payload = b'[{"Id":"library-1","CollectionType":"movies"}]'
+            elif path == "/Users/fixture-p8-user/Items":
+                payload = (
+                    b'{"Items":[{"Id":"emby-25","Name":"Fixture Activated Collection","ProviderIds":{"Tmdb":"25"}}]}'
+                )
             elif path == "/System/Info":
                 payload = b'{"Id":"fixture-server","Version":"4.8.0.0"}'
             else:
@@ -1095,12 +1128,30 @@ def test_native_p8_task_owners_execute_through_real_worker_profiles(
                         "emby_server_url": f"http://127.0.0.1:{server.server_port}",
                         "emby_api_key": "fixture-p8-token",
                         "emby_user_id": "fixture-p8-user",
+                        "tmdb_api_base_url": f"http://127.0.0.1:{server.server_port}",
+                        "tmdb_api_key": "fixture-tmdb-key",
                         "ai_vector": False,
                     },
                     separators=(",", ":"),
                 ),
             },
         )
+        connection.execute(
+            text(
+                """
+                INSERT INTO collections_info (
+                    tmdb_collection_id, name, metadata_schema_version,
+                    is_active, all_tmdb_ids_json
+                ) VALUES ('25', 'Fixture Activated Collection', 1, FALSE, '[]'::jsonb)
+                """
+            )
+        )
+    activation = PostgresCollectionActivationRepository(p4_runtime.unit_of_work).reserve(
+        tmdb_collection_id="25",
+        emby_collection_id="emby-25",
+        name="Fixture Activated Collection",
+    )
+    assert activation is not None
     worker: ManagedProcess | None = None
     try:
         environment_values = dict(p4_runtime_environment.environment)
@@ -1109,6 +1160,8 @@ def test_native_p8_task_owners_execute_through_real_worker_profiles(
                 "EMBY_SERVER_URL": f"http://127.0.0.1:{server.server_port}",
                 "EMBY_API_KEY": "fixture-p8-token",
                 "EMBY_USER_ID": "fixture-p8-user",
+                "TMDB_API_BASE_URL": f"http://127.0.0.1:{server.server_port}",
+                "TMDB_API_KEY": "fixture-tmdb-key",
                 "AI_VECTOR": "false",
             }
         )
@@ -1158,19 +1211,86 @@ def test_native_p8_task_owners_execute_through_real_worker_profiles(
             assert completed.job.result["status"] == expected_statuses[task_key]
             assert completed.job.result["details"]["task_key"] == task_key
             assert completed.job.result["details"]["compatibility_fallback"] is False
+        _send_collection_operation(worker_environment.config, activation.operation.id, count=2)
+
+        def activation_confirmed() -> bool:
+            with p4_runtime.engine.connect() as connection:
+                return (
+                    connection.scalar(
+                        text("SELECT status FROM collection_operations WHERE id = :id"),
+                        {"id": activation.operation.id},
+                    )
+                    == "confirmed"
+                )
+
+        _wait_until(
+            activation_confirmed,
+            description="collection activation operation to complete",
+            timeout=30,
+        )
         _wait_until(
             lambda: worker is not None and worker.read_log().count("Duplicate or stale delivery skipped") >= 4,
             description="duplicate P8 task deliveries to be skipped",
             timeout=20,
         )
         assert stub_state.requests.count("/Library/VirtualFolders") == 1
-        assert set(stub_state.requests) <= {"/System/Info", "/Library/VirtualFolders"}
+        assert stub_state.requests.count("/Users/fixture-p8-user/Items") == 1
+        assert stub_state.requests.count("/collection/25") == 2
+        assert set(stub_state.requests) <= {
+            "/System/Info",
+            "/Library/VirtualFolders",
+            "/Users/fixture-p8-user/Items",
+            "/collection/25",
+        }
+        with p4_runtime.engine.connect() as connection:
+            assert connection.execute(
+                text(
+                    """
+                    SELECT operation.status, outbox.status
+                    FROM collection_operations AS operation
+                    JOIN outbox_events AS outbox
+                      ON outbox.aggregate_type = 'collection-operation'
+                     AND outbox.aggregate_id = operation.id::text
+                    WHERE operation.id = :operation_id
+                    """
+                ),
+                {"operation_id": activation.operation.id},
+            ).one() == ("confirmed", "processed")
+            assert (
+                connection.scalar(
+                    text(
+                        """
+                    SELECT COUNT(*)
+                    FROM media_metadata
+                    WHERE tmdb_id = '2501' AND item_type = 'Movie'
+                    """
+                    )
+                )
+                == 1
+            )
     finally:
         if worker is not None and worker.process.poll() is None:
             assert worker.stop() == 0
         server.shutdown()
         thread.join(timeout=5)
         server.server_close()
+        with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM outbox_events
+                    WHERE aggregate_type = 'collection-operation'
+                      AND aggregate_id = :operation_id
+                    """
+                ),
+                {"operation_id": str(activation.operation.id)},
+            )
+            connection.execute(
+                text("DELETE FROM collection_operations WHERE id = :operation_id"),
+                {"operation_id": activation.operation.id},
+            )
+            connection.execute(text("DELETE FROM media_metadata WHERE tmdb_id = '2501' AND item_type = 'Movie'"))
+            connection.execute(text("DELETE FROM collections_info WHERE tmdb_collection_id = '25'"))
         _restore_app_settings(p4_runtime, prior_settings, setting_keys)
 
 
@@ -5918,6 +6038,22 @@ def _send_media_effect(config: TaskRuntimeConfig, effect_id: UUID) -> None:
             routing_key=config.queue_name,
             serializer="json",
         )
+    finally:
+        app.close()
+
+
+def _send_collection_operation(config: TaskRuntimeConfig, operation_id: UUID, *, count: int = 1) -> None:
+    app = create_celery_app(config)
+    try:
+        for _ in range(count):
+            app.send_task(
+                EXECUTE_COLLECTION_OPERATION_TASK,
+                kwargs={"operation_id": str(operation_id)},
+                task_id=str(operation_id),
+                queue=config.queue_name,
+                routing_key=config.queue_name,
+                serializer="json",
+            )
     finally:
         app.close()
 
