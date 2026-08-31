@@ -256,6 +256,7 @@ def test_worker_executes_p6_sync_without_resolving_legacy_processor(
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
     state._adapter = None
+    state._native_only = True
     state._p6_p115_tasks = router
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]

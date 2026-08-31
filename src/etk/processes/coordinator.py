@@ -229,8 +229,9 @@ class CoordinatorLeadership:
 class PersistentScheduleManager:
     """APScheduler computes fire times; callbacks only create persistent Jobs."""
 
-    def __init__(self, service: JobSubmissionService) -> None:
+    def __init__(self, service: JobSubmissionService, *, native_only: bool = False) -> None:
         self._service = service
+        self._native_only = bool(native_only)
         self._scheduler = BackgroundScheduler(
             timezone="Asia/Shanghai",
             job_defaults={"misfire_grace_time": 300, "coalesce": True, "max_instances": 1},
@@ -269,7 +270,9 @@ class PersistentScheduleManager:
         fingerprint = json.dumps(relevant, ensure_ascii=False, sort_keys=True, default=str)
         if fingerprint == self._fingerprint:
             return False
-        plan = self._build_plan(values) if schedules_enabled else {}
+        plan = self._build_native_plan() if schedules_enabled and self._native_only else None
+        if plan is None:
+            plan = self._build_plan(values) if schedules_enabled else {}
         for job_id, (function, trigger, name, kwargs) in plan.items():
             self._scheduler.add_job(
                 function,
@@ -357,6 +360,22 @@ class PersistentScheduleManager:
                 {},
             )
         return plan
+
+    def _build_native_plan(self) -> dict[str, tuple[Callable[..., Any], Any, str, dict[str, Any]]]:
+        return {
+            _DAILY_THEME_JOB: (
+                self._submit,
+                CronTrigger.from_crontab("5 0 * * *", timezone="Asia/Shanghai"),
+                "update-daily-theme",
+                {"task_key": "update-daily-theme", "schedule_id": _DAILY_THEME_JOB},
+            ),
+            _PLAY_POOL_JOB: (
+                self._submit,
+                CronTrigger.from_crontab("45 12 * * *", timezone="Asia/Shanghai"),
+                "play-pool-daily-speedtest",
+                {"task_key": "play-pool-daily-speedtest", "schedule_id": _PLAY_POOL_JOB},
+            ),
+        }
 
     def _operation_spec(
         self,
@@ -641,8 +660,6 @@ class CoordinatorRuntime:
     def _run_native_only(self) -> None:
         """Dispatch native Job and operation Outboxes without legacy daemons."""
 
-        if self.config.schedules_enabled:
-            logger.warning("Coordinator schedules are disabled in the native runtime")
         container, config_adapter = _create_default_container(None)
         leadership: CoordinatorLeadership | None = None
         try:
@@ -652,10 +669,13 @@ class CoordinatorRuntime:
                 lambda: database.unit_of_work(),
                 cancellation_policy=cleanup_execution_repository,
             )
+            registry = TaskRegistry.from_fixture(_task_fixture())
+            service = JobSubmissionService(store, registry)
             leadership = CoordinatorLeadership(database.raw_pool)
             self._container = container
             self._config_adapter = config_adapter
             self._store = store
+            self._service = service
             self._cleanup_execution_repository = cleanup_execution_repository
             self._media_effect_dispatcher = MediaEffectOutboxDispatcher(
                 store,
@@ -745,13 +765,16 @@ class CoordinatorRuntime:
             while not self._stop.is_set():
                 if leadership.acquired and not leadership.validate():
                     logger.warning("Native Coordinator leadership lease was lost")
+                    self._shutdown_native_leader()
                     self._write_health("standby")
                     self._stop.wait(self.config.coordinator_interval_seconds)
                     continue
-                if not leadership.acquired and not leadership.try_acquire():
-                    self._write_health("standby")
-                    self._stop.wait(self.config.coordinator_interval_seconds)
-                    continue
+                if not leadership.acquired:
+                    if not leadership.try_acquire():
+                        self._write_health("standby")
+                        self._stop.wait(self.config.coordinator_interval_seconds)
+                        continue
+                    self._become_native_leader()
                 try:
                     self._tick(compatibility=False)
                 except Exception:
@@ -762,9 +785,9 @@ class CoordinatorRuntime:
                 self._stop.wait(self.config.coordinator_interval_seconds)
         finally:
             errors: list[Exception] = []
-            cleanup_callbacks = [container.close]
+            cleanup_callbacks = [self._shutdown_native_leader, container.close]
             if leadership is not None:
-                cleanup_callbacks.insert(0, leadership.release)
+                cleanup_callbacks.insert(1, leadership.release)
             for cleanup in cleanup_callbacks:
                 try:
                     cleanup()
@@ -776,6 +799,20 @@ class CoordinatorRuntime:
                 errors.append(exc)
             if errors:
                 raise ExceptionGroup("Native Coordinator shutdown failed", errors)
+
+    def _become_native_leader(self) -> None:
+        if self._service is None:
+            raise RuntimeError("Native Coordinator Job submission service is not initialized")
+        schedules = PersistentScheduleManager(self._service, native_only=True)
+        self._schedules = schedules
+        schedules.start()
+        schedules.sync({}, schedules_enabled=self.config.schedules_enabled)
+
+    def _shutdown_native_leader(self) -> None:
+        schedules = getattr(self, "_schedules", None)
+        self._schedules = None
+        if schedules is not None:
+            schedules.stop()
 
     def _become_leader(self) -> None:
         if (

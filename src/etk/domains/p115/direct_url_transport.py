@@ -51,7 +51,7 @@ class P115SdkDirectUrlGateway:
         normalized_pick_code = str(pick_code or "").strip()
         account_id = str(expected_account_id or "").strip()
         normalized_user_agent = str(user_agent or "Mozilla/5.0").strip() or "Mozilla/5.0"
-        if not normalized_pick_code or not account_id.isdigit():
+        if not normalized_pick_code or not account_id:
             return None
 
         snapshot = self._credentials.load()
@@ -78,7 +78,7 @@ class P115SdkDirectUrlGateway:
         account_id = str(expected_account_id or "").strip()
         backend = str(expected_backend or "").strip().lower()
         normalized_user_agent = str(user_agent or "Mozilla/5.0").strip() or "Mozilla/5.0"
-        if not normalized_pick_code or not account_id.isdigit() or backend not in {"openapi", "cookie"}:
+        if not normalized_pick_code or not account_id or backend not in {"openapi", "cookie"}:
             return None
         snapshot = self._credentials.load()
         if str(snapshot.account_id or "").strip() != account_id:

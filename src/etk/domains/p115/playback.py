@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
 from uuid import UUID, uuid4, uuid5
+from zoneinfo import ZoneInfo
 
 from etk.compatibility.persistent_runtime_state import RuntimeStateBackend
 from etk.platform.tasks import TaskOutcome
@@ -29,6 +30,7 @@ PLAY_POOL_DEFAULT_SPEEDTEST_THRESHOLD_MBPS = 5.0
 PLAYBACK_LEASE_TTL_SECONDS = 12 * 60 * 60
 PLAYBACK_QR_TTL_SECONDS = 10 * 60
 PLAYBACK_NAMESPACE = UUID("c1190cd6-8cdc-47b6-908c-7030660e07bd")
+_PLAY_POOL_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 _SHA1 = re.compile(r"[A-F0-9]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -783,7 +785,7 @@ class P115PlaybackConfigService:
                 target["play_count"] = max(0, _safe_int(target.get("play_count"), 0) + int(play_count_delta))
             if traffic_bytes_delta:
                 size = max(0, int(traffic_bytes_delta))
-                today = now.astimezone(UTC).date().isoformat()
+                today = play_pool_business_date(now)
                 daily = _safe_int(target.get("daily_traffic_bytes"), 0)
                 if str(target.get("daily_traffic_date") or "") != today:
                     daily = 0
@@ -1008,7 +1010,7 @@ def normalize_pool_config(value: Mapping[str, Any] | None, *, now: datetime) -> 
         account["last_speed_bps"] = max(0, _safe_int(account.get("last_speed_bps"), 0))
         account["allowed_user_ids"] = normalize_user_ids(account.get("allowed_user_ids"))
         account["allowed_effective_user_ids"] = normalize_user_ids(account.get("allowed_effective_user_ids"))
-        today = now.astimezone(UTC).date().isoformat()
+        today = play_pool_business_date(now)
         if str(account.get("daily_traffic_date") or "") != today:
             account["daily_traffic_date"] = today
             account["daily_traffic_bytes"] = 0
@@ -1139,8 +1141,41 @@ def account_backend(account: Mapping[str, Any]) -> str:
     return "openapi" if str(account.get("access_token") or "").strip() else "cookie"
 
 
+def pool_credential_fingerprint(account: Mapping[str, Any], backend: str | None = None) -> str:
+    pinned_backend = str(backend or account_backend(account)).strip().casefold()
+    if pinned_backend not in {"openapi", "cookie"}:
+        raise ValueError("pool credential backend must be openapi or cookie")
+    credential = (
+        str(account.get("access_token") or "").strip()
+        if pinned_backend == "openapi"
+        else str(account.get("cookie") or "").strip()
+    )
+    if not credential:
+        raise ValueError(f"pool account has no {pinned_backend} credential")
+    app_type = "" if pinned_backend == "openapi" else str(account.get("app_type") or "web").strip()
+    return hashlib.sha256(f"{pinned_backend}\0{app_type}\0{credential}".encode()).hexdigest()
+
+
 def normalize_owner_type(value: Any) -> str:
     return "user" if str(value or "").strip().casefold() == "user" else "admin"
+
+
+def pool_account_revision(account: Mapping[str, Any], backend: str | None = None) -> str:
+    pinned_backend = str(backend or account_backend(account)).strip().casefold()
+    return sha256_json(
+        {
+            "id": str(account.get("id") or "").strip(),
+            "backend": pinned_backend,
+            "credential_hash": pool_credential_fingerprint(account, pinned_backend),
+            "refresh_token_hash": (
+                sha256_text(str(account.get("refresh_token") or "")) if pinned_backend == "openapi" else ""
+            ),
+            "temp_cid": str(account.get("temp_cid") or "").strip(),
+            "owner_type": normalize_owner_type(account.get("owner_type")),
+            "owner_user_id": str(account.get("owner_user_id") or "").strip(),
+            "shared": safe_bool(account.get("shared"), False),
+        }
+    )
 
 
 def normalize_user_ids(value: Any) -> list[str]:
@@ -1154,6 +1189,12 @@ def normalize_user_ids(value: Any) -> list[str]:
             seen.add(item)
             result.append(item)
     return result
+
+
+def play_pool_business_date(value: datetime) -> str:
+    if value.tzinfo is None:
+        raise ValueError("play-pool business clock must be timezone-aware")
+    return value.astimezone(_PLAY_POOL_TIMEZONE).date().isoformat()
 
 
 def account_allowed_for_user(account: Mapping[str, Any], user_id: str) -> bool:
@@ -1442,6 +1483,9 @@ __all__ = [
     "PlaybackUpstreamStream",
     "account_allowed_for_user",
     "account_backend",
+    "pool_credential_fingerprint",
+    "pool_account_revision",
+    "play_pool_business_date",
     "account_daily_limited",
     "account_owned_by_user",
     "artifact_key",

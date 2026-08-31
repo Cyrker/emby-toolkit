@@ -179,6 +179,18 @@ from etk.domains.p115.media_info_adapters import (
 from etk.domains.p115.media_info_restore import HttpxEmbyMediaInfoQueryGateway, P115MediaInfoRestoreService
 from etk.domains.p115.media_probe import P115MediaProbeService
 from etk.domains.p115.playback import PlaybackOperation
+from etk.domains.p115.playback_native import (
+    NativeOnlyP115DirectLinkGateway,
+    NativeP115PlaybackProvider,
+    NativeP115PlaybackRapidSigner,
+    NativeP115PoolPlaybackClientFactory,
+    SqlAlchemyP115PlaybackConfigBackend,
+    SqlAlchemyP115PlaybackSourceGateway,
+)
+from etk.domains.p115.playback_reward_repository import (
+    SqlAlchemyP115PlaybackRewardRepository,
+    SqlAlchemyP115PlaybackUserGateway,
+)
 from etk.domains.p115.upload_adapters import (
     LegacyP115UploadProjection,
     LegacyP115UploadProvider,
@@ -328,6 +340,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "manual-correct-organize-records",
         "manual_subscribe_batch",
         "monitor-115-life-events",
+        "play-pool-daily-speedtest",
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
         "restore_mediainfo",
@@ -1496,6 +1509,40 @@ class WorkerRuntime:
                 configuration=lambda: app_settings.load("hdhive_config"),
             )
             telegram = HttpxTelegramBotAdapter(settings_provider)
+            playback_users = SqlAlchemyP115PlaybackUserGateway(
+                SqlAlchemyP115PlaybackRewardRepository(database.unit_of_work),
+                telegram,
+            )
+            playback_config = P115PlaybackConfigService(
+                SqlAlchemyP115PlaybackConfigBackend(database.unit_of_work),
+                playback_users,
+            )
+            playback_repository = PostgresP115PlaybackRepository(database.unit_of_work)
+            playback_executor = P115PlaybackOperationExecutor(
+                repository=playback_repository,
+                provider=NativeP115PlaybackProvider(
+                    NativeP115PoolPlaybackClientFactory(playback_config),
+                    NativeP115PlaybackRapidSigner(
+                        P115SdkDirectUrlGateway(
+                            credentials=p115_credentials,
+                            priority=lambda: str(settings_provider().p115_api_priority),
+                        ),
+                        p115_credentials,
+                    ),
+                ),
+                config=playback_config,
+                worker_id=f"{self._worker_id}:p115-playback",
+            )
+            playback_service = P115PlaybackService(
+                config=playback_config,
+                repository=playback_repository,
+                sources=SqlAlchemyP115PlaybackSourceGateway(
+                    database.unit_of_work,
+                    primary_credentials=p115_credentials,
+                ),
+                direct_links=NativeOnlyP115DirectLinkGateway(),
+                executor=playback_executor,
+            )
             sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
             virtual_imports = VirtualImportService(
                 resolver=VirtualImportSourceResolver(shared_center),
@@ -1667,6 +1714,7 @@ class WorkerRuntime:
                     mediainfo=strm_mediainfo,
                 ),
                 fingerprint_repair=p115_fingerprint_repair,
+                playback=playback_service,
                 intro_backfill=P115IntroBackfillTaskService(intro_detection_gateway),
                 organize_reconciliation=P115OrganizeExecutionService(
                     plans=organize_plans,

@@ -231,7 +231,11 @@ class P115PlaybackOperationExecutor:
             ).operation
         if operation.kind is PlaybackOperationKind.SPEEDTEST:
             bps = max(0, int(receipt.get("bps") or 0))
-            threshold = speedtest_threshold_mbps(self._config.snapshot().get("auto_speedtest_threshold_mbps"))
+            threshold = speedtest_threshold_mbps(
+                operation.request.get("speedtest_threshold_mbps")
+                if "speedtest_threshold_mbps" in operation.request
+                else self._config.snapshot().get("auto_speedtest_threshold_mbps")
+            )
             threshold_bps = int(threshold * 1024 * 1024)
             enabled = bps >= threshold_bps if threshold_bps > 0 else True
             error = "" if enabled else f"测速 {human_bytes(bps)}/s 低于阈值 {human_bytes(threshold_bps)}/s，已自动停用"
@@ -348,6 +352,8 @@ class P115PlaybackOperationExecutor:
                 readback=outcome.readback,
             ).operation
         error = dict(outcome.error or {"type": "playback_provider_failure"})
+        if error.get("type") == "native_playback_recovery_unsupported" and not outcome.request_sent:
+            return self._repository.mark_indeterminate(operation.id, token, error=error).operation
         if outcome.disposition is PlaybackProviderDisposition.REJECTED:
             return self._repository.mark_rejected(operation.id, token, error=error).operation
         if not outcome.request_sent and outcome.disposition in {

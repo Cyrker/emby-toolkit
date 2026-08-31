@@ -35,9 +35,13 @@ from .playback import (
     normalize_owner_type,
     normalize_sha1,
     operation_id,
+    play_pool_business_date,
+    pool_account_revision,
+    pool_credential_fingerprint,
     safe_playback_json,
     sha256_json,
     sha256_text,
+    speedtest_threshold_mbps,
     user_agent_hash,
 )
 
@@ -179,19 +183,43 @@ class P115PlaybackService:
         )
         source = self._source_snapshot(source)
         intent_identity = str(intent_key or "").strip() or self._clock().astimezone(UTC).strftime("manual:%Y%m%d%H%M")
+        source_identity = sha256_json(source)
+        backend = account_backend(account)
+        credential_hash = pool_credential_fingerprint(account, backend)
+        account_revision = pool_account_revision(account, backend)
+        threshold = speedtest_threshold_mbps(self._config.snapshot().get("auto_speedtest_threshold_mbps"))
+        configuration_revision = sha256_json(
+            {
+                "account_revision": account_revision,
+                "speedtest_threshold_mbps": threshold,
+            }
+        )
+        remote_name_digest = sha256_text(
+            f"{account['id']}\0{intent_identity}\0{source_identity}\0{configuration_revision}"
+        )
+        source = {
+            **source,
+            "file_name": f"ETK-speedtest-{remote_name_digest[:32]}.bin",
+        }
         request = {
             "account_kind": "pool",
             "target_cid": str(account.get("temp_cid") or ""),
             "source": source,
             "user_agent_hash": user_agent_hash(_SERVER_PROXY_USER_AGENT),
+            "credential_hash": credential_hash,
+            "account_revision": account_revision,
+            "speedtest_threshold_mbps": threshold,
+            "configuration_revision": configuration_revision,
         }
         operation = self._reserve_and_execute(
             PlaybackOperationIntent.create(
-                semantic_key=f"speedtest:{account['id']}:{intent_identity}:{sha256_json(source)}",
+                semantic_key=(
+                    f"speedtest:{account['id']}:{intent_identity}:{sha256_json(source)}:{configuration_revision}"
+                ),
                 kind=PlaybackOperationKind.SPEEDTEST,
                 mode=PlaybackMode.MAINTENANCE,
                 account_id=account["id"],
-                provider_backend=account_backend(account),
+                provider_backend=backend,
                 request=request,
             )
         )
@@ -568,7 +596,7 @@ class P115PlaybackService:
         total = len(accounts)
         results: list[dict[str, Any]] = []
         progress.update(0, f"小号池每日测速启动，共 {total} 个账号")
-        date_key = self._clock().astimezone(UTC).date().isoformat()
+        date_key = play_pool_business_date(self._clock())
         for index, account in enumerate(accounts, start=1):
             progress.checkpoint()
             progress.update(int(((index - 1) / max(total, 1)) * 95), f"正在测速：{account['alias']} ({index}/{total})")
@@ -580,6 +608,7 @@ class P115PlaybackService:
                 "success": False,
                 "speed_text": "",
                 "error": "",
+                "reward_error": "",
                 "reward_days": 0.0,
             }
             try:
@@ -589,16 +618,24 @@ class P115PlaybackService:
                 result["speed_text"] = str(speed.get("speed_text") or "")
                 if not fresh.get("enabled"):
                     result["error"] = str(fresh.get("last_error") or "测速未达标")
-                reward = self._config.grant_reward(
-                    fresh,
-                    notify_user=True,
-                    speed_text=result["speed_text"],
-                    error_text=result["error"],
-                )
-                result["reward_days"] = float(reward.get("reward_days") or 0)
-                if reward.get("error"):
-                    result["success"] = False
-                    result["error"] = str(reward["error"])
+                reward_account = {
+                    **fresh,
+                    "owner_type": account.get("owner_type"),
+                    "owner_user_id": account.get("owner_user_id"),
+                    "shared": account.get("shared"),
+                }
+                try:
+                    reward = self._config.grant_reward(
+                        reward_account,
+                        notify_user=True,
+                        speed_text=result["speed_text"],
+                        error_text=result["error"],
+                    )
+                    result["reward_days"] = float(reward.get("reward_days") or 0)
+                    if reward.get("error"):
+                        result["reward_error"] = "奖励持久化失败"
+                except Exception:
+                    result["reward_error"] = "奖励持久化失败"
             except Exception as exc:
                 error = str(exc)
                 fresh = self._config.patch_account(
@@ -610,20 +647,37 @@ class P115PlaybackService:
                         "last_speed_at": self._now_iso(),
                     },
                 )
-                self._config.grant_reward(fresh, notify_user=True, error_text=error)
+                reward_account = {
+                    **fresh,
+                    "owner_type": account.get("owner_type"),
+                    "owner_user_id": account.get("owner_user_id"),
+                    "shared": account.get("shared"),
+                }
+                try:
+                    self._config.grant_reward(reward_account, notify_user=True, error_text=error)
+                except Exception:
+                    result["reward_error"] = "奖励状态持久化失败"
                 result["error"] = error
             results.append(result)
-        self._config.notify_daily_results(results)
-        failed = sum(not bool(item.get("success")) for item in results)
-        progress.update(100, f"小号池每日测速完成，通过 {total - failed}/{total}")
+        notification_error = ""
+        try:
+            self._config.notify_daily_results(results)
+        except Exception:
+            notification_error = "每日测速汇总通知失败"
+        failed = sum(not bool(item.get("success")) or bool(item.get("reward_error")) for item in results)
+        if notification_error:
+            failed = max(1, failed)
+        speedtest_passed = sum(bool(item.get("success")) for item in results)
+        progress.update(100, f"小号池每日测速完成，通过 {speedtest_passed}/{total}")
         return {
             "ok": failed == 0,
             "status": "succeeded" if failed == 0 else "partial",
             "skipped": False,
             "failed_count": failed,
             "results": results,
+            "notification_error": notification_error,
             "message": (
-                f"小号池每日测速完成，通过 {total - failed}/{total}"
+                f"小号池每日测速完成，测速通过 {speedtest_passed}/{total}，异常 {failed}"
                 if failed
                 else f"小号池每日测速完成，全部 {total} 个账号通过"
             ),
@@ -632,22 +686,19 @@ class P115PlaybackService:
     def _ensure_pool_account(self, account: Mapping[str, Any]) -> dict[str, Any]:
         if not has_account_auth(account):
             raise P115PlaybackStateError("小号未配置 Cookie/OpenAPI")
-        credential_revision = sha256_json(
-            {
-                "cookie_hash": sha256_text(str(account.get("cookie") or "")),
-                "access_token_hash": sha256_text(str(account.get("access_token") or "")),
-                "refresh_token_hash": sha256_text(str(account.get("refresh_token") or "")),
-                "app_type": str(account.get("app_type") or "alipaymini"),
-            }
-        )
+        backend = account_backend(account)
+        credential_revision = pool_credential_fingerprint(account, backend)
+        account_revision = pool_account_revision(account, backend)
         operation = self._ensure_temp_dir_operation(
-            semantic_base=f"ensure-temp:pool:{account['id']}:{credential_revision}:ETK临时目录",
+            semantic_base=f"ensure-temp:pool:{account['id']}:{account_revision}:ETK临时目录",
             account_id=str(account["id"]),
-            backend=account_backend(account),
+            backend=backend,
             request={
                 "account_kind": "pool",
                 "temp_dir_name": "ETK临时目录",
                 "configured_cid": str(account.get("temp_cid") or ""),
+                "credential_hash": credential_revision,
+                "account_revision": account_revision,
             },
         )
         self._require_confirmed(operation, "小号临时目录确认")

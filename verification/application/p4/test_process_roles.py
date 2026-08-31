@@ -550,6 +550,7 @@ def test_native_worker_start_failure_stops_supervisor_and_closes_container(monke
     database = SimpleNamespace(
         unit_of_work=lambda: None,
         raw_pool=SimpleNamespace(connection=lambda: None),
+        engine=object(),
     )
     container = SimpleNamespace(
         database=database,
@@ -941,6 +942,24 @@ def test_coordinator_cron_normalizes_legacy_day_of_week_before_scheduling() -> N
     }
     cleanup = next(job for job in scheduler.jobs if job["id"] == "p115_temp_dir_cleanup_job")
     assert str(cleanup["trigger"].fields[4]) == "sun"
+
+
+def test_native_coordinator_schedules_only_processor_free_daily_tasks() -> None:
+    manager = PersistentScheduleManager(
+        cast(JobSubmissionService, object()),
+        native_only=True,
+    )
+    scheduler = FakeScheduler()
+    cast(Any, manager)._scheduler = scheduler
+
+    assert manager.sync({}, schedules_enabled=True)
+
+    assert {job["id"] for job in scheduler.jobs} == {
+        "daily_theme_job",
+        "play_pool_daily_speedtest_job",
+    }
+    task_keys = {job["kwargs"]["task_key"] for job in scheduler.jobs}
+    assert task_keys == {"update-daily-theme", "play-pool-daily-speedtest"}
 
 
 def test_schedule_sync_validates_the_full_plan_before_replacing_jobs() -> None:

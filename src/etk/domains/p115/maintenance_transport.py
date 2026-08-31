@@ -49,6 +49,7 @@ class HttpxP115BoundedDownloadGateway:
         user_agent: str,
         max_bytes: int,
         max_seconds: int,
+        checkpoint: Callable[[], None] | None = None,
     ) -> dict[str, Any]:
         normalized_url = str(url or "").strip()
         if not normalized_url.startswith(("http://", "https://")):
@@ -64,12 +65,20 @@ class HttpxP115BoundedDownloadGateway:
         downloaded = 0
         first_byte_ms: int | None = None
         started_at = self._clock()
+        if checkpoint is not None:
+            checkpoint()
         with self._client_factory() as client:
+            if checkpoint is not None:
+                checkpoint()
             with client.stream("GET", normalized_url, headers=headers) as response:
+                if checkpoint is not None:
+                    checkpoint()
                 if response.status_code >= 400:
                     raise RuntimeError(f"下载测速请求失败，HTTP {response.status_code}")
                 content_length = response.headers.get("Content-Length")
                 for chunk in response.iter_bytes(chunk_size=256 * 1024):
+                    if checkpoint is not None:
+                        checkpoint()
                     if not chunk:
                         continue
                     now = self._clock()
@@ -80,6 +89,8 @@ class HttpxP115BoundedDownloadGateway:
                     if downloaded >= byte_limit or now - started_at >= second_limit:
                         break
                 status_code = response.status_code
+        if checkpoint is not None:
+            checkpoint()
 
         elapsed = max(self._clock() - started_at, 0.001)
         mb_per_second = downloaded / 1024 / 1024 / elapsed

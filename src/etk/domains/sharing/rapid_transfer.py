@@ -163,6 +163,9 @@ class NativeP115RapidTransferGateway:
             sha1 = _sha1(file.get("sha1"))
             size = _positive_int(file.get("size"), "file size")
             matches = [item for item in candidates if _item_sha1(item) == sha1 and _item_size(item) == size]
+            if str(file.get("source_kind") or "").strip() == "speedtest":
+                expected_name = _text(file.get("file_name"), "speedtest file name", limit=512)
+                matches = [item for item in matches if _item_name(item) == expected_name]
             if not matches:
                 missing += 1
                 continue

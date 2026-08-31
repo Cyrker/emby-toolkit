@@ -290,6 +290,76 @@ def test_native_rapid_readback_requires_unique_sha1_size_match() -> None:
     assert ambiguous.ambiguous_count == 1
 
 
+def test_native_speedtest_readback_requires_its_operation_scoped_file_name() -> None:
+    speedtest_source = {
+        **_source(),
+        "source_kind": "speedtest",
+        "source_id": "source-fid",
+        "file_name": "ETK-speedtest-operation.bin",
+    }
+    identity = {
+        "account_id": "115001",
+        "backend": "openapi",
+        "credential_hash": hashlib.sha256(b"openapi\0\0fixture-token").hexdigest(),
+        "target_cid": "target-fixture",
+        "files": [speedtest_source],
+    }
+    gateway = NativeP115RapidTransferGateway(
+        credentials=cast(Any, Credentials()),
+        priority=lambda: "openapi",
+        target_cid=lambda: "target-fixture",
+        directory=cast(
+            Any,
+            Directory(
+                [
+                    {
+                        "fid": "existing-artifact",
+                        "name": "User-Playback-Artifact.mkv",
+                        "sha1": "A" * 40,
+                        "size": 1024,
+                        "pick_code": "existing-pick",
+                    },
+                    {
+                        "fid": "owned-speedtest",
+                        "name": "ETK-speedtest-operation.bin",
+                        "sha1": "A" * 40,
+                        "size": 1024,
+                        "pick_code": "speedtest-pick",
+                    },
+                ]
+            ),
+        ),
+    )
+
+    confirmed = gateway.readback(identity)
+
+    assert confirmed.status == "confirmed"
+    assert confirmed.receipts[0]["fid"] == "owned-speedtest"
+
+    missing = NativeP115RapidTransferGateway(
+        credentials=cast(Any, Credentials()),
+        priority=lambda: "openapi",
+        target_cid=lambda: "target-fixture",
+        directory=cast(
+            Any,
+            Directory(
+                [
+                    {
+                        "fid": "existing-artifact",
+                        "name": "User-Playback-Artifact.mkv",
+                        "sha1": "A" * 40,
+                        "size": 1024,
+                        "pick_code": "existing-pick",
+                    }
+                ]
+            ),
+        ),
+    ).readback(identity)
+
+    assert missing.status == "partial"
+    assert missing.missing_count == 1
+
+
 def test_rapid_transfer_rejects_missing_preid_before_checkpoint() -> None:
     source = {**_source(), "preid": ""}
 

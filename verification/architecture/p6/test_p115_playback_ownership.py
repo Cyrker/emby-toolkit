@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import ast
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -248,3 +251,70 @@ def test_p9_effects_and_proxy_transport_stay_outside_native_playback_core() -> N
     assert "class LegacyP115PlaybackSourceGateway" in adapters
     assert "shared_virtual_db" in adapters
     assert "reverse_proxy" not in adapters
+
+
+def test_native_daily_speedtest_wiring_is_processor_free_and_import_clean() -> None:
+    worker = _source("src/etk/processes/worker.py")
+    assert '"play-pool-daily-speedtest"' in worker
+    for symbol in (
+        "NativeP115PlaybackProvider",
+        "NativeP115PlaybackRapidSigner",
+        "NativeP115PoolPlaybackClientFactory",
+        "SqlAlchemyP115PlaybackRewardRepository",
+        "SqlAlchemyP115PlaybackSourceGateway",
+        "SqlAlchemyP115PlaybackUserGateway",
+        "playback=playback_service",
+    ):
+        assert symbol in worker
+
+    program = """
+import json
+import sys
+from etk.domains.p115.playback_native import (
+    NativeP115PlaybackProvider,
+    NativeP115PlaybackRapidSigner,
+    NativeP115PoolPlaybackClientFactory,
+    SqlAlchemyP115PlaybackSourceGateway,
+)
+from etk.domains.p115.playback_reward_repository import (
+    SqlAlchemyP115PlaybackRewardRepository,
+    SqlAlchemyP115PlaybackUserGateway,
+)
+forbidden = ('database', 'handler', 'routes', 'task_manager', 'tasks')
+loaded = sorted(
+    name for name in sys.modules
+    if any(name == prefix or name.startswith(prefix + '.') for prefix in forbidden)
+)
+print(json.dumps({
+    'loaded': loaded,
+    'provider': NativeP115PlaybackProvider.__name__,
+    'signer': NativeP115PlaybackRapidSigner.__name__,
+    'clients': NativeP115PoolPlaybackClientFactory.__name__,
+    'sources': SqlAlchemyP115PlaybackSourceGateway.__name__,
+    'rewards': SqlAlchemyP115PlaybackRewardRepository.__name__,
+    'users': SqlAlchemyP115PlaybackUserGateway.__name__,
+}))
+"""
+    environment = os.environ.copy()
+    python_path = [str(REPO_ROOT / "src"), str(REPO_ROOT)]
+    if environment.get("PYTHONPATH"):
+        python_path.append(environment["PYTHONPATH"])
+    environment["PYTHONPATH"] = os.pathsep.join(python_path)
+    completed = subprocess.run(
+        [sys.executable, "-c", program],
+        cwd=REPO_ROOT,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert json.loads(completed.stdout) == {
+        "loaded": [],
+        "provider": "NativeP115PlaybackProvider",
+        "signer": "NativeP115PlaybackRapidSigner",
+        "clients": "NativeP115PoolPlaybackClientFactory",
+        "sources": "SqlAlchemyP115PlaybackSourceGateway",
+        "rewards": "SqlAlchemyP115PlaybackRewardRepository",
+        "users": "SqlAlchemyP115PlaybackUserGateway",
+    }

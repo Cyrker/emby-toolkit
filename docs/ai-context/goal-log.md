@@ -5219,6 +5219,69 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Native-Play-Pool-Speedtest
+
+Stage / Batch: P11 / native play-pool daily speedtest
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `3a96baa8` (`refactor(p11): migrate p115 maintenance operations`).
+- Target checkpoint message: `refactor(p11): execute native play pool speedtest`.
+
+Implemented:
+
+- Added SQLAlchemy-owned play-pool config, primary-holder source lookup, reward ledger and native
+  Rapid/direct-URL/bounded-Range/delete adapters. Native Worker now owns the daily speedtest graph
+  without importing legacy `handler`, `routes`, `tasks`, raw-pool config or provider helpers.
+- Bound each operation to account/config/credential/source identity and an operation-scoped remote
+  filename. Credential fences cover signer lookup and the actual streamed Range read; durable
+  receipts allowlist only speed facts and never retain provider messages, URLs, cookies or tokens.
+- Enforced no-resend recovery after Rapid, speed and delete checkpoints. Delete readback that still
+  finds the file is retryable; exhausted ambiguity remains indeterminate. Unsupported PREPARE and
+  RECLAIM currently fail closed before provider I/O and remain a required P11 follow-up.
+- Kept play-pool traffic, reward and daily-operation identity on the `Asia/Shanghai` business date.
+  Reward or Telegram persistence failure reports a partial result without disabling an account
+  whose speedtest already succeeded.
+- Native Coordinator schedules only the two processor-free daily tasks. Native-only Worker is now
+  `25 executable / 25 unavailable`; Route ownership remains `322 new / 21 legacy` decorators and
+  `344 new / 23 legacy` method bindings.
+
+Targeted gate:
+
+- Scoped Ruff/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`).
+- Full P6 application -> `783 passed`; full P9 -> `128 passed`; full P4 -> `346 passed` with the
+  existing Starlette WSGI deprecation warning.
+- Focused P4/P6/P9/architecture gate -> `247 passed` with the same existing warning.
+- Disposable PostgreSQL 18 native/existing playback gate -> `27 passed`. The first combined run
+  exposed a transient immediate-cleanup timing failure; both isolated scope and the exact combined
+  command passed on clean rerun without a code change.
+- OpenAPI currentness and P9 sharing fixture contract passed; `git diff --check` is clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-native-play-pool-speedtest-20260831/summary.md`.
+
+Focused review:
+
+- Closed remote same-content deletion, primary-holder binding, fallback ambiguity, streamed
+  credential drift, provider-data leakage, delete terminal-state, reward and business-date issues.
+- Current batch/OpenAPI/frontend/source-registration delegations were rechecked against the final
+  tree: batch `404` is absent, mixed-batch indeterminate results retain their idempotency key, and
+  source-only fallback persists the holder PickCode. No deterministic P0/P1/P2 remains.
+- One read-only reviewer modified two already-scoped files. The main thread bounded the provenance,
+  independently reviewed the retained lines and reran all final gates after the reviewer stopped.
+
+Pending:
+
+- Implement full native PREPARE/RECLAIM recovery and the remaining 25 processor-free task owners.
+- Close the 21/23 legacy Route bindings, 12 legacy tables, 82 dynamic config keys, seven bootstrap
+  keys, 11 standalone settings and frontend component/API/admin-guard evidence before controlled
+  removal and the P11 NFR/security/SBOM/vulnerability/license gates.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING

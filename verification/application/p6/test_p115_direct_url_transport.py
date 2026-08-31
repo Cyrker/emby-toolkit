@@ -108,6 +108,28 @@ def test_openapi_priority_uses_access_token_only_and_returns_sdk_url() -> None:
     ]
 
 
+def test_account_bound_direct_url_accepts_an_opaque_local_pool_identity() -> None:
+    local_account_id = "local-pool-account-uuid"
+    credentials = MutableCredentials(replace(_snapshot(), account_id=local_account_id, cookie=""))
+    client = FakeOpenApiClient("https://download.invalid/pool-openapi.mkv")
+    gateway = P115SdkDirectUrlGateway(
+        credentials=credentials,
+        priority=lambda: "openapi",
+        openapi_client_factory=lambda _token: client,
+    )
+
+    resolved = gateway.resolve_backend(
+        PICK_CODE,
+        expected_account_id=local_account_id,
+        expected_backend="openapi",
+        user_agent=USER_AGENT,
+    )
+
+    assert resolved is not None
+    assert resolved.backend == "openapi"
+    assert resolved.url == "https://download.invalid/pool-openapi.mkv"
+
+
 def test_default_sdk_factories_disable_openapi_refresh_and_preserve_cookie_app(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

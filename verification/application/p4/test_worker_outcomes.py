@@ -921,6 +921,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "manual-correct-organize-records",
             "manual_subscribe_batch",
             "monitor-115-life-events",
+            "play-pool-daily-speedtest",
             "recalculate_library_washing_priorities",
             "repair-p115-fingerprints",
             "restore_mediainfo",
