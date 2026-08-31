@@ -5337,6 +5337,55 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Native-Interactive-Playback
+
+Stage / Batch: P11 / native interactive playback cutover
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `d7ea2481` (`refactor(p11): recover native playback operations`).
+- Target checkpoint message: `refactor(p11): cut over interactive playback`.
+
+Implemented:
+
+- Added SQLAlchemy POOL/COPY/VIRTUAL source lookup with primary-holder, asset-array, PickCode/SHA1,
+  virtual provenance and ambiguity fencing.
+- Added native primary/pool artifact direct URL resolution with frozen credential/account revision
+  checks and a bounded streaming transport with Range/header allowlists, redirect revalidation,
+  private literal rejection, `trust_env=False`, deterministic close and signed-URL redaction.
+- Cut API and both Worker profiles from Legacy playback user/source/config/direct-link wiring to
+  SQLAlchemy/native owners. Configured primary OpenAPI/Cookie priority remains authoritative.
+
+Targeted gate:
+
+- Full P6 application -> `837 passed`.
+- Interactive direct/source/ownership focus -> `94 passed`.
+- P4 Worker outcomes plus P6 architecture -> `121 passed`.
+- Disposable PostgreSQL 18 native/existing playback -> `35 passed`.
+- Scoped Ruff/format and Pyright, compileall, `uv lock --check`, Manifest/OpenAPI currentness,
+  three secret scans and `git diff --check` -> clean.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-native-interactive-playback-20260831/summary.md`.
+
+Focused review:
+
+- No deterministic P0/P1/P2 remains in source selection, provider identity, streaming or active
+  wiring after final local review.
+- Two read-only reviewers exceeded their no-write boundary during the slice. The main thread
+  interrupted them, removed incompatible partial wiring, independently audited retained changes
+  and reran all final gates from the stable worktree.
+
+Pending:
+
+- Complete the remaining 25 native-only unavailable task keys and exact 21/23 legacy Route
+  bindings, then Table/Config/Frontend ownership, pre-removal, controlled removal and P11 NFR gates.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ## LIVE
 
 Status: HUMAN_PENDING
@@ -5356,8 +5405,7 @@ Read first:
 
 Next:
 
-- Complete native interactive playback source/direct-URL/streaming ownership, then resume the 25
-  unavailable native-only task keys and exact 21/23 legacy Route bindings from the latest
-  manifests/runtime call graph. Close Route, Task, Table, Config and Frontend ownership before
-  controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are complete;
-  keep all Live Acceptance items pending.
+- Resume the 25 unavailable native-only task keys and exact 21/23 legacy Route bindings from the
+  latest manifests/runtime call graph. Close Route, Task, Table, Config and Frontend ownership
+  before controlled removal. Do not start P12 until P11 ownership, removal and NFR gates are
+  complete; keep all Live Acceptance items pending.

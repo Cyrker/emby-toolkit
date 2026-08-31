@@ -35,6 +35,7 @@ from etk.domains.p115.playback_native import (
     P115PlaybackCredentialChanged,
     P115PlayPoolCredentialStore,
     P115PoolPlaybackClient,
+    SqlAlchemyP115PlaybackSourceGateway,
 )
 from etk.domains.p115.playback_reward_repository import SqlAlchemyP115PlaybackUserGateway
 from etk.domains.p115.playback_service import P115PlaybackService
@@ -269,6 +270,35 @@ def test_play_pool_daily_traffic_uses_the_shanghai_business_date() -> None:
     assert play_pool_business_date(now) == "2026-08-31"
     assert normalized["accounts"][0]["daily_traffic_date"] == "2026-08-31"
     assert normalized["accounts"][0]["daily_traffic_bytes"] == 0
+
+
+def test_native_primary_playback_identity_honors_cookie_priority() -> None:
+    credentials = MutableCredentials()
+    credentials.snapshot = P115CredentialSnapshot(
+        access_token="fixture-openapi-token",
+        refresh_token="fixture-refresh-token",
+        cookie="UID=115001_A1_1; CID=fixture; SEID=fixture",
+        app_type="mac",
+        account_id="115001",
+    )
+    gateway = SqlAlchemyP115PlaybackSourceGateway(
+        cast(Any, lambda: None),
+        primary_credentials=cast(Any, credentials),
+        priority=lambda: "cookie",
+    )
+
+    account = gateway.primary_account()
+
+    assert account["account_id"] == "115001"
+    assert account["provider_backend"] == "cookie"
+    assert account["credential_hash"] == pool_credential_fingerprint(
+        {
+            "access_token": credentials.snapshot.access_token,
+            "cookie": credentials.snapshot.cookie,
+            "app_type": credentials.snapshot.app_type,
+        },
+        "cookie",
+    )
 
 
 def _operation(

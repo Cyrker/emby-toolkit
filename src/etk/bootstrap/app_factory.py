@@ -166,14 +166,11 @@ from etk.domains.p115 import (
     HttpxP115OrganizeMutationGateway,
     IntroDetectionSubmissionService,
     LegacyP115DeepDeleteScopeGateway,
-    LegacyP115DirectLinkGateway,
     LegacyP115DirectoryGateway,
     LegacyP115DirectoryTreeGateway,
     LegacyP115IntroSnapshotExporter,
     LegacyP115IntroSyncFeature,
     LegacyP115PlanNamingGateway,
-    LegacyP115PlaybackSourceGateway,
-    LegacyP115PlaybackUserGateway,
     LegacyP115RenamePreviewGateway,
     LegacyP115RuleRecognitionGateway,
     LegacyP115SortingRuleDirectoryGateway,
@@ -223,9 +220,16 @@ from etk.domains.p115 import (
     select_intro_provider_identity,
 )
 from etk.domains.p115.playback_native import (
+    NativeP115DirectLinkGateway,
     NativeP115PlaybackProvider,
     NativeP115PlaybackRapidSigner,
     NativeP115PoolPlaybackClientFactory,
+    SqlAlchemyP115PlaybackConfigBackend,
+    SqlAlchemyP115PlaybackSourceGateway,
+)
+from etk.domains.p115.playback_reward_repository import (
+    SqlAlchemyP115PlaybackRewardRepository,
+    SqlAlchemyP115PlaybackUserGateway,
 )
 from etk.domains.p115.playback_router import router as p115_playback_router
 from etk.domains.p115.router import router as p115_router
@@ -1187,11 +1191,18 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "p115.playback-users",
-        lambda _: LegacyP115PlaybackUserGateway(),
+        lambda current: SqlAlchemyP115PlaybackUserGateway(
+            SqlAlchemyP115PlaybackRewardRepository(current.database.unit_of_work),
+            current.client("sharing.telegram-bot"),
+        ),
     )
     container.register_client(
         "p115.playback-sources",
-        lambda _: LegacyP115PlaybackSourceGateway(),
+        lambda current: SqlAlchemyP115PlaybackSourceGateway(
+            current.database.unit_of_work,
+            primary_credentials=current.repository("p115.credentials"),
+            priority=lambda: str(current.settings.p115_api_priority),
+        ),
     )
     container.register_client(
         "p115.directories",
@@ -1360,7 +1371,7 @@ def _register_p115_providers(container: AppContainer) -> None:
     container.register_use_case(
         "p115.playback-config",
         lambda current: P115PlaybackConfigService(
-            PostgresRuntimeStateBackend(current.database.raw_pool.connection),
+            SqlAlchemyP115PlaybackConfigBackend(current.database.unit_of_work),
             current.client("p115.playback-users"),
         ),
     )
@@ -1382,7 +1393,11 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "p115.playback-direct-links",
-        lambda current: LegacyP115DirectLinkGateway(current.use_case("p115.playback-config")),
+        lambda current: NativeP115DirectLinkGateway(
+            current.use_case("p115.playback-config"),
+            current.repository("p115.credentials"),
+            priority=lambda: str(current.settings.p115_api_priority),
+        ),
     )
     container.register_use_case(
         "p115.playback-executor",

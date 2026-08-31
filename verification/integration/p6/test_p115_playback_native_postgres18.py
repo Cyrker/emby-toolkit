@@ -25,6 +25,9 @@ from etk.platform.db import DatabaseRuntime
 SHA1 = "A" * 40
 PREID = "B" * 40
 PICK_CODE = "fixture-speedtest-pick"
+INTERACTIVE_SHA1 = "C" * 40
+INTERACTIVE_PREID = "D" * 40
+INTERACTIVE_PICK_CODE = "fixture-interactive-pick"
 USER_IDS = ("native-reward-shared", "native-reward-private")
 CONFIG_BACKEND_KEY = "etk:test:p115-playback-config-backend"
 
@@ -43,10 +46,18 @@ def clean_native_playback_facts(p6_runtime: DatabaseRuntime):
                 {"ids": list(USER_IDS)},
             )
             connection.execute(text("DELETE FROM p115_filesystem_cache WHERE id LIKE 'native-speedtest-%'"))
-            connection.execute(text("DELETE FROM p115_mediainfo_cache WHERE UPPER(sha1) = :sha1"), {"sha1": SHA1})
+            connection.execute(text("DELETE FROM p115_filesystem_cache WHERE id LIKE 'native-playback-%'"))
             connection.execute(
-                text("DELETE FROM media_metadata WHERE tmdb_id = 'native-speedtest' AND item_type = 'Movie'")
+                text("DELETE FROM p115_mediainfo_cache WHERE UPPER(sha1) = ANY(CAST(:sha1s AS text[]))"),
+                {"sha1s": [SHA1, INTERACTIVE_SHA1]},
             )
+            connection.execute(
+                text(
+                    "DELETE FROM media_metadata "
+                    "WHERE tmdb_id LIKE 'native-speedtest%' OR tmdb_id LIKE 'native-playback%'"
+                )
+            )
+            connection.execute(text("DELETE FROM shared_virtual_imports WHERE source_id LIKE 'native-playback-%'"))
 
     clean()
     yield
@@ -98,7 +109,7 @@ def _insert_cache(
         )
 
 
-def _insert_preid(runtime: DatabaseRuntime) -> None:
+def _insert_preid(runtime: DatabaseRuntime, *, sha1: str = SHA1, preid: str = PREID) -> None:
     with runtime.engine.begin() as connection:
         connection.execute(
             text(
@@ -107,7 +118,7 @@ def _insert_preid(runtime: DatabaseRuntime) -> None:
                 VALUES (:sha1, CAST(:raw AS jsonb))
                 """
             ),
-            {"sha1": SHA1, "raw": json.dumps({"_etk": {"preid": PREID}})},
+            {"sha1": sha1, "raw": json.dumps({"_etk": {"preid": preid}})},
         )
 
 
@@ -130,6 +141,70 @@ def _insert_metadata(runtime: DatabaseRuntime) -> None:
                 "sha1s": json.dumps([SHA1]),
                 "assets": json.dumps([{"file_name": "Metadata-Name.mkv"}]),
             },
+        )
+
+
+def _insert_interactive_metadata(runtime: DatabaseRuntime, *, item_id: str = "native-playback-item") -> None:
+    with runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata(
+                    tmdb_id, item_type, title, in_library, emby_item_ids_json,
+                    file_pickcode_json, file_sha1_json, asset_details_json
+                ) VALUES (
+                    'native-playback-movie', 'Movie', 'Interactive Fixture', TRUE,
+                    CAST(:emby_ids AS jsonb), CAST(:pick_codes AS jsonb),
+                    CAST(:sha1s AS jsonb), CAST(:assets AS jsonb)
+                )
+                """
+            ),
+            {
+                "emby_ids": json.dumps([item_id]),
+                "pick_codes": json.dumps([INTERACTIVE_PICK_CODE]),
+                "sha1s": json.dumps([INTERACTIVE_SHA1]),
+                "assets": json.dumps(
+                    [
+                        {
+                            "emby_item_id": item_id,
+                            "file_name": "Interactive.mkv",
+                            "size": 2048,
+                        }
+                    ]
+                ),
+            },
+        )
+
+
+def _insert_virtual(runtime: DatabaseRuntime) -> int:
+    with runtime.engine.begin() as connection:
+        return int(
+            connection.scalar(
+                text(
+                    """
+                    INSERT INTO shared_virtual_imports(
+                        source_kind, source_id, title, file_count, total_size, status, files_json
+                    ) VALUES (
+                        'shared_center', 'native-playback-virtual', 'Virtual Fixture', 1, 2048,
+                        'virtual', CAST(:files AS jsonb)
+                    ) RETURNING id
+                    """
+                ),
+                {
+                    "files": json.dumps(
+                        [
+                            {
+                                "sha1": INTERACTIVE_SHA1,
+                                "size": 2048,
+                                "pick_code": INTERACTIVE_PICK_CODE,
+                                "preid": INTERACTIVE_PREID,
+                                "file_name": "Virtual.mkv",
+                                "source_id": "virtual-file-1",
+                            }
+                        ]
+                    )
+                },
+            )
         )
 
 
@@ -222,6 +297,140 @@ def test_native_speedtest_source_fails_closed_for_missing_and_ambiguous_facts(
 
     with pytest.raises(P115PlaybackStateError, match="歧义"):
         gateway.snapshot(_request())
+
+
+def test_native_pool_source_resolves_emby_slot_and_primary_holder_without_cached_preid(
+    p6_runtime: DatabaseRuntime,
+) -> None:
+    _insert_interactive_metadata(p6_runtime)
+    _insert_cache(
+        p6_runtime,
+        fid="native-playback-pool",
+        account_id="115001",
+        pick_code=INTERACTIVE_PICK_CODE,
+        sha1=INTERACTIVE_SHA1,
+        size=2048,
+        name="Interactive.mkv",
+    )
+    gateway = SqlAlchemyP115PlaybackSourceGateway(
+        p6_runtime.unit_of_work,
+        primary_credentials=cast(Any, PrimaryCredentials()),
+    )
+
+    source = gateway.snapshot(
+        PlaybackPrepareRequest(
+            mode=PlaybackMode.POOL,
+            item_id="native-playback-item",
+            source_pick_code=INTERACTIVE_PICK_CODE,
+            file_name="Interactive.mkv",
+        )
+    )
+
+    assert source == {
+        "fid": "native-playback-pool",
+        "holder_account_id": "115001",
+        "pick_code": INTERACTIVE_PICK_CODE,
+        "sha1": INTERACTIVE_SHA1,
+        "size": 2048,
+        "preid": "",
+        "file_name": "Interactive.mkv",
+    }
+
+
+def test_native_copy_source_uses_primary_cache_and_cached_preid(p6_runtime: DatabaseRuntime) -> None:
+    _insert_cache(
+        p6_runtime,
+        fid="native-playback-copy",
+        account_id="115001",
+        pick_code=INTERACTIVE_PICK_CODE,
+        sha1=INTERACTIVE_SHA1,
+        size=2048,
+        name="Copy.mkv",
+    )
+    _insert_preid(p6_runtime, sha1=INTERACTIVE_SHA1, preid=INTERACTIVE_PREID)
+    gateway = SqlAlchemyP115PlaybackSourceGateway(
+        p6_runtime.unit_of_work,
+        primary_credentials=cast(Any, PrimaryCredentials()),
+    )
+
+    source = gateway.snapshot(
+        PlaybackPrepareRequest(
+            mode=PlaybackMode.COPY,
+            source_pick_code=INTERACTIVE_PICK_CODE,
+            file_name="Copy.mkv",
+        )
+    )
+
+    assert source["fid"] == "native-playback-copy"
+    assert source["holder_account_id"] == "115001"
+    assert source["preid"] == INTERACTIVE_PREID
+
+
+def test_native_virtual_source_uses_durable_import_projection_and_primary_holder(
+    p6_runtime: DatabaseRuntime,
+) -> None:
+    virtual_id = _insert_virtual(p6_runtime)
+    gateway = SqlAlchemyP115PlaybackSourceGateway(
+        p6_runtime.unit_of_work,
+        primary_credentials=cast(Any, PrimaryCredentials()),
+    )
+
+    source = gateway.snapshot(
+        PlaybackPrepareRequest(
+            mode=PlaybackMode.VIRTUAL,
+            virtual_id=virtual_id,
+            sha1=INTERACTIVE_SHA1,
+            file_name="Virtual.mkv",
+        )
+    )
+
+    assert source["virtual_id"] == virtual_id
+    assert source["holder_account_id"] == "115001"
+    assert source["source_kind"] == "shared_center"
+    assert source["source_id"] == "native-playback-virtual"
+    assert source["pick_code"] == INTERACTIVE_PICK_CODE
+    assert source["preid"] == INTERACTIVE_PREID
+
+
+def test_native_interactive_source_rejects_non_primary_and_ambiguous_cache_rows(
+    p6_runtime: DatabaseRuntime,
+) -> None:
+    _insert_cache(
+        p6_runtime,
+        fid="native-playback-secondary",
+        account_id="115002",
+        pick_code=INTERACTIVE_PICK_CODE,
+        sha1=INTERACTIVE_SHA1,
+        size=2048,
+    )
+    gateway = SqlAlchemyP115PlaybackSourceGateway(
+        p6_runtime.unit_of_work,
+        primary_credentials=cast(Any, PrimaryCredentials()),
+    )
+    request = PlaybackPrepareRequest(mode=PlaybackMode.COPY, source_pick_code=INTERACTIVE_PICK_CODE)
+    with pytest.raises(P115PlaybackNotFoundError, match="主号"):
+        gateway.snapshot(request)
+
+    _insert_cache(
+        p6_runtime,
+        fid="native-playback-primary-a",
+        account_id="115001",
+        pick_code=INTERACTIVE_PICK_CODE,
+        sha1=INTERACTIVE_SHA1,
+        size=2048,
+        name="A.mkv",
+    )
+    _insert_cache(
+        p6_runtime,
+        fid="native-playback-primary-b",
+        account_id="115001",
+        pick_code=INTERACTIVE_PICK_CODE,
+        sha1=INTERACTIVE_SHA1,
+        size=2048,
+        name="B.mkv",
+    )
+    with pytest.raises(P115PlaybackStateError, match="歧义"):
+        gateway.snapshot(request)
 
 
 @pytest.mark.parametrize(

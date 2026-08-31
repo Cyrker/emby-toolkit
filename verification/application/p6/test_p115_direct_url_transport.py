@@ -1,12 +1,25 @@
 from __future__ import annotations
 
+import gzip
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any, cast
+from uuid import uuid4
 
+import httpx
 import pytest
 from p115client import P115Client, P115OpenClient
 
 from etk.domains.p115 import P115CredentialSnapshot, P115SdkDirectUrlGateway, direct_url_transport
+from etk.domains.p115.playback import (
+    P115PlaybackStateError,
+    PlaybackArtifact,
+    PlaybackArtifactStatus,
+    PlaybackMode,
+    pool_account_revision,
+    pool_credential_fingerprint,
+)
+from etk.domains.p115.playback_native import NativeP115DirectLinkGateway
 
 PICK_CODE = "a1b2c3"
 ACCOUNT_ID = "115001"
@@ -375,3 +388,246 @@ def test_invalid_or_non_http_provider_url_is_unavailable(value: object) -> None:
     )
 
     assert gateway.resolve(PICK_CODE, expected_account_id=ACCOUNT_ID, user_agent=USER_AGENT) is None
+
+
+class FakePlaybackConfig:
+    def __init__(self, account: dict[str, Any] | None = None) -> None:
+        self.value = account
+
+    def account(self, account_id: str) -> dict[str, Any] | None:
+        if self.value is None or str(self.value.get("id") or "") != str(account_id):
+            return None
+        return dict(self.value)
+
+
+def _artifact(
+    *,
+    mode: PlaybackMode,
+    account_id: str,
+    receipt: dict[str, Any],
+) -> PlaybackArtifact:
+    now = datetime.now(UTC)
+    return PlaybackArtifact(
+        id=uuid4(),
+        artifact_key="a" * 64,
+        generation=1,
+        operation_id=uuid4(),
+        mode=mode,
+        account_id=account_id,
+        provider_backend="openapi",
+        target_cid="target-cid",
+        source_sha1="A" * 40,
+        source_size=1024,
+        source_pick_code="source-pick",
+        source_fid="source-fid",
+        file_name="Fixture.mkv",
+        remote_fid="remote-fid",
+        remote_pick_code=PICK_CODE,
+        status=PlaybackArtifactStatus.AVAILABLE,
+        state_revision=1,
+        remote_receipt=receipt,
+        reclaim_not_before=now,
+        last_verified_at=None,
+        reclaimed_at=None,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def test_native_direct_link_resolves_primary_artifact_only_with_frozen_credential(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    credentials = MutableCredentials(_snapshot())
+    constructor_calls: list[dict[str, Any]] = []
+
+    def constructor(**kwargs: Any) -> FakeOpenApiClient:
+        constructor_calls.append(kwargs)
+        return FakeOpenApiClient("https://download.invalid/native-primary.mkv")
+
+    monkeypatch.setattr(direct_url_transport, "P115OpenClient", constructor)
+    fingerprint = pool_credential_fingerprint(
+        {
+            "access_token": _snapshot().access_token,
+            "cookie": _snapshot().cookie,
+            "app_type": _snapshot().app_type,
+        },
+        "openapi",
+    )
+    artifact = _artifact(
+        mode=PlaybackMode.COPY,
+        account_id=ACCOUNT_ID,
+        receipt={"account_kind": "primary", "credential_hash": fingerprint},
+    )
+    gateway = NativeP115DirectLinkGateway(
+        cast(Any, FakePlaybackConfig()),
+        cast(Any, credentials),
+        priority=lambda: "openapi",
+    )
+
+    assert gateway.resolve_artifact(artifact, USER_AGENT) == "https://download.invalid/native-primary.mkv"
+    credentials.snapshot = replace(_snapshot(), access_token="rotated-token")
+    assert gateway.resolve_artifact(artifact, USER_AGENT) == ""
+    assert len(constructor_calls) == 1
+
+
+def test_native_direct_link_resolves_pool_artifact_with_account_revision_fence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    account = {
+        "id": "local-pool-account",
+        "access_token": "fixture-pool-token",
+        "refresh_token": "fixture-pool-refresh",
+        "cookie": "",
+        "app_type": "mac",
+        "alias": "Pool",
+        "enabled": True,
+    }
+    monkeypatch.setattr(
+        direct_url_transport,
+        "P115OpenClient",
+        lambda **_kwargs: FakeOpenApiClient("https://download.invalid/native-pool.mkv"),
+    )
+    artifact = _artifact(
+        mode=PlaybackMode.POOL,
+        account_id=str(account["id"]),
+        receipt={
+            "account_kind": "pool",
+            "credential_hash": pool_credential_fingerprint(account, "openapi"),
+            "account_revision": pool_account_revision(account, "openapi"),
+        },
+    )
+    config = FakePlaybackConfig(account)
+    gateway = NativeP115DirectLinkGateway(
+        cast(Any, config),
+        cast(Any, MutableCredentials(_snapshot())),
+        priority=lambda: "openapi",
+    )
+
+    assert gateway.resolve_artifact(artifact, USER_AGENT) == "https://download.invalid/native-pool.mkv"
+    config.value = {**account, "temp_cid": "rotated-temp-cid"}
+    assert gateway.resolve_artifact(artifact, USER_AGENT) == ""
+
+
+def test_native_direct_stream_forwards_valid_range_and_allowlists_response_headers() -> None:
+    decoded = b"native-stream-payload" * 8
+    encoded = gzip.compress(decoded)
+    request_headers: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        request_headers.update(request.headers)
+        return httpx.Response(
+            206,
+            headers={
+                "content-encoding": "gzip",
+                "content-length": str(len(encoded)),
+                "content-range": "bytes 0-23/24",
+                "set-cookie": "provider-secret=must-not-leak",
+            },
+            content=encoded,
+            request=request,
+        )
+
+    gateway = NativeP115DirectLinkGateway(
+        cast(Any, FakePlaybackConfig()),
+        cast(Any, MutableCredentials(_snapshot())),
+        priority=lambda: "openapi",
+        client_factory=lambda **options: httpx.Client(transport=httpx.MockTransport(handler), **options),
+    )
+    stream = gateway.stream(
+        "https://media.fixture.invalid/signed?token=secret",
+        user_agent=USER_AGENT,
+        range_header="bytes=0-23",
+    )
+    try:
+        body = b"".join(stream.chunks)
+    finally:
+        stream.close()
+
+    assert request_headers["accept-encoding"] == "identity"
+    assert request_headers["range"] == "bytes=0-23"
+    assert body == decoded
+    assert stream.headers == {"content-range": "bytes 0-23/24"}
+
+
+class FailingNativeStreamClient:
+    def __init__(self) -> None:
+        self.close_calls = 0
+
+    def build_request(self, *_args: Any, **_kwargs: Any) -> object:
+        return object()
+
+    def send(self, _request: object, *, stream: bool) -> Any:
+        assert stream is True
+        raise RuntimeError("https://media.fixture.invalid/signed?token=secret")
+
+    def close(self) -> None:
+        self.close_calls += 1
+
+
+def test_native_direct_stream_closes_and_redacts_upstream_connect_failure() -> None:
+    client = FailingNativeStreamClient()
+    gateway = NativeP115DirectLinkGateway(
+        cast(Any, FakePlaybackConfig()),
+        cast(Any, MutableCredentials(_snapshot())),
+        priority=lambda: "openapi",
+        client_factory=lambda **_options: cast(Any, client),
+    )
+
+    with pytest.raises(P115PlaybackStateError, match="upstream request failed") as captured:
+        gateway.stream("https://media.fixture.invalid/signed?token=secret", user_agent=USER_AGENT)
+
+    assert "token=secret" not in str(captured.value)
+    assert client.close_calls == 1
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://127.0.0.1/private",
+        "http://[::1]/private",
+        "http://169.254.169.254/latest/meta-data",
+        "http://localhost/private",
+    ],
+)
+def test_native_direct_stream_rejects_private_upstream_before_opening_client(url: str) -> None:
+    opened: list[str] = []
+    gateway = NativeP115DirectLinkGateway(
+        cast(Any, FakePlaybackConfig()),
+        cast(Any, MutableCredentials(_snapshot())),
+        priority=lambda: "openapi",
+        client_factory=lambda **_options: (opened.append("client"), pytest.fail("client must not open"))[1],
+    )
+
+    with pytest.raises(ValueError, match="upstream URL"):
+        gateway.stream(url, user_agent=USER_AGENT)
+
+    assert opened == []
+
+
+def test_native_direct_stream_revalidates_redirect_and_drops_invalid_range() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            302,
+            headers={"location": "http://127.0.0.1/private"},
+            request=request,
+        )
+
+    gateway = NativeP115DirectLinkGateway(
+        cast(Any, FakePlaybackConfig()),
+        cast(Any, MutableCredentials(_snapshot())),
+        priority=lambda: "openapi",
+        client_factory=lambda **options: httpx.Client(transport=httpx.MockTransport(handler), **options),
+    )
+
+    with pytest.raises(P115PlaybackStateError, match="upstream request failed"):
+        gateway.stream(
+            "https://media.fixture.invalid/signed",
+            user_agent=USER_AGENT,
+            range_header="bytes=invalid",
+        )
+
+    assert len(requests) == 1
+    assert "range" not in requests[0].headers

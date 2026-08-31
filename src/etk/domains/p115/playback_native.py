@@ -4,9 +4,12 @@ import hashlib
 import json
 import re
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import suppress
 from copy import deepcopy
 from datetime import UTC, datetime
+from ipaddress import ip_address
 from typing import Any, Protocol
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from sqlalchemy import text
@@ -50,13 +53,32 @@ from .playback import (
     normalize_sha1,
     pool_account_revision,
     pool_credential_fingerprint,
+    safe_playback_json,
 )
 
 _DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 _SIGN_CHECK = re.compile(r"([0-9]{1,20})-([0-9]{1,20})")
+_RANGE_HEADER = re.compile(
+    r"bytes=(?:[0-9]+-[0-9]*|[0-9]*-[0-9]+)(?:,(?:[0-9]+-[0-9]*|[0-9]*-[0-9]+))*",
+    re.IGNORECASE,
+)
 _MAX_SOURCE_ROWS = 50
+_STREAM_RESPONSE_HEADERS = frozenset(
+    {
+        "accept-ranges",
+        "cache-control",
+        "content-disposition",
+        "content-length",
+        "content-range",
+        "content-type",
+        "etag",
+        "last-modified",
+    }
+)
+_PLAYBACK_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+_MAX_PLAYBACK_REDIRECTS = 5
 
 type PlaybackStateMutation = Callable[
     [dict[str, Any] | None, datetime],
@@ -282,20 +304,31 @@ class _PinnedPrimaryCredentialStore(P115CredentialStore):
 
 
 class SqlAlchemyP115PlaybackSourceGateway:
-    """Select one complete holder-backed speedtest source without provider I/O."""
+    """Resolve playback sources from native PostgreSQL projections without provider I/O."""
 
     def __init__(
         self,
         unit_of_work: Callable[[], SqlAlchemyUnitOfWork],
         *,
         primary_credentials: P115CredentialStore | None = None,
+        priority: Callable[[], str] | None = None,
     ) -> None:
         self._unit_of_work = unit_of_work
         self._primary_credentials = primary_credentials
+        self._priority = priority or (lambda: "openapi")
 
     def snapshot(self, request: PlaybackPrepareRequest) -> Mapping[str, Any]:
-        if request.mode is not PlaybackMode.MAINTENANCE or request.source != "speedtest":
-            raise ValueError("native playback source only supports maintenance speedtest")
+        if request.mode is PlaybackMode.VIRTUAL:
+            return self._virtual(request)
+        if request.mode is PlaybackMode.POOL:
+            return self._pool(request)
+        if request.mode is PlaybackMode.COPY:
+            return self._copy(request)
+        if request.mode is PlaybackMode.MAINTENANCE and request.source == "speedtest":
+            return self._speedtest()
+        raise ValueError(f"unsupported native playback source mode: {request.mode.value}")
+
+    def _speedtest(self) -> Mapping[str, Any]:
         primary_account_id = self._primary_account_id()
         ambiguous = False
         with self._unit_of_work() as uow:
@@ -398,6 +431,231 @@ class SqlAlchemyP115PlaybackSourceGateway:
                 raise P115PlaybackStateError("测速源在 115 本地缓存中存在歧义，已拒绝选择")
         raise P115PlaybackNotFoundError("未找到同时具备 PickCode、SHA1、size、preid 和 holder 的测速源")
 
+    def _pool(self, request: PlaybackPrepareRequest) -> Mapping[str, Any]:
+        account_id = self._interactive_primary_account_id()
+        item_id = str(request.item_id or "").strip()
+        requested_pick_code = str(request.source_pick_code or "").strip()
+        if not item_id:
+            raise P115PlaybackNotFoundError("小号播放缺少 Emby item identity")
+        with self._unit_of_work() as uow:
+            rows = uow.session.execute(
+                text(
+                    """
+                    WITH target_item AS (
+                        SELECT tmdb_id, item_type
+                        FROM media_metadata
+                        WHERE emby_item_ids_json @> CAST(:item_ids AS jsonb)
+                    )
+                    SELECT m.emby_item_ids_json, m.file_pickcode_json,
+                           m.file_sha1_json, m.asset_details_json, m.title
+                    FROM media_metadata AS m
+                    JOIN target_item AS target
+                      ON (m.tmdb_id = target.tmdb_id AND m.item_type = target.item_type)
+                      OR (m.parent_series_tmdb_id = target.tmdb_id
+                          AND target.item_type = 'Series' AND m.item_type = 'Episode')
+                    ORDER BY m.last_updated_at DESC NULLS LAST, m.tmdb_id, m.item_type
+                    """
+                ),
+                {"item_ids": json.dumps([item_id], ensure_ascii=False)},
+            ).mappings()
+            candidates: list[dict[str, Any]] = []
+            for row in rows:
+                emby_ids = [str(value or "").strip() for value in _json_list(row.get("emby_item_ids_json"))]
+                pick_codes = [str(value or "").strip() for value in _json_list(row.get("file_pickcode_json"))]
+                sha1s = [normalize_sha1(value) for value in _json_list(row.get("file_sha1_json"))]
+                assets = _json_list(row.get("asset_details_json"))
+                if len({len(emby_ids), len(pick_codes), len(sha1s), len(assets)}) != 1:
+                    raise P115PlaybackStateError("媒体物理资产数组未对齐，已拒绝选择播放源")
+                for index, raw_asset in enumerate(assets):
+                    if not isinstance(raw_asset, Mapping):
+                        raise P115PlaybackStateError("媒体物理资产数组包含无效项，已拒绝选择播放源")
+                    asset = dict(raw_asset)
+                    candidates.append(
+                        {
+                            "pick_code": pick_codes[index] if index < len(pick_codes) else "",
+                            "sha1": sha1s[index] if index < len(sha1s) else "",
+                            "size": _positive_int(asset.get("size") or asset.get("file_size")),
+                            "file_name": str(
+                                asset.get("file_name")
+                                or asset.get("name")
+                                or str(asset.get("path") or "").replace("\\", "/").rsplit("/", 1)[-1]
+                                or row.get("title")
+                                or request.file_name
+                                or ""
+                            ).strip(),
+                        }
+                    )
+            if requested_pick_code and any(item["pick_code"] == requested_pick_code for item in candidates):
+                candidates = [item for item in candidates if item["pick_code"] == requested_pick_code]
+            resolved: list[dict[str, Any]] = []
+            for candidate in candidates:
+                source = self._cached_interactive_source(
+                    uow,
+                    account_id=account_id,
+                    pick_code=requested_pick_code or str(candidate["pick_code"]),
+                    sha1=str(candidate["sha1"]),
+                    fallback_size=int(candidate["size"]),
+                    fallback_name=str(candidate["file_name"] or request.file_name),
+                )
+                if source:
+                    resolved.append(source)
+            if len(resolved) > 1:
+                raise P115PlaybackStateError("播放源候选存在歧义，已拒绝选择")
+            if resolved:
+                return resolved[0]
+        raise P115PlaybackNotFoundError("未找到与 Emby 媒体匹配的主号 115 播放源")
+
+    def _copy(self, request: PlaybackPrepareRequest) -> Mapping[str, Any]:
+        account_id = self._interactive_primary_account_id()
+        pick_code = str(request.source_pick_code or "").strip()
+        if not pick_code:
+            raise P115PlaybackNotFoundError("复制播放缺少源 PickCode")
+        with self._unit_of_work() as uow:
+            source = self._cached_interactive_source(
+                uow,
+                account_id=account_id,
+                pick_code=pick_code,
+                sha1="",
+                fallback_size=0,
+                fallback_name=str(request.file_name or ""),
+            )
+        if not source:
+            raise P115PlaybackNotFoundError("主号 115 缓存中未找到复制播放源")
+        return source
+
+    def _virtual(self, request: PlaybackPrepareRequest) -> Mapping[str, Any]:
+        account_id = self._interactive_primary_account_id()
+        virtual_id = _positive_int(request.virtual_id)
+        sha1 = normalize_sha1(request.sha1)
+        if virtual_id <= 0 or not sha1:
+            raise P115PlaybackNotFoundError("虚拟播放源身份无效")
+        with self._unit_of_work() as uow:
+            row = (
+                uow.session.execute(
+                    text("SELECT * FROM shared_virtual_imports WHERE id = :virtual_id"),
+                    {"virtual_id": virtual_id},
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            raise P115PlaybackNotFoundError("Virtual import not found")
+        matches = [
+            {str(key): value for key, value in item.items()}
+            for item in _json_list(row.get("files_json"))
+            if isinstance(item, Mapping) and normalize_sha1(item.get("sha1")) == sha1
+        ]
+        if len(matches) > 1:
+            raise P115PlaybackStateError("Virtual file SHA1 存在歧义，已拒绝选择")
+        if not matches:
+            raise P115PlaybackNotFoundError("Virtual file not found")
+        file_info = matches[0]
+        status = str(row.get("status") or "").strip().casefold()
+        if status in {"deleted", "disabled", "cancelled", "canceled", "failed"}:
+            raise P115PlaybackNotFoundError("Virtual import is not playable")
+        declared_holder = str(
+            file_info.get("holder_account_id") or file_info.get("local_sign_holder_account_id") or ""
+        ).strip()
+        if declared_holder and declared_holder != account_id:
+            raise P115PlaybackStateError("虚拟播放源 holder 与当前主号身份不一致")
+        raw_rapid = file_info.get("rapid_meta_json")
+        rapid: dict[str, Any] = (
+            {str(key): value for key, value in raw_rapid.items()} if isinstance(raw_rapid, Mapping) else {}
+        )
+        source = {
+            "fid": str(file_info.get("fid") or file_info.get("file_id") or rapid.get("fid") or "").strip(),
+            "holder_account_id": account_id,
+            "pick_code": str(
+                file_info.get("pick_code")
+                or file_info.get("pickcode")
+                or file_info.get("pc")
+                or rapid.get("pick_code")
+                or ""
+            ).strip(),
+            "sha1": sha1,
+            "size": _positive_int(file_info.get("size") or file_info.get("file_size")),
+            "preid": normalize_sha1(
+                file_info.get("preid") or rapid.get("preid") or rapid.get("pre_sha1") or rapid.get("pre_sha1_128k")
+            ),
+            "file_name": str(
+                file_info.get("file_name") or file_info.get("name") or request.file_name or f"{sha1}.mkv"
+            ).strip(),
+            "virtual_id": virtual_id,
+            "source_kind": str(row.get("source_kind") or file_info.get("source_kind") or "")[:64],
+            "source_id": str(
+                row.get("source_id") or file_info.get("source_id") or file_info.get("source_ref_id") or ""
+            )[:255],
+        }
+        if not source["pick_code"] or source["size"] <= 0:
+            raise P115PlaybackNotFoundError("Virtual file is missing rapid-transfer identity")
+        if not source["source_kind"] or not source["source_id"]:
+            raise P115PlaybackStateError("Virtual playback source provenance is incomplete")
+        return safe_playback_json(source, field="virtual playback source")
+
+    @staticmethod
+    def _cached_interactive_source(
+        uow: SqlAlchemyUnitOfWork,
+        *,
+        account_id: str,
+        pick_code: str,
+        sha1: str,
+        fallback_size: int,
+        fallback_name: str,
+    ) -> dict[str, Any]:
+        normalized_pick_code = str(pick_code or "").strip()
+        normalized_sha1 = normalize_sha1(sha1)
+        rows: list[dict[str, Any]] = []
+        if normalized_pick_code:
+            rows = [
+                {str(key): value for key, value in row.items()}
+                for row in uow.session.execute(
+                    text(
+                        """
+                        SELECT id, account_id, name, pick_code, sha1, size
+                        FROM p115_filesystem_cache
+                        WHERE account_id = :account_id
+                          AND (entry_kind = 'file' OR entry_kind IS NULL)
+                          AND pick_code = :pick_code
+                          AND (CAST(:sha1 AS text) = '' OR UPPER(sha1) = :sha1)
+                        ORDER BY updated_at DESC NULLS LAST, id
+                        LIMIT 2
+                        """
+                    ),
+                    {"account_id": account_id, "pick_code": normalized_pick_code, "sha1": normalized_sha1},
+                ).mappings()
+            ]
+        if not rows and not normalized_pick_code and normalized_sha1:
+            rows = [
+                {str(key): value for key, value in row.items()}
+                for row in uow.session.execute(
+                    text(
+                        """
+                        SELECT id, account_id, name, pick_code, sha1, size
+                        FROM p115_filesystem_cache
+                        WHERE account_id = :account_id
+                          AND (entry_kind = 'file' OR entry_kind IS NULL)
+                          AND UPPER(sha1) = :sha1
+                        ORDER BY updated_at DESC NULLS LAST, id
+                        LIMIT 2
+                        """
+                    ),
+                    {"account_id": account_id, "sha1": normalized_sha1},
+                ).mappings()
+            ]
+        if len(rows) > 1:
+            raise P115PlaybackStateError("主号 115 播放源缓存存在歧义")
+        if not rows:
+            return {}
+        row = dict(rows[0])
+        if _positive_int(row.get("size")) <= 0 and fallback_size > 0:
+            row["size"] = fallback_size
+        return SqlAlchemyP115PlaybackSourceGateway._complete_source(
+            uow,
+            row,
+            fallback_name=fallback_name,
+            require_preid=False,
+        )
+
     def primary_account(self) -> Mapping[str, Any]:
         if self._primary_credentials is None:
             return {}
@@ -405,7 +663,15 @@ class SqlAlchemyP115PlaybackSourceGateway:
         account_id = str(snapshot.account_id or "").strip()
         if not account_id.isdigit():
             raise P115PlaybackStateError("主号缺少稳定的 115 holder 身份")
-        backend = "openapi" if snapshot.access_token else "cookie" if snapshot.cookie else ""
+        priority = str(self._priority() or "openapi").strip().casefold()
+        if priority == "cookie" and snapshot.cookie:
+            backend = "cookie"
+        elif snapshot.access_token:
+            backend = "openapi"
+        elif snapshot.cookie:
+            backend = "cookie"
+        else:
+            backend = ""
         credential_hash = ""
         if backend:
             credential_hash = pool_credential_fingerprint(
@@ -430,12 +696,19 @@ class SqlAlchemyP115PlaybackSourceGateway:
             raise P115PlaybackStateError("主号缺少稳定的 115 holder 身份")
         return account_id
 
+    def _interactive_primary_account_id(self) -> str:
+        account_id = self._primary_account_id()
+        if not account_id:
+            raise P115PlaybackNotFoundError("主号客户端未初始化")
+        return account_id
+
     @staticmethod
     def _complete_source(
         uow: SqlAlchemyUnitOfWork,
         row: Mapping[str, Any],
         *,
         fallback_name: str,
+        require_preid: bool = True,
     ) -> dict[str, Any]:
         fid = str(row.get("id") or "").strip()
         holder_account_id = str(row.get("account_id") or "").strip()
@@ -449,7 +722,7 @@ class SqlAlchemyP115PlaybackSourceGateway:
             {"sha1": sha1},
         )
         preid = resolve_cached_preid(PreIdCandidates(cached_raw=raw))
-        if preid is None:
+        if preid is None and require_preid:
             return {}
         return {
             "fid": fid,
@@ -457,7 +730,7 @@ class SqlAlchemyP115PlaybackSourceGateway:
             "pick_code": pick_code,
             "sha1": sha1,
             "size": size,
-            "preid": preid.value,
+            "preid": preid.value if preid is not None else "",
             "file_name": str(row.get("name") or fallback_name or f"{sha1}.mkv").strip(),
         }
 
@@ -1323,6 +1596,197 @@ class NativeP115PlaybackProvider(P115PlaybackProvider):
         return _confirmed(dict(speed), request_sent=True, session=session, readback={"deleted": True})
 
 
+class NativeP115DirectLinkGateway(P115DirectLinkGateway):
+    """Credential-fenced direct URLs plus streaming without legacy client imports."""
+
+    def __init__(
+        self,
+        config: P115PlaybackConfigService,
+        credentials: P115CredentialStore,
+        *,
+        priority: Callable[[], str],
+        client_factory: Callable[..., httpx.Client] = httpx.Client,
+        timeout_seconds: float = 15.0,
+    ) -> None:
+        self._config = config
+        self._credentials = credentials
+        self._priority = priority
+        self._client_factory = client_factory
+        self._timeout_seconds = max(1.0, float(timeout_seconds))
+
+    def resolve_primary(self, pick_code: str, user_agent: str) -> str:
+        snapshot = self._credentials.load()
+        account_id = str(snapshot.account_id or "").strip()
+        if not account_id.isdigit():
+            raise P115PlaybackNotFoundError("115 Client not initialized")
+        resolved = P115SdkDirectUrlGateway(
+            credentials=self._credentials,
+            priority=self._priority,
+        ).resolve(
+            pick_code,
+            expected_account_id=account_id,
+            user_agent=user_agent,
+        )
+        return resolved.url if resolved is not None else ""
+
+    def resolve_artifact(self, artifact: PlaybackArtifact, user_agent: str) -> str:
+        receipt = artifact.remote_receipt if isinstance(artifact.remote_receipt, Mapping) else {}
+        if artifact.mode not in {PlaybackMode.POOL, PlaybackMode.COPY, PlaybackMode.VIRTUAL}:
+            return ""
+        expected_kind = "pool" if artifact.mode is PlaybackMode.POOL else "primary"
+        account_kind = str(receipt.get("account_kind") or "").strip().casefold()
+        credential_hash = str(receipt.get("credential_hash") or "").strip().casefold()
+        if account_kind != expected_kind or re.fullmatch(r"[0-9a-f]{64}", credential_hash) is None:
+            return ""
+        try:
+            if account_kind == "pool":
+                account_revision = str(receipt.get("account_revision") or "").strip().casefold()
+                if re.fullmatch(r"[0-9a-f]{64}", account_revision) is None:
+                    return ""
+                store: P115CredentialStore = P115PlayPoolCredentialStore(
+                    self._config,
+                    account_id=artifact.account_id,
+                    backend=str(artifact.provider_backend or "").strip().casefold(),
+                    expected_fingerprint=credential_hash,
+                    expected_account_revision=account_revision,
+                )
+            else:
+                store = _PinnedPrimaryCredentialStore(
+                    self._credentials,
+                    account_id=artifact.account_id,
+                    backend=str(artifact.provider_backend or "").strip().casefold(),
+                    expected_fingerprint=credential_hash,
+                )
+            store.load()
+        except (P115PlaybackCredentialChanged, P115PlaybackNotFoundError, P115PlaybackStateError, ValueError):
+            return ""
+        backend = str(artifact.provider_backend or "").strip().casefold()
+        resolved = P115SdkDirectUrlGateway(
+            credentials=store,
+            priority=lambda: backend,
+        ).resolve_backend(
+            artifact.remote_pick_code,
+            expected_account_id=artifact.account_id,
+            expected_backend=backend,
+            user_agent=user_agent,
+        )
+        return resolved.url if resolved is not None else ""
+
+    def stream(self, url: str, *, user_agent: str, range_header: str = "") -> PlaybackUpstreamStream:
+        normalized_url = _validate_playback_upstream_url(url)
+        headers = {
+            "User-Agent": str(user_agent or _DEFAULT_USER_AGENT).strip() or _DEFAULT_USER_AGENT,
+            "Accept": "*/*",
+            "Accept-Encoding": "identity",
+            "Connection": "keep-alive",
+        }
+        normalized_range = str(range_header or "")
+        if normalized_range and len(normalized_range) <= 256 and _RANGE_HEADER.fullmatch(normalized_range):
+            headers["Range"] = normalized_range
+        client = self._client_factory(timeout=self._timeout_seconds, follow_redirects=False, trust_env=False)
+        response: httpx.Response | None = None
+        try:
+            current_url = normalized_url
+            for redirect_count in range(_MAX_PLAYBACK_REDIRECTS + 1):
+                request = client.build_request("GET", current_url, headers=headers)
+                current_response = client.send(request, stream=True)
+                response = current_response
+                if current_response.status_code not in _PLAYBACK_REDIRECT_STATUSES:
+                    break
+                location = _header_value(current_response.headers, "location")
+                if not location:
+                    break
+                if redirect_count >= _MAX_PLAYBACK_REDIRECTS:
+                    raise ValueError("115 playback redirect limit exceeded")
+                next_url = _validate_playback_upstream_url(urljoin(current_url, location))
+                with suppress(Exception):
+                    current_response.close()
+                response = None
+                current_url = next_url
+            if response is None:
+                raise ValueError("115 playback upstream returned no response")
+            active_response = response
+            _validate_playback_upstream_url(str(getattr(active_response, "url", "") or current_url))
+            response_headers = {
+                name: value
+                for name, value in active_response.headers.items()
+                if name.casefold() in _STREAM_RESPONSE_HEADERS
+                and not (
+                    name.casefold() == "content-length"
+                    and _header_value(active_response.headers, "content-encoding").casefold() not in {"", "identity"}
+                )
+            }
+        except BaseException:
+            if response is not None:
+                with suppress(Exception):
+                    response.close()
+            with suppress(Exception):
+                client.close()
+            raise P115PlaybackStateError("115 playback upstream request failed") from None
+
+        def close() -> None:
+            with suppress(Exception):
+                active_response.close()
+            with suppress(Exception):
+                client.close()
+
+        def chunks():
+            try:
+                yield from active_response.iter_bytes(chunk_size=64 * 1024)
+            except Exception:
+                raise P115PlaybackStateError("115 playback upstream stream failed") from None
+            finally:
+                close()
+
+        return PlaybackUpstreamStream(
+            status_code=active_response.status_code,
+            headers=response_headers,
+            chunks=chunks(),
+            close=close,
+        )
+
+
+def _validate_playback_upstream_url(value: str) -> str:
+    normalized = str(value or "").strip()
+    try:
+        parsed = urlsplit(normalized)
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("115 playback upstream URL is invalid") from exc
+    del port
+    if parsed.scheme.casefold() not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("115 playback upstream URL must use HTTP or HTTPS")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("115 playback upstream URL must not contain user information")
+    host = parsed.hostname.casefold().rstrip(".")
+    if host in {"localhost", "localhost.localdomain", "0.0.0.0", "::"} or host.endswith(
+        (".localhost", ".local", ".internal")
+    ):
+        raise ValueError("115 playback upstream URL must not target a local host")
+    try:
+        address = ip_address(host)
+    except ValueError:
+        address = None
+    if address is not None and (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_reserved
+        or address.is_unspecified
+    ):
+        raise ValueError("115 playback upstream URL must not target a private host")
+    return normalized
+
+
+def _header_value(headers: Mapping[str, Any], wanted: str) -> str:
+    target = str(wanted or "").casefold()
+    for name, value in headers.items():
+        if str(name).casefold() == target:
+            return str(value or "").strip()
+    return ""
+
+
 class NativeOnlyP115DirectLinkGateway(P115DirectLinkGateway):
     """Daily speedtest wiring sentinel; interactive playback is owned by the API runtime."""
 
@@ -1525,6 +1989,7 @@ def _asset_name(value: Any, index: int) -> str:
 
 
 __all__ = [
+    "NativeP115DirectLinkGateway",
     "NativeOnlyP115DirectLinkGateway",
     "NativeP115PlaybackProvider",
     "NativeP115PlaybackRapidSigner",

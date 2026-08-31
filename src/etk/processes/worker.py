@@ -123,9 +123,6 @@ from etk.domains.p115 import (
     IntroDetectionExecutionService,
     IntroDetectionOperation,
     IntroDetectionSubmissionService,
-    LegacyP115DirectLinkGateway,
-    LegacyP115PlaybackSourceGateway,
-    LegacyP115PlaybackUserGateway,
     LegacyP115StrmSyncGateway,
     NativeIntroDetectionBatchEngine,
     NativeIntroPolicyAdapter,
@@ -179,7 +176,7 @@ from etk.domains.p115.media_info_restore import HttpxEmbyMediaInfoQueryGateway, 
 from etk.domains.p115.media_probe import P115MediaProbeService
 from etk.domains.p115.playback import PlaybackOperation
 from etk.domains.p115.playback_native import (
-    NativeOnlyP115DirectLinkGateway,
+    NativeP115DirectLinkGateway,
     NativeP115PlaybackProvider,
     NativeP115PlaybackRapidSigner,
     NativeP115PoolPlaybackClientFactory,
@@ -1061,9 +1058,13 @@ class WorkerRuntime:
                     )
                 )
                 playback_repository = PostgresP115PlaybackRepository(database.unit_of_work)
+                playback_users = SqlAlchemyP115PlaybackUserGateway(
+                    SqlAlchemyP115PlaybackRewardRepository(database.unit_of_work),
+                    telegram,
+                )
                 playback_config = P115PlaybackConfigService(
-                    PostgresRuntimeStateBackend(database.raw_pool.connection),
-                    LegacyP115PlaybackUserGateway(),
+                    SqlAlchemyP115PlaybackConfigBackend(database.unit_of_work),
+                    playback_users,
                 )
                 playback_executor = P115PlaybackOperationExecutor(
                     repository=playback_repository,
@@ -1086,8 +1087,16 @@ class WorkerRuntime:
                 playback_service = P115PlaybackService(
                     config=playback_config,
                     repository=playback_repository,
-                    sources=LegacyP115PlaybackSourceGateway(),
-                    direct_links=LegacyP115DirectLinkGateway(playback_config),
+                    sources=SqlAlchemyP115PlaybackSourceGateway(
+                        database.unit_of_work,
+                        primary_credentials=p115_credentials,
+                        priority=lambda: str(settings_provider().p115_api_priority),
+                    ),
+                    direct_links=NativeP115DirectLinkGateway(
+                        playback_config,
+                        p115_credentials,
+                        priority=lambda: str(settings_provider().p115_api_priority),
+                    ),
                     executor=playback_executor,
                 )
                 playback_gateway = NativePlaybackCompatibilityGateway(lambda: playback_service)
@@ -1553,8 +1562,13 @@ class WorkerRuntime:
                 sources=SqlAlchemyP115PlaybackSourceGateway(
                     database.unit_of_work,
                     primary_credentials=p115_credentials,
+                    priority=lambda: str(settings_provider().p115_api_priority),
                 ),
-                direct_links=NativeOnlyP115DirectLinkGateway(),
+                direct_links=NativeP115DirectLinkGateway(
+                    playback_config,
+                    p115_credentials,
+                    priority=lambda: str(settings_provider().p115_api_priority),
+                ),
                 executor=playback_executor,
             )
             sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)

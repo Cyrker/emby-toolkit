@@ -260,8 +260,14 @@ def test_native_daily_speedtest_wiring_is_processor_free_and_import_clean() -> N
     maintenance_transport = _source("src/etk/domains/p115/maintenance_transport.py")
     assert '"play-pool-daily-speedtest"' in worker
     assert "native_playback_recovery_unsupported" not in provider
-    assert "LegacyP115PlaybackProvider" not in worker
-    assert "LegacyP115PlaybackProvider" not in app_factory
+    for legacy_symbol in (
+        "LegacyP115DirectLinkGateway",
+        "LegacyP115PlaybackProvider",
+        "LegacyP115PlaybackSourceGateway",
+        "LegacyP115PlaybackUserGateway",
+    ):
+        assert legacy_symbol not in worker
+        assert legacy_symbol not in app_factory
     for operation_kind in ("PREPARE", "ENSURE_TEMP_DIR", "SPEEDTEST", "RECLAIM"):
         assert f"PlaybackOperationKind.{operation_kind}" in provider
     assert 'refresh_token=""' in maintenance_transport
@@ -276,11 +282,20 @@ def test_native_daily_speedtest_wiring_is_processor_free_and_import_clean() -> N
         "playback=playback_service",
     ):
         assert symbol in worker
+    for symbol in (
+        "NativeP115DirectLinkGateway",
+        "SqlAlchemyP115PlaybackConfigBackend",
+        "SqlAlchemyP115PlaybackRewardRepository",
+        "SqlAlchemyP115PlaybackSourceGateway",
+        "SqlAlchemyP115PlaybackUserGateway",
+    ):
+        assert symbol in app_factory
 
     program = """
 import json
 import sys
 from etk.domains.p115.playback_native import (
+    NativeP115DirectLinkGateway,
     NativeP115PlaybackProvider,
     NativeP115PlaybackRapidSigner,
     NativeP115PoolPlaybackClientFactory,
@@ -297,6 +312,7 @@ loaded = sorted(
 )
 print(json.dumps({
     'loaded': loaded,
+    'direct_links': NativeP115DirectLinkGateway.__name__,
     'provider': NativeP115PlaybackProvider.__name__,
     'signer': NativeP115PlaybackRapidSigner.__name__,
     'clients': NativeP115PoolPlaybackClientFactory.__name__,
@@ -321,6 +337,7 @@ print(json.dumps({
 
     assert json.loads(completed.stdout) == {
         "loaded": [],
+        "direct_links": "NativeP115DirectLinkGateway",
         "provider": "NativeP115PlaybackProvider",
         "signer": "NativeP115PlaybackRapidSigner",
         "clients": "NativeP115PoolPlaybackClientFactory",
