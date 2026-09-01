@@ -5640,3 +5640,65 @@ Safety boundary:
 
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
+### P11-Provider-Control-Cleanup
+
+Stage / Batch: P11 / native provider control, logical-season share and Cleanup execution
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `514d6039` (`refactor(p11): persist collection activation`).
+- Target checkpoint message: `refactor(p11): cut over provider control routes`.
+
+Implemented:
+
+- Added 18 native provider-control route owners for HDHive, Telegram UserBot, Shared Center and
+  cloud-download flows, with durable browser/command/operation recovery and opaque persisted state.
+- Added replay-safe Telegram search/listener commands, bounded retry and owner-bound secret rows;
+  raw links, receive codes and candidate text do not enter durable command or Sharing envelopes.
+- Added native logical-season Cookie share transfer with manifest/channel/provider identity fences,
+  supported raw 115 request transport, one checkpoint and readback-only recovery.
+- Replaced Cleanup execution's legacy callable with explicit native Worker dispatch and
+  processor-free local/media/115/Emby adapters, including credential fencing, aligned projection
+  updates, Episode→Season→Series offline cascade and shared-source lifecycle convergence.
+- Closed batch-reregister contract/key-retention, holder PickCode, hard-ignore, active-source
+  filtering, stale best-version and Shared Resource Manager transfer-mode findings.
+- Regenerated ownership/OpenAPI/client artifacts. Route ownership is now `342/343` decorators and
+  `366/367` method bindings; only native `POST /webhook/emby` remains to close Route ownership.
+
+Targeted gate:
+
+- Full P4/P6/P7/P8/P9 application -> `1943 passed`, with the existing Starlette WSGI deprecation
+  warning.
+- Disposable PostgreSQL 18 provider/Cleanup gate -> `173 passed`; Cleanup scope -> `49 passed`.
+- Full Redis/Celery runtime gate -> `41 passed`.
+- Frontend generation, typecheck, API boundary, `26` unit tests and production build passed; build
+  retained only the existing large-chunk warning.
+- Ruff/format and Pyright (`0 errors, 0 warnings, 0 informations`) passed. Compileall,
+  `uv lock --check`, Manifest/OpenAPI currentness, three secret scans and `git diff --check` are
+  clean. OpenAPI is `320 paths / 375 operations`.
+- Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-provider-control-cleanup-20260901/summary.md`.
+
+Focused review:
+
+- Closed the deterministic `mode=share` UI reachability finding and independently audited the
+  reviewer-originated Cleanup changes before retaining them. No deterministic P0/P1/P2 remains in
+  this bounded provider-control/Cleanup slice.
+- Shared Center report/status uncertainty remains explicit `indeterminate` and never replays a
+  confirmed 115 transfer; authoritative external reconciliation remains Live evidence.
+
+Pending:
+
+- Complete the remaining 20 processor-free catalog task owners and `POST /webhook/emby`.
+- Complete Telegram title-to-TMDb resolution, completed-pack washing and local pack/episode
+  duplicate fencing before removing its legacy consumer.
+- Close 12 legacy tables, 82 dynamic config keys, seven bootstrap keys and nine standalone
+  settings, then pre-removal, controlled removal and every P11 NFR/security/SBOM/vulnerability/
+  License gate.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.

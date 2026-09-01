@@ -36,7 +36,7 @@ def test_subscription_runtime_migration_is_current_single_head_and_adds_only_nat
         "subscription_runtime_states",
     }
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0024_p11_sharing_cancellation"]
+    assert scripts.get_heads() == ["0025_p11_collection_activation"]
 
 
 def test_subscription_runtime_repository_owns_quota_lock_and_state_cas_without_legacy_business_imports() -> None:
@@ -163,3 +163,23 @@ def test_manual_subscription_batch_has_processor_free_native_execution_ownership
     for forbidden in ("task_manager", "tasks.", "handler.", "Processor", "config_manager", "extensions"):
         assert forbidden not in service
         assert forbidden not in adapter
+
+
+def test_native_telegram_listener_has_no_legacy_runtime_imports_or_local_queue() -> None:
+    manager = _source("src/etk/integrations/telegram_userbot.py")
+    gateway = _source("src/etk/domains/subscription/telegram_listener.py")
+
+    for forbidden_import in (
+        "from handler",
+        "import handler",
+        "from tasks",
+        "import tasks",
+        "from database",
+        "import database",
+        "import config_manager",
+        "import task_manager",
+        "tg_task_queue",
+        "DurableTelegramTaskQueue",
+    ):
+        assert forbidden_import not in manager
+        assert forbidden_import not in gateway

@@ -219,13 +219,18 @@ from etk.domains.p115.upload_repository import PostgresP115UploadMonitorReposito
 from etk.domains.sharing import (
     AtomicVirtualImportProjector,
     HttpxEmbyVirtualItemGateway,
+    LogicalSeasonShareTransferOperationDelivery,
+    NativeP115LogicalSeasonShareGateway,
     NativeP115RapidTransferGateway,
+    PostgresContributionLedger,
     PostgresSharingOperationRepository,
     RapidTransferOperationDelivery,
     SharedIntroExportEffectDelivery,
     SharingOperation,
     SharingOperationExecutor,
     SharingProviderOperationDelivery,
+    SharingService,
+    SqlAlchemySharingProjectionRepository,
     SqlAlchemyVirtualImportRepository,
     VirtualImportOperationDelivery,
     VirtualImportService,
@@ -248,10 +253,10 @@ from etk.domains.subscription.auto_subscribe_repository import (
 from etk.domains.subscription.cleanup_adapters import (
     ConfiguredCleanupEmbyGateway,
     HttpxCleanupEmbyInventoryGateway,
-    LegacyCleanupMediaGateway,
-    LegacyCleanupP115Gateway,
+    NativeCleanupP115Gateway,
     SafeLocalCleanupGateway,
     SettingsCleanupExecutionPolicy,
+    SqlAlchemyCleanupMediaGateway,
 )
 from etk.domains.subscription.cleanup_execution import (
     CLEANUP_EXECUTION_TASK_KEY,
@@ -273,6 +278,7 @@ from etk.domains.subscription.manual_batch_adapters import (
 from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotGateway
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.operations import SubscriptionOperation
+from etk.domains.subscription.provider_control import HDHiveRegistrationOperationDelivery
 from etk.domains.subscription.provider_execution import SubscriptionOperationExecutor
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
 from etk.domains.subscription.watchlist import OldSeasonBackfillService
@@ -332,7 +338,6 @@ from .p7_auto_subscribe_sources import (
     NativeP115ResourceTransferGateway,
     PersistentOrderedAutoSubscriptionSources,
 )
-from .p7_cleanup import clear_cleanup_executor, install_cleanup_executor
 from .p7_resubscribe_cleanup import PersistentResubscribeCleanupGateway
 from .p7_subscription import SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS
 from .p7_subscription_effects import (
@@ -378,6 +383,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "manual_subscribe_batch",
         "monitor-115-life-events",
         "play-pool-daily-speedtest",
+        CLEANUP_EXECUTION_TASK_KEY,
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
         "refresh-collections",
@@ -892,7 +898,6 @@ class WorkerRuntime:
             upload_source_cleanup_installed = False
             playback_gateway_installed = False
             intro_detection_gateway_installed = False
-            cleanup_executor_installed = False
             p115_credential_gateway_installed = False
             ingestion_binding: PersistentPendingBindingGateway | None = None
             upload_source_cleanup: NativeP115UploadSourceCleanupGateway | None = None
@@ -935,14 +940,6 @@ class WorkerRuntime:
                     ),
                     HttpxCleanupEmbyInventoryGateway(settings_provider),
                     settings_provider,
-                )
-                cleanup_executor = CleanupExecutionService(
-                    cleanup_repository,
-                    local=SafeLocalCleanupGateway(),
-                    media=LegacyCleanupMediaGateway(),
-                    p115=LegacyCleanupP115Gateway(p115_credentials),
-                    emby=ConfiguredCleanupEmbyGateway(settings_provider),
-                    lease_seconds=max(self.config.lease_seconds, 60),
                 )
                 subscription_operations = PostgresSubscriptionOperationRepository(database.unit_of_work)
                 subscription_executor = SubscriptionOperationExecutor(
@@ -993,7 +990,7 @@ class WorkerRuntime:
                     SqlAlchemyCleanupRepository(
                         database.unit_of_work,
                         SqlAlchemyCleanupMediaProjection(),
-                        SettingsCleanupExecutionPolicy(settings_provider),
+                        SettingsCleanupExecutionPolicy(settings_provider, p115_credentials),
                     )
                 )
                 daily_theme = DailyThemeService(
@@ -1028,6 +1025,29 @@ class WorkerRuntime:
                 )
                 p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
                 sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
+                cleanup_source_lifecycle = SharingService(
+                    PostgresContributionLedger(database.unit_of_work),
+                    shared_center,
+                    sharing_operations,
+                    unit_of_work=database.unit_of_work,
+                    projection=SqlAlchemySharingProjectionRepository(database.unit_of_work),
+                )
+                cleanup_executor = CleanupExecutionService(
+                    cleanup_repository,
+                    local=SafeLocalCleanupGateway(),
+                    media=SqlAlchemyCleanupMediaGateway(
+                        database.unit_of_work,
+                        cleanup_source_lifecycle,
+                    ),
+                    p115=NativeCleanupP115Gateway(
+                        P115PrimaryOperationsGateway(
+                            credentials=p115_credentials,
+                            priority=lambda: str(settings_provider().p115_api_priority),
+                        )
+                    ),
+                    emby=ConfiguredCleanupEmbyGateway(settings_provider),
+                    lease_seconds=max(self.config.lease_seconds, 60),
+                )
                 virtual_imports = VirtualImportService(
                     resolver=VirtualImportSourceResolver(shared_center),
                     repository=SqlAlchemyVirtualImportRepository(database.unit_of_work),
@@ -1066,7 +1086,22 @@ class WorkerRuntime:
                                 target_cid=lambda: str(settings_provider().p115_save_path_cid),
                             ),
                         ),
-                        extra_deliveries=(auto_transfer_delivery,),
+                        extra_deliveries=(
+                            LogicalSeasonShareTransferOperationDelivery(
+                                repository=sharing_operations,
+                                virtual_imports=virtual_imports,
+                                credentials=p115_credentials,
+                                settings=settings_provider,
+                                center=shared_center,
+                                p115=NativeP115LogicalSeasonShareGateway(
+                                    credentials=p115_credentials,
+                                    priority=lambda: str(settings_provider().p115_api_priority),
+                                    target_cid=lambda: str(settings_provider().p115_save_path_cid),
+                                ),
+                            ),
+                            auto_transfer_delivery,
+                            HDHiveRegistrationOperationDelivery(hdhive, app_settings),
+                        ),
                     ),
                     max_attempts=4,
                 )
@@ -1481,12 +1516,8 @@ class WorkerRuntime:
                 playback_gateway_installed = True
                 install_persistent_intro_detection_gateway(intro_detection_gateway)
                 intro_detection_gateway_installed = True
-                install_cleanup_executor(cleanup_executor)
-                cleanup_executor_installed = True
             except BaseException:
                 try:
-                    if cleanup_executor_installed:
-                        clear_cleanup_executor(cleanup_executor)
                     if p115_credential_gateway_installed:
                         clear_persistent_p115_credential_gateway(p115_credentials)
                     if intro_detection_gateway_installed and intro_detection_gateway is not None:
@@ -1738,6 +1769,29 @@ class WorkerRuntime:
                 executor=playback_executor,
             )
             sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
+            cleanup_source_lifecycle = SharingService(
+                PostgresContributionLedger(database.unit_of_work),
+                shared_center,
+                sharing_operations,
+                unit_of_work=database.unit_of_work,
+                projection=SqlAlchemySharingProjectionRepository(database.unit_of_work),
+            )
+            cleanup_executor = CleanupExecutionService(
+                cleanup_repository,
+                local=SafeLocalCleanupGateway(),
+                media=SqlAlchemyCleanupMediaGateway(
+                    database.unit_of_work,
+                    cleanup_source_lifecycle,
+                ),
+                p115=NativeCleanupP115Gateway(
+                    P115PrimaryOperationsGateway(
+                        credentials=p115_credentials,
+                        priority=lambda: str(settings_provider().p115_api_priority),
+                    )
+                ),
+                emby=ConfiguredCleanupEmbyGateway(settings_provider),
+                lease_seconds=max(self.config.lease_seconds, 60),
+            )
             virtual_imports = VirtualImportService(
                 resolver=VirtualImportSourceResolver(shared_center),
                 repository=SqlAlchemyVirtualImportRepository(database.unit_of_work),
@@ -1776,7 +1830,22 @@ class WorkerRuntime:
                             target_cid=lambda: str(settings_provider().p115_save_path_cid),
                         ),
                     ),
-                    extra_deliveries=(auto_transfer_delivery,),
+                    extra_deliveries=(
+                        LogicalSeasonShareTransferOperationDelivery(
+                            repository=sharing_operations,
+                            virtual_imports=virtual_imports,
+                            credentials=p115_credentials,
+                            settings=settings_provider,
+                            center=shared_center,
+                            p115=NativeP115LogicalSeasonShareGateway(
+                                credentials=p115_credentials,
+                                priority=lambda: str(settings_provider().p115_api_priority),
+                                target_cid=lambda: str(settings_provider().p115_save_path_cid),
+                            ),
+                        ),
+                        auto_transfer_delivery,
+                        HDHiveRegistrationOperationDelivery(hdhive, app_settings),
+                    ),
                 ),
                 max_attempts=4,
             )
@@ -2040,6 +2109,8 @@ class WorkerRuntime:
         self._p8_effect_tasks = p8_effect_tasks
         self._p9_sharing_tasks = p9_sharing_tasks
         self._native_operations = native_operations
+        self._p7_cleanup_executor = cleanup_executor
+        self._p7_cleanup_repository = cleanup_repository
         self._ingestion_ingress = ingestion_ingress
         self._subscription_executor = subscription_executor
         self._collection_operation_executor = collection_operation_executor
@@ -2074,11 +2145,6 @@ class WorkerRuntime:
             if not self._started:
                 return
             errors: list[Exception] = []
-            if self._p7_cleanup_executor is not None:
-                try:
-                    clear_cleanup_executor(self._p7_cleanup_executor)
-                except Exception as exc:
-                    errors.append(exc)
             if self._p115_credentials is not None:
                 try:
                     clear_persistent_p115_credential_gateway(self._p115_credentials)
@@ -2669,6 +2735,10 @@ class WorkerRuntime:
         # envelope and dispatched through the explicit native router below.
         native_operation_key = _native_operation_key_from_envelope(envelope)
         native_identity_error = _native_operation_identity_error(job.task_key, envelope)
+        native_task_key = _native_task_key_from_envelope(envelope)
+        native_task_identity_error = _native_task_identity_error(job.task_key, envelope)
+        if native_identity_error is None:
+            native_identity_error = native_task_identity_error
         if native_identity_error is not None:
             store.fail_attempt(
                 job_id=job.id,
@@ -2679,14 +2749,19 @@ class WorkerRuntime:
                 error_details={
                     "task_key": job.task_key,
                     "native_operation": envelope.get("native_operation"),
+                    "native_task": envelope.get("native_task"),
                 },
                 retryable=False,
                 honor_cancel_request=False,
             )
             return
-        native_task_unavailable = not native_operation_key and (
-            job.task_key in P8_REVIEW_TASK_KEYS
-            or (definition is not None and definition.key not in _NATIVE_ONLY_EXECUTABLE_TASK_KEYS)
+        native_task_unavailable = (
+            not native_operation_key
+            and not native_task_key
+            and (
+                job.task_key in P8_REVIEW_TASK_KEYS
+                or (definition is not None and definition.key not in _NATIVE_ONLY_EXECUTABLE_TASK_KEYS)
+            )
         )
         if self._native_only and native_task_unavailable:
             unavailable_key = definition.key if definition is not None else job.task_key
@@ -2736,6 +2811,7 @@ class WorkerRuntime:
                 or (definition.key not in NATIVE_TASK_KEYS and job.task_key not in P8_REVIEW_TASK_KEYS)
             )
             and not native_operation_key
+            and not native_task_key
         ):
             store.fail_attempt(
                 job_id=job.id,
@@ -2786,7 +2862,16 @@ class WorkerRuntime:
         failure: Exception | None = None
         p4_terminalization_reported = False
         try:
-            if native_operation_key:
+            if native_task_key:
+                if native_task_key != CLEANUP_EXECUTION_TASK_KEY:
+                    raise LookupError(f"native task {native_task_key!r} is not registered")
+                result = self._execute_cleanup_task(
+                    envelope,
+                    job_id=job.id,
+                    attempt_id=attempt.id,
+                    progress=progress,
+                )
+            elif native_operation_key:
                 if self._native_operations is None:
                     raise RuntimeError("native operation router is unavailable")
                 result = self._native_operations.execute(
@@ -3165,6 +3250,37 @@ class WorkerRuntime:
             _clear_stop(processor)
             self._unregister_execution(job.id)
 
+    def _execute_cleanup_task(
+        self,
+        envelope: Mapping[str, Any],
+        *,
+        job_id: UUID,
+        attempt_id: UUID,
+        progress: _ExecutionProgress,
+    ) -> Mapping[str, Any]:
+        executor = self._p7_cleanup_executor
+        if executor is None:
+            raise RuntimeError("native Cleanup execution service is unavailable")
+        parameters = envelope.get("parameters")
+        if not isinstance(parameters, Mapping) or set(parameters) != {"job_id", "execution_key"}:
+            raise InvalidJsonPayloadError("Cleanup execution parameters must contain only job_id and execution_key")
+        try:
+            payload_job_id = UUID(str(parameters.get("job_id") or ""))
+        except ValueError as exc:
+            raise InvalidJsonPayloadError("Cleanup execution job_id must be a UUID") from exc
+        if payload_job_id != job_id:
+            raise InvalidJsonPayloadError("Cleanup execution payload Job identity does not match the claimed Job")
+        execution_key = str(parameters.get("execution_key") or "").strip().lower()
+        if len(execution_key) != 64 or any(value not in "0123456789abcdef" for value in execution_key):
+            raise InvalidJsonPayloadError("Cleanup execution_key must be a SHA-256 digest")
+        return executor.execute(
+            job_id=job_id,
+            execution_key=execution_key,
+            attempt_id=attempt_id,
+            worker_id=self._worker_id,
+            progress=progress,
+        )
+
     def _execute_importable_operation(
         self,
         envelope: Mapping[str, Any],
@@ -3413,6 +3529,29 @@ def _native_operation_identity_error(task_key: str, envelope: Mapping[str, Any])
         return "native operation payload does not match task key"
     if has_native_task and task != f"native-operation:{native_key}":
         return "native operation task key does not match payload identity"
+    return None
+
+
+def _native_task_key_from_envelope(envelope: Mapping[str, Any]) -> str:
+    value = envelope.get("native_task")
+    return str(value or "").strip().lower() if isinstance(value, str) else ""
+
+
+def _native_task_identity_error(task_key: str, envelope: Mapping[str, Any]) -> str | None:
+    task = str(task_key or "").strip().lower()
+    native_value = envelope.get("native_task")
+    native_key = _native_task_key_from_envelope(envelope)
+    has_native_field = "native_task" in envelope
+    if has_native_field and (not isinstance(native_value, str) or not native_key):
+        return "native task identity is missing or invalid"
+    if native_key and "legacy_operation" in envelope:
+        return "native task payload must not include a legacy operation"
+    if native_key and task != native_key:
+        return "native task payload does not match task key"
+    if task == CLEANUP_EXECUTION_TASK_KEY and native_key != task:
+        return "Cleanup execution Job is missing its native task identity"
+    if native_key and native_key != CLEANUP_EXECUTION_TASK_KEY:
+        return "native task identity is not allowlisted"
     return None
 
 

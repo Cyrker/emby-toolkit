@@ -830,7 +830,13 @@ def test_cleanup_partial_terminalizes_once_without_retrying() -> None:
     projection.job.task_key = CLEANUP_EXECUTION_TASK_KEY
     projection.job.max_attempts = 11
     runtime, store = _direct_runtime(projection, terminate_process=lambda: None)
-    cast(Any, runtime)._execute_importable_operation = lambda *_args, **_kwargs: {
+    projection.job.request_payload["native_task"] = CLEANUP_EXECUTION_TASK_KEY
+    projection.job.request_payload.pop("legacy_operation", None)
+    projection.job.request_payload["parameters"] = {
+        "job_id": str(projection.job.id),
+        "execution_key": "0" * 64,
+    }
+    cast(Any, runtime)._execute_cleanup_task = lambda *_args, **_kwargs: {
         "ok": False,
         "status": "partial",
         "message": "one item confirmed and one cancelled",
@@ -940,7 +946,9 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "sync-all-user-data",
             "system-auto-update",
             "update-daily-theme",
+            CLEANUP_EXECUTION_TASK_KEY,
         }
         | P9_NATIVE_TASK_KEYS
     )
-    assert _NATIVE_ONLY_EXECUTABLE_TASK_KEYS < native_keys
+    assert _NATIVE_ONLY_EXECUTABLE_TASK_KEYS - {CLEANUP_EXECUTION_TASK_KEY} < native_keys
+    assert CLEANUP_EXECUTION_TASK_KEY not in native_keys

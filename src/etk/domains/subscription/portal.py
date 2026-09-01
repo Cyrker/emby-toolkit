@@ -577,6 +577,9 @@ def _upsert_record(
                     WHEN media_metadata.in_library THEN media_metadata.subscription_status
                     WHEN EXCLUDED.subscription_status = 'NONE'
                         THEN media_metadata.subscription_status
+                    WHEN media_metadata.subscription_status = 'IGNORED'
+                        AND COALESCE(media_metadata.ignore_reason, '') IN ('手动忽略', '订阅超时')
+                        THEN media_metadata.subscription_status
                     WHEN media_metadata.subscription_status IN ('SUBSCRIBED', 'PAUSED')
                         THEN media_metadata.subscription_status
                     WHEN EXCLUDED.subscription_status = 'PENDING_RELEASE'
@@ -588,6 +591,9 @@ def _upsert_record(
                     ELSE EXCLUDED.subscription_status
                 END,
                 subscription_sources_json = CASE
+                    WHEN media_metadata.subscription_status = 'IGNORED'
+                        AND COALESCE(media_metadata.ignore_reason, '') IN ('手动忽略', '订阅超时')
+                        THEN media_metadata.subscription_sources_json
                     WHEN media_metadata.subscription_sources_json @> CAST(:source_json AS jsonb)
                         THEN media_metadata.subscription_sources_json
                     ELSE media_metadata.subscription_sources_json || CAST(:source_json AS jsonb)

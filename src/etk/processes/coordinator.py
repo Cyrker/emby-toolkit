@@ -52,12 +52,22 @@ from etk.domains.p115.upload_monitor import (
     upload_monitor_config_revision,
 )
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.sharing.configuration import SharingServerIdentity
+from etk.domains.sharing.ledger import PostgresContributionLedger
 from etk.domains.sharing.repository import PostgresSharingOperationRepository
+from etk.domains.sharing.service import SharingService
 from etk.domains.subscription.cleanup_runtime_repository import SqlAlchemyCleanupExecutionRepository
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
+from etk.domains.subscription.provider_control import ProviderControlService
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
+from etk.domains.subscription.telegram_listener import (
+    DurableTelegramRealtimeIngress,
+    NativeTelegramRealtimeActionGateway,
+    SqlAlchemyTelegramSubscriptionInterest,
+)
 from etk.domains.system import SqlAlchemyAppSettingsRepository
-from etk.integrations.telegram_userbot import NativeTelegramSearchManager
+from etk.integrations import DurableTelegramUserBotAdapter, HttpxHDHiveAdapter, HttpxSharedCenterAdapter
+from etk.integrations.telegram_userbot import NativeTelegramUserBotManager
 from etk.platform.jobs import OutboxClaim, PostgresJobStore
 from etk.platform.tasks import TaskRegistry
 
@@ -504,7 +514,7 @@ class CoordinatorRuntime:
         self._sharing_operation_publisher = CelerySharingOperationPublisher(self.config)
         self._sharing_operation_coordinator: SharingOperationCoordinator | None = None
         self._cleanup_execution_repository: SqlAlchemyCleanupExecutionRepository | None = None
-        self._native_telegram_search_manager: NativeTelegramSearchManager | None = None
+        self._native_telegram_search_manager: NativeTelegramUserBotManager | None = None
         self._publisher_id = f"{socket.gethostname()}:{os.getpid()}"
         self._last_settings_refresh = 0.0
         self._last_settings: Any = None
@@ -663,6 +673,10 @@ class CoordinatorRuntime:
     def _run_native_only(self) -> None:
         """Dispatch native Job and operation Outboxes without legacy daemons."""
 
+        from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
+        from etk.compatibility.tg_control_bridge import TelegramControlBridge
+        from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
+
         container, config_adapter = _create_default_container(None)
         leadership: CoordinatorLeadership | None = None
         try:
@@ -681,10 +695,50 @@ class CoordinatorRuntime:
             self._service = service
             self._cleanup_execution_repository = cleanup_execution_repository
             app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
-            self._native_telegram_search_manager = NativeTelegramSearchManager(
+            if database.raw_pool is None:
+                raise RuntimeError("Native Coordinator Telegram secret runtime is unavailable")
+            runtime_state = PostgresRuntimeStateBackend(database.raw_pool.connection)
+            telegram_challenges = TelegramResourceSecretStore(runtime_state)
+            telegram_bridge = TelegramControlBridge(
+                connection_factory=database.raw_pool.connection,
+                resource_secrets=telegram_challenges,
+            )
+            telegram = DurableTelegramUserBotAdapter(telegram_bridge)
+            sharing_identity = SharingServerIdentity(config_adapter.load, app_settings)
+            shared_center = HttpxSharedCenterAdapter(
+                config_adapter.load,
+                configuration=lambda: app_settings.load("shared_resource_config"),
+                server_id_hash=sharing_identity.server_id_hash,
+            )
+            sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
+            provider_control = ProviderControlService(
+                settings=app_settings,
+                hdhive=HttpxHDHiveAdapter(
+                    config_adapter.load,
+                    configuration=lambda: app_settings.load("hdhive_config"),
+                ),
+                center=shared_center,
+                telegram=telegram,
+                sharing=SharingService(
+                    PostgresContributionLedger(database.unit_of_work),
+                    shared_center,
+                    sharing_operations,
+                    unit_of_work=database.unit_of_work,
+                ),
+            )
+            realtime_actions = NativeTelegramRealtimeActionGateway(
+                provider_control,
+                SqlAlchemyTelegramSubscriptionInterest(database.unit_of_work),
+            )
+            realtime_ingress = DurableTelegramRealtimeIngress(telegram_bridge)
+            self._native_telegram_search_manager = NativeTelegramUserBotManager(
                 lambda: app_settings.load("tg_userbot_config"),
                 config_adapter.load,
                 _resolve_data_dir(None) / "tg_userbot.session",
+                shared_center,
+                telegram_challenges,
+                realtime_actions=realtime_ingress,
+                realtime_executor=realtime_actions,
             )
             self._media_effect_dispatcher = MediaEffectOutboxDispatcher(
                 store,
@@ -816,8 +870,14 @@ class CoordinatorRuntime:
         self._schedules = schedules
         schedules.start()
         schedules.sync({}, schedules_enabled=self.config.schedules_enabled)
+        manager = self._native_telegram_search_manager
+        if manager is not None:
+            manager.apply_listener_state()
 
     def _shutdown_native_leader(self) -> None:
+        manager = getattr(self, "_native_telegram_search_manager", None)
+        if manager is not None:
+            manager.stop_listener()
         schedules = getattr(self, "_schedules", None)
         self._schedules = None
         if schedules is not None:
@@ -906,6 +966,9 @@ class CoordinatorRuntime:
             self._refresh_settings()
             self._process_telegram_commands()
         else:
+            manager = getattr(self, "_native_telegram_search_manager", None)
+            if manager is not None:
+                manager.apply_listener_state()
             self._process_native_telegram_search_commands()
             if self._config_adapter is not None:
                 self._last_settings = self._config_adapter.load()
@@ -1145,7 +1208,7 @@ class CoordinatorRuntime:
             ),
             owner_id=f"{self._publisher_id}:telegram-search",
             lease_seconds=max(60, int(self.config.coordinator_interval_seconds * 3)),
-            command_types=("search",),
+            command_types=("send_code", "login", "logout", "clear_session", "search", "listener_action"),
         )
         executor.process_pending(manager, limit=8)
 

@@ -15,7 +15,16 @@ from sqlalchemy import text
 
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
 from etk.domains.media.subscription_projection import SubscriptionMediaKey
-from etk.domains.subscription.cleanup_adapters import SettingsCleanupExecutionPolicy
+from etk.domains.sharing import (
+    PostgresContributionLedger,
+    PostgresSharingOperationRepository,
+    SharingService,
+    SqlAlchemySharingProjectionRepository,
+)
+from etk.domains.subscription.cleanup_adapters import (
+    SettingsCleanupExecutionPolicy,
+    SqlAlchemyCleanupMediaGateway,
+)
 from etk.domains.subscription.cleanup_execution import (
     CleanupEffectResult,
     CleanupExecutionPending,
@@ -169,7 +178,9 @@ def test_cleanup_staging_atomically_claims_snapshot_job_attempt_outbox_and_idemp
                        job.status AS job_status,
                        attempt.status AS attempt_status,
                        event.status AS outbox_status,
-                       item.snapshot_json->>'tmdb_id' AS snapshot_tmdb_id
+                       item.snapshot_json->>'tmdb_id' AS snapshot_tmdb_id,
+                       job.request_payload_json->>'native_task' AS native_task,
+                       job.request_payload_json ? 'legacy_operation' AS has_legacy_operation
                 FROM cleanup_execution_items AS item
                 JOIN job_runs AS job ON job.id = item.job_id
                 JOIN job_attempts AS attempt ON attempt.job_id = job.id AND attempt.attempt_no = 1
@@ -190,6 +201,403 @@ def test_cleanup_staging_atomically_claims_snapshot_job_attempt_outbox_and_idemp
         "attempt_status": "created",
         "outbox_status": "pending",
         "snapshot_tmdb_id": "cleanup-701",
+        "native_task": "p7-cleanup-execution",
+        "has_legacy_operation": False,
+    }
+
+
+def test_native_media_cleanup_atomically_removes_aligned_version_and_replays_absence(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    tmdb_id = f"native-media-{uuid4().hex}"
+    old_path = f"/fixture/{tmdb_id}-old.mkv"
+    with p7_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, in_library, emby_item_ids_json,
+                    file_sha1_json, file_pickcode_json, asset_details_json
+                ) VALUES (
+                    :tmdb_id, 'Movie', TRUE, '["emby-old","emby-best","emby-spare"]'::jsonb,
+                    '["OLD-SHA1","BEST-SHA1","SPARE-SHA1"]'::jsonb,
+                    '["old-pick","best-pick","spare-pick"]'::jsonb,
+                    CAST(:assets AS jsonb)
+                )
+                """
+            ),
+            {
+                "tmdb_id": tmdb_id,
+                "assets": json.dumps(
+                    [
+                        {"emby_item_id": "emby-old", "path": old_path},
+                        {"emby_item_id": "emby-best", "path": f"/fixture/{tmdb_id}-best.mkv"},
+                        {"emby_item_id": "emby-spare", "path": f"/fixture/{tmdb_id}-spare.mkv"},
+                    ]
+                ),
+            },
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO cleanup_index (
+                    id, tmdb_id, item_type, status, versions_info_json, best_version_json
+                ) VALUES (
+                    :id, :tmdb_id, 'Movie', 'pending',
+                    CAST(:versions AS jsonb), '"emby-best"'::jsonb
+                )
+                """
+            ),
+            {
+                "id": 900_001,
+                "tmdb_id": tmdb_id,
+                "versions": json.dumps([{"id": "emby-old"}, {"id": "emby-best"}, {"id": "emby-spare"}]),
+            },
+        )
+        virtual_id = connection.scalar(
+            text(
+                """
+                INSERT INTO shared_virtual_imports (
+                    source_kind, source_id, tmdb_id, item_type, strm_paths_json
+                ) VALUES ('rapid', :source_id, :tmdb_id, 'Movie', CAST(:paths AS jsonb))
+                RETURNING id
+                """
+            ),
+            {"source_id": tmdb_id, "tmdb_id": tmdb_id, "paths": json.dumps([old_path])},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO p115_filesystem_cache (
+                    id, parent_id, name, pick_code, account_id, entry_kind
+                ) VALUES (:id, :parent_id, 'virtual.strm', :pick_code, '1', 'file')
+                """
+            ),
+            {
+                "id": f"virtual:{virtual_id}:file",
+                "parent_id": f"virtual:{virtual_id}",
+                "pick_code": f"virtual-{virtual_id}",
+            },
+        )
+        shared_source_id = connection.scalar(
+            text(
+                """
+                INSERT INTO shared_rapid_sources (
+                    source_key, source_kind, tmdb_id, item_type, title,
+                    sha1, status, center_status
+                ) VALUES (
+                    :source_key, 'movie', :tmdb_id, 'Movie', 'Fixture',
+                    'OLD-SHA1', 'active', 'local'
+                )
+                RETURNING id
+                """
+            ),
+            {"source_key": f"cleanup-source:{tmdb_id}", "tmdb_id": tmdb_id},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO shared_rapid_source_files (
+                    local_source_id, fid, pick_code, sha1, file_name,
+                    tmdb_id, item_type
+                ) VALUES (
+                    :source_id, 'fixture-fid', 'old-pick', 'OLD-SHA1',
+                    'old.mkv', :tmdb_id, 'Movie'
+                )
+                """
+            ),
+            {"source_id": shared_source_id, "tmdb_id": tmdb_id},
+        )
+        cancelled_source_id = connection.scalar(
+            text(
+                """
+                INSERT INTO shared_rapid_sources (
+                    source_key, source_kind, tmdb_id, item_type, title,
+                    sha1, status, center_status
+                ) VALUES (
+                    :source_key, 'movie', :tmdb_id, 'Movie', 'Cancelled Fixture',
+                    'OLD-SHA1', 'cancelled', 'local'
+                )
+                RETURNING id
+                """
+            ),
+            {"source_key": f"cleanup-cancelled-source:{tmdb_id}", "tmdb_id": tmdb_id},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO shared_rapid_source_files (
+                    local_source_id, fid, pick_code, sha1, file_name,
+                    tmdb_id, item_type
+                ) VALUES (
+                    :source_id, 'cancelled-fixture-fid', 'old-pick', 'OLD-SHA1',
+                    'cancelled-old.mkv', :tmdb_id, 'Movie'
+                )
+                """
+            ),
+            {"source_id": cancelled_source_id, "tmdb_id": tmdb_id},
+        )
+
+    lifecycle = SharingService(
+        PostgresContributionLedger(p7_runtime.unit_of_work),
+        object(),
+        PostgresSharingOperationRepository(p7_runtime.unit_of_work),
+        unit_of_work=p7_runtime.unit_of_work,
+        projection=SqlAlchemySharingProjectionRepository(p7_runtime.unit_of_work),
+    )
+    gateway = SqlAlchemyCleanupMediaGateway(p7_runtime.unit_of_work, lifecycle)
+    target = {
+        "emby_id": "emby-old",
+        "tmdb_id": tmdb_id,
+        "item_type": "Movie",
+        "local": {"files": [{"sha1": "OLD-SHA1", "pick_code": "old-pick"}]},
+    }
+    first = gateway.reconcile(target, operation_id="native-media-fixture")
+    replay = gateway.reconcile(target, operation_id="native-media-fixture")
+
+    assert first.status.value == replay.status.value == "confirmed"
+    assert first.evidence["remaining_versions"] == 2
+    assert replay.evidence["already_absent"] is True
+    with p7_runtime.engine.connect() as connection:
+        row = (
+            connection.execute(
+                text(
+                    """
+                SELECT emby_item_ids_json, asset_details_json,
+                       file_sha1_json, file_pickcode_json, in_library
+                FROM media_metadata
+                WHERE tmdb_id = :tmdb_id AND item_type = 'Movie'
+                """
+                ),
+                {"tmdb_id": tmdb_id},
+            )
+            .mappings()
+            .one()
+        )
+        cleanup_row = (
+            connection.execute(
+                text(
+                    """
+                SELECT versions_info_json, best_version_json
+                FROM cleanup_index
+                WHERE tmdb_id = :tmdb_id
+                """
+                ),
+                {"tmdb_id": tmdb_id},
+            )
+            .mappings()
+            .one()
+        )
+        virtual_count = connection.scalar(
+            text("SELECT COUNT(*) FROM shared_virtual_imports WHERE id = :id"),
+            {"id": virtual_id},
+        )
+        cache_count = connection.scalar(
+            text("SELECT COUNT(*) FROM p115_filesystem_cache WHERE parent_id = :parent_id"),
+            {"parent_id": f"virtual:{virtual_id}"},
+        )
+        shared_source_count = connection.scalar(
+            text("SELECT COUNT(*) FROM shared_rapid_sources WHERE id = :id"),
+            {"id": shared_source_id},
+        )
+        cancelled_source_count = connection.scalar(
+            text("SELECT COUNT(*) FROM shared_rapid_sources WHERE id = :id"),
+            {"id": cancelled_source_id},
+        )
+    assert dict(row) == {
+        "emby_item_ids_json": ["emby-best", "emby-spare"],
+        "asset_details_json": [
+            {"path": f"/fixture/{tmdb_id}-best.mkv", "emby_item_id": "emby-best"},
+            {"path": f"/fixture/{tmdb_id}-spare.mkv", "emby_item_id": "emby-spare"},
+        ],
+        "file_sha1_json": ["BEST-SHA1", "SPARE-SHA1"],
+        "file_pickcode_json": ["best-pick", "spare-pick"],
+        "in_library": True,
+    }
+    assert dict(cleanup_row) == {
+        "versions_info_json": [{"id": "emby-best"}, {"id": "emby-spare"}],
+        "best_version_json": "emby-best",
+    }
+    assert virtual_count == cache_count == shared_source_count == 0
+    assert cancelled_source_count == 1
+
+
+def test_native_episode_cleanup_cascades_last_episode_offline_to_season_and_series(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    suffix = uuid4().hex
+    series_id = f"native-series-{suffix}"
+    season_id = f"{series_id}-s1"
+    episode_id = f"{series_id}-s1e1"
+    emby_id = f"emby-{episode_id}"
+    with p7_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, title, in_library, parent_series_tmdb_id,
+                    season_number, episode_number, watching_status,
+                    emby_item_ids_json, file_sha1_json, file_pickcode_json,
+                    asset_details_json
+                ) VALUES
+                    (
+                        :series_id, 'Series', 'Fixture Series', TRUE, NULL,
+                        NULL, NULL, 'Watching', '[]'::jsonb, '[]'::jsonb,
+                        '[]'::jsonb, NULL
+                    ),
+                    (
+                        :season_id, 'Season', 'Fixture Season', TRUE, :series_id,
+                        1, NULL, 'Watching', '[]'::jsonb, '[]'::jsonb,
+                        '[]'::jsonb, NULL
+                    ),
+                    (
+                        :episode_id, 'Episode', 'Fixture Episode', TRUE, :series_id,
+                        1, 1, 'Watching', CAST(:emby_ids AS jsonb),
+                        '["EPISODE-SHA1"]'::jsonb, '["episode-pick"]'::jsonb,
+                        CAST(:assets AS jsonb)
+                    )
+                """
+            ),
+            {
+                "series_id": series_id,
+                "season_id": season_id,
+                "episode_id": episode_id,
+                "emby_ids": json.dumps([emby_id]),
+                "assets": json.dumps([{"emby_item_id": emby_id, "path": f"/fixture/{episode_id}.mkv"}]),
+            },
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO cleanup_index (
+                    id, tmdb_id, item_type, status, versions_info_json, best_version_json
+                ) VALUES
+                    (900011, :series_id, 'Series', 'pending', '[]'::jsonb, NULL),
+                    (900012, :season_id, 'Season', 'ignored', '[]'::jsonb, NULL),
+                    (
+                        900013, :episode_id, 'Episode', 'pending',
+                        CAST(:versions AS jsonb), CAST(:best AS jsonb)
+                    )
+                """
+            ),
+            {
+                "series_id": series_id,
+                "season_id": season_id,
+                "episode_id": episode_id,
+                "versions": json.dumps([{"id": emby_id}]),
+                "best": json.dumps(emby_id),
+            },
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO resubscribe_index (
+                    tmdb_id, item_type, season_number, status
+                ) VALUES (:series_id, 'Season', 1, 'needed')
+                """
+            ),
+            {"series_id": series_id},
+        )
+
+    result = SqlAlchemyCleanupMediaGateway(p7_runtime.unit_of_work).reconcile(
+        {
+            "emby_id": emby_id,
+            "tmdb_id": episode_id,
+            "item_type": "Episode",
+            "series_id": series_id,
+            "season_number": 1,
+            "episode_number": 1,
+            "local": {"files": [{"sha1": "EPISODE-SHA1", "pick_code": "episode-pick"}]},
+        },
+        operation_id="native-episode-cascade-fixture",
+    )
+
+    assert result.status.value == "confirmed"
+    assert result.evidence["remaining_versions"] == 0
+    with p7_runtime.engine.connect() as connection:
+        rows = (
+            connection.execute(
+                text(
+                    """
+                SELECT tmdb_id, item_type, in_library, watching_status,
+                       emby_item_ids_json, file_sha1_json, file_pickcode_json,
+                       asset_details_json
+                FROM media_metadata
+                WHERE tmdb_id IN (:series_id, :season_id, :episode_id)
+                ORDER BY item_type, tmdb_id
+                """
+                ),
+                {"series_id": series_id, "season_id": season_id, "episode_id": episode_id},
+            )
+            .mappings()
+            .all()
+        )
+        cleanup_count = connection.scalar(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM cleanup_index
+                WHERE tmdb_id IN (:series_id, :season_id, :episode_id)
+                """
+            ),
+            {"series_id": series_id, "season_id": season_id, "episode_id": episode_id},
+        )
+        resubscribe_count = connection.scalar(
+            text(
+                """
+                SELECT COUNT(*)
+                FROM resubscribe_index
+                WHERE tmdb_id = :series_id AND item_type = 'Season'
+                """
+            ),
+            {"series_id": series_id},
+        )
+
+    assert len(rows) == 3
+    assert all(row["in_library"] is False for row in rows)
+    assert all(row["emby_item_ids_json"] == [] for row in rows)
+    assert all(row["file_sha1_json"] == [] for row in rows)
+    assert all(row["file_pickcode_json"] == [] for row in rows)
+    assert all(row["asset_details_json"] is None for row in rows)
+    assert {(row["item_type"], row["watching_status"]) for row in rows if row["item_type"] in {"Series", "Season"}} == {
+        ("Series", "NONE"),
+        ("Season", "NONE"),
+    }
+    assert cleanup_count == 0
+    assert resubscribe_count == 0
+
+
+def test_native_media_cleanup_fails_closed_for_unaligned_version_arrays(
+    p7_runtime: DatabaseRuntime,
+) -> None:
+    tmdb_id = f"native-media-unaligned-{uuid4().hex}"
+    with p7_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, in_library, emby_item_ids_json,
+                    file_sha1_json, file_pickcode_json, asset_details_json
+                ) VALUES (
+                    :tmdb_id, 'Movie', TRUE, '["emby-old"]'::jsonb,
+                    '[]'::jsonb, '["old-pick"]'::jsonb,
+                    '[{"emby_item_id":"emby-old","path":"/fixture/old.mkv"}]'::jsonb
+                )
+                """
+            ),
+            {"tmdb_id": tmdb_id},
+        )
+
+    result = SqlAlchemyCleanupMediaGateway(p7_runtime.unit_of_work).reconcile(
+        {"emby_id": "emby-old", "tmdb_id": tmdb_id, "item_type": "Movie"},
+        operation_id="native-media-unaligned-fixture",
+    )
+
+    assert result.status.value == "indeterminate"
+    assert result.error == {
+        "type": "media_cleanup_versions_unaligned",
+        "tmdb_id": tmdb_id,
+        "item_type": "Movie",
     }
 
 

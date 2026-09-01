@@ -543,9 +543,9 @@
                   :color="centerTransferButtonColor"
                   text-color="#fff"
                   round
-                  :loading="importingMap[version.source_id] === 'permanent'"
+                  :loading="importingMap[version.source_id] === centerTransferMode(version)"
                   :disabled="centerVersionActionDisabled(version) || isCenterReplenishRow(version) || Boolean(importingMap[version.source_id])"
-                  @click="importCenterSource(version, 'permanent')"
+                  @click="importCenterSource(version, centerTransferMode(version))"
                 >{{ centerTransferActionText(version) }}</n-button>
               </div>
             </div>
@@ -565,6 +565,7 @@
 // @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { computed, h, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import apiClient, { apiPath } from '@/api/client'
+import { selectCenterImportMode } from '@/api/sharingOperations'
 import draggable from 'vuedraggable';
 import {
   NAlert, NButton, NCard, NDataTable, NDivider, NForm, NFormItem, NGi, NGrid, NIcon, NInput,
@@ -2267,6 +2268,11 @@ const centerHasValidShareChannel = (row) => {
     || status === 'valid'
   );
 };
+const centerTransferMode = (row) => selectCenterImportMode({
+  virtualImportEnabled: Boolean(sharedConfigForm.p115_shared_virtual_import_enabled),
+  logicalSeason: centerIsLogicalSeasonRow(row),
+  validShareChannel: centerHasValidShareChannel(row),
+});
 const centerTransferActionText = (row) => sharedConfigForm.p115_shared_virtual_import_enabled ? '入库' : (centerHasValidShareChannel(row) ? '转存' : '秒传');
 const centerVersionActionDisabled = (row) => false;
 const formatCenterSize = (row) => {
@@ -2382,6 +2388,7 @@ const executeImport = async (row, mode) => {
   try {
     const requestBody = {
       mode,
+      force_real: mode === 'share',
       source: sourcePayload,
       context: sourcePayload,
     };
@@ -3377,13 +3384,13 @@ const importCenterLogicalEpisode = async (version, episode) => {
     return;
   }
   const loadingKey = episode.loadingKey || `logical_episode:${source.source_id}`;
-  const operationScope = `center-import:logical_episode:${source.source_id}:permanent`;
+  const operationScope = `center-import:logical_episode:${source.source_id}:rapid`;
   const operationKey = centerImportOperationKeys.get(operationScope) || crypto.randomUUID();
   centerImportOperationKeys.set(operationScope, operationKey);
-  importingMap[loadingKey] = 'permanent';
+  importingMap[loadingKey] = 'rapid';
   try {
     const res = await apiClient.post(apiPath('api_shared_resources_center_import_7e2a7a56'), {
-      mode: 'permanent',
+      mode: 'rapid',
       source_id: source.source_id,
       source,
       context: source,

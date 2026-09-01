@@ -14,11 +14,9 @@ from etk.platform.db import SqlAlchemyUnitOfWork
 from etk.platform.jobs.json_payload import canonical_json, canonical_json_hash
 from etk.platform.jobs.repository import SqlAlchemyJobRepository
 
-from .cleanup_execution import cleanup_job_max_attempts
+from .cleanup_execution import CLEANUP_EXECUTION_TASK_KEY, cleanup_job_max_attempts
 
-_CLEANUP_TASK_KEY = "p7-cleanup-execution"
-_CLEANUP_OPERATION_MODULE = "etk.processes.p7_cleanup"
-_CLEANUP_OPERATION_QUALNAME = "execute_cleanup_job"
+_CLEANUP_TASK_KEY = CLEANUP_EXECUTION_TASK_KEY
 _CLEANUP_IDEMPOTENCY_SCOPE = "subscription.cleanup.execute"
 
 
@@ -544,10 +542,7 @@ class SqlAlchemyCleanupRepository:
             "display_name": f"执行 {len(snapshots)} 项媒体去重",
             "silent": False,
             "call_style": "direct",
-            "legacy_operation": {
-                "module": _CLEANUP_OPERATION_MODULE,
-                "qualname": _CLEANUP_OPERATION_QUALNAME,
-            },
+            "native_task": _CLEANUP_TASK_KEY,
         }
         repository = SqlAlchemyJobRepository(uow.session)
         repository.insert_job(

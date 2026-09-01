@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import time
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol, cast
@@ -13,6 +14,14 @@ from .models import P115CredentialSnapshot
 
 
 class _P115SdkClient(Protocol):
+    def request(
+        self,
+        url: str,
+        method: str = "GET",
+        payload: object = None,
+        **kwargs: Any,
+    ) -> object: ...
+
     def fs_mkdir(self, name: str, pid: str, **kwargs: Any) -> object: ...
 
     def fs_copy(self, file_ids: list[str], pid: str, **kwargs: Any) -> object: ...
@@ -190,6 +199,30 @@ class P115PinnedOperationsClient:
             self._assert_credentials()
         return _mapping(value, "115 mkdir")
 
+    def import_share(self, share_code: str, receive_code: str, parent_id: str) -> Mapping[str, Any]:
+        normalized_share_code = str(share_code or "").strip()
+        normalized_receive_code = str(receive_code or "").strip()
+        target = str(parent_id or "").strip()
+        if not normalized_share_code or not target:
+            raise ValueError("115 share import requires a share code and target directory")
+        if self._backend != "cookie":
+            raise P115MaintenanceTransportError("115 share import requires the Cookie backend")
+        self._assert_credentials()
+        try:
+            value = self._sdk_factory(self._snapshot, self._backend).request(
+                "https://webapi.115.com/share/receive",
+                "POST",
+                {
+                    "share_code": normalized_share_code,
+                    "receive_code": normalized_receive_code,
+                    "cid": target,
+                },
+                timeout=self._timeout_seconds,
+            )
+        finally:
+            self._assert_credentials()
+        return _mapping(value, "115 share import")
+
     def copy_files(self, file_ids: list[str], parent_id: str) -> Mapping[str, Any]:
         normalized = list(dict.fromkeys(str(value or "").strip() for value in file_ids if str(value or "").strip()))
         target = str(parent_id or "").strip()
@@ -303,17 +336,28 @@ class P115PrimaryOperationsGateway:
         *,
         expected_account_id: str | None = None,
         expected_backend: str | None = None,
+        expected_credential_fingerprint: str | None = None,
     ) -> P115PinnedOperationsClient | None:
         snapshot = self._credentials.load()
         account_id = str(snapshot.account_id or "").strip()
         expected = str(expected_account_id or "").strip()
-        if not account_id or (expected and expected != account_id):
+        if not account_id:
             return None
-        backend = str(expected_backend or "").strip().lower() or _select_backend(snapshot, self._priority())
+        if expected and expected != account_id:
+            raise P115MaintenanceTransportError("115 account changed before the provider client was opened")
+        requested_backend = str(expected_backend or "").strip().lower()
+        backend = requested_backend or _select_backend(snapshot, self._priority())
         if backend not in {"openapi", "cookie"} or not _credential(snapshot, backend):
+            if requested_backend or expected_credential_fingerprint:
+                raise P115MaintenanceTransportError("115 pinned provider backend is no longer available")
             return None
+        expected_fingerprint = str(expected_credential_fingerprint or "").strip().lower()
+        if expected_fingerprint and _credential_fingerprint(snapshot, backend) != expected_fingerprint:
+            raise P115MaintenanceTransportError("115 provider credential changed before the provider client was opened")
         directory = self._directory.open(expected_account_id=account_id, expected_backend=backend)
         if directory is None:
+            if requested_backend or expected_fingerprint:
+                raise P115MaintenanceTransportError("115 pinned provider directory is unavailable")
             return None
         return P115PinnedOperationsClient(
             credentials=self._credentials,
@@ -357,6 +401,12 @@ def _select_backend(snapshot: P115CredentialSnapshot, priority: str) -> str:
 
 def _credential(snapshot: P115CredentialSnapshot, backend: str) -> str:
     return str(snapshot.access_token if backend == "openapi" else snapshot.cookie or "").strip()
+
+
+def _credential_fingerprint(snapshot: P115CredentialSnapshot, backend: str) -> str:
+    credential = _credential(snapshot, backend)
+    app_type = str(snapshot.app_type or "").strip() if backend == "cookie" else ""
+    return hashlib.sha256(f"{backend}\0{app_type}\0{credential}".encode()).hexdigest()
 
 
 def _mapping(value: object, operation: str) -> dict[str, Any]:

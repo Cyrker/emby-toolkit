@@ -183,6 +183,15 @@
 import { computed, onBeforeUnmount, ref } from 'vue';
 import { useMessage } from 'naive-ui';
 import apiClient, { apiPath } from '@/api/client'
+import {
+  idempotencyKeyForScope,
+  releaseDurableRequest,
+  rememberDurableRequest,
+  rememberDurableRequestError,
+  resumeDurableSharingOperation,
+  shouldRetainIdempotencyKey,
+  waitForSharingOperation,
+} from '@/api/sharingOperations'
 
 const message = useMessage();
 const showModal = ref(false);
@@ -331,25 +340,44 @@ const open = async (showLoading = true) => {
 };
 
 const openAuthorize = async () => {
+  const operationScope = 'hdhive-register';
+  const operationKey = idempotencyKeyForScope(operationScope);
   authorizing.value = true;
   try {
     let url = authorizeUrl.value;
     if (!url) {
-      const res = await apiClient.get(apiPath('api_subscription_hdhive_authorize_url_798667f1'));
+      await resumeDurableSharingOperation(operationScope);
+      const headers = { 'Idempotency-Key': operationKey };
+      let res = await apiClient.get(
+        apiPath('api_subscription_hdhive_authorize_url_798667f1'),
+        { headers },
+      );
+      rememberDurableRequest(operationScope, res.data);
+      if (res.data?.operation_id) {
+        await waitForSharingOperation(res, { persistenceScope: operationScope });
+        res = await apiClient.get(
+          apiPath('api_subscription_hdhive_authorize_url_798667f1'),
+          { headers },
+        );
+      }
       if (res.data.success) {
         url = res.data.authorize_url;
       }
     }
 
     if (!url) {
+      releaseDurableRequest(operationScope);
       message.error('生成影巢授权链接失败');
       return;
     }
 
     window.open(url, '_blank', 'noopener,noreferrer');
+    releaseDurableRequest(operationScope);
     message.info('授权完成后会自动刷新状态，或手动点击“刷新状态”');
     startAuthPolling();
   } catch (e) {
+    rememberDurableRequestError(operationScope, e);
+    if (!shouldRetainIdempotencyKey(e)) releaseDurableRequest(operationScope);
     message.error('打开影巢授权失败');
   } finally {
     authorizing.value = false;
@@ -357,10 +385,31 @@ const openAuthorize = async () => {
 };
 
 const clearAuthorization = async () => {
+  const operationScope = 'hdhive-clear-authorization';
+  const operationKey = idempotencyKeyForScope(operationScope);
   clearingAuth.value = true;
   try {
-    const res = await apiClient.post(apiPath('api_subscription_hdhive_clear_authorization_2d0b5b57'));
+    const resumed = await resumeDurableSharingOperation(operationScope);
+    if (resumed) {
+      releaseDurableRequest(operationScope);
+      message.success('影巢授权已清除');
+      stopAuthPolling();
+      relayStatus.value = null;
+      userInfo.value = null;
+      usageToday.value = null;
+      vipInfo.value = null;
+      await open(false);
+      return;
+    }
+    const res = await apiClient.post(
+      apiPath('api_subscription_hdhive_clear_authorization_2d0b5b57'),
+      null,
+      { headers: { 'Idempotency-Key': operationKey } },
+    );
+    rememberDurableRequest(operationScope, res.data);
     if (res.data.success) {
+      await waitForSharingOperation(res, { persistenceScope: operationScope });
+      releaseDurableRequest(operationScope);
       message.success(res.data.message || '影巢授权已清除');
       stopAuthPolling();
       relayStatus.value = null;
@@ -369,9 +418,12 @@ const clearAuthorization = async () => {
       vipInfo.value = null; 
       await open(false);
     } else {
+      releaseDurableRequest(operationScope);
       message.error(res.data.message || '清除授权失败');
     }
   } catch (e) {
+    rememberDurableRequestError(operationScope, e);
+    if (!shouldRetainIdempotencyKey(e)) releaseDurableRequest(operationScope);
     message.error('清除授权失败');
   } finally {
     clearingAuth.value = false;
@@ -413,16 +465,35 @@ const saveConfig = async () => {
 };
 
 const doCheckin = async (isGambler) => {
+  const operationScope = `hdhive-checkin:${Boolean(isGambler)}`;
+  const operationKey = idempotencyKeyForScope(operationScope);
   checkingIn.value = true;
   try {
-    const res = await apiClient.post(apiPath('api_subscription_hdhive_checkin_8416cca0'), { is_gambler: isGambler });
+    const resumed = await resumeDurableSharingOperation(operationScope);
+    if (resumed) {
+      releaseDurableRequest(operationScope);
+      message.success('签到任务已确认', { duration: 5000 });
+      await open(false);
+      return;
+    }
+    const res = await apiClient.post(
+      apiPath('api_subscription_hdhive_checkin_8416cca0'),
+      { is_gambler: isGambler },
+      { headers: { 'Idempotency-Key': operationKey } },
+    );
+    rememberDurableRequest(operationScope, res.data);
     if (res.data.success) {
+      await waitForSharingOperation(res, { persistenceScope: operationScope });
+      releaseDurableRequest(operationScope);
       message.success(res.data.message, { duration: 5000 });
       await open(false);
     } else {
+      releaseDurableRequest(operationScope);
       message.warning(res.data.message || '签到失败');
     }
   } catch (e) {
+    rememberDurableRequestError(operationScope, e);
+    if (!shouldRetainIdempotencyKey(e)) releaseDurableRequest(operationScope);
     message.error('签到请求失败');
   } finally {
     checkingIn.value = false;

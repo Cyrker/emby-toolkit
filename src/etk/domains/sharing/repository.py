@@ -985,7 +985,10 @@ def _finalize_center_transfer(
                 )
                 _mark_virtual_active_washing(uow, item)
 
-    if result.get("existing") is True:
+    transfer_mode = str(result.get("transfer_mode") or "rapid").strip().casefold()
+    if transfer_mode not in {"rapid", "share"}:
+        raise SharingOperationStateError("center transfer continuation has an invalid transfer mode")
+    if result.get("existing") is True and transfer_mode == "rapid":
         return
     success_count = _nonnegative_integer(result.get("success_count"))
     total_count = _nonnegative_integer(result.get("total_count"))
@@ -998,9 +1001,9 @@ def _finalize_center_transfer(
             "result": "success",
             "success_count": success_count,
             "total_count": total_count,
-            "transfer_mode": "rapid",
+            "transfer_mode": transfer_mode,
             "lease_id": str(result.get("lease_id") or ""),
-            "message": f"native rapid transfer confirmed: {success_count}/{total_count}",
+            "message": f"native {transfer_mode} transfer confirmed: {success_count}/{total_count}",
         },
     }
     report_payload = report_request["payload"]
@@ -1008,6 +1011,11 @@ def _finalize_center_transfer(
         value = str(result.get(key) or "").strip()
         if value:
             report_payload[key] = value
+    if transfer_mode == "share":
+        for key in ("share_channel_id", "base_target_cid", "standard_folder_name"):
+            value = str(result.get(key) or "").strip()
+            if value:
+                report_payload[key] = value
     job_ids = _json_list(result.get("rapid_sign_job_ids"))
     if job_ids:
         report_payload["rapid_sign_job_ids"] = job_ids
@@ -1057,8 +1065,9 @@ def _stage_center_transfer_failure_report(
     continuation: Mapping[str, Any],
 ) -> None:
     state = operation.state if isinstance(operation.state, Mapping) else {}
+    transfer_mode = "share" if str(state.get("kind") or "") == "logical_season_share_transfer" else "rapid"
     lease_id = str(state.get("lease_id") or "").strip()
-    if not lease_id:
+    if transfer_mode == "rapid" and not lease_id:
         return
     files = _json_list(state.get("files"))
     completed = {
@@ -1076,11 +1085,17 @@ def _stage_center_transfer_failure_report(
             "result": "failed",
             "success_count": len(completed),
             "total_count": len(files),
-            "transfer_mode": "rapid",
+            "transfer_mode": transfer_mode,
             "lease_id": lease_id,
-            "message": f"native rapid transfer rejected: {str(error.get('type') or 'provider_rejected')[:200]}",
+            "message": (
+                f"native {transfer_mode} transfer rejected: {str(error.get('type') or 'provider_rejected')[:200]}"
+            ),
         },
     }
+    if transfer_mode == "share":
+        channel_id = str(state.get("channel_id") or "").strip()
+        if channel_id:
+            report_request["payload"]["share_channel_id"] = channel_id
     intent = SharingOperationIntent.create(
         kind="transfer",
         scope_key=f"center-transfer-report:{operation.id}",
@@ -1089,6 +1104,28 @@ def _stage_center_transfer_failure_report(
         idempotency_key=f"center-transfer-report:{operation.id}",
     )
     PostgresSharingOperationRepository(lambda: uow)._reserve_in_uow(uow, intent)
+    channel_failure_status = str(state.get("channel_failure_status") or "").strip()
+    channel_id = str(state.get("channel_id") or "").strip()
+    if transfer_mode == "share" and channel_id and channel_failure_status in {"expired", "pending_review"}:
+        status_intent = SharingOperationIntent.create(
+            kind="transfer",
+            scope_key=f"center-share-channel-status:{operation.id}",
+            principal_id="system",
+            request={
+                "provider": "shared_center",
+                "action": "update_logical_season_share_status",
+                "payload": {
+                    "channel_id": channel_id,
+                    "body": {
+                        "status": channel_failure_status,
+                        "review_status": "expired" if channel_failure_status == "expired" else "pending",
+                        "status_message": "native share import rejected by authoritative provider response",
+                    },
+                },
+            },
+            idempotency_key=f"center-share-channel-status:{operation.id}",
+        )
+        PostgresSharingOperationRepository(lambda: uow)._reserve_in_uow(uow, status_intent)
 
 
 def _mark_virtual_active_washing(uow: SqlAlchemyUnitOfWork, item: Mapping[str, Any]) -> None:

@@ -18314,6 +18314,603 @@
         ]
       }
     },
+    "/api/subscription/cloud/download": {
+      "post": {
+        "operationId": "cloud_download_api_subscription_cloud_download_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cloud Download Api Subscription Cloud Download Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "202": {
+            "description": "Provider-control response"
+          },
+          "400": {
+            "description": "Provider-control response"
+          },
+          "401": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "415": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Cloud Download",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/cloud/resources": {
+      "get": {
+        "operationId": "cloud_resources_api_subscription_cloud_resources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cloud Resources Api Subscription Cloud Resources Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "400": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Cloud Resources",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/hdhive/authorize_url": {
+      "get": {
+        "operationId": "hdhive_authorize_url_api_subscription_hdhive_authorize_url_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Hdhive Authorize Url Api Subscription Hdhive Authorize Url Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "202": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Hdhive Authorize Url",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/hdhive/checkin": {
+      "post": {
+        "operationId": "hdhive_checkin_api_subscription_hdhive_checkin_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Hdhive Checkin Api Subscription Hdhive Checkin Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "202": {
+            "description": "Provider-control response"
+          },
+          "401": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "415": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Hdhive Checkin",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/hdhive/clear_authorization": {
+      "post": {
+        "operationId": "clear_hdhive_authorization_api_subscription_hdhive_clear_authorization_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Clear Hdhive Authorization Api Subscription Hdhive Clear Authorization Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "202": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Clear Hdhive Authorization",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/hdhive/config": {
+      "get": {
+        "operationId": "hdhive_configuration_api_subscription_hdhive_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Hdhive Configuration Api Subscription Hdhive Config Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Hdhive Configuration",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      },
+      "post": {
+        "operationId": "save_hdhive_configuration_api_subscription_hdhive_config_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Hdhive Configuration Api Subscription Hdhive Config Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "400": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "415": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Save Hdhive Configuration",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/hdhive/download": {
+      "post": {
+        "operationId": "hdhive_download_api_subscription_hdhive_download_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Hdhive Download Api Subscription Hdhive Download Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "202": {
+            "description": "Provider-control response"
+          },
+          "400": {
+            "description": "Provider-control response"
+          },
+          "401": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "415": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Hdhive Download",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/hdhive/resources": {
+      "get": {
+        "operationId": "hdhive_resources_api_subscription_hdhive_resources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Hdhive Resources Api Subscription Hdhive Resources Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "400": {
+            "description": "Provider-control response"
+          },
+          "401": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Hdhive Resources",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/hdhive/subscriptions": {
+      "get": {
+        "operationId": "hdhive_subscriptions_api_subscription_hdhive_subscriptions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Hdhive Subscriptions Api Subscription Hdhive Subscriptions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "401": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Hdhive Subscriptions",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      },
+      "post": {
+        "operationId": "create_hdhive_subscription_api_subscription_hdhive_subscriptions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Hdhive Subscription Api Subscription Hdhive Subscriptions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "202": {
+            "description": "Provider-control response"
+          },
+          "400": {
+            "description": "Provider-control response"
+          },
+          "401": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "415": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Create Hdhive Subscription",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/hdhive/subscriptions/check": {
+      "get": {
+        "operationId": "check_hdhive_subscription_api_subscription_hdhive_subscriptions_check_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Check Hdhive Subscription Api Subscription Hdhive Subscriptions Check Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "400": {
+            "description": "Provider-control response"
+          },
+          "401": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Check Hdhive Subscription",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/hdhive/subscriptions/{subscription_id}": {
+      "delete": {
+        "operationId": "delete_hdhive_subscription_api_subscription_hdhive_subscriptions__subscription_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subscription_id",
+            "required": true,
+            "schema": {
+              "title": "Subscription Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete Hdhive Subscription Api Subscription Hdhive Subscriptions  Subscription Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "202": {
+            "description": "Provider-control response"
+          },
+          "400": {
+            "description": "Provider-control response"
+          },
+          "401": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Delete Hdhive Subscription",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
     "/api/subscription/mp/config": {
       "get": {
         "operationId": "get_moviepilot_config_api_subscription_mp_config_get",
@@ -18531,6 +19128,263 @@
         "summary": "Save Subscription Strategy",
         "tags": [
           "subscription"
+        ]
+      }
+    },
+    "/api/subscription/tg_userbot/clear_session": {
+      "post": {
+        "operationId": "telegram_clear_session_api_subscription_tg_userbot_clear_session_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Telegram Clear Session Api Subscription Tg Userbot Clear Session Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Telegram Clear Session",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/tg_userbot/config": {
+      "get": {
+        "operationId": "telegram_configuration_api_subscription_tg_userbot_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Telegram Configuration Api Subscription Tg Userbot Config Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Telegram Configuration",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      },
+      "post": {
+        "operationId": "save_telegram_configuration_api_subscription_tg_userbot_config_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Save Telegram Configuration Api Subscription Tg Userbot Config Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "400": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "415": {
+            "description": "Provider-control response"
+          },
+          "500": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Save Telegram Configuration",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/tg_userbot/login": {
+      "post": {
+        "operationId": "telegram_login_api_subscription_tg_userbot_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Telegram Login Api Subscription Tg Userbot Login Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "400": {
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "415": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Telegram Login",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/tg_userbot/logout": {
+      "post": {
+        "operationId": "telegram_logout_api_subscription_tg_userbot_logout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Telegram Logout Api Subscription Tg Userbot Logout Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Telegram Logout",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/tg_userbot/send_code": {
+      "post": {
+        "operationId": "telegram_send_code_api_subscription_tg_userbot_send_code_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Telegram Send Code Api Subscription Tg Userbot Send Code Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "409": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Telegram Send Code",
+        "tags": [
+          "subscription",
+          "sharing"
+        ]
+      }
+    },
+    "/api/subscription/tg_userbot/status": {
+      "get": {
+        "operationId": "telegram_status_api_subscription_tg_userbot_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Telegram Status Api Subscription Tg Userbot Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Provider-control response"
+          },
+          "403": {
+            "description": "Provider-control response"
+          },
+          "503": {
+            "description": "Provider-control response"
+          }
+        },
+        "summary": "Telegram Status",
+        "tags": [
+          "subscription",
+          "sharing"
         ]
       }
     },

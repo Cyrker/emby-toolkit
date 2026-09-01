@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import threading
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
@@ -290,6 +292,24 @@ def test_coordinator_executor_uses_a_fake_manager_and_persists_results() -> None
             assert owner_id == "fixture-coordinator"
             self.completed.append((command_id, result))
 
+        def checkpoint_request(self, command_id: str, owner_id: str) -> dict[str, Any]:
+            assert owner_id == "fixture-coordinator"
+            return next(
+                {
+                    "id": command_id,
+                    "type": command_type,
+                    "payload": payload,
+                    "status": "requesting",
+                }
+                for expected_id, command_type, payload in (
+                    ("1", "send_code", {}),
+                    ("2", "login", {"code": "12345"}),
+                    ("3", "logout", {}),
+                    ("4", "clear_session", {}),
+                )
+                if expected_id == command_id
+            )
+
         def fail(self, command_id: str, owner_id: str, error: str) -> None:
             assert owner_id == "fixture-coordinator"
             self.failed.append((command_id, error))
@@ -325,6 +345,326 @@ def test_coordinator_executor_uses_a_fake_manager_and_persists_results() -> None
     assert bridge.completed[-1][1] == {"ok": True, "results": [{"title": "Fixture"}]}
     assert bridge.failed == []
     assert bridge.status == {"status": "authorized"}
+
+
+def test_login_secret_validation_fails_before_checkpoint_and_destroys_secret() -> None:
+    command = {
+        "id": "fixture-login",
+        "type": "login",
+        "payload": {"code_ref": "a" * 64, "code_hash": "0" * 64},
+        "idempotency_key_hash": "b" * 64,
+    }
+
+    class Bridge:
+        def __init__(self) -> None:
+            self.claimed = False
+            self.checkpoints = 0
+            self.failed: list[tuple[str, str]] = []
+            self.destroyed: list[tuple[str, str | None]] = []
+
+        def claim_next(self, owner_id: str, *, lease_seconds: int) -> dict[str, Any] | None:
+            del owner_id, lease_seconds
+            if self.claimed:
+                return None
+            self.claimed = True
+            return dict(command)
+
+        def consume_resource_secret(self, reference: str, owner_key: str) -> dict[str, Any]:
+            assert reference == "a" * 64
+            assert owner_key == "b" * 64
+            return {"code": "12345"}
+
+        def checkpoint_request(self, command_id: str, owner_id: str) -> dict[str, Any]:
+            del command_id, owner_id
+            self.checkpoints += 1
+            return {**command, "status": "requesting"}
+
+        def destroy_resource_secret(self, reference: str, *, owner_key: str | None = None) -> bool:
+            self.destroyed.append((reference, owner_key))
+            return True
+
+        def fail(self, command_id: str, owner_id: str, error: str) -> None:
+            del owner_id
+            self.failed.append((command_id, error))
+
+        def update_runtime_status(self, status: dict[str, Any]) -> dict[str, Any]:
+            return status
+
+    class Manager:
+        def submit_login_code(self, code: str) -> None:
+            raise AssertionError(code)
+
+        def get_status(self) -> dict[str, Any]:
+            return {"status": "authorized"}
+
+    bridge = Bridge()
+    executor = TelegramCommandExecutor(bridge, owner_id="fixture")  # type: ignore[arg-type]
+
+    assert executor.process_pending(Manager(), limit=1) == 1
+    assert bridge.checkpoints == 0
+    assert bridge.failed == [("fixture-login", "Telegram login code secret changed")]
+    assert bridge.destroyed == [("a" * 64, "b" * 64)]
+
+
+def test_login_manager_failure_after_checkpoint_is_indeterminate_and_destroys_secret() -> None:
+    secret = {"code": "12345"}
+    secret_hash = hashlib.sha256(
+        json.dumps(secret, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
+    command = {
+        "id": "fixture-login",
+        "type": "login",
+        "payload": {"code_ref": "a" * 64, "code_hash": secret_hash},
+        "idempotency_key_hash": "b" * 64,
+    }
+
+    class Bridge:
+        def __init__(self) -> None:
+            self.claimed = False
+            self.checkpoints = 0
+            self.indeterminate_calls: list[tuple[str, str]] = []
+            self.destroyed = 0
+
+        def claim_next(self, owner_id: str, *, lease_seconds: int) -> dict[str, Any] | None:
+            del owner_id, lease_seconds
+            if self.claimed:
+                return None
+            self.claimed = True
+            return dict(command)
+
+        def consume_resource_secret(self, reference: str, owner_key: str) -> dict[str, Any]:
+            del reference, owner_key
+            return dict(secret)
+
+        def checkpoint_request(self, command_id: str, owner_id: str) -> dict[str, Any]:
+            del command_id, owner_id
+            self.checkpoints += 1
+            return {**command, "status": "requesting"}
+
+        def destroy_resource_secret(self, reference: str, *, owner_key: str | None = None) -> bool:
+            del reference, owner_key
+            self.destroyed += 1
+            return True
+
+        def indeterminate(self, command_id: str, owner_id: str, error: str) -> None:
+            del owner_id
+            self.indeterminate_calls.append((command_id, error))
+
+        def update_runtime_status(self, status: dict[str, Any]) -> dict[str, Any]:
+            return status
+
+    class Manager:
+        calls = 0
+
+        def submit_login_code(self, code: str) -> None:
+            assert code == "12345"
+            self.calls += 1
+            raise TimeoutError("provider timeout")
+
+        def get_status(self) -> dict[str, Any]:
+            return {"status": "error"}
+
+    bridge = Bridge()
+    manager = Manager()
+    executor = TelegramCommandExecutor(bridge, owner_id="fixture")  # type: ignore[arg-type]
+
+    assert executor.process_pending(manager, limit=1) == 1
+    assert bridge.checkpoints == 1
+    assert bridge.indeterminate_calls == [("fixture-login", "TimeoutError")]
+    assert bridge.destroyed == 1
+    assert manager.calls == 1
+    assert executor.process_pending(manager, limit=1) == 0
+    assert manager.calls == 1
+
+
+def test_checkpoint_commit_ambiguity_is_indeterminate_instead_of_failed() -> None:
+    command = {"id": "fixture-send-code", "type": "send_code", "payload": {}, "status": "claimed"}
+
+    class Bridge:
+        def __init__(self) -> None:
+            self.claimed = False
+            self.durable = dict(command)
+            self.indeterminate_calls: list[tuple[str, str]] = []
+            self.failed: list[str] = []
+
+        def claim_next(self, owner_id: str, *, lease_seconds: int) -> dict[str, Any] | None:
+            del lease_seconds
+            if self.claimed:
+                return None
+            self.claimed = True
+            self.durable.update(claimed_by=owner_id)
+            return dict(self.durable)
+
+        def checkpoint_request(self, command_id: str, owner_id: str) -> dict[str, Any]:
+            assert (command_id, owner_id) == ("fixture-send-code", "fixture")
+            self.durable.update(status="requesting", claimed_by=owner_id)
+            raise ConnectionError("commit acknowledgement lost")
+
+        def get_command(self, command_id: str) -> dict[str, Any]:
+            assert command_id == "fixture-send-code"
+            return dict(self.durable)
+
+        def indeterminate(self, command_id: str, owner_id: str, error: str) -> None:
+            del owner_id
+            self.indeterminate_calls.append((command_id, error))
+
+        def fail(self, command_id: str, owner_id: str, error: str) -> None:
+            del owner_id, error
+            self.failed.append(command_id)
+
+        def update_runtime_status(self, status: dict[str, Any]) -> dict[str, Any]:
+            return status
+
+    class Manager:
+        def send_login_code(self) -> None:
+            raise AssertionError("provider must not be called after ambiguous checkpoint")
+
+        def get_status(self) -> dict[str, Any]:
+            return {"status": "error"}
+
+    bridge = Bridge()
+    executor = TelegramCommandExecutor(bridge, owner_id="fixture")  # type: ignore[arg-type]
+
+    assert executor.process_pending(Manager(), limit=1) == 1
+    assert bridge.indeterminate_calls == [("fixture-send-code", "ConnectionError")]
+    assert bridge.failed == []
+
+
+def test_checkpoint_ack_loss_is_indeterminate_even_when_immediate_reread_is_stale() -> None:
+    command = {
+        "id": "fixture-send-code",
+        "type": "send_code",
+        "payload": {},
+        "status": "claimed",
+        "claimed_by": "fixture",
+    }
+
+    class Bridge:
+        def __init__(self) -> None:
+            self.claimed = False
+            self.indeterminate_calls: list[tuple[str, str]] = []
+            self.failed: list[str] = []
+
+        def claim_next(self, owner_id: str, *, lease_seconds: int) -> dict[str, Any] | None:
+            del owner_id, lease_seconds
+            if self.claimed:
+                return None
+            self.claimed = True
+            return dict(command)
+
+        def checkpoint_request(self, command_id: str, owner_id: str) -> dict[str, Any]:
+            del command_id, owner_id
+            raise ConnectionError("commit acknowledgement lost")
+
+        def get_command(self, command_id: str) -> dict[str, Any]:
+            del command_id
+            return dict(command)
+
+        def indeterminate(self, command_id: str, owner_id: str, error: str) -> None:
+            del owner_id
+            self.indeterminate_calls.append((command_id, error))
+
+        def fail(self, command_id: str, owner_id: str, error: str) -> None:
+            del owner_id, error
+            self.failed.append(command_id)
+
+        def update_runtime_status(self, status: dict[str, Any]) -> dict[str, Any]:
+            return status
+
+    class Manager:
+        def send_login_code(self) -> None:
+            raise AssertionError("provider must not be called after ambiguous checkpoint")
+
+        def get_status(self) -> dict[str, Any]:
+            return {"status": "error"}
+
+    bridge = Bridge()
+    executor = TelegramCommandExecutor(bridge, owner_id="fixture")  # type: ignore[arg-type]
+
+    assert executor.process_pending(Manager(), limit=1) == 1
+    assert bridge.indeterminate_calls == [("fixture-send-code", "ConnectionError")]
+    assert bridge.failed == []
+
+
+def test_listener_action_releases_for_retry_then_destroys_secret_after_staging() -> None:
+    candidate = {"tmdb_id": "42", "target_link": "https://115.com/s/provider-secret"}
+    candidate_hash = hashlib.sha256(
+        json.dumps(candidate, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
+    command = {
+        "id": "fixture-listener-action",
+        "type": "listener_action",
+        "payload": {
+            "candidate_ref": "a" * 64,
+            "candidate_hash": candidate_hash,
+            "occurrence": f"telegram-listener:{'b' * 64}",
+            "is_brainless": True,
+        },
+        "idempotency_key_hash": "c" * 64,
+        "status": "claimed",
+    }
+
+    class Bridge:
+        def __init__(self) -> None:
+            self.claims = 0
+            self.releases = 0
+            self.completed: list[dict[str, Any]] = []
+            self.destroyed = 0
+
+        def claim_next(self, owner_id: str, *, lease_seconds: int) -> dict[str, Any] | None:
+            del owner_id, lease_seconds
+            self.claims += 1
+            return dict(command) if self.claims <= 2 else None
+
+        def consume_resource_secret(self, reference: str, owner_key: str) -> dict[str, Any]:
+            assert (reference, owner_key) == ("a" * 64, "c" * 64)
+            return {"candidate": candidate}
+
+        def release(self, command_id: str, owner_id: str, error_class: str) -> None:
+            assert (command_id, owner_id, error_class) == (
+                "fixture-listener-action",
+                "fixture",
+                "ConnectionError",
+            )
+            self.releases += 1
+
+        def complete(self, command_id: str, owner_id: str, result: dict[str, Any]) -> None:
+            assert (command_id, owner_id) == ("fixture-listener-action", "fixture")
+            self.completed.append(result)
+
+        def destroy_resource_secret(self, reference: str, *, owner_key: str | None = None) -> bool:
+            assert (reference, owner_key) == ("a" * 64, "c" * 64)
+            self.destroyed += 1
+            return True
+
+        def update_runtime_status(self, status: dict[str, Any]) -> dict[str, Any]:
+            return status
+
+    class Manager:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def stage_listener_action(self, candidate_value: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]:
+            assert dict(candidate_value) == candidate
+            assert kwargs["occurrence"] == f"telegram-listener:{'b' * 64}"
+            self.calls += 1
+            if self.calls == 1:
+                raise ConnectionError("fixture database unavailable")
+            return {"success": True, "staged": True}
+
+        def get_status(self) -> dict[str, Any]:
+            return {"status": "authorized"}
+
+    bridge = Bridge()
+    manager = Manager()
+    executor = TelegramCommandExecutor(bridge, owner_id="fixture")  # type: ignore[arg-type]
+
+    assert executor.process_pending(manager, limit=1) == 1
+    assert bridge.releases == 1
+    assert bridge.destroyed == 0
+    assert executor.process_pending(manager, limit=1) == 1
+    assert bridge.completed == [{"success": True, "staged": True}]
+    assert bridge.destroyed == 1
 
 
 def test_worker_channel_operation_invokes_one_payload_without_a_consumer_thread(monkeypatch) -> None:

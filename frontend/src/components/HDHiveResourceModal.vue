@@ -260,6 +260,16 @@ import {
   useMessage
 } from 'naive-ui';
 import apiClient, { apiPath } from '@/api/client'
+import {
+  idempotencyKeyForScope,
+  opaqueRequestScope,
+  releaseDurableRequest,
+  rememberDurableRequest,
+  rememberDurableRequestError,
+  resumeDurableSharingOperation,
+  shouldRetainIdempotencyKey,
+  waitForSharingOperation,
+} from '@/api/sharingOperations'
 
 const props = defineProps({
   show: Boolean,
@@ -825,9 +835,18 @@ watch(() => props.show, (newVal) => {
 
 const download = async (resource) => {
   const key = getResourceKey(resource);
+  const operationScope = await opaqueRequestScope('cloud-download', key);
+  const operationKey = idempotencyKeyForScope(operationScope);
   downloadingKey.value = key;
 
   try {
+    const resumed = await resumeDurableSharingOperation(operationScope);
+    if (resumed) {
+      releaseDurableRequest(operationScope);
+      message.success('转存任务已确认');
+      emit('download-success');
+      return;
+    }
     const payload = {
       source_type: resource.source_type || resource._cloud_source || (isSharedPool(resource) ? 'shared_pool' : (resource.slug ? 'hdhive' : 'channel')),
       resource,
@@ -839,15 +858,25 @@ const download = async (resource) => {
       mode: isSharedPool(resource) ? (hasSharedPoolShareTransfer(resource) ? 'share' : 'rapid') : undefined
     };
 
-    const res = await apiClient.post(apiPath('api_subscription_cloud_download_b0e1738c'), payload);
+    const res = await apiClient.post(
+      apiPath('api_subscription_cloud_download_b0e1738c'),
+      payload,
+      { headers: { 'Idempotency-Key': operationKey } },
+    );
+    rememberDurableRequest(operationScope, res.data);
 
     if (res.data.success) {
+      await waitForSharingOperation(res, { persistenceScope: operationScope });
+      releaseDurableRequest(operationScope);
       message.success(res.data.message);
       emit('download-success');
     } else {
+      releaseDurableRequest(operationScope);
       message.error(res.data.message || '触发下载失败');
     }
   } catch (e) {
+    rememberDurableRequestError(operationScope, e);
+    if (!shouldRetainIdempotencyKey(e)) releaseDurableRequest(operationScope);
     message.error(e.response?.data?.message || '触发下载失败');
   } finally {
     downloadingKey.value = null;

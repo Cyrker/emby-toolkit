@@ -298,6 +298,11 @@ from etk.domains.subscription.portal import (
     PortalSubscriptionService,
 )
 from etk.domains.subscription.portal_adapter import HttpxPortalTmdbAdapter
+from etk.domains.subscription.provider_control import (
+    PROVIDER_CONTROL_USE_CASE,
+    ProviderControlService,
+)
+from etk.domains.subscription.provider_control_router import router as provider_control_router
 from etk.domains.subscription.resubscribe import (
     PostgresResubscribeOperationStager,
     ResubscribeService,
@@ -530,6 +535,7 @@ def create_app(
     app.include_router(resubscribe_router)
     app.include_router(moviepilot_config_router)
     app.include_router(subscription_core_router)
+    app.include_router(provider_control_router)
     app.include_router(sharing_router)
 
     @app.get("/api/health", include_in_schema=False)
@@ -1656,7 +1662,10 @@ def _register_subscription_providers(container: AppContainer) -> None:
         lambda current: SqlAlchemyCleanupRepository(
             current.database.unit_of_work,
             current.repository("media.cleanup-projection"),
-            SettingsCleanupExecutionPolicy(lambda: current.settings),
+            SettingsCleanupExecutionPolicy(
+                lambda: current.settings,
+                current.repository("p115.credentials"),
+            ),
         ),
     )
     container.register_repository(
@@ -1801,6 +1810,16 @@ def _register_subscription_providers(container: AppContainer) -> None:
             current.repository("subscription.core"),
             current.client("subscription.availability"),
             current.repository("identity"),
+        ),
+    )
+    container.register_use_case(
+        PROVIDER_CONTROL_USE_CASE,
+        lambda current: ProviderControlService(
+            settings=current.repository("app-settings"),
+            hdhive=current.client("sharing.hdhive"),
+            center=current.client("sharing.shared-center"),
+            telegram=current.client("sharing.telegram-userbot"),
+            sharing=current.use_case("sharing"),
         ),
     )
     container.register_use_case(

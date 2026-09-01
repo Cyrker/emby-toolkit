@@ -236,9 +236,22 @@ import {
   NRadioGroup, NRadio
 } from 'naive-ui';
 import apiClient, { apiPath } from '@/api/client'
+import {
+  durableRequestForScope,
+  idempotencyKeyForScope,
+  releaseDurableRequest,
+  rememberDurableRequest,
+  rememberDurableRequestError,
+  resumeDurableTelegramCommand,
+  shouldRetainIdempotencyKey,
+} from '@/api/sharingOperations'
 
 const message = useMessage();
 const dialog = useDialog();
+const TELEGRAM_SEND_CODE_SCOPE = 'telegram-send-code';
+const TELEGRAM_LOGIN_SCOPE = 'telegram-login';
+const TELEGRAM_LOGOUT_SCOPE = 'telegram-logout';
+const TELEGRAM_CLEAR_SESSION_SCOPE = 'telegram-clear-session';
 const showModal = ref(false);
 const isLoading = ref(false);
 const isSaving = ref(false);
@@ -299,7 +312,7 @@ const onCreateRegexObj = () => {
 // 暴露给父组件调用的方法
 const open = async () => {
   showModal.value = true;
-  showCodeInput.value = false;
+  showCodeInput.value = Boolean(durableRequestForScope(TELEGRAM_LOGIN_SCOPE));
   userBotCode.value = '';
   await fetchConfig();
   await checkUserBotStatus();
@@ -403,40 +416,119 @@ const waitForUserBotAuthorized = async () => {
   }
 };
 
+const commandMessage = (payload, fallback) => {
+  const commandId = String(payload?.command_id || '').trim();
+  const detail = payload?.message || fallback;
+  return commandId ? `${detail}（命令 ID：${commandId}）` : detail;
+};
+
+const resumeUserBotCommand = async (scope, successMessage) => {
+  const payload = await resumeDurableTelegramCommand(scope);
+  if (!payload) return { handled: false, succeeded: false };
+  const status = String(payload.status || '').trim().toLowerCase();
+  if (status === 'succeeded') {
+    releaseDurableRequest(scope);
+    message.success(successMessage);
+    return { handled: true, succeeded: true };
+  }
+  if (status === 'indeterminate') {
+    message.error(commandMessage(payload, 'Telegram 操作结果不确定，请勿直接重放'));
+    return { handled: true, succeeded: false };
+  }
+  if (['pending', 'claimed', 'requesting'].includes(status)) {
+    message.warning(commandMessage(payload, 'Telegram 操作仍在处理中'));
+    return { handled: true, succeeded: false };
+  }
+  releaseDurableRequest(scope);
+  return { handled: false, succeeded: false };
+};
+
+const retainUserBotResponse = (scope, response) => {
+  rememberDurableRequest(scope, response?.data);
+  const retained = shouldRetainIdempotencyKey({
+    response: { status: response?.status, data: response?.data },
+  });
+  if (!retained) releaseDurableRequest(scope);
+  return retained;
+};
+
+const handleUserBotError = (scope, error, fallback) => {
+  rememberDurableRequestError(scope, error);
+  if (!shouldRetainIdempotencyKey(error)) releaseDurableRequest(scope);
+  const payload = error?.response?.data;
+  const durable = durableRequestForScope(scope);
+  const commandId = String(payload?.command_id || durable?.commandId || '').trim();
+  const detail = payload?.message || fallback;
+  message.error(commandId ? `${detail}（命令 ID：${commandId}）` : detail);
+};
+
 const sendUserBotCode = async () => {
   if (!config.value.phone) {
     return message.warning('请先填写手机号并保存配置');
   }
   isSendingCode.value = true;
   try {
-    const res = await apiClient.post(apiPath('api_subscription_tg_userbot_send_code_5a8629dc'));
+    const resumed = await resumeUserBotCommand(TELEGRAM_SEND_CODE_SCOPE, '验证码已发送到您的 Telegram 客户端');
+    if (resumed.handled) {
+      if (resumed.succeeded) showCodeInput.value = true;
+      return;
+    }
+    const operationKey = idempotencyKeyForScope(TELEGRAM_SEND_CODE_SCOPE);
+    const res = await apiClient.post(
+      apiPath('api_subscription_tg_userbot_send_code_5a8629dc'),
+      null,
+      { headers: { 'Idempotency-Key': operationKey } },
+    );
+    rememberDurableRequest(TELEGRAM_SEND_CODE_SCOPE, res.data);
     if (res.data.success) {
+      releaseDurableRequest(TELEGRAM_SEND_CODE_SCOPE);
+      releaseDurableRequest(TELEGRAM_LOGIN_SCOPE);
       message.success(res.data.message);
       showCodeInput.value = true;
     } else {
-      message.error(res.data.message);
+      retainUserBotResponse(TELEGRAM_SEND_CODE_SCOPE, res);
+      message.error(commandMessage(res.data, '请求失败'));
     }
   } catch (e) {
-    message.error(e.response?.data?.message || '请求失败');
+    handleUserBotError(TELEGRAM_SEND_CODE_SCOPE, e, '请求失败');
   } finally {
     isSendingCode.value = false;
   }
 };
 
 const submitUserBotCode = async () => {
-  if (!userBotCode.value) return message.warning('请输入验证码');
   isSubmittingCode.value = true;
   try {
-    const res = await apiClient.post(apiPath('api_subscription_tg_userbot_login_2d7bf4d3'), { code: userBotCode.value });
+    const resumed = await resumeUserBotCommand(TELEGRAM_LOGIN_SCOPE, 'Telegram 登录已完成');
+    if (resumed.handled) {
+      if (resumed.succeeded) {
+        showCodeInput.value = false;
+        await waitForUserBotAuthorized();
+      }
+      return;
+    }
+    if (!userBotCode.value) {
+      message.warning('请输入验证码');
+      return;
+    }
+    const operationKey = idempotencyKeyForScope(TELEGRAM_LOGIN_SCOPE);
+    const res = await apiClient.post(
+      apiPath('api_subscription_tg_userbot_login_2d7bf4d3'),
+      { code: userBotCode.value },
+      { headers: { 'Idempotency-Key': operationKey } },
+    );
+    rememberDurableRequest(TELEGRAM_LOGIN_SCOPE, res.data);
     if (res.data.success) {
+      releaseDurableRequest(TELEGRAM_LOGIN_SCOPE);
       message.success(res.data.message);
       showCodeInput.value = false;
       await waitForUserBotAuthorized();
     } else {
-      message.error(res.data.message);
+      retainUserBotResponse(TELEGRAM_LOGIN_SCOPE, res);
+      message.error(commandMessage(res.data, '登录失败'));
     }
   } catch (e) {
-    message.error(e.response?.data?.message || '登录失败');
+    handleUserBotError(TELEGRAM_LOGIN_SCOPE, e, '登录失败');
   } finally {
     isSubmittingCode.value = false;
   }
@@ -444,28 +536,62 @@ const submitUserBotCode = async () => {
 
 const logoutUserBot = async () => {
   try {
-    await apiClient.post(apiPath('api_subscription_tg_userbot_logout_d1bb46ae'));
-    message.success('已注销');
-    await checkUserBotStatus();
+    const resumed = await resumeUserBotCommand(TELEGRAM_LOGOUT_SCOPE, '已注销');
+    if (resumed.handled) {
+      if (resumed.succeeded) await checkUserBotStatus();
+      return;
+    }
+    const operationKey = idempotencyKeyForScope(TELEGRAM_LOGOUT_SCOPE);
+    const res = await apiClient.post(
+      apiPath('api_subscription_tg_userbot_logout_d1bb46ae'),
+      null,
+      { headers: { 'Idempotency-Key': operationKey } },
+    );
+    rememberDurableRequest(TELEGRAM_LOGOUT_SCOPE, res.data);
+    if (res.data.success) {
+      releaseDurableRequest(TELEGRAM_LOGOUT_SCOPE);
+      message.success(res.data.message || '已注销');
+      await checkUserBotStatus();
+    } else {
+      retainUserBotResponse(TELEGRAM_LOGOUT_SCOPE, res);
+      message.error(commandMessage(res.data, '注销失败'));
+    }
   } catch (e) {
-    message.error('注销失败');
+    handleUserBotError(TELEGRAM_LOGOUT_SCOPE, e, '注销失败');
   }
 };
 
 const clearUserBotSession = async () => {
   isClearingSession.value = true;
   try {
-    const res = await apiClient.post(apiPath('api_subscription_tg_userbot_clear_session_26492bae'));
+    const resumed = await resumeUserBotCommand(TELEGRAM_CLEAR_SESSION_SCOPE, 'TG 登录会话已清理');
+    if (resumed.handled) {
+      if (resumed.succeeded) {
+        showCodeInput.value = false;
+        userBotCode.value = '';
+        await checkUserBotStatus();
+      }
+      return;
+    }
+    const operationKey = idempotencyKeyForScope(TELEGRAM_CLEAR_SESSION_SCOPE);
+    const res = await apiClient.post(
+      apiPath('api_subscription_tg_userbot_clear_session_26492bae'),
+      null,
+      { headers: { 'Idempotency-Key': operationKey } },
+    );
+    rememberDurableRequest(TELEGRAM_CLEAR_SESSION_SCOPE, res.data);
     if (res.data.success) {
+      releaseDurableRequest(TELEGRAM_CLEAR_SESSION_SCOPE);
       message.success(res.data.message || '已清理 TG 登录会话文件');
       showCodeInput.value = false;
       userBotCode.value = '';
       await checkUserBotStatus();
     } else {
-      message.error(res.data.message || '清理失败');
+      retainUserBotResponse(TELEGRAM_CLEAR_SESSION_SCOPE, res);
+      message.error(commandMessage(res.data, '清理失败'));
     }
   } catch (e) {
-    message.error(e.response?.data?.message || '清理失败');
+    handleUserBotError(TELEGRAM_CLEAR_SESSION_SCOPE, e, '清理失败');
   } finally {
     isClearingSession.value = false;
   }

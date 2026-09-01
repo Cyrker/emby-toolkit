@@ -1,20 +1,28 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import replace
+from types import SimpleNamespace
 from typing import Any, cast
 from uuid import UUID, uuid4
 
+import httpx
 import pytest
 from pydantic import SecretStr
 
+from etk.domains.p115.maintenance_transport import P115MaintenanceTransportError
+from etk.domains.p115.models import P115CredentialSnapshot
 from etk.domains.subscription import cleanup_adapters
 from etk.domains.subscription.cleanup_adapters import (
+    ConfiguredCleanupEmbyGateway,
     LegacyCleanupMediaGateway,
     LegacyCleanupP115Gateway,
+    NativeCleanupP115Gateway,
     SafeLocalCleanupGateway,
     SettingsCleanupExecutionPolicy,
+    SqlAlchemyCleanupMediaGateway,
 )
 from etk.domains.subscription.cleanup_execution import (
     CleanupEffectResult,
@@ -534,6 +542,44 @@ def test_cleanup_media_receipt_never_retries_an_indeterminate_shared_effect() ->
     }
 
 
+def test_native_cleanup_media_waits_for_same_shared_source_operation() -> None:
+    class Lifecycle:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def delete_local_source(self, source_id: int, **values: Any) -> Any:
+            self.calls.append({"source_id": source_id, **values})
+            if len(self.calls) == 1:
+                return SimpleNamespace(
+                    status_code=202,
+                    payload={
+                        "success": True,
+                        "accepted": True,
+                        "status": "queued",
+                        "operation_id": "fixture-sharing-operation",
+                    },
+                )
+            return SimpleNamespace(
+                status_code=200,
+                payload={"success": True, "accepted": False, "status": "confirmed"},
+            )
+
+    lifecycle = Lifecycle()
+    gateway = SqlAlchemyCleanupMediaGateway(cast(Any, lambda: None), cast(Any, lifecycle))
+    evidence = {"operation_id": "fixture-cleanup"}
+
+    pending = gateway._finish_shared_sources([7], "fixture-cleanup", evidence)
+    confirmed = gateway._finish_shared_sources([7], "fixture-cleanup", evidence)
+
+    assert pending.status.value == "retryable"
+    assert pending.error == {"type": "cleanup_shared_source_pending"}
+    assert confirmed.status.value == "confirmed"
+    assert [call["idempotency_key"] for call in lifecycle.calls] == [
+        "fixture-cleanup:shared-source:7",
+        "fixture-cleanup:shared-source:7",
+    ]
+
+
 def test_cleanup_rejects_missing_p115_account_identity_before_delete(tmp_path: Any) -> None:
     media = tmp_path / "Movie.mkv"
     media.write_bytes(b"fixture")
@@ -575,6 +621,198 @@ def test_cleanup_rejects_missing_p115_account_identity_before_delete(tmp_path: A
     result = LegacyCleanupP115Gateway().readback(historical)
     assert result.status.value == "indeterminate"
     assert result.error == {"type": "p115_snapshot_account_identity_missing"}
+
+
+def test_cleanup_freezes_and_fences_p115_provider_credentials(tmp_path: Any) -> None:
+    media = tmp_path / "Movie.mkv"
+    media.write_bytes(b"fixture")
+    credentials = SimpleNamespace(
+        load=lambda: P115CredentialSnapshot(
+            access_token="fixture-access-token",
+            refresh_token="fixture-refresh-token",
+            account_id="fixture-account",
+        )
+    )
+    target = SettingsCleanupExecutionPolicy(
+        lambda: Settings(
+            local_strm_root=str(tmp_path),
+            emby_server_url="http://emby.fixture.invalid",
+            emby_api_key=SecretStr("fixture-token"),
+            p115_enable_sync_delete=True,
+            p115_api_priority="openapi",
+        ),
+        cast(Any, credentials),
+    ).freeze_target(
+        {
+            "emby_id": "emby-old",
+            "files": [
+                {
+                    "path": str(media),
+                    "pick_code": "fixture-pickcode",
+                    "p115": {
+                        "fid": "501",
+                        "parent_id": "500",
+                        "account_id": "fixture-account",
+                    },
+                }
+            ],
+        }
+    )
+
+    assert target["p115"]["account_id"] == "fixture-account"
+    assert target["p115"]["backend"] == "openapi"
+    assert len(target["p115"]["credential_fingerprint"]) == 64
+    assert "fixture-access-token" not in json.dumps(target)
+
+    captured: dict[str, Any] = {}
+
+    class Provider:
+        @staticmethod
+        def open(**values: Any) -> None:
+            captured.update(values)
+            raise P115MaintenanceTransportError("fixture credential drift")
+
+    outcome = NativeCleanupP115Gateway(cast(Any, Provider())).request(target)
+
+    assert outcome.status.value == "indeterminate"
+    assert outcome.error is not None
+    assert outcome.error["type"] == "p115_credential_revision_changed"
+    assert captured == {
+        "expected_account_id": "fixture-account",
+        "expected_backend": "openapi",
+        "expected_credential_fingerprint": target["p115"]["credential_fingerprint"],
+    }
+
+
+def test_native_cleanup_p115_deletes_exact_fid_once_and_recovers_by_listing() -> None:
+    class Client:
+        def __init__(self) -> None:
+            self.present = {"501"}
+            self.deleted: list[list[str]] = []
+
+        def list_children(self, parent_id: str) -> tuple[Mapping[str, Any], ...]:
+            assert parent_id == "500"
+            return tuple({"fid": fid, "pid": parent_id} for fid in sorted(self.present))
+
+        def delete_files(self, file_ids: list[str]) -> Mapping[str, Any]:
+            self.deleted.append(list(file_ids))
+            self.present.difference_update(file_ids)
+            return {"state": True}
+
+    class Provider:
+        def __init__(self, client: Client) -> None:
+            self.client = client
+            self.accounts: list[str] = []
+
+        def open(self, *, expected_account_id: str | None = None, expected_backend: str | None = None):
+            assert expected_backend is None
+            self.accounts.append(str(expected_account_id))
+            return self.client
+
+    client = Client()
+    provider = Provider(client)
+    gateway = NativeCleanupP115Gateway(cast(Any, provider))
+    target = {
+        "p115": {
+            "enabled": True,
+            "nodes": [
+                {
+                    "fid": "501",
+                    "parent_id": "500",
+                    "account_id": "fixture-account",
+                    "pick_code": "fixture-pickcode",
+                }
+            ],
+        }
+    }
+
+    requested = gateway.request(target)
+    replay = gateway.readback(target)
+
+    assert requested.status.value == replay.status.value == "confirmed"
+    assert client.deleted == [["501"]]
+    assert provider.accounts == ["fixture-account", "fixture-account"]
+
+
+def test_native_cleanup_p115_fails_closed_for_unpinned_or_ambiguous_identity() -> None:
+    class Provider:
+        @staticmethod
+        def open(**_values: Any) -> None:
+            return None
+
+    gateway = NativeCleanupP115Gateway(cast(Any, Provider()))
+    unavailable = gateway.request(
+        {
+            "p115": {
+                "enabled": True,
+                "nodes": [{"fid": "501", "parent_id": "500", "account_id": "fixture-account"}],
+            }
+        }
+    )
+    ambiguous = gateway.readback(
+        {
+            "p115": {
+                "enabled": True,
+                "nodes": [
+                    {"fid": "501", "parent_id": "500", "account_id": "account-a"},
+                    {"fid": "502", "parent_id": "500", "account_id": "account-b"},
+                ],
+            }
+        }
+    )
+
+    assert unavailable.status.value == "retryable"
+    assert unavailable.error == {"type": "p115_delete_client_unavailable"}
+    assert ambiguous.status.value == "indeterminate"
+    assert ambiguous.error == {"type": "p115_snapshot_has_multiple_accounts"}
+
+
+def test_native_cleanup_emby_notification_retries_with_readback_only(tmp_path: Any) -> None:
+    media = tmp_path / "Movie.mkv"
+    media.write_bytes(b"fixture")
+    settings = Settings(
+        local_strm_root=str(tmp_path),
+        emby_server_url="http://emby.fixture.invalid",
+        emby_api_key=SecretStr("fixture-token"),
+    )
+    target = SettingsCleanupExecutionPolicy(lambda: settings).freeze_target(
+        {
+            "emby_id": "emby-old",
+            "tmdb_id": "100",
+            "item_type": "Movie",
+            "files": [{"path": str(media), "pick_code": "", "p115": None}],
+        }
+    )
+    calls: list[tuple[str, str]] = []
+    readbacks = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal readbacks
+        calls.append((request.method, request.url.path))
+        assert request.headers.get("X-Emby-Token") == "fixture-token"
+        if request.method == "POST":
+            assert request.url.path == "/Library/Media/Updated"
+            assert json.loads(request.content)["Updates"][0]["UpdateType"] == "Deleted"
+            return httpx.Response(204)
+        assert request.url.path == "/Items/emby-old"
+        readbacks += 1
+        return httpx.Response(200, json={"Id": "emby-old"}) if readbacks == 1 else httpx.Response(404)
+
+    gateway = ConfiguredCleanupEmbyGateway(
+        lambda: settings,
+        client_factory=lambda: httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    requested = gateway.request(target)
+    recovered = gateway.readback(target)
+
+    assert requested.status.value == "retryable"
+    assert recovered.status.value == "confirmed"
+    assert calls == [
+        ("POST", "/Library/Media/Updated"),
+        ("GET", "/Items/emby-old"),
+        ("GET", "/Items/emby-old"),
+    ]
 
 
 def test_p115_presence_readback_falls_back_to_fid_after_parent_move() -> None:

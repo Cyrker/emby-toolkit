@@ -3693,6 +3693,186 @@
         "status": "new",
         "validation_method": "pytest-p11-collection-activation-http-postgres18-redis-celery-and-openapi",
         "validation_owner": "collection/activation"
+      },
+      "route-binding-029aa34635c3": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-a145505e0cf9": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-61411a3c71f7": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-d888573fcfd5": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-0d4c3a78f98f": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-bde94afc10cf": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-44b6507038ce": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-25707bfe11f1": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-7741a70535eb": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-1b2a77a187c2": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-7cbf9ab270ca": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-5a95f193ce35": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-84a25a861050": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-5a42a7d910b4": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-e765bd09c113": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-713a520bc9b7": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-bb724b1052d8": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-cf697eeeb516": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-468db3e318bf": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-0500edeacc9b": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
       }
     },
     "route_decorators": {
@@ -6611,6 +6791,168 @@
         "status": "new",
         "validation_method": "pytest-p11-collection-activation-http-postgres18-redis-celery-and-openapi",
         "validation_owner": "collection/activation"
+      },
+      "route-decorator-844eb6ce6487": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-8991d30800fc": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-e1211a916647": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-23244163559b": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-2b5b601e84bf": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-4a28d0c6dee7": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-ca3079dbc898": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-5825295e6a4e": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-8976a069654c": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-b6813ec2a548": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-67ec9e728b94": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-3efa0d892ffb": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-47e2a03d4e41": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-98bc14fe76c8": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-807513a8f4ad": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-950993007bda": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-b4d4e305f729": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-3899f5c929e8": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.provider_control_router",
+        "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
       }
     },
     "settings": {
@@ -6998,6 +7340,24 @@
         "status": "new",
         "validation_method": "postgres18-atomic-theme-publication-replenishment-and-portal-removal",
         "validation_owner": "media/daily-theme"
+      },
+      "setting-661ff4c6620c": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 provider-control desired configuration is owned by the typed app-settings repository; provider writes remain durable and secrets are masked from HTTP responses.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
+      },
+      "setting-14cae362f8a1": {
+        "fixture": "verification/fixtures/http/p7-provider-control.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+        "notes": "P11 provider-control desired configuration is owned by the typed app-settings repository; provider writes remain durable and secrets are masked from HTTP responses.",
+        "status": "new",
+        "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+        "validation_owner": "subscription/provider-control"
       }
     },
     "tables": {

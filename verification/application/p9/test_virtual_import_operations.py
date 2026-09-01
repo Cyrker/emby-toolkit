@@ -115,6 +115,78 @@ def test_center_import_request_only_freezes_identity_and_reserves_operation() ->
     assert "readback" not in operations.intent.request
 
 
+def test_center_share_import_stages_explicit_share_action_without_persisting_channel_codes() -> None:
+    operations = RecordingOperations()
+    virtual = StagingVirtualImports()
+    service = SharingService(
+        cast(Any, object()),
+        cast(Any, object()),
+        cast(Any, operations),
+        configuration=cast(Any, EnabledConfiguration()),
+        virtual_imports=cast(Any, virtual),
+    )
+    source = {
+        "source_kind": "logical_season",
+        "source_id": "logical-season-fixture",
+        "title": "Fixture Series",
+        "share_channel": {
+            "channel_id": "channel-fixture",
+            "status": "valid",
+            "share_code": "provider-share-secret",
+            "receive_code": "provider-receive-secret",
+        },
+    }
+
+    result = service.import_center_source(
+        {"source": source, "mode": "share", "force_real": True},
+        principal_id="admin-fixture",
+        idempotency_key="share-create-fixture",
+    )
+
+    assert result.status_code == 202
+    assert operations.intent.request["action"] == "transfer_logical_season_share"
+    assert operations.intent.request["payload"]["mode"] == "share"
+    assert operations.intent.request["payload"]["expected_channel_id"] == "channel-fixture"
+    durable = str(operations.intent.request)
+    assert "provider-share-secret" not in durable
+    assert "provider-receive-secret" not in durable
+
+
+def test_center_share_import_binds_nested_logical_group_channel_identity() -> None:
+    operations = RecordingOperations()
+    virtual = StagingVirtualImports()
+    service = SharingService(
+        cast(Any, object()),
+        cast(Any, object()),
+        cast(Any, operations),
+        configuration=cast(Any, EnabledConfiguration()),
+        virtual_imports=cast(Any, virtual),
+    )
+    source = {
+        "source_kind": "logical_season",
+        "source_id": "logical-season-nested",
+        "logical_group": {
+            "share_channel": {
+                "channel_id": "channel-nested",
+                "share_code": "provider-share-secret",
+                "receive_code": "provider-receive-secret",
+            }
+        },
+    }
+
+    result = service.import_center_source(
+        {"source": source, "mode": "share", "force_real": True},
+        principal_id="admin-fixture",
+        idempotency_key="share-create-nested",
+    )
+
+    assert result.status_code == 202
+    assert operations.intent.request["payload"]["expected_channel_id"] == "channel-nested"
+    durable = str(operations.intent.request)
+    assert "provider-share-secret" not in durable
+    assert "provider-receive-secret" not in durable
+
+
 def test_virtual_projector_rolls_back_created_files_and_preserves_unknown_target(tmp_path: Path) -> None:
     first = _source(file_name="First.mkv")
     second = {**_source(source_id="source-second", file_name="Second.mkv"), "sha1": "B" * 40}

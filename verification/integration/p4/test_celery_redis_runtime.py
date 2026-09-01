@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import signal
@@ -460,6 +461,14 @@ def _start_sharing_operation_stub() -> tuple[
                 payload = {"ok": True, "lease_id": "fixture-lease"}
             elif path == "/api/v1/devices/register":
                 payload = {"ok": True, "device_id": "fixture-device"}
+            elif path == "/api/etk/register":
+                payload = {
+                    "success": True,
+                    "data": {
+                        "instance_id": "fixture-instance",
+                        "instance_secret": "fixture-instance-secret",
+                    },
+                }
             elif path == "/api/v1/transfers/report":
                 payload = {"detail": "fixture unknown write"}
                 encoded = json.dumps(payload, separators=(",", ":")).encode()
@@ -4526,7 +4535,7 @@ def test_sigkill_worker_child_recovers_expired_lease_and_retries(
         mode="block-once",
         max_attempts=2,
     )
-    worker = _start_worker(p4_runtime_environment, tmp_path / "worker")
+    worker = _start_worker(p4_runtime_environment, tmp_path / "worker", compatibility=True)
     coordinator: ManagedProcess | None = None
     replacement: ManagedProcess | None = None
     try:
@@ -4541,7 +4550,11 @@ def test_sigkill_worker_child_recovers_expired_lease_and_retries(
         if execution_pid == worker.process.pid:
             worker.process.wait(timeout=10)
             worker.stream.close()
-            replacement = _start_worker(p4_runtime_environment, tmp_path / "replacement-worker")
+            replacement = _start_worker(
+                p4_runtime_environment,
+                tmp_path / "replacement-worker",
+                compatibility=True,
+            )
             _wait_for_worker(replacement, p4_runtime_environment.config)
 
         completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
@@ -4586,7 +4599,7 @@ def test_worker_cooperative_safe_point_persists_cancel_and_timeout(
         mode="safe-point",
         timeout_seconds=1 if control == "timeout" else None,
     )
-    worker = _start_worker(p4_runtime_environment, tmp_path / "worker")
+    worker = _start_worker(p4_runtime_environment, tmp_path / "worker", compatibility=True)
     try:
         _wait_for_worker(worker, p4_runtime_environment.config)
         _send_delivery(p4_runtime_environment.config, created.job.id, created.attempt.id)
@@ -4623,8 +4636,8 @@ def test_two_workers_keep_root_backlog_globally_serial(
         mode="safe-point",
     )
     workers = [
-        _start_worker(p4_runtime_environment, tmp_path / "worker-1"),
-        _start_worker(p4_runtime_environment, tmp_path / "worker-2"),
+        _start_worker(p4_runtime_environment, tmp_path / "worker-1", compatibility=True),
+        _start_worker(p4_runtime_environment, tmp_path / "worker-2", compatibility=True),
     ]
     try:
         for worker in workers:
@@ -4736,7 +4749,7 @@ def test_active_worker_sigterm_reaches_cooperative_safe_point_before_shutdown_ti
         marker=marker,
         mode="safe-point",
     )
-    worker = _start_worker(p4_runtime_environment, tmp_path / "worker")
+    worker = _start_worker(p4_runtime_environment, tmp_path / "worker", compatibility=True)
     try:
         _wait_for_worker(worker, p4_runtime_environment.config)
         _send_delivery(p4_runtime_environment.config, created.job.id, created.attempt.id)
@@ -5734,6 +5747,16 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
             )
         )
         operation_ids.append(unknown_report.id)
+        hdhive_registration = operations.reserve(
+            SharingOperationIntent.create(
+                kind=SharingOperationKind.REGISTER_DEVICE,
+                scope_key=f"hdhive-instance-registration:{fixture}",
+                principal_id=f"principal-{fixture}",
+                request={"provider": "hdhive_admin", "action": "register", "payload": {}},
+                idempotency_key=f"hdhive-register-{fixture}",
+            )
+        )
+        operation_ids.append(hdhive_registration.id)
         for kind, scope, request in (
             (
                 SharingOperationKind.HDHIVE_CHECKIN,
@@ -5837,6 +5860,7 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
                 "/api/v1/transfers/lease",
                 "/api/v1/devices/register",
                 "/api/v1/transfers/report",
+                "/api/etk/register",
                 "/api/hdhive/checkin",
                 "/botfixture-bot-token/sendMessage",
             ]
@@ -5845,6 +5869,10 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
         assert hdhive_request["instance_id"] == "fixture-instance"
         assert hdhive_request["instance_secret"] == "fixture-instance-secret"
         with p4_runtime.engine.connect() as connection:
+            registration_result = connection.scalar(
+                text("SELECT result_json FROM sharing_operations WHERE id = :id"),
+                {"id": hdhive_registration.id},
+            )
             rows = connection.execute(
                 text(
                     """
@@ -5859,6 +5887,11 @@ def test_sharing_operations_dispatch_once_through_real_worker_profiles(
                 ),
                 {"ids": operation_ids},
             ).all()
+        assert registration_result == {
+            "registered": True,
+            "instance_id_hash": hashlib.sha256(b"fixture-instance").hexdigest(),
+        }
+        assert "secret" not in json.dumps(registration_result, sort_keys=True)
         assert rows == [
             (
                 operation_id,
@@ -5952,7 +5985,15 @@ def _create_operation_job(
     )
 
 
-def _start_worker(runtime: RuntimeEnvironment, log_path: Path) -> ManagedProcess:
+def _start_worker(
+    runtime: RuntimeEnvironment,
+    log_path: Path,
+    *,
+    compatibility: bool = False,
+) -> ManagedProcess:
+    environment = dict(runtime.environment)
+    if compatibility:
+        environment["ETK_ENABLE_LEGACY_COMPATIBILITY"] = "true"
     return _start_process(
         [
             sys.executable,
@@ -5965,7 +6006,7 @@ def _start_worker(runtime: RuntimeEnvironment, log_path: Path) -> ManagedProcess
             "--hostname",
             f"p4-{uuid4().hex[:8]}@%h",
         ],
-        runtime.environment,
+        environment,
         log_path.with_suffix(".log"),
     )
 

@@ -240,9 +240,8 @@ def test_parent_cancelled_child_continues_only_when_recovery_policy_preserves_qu
     assert len(executions) == expected_claims
 
 
-def test_recovery_cleanup_reaches_executor_before_parent_cancel_checkpoint() -> None:
+def test_recovery_cleanup_reaches_native_executor_before_parent_cancel_checkpoint() -> None:
     executor = _CleanupExecutor()
-    install_cleanup_executor(cast(CleanupExecutionService, executor))
     child_id = uuid4()
     parent_id = uuid4()
     attempt_id = uuid4()
@@ -256,6 +255,8 @@ def test_recovery_cleanup_reaches_executor_before_parent_cancel_checkpoint() -> 
     )
     store = _ParentCancellationStore(child, parent, child)
     runtime = WorkerRuntime()
+    cast(Any, runtime)._p7_cleanup_executor = executor
+    cast(Any, runtime)._worker_id = "worker-a"
     progress = _ExecutionProgress(
         store=cast(Any, store),
         job_id=child_id,
@@ -266,18 +267,16 @@ def test_recovery_cleanup_reaches_executor_before_parent_cancel_checkpoint() -> 
         task_key="p7-cleanup-execution",
     )
 
-    result = runtime._execute_importable_operation(
+    result = runtime._execute_cleanup_task(
         {
             "call_style": "direct",
-            "legacy_operation": {
-                "module": "etk.processes.p7_cleanup",
-                "qualname": "execute_cleanup_job",
-            },
+            "native_task": "p7-cleanup-execution",
             "positional_parameters": [],
             "parameters": {"job_id": str(child_id), "execution_key": "a" * 64},
         },
-        None,
-        progress,
+        job_id=child_id,
+        attempt_id=attempt_id,
+        progress=progress,
     )
 
     assert result["status"] == "confirmed"

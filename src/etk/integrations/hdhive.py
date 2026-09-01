@@ -8,6 +8,7 @@ transport/408/429/5xx result to ``INDETERMINATE`` for durable reconciliation.
 from __future__ import annotations
 
 import math
+import os
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 from urllib.parse import quote
@@ -25,9 +26,25 @@ from .http_policy import (
     decode_json_object,
 )
 
+_DEFAULT_RELAY_BASE_URL = "https://hdhive.55565576.xyz"
+
 
 class HDHivePort(Protocol):
+    def register(self) -> ProviderResponse[dict[str, Any]]: ...
+
     def ping(self) -> ProviderResponse[dict[str, Any]]: ...
+
+    def authorize_url(self) -> ProviderResponse[dict[str, Any]]: ...
+
+    def clear_authorization(self) -> ProviderResponse[dict[str, Any]]: ...
+
+    def quota(self) -> ProviderResponse[dict[str, Any]]: ...
+
+    def vip_entitlements(self) -> ProviderResponse[dict[str, Any]]: ...
+
+    def usage_today(self) -> ProviderResponse[dict[str, Any]]: ...
+
+    def user_info(self) -> ProviderResponse[dict[str, Any]]: ...
 
     def get_resources(
         self,
@@ -40,6 +57,16 @@ class HDHivePort(Protocol):
     def unlock(self, slug: str) -> ProviderResponse[dict[str, Any]]: ...
 
     def checkin(self, *, is_gambler: bool = False) -> ProviderResponse[dict[str, Any]]: ...
+
+    def list_subscriptions(
+        self,
+        *,
+        target_type: str | None = None,
+        status: str = "active",
+        query: str | None = None,
+        page: int = 1,
+        page_size: int = 100,
+    ) -> ProviderResponse[dict[str, Any]]: ...
 
     def create_subscription(
         self,
@@ -80,7 +107,11 @@ class HttpxHDHiveAdapter:
         self._policy = policy or HttpTransportPolicy(system=self.system)
 
     def register(self) -> ProviderResponse[dict[str, Any]]:
-        register_token = _secret_setting(self._settings(), "hdhive_register_token", "HDHIVE_RELAY_REGISTER_TOKEN")
+        register_token = os.environ.get("HDHIVE_RELAY_REGISTER_TOKEN", "").strip() or _secret_setting(
+            self._settings(),
+            "hdhive_register_token",
+            "HDHIVE_RELAY_REGISTER_TOKEN",
+        )
         headers: dict[str, str] = {}
         if register_token:
             headers["X-ETK-Register-Token"] = register_token
@@ -317,8 +348,11 @@ class HttpxHDHiveAdapter:
         return value if isinstance(value, Mapping) else {}
 
     def _base_url(self, cfg: Mapping[str, Any]) -> str:
-        value = _setting(cfg, "relay_base_url", default="") or _setting(
-            self._settings(), "hdhive_relay_base_url", "HDHIVE_RELAY_BASE_URL", default=""
+        value = (
+            os.environ.get("HDHIVE_RELAY_BASE_URL", "").strip()
+            or _setting(cfg, "relay_base_url", default="")
+            or _setting(self._settings(), "hdhive_relay_base_url", "HDHIVE_RELAY_BASE_URL", default="")
+            or _DEFAULT_RELAY_BASE_URL
         )
         base = str(value or "").strip().rstrip("/")
         if not base.startswith(("http://", "https://")):

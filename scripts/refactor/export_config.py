@@ -21,7 +21,14 @@ from manifest_common import (
 )
 
 SECRET_FRAGMENTS = ("password", "secret", "token", "cookie", "api_key", "license_key")
-EXPLICIT_SECRET_KEYS = frozenset({"mp_config", "p115_play_pool_config"})
+EXPLICIT_SECRET_KEYS = frozenset(
+    {
+        "hdhive_config",
+        "mp_config",
+        "p115_play_pool_config",
+        "tg_userbot_config",
+    }
+)
 RETIRED_STANDALONE_SETTING_KEYS = frozenset(
     {
         "license_key",

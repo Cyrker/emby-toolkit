@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -12,6 +13,7 @@ from etk.domains.p115.maintenance_transport import (
     HttpxP115BoundedDownloadGateway,
     P115MaintenanceTransportError,
     P115PinnedOperationsClient,
+    P115PrimaryOperationsGateway,
 )
 from etk.domains.p115.media_info_adapters import P115DirectUrl
 from etk.domains.p115.models import P115CredentialSnapshot
@@ -81,6 +83,19 @@ class FakePinnedSdk:
         self.copy_calls: list[tuple[list[str], str, float]] = []
         self.info_calls: list[tuple[str, float]] = []
         self.skim_calls: list[tuple[str, float]] = []
+        self.request_calls: list[tuple[str, str, object, float]] = []
+
+    def request(
+        self,
+        url: str,
+        method: str = "GET",
+        payload: object = None,
+        **kwargs: Any,
+    ) -> Mapping[str, Any]:
+        self.request_calls.append((url, method, payload, float(kwargs["timeout"])))
+        if self.after_request is not None:
+            self.after_request()
+        return {"state": True}
 
     def fs_copy(self, file_ids: list[str], pid: str, **kwargs: Any) -> Mapping[str, Any]:
         self.copy_calls.append((list(file_ids), pid, float(kwargs["timeout"])))
@@ -141,6 +156,93 @@ def test_pinned_operations_use_real_sdk_copy_and_info_methods() -> None:
     }
     assert cookie_sdk.skim_calls == [("cookie-remote", 9.0)]
     assert cookie_sdk.info_calls == []
+
+
+def test_pinned_cookie_share_import_uses_supported_raw_sdk_request() -> None:
+    credentials = MutableCredentials()
+    credentials.snapshot = P115CredentialSnapshot(
+        cookie="UID=fixture",
+        app_type="alipaymini",
+        account_id="115001",
+    )
+    sdk = FakePinnedSdk()
+    operations = _pinned_operations(credentials, sdk, backend="cookie")
+
+    assert operations.import_share("share-fixture", "2468", "target-fixture") == {"state": True}
+    assert sdk.request_calls == [
+        (
+            "https://webapi.115.com/share/receive",
+            "POST",
+            {
+                "share_code": "share-fixture",
+                "receive_code": "2468",
+                "cid": "target-fixture",
+            },
+            9.0,
+        )
+    ]
+
+
+def test_pinned_cookie_share_import_fences_post_request_credential_drift() -> None:
+    credentials = MutableCredentials()
+    credentials.snapshot = P115CredentialSnapshot(
+        cookie="UID=fixture",
+        app_type="alipaymini",
+        account_id="115001",
+    )
+
+    def rotate() -> None:
+        credentials.snapshot = P115CredentialSnapshot(
+            cookie="UID=rotated",
+            app_type="alipaymini",
+            account_id="115001",
+        )
+
+    sdk = FakePinnedSdk(rotate)
+    operations = _pinned_operations(credentials, sdk, backend="cookie")
+
+    with pytest.raises(P115MaintenanceTransportError, match="credential changed"):
+        operations.import_share("share-fixture", "2468", "target-fixture")
+    assert len(sdk.request_calls) == 1
+
+
+def test_primary_operations_gateway_fences_expected_provider_credential() -> None:
+    credentials = MutableCredentials()
+    directory_calls: list[tuple[str | None, str | None]] = []
+
+    class Directory:
+        @staticmethod
+        def open(
+            *,
+            expected_account_id: str | None = None,
+            expected_backend: str | None = None,
+        ) -> object:
+            directory_calls.append((expected_account_id, expected_backend))
+            return object()
+
+    gateway = P115PrimaryOperationsGateway(
+        credentials=cast(Any, credentials),
+        priority=lambda: "openapi",
+        directory=cast(Any, Directory()),
+        sdk_factory=cast(Any, lambda _snapshot, _backend: FakePinnedSdk()),
+    )
+    fingerprint = hashlib.sha256(b"openapi\0\0fixture-access-token").hexdigest()
+
+    client = gateway.open(
+        expected_account_id="115001",
+        expected_backend="openapi",
+        expected_credential_fingerprint=fingerprint,
+    )
+
+    assert client is not None
+    assert client.backend == "openapi"
+    assert directory_calls == [("115001", "openapi")]
+    with pytest.raises(P115MaintenanceTransportError, match="credential changed"):
+        gateway.open(
+            expected_account_id="115001",
+            expected_backend="openapi",
+            expected_credential_fingerprint="0" * 64,
+        )
 
 
 @pytest.mark.parametrize("method", ["copy", "info"])

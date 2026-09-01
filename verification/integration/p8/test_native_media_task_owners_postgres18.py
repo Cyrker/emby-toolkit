@@ -27,6 +27,7 @@ from etk.domains.media.effect_execution import PersistentMediaEffectExecutor
 from etk.domains.media.effects import MediaEffectProjection, MediaEffectStatus, PostgresMediaEffectLedger
 from etk.domains.media.embeddings import SqlAlchemyMediaEmbeddingRepository
 from etk.domains.media.studio_images_adapter import PersistentStudioImageEffects
+from etk.domains.media.subscription_projection import SqlAlchemySubscriptionMediaProjection, SubscriptionMediaKey
 from etk.platform import Settings
 from etk.platform.db import DatabaseRuntime
 
@@ -230,6 +231,74 @@ def test_pg18_collection_refresh_deactivates_active_rows_without_emby_identity(
         ("ghost-null", None, False),
         ("stale", None, False),
     ]
+
+
+def test_pg18_pending_release_does_not_revive_future_hard_ignore(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    with p8_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_metadata (
+                    tmdb_id, item_type, title, release_date, in_library,
+                    subscription_status, subscription_sources_json, ignore_reason
+                ) VALUES
+                    ('future-manual', 'Movie', 'Future manual', '2027-01-01', FALSE,
+                     'IGNORED', '[{"type":"existing"}]'::jsonb, '手动忽略'),
+                    ('future-timeout', 'Movie', 'Future timeout', '2027-01-01', FALSE,
+                     'IGNORED', '[{"type":"existing"}]'::jsonb, '订阅超时'),
+                    ('future-soft', 'Movie', 'Future soft', '2027-01-01', FALSE,
+                     'IGNORED', '[{"type":"existing"}]'::jsonb, '临时忽略')
+                """
+            )
+        )
+
+    projection = SqlAlchemySubscriptionMediaProjection()
+    request = {"title": "Future title", "release_date": "2027-01-01"}
+    source = {"type": "future_release_monitor"}
+    with p8_runtime.unit_of_work() as uow:
+        changed = [
+            projection.set_status(
+                uow,
+                SubscriptionMediaKey(tmdb_id, "Movie"),
+                "PENDING_RELEASE",
+                request,
+                source,
+                None,
+            )
+            for tmdb_id in ("future-manual", "future-timeout", "future-soft")
+        ]
+        uow.commit()
+
+    assert changed == [0, 0, 1]
+    with p8_runtime.engine.connect() as connection:
+        rows = (
+            connection.execute(
+                text(
+                    """
+                    SELECT tmdb_id, subscription_status, subscription_sources_json, ignore_reason
+                    FROM media_metadata
+                    WHERE tmdb_id IN ('future-manual', 'future-timeout', 'future-soft')
+                    ORDER BY tmdb_id
+                    """
+                )
+            )
+            .mappings()
+            .all()
+        )
+
+    assert [(row["tmdb_id"], row["subscription_status"], row["ignore_reason"]) for row in rows] == [
+        ("future-manual", "IGNORED", "手动忽略"),
+        ("future-soft", "PENDING_RELEASE", None),
+        ("future-timeout", "IGNORED", "订阅超时"),
+    ]
+    assert rows[0]["subscription_sources_json"] == [{"type": "existing"}]
+    assert rows[1]["subscription_sources_json"] == [
+        {"type": "existing"},
+        {"type": "future_release_monitor"},
+    ]
+    assert rows[2]["subscription_sources_json"] == [{"type": "existing"}]
 
 
 def test_pg18_auto_tagging_and_studio_effects_reuse_stable_reservations(

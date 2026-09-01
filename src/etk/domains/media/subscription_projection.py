@@ -347,6 +347,10 @@ _PENDING_RELEASE_SQL = f"""
         last_updated_at = NOW()
     WHERE media_metadata.in_library = FALSE
       AND media_metadata.subscription_status NOT IN ('SUBSCRIBED', 'WANTED', 'PAUSED')
+      AND NOT (
+        media_metadata.subscription_status = 'IGNORED'
+        AND COALESCE(media_metadata.ignore_reason, '') IN ('手动忽略', '订阅超时')
+      )
       AND (
         CAST(:source_json AS jsonb) = '[]'::jsonb
         OR NOT (media_metadata.subscription_sources_json @> CAST(:source_json AS jsonb))

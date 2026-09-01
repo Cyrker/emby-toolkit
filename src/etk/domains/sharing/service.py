@@ -858,7 +858,16 @@ class SharingService(SharingLedgerService):
         source_value = payload.get("source") if isinstance(payload.get("source"), Mapping) else payload
         if not isinstance(source_value, Mapping):
             raise ValueError("source must be an object")
-        source = self._virtual_imports.freeze(source_value)
+        mode = str(payload.get("mode") or "rapid").strip().casefold() or "rapid"
+        if mode not in {"rapid", "share"}:
+            return SharingHttpResult({"success": False, "message": "共享池转存模式必须是 rapid 或 share"}, 400)
+        expected_channel_id = _share_channel_id(source_value)
+        source = self._virtual_imports.freeze(_without_share_credentials(source_value))
+        if mode == "share" and source.source_kind != "logical_season":
+            return SharingHttpResult(
+                {"success": False, "message": "115 分享转存仅支持 logical_season 资源"},
+                400,
+            )
         config = self._configuration.load() if self._configuration is not None else {}
         force_real = _bool_value(payload.get("force_real", False))
         if _bool_value(config.get("p115_shared_virtual_import_enabled", False)) and not force_real:
@@ -882,13 +891,14 @@ class SharingService(SharingLedgerService):
             return _with_data(result, ok=True, accepted=True, virtual=True)
         request = {
             "provider": "p115",
-            "action": "transfer_center_source",
+            "action": "transfer_logical_season_share" if mode == "share" else "transfer_center_source",
             "payload": {
                 "source_kind": source.source_kind,
                 "source_id": source.source_id,
                 "source": source.source,
                 "source_state_hash": source.state_hash,
-                "mode": "rapid",
+                "mode": mode,
+                **({"expected_channel_id": expected_channel_id} if expected_channel_id else {}),
             },
             "local_continuation": {
                 "type": "finalize_center_transfer",
@@ -898,11 +908,15 @@ class SharingService(SharingLedgerService):
         }
         result = self._stage_provider_operation(
             kind=SharingOperationKind.TRANSFER,
-            scope_key=f"center-transfer:{source.source_kind}:{source.source_id}",
+            scope_key=(
+                f"center-share-transfer:{source.source_kind}:{source.source_id}"
+                if mode == "share"
+                else f"center-transfer:{source.source_kind}:{source.source_id}"
+            ),
             principal_id=principal_id,
             idempotency_key=idempotency_key,
             request=request,
-            accepted_message="共享中心转存任务已提交",
+            accepted_message="共享中心分享转存任务已提交" if mode == "share" else "共享中心转存任务已提交",
         )
         return _with_data(result, ok=True, accepted=True)
 
@@ -1422,6 +1436,27 @@ class SharingService(SharingLedgerService):
             idempotency_key=occurrence,
         )
 
+    def stage_provider_operation(
+        self,
+        *,
+        kind: SharingOperationKind,
+        scope_key: str,
+        principal_id: str,
+        idempotency_key: str | None,
+        request: Mapping[str, Any],
+        accepted_message: str,
+    ) -> SharingHttpResult:
+        """Stage one allow-listed provider action for Worker-only execution."""
+
+        return self._stage_provider_operation(
+            kind=kind,
+            scope_key=scope_key,
+            principal_id=principal_id,
+            idempotency_key=idempotency_key,
+            request=request,
+            accepted_message=accepted_message,
+        )
+
     def _replay_virtual_import_deletion(
         self,
         virtual_id: int,
@@ -1892,6 +1927,59 @@ def _json_mapping(value: object) -> dict[str, Any]:
             return {}
         return dict(parsed) if isinstance(parsed, Mapping) else {}
     return {}
+
+
+_SHARE_CHANNEL_CONTAINER_KEYS = frozenset(
+    {
+        "share_channel",
+        "logical_season_share_channel",
+        "completed_share_channel",
+        "logical_share_channel",
+    }
+)
+_SHARE_CREDENTIAL_KEYS = frozenset(
+    {
+        "share_code",
+        "receive_code",
+        "share_url",
+    }
+)
+
+
+def _share_channel_id(source: Mapping[str, Any]) -> str:
+    candidates = [source]
+    logical_group = source.get("logical_group")
+    if isinstance(logical_group, Mapping):
+        candidates.append(logical_group)
+    for candidate in candidates:
+        for key in _SHARE_CHANNEL_CONTAINER_KEYS:
+            value = candidate.get(key)
+            if isinstance(value, Mapping):
+                channel_id = str(value.get("channel_id") or "").strip()
+                if channel_id:
+                    return channel_id[:255]
+        channel_id = str(candidate.get("share_channel_id") or "").strip()
+        if channel_id:
+            return channel_id[:255]
+    return ""
+
+
+def _without_share_credentials(value: Mapping[str, Any]) -> dict[str, Any]:
+    def scrub(current: Any) -> Any:
+        if isinstance(current, Mapping):
+            result: dict[str, Any] = {}
+            for raw_key, item in current.items():
+                key = str(raw_key)
+                normalized = key.strip().casefold().replace("-", "_")
+                if normalized in _SHARE_CHANNEL_CONTAINER_KEYS or normalized in _SHARE_CREDENTIAL_KEYS:
+                    continue
+                result[key] = scrub(item)
+            return result
+        if isinstance(current, list):
+            return [scrub(item) for item in current]
+        return current
+
+    return cast(dict[str, Any], scrub(value))
 
 
 def _display_count(value: object, default: int) -> int:

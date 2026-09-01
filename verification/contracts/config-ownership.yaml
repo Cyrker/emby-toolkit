@@ -3102,17 +3102,20 @@
       ],
       "contract_id": "setting-661ff4c6620c",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "key": "hdhive_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 provider-control desired configuration is owned by the typed app-settings repository; provider writes remain durable and secrets are masked from HTTP responses.",
       "restart_level": "call-site-specific",
-      "secret": false,
-      "status": "legacy",
+      "secret": true,
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "accesses": [
@@ -4839,17 +4842,20 @@
       ],
       "contract_id": "setting-14cae362f8a1",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "key": "tg_userbot_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.repository.SqlAlchemyAppSettingsRepository",
+      "notes": "P11 provider-control desired configuration is owned by the typed app-settings repository; provider writes remain durable and secrets are masked from HTTP responses.",
       "restart_level": "call-site-specific",
-      "secret": false,
-      "status": "legacy",
+      "secret": true,
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "accesses": [

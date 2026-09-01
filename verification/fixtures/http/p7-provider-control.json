@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "kind": "p11-provider-control-local-http-contract",
+  "provenance": {
+    "captured_live": false,
+    "external_providers": "fake-or-loopback-stub-only",
+    "stage": "P11",
+    "sanitized": true,
+    "sources": [
+      "routes/subscription.py:214-394",
+      "routes/subscription.py:1068-1510",
+      "src/etk/domains/subscription/provider_control.py",
+      "src/etk/domains/subscription/provider_control_router.py"
+    ]
+  },
+  "routes": [
+    {"method": "GET", "path": "/api/subscription/cloud/resources", "auth": "admin", "request_body": false, "response_statuses": [200, 400, 403, 500]},
+    {"method": "POST", "path": "/api/subscription/cloud/download", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 401, 403, 409, 415, 500, 503]},
+    {"method": "GET", "path": "/api/subscription/hdhive/config", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 500]},
+    {"method": "POST", "path": "/api/subscription/hdhive/config", "auth": "admin", "request_body": true, "response_statuses": [200, 400, 403, 415, 500]},
+    {"method": "GET", "path": "/api/subscription/hdhive/authorize_url", "auth": "admin", "request_body": false, "response_statuses": [200, 202, 403, 409, 500, 503]},
+    {"method": "POST", "path": "/api/subscription/hdhive/clear_authorization", "auth": "admin", "request_body": false, "response_statuses": [200, 202, 403, 409, 500, 503]},
+    {"method": "GET", "path": "/api/subscription/hdhive/subscriptions", "auth": "admin", "request_body": false, "response_statuses": [200, 401, 403, 500, 503]},
+    {"method": "POST", "path": "/api/subscription/hdhive/subscriptions", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 401, 403, 409, 415, 500, 503]},
+    {"method": "GET", "path": "/api/subscription/hdhive/subscriptions/check", "auth": "admin", "request_body": false, "response_statuses": [200, 400, 401, 403, 500, 503]},
+    {"method": "DELETE", "path": "/api/subscription/hdhive/subscriptions/{subscription_id}", "auth": "admin", "request_body": false, "response_statuses": [200, 202, 400, 401, 403, 409, 422, 500, 503]},
+    {"method": "GET", "path": "/api/subscription/hdhive/resources", "auth": "admin", "request_body": false, "response_statuses": [200, 400, 401, 403, 500, 503]},
+    {"method": "POST", "path": "/api/subscription/hdhive/download", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 400, 401, 403, 409, 415, 500, 503]},
+    {"method": "POST", "path": "/api/subscription/hdhive/checkin", "auth": "admin", "request_body": true, "response_statuses": [200, 202, 401, 403, 409, 415, 500, 503]},
+    {"method": "GET", "path": "/api/subscription/tg_userbot/config", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 500]},
+    {"method": "POST", "path": "/api/subscription/tg_userbot/config", "auth": "admin", "request_body": true, "response_statuses": [200, 400, 403, 415, 500]},
+    {"method": "GET", "path": "/api/subscription/tg_userbot/status", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 503]},
+    {"method": "POST", "path": "/api/subscription/tg_userbot/send_code", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 409, 503]},
+    {"method": "POST", "path": "/api/subscription/tg_userbot/login", "auth": "admin", "request_body": true, "response_statuses": [200, 400, 403, 409, 415, 503]},
+    {"method": "POST", "path": "/api/subscription/tg_userbot/logout", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 409, 503]},
+    {"method": "POST", "path": "/api/subscription/tg_userbot/clear_session", "auth": "admin", "request_body": false, "response_statuses": [200, 403, 409, 500, 503]}
+  ],
+  "boundaries": [
+    "all routes use the native administrator permission policy and preserve the legacy public paths",
+    "HDHive state mutations and Telegram control actions are staged through durable operation or command ledgers and never execute those provider writes in the API request thread",
+    "HDHive unlock and checkin ambiguity is terminal indeterminate and must never trigger an automatic POST replay",
+    "Telegram control commands checkpoint before mutation; an expired post-checkpoint claim becomes indeterminate instead of pending",
+    "Telegram login codes and channel resource links are stored only as expiring owner-bound opaque secrets and are absent from command and sharing-operation JSON",
+    "Telegram api_id and api_hash are discarded, and an existing 2FA password is returned only as a mask",
+    "Cloud search preserves Shared Center, HDHive, Telegram ordering, per-source limits, deduplication, and partial-failure warnings",
+    "local verification uses Fake or loopback providers; real Shared Center, HDHive, Telegram, 115, production database, deploy, and release remain excluded",
+    "Live Acceptance remains HUMAN_PENDING"
+  ]
+}

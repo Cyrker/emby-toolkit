@@ -209,7 +209,9 @@ class SqlAlchemyCleanupMediaProjection:
                 text(
                     """
                     SELECT tmdb_id, item_type, title, parent_series_tmdb_id,
-                           emby_item_ids_json, asset_details_json, file_pickcode_json
+                           season_number, episode_number,
+                           emby_item_ids_json, asset_details_json,
+                           file_sha1_json, file_pickcode_json
                     FROM media_metadata
                     WHERE (
                             jsonb_typeof(asset_details_json) = 'array'
@@ -238,7 +240,9 @@ class SqlAlchemyCleanupMediaProjection:
                     text(
                         """
                         SELECT tmdb_id, item_type, title, parent_series_tmdb_id,
-                               emby_item_ids_json, asset_details_json, file_pickcode_json
+                               season_number, episode_number,
+                               emby_item_ids_json, asset_details_json,
+                               file_sha1_json, file_pickcode_json
                         FROM media_metadata
                         WHERE tmdb_id = :tmdb_id
                           AND item_type = :item_type
@@ -256,6 +260,7 @@ class SqlAlchemyCleanupMediaProjection:
         assets = _mapping_values(row.get("asset_details_json") if row is not None else None)
         emby_ids = _string_values(row.get("emby_item_ids_json") if row is not None else None)
         pickcodes = _string_values(row.get("file_pickcode_json") if row is not None else None)
+        sha1s = _string_values(row.get("file_sha1_json") if row is not None else None)
         matched_indexes = {
             index
             for index, asset in enumerate(assets)
@@ -272,16 +277,23 @@ class SqlAlchemyCleanupMediaProjection:
             asset = assets[index] if index < len(assets) else {}
             path = str(asset.get("path") or fallback_path or "").strip()
             pick_code = str(asset.get("pick_code") or (pickcodes[index] if index < len(pickcodes) else "")).strip()
-            files.append({"path": path, "pick_code": pick_code})
+            sha1 = str(asset.get("sha1") or (sha1s[index] if index < len(sha1s) else "")).strip().upper()
+            files.append({"path": path, "pick_code": pick_code, "sha1": sha1})
         if not files and fallback_path:
-            files.append({"path": fallback_path, "pick_code": pickcodes[0] if len(pickcodes) == 1 else ""})
+            files.append(
+                {
+                    "path": fallback_path,
+                    "pick_code": pickcodes[0] if len(pickcodes) == 1 else "",
+                    "sha1": sha1s[0] if len(sha1s) == 1 else "",
+                }
+            )
         if not files and len(pickcodes) == 1:
-            files.append({"path": "", "pick_code": pickcodes[0]})
+            files.append({"path": "", "pick_code": pickcodes[0], "sha1": sha1s[0] if len(sha1s) == 1 else ""})
 
         unique_files: list[dict[str, Any]] = []
-        seen: set[tuple[str, str]] = set()
+        seen: set[tuple[str, str, str]] = set()
         for file in files:
-            identity = (str(file["path"]), str(file["pick_code"]))
+            identity = (str(file["path"]), str(file["pick_code"]), str(file["sha1"]))
             if identity in seen:
                 continue
             seen.add(identity)
@@ -338,6 +350,8 @@ class SqlAlchemyCleanupMediaProjection:
             "item_type": str(row["item_type"] if row is not None else fallback_item_type or ""),
             "title": title,
             "series_id": series_id,
+            "season_number": row.get("season_number") if row is not None else None,
+            "episode_number": row.get("episode_number") if row is not None else None,
             "files": unique_files,
         }
 

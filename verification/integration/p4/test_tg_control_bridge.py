@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -24,10 +25,12 @@ from etk.compatibility.tg_control_bridge import (
 from etk.compatibility.tg_resource_effects import (
     TelegramResourceEffectBindingStore,
     TelegramResourceEffectStore,
+    TelegramResourceSecretExpiredError,
     TelegramResourceSecretOwnershipError,
     TelegramResourceSecretStore,
 )
 from etk.domains.operations.jobs import JobSubmissionService
+from etk.domains.subscription.telegram_listener import DurableTelegramRealtimeIngress
 from etk.platform.db import DatabaseRuntime
 from etk.platform.jobs import InvalidJsonPayloadError, PostgresJobStore
 from etk.platform.tasks import TaskRegistry
@@ -120,6 +123,30 @@ def test_expired_claim_is_recovered_by_the_next_coordinator(p4_runtime: Database
     assert recovered["claimed_by"] == "coordinator-b"
 
 
+def test_expired_checkpointed_control_command_is_indeterminate_and_never_reclaimed(
+    p4_runtime: DatabaseRuntime,
+) -> None:
+    now = [datetime(2026, 8, 23, tzinfo=UTC)]
+    bridge = _bridge(p4_runtime, clock=lambda: now[0])
+    command_id = bridge.enqueue_once(
+        "logout",
+        {},
+        idempotency_key="fixture-logout-no-resend",
+    )
+    claimed = bridge.claim_next("coordinator-a", lease_seconds=10)
+    assert claimed is not None
+    checkpointed = bridge.checkpoint_request(command_id, "coordinator-a")
+    assert checkpointed["status"] == "requesting"
+
+    now[0] += timedelta(seconds=11)
+    assert _bridge(p4_runtime, clock=lambda: now[0]).claim_next("coordinator-b", lease_seconds=10) is None
+    recovered = bridge.get_command(command_id)
+    assert recovered is not None
+    assert recovered["status"] == "indeterminate"
+    assert recovered["payload"] == {}
+    assert bridge.enqueue_once("logout", {}, idempotency_key="fixture-logout-no-resend") == command_id
+
+
 def test_concurrent_claim_has_exactly_one_owner(p4_runtime: DatabaseRuntime) -> None:
     bridge = _bridge(p4_runtime)
     command_id = bridge.enqueue("clear_session")
@@ -186,7 +213,7 @@ def test_native_coordinator_consumes_search_without_importing_legacy_userbot(
 
     runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
     runtime._container = SimpleNamespace(database=p4_runtime)
-    runtime._native_telegram_search_manager = Manager()
+    runtime._native_telegram_search_manager = Manager()  # type: ignore[assignment]
     runtime._publisher_id = "fixture-native-coordinator"
     runtime.config = TaskRuntimeConfig()
     original_import = builtins.__import__
@@ -204,6 +231,162 @@ def test_native_coordinator_consumes_search_without_importing_legacy_userbot(
     assert completed["status"] == "succeeded"
     receipt = completed["result"]
     assert bridge.consume_resource_secret(receipt["search_result_ref"], owner_key)["ok"] is True
+
+
+def test_native_coordinator_consumes_control_command_without_importing_legacy_userbot(
+    p4_runtime: DatabaseRuntime,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bridge = _bridge(p4_runtime)
+    command_id = bridge.enqueue_once(
+        "logout",
+        {},
+        idempotency_key="native-coordinator-logout",
+    )
+
+    class Manager:
+        def __init__(self) -> None:
+            self.logout_calls = 0
+
+        def get_status(self) -> dict[str, Any]:
+            return {"status": "unauthorized"}
+
+        def logout(self) -> dict[str, Any]:
+            self.logout_calls += 1
+            return {"success": True}
+
+    manager = Manager()
+    runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
+    runtime._container = SimpleNamespace(database=p4_runtime)
+    runtime._native_telegram_search_manager = manager  # type: ignore[assignment]
+    runtime._publisher_id = "fixture-native-coordinator"
+    runtime.config = TaskRuntimeConfig()
+    original_import = builtins.__import__
+
+    def guarded_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == "handler.tg_userbot" or name.startswith("handler.tg_userbot."):
+            raise AssertionError("native Coordinator imported legacy Telegram UserBot")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    runtime._process_native_telegram_search_commands()
+
+    completed = bridge.get_command(command_id)
+    assert completed is not None
+    assert completed["status"] == "succeeded"
+    assert manager.logout_calls == 1
+
+
+def test_native_listener_ingress_externalizes_candidate_and_coordinator_stages_it_once(
+    p4_runtime: DatabaseRuntime,
+) -> None:
+    assert p4_runtime.raw_pool is not None
+    backend = PostgresRuntimeStateBackend(connection_factory=p4_runtime.raw_pool.connection)
+    secrets = TelegramResourceSecretStore(backend)
+    bridge = TelegramControlBridge(
+        connection_factory=p4_runtime.raw_pool.connection,
+        resource_secrets=secrets,
+    )
+    ingress = DurableTelegramRealtimeIngress(bridge)
+    occurrence = f"telegram-listener:{'a' * 64}"
+    raw_url = "https://115.com/s/provider-secret"
+
+    assert ingress.stage(
+        {"tmdb_id": "42", "target_link": raw_url},
+        occurrence=occurrence,
+        is_brainless=True,
+        is_keyword_matched=False,
+        is_subscribe=False,
+        is_hdhive_push=False,
+    )
+    state = _bridge_state(p4_runtime)
+    assert raw_url not in json.dumps(state, ensure_ascii=False, sort_keys=True)
+    command_id = state["commands"][0]["id"]
+    with p4_runtime.engine.connect() as connection:
+        secret_count = connection.scalar(
+            text("SELECT COUNT(*) FROM app_settings WHERE setting_key LIKE 'runtime.secret.telegram-resource.%'")
+        )
+    assert int(secret_count or 0) == 1
+
+    class Manager:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def get_status(self) -> dict[str, Any]:
+            return {"status": "authorized"}
+
+        def stage_listener_action(self, candidate: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+            assert candidate["target_link"] == raw_url
+            assert kwargs["occurrence"] == occurrence
+            self.calls += 1
+            return {"success": True, "staged": True}
+
+    manager = Manager()
+    runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
+    runtime._container = SimpleNamespace(database=p4_runtime)
+    runtime._native_telegram_search_manager = manager  # type: ignore[assignment]
+    runtime._publisher_id = "fixture-native-listener"
+    runtime.config = TaskRuntimeConfig()
+
+    runtime._process_native_telegram_search_commands()
+
+    completed = bridge.get_command(command_id)
+    assert completed is not None
+    assert completed["status"] == "succeeded"
+    assert completed["result"] == {"success": True, "staged": True}
+    assert manager.calls == 1
+    with p4_runtime.engine.connect() as connection:
+        secret_count = connection.scalar(
+            text("SELECT COUNT(*) FROM app_settings WHERE setting_key LIKE 'runtime.secret.telegram-resource.%'")
+        )
+    assert int(secret_count or 0) == 0
+
+
+def test_listener_action_retry_is_delayed_bounded_and_cleans_candidate_secret(
+    p4_runtime: DatabaseRuntime,
+) -> None:
+    now = [datetime(2026, 8, 23, tzinfo=UTC)]
+    bridge = _bridge(p4_runtime, clock=lambda: now[0])
+    reference = "a" * 64
+    idempotency_key = "telegram-listener-action:bounded-retry"
+    owner_key = hashlib.sha256(idempotency_key.encode()).hexdigest()
+    command_id = bridge.enqueue_listener_action_once(
+        {
+            "candidate_ref": reference,
+            "candidate_hash": "c" * 64,
+            "occurrence": f"telegram-listener:{'d' * 64}",
+            "is_brainless": True,
+        },
+        secret_payload={"candidate": {"target_link": "https://115.com/s/provider-secret"}},
+        reference=reference,
+        owner_key=owner_key,
+        ttl_seconds=3600,
+        idempotency_key=idempotency_key,
+    )
+
+    for attempt in range(1, 9):
+        claimed = bridge.claim_next("coordinator-a", lease_seconds=30, command_types={"listener_action"})
+        assert claimed is not None
+        assert claimed["id"] == command_id
+        assert claimed["attempt_count"] == attempt
+        released = bridge.release(command_id, "coordinator-a", "ConnectionError")
+        if attempt < 8:
+            assert released["status"] == "pending"
+            assert (
+                bridge.claim_next(
+                    "coordinator-a",
+                    lease_seconds=30,
+                    command_types={"listener_action"},
+                )
+                is None
+            )
+            now[0] += timedelta(seconds=301)
+        else:
+            assert released["status"] == "failed"
+            assert released["payload"] == {}
+
+    with pytest.raises(TelegramResourceSecretExpiredError):
+        bridge.consume_resource_secret(reference, owner_key)
 
 
 def test_bridge_rejects_non_json_command_and_result_payloads(p4_runtime: DatabaseRuntime) -> None:

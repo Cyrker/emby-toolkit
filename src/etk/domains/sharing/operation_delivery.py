@@ -218,6 +218,7 @@ def _request_callable(
             "disable_source": "disable_source",
             "acquire_transfer_lease": "acquire_transfer_lease",
             "report_transfer": "report_transfer",
+            "update_logical_season_share_status": "update_logical_season_share_status",
             "share_sync_heartbeat": "share_sync_heartbeat",
             "run_maintenance": "run_maintenance",
             "create_share_request": "create_share_request",
@@ -227,12 +228,15 @@ def _request_callable(
         call = getattr(center, method, None) if method is not None else None
         return cast(Callable[..., ProviderResponse[Any]], call) if callable(call) else None
     if provider == "hdhive":
-        return {
-            "unlock": hdhive.unlock,
-            "checkin": hdhive.checkin,
-            "create_subscription": hdhive.create_subscription,
-            "delete_subscription": hdhive.delete_subscription,
+        method = {
+            "unlock": "unlock",
+            "checkin": "checkin",
+            "clear_authorization": "clear_authorization",
+            "create_subscription": "create_subscription",
+            "delete_subscription": "delete_subscription",
         }.get(action)
+        call = getattr(hdhive, method, None) if method is not None else None
+        return cast(Callable[..., ProviderResponse[Any]], call) if callable(call) else None
     if provider == "telegram" and telegram is not None:
         return {
             "send_message": telegram.send_message,
@@ -258,10 +262,13 @@ def _readback_callable(
         call = getattr(center, method, None) if method is not None else None
         return cast(Callable[..., ProviderResponse[Any]], call) if callable(call) else None
     if provider == "hdhive":
-        return {
-            "check_subscription": hdhive.check_subscription,
-            "get_resources": hdhive.get_resources,
+        method = {
+            "ping": "ping",
+            "check_subscription": "check_subscription",
+            "get_resources": "get_resources",
         }.get(action)
+        call = getattr(hdhive, method, None) if method is not None else None
+        return cast(Callable[..., ProviderResponse[Any]], call) if callable(call) else None
     return None
 
 
@@ -286,6 +293,12 @@ def _request_invocation(
         source_id = _text(payload.get("source_id"), "source_id")
         message = str(payload.get("message") or "")
         return lambda: call(source_kind, source_id, message=message)
+    if action == "update_logical_season_share_status":
+        channel_id = _text(payload.get("channel_id"), "channel_id")
+        body = payload.get("body", {})
+        if not isinstance(body, Mapping):
+            raise ValueError("logical season share status body must be an object")
+        return lambda: call(channel_id, dict(body))
     if action in {"co_request_share_request", "cancel_share_request"}:
         group_id = _text(payload.get("group_id"), "group_id")
         body = payload.get("body", {})
@@ -321,6 +334,8 @@ def _request_invocation(
     if action == "checkin":
         is_gambler = bool(payload.get("is_gambler", False))
         return lambda: call(is_gambler=is_gambler)
+    if action == "clear_authorization":
+        return lambda: call()
     if action == "unlock":
         slug = _text(payload.get("slug"), "slug")
         return lambda: call(slug)
@@ -354,6 +369,8 @@ def _invoke_readback(
         return call()
     if action == "get_raw_ffprobe":
         return call(_text(query.get("sha1"), "sha1"))
+    if action == "ping":
+        return call()
     if action == "check_subscription":
         return call(_text(query.get("target_type"), "target_type"), _text(query.get("target_key"), "target_key"))
     if action == "get_resources":

@@ -6595,273 +6595,286 @@
       "contract_id": "route-binding-029aa34635c3",
       "decorator_contract_id": "route-decorator-844eb6ce6487",
       "endpoint": "trigger_cloud_download",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/cloud/download",
       "retirement_approval": null,
       "source": "routes/subscription.py:1236",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-a145505e0cf9",
       "decorator_contract_id": "route-decorator-8991d30800fc",
       "endpoint": "get_cloud_resources",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/cloud/resources",
       "retirement_approval": null,
       "source": "routes/subscription.py:1068",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-61411a3c71f7",
       "decorator_contract_id": "route-decorator-e1211a916647",
       "endpoint": "get_hdhive_authorize_url",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/authorize_url",
       "retirement_approval": null,
       "source": "routes/subscription.py:301",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-d888573fcfd5",
       "decorator_contract_id": "route-decorator-23244163559b",
       "endpoint": "trigger_hdhive_checkin",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/checkin",
       "retirement_approval": null,
       "source": "routes/subscription.py:1390",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-0d4c3a78f98f",
       "decorator_contract_id": "route-decorator-2b5b601e84bf",
       "endpoint": "clear_hdhive_authorization",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/clear_authorization",
       "retirement_approval": null,
       "source": "routes/subscription.py:311",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-bde94afc10cf",
       "decorator_contract_id": "route-decorator-4a28d0c6dee7",
       "endpoint": "handle_hdhive_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:214",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-44b6507038ce",
       "decorator_contract_id": "route-decorator-4a28d0c6dee7",
       "endpoint": "handle_hdhive_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:214",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-25707bfe11f1",
       "decorator_contract_id": "route-decorator-ca3079dbc898",
       "endpoint": "trigger_hdhive_download",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/download",
       "retirement_approval": null,
       "source": "routes/subscription.py:1362",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-7741a70535eb",
       "decorator_contract_id": "route-decorator-5825295e6a4e",
       "endpoint": "get_hdhive_resources",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/resources",
       "retirement_approval": null,
       "source": "routes/subscription.py:1327",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-1b2a77a187c2",
       "decorator_contract_id": "route-decorator-8976a069654c",
       "endpoint": "handle_hdhive_subscriptions",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/subscriptions",
       "retirement_approval": null,
       "source": "routes/subscription.py:336",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-7cbf9ab270ca",
       "decorator_contract_id": "route-decorator-8976a069654c",
       "endpoint": "handle_hdhive_subscriptions",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/subscriptions",
       "retirement_approval": null,
       "source": "routes/subscription.py:336",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-5a95f193ce35",
       "decorator_contract_id": "route-decorator-b6813ec2a548",
       "endpoint": "delete_hdhive_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "DELETE",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/subscriptions/<int:subscription_id>",
       "retirement_approval": null,
       "source": "routes/subscription.py:386",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-84a25a861050",
       "decorator_contract_id": "route-decorator-67ec9e728b94",
       "endpoint": "check_hdhive_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/subscriptions/check",
       "retirement_approval": null,
       "source": "routes/subscription.py:370",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -6997,147 +7010,154 @@
       "contract_id": "route-binding-5a42a7d910b4",
       "decorator_contract_id": "route-decorator-3efa0d892ffb",
       "endpoint": "tg_userbot_clear_session",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/clear_session",
       "retirement_approval": null,
       "source": "routes/subscription.py:1495",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-e765bd09c113",
       "decorator_contract_id": "route-decorator-47e2a03d4e41",
       "endpoint": "get_tg_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:1421",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-713a520bc9b7",
       "decorator_contract_id": "route-decorator-98bc14fe76c8",
       "endpoint": "save_tg_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:1437",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-bb724b1052d8",
       "decorator_contract_id": "route-decorator-807513a8f4ad",
       "endpoint": "tg_userbot_login",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/login",
       "retirement_approval": null,
       "source": "routes/subscription.py:1468",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-cf697eeeb516",
       "decorator_contract_id": "route-decorator-950993007bda",
       "endpoint": "tg_userbot_logout",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/logout",
       "retirement_approval": null,
       "source": "routes/subscription.py:1484",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-468db3e318bf",
       "decorator_contract_id": "route-decorator-b4d4e305f729",
       "endpoint": "tg_userbot_send_code",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/send_code",
       "retirement_approval": null,
       "source": "routes/subscription.py:1457",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
       "contract_id": "route-binding-0500edeacc9b",
       "decorator_contract_id": "route-decorator-3899f5c929e8",
       "endpoint": "tg_userbot_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "method": "GET",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/status",
       "retirement_approval": null,
       "source": "routes/subscription.py:1448",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15036,23 +15056,24 @@
       "contract_id": "route-decorator-844eb6ce6487",
       "declared_path": "/cloud/download",
       "endpoint": "trigger_cloud_download",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/cloud/download",
       "retirement_approval": null,
       "source": "routes/subscription.py:1236",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15060,23 +15081,24 @@
       "contract_id": "route-decorator-8991d30800fc",
       "declared_path": "/cloud/resources",
       "endpoint": "get_cloud_resources",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/cloud/resources",
       "retirement_approval": null,
       "source": "routes/subscription.py:1068",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15084,23 +15106,24 @@
       "contract_id": "route-decorator-e1211a916647",
       "declared_path": "/hdhive/authorize_url",
       "endpoint": "get_hdhive_authorize_url",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/authorize_url",
       "retirement_approval": null,
       "source": "routes/subscription.py:301",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15108,23 +15131,24 @@
       "contract_id": "route-decorator-23244163559b",
       "declared_path": "/hdhive/checkin",
       "endpoint": "trigger_hdhive_checkin",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/checkin",
       "retirement_approval": null,
       "source": "routes/subscription.py:1390",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15132,23 +15156,24 @@
       "contract_id": "route-decorator-2b5b601e84bf",
       "declared_path": "/hdhive/clear_authorization",
       "endpoint": "clear_hdhive_authorization",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/clear_authorization",
       "retirement_approval": null,
       "source": "routes/subscription.py:311",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15156,24 +15181,25 @@
       "contract_id": "route-decorator-4a28d0c6dee7",
       "declared_path": "/hdhive/config",
       "endpoint": "handle_hdhive_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:214",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15181,23 +15207,24 @@
       "contract_id": "route-decorator-ca3079dbc898",
       "declared_path": "/hdhive/download",
       "endpoint": "trigger_hdhive_download",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/download",
       "retirement_approval": null,
       "source": "routes/subscription.py:1362",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15205,23 +15232,24 @@
       "contract_id": "route-decorator-5825295e6a4e",
       "declared_path": "/hdhive/resources",
       "endpoint": "get_hdhive_resources",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/resources",
       "retirement_approval": null,
       "source": "routes/subscription.py:1327",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15229,24 +15257,25 @@
       "contract_id": "route-decorator-8976a069654c",
       "declared_path": "/hdhive/subscriptions",
       "endpoint": "handle_hdhive_subscriptions",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "GET",
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/subscriptions",
       "retirement_approval": null,
       "source": "routes/subscription.py:336",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15254,23 +15283,24 @@
       "contract_id": "route-decorator-b6813ec2a548",
       "declared_path": "/hdhive/subscriptions/<int:subscription_id>",
       "endpoint": "delete_hdhive_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "DELETE"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/subscriptions/<int:subscription_id>",
       "retirement_approval": null,
       "source": "routes/subscription.py:386",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15278,23 +15308,24 @@
       "contract_id": "route-decorator-67ec9e728b94",
       "declared_path": "/hdhive/subscriptions/check",
       "endpoint": "check_hdhive_subscription",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/hdhive/subscriptions/check",
       "retirement_approval": null,
       "source": "routes/subscription.py:370",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15449,23 +15480,24 @@
       "contract_id": "route-decorator-3efa0d892ffb",
       "declared_path": "/tg_userbot/clear_session",
       "endpoint": "tg_userbot_clear_session",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/clear_session",
       "retirement_approval": null,
       "source": "routes/subscription.py:1495",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15473,23 +15505,24 @@
       "contract_id": "route-decorator-47e2a03d4e41",
       "declared_path": "/tg_userbot/config",
       "endpoint": "get_tg_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:1421",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15497,23 +15530,24 @@
       "contract_id": "route-decorator-98bc14fe76c8",
       "declared_path": "/tg_userbot/config",
       "endpoint": "save_tg_config",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/config",
       "retirement_approval": null,
       "source": "routes/subscription.py:1437",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15521,23 +15555,24 @@
       "contract_id": "route-decorator-807513a8f4ad",
       "declared_path": "/tg_userbot/login",
       "endpoint": "tg_userbot_login",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/login",
       "retirement_approval": null,
       "source": "routes/subscription.py:1468",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15545,23 +15580,24 @@
       "contract_id": "route-decorator-950993007bda",
       "declared_path": "/tg_userbot/logout",
       "endpoint": "tg_userbot_logout",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/logout",
       "retirement_approval": null,
       "source": "routes/subscription.py:1484",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15569,23 +15605,24 @@
       "contract_id": "route-decorator-b4d4e305f729",
       "declared_path": "/tg_userbot/send_code",
       "endpoint": "tg_userbot_send_code",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/send_code",
       "retirement_approval": null,
       "source": "routes/subscription.py:1457",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",
@@ -15593,23 +15630,24 @@
       "contract_id": "route-decorator-3899f5c929e8",
       "declared_path": "/tg_userbot/status",
       "endpoint": "tg_userbot_status",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-provider-control.json",
+      "fixture_exception": null,
       "methods": [
         "GET"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.provider_control_router",
+      "notes": "P11 native provider-control router precedes the compatibility mount; provider mutations use durable identifier-only operations and checkpointed no-resend delivery.",
       "path": "/api/subscription/tg_userbot/status",
       "retirement_approval": null,
       "source": "routes/subscription.py:1448",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "sharing"
       ],
       "target_stage": "P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "subscription/sharing"
+      "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
+      "validation_owner": "subscription/provider-control"
     },
     {
       "application": "api",

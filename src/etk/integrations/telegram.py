@@ -10,12 +10,15 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Collection, Mapping, Sequence
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import httpx
 
 from etk.compatibility.tg_control_bridge import (
+    TelegramCommandFailedError,
     TelegramCommandIdempotencyConflictError,
+    TelegramCommandIndeterminateError,
+    TelegramCommandTimeoutError,
     TelegramControlBridge,
 )
 from etk.platform import Settings
@@ -80,6 +83,19 @@ class TelegramUserBotPort(Protocol):
 
     def get_command(self, command_id: str) -> Mapping[str, Any] | None: ...
 
+    def get_runtime_status(self) -> Mapping[str, Any]: ...
+
+    def create_resource_secret(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        reference: str,
+        owner_key: str,
+        ttl_seconds: float,
+    ) -> tuple[str, bool]: ...
+
+    def destroy_resource_secret(self, reference: str, *, owner_key: str | None = None) -> bool: ...
+
     def consume_resource_secret(self, reference: str, owner_key: str) -> Mapping[str, Any]: ...
 
     def wait(
@@ -96,6 +112,18 @@ class TelegramAdapterError(ExternalAdapterError):
 
 
 class TelegramUserBotIdempotencyConflictError(RuntimeError):
+    pass
+
+
+class TelegramUserBotCommandFailedError(RuntimeError):
+    pass
+
+
+class TelegramUserBotCommandIndeterminateError(RuntimeError):
+    pass
+
+
+class TelegramUserBotCommandTimeoutError(TimeoutError):
     pass
 
 
@@ -351,6 +379,36 @@ class DurableTelegramUserBotAdapter:
     def get_command(self, command_id: str) -> Mapping[str, Any] | None:
         return self._bridge.get_command(command_id)
 
+    def get_runtime_status(self) -> Mapping[str, Any]:
+        return self._bridge.get_runtime_status()
+
+    def create_resource_secret(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        reference: str,
+        owner_key: str,
+        ttl_seconds: float,
+    ) -> tuple[str, bool]:
+        create = getattr(self._bridge, "create_resource_secret", None)
+        if not callable(create):
+            raise RuntimeError("Telegram resource secret creation is unavailable")
+        return cast(
+            tuple[str, bool],
+            create(
+                normalize_json_object(dict(payload), field="telegram resource secret"),
+                reference=reference,
+                owner_key=owner_key,
+                ttl_seconds=ttl_seconds,
+            ),
+        )
+
+    def destroy_resource_secret(self, reference: str, *, owner_key: str | None = None) -> bool:
+        destroy = getattr(self._bridge, "destroy_resource_secret", None)
+        if not callable(destroy):
+            raise RuntimeError("Telegram resource secret deletion is unavailable")
+        return bool(destroy(reference, owner_key=owner_key))
+
     def consume_resource_secret(self, reference: str, owner_key: str) -> Mapping[str, Any]:
         return self._bridge.consume_resource_secret(reference, owner_key)
 
@@ -361,11 +419,18 @@ class DurableTelegramUserBotAdapter:
         timeout_seconds: float = 45,
         poll_seconds: float = 0.1,
     ) -> Mapping[str, Any]:
-        return self._bridge.wait(
-            command_id,
-            timeout_seconds=timeout_seconds,
-            poll_seconds=poll_seconds,
-        )
+        try:
+            return self._bridge.wait(
+                command_id,
+                timeout_seconds=timeout_seconds,
+                poll_seconds=poll_seconds,
+            )
+        except TelegramCommandTimeoutError as exc:
+            raise TelegramUserBotCommandTimeoutError(str(exc)) from exc
+        except TelegramCommandIndeterminateError as exc:
+            raise TelegramUserBotCommandIndeterminateError(str(exc)) from exc
+        except TelegramCommandFailedError as exc:
+            raise TelegramUserBotCommandFailedError(str(exc)) from exc
 
 
 def _setting(source: Any, *keys: str, default: Any = None) -> Any:

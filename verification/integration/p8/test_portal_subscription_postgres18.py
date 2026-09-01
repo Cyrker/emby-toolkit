@@ -365,6 +365,74 @@ def test_portal_upsert_preserves_stronger_subscription_states(
         )
 
 
+def test_portal_upsert_does_not_revive_hard_ignored_media(
+    p8_runtime: DatabaseRuntime,
+) -> None:
+    records: list[tuple[PortalMediaRecord, str, str]] = []
+    for index, target_status in enumerate(("REQUESTED", "PENDING_RELEASE"), 1):
+        for reason in ("手动忽略", "订阅超时"):
+            tmdb_id = f"hard-ignore-{index}-{reason}"
+            record = PortalMediaRecord(
+                tmdb_id,
+                "Movie",
+                f"Hard ignored {target_status} {reason}",
+                None,
+                "2027-01-01",
+                None,
+                None,
+            )
+            records.append((record, target_status, reason))
+            with p8_runtime.engine.begin() as connection:
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO media_metadata (
+                            tmdb_id, item_type, title, release_date, in_library,
+                            subscription_status, subscription_sources_json, ignore_reason
+                        ) VALUES (
+                            :tmdb_id, 'Movie', :title, '2027-01-01', FALSE,
+                            'IGNORED', '[{"type":"existing"}]'::jsonb, :ignore_reason
+                        )
+                        """
+                    ),
+                    {"tmdb_id": tmdb_id, "title": record.title, "ignore_reason": reason},
+                )
+
+    repository = _repository(p8_runtime)
+    base_values = {
+        "user_id": "fixture-user",
+        "provider_intents": (),
+        "consume_quota": False,
+        "recommendation_tmdb_id": None,
+        "request_item_type": "Movie",
+        "request_tmdb_id": "hard-ignore-request",
+        "request_season_number": None,
+    }
+    for record, target_status, _reason in records:
+        repository.submit(records=(record,), target_status=target_status, **base_values)
+
+    with p8_runtime.engine.connect() as connection:
+        rows = (
+            connection.execute(
+                text(
+                    """
+                    SELECT tmdb_id, subscription_status, subscription_sources_json, ignore_reason
+                    FROM media_metadata
+                    WHERE tmdb_id LIKE 'hard-ignore-%'
+                    ORDER BY tmdb_id
+                    """
+                )
+            )
+            .mappings()
+            .all()
+        )
+
+    assert len(rows) == 4
+    assert all(row["subscription_status"] == "IGNORED" for row in rows)
+    assert all(row["subscription_sources_json"] == [{"type": "existing"}] for row in rows)
+    assert {row["ignore_reason"] for row in rows} == {"手动忽略", "订阅超时"}
+
+
 def test_outbox_failure_rolls_back_media_quota_operation_and_pool(
     p8_runtime: DatabaseRuntime,
 ) -> None:

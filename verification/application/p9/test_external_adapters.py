@@ -221,6 +221,35 @@ def test_shared_center_display_browse_uses_exact_endpoints_and_query_shapes() ->
     assert client.calls[4][2]["params"]["include_people"] == 1
 
 
+def test_shared_center_logical_season_share_uses_typed_manifest_channel_and_status_endpoints() -> None:
+    client = FakeClient(
+        [
+            _response(200, {"item": {"files": []}}),
+            _response(200, {"item": {"channel_id": "channel-1", "status": "valid"}}),
+            _response(200, {"ok": True}),
+        ]
+    )
+    adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(),
+    )
+
+    adapter.logical_season_manifest("logical-season-1")
+    adapter.get_logical_season_share_channel("logical-season-1")
+    adapter.update_logical_season_share_status(
+        "channel-1",
+        {"status": "expired", "review_status": "expired"},
+    )
+
+    assert [call[0:2] for call in client.calls] == [
+        ("GET", "https://center.fixture/api/v1/logical-seasons/logical-season-1/manifest"),
+        ("GET", "https://center.fixture/api/v1/logical-seasons/logical-season-1/share-channel"),
+        ("POST", "https://center.fixture/api/v1/logical-season-share-channels/channel-1/status"),
+    ]
+    assert client.calls[2][2]["json"] == {"status": "expired", "review_status": "expired"}
+
+
 def test_shared_center_retries_idempotent_reads_but_invalid_json_is_safe() -> None:
     client = FakeClient([_response(429, {"detail": "busy"}), _response(500, {}), _response(200, {"ok": True})])
     adapter = HttpxSharedCenterAdapter(
@@ -325,6 +354,66 @@ def test_shared_center_share_request_participant_mutations_use_exact_single_shot
     ]
     assert client.calls[0][2]["json"] == {"bounty": 2}
     assert client.calls[1][2]["json"] == {"reason": "fixture"}
+
+
+def test_shared_center_telegram_login_code_is_single_shot_and_transport_safe() -> None:
+    session = "fixture-telegram-session"
+    client = FakeClient(
+        [
+            _response(
+                200,
+                {
+                    "success": True,
+                    "data": {
+                        "telegram_session": "fixture-challenge-session",
+                        "phone_code_hash": "fixture-code-hash",
+                    },
+                },
+            )
+        ]
+    )
+    adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(attempts=4),
+    )
+
+    result = adapter.send_telegram_login_code("+8613800000000", session)
+
+    assert result.disposition is ProviderDisposition.CONFIRMED
+    assert len(client.calls) == 1
+    assert client.calls[0][0:2] == (
+        "POST",
+        "https://center.fixture/api/v1/telegram/send-code",
+    )
+    assert client.calls[0][2]["json"] == {
+        "phone": "+8613800000000",
+        "telegram_session": session,
+    }
+
+    rejected_client = FakeClient([_response(503, {"detail": "busy"})])
+    rejected_adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(rejected_client),
+        policy=_policy(attempts=4),
+    )
+    rejected = rejected_adapter.send_telegram_login_code("+8613800000000", session)
+    assert rejected.disposition is ProviderDisposition.INDETERMINATE
+    assert len(rejected_client.calls) == 1
+
+    transport_client = FakeClient(
+        [httpx.ReadTimeout("timed out", request=httpx.Request("POST", "https://fixture.invalid"))]
+    )
+    transport_adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(transport_client),
+        policy=_policy(attempts=4),
+    )
+    with pytest.raises(SharedCenterError) as raised:
+        transport_adapter.send_telegram_login_code("+8613800000000", session)
+    assert raised.value.disposition is ProviderDisposition.INDETERMINATE
+    assert session not in str(raised.value)
+    assert len(transport_client.calls) == 1
 
 
 def test_shared_intro_upload_uses_exact_single_shot_contract() -> None:
@@ -475,6 +564,38 @@ def test_hdhive_reads_standalone_runtime_configuration() -> None:
     assert client.calls[0][2]["headers"]["X-ETK-Instance-Secret"] == "fixture-secret"
 
 
+def test_hdhive_registration_uses_greenfield_relay_default_without_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("HDHIVE_RELAY_BASE_URL", raising=False)
+    monkeypatch.delenv("HDHIVE_RELAY_REGISTER_TOKEN", raising=False)
+    client = FakeClient(
+        [
+            _response(
+                200,
+                {
+                    "success": True,
+                    "data": {
+                        "instance_id": "fixture-instance",
+                        "instance_secret": "fixture-secret",
+                    },
+                },
+            )
+        ]
+    )
+    adapter = HttpxHDHiveAdapter({}, client_factory=_factory(client), policy=_policy())
+
+    result = adapter.register()
+
+    assert result.disposition is ProviderDisposition.CONFIRMED
+    assert client.calls[0][0:2] == (
+        "POST",
+        "https://hdhive.55565576.xyz/api/etk/register",
+    )
+    assert "X-ETK-Instance-ID" not in client.calls[0][2]["headers"]
+    assert "X-ETK-Instance-Secret" not in client.calls[0][2]["headers"]
+
+
 def test_circuit_breaker_transitions_closed_open_half_open() -> None:
     now = [0.0]
     breaker = CircuitBreaker(failure_threshold=2, reset_timeout_seconds=10, clock=lambda: now[0])
@@ -558,7 +679,7 @@ class FakeUserBotBridge:
 
 def test_userbot_facade_uses_durable_claim_complete_fail_bridge() -> None:
     bridge = FakeUserBotBridge()
-    adapter = DurableTelegramUserBotAdapter(bridge)
+    adapter = DurableTelegramUserBotAdapter(bridge)  # type: ignore[arg-type]
 
     assert adapter.enqueue("search", {"query": "fixture"}) == "command-1"
     assert adapter.claim_next("worker-1") == {"id": "command-1", "status": "claimed"}
@@ -574,7 +695,7 @@ def test_userbot_facade_uses_durable_claim_complete_fail_bridge() -> None:
 
 def test_userbot_facade_exposes_replay_safe_search_and_readback() -> None:
     bridge = FakeUserBotBridge()
-    adapter = DurableTelegramUserBotAdapter(bridge)
+    adapter = DurableTelegramUserBotAdapter(bridge)  # type: ignore[arg-type]
 
     command_id = adapter.enqueue_once(
         "search",

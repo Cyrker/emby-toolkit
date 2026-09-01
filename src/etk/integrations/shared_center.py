@@ -57,9 +57,21 @@ class SharedCenterPort(Protocol):
 
     def list_display_home(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
 
+    def list_cloud_search_sources(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
+
     def list_display_children(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
 
     def display_detail(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
+
+    def logical_season_manifest(self, group_id: str) -> ProviderResponse[dict[str, Any]]: ...
+
+    def get_logical_season_share_channel(self, group_id: str) -> ProviderResponse[dict[str, Any]]: ...
+
+    def update_logical_season_share_status(
+        self,
+        channel_id: str,
+        payload: Mapping[str, Any],
+    ) -> ProviderResponse[dict[str, Any]]: ...
 
     def register_source(self, source_kind: str, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
 
@@ -92,6 +104,12 @@ class SharedCenterPort(Protocol):
     ) -> ProviderResponse[dict[str, Any]]: ...
 
     def cancel_share_request(self, group_id: str, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
+
+    def send_telegram_login_code(
+        self,
+        phone: str,
+        telegram_session: str,
+    ) -> ProviderResponse[dict[str, Any]]: ...
 
     def list_share_requests(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
 
@@ -151,6 +169,22 @@ class HttpxSharedCenterAdapter:
 
     def device_status(self) -> ProviderResponse[dict[str, Any]]:
         return self.request_json("GET", "/api/v1/devices/status", operation="device_status", retryable=True)
+
+    def send_telegram_login_code(
+        self,
+        phone: str,
+        telegram_session: str,
+    ) -> ProviderResponse[dict[str, Any]]:
+        normalized_phone = _text(phone, "phone", limit=40)
+        normalized_session = _text(telegram_session, "telegram_session", limit=16_384)
+        if not normalized_phone or not normalized_session:
+            raise ValueError("phone and telegram_session must not be empty")
+        return self.request_json(
+            "POST",
+            "/api/v1/telegram/send-code",
+            operation="send_telegram_login_code",
+            json={"phone": normalized_phone, "telegram_session": normalized_session},
+        )
 
     def credit_ledger(self, *, limit: int = 200) -> ProviderResponse[dict[str, Any]]:
         bounded = _bounded_int(limit, minimum=1, maximum=1000, field="limit")
@@ -224,6 +258,37 @@ class HttpxSharedCenterAdapter:
 
     def display_detail(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
         return self._display_query("/api/v1/sources/display-detail", "display_detail", query)
+
+    def logical_season_manifest(self, group_id: str) -> ProviderResponse[dict[str, Any]]:
+        identifier = _segment(group_id, "logical season group_id")
+        return self.request_json(
+            "GET",
+            f"/api/v1/logical-seasons/{quote(identifier, safe='')}/manifest",
+            operation="logical_season_manifest",
+            retryable=True,
+        )
+
+    def get_logical_season_share_channel(self, group_id: str) -> ProviderResponse[dict[str, Any]]:
+        identifier = _segment(group_id, "logical season group_id")
+        return self.request_json(
+            "GET",
+            f"/api/v1/logical-seasons/{quote(identifier, safe='')}/share-channel",
+            operation="get_logical_season_share_channel",
+            retryable=True,
+        )
+
+    def update_logical_season_share_status(
+        self,
+        channel_id: str,
+        payload: Mapping[str, Any],
+    ) -> ProviderResponse[dict[str, Any]]:
+        identifier = _segment(channel_id, "logical season share channel_id")
+        return self.request_json(
+            "POST",
+            f"/api/v1/logical-season-share-channels/{quote(identifier, safe='')}/status",
+            operation="update_logical_season_share_status",
+            json=_object(payload, "logical season share status"),
+        )
 
     def register_source(self, source_kind: str, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:
         kind = _segment(source_kind, "source_kind")
