@@ -415,6 +415,18 @@ class SubscriptionOperationExecutor:
                 retry_after_seconds=self._readback_delay_seconds,
                 now=now,
             )
+        if plan.action is SubscriptionProviderAction.DELETE and not _delete_precondition_matches(plan, readback):
+            observed = readback.subscription or {}
+            return self._repository.mark_rejected(
+                operation.id,
+                claim_token,
+                error={
+                    "type": "preflight_identity_mismatch",
+                    "expected_id": plan.expected.get("id"),
+                    "observed_id": observed.get("id"),
+                },
+                now=now,
+            )
         if not _desired_state_observed(plan, readback):
             return None
         return self._repository.mark_confirmed_without_write(
@@ -583,6 +595,12 @@ def _desired_state_observed(plan: _WritePlan, readback: MoviePilotQueryResult) -
         if readback.subscription.get(key) != expected:
             return False
     return True
+
+
+def _delete_precondition_matches(plan: _WritePlan, readback: MoviePilotQueryResult) -> bool:
+    if not plan.expected or not readback.found or readback.subscription is None:
+        return True
+    return all(str(readback.subscription.get(key) or "") == str(expected) for key, expected in plan.expected.items())
 
 
 def _required_plan_tmdb_id(plan: _WritePlan) -> str:

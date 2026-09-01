@@ -57,6 +57,7 @@ from etk.domains.sharing.ledger import PostgresContributionLedger
 from etk.domains.sharing.repository import PostgresSharingOperationRepository
 from etk.domains.sharing.service import SharingService
 from etk.domains.subscription.cleanup_runtime_repository import SqlAlchemyCleanupExecutionRepository
+from etk.domains.subscription.moviepilot_webhook import MOVIEPILOT_ASSISTANT_EVENT_TYPE
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.provider_control import ProviderControlService
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
@@ -547,7 +548,10 @@ class CoordinatorRuntime:
             self._media_effect_publisher,
             self.config,
             publisher_id=f"{self._publisher_id}:media-effect",
-            replay_safe_effect_types=(DAILY_THEME_REPLENISHMENT_EFFECT_TYPE,),
+            replay_safe_effect_types=(
+                DAILY_THEME_REPLENISHMENT_EFFECT_TYPE,
+                MOVIEPILOT_ASSISTANT_EVENT_TYPE,
+            ),
         )
         ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
         self._ingestion_ingress = PersistentIngestionIngressGateway(
@@ -746,7 +750,10 @@ class CoordinatorRuntime:
                 self._media_effect_publisher,
                 self.config,
                 publisher_id=f"{self._publisher_id}:media-effect",
-                replay_safe_effect_types=(DAILY_THEME_REPLENISHMENT_EFFECT_TYPE,),
+                replay_safe_effect_types=(
+                    DAILY_THEME_REPLENISHMENT_EFFECT_TYPE,
+                    MOVIEPILOT_ASSISTANT_EVENT_TYPE,
+                ),
             )
             ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
             self._ingestion_coordinator = IngestionMonitorCoordinator(

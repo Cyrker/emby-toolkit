@@ -70,6 +70,14 @@ class MoviePilotListResult:
 
 
 @dataclass(frozen=True, slots=True)
+class MoviePilotActiveDownload:
+    task_hash: str
+    subscribe_id: int | None
+    tmdb_id: str | None
+    season: int | None
+
+
+@dataclass(frozen=True, slots=True)
 class MoviePilotQueryResult:
     disposition: MoviePilotQueryDisposition
     subscription: Mapping[str, Any] | None
@@ -148,6 +156,65 @@ class HttpxMoviePilotGateway:
                 )
             subscriptions.append(dict(subscription))
         return MoviePilotListResult(tuple(subscriptions))
+
+    def active_downloads(self) -> tuple[MoviePilotActiveDownload, ...]:
+        operation = "list-active-downloads"
+        response = self._authorized_request(operation, "GET", "/api/v1/download/")
+        self._expect_status(response, operation, {200})
+        decoded = self._decode_json(response, operation)
+        tasks = _download_task_list(decoded)
+        if tasks is None:
+            self._raise_invalid_response(operation, response, "download list shape is unsupported")
+        downloads: list[MoviePilotActiveDownload] = []
+        for index, task in enumerate(tasks):
+            if not isinstance(task, Mapping):
+                self._raise_invalid_response(
+                    operation,
+                    response,
+                    f"download list item {index} is not an object",
+                )
+            task_hash = _download_hash(task)
+            if not task_hash:
+                self._raise_invalid_response(
+                    operation,
+                    response,
+                    f"download list item {index} has no torrent hash",
+                )
+            media = task.get("media")
+            media_info = media if isinstance(media, Mapping) else {}
+            source = task.get("source")
+            source_info = source if isinstance(source, Mapping) else {}
+            subscribe_id = _first_positive_int(
+                task.get("subscribe_id"),
+                task.get("subscribeid"),
+                media_info.get("subscribe_id"),
+                source_info.get("id"),
+            )
+            tmdb_id = _first_identifier(
+                task.get("tmdbid"),
+                task.get("tmdb_id"),
+                media_info.get("tmdbid"),
+                media_info.get("tmdb_id"),
+                source_info.get("tmdbid"),
+                source_info.get("tmdb_id"),
+            )
+            season = _first_positive_int(task.get("season"), media_info.get("season"), source_info.get("season"))
+            if subscribe_id is None and not tmdb_id:
+                self._raise_invalid_response(
+                    operation,
+                    response,
+                    f"download list item {index} has no subscription or media identity",
+                )
+            if all(value.task_hash != task_hash for value in downloads):
+                downloads.append(
+                    MoviePilotActiveDownload(
+                        task_hash,
+                        subscribe_id,
+                        tmdb_id,
+                        season,
+                    )
+                )
+        return tuple(downloads)
 
     def query_subscription(
         self,
@@ -791,8 +858,78 @@ class HttpxMoviePilotGateway:
         return httpx.Client(timeout=self._timeout_seconds)
 
 
+def _download_task_list(value: Any) -> list[Any] | None:
+    if isinstance(value, list):
+        return value
+    if not isinstance(value, Mapping):
+        return None
+    if not value:
+        return None
+    for key in ("data", "list", "items", "results", "records"):
+        nested = value.get(key)
+        if isinstance(nested, list):
+            return nested
+        if isinstance(nested, Mapping):
+            tasks = _download_task_list(nested)
+            if tasks is not None:
+                return tasks
+    return None
+
+
+def _download_hash(value: Mapping[str, Any]) -> str:
+    for key in (
+        "hash",
+        "hashString",
+        "hash_string",
+        "info_hash",
+        "infoHash",
+        "download_hash",
+        "downloadHash",
+        "torrent_hash",
+        "torrentHash",
+    ):
+        raw = value.get(key)
+        if not isinstance(raw, str):
+            continue
+        candidate = raw.strip().casefold()
+        if candidate:
+            return candidate
+    return ""
+
+
+def _optional_positive_int(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        return None
+    if isinstance(value, str) and not value.strip().isdigit():
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _first_positive_int(*values: Any) -> int | None:
+    for value in values:
+        parsed = _optional_positive_int(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _first_identifier(*values: Any) -> str | None:
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, (int, str)):
+            continue
+        normalized = str(value).strip()
+        if normalized:
+            return normalized
+    return None
+
+
 __all__ = [
     "HttpxMoviePilotGateway",
+    "MoviePilotActiveDownload",
     "MoviePilotListResult",
     "MoviePilotProviderError",
     "MoviePilotProviderErrorKind",

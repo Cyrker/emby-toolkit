@@ -81,6 +81,7 @@ def test_p6_planning_routes_have_exact_native_fastapi_ownership_and_openapi_cont
         "recognition_hints",
         "request_intent_id",
         "source_cid",
+        "source_file_ids",
         "source_name",
     }
     response_schema = schema["components"]["schemas"]["OrganizePlanDocumentResponse"]

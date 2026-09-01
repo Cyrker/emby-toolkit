@@ -1,0 +1,46 @@
+{
+    "schema_version": 1,
+    "kind": "p11-moviepilot-webhook-local-http-contract",
+    "provenance": {
+        "captured_live": false,
+        "external_providers": "fake-only",
+        "stage": "P11",
+        "sanitized": true,
+        "sources": [
+            "routes/webhook.py:2489",
+            "src/etk/domains/subscription/moviepilot_webhook.py",
+            "src/etk/domains/subscription/moviepilot_webhook_router.py",
+            "src/etk/domains/subscription/moviepilot_transfer.py"
+        ]
+    },
+    "routes": [
+        {
+            "method": "POST",
+            "path": "/webhook/emby",
+            "auth": "none",
+            "request_body": false,
+            "response_statuses": [200, 409, 500, 503]
+        }
+    ],
+    "envelopes": {
+        "emby_event": {"status": "emby_webhook_removed"},
+        "assistant_accepted": {"status": "subscribe_assistant_processed"},
+        "assistant_ignored": {"status": "subscribe_assistant_ignored"},
+        "transfer_missing": {"status": "ignored_missing_data"},
+        "transfer_not_file": {"status": "ignored_not_file"},
+        "transfer_buffered": {"status": "processing_single_file"},
+        "transfer_passthrough": {"status": "processing_single_file_passthrough"},
+        "unknown": {"status": "event_ignored_not_in_trigger_list"},
+        "identity_conflict": {"status": "event_id_conflict"}
+    },
+    "boundaries": [
+        "the request thread only normalizes the event and reserves one durable media effect",
+        "assistant state, completion snapshots, and replay receipts commit in one PostgreSQL transaction",
+        "full-washing completion stays retryable, uses active-download readback and native season consistency, and stages restart writes through the subscription operation ledger",
+        "buffered transfer freezes an authoritative same-item or same-episode batch and prepares one native 115 organize execution",
+        "passthrough transfer submits one idempotent full-sync-strm Job",
+        "credential or account drift fails closed before an organize execution is prepared",
+        "local verification uses Fake providers; real MoviePilot, 115, Emby, production database, deploy, and release remain excluded",
+        "Live Acceptance remains HUMAN_PENDING"
+    ]
+}

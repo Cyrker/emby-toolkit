@@ -157,6 +157,7 @@ from etk.domains.p115 import (
     P115MkdirOperation,
     P115MoviePilotRenameExportOperation,
     P115OrganizeExecutionService,
+    P115OrganizePlanService,
     P115OrganizeRecordTmdbBackfillService,
     P115PlaybackConfigService,
     P115PlaybackService,
@@ -175,6 +176,7 @@ from etk.domains.p115 import (
     PostgresP115StrmSyncCoordinator,
     SqlAlchemyP115CredentialRepository,
     SqlAlchemyP115DirectoryCacheRepository,
+    SqlAlchemyP115EpisodeRegexRepository,
     SqlAlchemyP115MaintenanceRepository,
     SqlAlchemyP115MediaInfoRepository,
     SqlAlchemyP115OrganizeExecutionRepository,
@@ -276,6 +278,17 @@ from etk.domains.subscription.manual_batch_adapters import (
     ManualSubscriptionQuotaLedger,
 )
 from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotGateway
+from etk.domains.subscription.moviepilot_transfer import (
+    ExplicitMoviePilotRecognitionGateway,
+    MoviePilotOriginalNameGateway,
+    NativeMoviePilotTransferProcessor,
+)
+from etk.domains.subscription.moviepilot_webhook import (
+    MoviePilotFullWashingOperations,
+    MoviePilotWebhookEffectDelivery,
+    MoviePilotWebhookSettings,
+    SqlAlchemyMoviePilotAssistantEventRepository,
+)
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.operations import SubscriptionOperation
 from etk.domains.subscription.provider_control import HDHiveRegistrationOperationDelivery
@@ -404,6 +417,47 @@ def _app_setting_flag(repository: SqlAlchemyAppSettingsRepository, key: str, fie
     return bool(value.get(field, False)) if isinstance(value, Mapping) else False
 
 
+def _moviepilot_assistant_config(repository: MoviePilotWebhookSettings) -> Mapping[str, Any]:
+    mp_value = repository.load("mp_config")
+    watchlist_value = repository.load("watchlist_config")
+    mp = mp_value if isinstance(mp_value, Mapping) else {}
+    watchlist = watchlist_value if isinstance(watchlist_value, Mapping) else {}
+    assistant = mp.get("subscribe_assistant")
+    if not isinstance(assistant, Mapping):
+        assistant = watchlist.get("subscribe_assistant")
+    return assistant if isinstance(assistant, Mapping) else {}
+
+
+def _moviepilot_full_washing_guard(repository: MoviePilotWebhookSettings) -> bool:
+    assistant = _moviepilot_assistant_config(repository)
+    value = assistant.get("best_version_full_consistency_check_enabled")
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip().casefold() in {"1", "true", "yes", "on", "启用", "开启"}
+    return bool(value)
+
+
+def _moviepilot_full_washing_timeout_hours(repository: MoviePilotWebhookSettings) -> int:
+    value = _moviepilot_assistant_config(repository).get("full_washing_timeout_hours", 72)
+    if isinstance(value, bool):
+        return 72
+    try:
+        return max(int(value), 0)
+    except (TypeError, ValueError):
+        return 72
+
+
+def _moviepilot_snapshot_retention_days(repository: MoviePilotWebhookSettings) -> int:
+    value = _moviepilot_assistant_config(repository).get("snapshot_retention_days", 180)
+    if isinstance(value, bool):
+        return 180
+    try:
+        return max(int(value), 1)
+    except (TypeError, ValueError):
+        return 180
+
+
 def _p115_native_operation_router(
     database: Any,
     credentials: SqlAlchemyP115CredentialRepository,
@@ -437,6 +491,53 @@ def _p115_native_operation_router(
                 emby=HttpxEmbyQuickDeployGateway(settings_provider),
             ),
         }
+    )
+
+
+def _moviepilot_transfer_processor(
+    *,
+    database: Any,
+    settings_provider: Callable[[], Any],
+    credentials: SqlAlchemyP115CredentialRepository,
+    media_info: P115StrmMediaInfoEnrichmentService,
+    plan_repository: SqlAlchemyP115OrganizePlanRepository,
+    execution_repository: SqlAlchemyP115OrganizeExecutionRepository,
+    jobs: Callable[[], JobSubmissionService],
+) -> NativeMoviePilotTransferProcessor:
+    def priority() -> str:
+        return str(settings_provider().p115_api_priority)
+
+    return NativeMoviePilotTransferProcessor(
+        credentials=credentials,
+        remote=P115PrimaryOperationsGateway(
+            credentials=credentials,
+            priority=priority,
+        ),
+        media_info=media_info,
+        plans=P115OrganizePlanService(
+            settings=settings_provider,
+            credentials=credentials,
+            directories=HttpxP115DirectoryTreeGateway(
+                credentials=credentials,
+                priority=priority,
+            ),
+            sorting_rules=SqlAlchemyP115SortingRulesRepository(database.unit_of_work),
+            rename_config=SqlAlchemyP115RenameConfigRepository(database.unit_of_work),
+            episode_regex=SqlAlchemyP115EpisodeRegexRepository(database.unit_of_work),
+            repository=plan_repository,
+            recognition=ExplicitMoviePilotRecognitionGateway(),
+            naming=MoviePilotOriginalNameGateway(),
+        ),
+        executions=P115OrganizeExecutionService(
+            plans=plan_repository,
+            repository=execution_repository,
+            mutations=HttpxP115OrganizeMutationGateway(
+                credentials=credentials,
+                priority=priority,
+            ),
+        ),
+        execution_repository=execution_repository,
+        jobs=jobs,
     )
 
 
@@ -942,9 +1043,10 @@ class WorkerRuntime:
                     settings_provider,
                 )
                 subscription_operations = PostgresSubscriptionOperationRepository(database.unit_of_work)
+                moviepilot_gateway = ConfiguredMoviePilotGateway(app_settings)
                 subscription_executor = SubscriptionOperationExecutor(
                     subscription_operations,
-                    ConfiguredMoviePilotGateway(app_settings),
+                    moviepilot_gateway,
                 )
                 identity_operations = PostgresIdentityOperationRepository(database.unit_of_work)
                 identity_effects = HttpxEmbyIdentityEffectsAdapter(settings_provider)
@@ -1388,6 +1490,34 @@ class WorkerRuntime:
                             ),
                             auto_tagging_delivery,
                             studio_images_delivery,
+                            MoviePilotWebhookEffectDelivery(
+                                SqlAlchemyMoviePilotAssistantEventRepository(
+                                    database.unit_of_work,
+                                    full_washing_guard=partial(
+                                        _moviepilot_full_washing_guard,
+                                        app_settings,
+                                    ),
+                                    active_downloads=moviepilot_gateway.active_downloads,
+                                ),
+                                _moviepilot_transfer_processor(
+                                    database=database,
+                                    settings_provider=settings_provider,
+                                    credentials=p115_credentials,
+                                    media_info=strm_mediainfo,
+                                    plan_repository=organize_plans,
+                                    execution_repository=organize_executions,
+                                    jobs=lambda: service,
+                                ),
+                                MoviePilotFullWashingOperations(subscription_operations),
+                                full_washing_timeout_hours=partial(
+                                    _moviepilot_full_washing_timeout_hours,
+                                    app_settings,
+                                ),
+                                snapshot_retention_days=partial(
+                                    _moviepilot_snapshot_retention_days,
+                                    app_settings,
+                                ),
+                            ),
                         ]
                     ),
                     worker_id=f"{self._worker_id}:media-effect",
@@ -1653,9 +1783,10 @@ class WorkerRuntime:
                 settings_provider,
             )
             subscription_operations = PostgresSubscriptionOperationRepository(database.unit_of_work)
+            moviepilot_gateway = ConfiguredMoviePilotGateway(app_settings)
             subscription_executor = SubscriptionOperationExecutor(
                 subscription_operations,
-                ConfiguredMoviePilotGateway(app_settings),
+                moviepilot_gateway,
             )
             moviepilot_effects = PersistentMoviePilotEffectGateway(
                 subscription_operations,
@@ -1886,20 +2017,6 @@ class WorkerRuntime:
                 item_lock=PostgresAutoTaggingItemLock(database.engine),
             )
             studio_images_delivery = HttpxStudioImageAdapter(settings_provider)
-            media_effects = PersistentMediaEffectExecutor(
-                PostgresMediaEffectLedger(database.unit_of_work),
-                RoutedMediaEffectDelivery(
-                    [
-                        BridgeMediaEffectDelivery(bridge_client),
-                        SharedIntroExportEffectDelivery(app_settings, shared_center),
-                        DailyThemeReplenishmentEffectDelivery(daily_theme),
-                        auto_tagging_delivery,
-                        studio_images_delivery,
-                    ]
-                ),
-                worker_id=f"{self._worker_id}:media-effect",
-                lease_seconds=lambda: studio_image_claim_lease_seconds(config_adapter.load().emby_api_timeout),
-            )
             p115_fingerprint_repair = P115FingerprintRepairService(
                 credentials=p115_credentials,
                 repository=p115_mediainfo_repository,
@@ -1926,6 +2043,48 @@ class WorkerRuntime:
                 repository=p115_mediainfo_repository,
                 probe=media_probe,
                 policies=mediainfo_policies,
+            )
+            media_effects = PersistentMediaEffectExecutor(
+                PostgresMediaEffectLedger(database.unit_of_work),
+                RoutedMediaEffectDelivery(
+                    [
+                        BridgeMediaEffectDelivery(bridge_client),
+                        SharedIntroExportEffectDelivery(app_settings, shared_center),
+                        DailyThemeReplenishmentEffectDelivery(daily_theme),
+                        auto_tagging_delivery,
+                        studio_images_delivery,
+                        MoviePilotWebhookEffectDelivery(
+                            SqlAlchemyMoviePilotAssistantEventRepository(
+                                database.unit_of_work,
+                                full_washing_guard=partial(
+                                    _moviepilot_full_washing_guard,
+                                    app_settings,
+                                ),
+                                active_downloads=moviepilot_gateway.active_downloads,
+                            ),
+                            _moviepilot_transfer_processor(
+                                database=database,
+                                settings_provider=settings_provider,
+                                credentials=p115_credentials,
+                                media_info=strm_mediainfo,
+                                plan_repository=organize_plans,
+                                execution_repository=organize_executions,
+                                jobs=lambda: service,
+                            ),
+                            MoviePilotFullWashingOperations(subscription_operations),
+                            full_washing_timeout_hours=partial(
+                                _moviepilot_full_washing_timeout_hours,
+                                app_settings,
+                            ),
+                            snapshot_retention_days=partial(
+                                _moviepilot_snapshot_retention_days,
+                                app_settings,
+                            ),
+                        ),
+                    ]
+                ),
+                worker_id=f"{self._worker_id}:media-effect",
+                lease_seconds=lambda: studio_image_claim_lease_seconds(config_adapter.load().emby_api_timeout),
             )
             intro_repository = PostgresP115IntroDetectionRepository(database.unit_of_work)
             intro_source = PostgresP115IntroRuntimeSource(

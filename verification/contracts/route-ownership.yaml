@@ -7828,22 +7828,23 @@
       "contract_id": "route-binding-25ecb76f1bfa",
       "decorator_contract_id": "route-decorator-a9661d8bc859",
       "endpoint": "emby_webhook",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-moviepilot-webhook.json",
+      "fixture_exception": null,
       "method": "POST",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.moviepilot_webhook_router",
+      "notes": "P11 native MoviePilot ingress precedes the compatibility mount, reserves identifier-bound durable effects, and delegates assistant or transfer execution to the Worker without request-thread provider writes.",
       "path": "/webhook/emby",
       "retirement_approval": null,
       "source": "routes/webhook.py:2489",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "ingestion",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-p11-moviepilot-webhook-http-native-transfer-postgres18-openapi-and-worker-wiring",
+      "validation_owner": "subscription/moviepilot-webhook"
     },
     {
       "application": "proxy",
@@ -16389,24 +16390,25 @@
       "contract_id": "route-decorator-a9661d8bc859",
       "declared_path": "/webhook/emby",
       "endpoint": "emby_webhook",
-      "fixture": null,
-      "fixture_exception": "P0 freezes route identity statically; behavioral fixtures are assigned during the owning migration stage.",
+      "fixture": "verification/fixtures/http/p7-moviepilot-webhook.json",
+      "fixture_exception": null,
       "methods": [
         "POST"
       ],
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.moviepilot_webhook_router",
+      "notes": "P11 native MoviePilot ingress precedes the compatibility mount, reserves identifier-bound durable effects, and delegates assistant or transfer execution to the Worker without request-thread provider writes.",
       "path": "/webhook/emby",
       "retirement_approval": null,
       "source": "routes/webhook.py:2489",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "ingestion",
         "subscription",
         "sharing"
       ],
       "target_stage": "P5/P7/P9",
-      "validation_method": "static-route-contract",
-      "validation_owner": "ingestion/subscription/sharing"
+      "validation_method": "pytest-p11-moviepilot-webhook-http-native-transfer-postgres18-openapi-and-worker-wiring",
+      "validation_owner": "subscription/moviepilot-webhook"
     }
   ],
   "schema_version": 1,

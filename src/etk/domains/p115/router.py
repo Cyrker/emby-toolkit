@@ -81,6 +81,7 @@ class OrganizePlanRequest(BaseModel):
     source_name: str | None = None
     request_intent_id: str | None = None
     recognition_hints: dict[str, dict[str, Any]] | None = None
+    source_file_ids: list[str] | None = None
 
 
 class OrganizePlanActionResponse(BaseModel):

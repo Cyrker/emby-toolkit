@@ -111,6 +111,8 @@ def _call_name(node: ast.AST) -> str | None:
 def _fixture_for_route(source_path: str, route_path: str) -> tuple[str | None, str | None]:
     if source_path == "reverse_proxy.py":
         return "verification/fixtures/http/reverse-proxy-scenarios.json", None
+    if route_path == "/webhook/emby":
+        return "verification/fixtures/http/p7-moviepilot-webhook.json", None
     if route_path == "/api/emby/metadata":
         return "verification/fixtures/http/bridge-metadata.json", None
     if route_path.startswith("/api/emby/"):

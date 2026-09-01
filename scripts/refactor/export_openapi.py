@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 320
-EXPECTED_OPERATIONS = 375
+EXPECTED_PATHS = 321
+EXPECTED_OPERATIONS = 376
 BODY_METHODS = {
     ("post", "/api/ai/models"),
     ("post", "/api/ai/prompts"),
@@ -73,6 +73,7 @@ ORGANIZE_PLAN_REQUEST_FIELDS = {
     "recognition_hints",
     "request_intent_id",
     "source_cid",
+    "source_file_ids",
     "source_name",
 }
 ORGANIZE_PLAN_DOCUMENT_FIELDS = {

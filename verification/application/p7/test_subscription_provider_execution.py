@@ -630,6 +630,38 @@ def test_cancellation_before_provider_checkpoint_prevents_provider_write() -> No
     assert gateway.queries == []
 
 
+def test_delete_preflight_rejects_replaced_subscription_identity_before_provider_write() -> None:
+    repository = FakeOperationRepository(
+        _operation(
+            {
+                "action": "delete",
+                "tmdb_id": "101",
+                "season": 2,
+                "expected": {"id": 26},
+                "preflight_readback": True,
+            }
+        )
+    )
+    gateway = FakeMoviePilotGateway()
+    gateway.query_results = [_found(id=99, tmdbid=101, season=2)]
+
+    result = SubscriptionOperationExecutor(repository, gateway).execute(
+        repository.operation.id,
+        worker_id="fixture-worker",
+        lease_seconds=60,
+        now=NOW,
+    )
+
+    assert result is not None and result.operation.status is SubscriptionOperationStatus.REJECTED
+    assert result.operation.provider_request_started_at is None
+    assert result.operation.error == {
+        "type": "preflight_identity_mismatch",
+        "expected_id": 26,
+        "observed_id": 99,
+    }
+    assert gateway.writes == []
+
+
 def test_invalid_durable_request_is_rejected_before_provider_checkpoint() -> None:
     repository = FakeOperationRepository(_operation({"action": "create", "tmdb_id": "101", "payload": {}}))
     gateway = FakeMoviePilotGateway()

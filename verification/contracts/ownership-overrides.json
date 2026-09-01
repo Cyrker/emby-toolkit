@@ -3873,6 +3873,15 @@
         "status": "new",
         "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
         "validation_owner": "subscription/provider-control"
+      },
+      "route-binding-25ecb76f1bfa": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-webhook.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.moviepilot_webhook_router",
+        "notes": "P11 native MoviePilot ingress precedes the compatibility mount, reserves identifier-bound durable effects, and delegates assistant or transfer execution to the Worker without request-thread provider writes.",
+        "status": "new",
+        "validation_method": "pytest-p11-moviepilot-webhook-http-native-transfer-postgres18-openapi-and-worker-wiring",
+        "validation_owner": "subscription/moviepilot-webhook"
       }
     },
     "route_decorators": {
@@ -6953,6 +6962,15 @@
         "status": "new",
         "validation_method": "pytest-p11-provider-control-http-postgres18-redis-celery-openapi-and-frontend",
         "validation_owner": "subscription/provider-control"
+      },
+      "route-decorator-a9661d8bc859": {
+        "fixture": "verification/fixtures/http/p7-moviepilot-webhook.json",
+        "fixture_exception": null,
+        "new_owner": "etk.domains.subscription.moviepilot_webhook_router",
+        "notes": "P11 native MoviePilot ingress precedes the compatibility mount, reserves identifier-bound durable effects, and delegates assistant or transfer execution to the Worker without request-thread provider writes.",
+        "status": "new",
+        "validation_method": "pytest-p11-moviepilot-webhook-http-native-transfer-postgres18-openapi-and-worker-wiring",
+        "validation_owner": "subscription/moviepilot-webhook"
       }
     },
     "settings": {

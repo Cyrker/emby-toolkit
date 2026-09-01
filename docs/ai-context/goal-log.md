@@ -5702,3 +5702,58 @@ Safety boundary:
 
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
+### P11-MoviePilot-Webhook
+
+Stage / Batch: P11 / native MoviePilot webhook, assistant reconciliation and P115 transfer
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `5dbf76ac` (`refactor(p11): cut over provider control routes`).
+- Target checkpoint message: `refactor(p11): cut over moviepilot webhook`.
+
+Implemented:
+
+- Replaced the final active Flask binding, `POST /webhook/emby`, with a FastAPI ingress that keeps
+  the legacy envelopes and reserves durable Worker-owned assistant/transfer Media Effects.
+- Added native assistant state, torrent, suppression, snapshot and receipt transactions plus strict
+  MoviePilot active-download readback. State-digest, timeout-marker and cycle CAS fences prevent a
+  stale readback or old effect from overwriting a newer washing/download cycle.
+- Added stable restart/timeout Subscription Operations, subscription-ID delete preflight,
+  retryable SQL failure handling and explicit terminal failure receipts. Timeout `0` remains the
+  compatibility disabled sentinel; timeout convergence no longer depends on provider availability.
+- Added native MoviePilot transfer through immutable account/backend/credential/source-bound P115
+  plans/jobs, including sidecar, file-info and Episode identity handling.
+- Regenerated Route/OpenAPI/client artifacts. All `343` route decorators and `367` method bindings
+  now have native owners; OpenAPI is `321 paths / 376 operations`.
+
+Targeted gate:
+
+- Full P7 application -> `405 passed`; disposable PostgreSQL 18 MoviePilot webhook -> `14 passed`.
+- P115 organize-plan/ownership plus OpenAPI -> `30 passed, 1 deselected`; the single-head check was
+  isolated because the preserved custom-collection draft contains the uncommitted next migration.
+- Frontend generation was hash-stable; typecheck, API boundary, `26` unit tests and production build
+  passed with only the existing large-chunk warning.
+- Scoped Ruff/format and Pyright (`0 errors, 0 warnings, 0 informations`) passed. Compileall,
+  `uv lock --check`, Manifest/OpenAPI currentness, three secret scans and `git diff --check` are
+  clean.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-moviepilot-webhook-20260901/summary.md`.
+
+Focused review:
+
+- Closed provider-unavailable timeout liveness, terminal-operation zombie, duplicate event,
+  cycle-supersession, provider/local readback race, unknown-season and pending-state findings.
+- Final static rereview found no deterministic P0/P1/P2 in this bounded webhook/transfer slice.
+
+Pending:
+
+- Complete the remaining `20` legacy-compatible task execution owners, including native
+  subscribe-assistant maintenance for historical state, then finish Table/Config/Frontend
+  ownership, pre-removal, controlled removal and all P11 NFR/security/SBOM/vulnerability/License
+  gates.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.

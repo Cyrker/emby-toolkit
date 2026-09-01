@@ -32,6 +32,7 @@ _MAX_PAGES_PER_DIRECTORY = 1000
 _MAX_SOURCE_NODES = 100_000
 _MAX_SOURCE_DEPTH = 32
 _VIDEO_EXTENSIONS = {"avi", "flv", "iso", "m2ts", "mkv", "mov", "mp4", "mpg", "rmvb", "ts", "wmv"}
+_SIDECAR_EXTENSIONS = {"ass", "idx", "nfo", "srt", "ssa", "sub", "sup", "vtt"}
 
 P115_PLANNING_POLICY_KEYS = (
     "ai_recognition",
@@ -285,6 +286,10 @@ class P115OrganizePlanService:
     def create(self, raw_payload: object) -> P115Result:
         payload = dict(raw_payload) if isinstance(raw_payload, Mapping) else {}
         sanitized_hints = _sanitize_mapping(payload.get("recognition_hints"))
+        try:
+            source_file_ids = _source_file_ids(payload.get("source_file_ids"))
+        except (TypeError, ValueError) as exc:
+            return P115Result({"success": False, "message": str(exc)}, 400)
         settings = self._settings()
         runtime_config = _runtime_config_snapshot(settings)
         credentials = self._credentials.load()
@@ -295,6 +300,7 @@ class P115OrganizePlanService:
             "source_cid": source_root_cid,
             "source_name": source_root_name,
             "recognition_hints": sanitized_hints,
+            "source_file_ids": list(source_file_ids),
         }
         request_hash = _hash_json(request_semantics)
         explicit_intent = str(payload.get("request_intent_id") or "").strip()
@@ -332,6 +338,9 @@ class P115OrganizePlanService:
                         root_cid=source_root_cid,
                         root_name=source_root_name,
                     )
+                    if source_file_ids:
+                        nodes, selection = _select_source_files(nodes, source_file_ids)
+                        provider_evidence = {**provider_evidence, **selection}
                 except Exception as exc:
                     errors.append(
                         _issue(
@@ -384,6 +393,7 @@ class P115OrganizePlanService:
             "policy_revision": support.policy_revision,
             "runtime_config_revision": support.runtime_config_revision,
             "recognition_hints": sanitized_hints,
+            "source_file_ids": list(source_file_ids),
             "planned_media": [media.fingerprint_value() for media in planned_media],
             "errors": errors,
             "warnings": warnings,
@@ -497,9 +507,12 @@ class P115OrganizePlanService:
             if node.entry_kind != "file":
                 continue
             extension = PurePosixPath(node.name).suffix.lower().lstrip(".")
-            if extension not in allowed_extensions or extension not in _VIDEO_EXTENSIONS:
+            hint_value = hints.get(node.id)
+            raw_hint: Mapping[str, Any] = cast(Mapping[str, Any], hint_value) if isinstance(hint_value, Mapping) else {}
+            sidecar = bool(raw_hint.get("sidecar")) and extension in _SIDECAR_EXTENSIONS
+            if not sidecar and (extension not in allowed_extensions or extension not in _VIDEO_EXTENSIONS):
                 continue
-            if 0 < node.size < minimum_size:
+            if not sidecar and 0 < node.size < minimum_size:
                 warnings.append(
                     _issue(
                         "SOURCE_BELOW_MINIMUM_SIZE",
@@ -512,7 +525,7 @@ class P115OrganizePlanService:
                 errors.append(_issue("SOURCE_SHA1_REQUIRED", "源文件缺少 SHA1", source_id=node.id))
                 continue
             media_evidence = media_info.get(node.sha1.upper()) or media_info.get(node.sha1)
-            if not media_evidence or not media_evidence.get("has_video"):
+            if not sidecar and (not media_evidence or not media_evidence.get("has_video")):
                 errors.append(
                     _issue(
                         "MEDIAINFO_REQUIRED",
@@ -521,8 +534,6 @@ class P115OrganizePlanService:
                     )
                 )
                 continue
-            hint_value = hints.get(node.id)
-            raw_hint: Mapping[str, Any] = cast(Mapping[str, Any], hint_value) if isinstance(hint_value, Mapping) else {}
             try:
                 recognition = _sanitize_mapping(
                     self._recognition.recognize(
@@ -541,7 +552,9 @@ class P115OrganizePlanService:
                     )
                 )
                 continue
-            recognition["media_info_evidence"] = deepcopy(dict(media_evidence))
+            recognition["media_info_evidence"] = deepcopy(dict(media_evidence or {}))
+            if sidecar:
+                recognition["sidecar"] = True
             video_info = _filename_video_info(node.name)
             raw_recognition_video = recognition.get("video_info")
             if isinstance(raw_recognition_video, Mapping):
@@ -552,7 +565,7 @@ class P115OrganizePlanService:
                         if value not in (None, "")
                     }
                 )
-            raw_cached_video = media_evidence.get("video_info")
+            raw_cached_video = media_evidence.get("video_info") if isinstance(media_evidence, Mapping) else None
             if isinstance(raw_cached_video, Mapping):
                 video_info.update(
                     {str(key): deepcopy(value) for key, value in raw_cached_video.items() if value not in (None, "")}
@@ -790,7 +803,7 @@ def _match_sorting_rule(
         if media_type != "all" and media_type != recognition.get("media_type"):
             continue
         rule_extensions = _string_set(rule.get("file_extensions"), strip_dot=True)
-        if rule_extensions and extension not in rule_extensions:
+        if rule_extensions and extension not in rule_extensions and not recognition.get("sidecar"):
             continue
         configured: list[bool] = []
         _condition(configured, rule.get("genres"), _overlaps(rule.get("genres"), recognition.get("genre_ids")))
@@ -969,6 +982,17 @@ def _build_actions(
                 )
                 ensure_by_path[directory_key] = directory_action
             parent_action = directory_action
+        media_info_evidence = planned.recognition.get("media_info_evidence")
+        media_info_snapshot_hash = (
+            str(media_info_evidence.get("snapshot_hash") or "").strip()
+            if isinstance(media_info_evidence, Mapping)
+            else ""
+        )
+        media_info_preconditions = (
+            {"media_info_snapshot_hash": media_info_snapshot_hash}
+            if media_info_snapshot_hash
+            else {}
+        )
         source_preconditions = {
             "source_id": planned.node.id,
             "source_parent_id": planned.node.parent_id,
@@ -976,7 +1000,7 @@ def _build_actions(
             "source_sha1": planned.node.sha1,
             "source_size": planned.node.size,
             "source_raw_hash": planned.node.raw_hash,
-            "media_info_snapshot_hash": planned.recognition["media_info_evidence"]["snapshot_hash"],
+            **media_info_preconditions,
         }
         source_identity = {
             "file_id": planned.node.id,
@@ -1036,7 +1060,7 @@ def _build_actions(
                     "source_sha1": planned.node.sha1,
                     "source_size": planned.node.size,
                     "source_parent_action_id": parent_action,
-                    "media_info_snapshot_hash": planned.recognition["media_info_evidence"]["snapshot_hash"],
+                    **media_info_preconditions,
                     "destination_must_be_absent": True,
                 },
                 decision_basis={"rename_config_revision": rename_revision},
@@ -1217,6 +1241,39 @@ def _string_set(value: object, *, strip_dot: bool = False) -> set[str]:
         if text:
             result.add(text)
     return result
+
+
+def _source_file_ids(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise TypeError("source_file_ids must be a list")
+    normalized = tuple(dict.fromkeys(str(item or "").strip() for item in value if str(item or "").strip()))
+    if not normalized or len(normalized) > 200:
+        raise ValueError("source_file_ids must contain 1-200 non-empty file IDs")
+    if len(normalized) != len(value):
+        raise ValueError("source_file_ids must contain unique non-empty file IDs")
+    return normalized
+
+
+def _select_source_files(
+    nodes: Sequence[P115SourceNode],
+    source_file_ids: Sequence[str],
+) -> tuple[tuple[P115SourceNode, ...], dict[str, Any]]:
+    requested = tuple(source_file_ids)
+    by_id = {node.id: node for node in nodes}
+    missing = [file_id for file_id in requested if file_id not in by_id]
+    if missing:
+        raise RuntimeError(f"selected source files were not found: {missing!r}")
+    selected = tuple(by_id[file_id] for file_id in requested)
+    directories = [node.id for node in selected if node.entry_kind != "file"]
+    if directories:
+        raise RuntimeError(f"selected source IDs are not files: {directories!r}")
+    return selected, {
+        "selected_file_ids": list(requested),
+        "selected_node_count": len(selected),
+        "selection_complete": True,
+    }
 
 
 def _optional_count(value: object) -> int | None:

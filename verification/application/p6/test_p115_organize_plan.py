@@ -374,6 +374,123 @@ def test_ready_movie_plan_matches_the_frozen_no_effect_contract() -> None:
     assert all(action["risk"]["requires_readback"] for action in data["actions"])
 
 
+def test_plan_can_freeze_one_selected_moviepilot_file_without_claiming_siblings() -> None:
+    sha1_a = "A" * 40
+    sha1_b = "B" * 40
+    service, _client, _gateway, repository, _container = _service(
+        responses={
+            ("source-root", 0): {
+                "state": True,
+                "data": [
+                    _file("movie-1", "Fixture.2026.mkv", sha1_a),
+                    _file("movie-2", "Unrelated.2025.mkv", sha1_b),
+                ],
+                "count": 2,
+            },
+            ("source-root", 2): {"state": True, "data": [], "count": 2},
+        },
+        media_info={sha1_a: {"snapshot_hash": "c" * 64, "has_video": True}},
+    )
+
+    result = service.create(
+        {
+            "request_intent_id": "moviepilot-selected-file",
+            "source_file_ids": ["movie-1"],
+            "recognition_hints": {
+                "movie-1": {
+                    "title": "Fixture",
+                    "year": 2026,
+                    "media_type": "movie",
+                    "tmdb_id": "100",
+                }
+            },
+        }
+    )
+
+    data = _plan_data(result)
+    assert data["status"] == "ready"
+    assert [node["id"] for node in data["source_snapshot"]] == ["movie-1"]
+    assert data["provider_evidence"]["node_count"] == 2
+    assert data["provider_evidence"]["selected_file_ids"] == ["movie-1"]
+    assert data["provider_evidence"]["selected_node_count"] == 1
+    assert repository.support_calls == [(sha1_a,)]
+
+
+def test_selected_source_file_ids_reject_duplicates_and_missing_nodes() -> None:
+    service, _client, _gateway, _repository, _container = _service(
+        responses={
+            ("source-root", 0): {"state": True, "data": [], "count": 0},
+        }
+    )
+
+    duplicate = service.create({"source_file_ids": ["movie-1", "movie-1"]})
+    missing = service.create({"source_file_ids": ["movie-1"]})
+
+    assert duplicate.status_code == 400
+    assert _result_payload(duplicate)["success"] is False
+    assert "unique" in str(_result_payload(duplicate)["message"])
+    assert missing.status_code == 200
+    assert _plan_data(missing)["status"] == "blocked"
+    assert _plan_data(missing)["errors"][0]["code"] == "SOURCE_SNAPSHOT_FAILED"
+
+
+def test_explicit_sidecar_hint_moves_subtitle_without_requiring_video_mediainfo() -> None:
+    video_sha1 = "A" * 40
+    subtitle_sha1 = "B" * 40
+    service, _client, _gateway, _repository, _container = _service(
+        responses={
+            ("source-root", 0): {
+                "state": True,
+                "data": [
+                    _file("video", "Fixture.S01E02.mkv", video_sha1),
+                    _file("subtitle", "Fixture.S01E02.zh.srt", subtitle_sha1, size=1000),
+                ],
+                "count": 2,
+            },
+            ("source-root", 2): {"state": True, "data": [], "count": 2},
+        },
+        media_info={video_sha1: {"snapshot_hash": "d" * 64, "has_video": True}},
+        rules=[
+            {
+                "id": "tv",
+                "name": "剧集",
+                "cid": "target-tv",
+                "category_path": "剧集",
+                "media_type": "tv",
+                "file_extensions": ["mkv"],
+            }
+        ],
+    )
+    common = {
+        "title": "Fixture",
+        "media_type": "tv",
+        "tmdb_id": "100",
+        "season_number": 1,
+        "episode_number": 2,
+    }
+
+    result = service.create(
+        {
+            "request_intent_id": "moviepilot-video-sidecar",
+            "source_file_ids": ["video", "subtitle"],
+            "recognition_hints": {
+                "video": common,
+                "subtitle": {**common, "sidecar": True},
+            },
+        }
+    )
+
+    data = _plan_data(result)
+    assert data["status"] == "ready"
+    assert data["recognition_evidence"]["subtitle"]["sidecar"] is True
+    moved_ids = {
+        action["subject"].get("file_id")
+        for action in data["actions"]
+        if action["kind"] == "MOVE"
+    }
+    assert moved_ids == {"video", "subtitle"}
+
+
 def test_tv_plan_deduplicates_directory_actions_and_is_byte_deterministic() -> None:
     sha1_a = "A" * 40
     sha1_b = "B" * 40

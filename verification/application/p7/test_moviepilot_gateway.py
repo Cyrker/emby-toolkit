@@ -198,6 +198,68 @@ def test_list_preserves_provider_objects_and_distinguishes_empty_from_failure() 
     assert raised.value.outcome is None
 
 
+def test_active_downloads_normalize_supported_response_shapes() -> None:
+    responses: list[Any] = [
+        {
+            "data": {
+                "items": [
+                    {"hashString": "ABCDEF", "media": {"tmdbid": "2500", "season": 1}},
+                    {"info_hash": "123456", "source": {"id": 25}},
+                ]
+            }
+        },
+        [],
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/login/access-token":
+            return _login(request)
+        assert request.method == "GET"
+        assert request.url.path == "/api/v1/download/"
+        return httpx.Response(200, json=responses.pop(0))
+
+    gateway = _gateway(handler)
+
+    active = gateway.active_downloads()
+    assert [value.task_hash for value in active] == ["abcdef", "123456"]
+    assert (active[0].tmdb_id, active[0].season) == ("2500", 1)
+    assert active[1].subscribe_id == 25
+    assert gateway.active_downloads() == ()
+
+
+def test_active_downloads_reject_items_without_an_authoritative_hash() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/login/access-token":
+            return _login(request)
+        return httpx.Response(200, json=[{"id": 42, "media": {"tmdbid": "2500"}}])
+
+    with pytest.raises(MoviePilotProviderError) as raised:
+        _gateway(handler).active_downloads()
+
+    assert raised.value.kind is MoviePilotProviderErrorKind.INVALID_RESPONSE
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"data": {}},
+        [{"hash": {"unexpected": "object"}, "media": {"tmdbid": "2500"}}],
+        [{"hash": "abcdef", "media": {"tmdbid": {"unexpected": "object"}}}],
+    ],
+)
+def test_active_downloads_reject_ambiguous_empty_or_invalid_contract_shapes(payload: Any) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/login/access-token":
+            return _login(request)
+        return httpx.Response(200, json=payload)
+
+    with pytest.raises(MoviePilotProviderError) as raised:
+        _gateway(handler).active_downloads()
+
+    assert raised.value.kind is MoviePilotProviderErrorKind.INVALID_RESPONSE
+
+
 def test_create_and_update_preserve_the_legacy_method_path_and_json_payload() -> None:
     provider_requests: list[httpx.Request] = []
     payload = {

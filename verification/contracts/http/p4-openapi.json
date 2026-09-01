@@ -627,6 +627,11 @@
         "title": "MessageResponse",
         "type": "object"
       },
+      "MoviePilotWebhookResponse": {
+        "additionalProperties": true,
+        "title": "MoviePilotWebhookResponse",
+        "type": "object"
+      },
       "ObjectMapResponse": {
         "additionalProperties": true,
         "title": "ObjectMapResponse",
@@ -11367,6 +11372,20 @@
                     ],
                     "title": "Source Cid"
                   },
+                  "source_file_ids": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Source File Ids"
+                  },
                   "source_name": {
                     "anyOf": [
                       {
@@ -20878,6 +20897,106 @@
         "tags": [
           "media",
           "image-proxy"
+        ]
+      }
+    },
+    "/webhook/emby": {
+      "post": {
+        "operationId": "moviepilot_webhook_webhook_emby_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "Event": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Event"
+                  },
+                  "data": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Data"
+                  },
+                  "type": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Type"
+                  }
+                },
+                "title": "MoviePilotWebhookRequest",
+                "type": "object"
+              }
+            }
+          },
+          "required": false
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoviePilotWebhookResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoviePilotWebhookResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoviePilotWebhookResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoviePilotWebhookResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Moviepilot Webhook",
+        "tags": [
+          "subscription",
+          "moviepilot"
         ]
       }
     }

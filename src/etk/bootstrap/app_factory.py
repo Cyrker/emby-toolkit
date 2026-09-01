@@ -112,6 +112,7 @@ from etk.domains.media.discover_router import router as discover_router
 from etk.domains.media.editing import MediaEditingService
 from etk.domains.media.editing_effects import PersistentMediaInfoCommandGateway
 from etk.domains.media.editing_router import router as media_editing_router
+from etk.domains.media.effects import PostgresMediaEffectLedger
 from etk.domains.media.event_effects import PersistentP5MediaEventGateway
 from etk.domains.media.future_events import (
     P8CollectionRemovalEventGateway,
@@ -291,6 +292,8 @@ from etk.domains.subscription.moviepilot_config import (
 )
 from etk.domains.subscription.moviepilot_config_router import router as moviepilot_config_router
 from etk.domains.subscription.moviepilot_configured import ConfiguredMoviePilotGateway
+from etk.domains.subscription.moviepilot_webhook import MoviePilotWebhookService
+from etk.domains.subscription.moviepilot_webhook_router import router as moviepilot_webhook_router
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
 from etk.domains.subscription.portal import (
     PORTAL_SUBSCRIPTION_USE_CASE_PROVIDER,
@@ -534,6 +537,7 @@ def create_app(
     app.include_router(cleanup_router)
     app.include_router(resubscribe_router)
     app.include_router(moviepilot_config_router)
+    app.include_router(moviepilot_webhook_router)
     app.include_router(subscription_core_router)
     app.include_router(provider_control_router)
     app.include_router(sharing_router)
@@ -1795,6 +1799,15 @@ def _register_subscription_providers(container: AppContainer) -> None:
         lambda current: MoviePilotConfigService(
             current.repository("app-settings"),
             current.client("subscription.assistant-defaults"),
+        ),
+    )
+    container.register_use_case(
+        "subscription.moviepilot-webhook",
+        lambda current: MoviePilotWebhookService(
+            PostgresMediaEffectLedger(current.database.unit_of_work),
+            current.repository("app-settings"),
+            lambda: current.settings,
+            current.repository("p115.credentials"),
         ),
     )
     container.register_use_case(

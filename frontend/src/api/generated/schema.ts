@@ -5502,6 +5502,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/webhook/emby": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Moviepilot Webhook */
+        post: operations["moviepilot_webhook_webhook_emby_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5724,6 +5741,10 @@ export interface components {
         MessageResponse: {
             /** Message */
             message: string;
+        };
+        /** MoviePilotWebhookResponse */
+        MoviePilotWebhookResponse: {
+            [key: string]: unknown;
         };
         /** ObjectMapResponse */
         ObjectMapResponse: {
@@ -14766,6 +14787,8 @@ export interface operations {
                     request_intent_id?: string | null;
                     /** Source Cid */
                     source_cid?: string | null;
+                    /** Source File Ids */
+                    source_file_ids?: string[] | null;
                     /** Source Name */
                     source_name?: string | null;
                 } & {
@@ -24064,6 +24087,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    moviepilot_webhook_webhook_emby_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Event */
+                    Event?: string | null;
+                    /** Data */
+                    data?: {
+                        [key: string]: unknown;
+                    } | null;
+                    /** Type */
+                    type?: string | null;
+                } & {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoviePilotWebhookResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoviePilotWebhookResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoviePilotWebhookResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoviePilotWebhookResponse"];
+                };
             };
         };
     };
