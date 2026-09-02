@@ -95,6 +95,7 @@ P7_NATIVE_EXECUTION_OWNERS = {
         "etk.domains.p115.washing_recalculation.P115WashingPriorityRecalculationService"
     ),
     "scan_old_seasons_backfill": "etk.domains.subscription.watchlist.OldSeasonBackfillService",
+    "update-resubscribe-cache": ("etk.domains.subscription.resubscribe_cache.NativeResubscribeCacheTaskService"),
 }
 P7_COMPATIBILITY_EXECUTION_OWNERS = {
     "subscribe-assistant-maintenance": (

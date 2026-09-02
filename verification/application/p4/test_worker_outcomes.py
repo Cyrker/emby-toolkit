@@ -491,6 +491,7 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
         ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
         ("sync-all-user-data", "_p8_effect_tasks"),
         ("hdhive-auto-checkin", "_p9_sharing_tasks"),
+        ("update-resubscribe-cache", "_p7_subscription_tasks"),
     ],
 )
 def test_native_processor_free_tasks_do_not_import_task_manager(
@@ -567,6 +568,7 @@ def test_native_worker_routes_manual_subscription_without_legacy_runtime(
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
         ("scan-cleanup-issues", "_p8_effect_tasks"),
         ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
+        ("update-resubscribe-cache", "_p7_subscription_tasks"),
     ],
 )
 def test_compatibility_worker_does_not_resolve_processor_for_native_tasks(
@@ -958,6 +960,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "sync-all-user-data",
             "system-auto-update",
             "update-daily-theme",
+            "update-resubscribe-cache",
             CLEANUP_EXECUTION_TASK_KEY,
         }
         | P9_NATIVE_TASK_KEYS

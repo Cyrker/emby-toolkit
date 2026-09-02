@@ -7652,10 +7652,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativeResubscribeCacheTaskService against one repeatable PostgreSQL snapshot; index publication and stale purge are atomic and provider-free.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "subscription/task-envelope"
+        "validation_method": "ordered-task-registry-native-resubscribe-cache-postgres18-and-worker-outcome",
+        "validation_owner": "subscription/resubscribe-cache"
       },
       "task-21fd73305651": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

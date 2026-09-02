@@ -322,6 +322,10 @@ from etk.domains.subscription.operation_repository import PostgresSubscriptionOp
 from etk.domains.subscription.operations import SubscriptionOperation
 from etk.domains.subscription.provider_control import HDHiveRegistrationOperationDelivery
 from etk.domains.subscription.provider_execution import SubscriptionOperationExecutor
+from etk.domains.subscription.resubscribe_cache import (
+    NativeResubscribeCacheTaskService,
+    SqlAlchemyResubscribeCacheRepository,
+)
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
 from etk.domains.subscription.watchlist import OldSeasonBackfillService
 from etk.domains.system import SqlAlchemyAppSettingsRepository
@@ -450,6 +454,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "sync-all-user-data",
         "system-auto-update",
         "update-daily-theme",
+        "update-resubscribe-cache",
     }
 )
 
@@ -1295,6 +1300,9 @@ class WorkerRuntime:
                     manual_batch=manual_batch,
                     auto_subscribe=auto_subscribe,
                     people_tasks=people_task_service,
+                    resubscribe_cache=NativeResubscribeCacheTaskService(
+                        SqlAlchemyResubscribeCacheRepository(database.unit_of_work)
+                    ),
                 )
                 p9_sharing_tasks = P9SharingTaskRouter(
                     shared_center=shared_center,
@@ -2270,6 +2278,9 @@ class WorkerRuntime:
                 manual_batch=manual_batch,
                 auto_subscribe=auto_subscribe,
                 people_tasks=people_task_service,
+                resubscribe_cache=NativeResubscribeCacheTaskService(
+                    SqlAlchemyResubscribeCacheRepository(database.unit_of_work)
+                ),
             )
             p8_effect_tasks = P8EffectTaskRouter(
                 None,
@@ -3039,6 +3050,7 @@ class WorkerRuntime:
                             "sync-all-user-data",
                             "system-auto-update",
                             "update-daily-theme",
+                            "update-resubscribe-cache",
                         }
                     )
                 )

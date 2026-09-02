@@ -1661,12 +1661,11 @@
       "help": "刷新媒体整理/洗版缓存，为后续洗版筛选和订阅判断提供基础数据。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-      "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free NativeResubscribeCacheTaskService against one repeatable PostgreSQL snapshot; index publication and stale purge are atomic and provider-free.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.subscription.resubscribe_cache.NativeResubscribeCacheTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -1678,8 +1677,8 @@
       ],
       "target_stage": "P7",
       "task_key": "update-resubscribe-cache",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "subscription/task-envelope",
+      "validation_method": "ordered-task-registry-native-resubscribe-cache-postgres18-and-worker-outcome",
+      "validation_owner": "subscription/resubscribe-cache",
       "visible_in": [
         "all"
       ]

@@ -144,6 +144,22 @@ def test_subscribe_assistant_processed_execution_remains_an_explicit_compatibili
     assert "legacy Subscribe Assistant manager/store" in task["notes"]
 
 
+def test_resubscribe_cache_has_a_separate_processor_free_owner() -> None:
+    manifest = json.loads(_source("verification/contracts/task-ownership.yaml"))
+    task = next(entry for entry in manifest["tasks"] if entry["task_key"] == "update-resubscribe-cache")
+
+    assert task["status"] == "new"
+    assert task["new_owner"] == "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter"
+    assert task["ownership_layers"] == {
+        "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.subscription.resubscribe_cache.NativeResubscribeCacheTaskService",
+    }
+    source = _source("src/etk/domains/subscription/resubscribe_cache.py")
+    for forbidden in ("import task_manager", "import tasks", "from tasks", "import handler", "from handler"):
+        assert forbidden not in source
+
+
 def test_manual_subscription_batch_has_processor_free_native_execution_ownership() -> None:
     manifest = json.loads(_source("verification/contracts/task-ownership.yaml"))
     task = next(entry for entry in manifest["tasks"] if entry["task_key"] == "manual_subscribe_batch")

@@ -80,6 +80,15 @@ _ALLOWED_PARAMETERS = {
     "recalculate_library_washing_priorities": frozenset({"item_type", "limit", "affected_scope", "scope_revision"}),
 }
 
+WATCHLIST_TASK_KEYS = frozenset(
+    {
+        "process-watchlist",
+        "refresh_completed_series",
+        "add-all-series-to-watchlist",
+    }
+)
+RESUBSCRIBE_TASK_KEYS = frozenset({"resubscribe-library", "update-resubscribe-cache"})
+
 
 class P7SubscriptionCompatibilityGateway(Protocol):
     def execute(
@@ -141,6 +150,15 @@ class P7OldSeasonBackfill(Protocol):
 
 
 class P7PeopleTaskExecution(Protocol):
+    def execute(
+        self,
+        task_key: str,
+        progress: P7TaskProgress,
+        parameters: Mapping[str, Any],
+    ) -> TaskOutcome: ...
+
+
+class P7NativeTaskExecution(Protocol):
     def execute(
         self,
         task_key: str,
@@ -257,6 +275,9 @@ class P7SubscriptionTaskRouter:
         manual_batch: ManualSubscriptionBatchService | None = None,
         auto_subscribe: AutoSubscribeService | None = None,
         people_tasks: P7PeopleTaskExecution | None = None,
+        watchlist_tasks: P7NativeTaskExecution | None = None,
+        resubscribe_tasks: P7NativeTaskExecution | None = None,
+        resubscribe_cache: P7NativeTaskExecution | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._assistant = assistant
@@ -267,6 +288,9 @@ class P7SubscriptionTaskRouter:
         self._manual_batch = manual_batch
         self._auto_subscribe = auto_subscribe
         self._people_tasks = people_tasks
+        self._watchlist_tasks = watchlist_tasks
+        self._resubscribe_tasks = resubscribe_tasks
+        self._resubscribe_cache = resubscribe_cache
 
     def execute(
         self,
@@ -297,6 +321,18 @@ class P7SubscriptionTaskRouter:
         ):
             result = self._people_tasks.execute(message.task_key, progress, parameters)
             return _native_outcome(message.task_key, result, self._people_tasks)
+        if message.task_key == "update-resubscribe-cache" and self._resubscribe_cache is not None:
+            result = self._resubscribe_cache.execute(message.task_key, progress, parameters)
+            return _native_outcome(message.task_key, result, self._resubscribe_cache)
+        # Optional native owners are only eligible when the caller has no
+        # processor.  A compatibility Worker must keep using its explicit
+        # legacy branch until the complete task owner is proven and promoted.
+        if message.task_key in WATCHLIST_TASK_KEYS and self._watchlist_tasks is not None and processor is None:
+            result = self._watchlist_tasks.execute(message.task_key, progress, parameters)
+            return _native_outcome(message.task_key, result, self._watchlist_tasks)
+        if message.task_key in RESUBSCRIBE_TASK_KEYS and self._resubscribe_tasks is not None and processor is None:
+            result = self._resubscribe_tasks.execute(message.task_key, progress, parameters)
+            return _native_outcome(message.task_key, result, self._resubscribe_tasks)
         if message.task_key == "auto-subscribe":
             if self._auto_subscribe is None:
                 raise RuntimeError("P7 auto-subscribe use case is unavailable")
@@ -520,6 +556,7 @@ __all__ = [
     "P7SubscriptionCompatibilityGateway",
     "P7ResubscribeCleanup",
     "P7PeopleTaskExecution",
+    "P7NativeTaskExecution",
     "P7SubscriptionTaskRouter",
     "P7TaskProgress",
 ]
