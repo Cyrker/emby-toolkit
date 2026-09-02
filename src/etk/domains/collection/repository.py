@@ -15,6 +15,7 @@ from etk.domains.media.subscription_projection import (
     SubscriptionMediaKey,
 )
 from etk.platform.db import SqlAlchemyUnitOfWork
+from etk.platform.jobs.json_payload import canonical_json
 
 
 class CollectionNameConflictError(RuntimeError):
@@ -23,6 +24,133 @@ class CollectionNameConflictError(RuntimeError):
 
 class CollectionMatchConflictError(RuntimeError):
     pass
+
+
+def apply_custom_refresh_projection_in_uow(
+    uow: Any,
+    *,
+    collection_id: int,
+    expected_definition_digest: str,
+    expected_name: str,
+    expected_type: str,
+    emby_collection_id: str | None,
+    item_type: Sequence[str],
+    in_library_count: int,
+    generated_items: Sequence[Mapping[str, Any]],
+    synced_at: Any | None = None,
+) -> None:
+    """Apply a frozen custom refresh plan inside the caller-owned transaction."""
+    row = (
+        uow.session.execute(
+            text(
+                """
+                SELECT name, type, definition_json
+                FROM custom_collections
+                WHERE id = :collection_id
+                FOR UPDATE
+                """
+            ),
+            {"collection_id": int(collection_id)},
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise ValueError("custom collection disappeared during refresh")
+    raw_definition = row.get("definition_json")
+    definition: Mapping[str, Any] = dict(raw_definition) if isinstance(raw_definition, Mapping) else {}
+    digest = hashlib.sha256(canonical_json(dict(definition)).encode()).hexdigest()
+    if (
+        str(row.get("name") or "") != str(expected_name)
+        or str(row.get("type") or "") != str(expected_type)
+        or digest != str(expected_definition_digest)
+    ):
+        raise ValueError("custom collection definition changed during refresh")
+    _apply_custom_refresh_subscriptions_in_uow(
+        uow,
+        collection_id=collection_id,
+        collection_name=expected_name,
+        collection_type=expected_type,
+        generated_items=generated_items,
+    )
+    result = uow.session.execute(
+        text(
+            """
+            UPDATE custom_collections
+            SET emby_collection_id = :emby_collection_id,
+                item_type = :item_type,
+                in_library_count = :in_library_count,
+                generated_media_info_json = CAST(:generated_items AS jsonb),
+                last_synced_at = COALESCE(:synced_at, NOW())
+            WHERE id = :collection_id
+            """
+        ),
+        {
+            "collection_id": int(collection_id),
+            "emby_collection_id": str(emby_collection_id or "").strip() or None,
+            "item_type": json.dumps(list(item_type), ensure_ascii=False, separators=(",", ":")),
+            "in_library_count": max(0, int(in_library_count)),
+            "generated_items": json.dumps(
+                [dict(item) for item in generated_items],
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            "synced_at": synced_at,
+        },
+    )
+    if int(getattr(result, "rowcount", 0) or 0) != 1:
+        raise ValueError("custom collection projection update lost its row")
+
+
+def _apply_custom_refresh_subscriptions_in_uow(
+    uow: SqlAlchemyUnitOfWork,
+    *,
+    collection_id: int,
+    collection_name: str,
+    collection_type: str,
+    generated_items: Sequence[Mapping[str, Any]],
+) -> None:
+    if collection_type not in {"list", "ai_recommendation_global"}:
+        return
+    projection = SqlAlchemySubscriptionMediaProjection()
+    source = {
+        "type": "custom_collection",
+        "id": int(collection_id),
+        "name": str(collection_name),
+    }
+    for item in generated_items:
+        if str(item.get("emby_id") or "").strip():
+            continue
+        tmdb_id = str(item.get("tmdb_id") or "").strip()
+        media_type = str(item.get("media_type") or "").strip()
+        if not tmdb_id or media_type not in {"Movie", "Series"}:
+            continue
+        season_raw = item.get("season")
+        season = int(season_raw) if isinstance(season_raw, int) and not isinstance(season_raw, bool) else None
+        item_type = "Season" if media_type == "Series" and season is not None else media_type
+        target_tmdb_id = str(item.get("season_tmdb_id") or "").strip() if item_type == "Season" else tmdb_id
+        if item_type == "Season" and (season is None or season <= 0 or not target_tmdb_id):
+            raise ValueError("season subscription requires the canonical TMDb season identity")
+        key = SubscriptionMediaKey(target_tmdb_id, item_type)
+        existing = projection.lock_item(uow, key)
+        if (
+            existing is not None
+            and str(existing.get("subscription_status") or "") == "IGNORED"
+            and str(existing.get("ignore_reason") or "") in {"手动忽略", "订阅超时"}
+        ):
+            continue
+        projection.set_status(
+            uow,
+            key,
+            "WANTED",
+            {
+                "title": str(item.get("title") or "").strip() or None,
+                "season_number": season,
+                "parent_series_tmdb_id": tmdb_id if item_type == "Season" else None,
+            },
+            source,
+            None,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +204,25 @@ class SqlAlchemyCollectionRepository:
             )
             value = dict(row) if row is not None else None
         return value
+
+    def list_active_for_execution(self) -> list[dict[str, Any]]:
+        """Return active definitions for the processor-free custom task owner."""
+        with self._unit_of_work() as uow:
+            rows = uow.session.execute(
+                text(
+                    """
+                    SELECT *
+                    FROM custom_collections
+                    WHERE status = 'active'
+                    ORDER BY sort_order ASC, id ASC
+                    """
+                )
+            ).mappings()
+            return [dict(row) for row in rows]
+
+    def get_for_execution(self, collection_id: int) -> dict[str, Any] | None:
+        """Read one custom definition without exposing a legacy database helper."""
+        return self.get_custom(int(collection_id))
 
     def create_custom(
         self,

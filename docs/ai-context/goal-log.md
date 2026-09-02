@@ -4683,6 +4683,53 @@ Safety boundary:
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
 
+### P11-Custom-Collection-Refresh
+
+Stage / Batch: P11 / processor-free custom collection refresh
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `8eaf0804` (`refactor(p11): cut over moviepilot webhook`).
+- Target checkpoint message: `refactor(p11): execute native custom collection tasks`.
+
+Implemented:
+
+- Replaced the three custom collection task callables (`custom-collections`,
+  `process_all_custom_collections`, and `process-single-custom-collection`) with one shared
+  `CustomCollectionTaskService` used by both native-only and compatibility-enabled Worker profiles.
+- Added typed source, TMDb, media-index, library-query and recommendation adapters while preserving
+  list, RSS, TMDb list/discover, Douban, Maoyan, global recommendation, filter and personal
+  recommendation behavior, including multi-URL ordering, dynamic dates, season identity and
+  visible placeholder fallback.
+- Added durable `collection.custom.refresh` operations with frozen definition/source plans, Emby
+  create/add/remove/delete phases, claim/recovery, provider readback, no-resend after checkpoint,
+  hard-ignore fencing, and atomic custom-collection/subscription/projection/Outbox completion.
+- Regenerated task ownership artifacts; the dirty manifest now has 17 remaining
+  `legacy-compatibility-callable` task owners (the committed pre-slice manifest had 20).
+
+Targeted gate:
+
+- Custom application suite -> `50 passed`.
+- Disposable PostgreSQL 18 custom refresh integration -> `15 passed`.
+- Disposable Redis/Celery native-only and compatibility-enabled Worker profiles -> `2 passed, 39 deselected`.
+- Scoped Ruff, format check, `uv run --frozen pyright`, compileall, `uv lock --check`, manifest check,
+  task export, Compose config and `git diff --check` passed.
+- Docker Server `29.4.0` was available for the disposable gates; no production container or external
+  service was used.
+- Detailed evidence: `/tmp/etk-refactor-artifacts/p11-custom-collection-refresh-20260902/summary.md`.
+
+Pending:
+
+- Complete the remaining 17 processor-free task owners in the three shared capability batches, then
+  finish Table/Config/Frontend ownership, pre-removal, controlled removal and P11
+  NFR/security/SBOM/vulnerability/License gates.
+- P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+Safety boundary:
+
+- No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
+  `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
 ### P11-Sharing-Cancellation
 
 Stage / Batch: P11 / durable sharing operation cancellation

@@ -25,6 +25,10 @@ from redis import Redis
 from sqlalchemy import text
 
 from etk.domains.collection.activation import PostgresCollectionActivationRepository
+from etk.domains.collection.custom_tasks import CustomCollectionRefreshPlan
+from etk.domains.collection.operation_repository import PostgresCollectionOperationRepository
+from etk.domains.collection.operations import CollectionOperationIntent, CollectionOperationKind
+from etk.domains.collection.repository import SqlAlchemyCollectionRepository
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
 from etk.domains.media.daily_theme_repository import SqlAlchemyDailyThemeRepository
 from etk.domains.media.effects import PostgresMediaEffectLedger, SqlAlchemyMediaEffectRepository
@@ -38,6 +42,7 @@ from etk.domains.subscription.cleanup_repository import SqlAlchemyCleanupReposit
 from etk.platform import Settings
 from etk.platform.db import DatabaseRuntime
 from etk.platform.jobs import AttemptStatus, JobProjection, JobStatus, PostgresJobStore
+from etk.platform.jobs.json_payload import canonical_json
 from etk.processes.celery_app import (
     EXECUTE_COLLECTION_OPERATION_TASK,
     EXECUTE_JOB_TASK,
@@ -1161,6 +1166,14 @@ def test_native_p8_task_owners_execute_through_real_worker_profiles(
         name="Fixture Activated Collection",
     )
     assert activation is not None
+    custom_definition = {"item_type": ["Movie"], "url": []}
+    custom_collection = SqlAlchemyCollectionRepository(p4_runtime.unit_of_work).create_custom(
+        name="Fixture Empty Custom Collection",
+        collection_type="list",
+        definition=custom_definition,
+        allowed_user_ids=None,
+    )
+    custom_collection_id = int(custom_collection["id"])
     worker: ManagedProcess | None = None
     try:
         environment_values = dict(p4_runtime_environment.environment)
@@ -1189,6 +1202,15 @@ def test_native_p8_task_owners_execute_through_real_worker_profiles(
             "execute-auto-tagging-rules": "skipped",
             "fill-studio-images": "skipped",
             "refresh-collections": "succeeded",
+            "custom-collections": "succeeded",
+            "process_all_custom_collections": "succeeded",
+            "process-single-custom-collection": "succeeded",
+        }
+        task_parameters = {
+            task_key: (
+                {"custom_collection_id": custom_collection_id} if task_key == "process-single-custom-collection" else {}
+            )
+            for task_key in expected_statuses
         }
         created_jobs = {
             task_key: p4_store.create_job(
@@ -1197,7 +1219,7 @@ def test_native_p8_task_owners_execute_through_real_worker_profiles(
                 max_attempts=1,
                 payload={
                     "payload_version": 1,
-                    "parameters": {},
+                    "parameters": task_parameters[task_key],
                     "processor_type": "media",
                     "display_name": f"P11 {task_key} fixture",
                     "silent": True,
@@ -1220,7 +1242,35 @@ def test_native_p8_task_owners_execute_through_real_worker_profiles(
             assert completed.job.result["status"] == expected_statuses[task_key]
             assert completed.job.result["details"]["task_key"] == task_key
             assert completed.job.result["details"]["compatibility_fallback"] is False
+        custom_plan = CustomCollectionRefreshPlan(
+            collection_id=custom_collection_id,
+            collection_name="Fixture Empty Custom Collection",
+            collection_type="list",
+            definition_digest=hashlib.sha256(canonical_json(custom_definition).encode()).hexdigest(),
+            source_snapshot={"kind": "list", "status": "empty", "items": []},
+            desired_member_ids=(),
+            generated_items=(),
+            item_type=("Movie",),
+            in_library_count=0,
+            expected_emby_collection_id=None,
+            allow_empty=True,
+            delete_empty_source=True,
+        )
+        custom_operation = (
+            PostgresCollectionOperationRepository(p4_runtime.unit_of_work)
+            .reserve(
+                CollectionOperationIntent.create(
+                    kind=CollectionOperationKind.CUSTOM_REFRESH,
+                    scope_key=f"custom-collection:{custom_collection_id}",
+                    principal_id="fixture:p4-custom-refresh",
+                    request=custom_plan.to_request(),
+                    idempotency_key=f"p4-custom-refresh:{custom_collection_id}",
+                )
+            )
+            .operation
+        )
         _send_collection_operation(worker_environment.config, activation.operation.id, count=2)
+        _send_collection_operation(worker_environment.config, custom_operation.id, count=2)
 
         def activation_confirmed() -> bool:
             with p4_runtime.engine.connect() as connection:
@@ -1237,13 +1287,29 @@ def test_native_p8_task_owners_execute_through_real_worker_profiles(
             description="collection activation operation to complete",
             timeout=30,
         )
+
+        def custom_refresh_confirmed() -> bool:
+            with p4_runtime.engine.connect() as connection:
+                return (
+                    connection.scalar(
+                        text("SELECT status FROM collection_operations WHERE id = :id"),
+                        {"id": custom_operation.id},
+                    )
+                    == "confirmed"
+                )
+
         _wait_until(
-            lambda: worker is not None and worker.read_log().count("Duplicate or stale delivery skipped") >= 4,
+            custom_refresh_confirmed,
+            description="custom collection refresh operation to complete",
+            timeout=30,
+        )
+        _wait_until(
+            lambda: worker is not None and worker.read_log().count("Duplicate or stale delivery skipped") >= 7,
             description="duplicate P8 task deliveries to be skipped",
             timeout=20,
         )
         assert stub_state.requests.count("/Library/VirtualFolders") == 1
-        assert stub_state.requests.count("/Users/fixture-p8-user/Items") == 1
+        assert stub_state.requests.count("/Users/fixture-p8-user/Items") == 5
         assert stub_state.requests.count("/collection/25") == 2
         assert set(stub_state.requests) <= {
             "/System/Info",
@@ -1277,6 +1343,27 @@ def test_native_p8_task_owners_execute_through_real_worker_profiles(
                 )
                 == 1
             )
+            assert connection.execute(
+                text(
+                    """
+                    SELECT COUNT(*), COUNT(*) FILTER (WHERE status = 'confirmed')
+                    FROM collection_operations
+                    WHERE kind = 'collection.custom.refresh'
+                      AND scope_key = :scope_key
+                    """
+                ),
+                {"scope_key": f"custom-collection:{custom_collection_id}"},
+            ).one() == (4, 4)
+            assert connection.execute(
+                text(
+                    """
+                    SELECT emby_collection_id, generated_media_info_json, last_synced_at IS NOT NULL
+                    FROM custom_collections
+                    WHERE id = :collection_id
+                    """
+                ),
+                {"collection_id": custom_collection_id},
+            ).one() == (None, [], True)
     finally:
         if worker is not None and worker.process.poll() is None:
             assert worker.stop() == 0
@@ -1284,6 +1371,28 @@ def test_native_p8_task_owners_execute_through_real_worker_profiles(
         thread.join(timeout=5)
         server.server_close()
         with p4_runtime.engine.begin() as connection:
+            connection.execute(
+                text(
+                    """
+                    DELETE FROM outbox_events
+                    WHERE aggregate_type = 'collection-operation'
+                      AND aggregate_id IN (
+                          SELECT id::text
+                          FROM collection_operations
+                          WHERE scope_key = :scope_key
+                      )
+                    """
+                ),
+                {"scope_key": f"custom-collection:{custom_collection_id}"},
+            )
+            connection.execute(
+                text("DELETE FROM collection_operations WHERE scope_key = :scope_key"),
+                {"scope_key": f"custom-collection:{custom_collection_id}"},
+            )
+            connection.execute(
+                text("DELETE FROM custom_collections WHERE id = :collection_id"),
+                {"collection_id": custom_collection_id},
+            )
             connection.execute(
                 text(
                     """

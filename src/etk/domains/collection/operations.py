@@ -17,6 +17,7 @@ COLLECTION_OPERATION_TOPICS = (COLLECTION_OPERATION_TOPIC,)
 
 class CollectionOperationKind(StrEnum):
     ACTIVATION_REFRESH = "collection.activation.refresh"
+    CUSTOM_REFRESH = "collection.custom.refresh"
     NATIVE_DELETE = "collection.native.delete"
     CUSTOM_DELETE = "collection.custom.delete"
     MISSING_CLEANUP = "collection.missing.cleanup"
@@ -46,7 +47,9 @@ class CollectionOperationStatus(StrEnum):
 class CollectionOperationStep(StrEnum):
     RESERVED = "reserved"
     READ_REMOTE = "read_remote"
+    CREATE_COLLECTION = "create_collection"
     REMOVE_MEMBERS = "remove_members"
+    ADD_MEMBERS = "add_members"
     DELETE_SHELL = "delete_shell"
     DISCOVER_MISSING_TARGETS = "discover_missing_targets"
     ARCHIVE_IMAGES = "archive_images"

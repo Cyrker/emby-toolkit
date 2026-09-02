@@ -66,6 +66,78 @@ class HttpxCollectionRemoteEffectsAdapter:
             collection_id=normalized_id,
             member_ids=member_ids,
             tmdb_collection_id=tmdb_id or None,
+            name=str(details.get("Name") or "").strip() or None,
+        )
+
+    def find_collection_by_name(self, name: str) -> RemoteCollectionState | None:
+        normalized_name = _required_text(name, "collection_name")
+        base_url, user_id, token = self._configuration()
+        payload = self._get(
+            f"{base_url}/Users/{quote(user_id, safe='')}/Items",
+            token=token,
+            params={"IncludeItemTypes": "BoxSet", "Recursive": "true", "Fields": "Name,Id,ProviderIds"},
+        )
+        if payload is None or not isinstance(payload.get("Items"), list):
+            raise CollectionRemoteIndeterminate("Emby collection name query is invalid")
+        matches = [
+            str(item.get("Id") or "").strip()
+            for item in payload["Items"]
+            if isinstance(item, Mapping)
+            and str(item.get("Name") or "").strip().casefold() == normalized_name.casefold()
+            and str(item.get("Id") or "").strip()
+        ]
+        if len(matches) > 1:
+            raise CollectionRemoteRejected("Emby custom collection name is ambiguous")
+        return self.read_collection(matches[0]) if matches else None
+
+    def create_collection(self, name: str, member_ids: Sequence[str]) -> RemoteCollectionState:
+        normalized_name = _required_text(name, "collection_name")
+        base_url, user_id, token = self._configuration()
+        payload = {"Name": normalized_name, "UserId": user_id}
+        if member_ids:
+            payload["Ids"] = ",".join(str(value).strip() for value in member_ids if str(value).strip())
+        try:
+            with self._client_factory() as client:
+                response = client.post(
+                    f"{base_url}/Collections",
+                    headers={"Accept": "application/json", "X-Emby-Token": token},
+                    params=payload,
+                )
+                if response.status_code in {408, 425, 429} or response.status_code >= 500:
+                    raise CollectionRemoteIndeterminate("Emby collection creation outcome is unknown")
+                if response.status_code >= 400:
+                    raise CollectionRemoteRejected("Emby rejected custom collection creation")
+                body = response.json()
+        except (CollectionRemoteRejected, CollectionRemoteIndeterminate):
+            raise
+        except (httpx.TimeoutException, httpx.TransportError, TypeError, ValueError) as exc:
+            raise CollectionRemoteIndeterminate("Emby collection creation outcome is unknown") from exc
+        collection_id = str(body.get("Id") or body.get("id") or "").strip() if isinstance(body, Mapping) else ""
+        if not collection_id:
+            raise CollectionRemoteIndeterminate("Emby collection creation response has no identity")
+        state = self.read_collection(collection_id)
+        if state is None:
+            raise CollectionRemoteIndeterminate("created Emby collection is not readable")
+        return state
+
+    def add_members(self, collection_id: str, member_ids: Sequence[str]) -> None:
+        self._write(
+            "POST",
+            f"{self._configuration()[0]}/Collections/"
+            f"{quote(_required_text(collection_id, 'collection_id'), safe='')}/Items",
+            token=self._configuration()[2],
+            params={"Ids": ",".join(str(value).strip() for value in member_ids if str(value).strip())},
+        )
+
+    def remove_members(self, collection_id: str, member_ids: Sequence[str]) -> None:
+        if not member_ids:
+            return
+        self._write(
+            "DELETE",
+            f"{self._configuration()[0]}/Collections/"
+            f"{quote(_required_text(collection_id, 'collection_id'), safe='')}/Items",
+            token=self._configuration()[2],
+            params={"Ids": ",".join(str(value).strip() for value in member_ids if str(value).strip())},
         )
 
     def list_native_collections(self, tmdb_collection_id: str) -> Sequence[RemoteCollectionState]:

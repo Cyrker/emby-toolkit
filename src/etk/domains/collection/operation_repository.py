@@ -27,6 +27,7 @@ from .operations import (
     collection_image_digest,
     collection_operation_key,
 )
+from .repository import apply_custom_refresh_projection_in_uow
 
 
 class PostgresCollectionOperationRepository:
@@ -660,6 +661,164 @@ class PostgresCollectionOperationRepository:
                 error=None,
                 now=timestamp,
             )
+            self._complete_outbox(uow, operation_id)
+            uow.commit()
+            return _operation(row)
+
+    def complete_custom_refresh(
+        self,
+        operation_id: UUID,
+        claim_token: UUID,
+        *,
+        collection_id: int,
+        expected_name: str,
+        expected_type: str,
+        expected_definition_digest: str,
+        emby_collection_id: str | None,
+        item_type: Sequence[str],
+        in_library_count: int,
+        generated_items: Sequence[Mapping[str, Any]],
+        state: Mapping[str, Any],
+        result: Mapping[str, Any],
+        now: datetime | None = None,
+    ) -> CollectionOperation:
+        """Commit the custom projection and operation terminal state atomically."""
+        timestamp = _utc(now)
+        with self._unit_of_work() as uow:
+            self._require_live_claim(uow, operation_id, claim_token, timestamp)
+            apply_custom_refresh_projection_in_uow(
+                uow,
+                collection_id=collection_id,
+                expected_definition_digest=expected_definition_digest,
+                expected_name=expected_name,
+                expected_type=expected_type,
+                emby_collection_id=emby_collection_id,
+                item_type=item_type,
+                in_library_count=in_library_count,
+                generated_items=generated_items,
+                synced_at=timestamp,
+            )
+            terminal = self._terminal_update(
+                uow,
+                operation_id,
+                claim_token,
+                status=CollectionOperationStatus.CONFIRMED,
+                state=state,
+                result=result,
+                error=None,
+                now=timestamp,
+            )
+            self._complete_outbox(uow, operation_id)
+            uow.commit()
+            return _operation(terminal)
+
+    def reconcile_custom_refresh(
+        self,
+        operation_id: UUID,
+        *,
+        expected_state_revision: int,
+        collection_id: int,
+        expected_name: str,
+        expected_type: str,
+        expected_definition_digest: str,
+        emby_collection_id: str | None,
+        item_type: Sequence[str],
+        in_library_count: int,
+        generated_items: Sequence[Mapping[str, Any]],
+        observation: Mapping[str, Any],
+        resolved_by: str,
+        now: datetime | None = None,
+    ) -> CollectionOperation:
+        """Resolve a terminal custom refresh from authoritative provider readback."""
+        timestamp = _utc(now)
+        normalized_resolver = _required_text(resolved_by, "resolved_by")
+        normalized_observation = normalize_durable_json_object(
+            dict(observation),
+            field="collection operation reconciliation observation",
+        )
+        with self._unit_of_work() as uow:
+            operation = self._read_in_uow(uow, operation_id, lock=True)
+            if operation is None:
+                raise CollectionOperationStateError("collection operation was not found")
+            if operation.status is not CollectionOperationStatus.INDETERMINATE:
+                raise CollectionOperationStateError("collection operation is not indeterminate")
+            if operation.state_revision != int(expected_state_revision):
+                raise CollectionOperationStateError("collection operation state revision changed")
+            if operation.kind is not CollectionOperationKind.CUSTOM_REFRESH:
+                raise CollectionOperationStateError("collection operation is not a custom refresh")
+
+            apply_custom_refresh_projection_in_uow(
+                uow,
+                collection_id=collection_id,
+                expected_definition_digest=expected_definition_digest,
+                expected_name=expected_name,
+                expected_type=expected_type,
+                emby_collection_id=emby_collection_id,
+                item_type=item_type,
+                in_library_count=in_library_count,
+                generated_items=generated_items,
+                synced_at=timestamp,
+            )
+            reconciliation = {
+                "resolved_by": normalized_resolver,
+                "resolved_at": timestamp.isoformat(),
+                "observation": normalized_observation,
+            }
+            result = {
+                "operation": operation.kind.value,
+                "collection_id": int(collection_id),
+                "emby_collection_id": str(emby_collection_id or "").strip() or None,
+                "member_count": len(
+                    normalized_observation.get("member_ids", [])
+                    if isinstance(normalized_observation.get("member_ids"), list)
+                    else []
+                ),
+                "reconciled": True,
+                **reconciliation,
+            }
+            row = (
+                uow.session.execute(
+                    text(
+                        """
+                        UPDATE collection_operations
+                        SET status = 'confirmed',
+                            state_json = CAST(:state_json AS jsonb),
+                            result_json = CAST(:result_json AS jsonb),
+                            error_json = NULL,
+                            finished_at = :now,
+                            claimed_by = NULL,
+                            claim_token = NULL,
+                            claimed_at = NULL,
+                            lease_expires_at = NULL,
+                            step_started_at = NULL,
+                            state_revision = state_revision + 1,
+                            updated_at = :now
+                        WHERE id = :id
+                          AND status = 'indeterminate'
+                          AND state_revision = :expected_state_revision
+                        RETURNING *
+                        """
+                    ),
+                    {
+                        "id": operation_id,
+                        "state_json": canonical_json(
+                            {
+                                **dict(operation.state),
+                                "remote_collection_id": str(emby_collection_id or "").strip() or None,
+                                "remote_member_ids": list(normalized_observation.get("member_ids", [])),
+                                "reconciliation": reconciliation,
+                            }
+                        ),
+                        "result_json": canonical_json(result),
+                        "now": timestamp,
+                        "expected_state_revision": int(expected_state_revision),
+                    },
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None:
+                raise CollectionOperationStateError("custom refresh reconciliation lost its revision fence")
             self._complete_outbox(uow, operation_id)
             uow.commit()
             return _operation(row)

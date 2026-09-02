@@ -38,6 +38,7 @@ class RemoteCollectionState:
     collection_id: str
     member_ids: tuple[str, ...]
     tmdb_collection_id: str | None = None
+    name: str | None = None
 
 
 class CollectionRemoteRejected(RuntimeError):
@@ -50,6 +51,14 @@ class CollectionRemoteIndeterminate(RuntimeError):
 
 class CollectionRemoteEffectsPort(Protocol):
     def read_collection(self, collection_id: str) -> RemoteCollectionState | None: ...
+
+    def find_collection_by_name(self, name: str) -> RemoteCollectionState | None: ...
+
+    def create_collection(self, name: str, member_ids: Sequence[str]) -> RemoteCollectionState: ...
+
+    def add_members(self, collection_id: str, member_ids: Sequence[str]) -> None: ...
+
+    def remove_members(self, collection_id: str, member_ids: Sequence[str]) -> None: ...
 
     def list_native_collections(self, tmdb_collection_id: str) -> Sequence[RemoteCollectionState]: ...
 

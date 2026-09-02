@@ -276,12 +276,11 @@
       "help": "刷新全部自建合集，重新拉取榜单并匹配、订阅。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P11 native-only and compatibility Workers execute the processor-free CustomCollectionTaskService; both batch aliases share execute_all, single refresh uses execute_one, and durable Emby mutations use readback fencing without the legacy callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.collection.custom_tasks.CustomCollectionTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -819,12 +818,11 @@
       "help": "只刷新指定的单个自建合集，通常由合集详情页触发。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P11 native-only and compatibility Workers execute the processor-free CustomCollectionTaskService; both batch aliases share execute_all, single refresh uses execute_one, and durable Emby mutations use readback fencing without the legacy callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.collection.custom_tasks.CustomCollectionTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -888,12 +886,11 @@
       "help": "立即重新生成所有自建合集，通常用于合集规则调整后手动刷新。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-      "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
+      "notes": "P11 native-only and compatibility Workers execute the processor-free CustomCollectionTaskService; both batch aliases share execute_all, single refresh uses execute_one, and durable Emby mutations use readback fencing without the legacy callable.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.collection.custom_tasks.CustomCollectionTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,

@@ -12,6 +12,7 @@ from .activation import (
     CollectionActivationProviderRejectedError,
     CollectionActivationProviderUnavailableError,
 )
+from .custom_tasks import CustomCollectionRefreshPlan, custom_collection_refresh_plan_from_request
 from .effects import (
     CollectionAssetEffectsPort,
     CollectionDeletionSuppressionPort,
@@ -62,8 +63,48 @@ class CollectionOperationReconciler:
         if operation.kind not in {
             CollectionOperationKind.NATIVE_DELETE,
             CollectionOperationKind.REMOVAL_SURVIVAL_CHECK,
+            CollectionOperationKind.CUSTOM_REFRESH,
         }:
             raise CollectionOperationStateError("collection operation kind does not support provider reconciliation")
+        if operation.kind is CollectionOperationKind.CUSTOM_REFRESH:
+            plan = custom_collection_refresh_plan_from_request(operation.request)
+            phase = str(operation.state.get("provider_phase") or "").strip()
+            collection_id = _custom_remote_id(operation, plan)
+            remote = (
+                self._remote.read_collection(collection_id)
+                if collection_id is not None
+                else self._remote.find_collection_by_name(plan.collection_name)
+            )
+            if plan.delete_empty_source and not plan.desired_member_ids:
+                if remote is not None:
+                    raise CollectionRemoteIndeterminate("custom collection delete is not confirmed by readback")
+                resolved_collection_id = None
+            else:
+                if remote is None or set(remote.member_ids) != set(plan.desired_member_ids):
+                    raise CollectionRemoteIndeterminate("custom collection refresh is not confirmed by readback")
+                if remote.name is not None and remote.name.casefold() != plan.collection_name.casefold():
+                    raise CollectionRemoteIndeterminate("custom collection identity changed before reconciliation")
+                resolved_collection_id = remote.collection_id
+            observation = {
+                "emby_collection_id": resolved_collection_id,
+                "provider_present": remote is not None,
+                "member_ids": list(remote.member_ids) if remote is not None else [],
+                "provider_phase": phase or None,
+            }
+            return self._repository.reconcile_custom_refresh(
+                operation_id,
+                expected_state_revision=expected_state_revision,
+                collection_id=plan.collection_id,
+                expected_name=plan.collection_name,
+                expected_type=plan.collection_type,
+                expected_definition_digest=plan.definition_digest,
+                emby_collection_id=resolved_collection_id,
+                item_type=plan.item_type,
+                in_library_count=plan.in_library_count,
+                generated_items=plan.generated_items,
+                observation=observation,
+                resolved_by=resolved_by,
+            )
         collection_id = _request_text(operation, "emby_collection_id")
         remote = self._remote.read_collection(collection_id)
         expected_tmdb_id = str(operation.request.get("expected_tmdb_collection_id") or "").strip() or None
@@ -132,6 +173,8 @@ class CollectionOperationExecutor:
         try:
             if claimed.kind is CollectionOperationKind.ACTIVATION_REFRESH:
                 return self._execute_activation_refresh(claimed, token)
+            if claimed.kind is CollectionOperationKind.CUSTOM_REFRESH:
+                return self._execute_custom_refresh(claimed, token)
             if claimed.kind is CollectionOperationKind.NATIVE_DELETE:
                 return self._execute_native_delete(claimed, token)
             if claimed.kind is CollectionOperationKind.CUSTOM_DELETE:
@@ -144,48 +187,94 @@ class CollectionOperationExecutor:
                 return self._execute_survival_check(claimed, token)
             raise ValueError(f"unsupported collection operation kind: {claimed.kind.value}")
         except CollectionRemoteRejected as exc:
-            if claimed.step_started_at is not None:
-                return self._defer_post_checkpoint(claimed, token, exc)
+            failed = self._latest_claimed_state(claimed, token)
+            if failed.step_started_at is not None:
+                return self._defer_post_checkpoint(failed, token, exc)
+            if bool(failed.state.get("provider_write_observed")):
+                return self._repository.mark_indeterminate(
+                    failed.id,
+                    token,
+                    state=failed.state,
+                    error=_error("provider_state_changed_after_confirmed_write", exc),
+                )
             return self._repository.mark_rejected(
-                claimed.id,
+                failed.id,
                 token,
-                state=claimed.state,
+                state=failed.state,
                 error=_error("provider_rejected", exc),
             )
         except CollectionRemoteIndeterminate as exc:
-            if claimed.step_started_at is not None:
-                return self._defer_post_checkpoint(claimed, token, exc)
-            if claimed.attempts >= COLLECTION_OPERATION_TOTAL_ATTEMPTS:
-                return self._repository.mark_rejected(
-                    claimed.id,
+            failed = self._latest_claimed_state(claimed, token)
+            if failed.step_started_at is not None:
+                return self._defer_post_checkpoint(failed, token, exc)
+            if failed.attempts >= COLLECTION_OPERATION_TOTAL_ATTEMPTS:
+                terminal = (
+                    self._repository.mark_indeterminate
+                    if bool(failed.state.get("provider_write_observed"))
+                    else self._repository.mark_rejected
+                )
+                return terminal(
+                    failed.id,
                     token,
-                    state=claimed.state,
+                    state=failed.state,
                     error={
-                        "type": "prewrite_recovery_exhausted",
-                        "attempts": claimed.attempts,
+                        "type": (
+                            "postwrite_read_exhausted"
+                            if bool(failed.state.get("provider_write_observed"))
+                            else "prewrite_recovery_exhausted"
+                        ),
+                        "attempts": failed.attempts,
                         "cause": type(exc).__name__,
                     },
                 )
             return self._repository.mark_retryable(
-                claimed.id,
+                failed.id,
                 token,
-                state=claimed.state,
+                state=failed.state,
                 error=_error("provider_unavailable", exc),
                 retry_after_seconds=self._retry_delay_seconds,
             )
         except (TypeError, ValueError) as exc:
-            if claimed.step_started_at is not None:
+            failed = self._latest_claimed_state(claimed, token)
+            if _provider_write_started(failed):
                 return self._repository.mark_indeterminate(
-                    claimed.id,
+                    failed.id,
                     token,
-                    state=claimed.state,
+                    state=failed.state,
                     error=_error("invalid_checkpointed_operation", exc),
                 )
             return self._repository.mark_rejected(
-                claimed.id,
+                failed.id,
                 token,
-                state=claimed.state,
+                state=failed.state,
                 error=_error("invalid_operation", exc),
+            )
+        except Exception as exc:
+            # An adapter must normally translate provider failures into one of
+            # the two explicit remote errors.  Keep the durable operation safe
+            # even when an unexpected transport/client exception escapes after
+            # the checkpoint commit: never allow a later retry to resend it.
+            failed = self._latest_claimed_state(claimed, token)
+            if failed.step_started_at is not None:
+                return self._defer_post_checkpoint(
+                    failed,
+                    token,
+                    CollectionRemoteIndeterminate(
+                        f"unexpected provider error after mutation checkpoint: {type(exc).__name__}: {str(exc)[:300]}"
+                    ),
+                )
+            if _provider_write_started(failed):
+                return self._repository.mark_indeterminate(
+                    failed.id,
+                    token,
+                    state=failed.state,
+                    error=_error("unexpected_postwrite_operation_error", exc),
+                )
+            return self._repository.mark_rejected(
+                failed.id,
+                token,
+                state=failed.state,
+                error=_error("unexpected_operation_error", exc),
             )
 
     def _execute_activation_refresh(
@@ -243,6 +332,271 @@ class CollectionOperationExecutor:
         if self._suppression is None:
             raise ValueError("collection deletion suppression is not configured")
         return self._suppression
+
+    def _execute_custom_refresh(
+        self,
+        operation: CollectionOperation,
+        token: UUID,
+    ) -> CollectionOperation:
+        plan = custom_collection_refresh_plan_from_request(operation.request)
+        remote_id = _custom_remote_id(operation, plan)
+        if operation.step_started_at is not None:
+            remote = self._read_custom_collection(operation, plan, remote_id)
+            return self._recover_custom_refresh(operation, token, plan, remote)
+
+        remote = self._read_custom_collection(operation, plan, remote_id)
+        desired = set(plan.desired_member_ids)
+        if remote is not None and remote.name is not None and remote.name.casefold() != plan.collection_name.casefold():
+            raise CollectionRemoteRejected("custom collection target identity does not match the frozen plan")
+
+        if plan.delete_empty_source and not desired:
+            if remote is None:
+                return self._complete_custom_refresh(operation, token, plan, None, recovered=False)
+            requesting = self._repository.begin_provider_step(
+                operation.id,
+                token,
+                step=CollectionOperationStep.DELETE_SHELL,
+                state={
+                    **dict(operation.state),
+                    "provider_phase": "delete",
+                    "remote_collection_id": remote.collection_id,
+                    "expected_member_ids": [],
+                },
+            )
+            try:
+                self._remote_effects().delete_collection(remote.collection_id)
+                observed = self._remote_effects().read_collection(remote.collection_id)
+            except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
+                return self._defer_post_checkpoint(requesting, token, exc)
+            if observed is not None:
+                return self._defer_post_checkpoint(
+                    requesting,
+                    token,
+                    CollectionRemoteIndeterminate("empty custom collection still exists after delete"),
+                )
+            return self._complete_custom_refresh(requesting, token, plan, None, recovered=False)
+
+        if remote is None:
+            if not desired and not plan.allow_empty:
+                return self._complete_custom_refresh(operation, token, plan, None, recovered=False)
+            requesting = self._repository.begin_provider_step(
+                operation.id,
+                token,
+                step=CollectionOperationStep.CREATE_COLLECTION,
+                state={
+                    **dict(operation.state),
+                    "provider_phase": "create",
+                    "remote_collection_id": None,
+                    "expected_member_ids": list(plan.desired_member_ids),
+                },
+            )
+            try:
+                created = self._remote_effects().create_collection(plan.collection_name, plan.desired_member_ids)
+            except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
+                return self._defer_post_checkpoint(requesting, token, exc)
+            confirmed = self._confirm_custom_mutation(requesting, token, plan, created.collection_id)
+            if isinstance(confirmed, CollectionOperation):
+                return confirmed
+            continued = self._continue_custom_refresh(requesting, token, confirmed)
+            return self._complete_custom_refresh(
+                continued,
+                token,
+                plan,
+                confirmed.collection_id,
+                recovered=False,
+            )
+
+        current = set(remote.member_ids)
+        if current - desired:
+            requesting = self._repository.begin_provider_step(
+                operation.id,
+                token,
+                step=CollectionOperationStep.REMOVE_MEMBERS,
+                state={
+                    **dict(operation.state),
+                    "provider_phase": "remove",
+                    "remote_collection_id": remote.collection_id,
+                    "expected_member_ids": sorted(current & desired),
+                },
+            )
+            try:
+                self._remote_effects().remove_members(remote.collection_id, sorted(current - desired))
+            except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
+                return self._defer_post_checkpoint(requesting, token, exc)
+            confirmed = self._confirm_custom_mutation(requesting, token, plan, remote.collection_id)
+            if isinstance(confirmed, CollectionOperation):
+                return confirmed
+            remote = confirmed
+            operation = self._continue_custom_refresh(requesting, token, remote)
+            current = set(remote.member_ids)
+        if current - desired:
+            raise CollectionRemoteIndeterminate("custom collection member removal was not confirmed")
+        if desired - current:
+            requesting = self._repository.begin_provider_step(
+                operation.id,
+                token,
+                step=CollectionOperationStep.ADD_MEMBERS,
+                state={
+                    **dict(operation.state),
+                    "provider_phase": "add",
+                    "remote_collection_id": remote.collection_id,
+                    "expected_member_ids": sorted(current | desired),
+                },
+            )
+            try:
+                self._remote_effects().add_members(remote.collection_id, sorted(desired - current))
+            except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
+                return self._defer_post_checkpoint(requesting, token, exc)
+            confirmed = self._confirm_custom_mutation(requesting, token, plan, remote.collection_id)
+            if isinstance(confirmed, CollectionOperation):
+                return confirmed
+            remote = confirmed
+            operation = self._continue_custom_refresh(requesting, token, remote)
+            current = set(remote.member_ids)
+        if current != desired:
+            raise CollectionRemoteIndeterminate("custom collection member update was not confirmed")
+        return self._complete_custom_refresh(operation, token, plan, remote.collection_id, recovered=False)
+
+    def _read_custom_collection(
+        self,
+        operation: CollectionOperation,
+        plan: CustomCollectionRefreshPlan,
+        remote_id: str | None,
+    ) -> RemoteCollectionState | None:
+        remote = self._remote_effects()
+        if remote_id:
+            return remote.read_collection(remote_id)
+        if operation.step_started_at is None or str(operation.state.get("provider_phase") or "") == "create":
+            return remote.find_collection_by_name(plan.collection_name)
+        return None
+
+    def _recover_custom_refresh(
+        self,
+        operation: CollectionOperation,
+        token: UUID,
+        plan: CustomCollectionRefreshPlan,
+        remote: RemoteCollectionState | None,
+    ) -> CollectionOperation:
+        phase = str(operation.state.get("provider_phase") or "").strip()
+        if phase == "delete":
+            if remote is None:
+                return self._complete_custom_refresh(operation, token, plan, None, recovered=True)
+            return self._defer_post_checkpoint(
+                operation,
+                token,
+                CollectionRemoteIndeterminate("empty custom collection delete is not confirmed"),
+            )
+        if remote is None:
+            return self._defer_post_checkpoint(
+                operation,
+                token,
+                CollectionRemoteIndeterminate("custom collection mutation readback is unavailable"),
+            )
+        expected = set(_strings(operation.state.get("expected_member_ids")))
+        if remote.name is not None and remote.name.casefold() != plan.collection_name.casefold():
+            return self._defer_post_checkpoint(
+                operation,
+                token,
+                CollectionRemoteIndeterminate("custom collection target identity changed during recovery"),
+            )
+        if set(remote.member_ids) != expected:
+            return self._defer_post_checkpoint(
+                operation,
+                token,
+                CollectionRemoteIndeterminate("custom collection mutation is not confirmed by readback"),
+            )
+        continued = self._continue_custom_refresh(operation, token, remote)
+        if set(remote.member_ids) == set(plan.desired_member_ids):
+            return self._complete_custom_refresh(continued, token, plan, remote.collection_id, recovered=True)
+        return self._execute_custom_refresh(continued, token)
+
+    def _confirm_custom_mutation(
+        self,
+        operation: CollectionOperation,
+        token: UUID,
+        plan: CustomCollectionRefreshPlan,
+        remote_id: str,
+    ) -> RemoteCollectionState | CollectionOperation:
+        try:
+            remote = self._remote_effects().read_collection(remote_id)
+        except (CollectionRemoteRejected, CollectionRemoteIndeterminate) as exc:
+            return self._defer_post_checkpoint(operation, token, exc)
+        if remote is None:
+            return self._defer_post_checkpoint(
+                operation,
+                token,
+                CollectionRemoteIndeterminate("custom collection mutation target disappeared"),
+            )
+        if remote.name is not None and remote.name.casefold() != plan.collection_name.casefold():
+            return self._defer_post_checkpoint(
+                operation,
+                token,
+                CollectionRemoteIndeterminate("custom collection mutation target identity changed"),
+            )
+        expected = set(_strings(operation.state.get("expected_member_ids")))
+        if set(remote.member_ids) != expected:
+            return self._defer_post_checkpoint(
+                operation,
+                token,
+                CollectionRemoteIndeterminate("custom collection mutation readback does not match"),
+            )
+        return remote
+
+    def _continue_custom_refresh(
+        self,
+        operation: CollectionOperation,
+        token: UUID,
+        remote: RemoteCollectionState,
+    ) -> CollectionOperation:
+        provider_write_observed = bool(operation.state.get("provider_write_observed")) or bool(
+            operation.state.get("provider_phase")
+        )
+        return self._repository.continue_claim(
+            operation.id,
+            token,
+            next_step=CollectionOperationStep.READ_REMOTE,
+            state={
+                **dict(operation.state),
+                "provider_phase": None,
+                "remote_collection_id": remote.collection_id,
+                "remote_member_ids": sorted(remote.member_ids),
+                "provider_write_observed": provider_write_observed,
+            },
+        )
+
+    def _complete_custom_refresh(
+        self,
+        operation: CollectionOperation,
+        token: UUID,
+        plan: CustomCollectionRefreshPlan,
+        remote_id: str | None,
+        *,
+        recovered: bool,
+    ) -> CollectionOperation:
+        return self._repository.complete_custom_refresh(
+            operation.id,
+            token,
+            collection_id=plan.collection_id,
+            expected_name=plan.collection_name,
+            expected_type=plan.collection_type,
+            expected_definition_digest=plan.definition_digest,
+            emby_collection_id=remote_id,
+            item_type=plan.item_type,
+            in_library_count=plan.in_library_count,
+            generated_items=plan.generated_items,
+            state={
+                **dict(operation.state),
+                "remote_collection_id": remote_id,
+                "remote_member_ids": list(plan.desired_member_ids),
+            },
+            result={
+                "operation": operation.kind.value,
+                "collection_id": plan.collection_id,
+                "emby_collection_id": remote_id,
+                "member_count": len(plan.desired_member_ids),
+                "recovered_by_readback": recovered,
+            },
+        )
 
     def _execute_native_delete(
         self,
@@ -792,6 +1146,20 @@ class CollectionOperationExecutor:
             retry_after_seconds=self._retry_delay_seconds,
         )
 
+    def _latest_claimed_state(
+        self,
+        fallback: CollectionOperation,
+        token: UUID,
+    ) -> CollectionOperation:
+        latest = self._repository.read(fallback.id)
+        if (
+            latest is not None
+            and latest.claim_token == token
+            and latest.status in {CollectionOperationStatus.CLAIMED, CollectionOperationStatus.REQUESTING}
+        ):
+            return latest
+        return fallback
+
     def _safe_image_readback(self, source_url: str) -> Mapping[str, Any] | None:
         try:
             return self._asset_effects().read_archived_image(source_url)
@@ -834,6 +1202,27 @@ def _request_texts(operation: CollectionOperation, field: str) -> tuple[str, ...
     if not isinstance(value, list):
         return ()
     return tuple(dict.fromkeys(str(item).strip() for item in value if str(item or "").strip()))
+
+
+def _custom_remote_id(
+    operation: CollectionOperation,
+    plan: CustomCollectionRefreshPlan,
+) -> str | None:
+    return (
+        str(operation.state.get("remote_collection_id") or "").strip()
+        or str(plan.expected_emby_collection_id or "").strip()
+        or None
+    )
+
+
+def _strings(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(dict.fromkeys(str(item).strip() for item in value if str(item or "").strip()))
+
+
+def _provider_write_started(operation: CollectionOperation) -> bool:
+    return operation.step_started_at is not None or bool(operation.state.get("provider_write_observed"))
 
 
 def _required_text(value: Any, field: str) -> str:

@@ -1,6 +1,15 @@
 """P8 collection, custom collection, and cover ownership."""
 
 from .activation import CollectionActivationService, PostgresCollectionActivationRepository
+from .custom_tasks import (
+    CUSTOM_COLLECTION_BATCH_TASK_KEYS,
+    CUSTOM_COLLECTION_SOURCE_TYPES,
+    CustomCollectionCandidate,
+    CustomCollectionRefreshPlan,
+    CustomCollectionRefreshResult,
+    CustomCollectionTaskService,
+    ResolvedCustomCollectionItem,
+)
 from .local_gateway import P8LocalCollectionGateway
 from .renderer import (
     CoverPreviewRenderer,
@@ -13,6 +22,12 @@ from .service import CollectionService
 
 __all__ = [
     "CollectionActivationService",
+    "CUSTOM_COLLECTION_BATCH_TASK_KEYS",
+    "CUSTOM_COLLECTION_SOURCE_TYPES",
+    "CustomCollectionCandidate",
+    "CustomCollectionRefreshPlan",
+    "CustomCollectionRefreshResult",
+    "CustomCollectionTaskService",
     "CollectionService",
     "CoverPreviewRenderer",
     "DeterministicCoverRenderer",
@@ -20,5 +35,6 @@ __all__ = [
     "PillowCoverPreviewRenderer",
     "PostgresCollectionActivationRepository",
     "RenderedCover",
+    "ResolvedCustomCollectionItem",
     "SqlAlchemyCollectionRepository",
 ]

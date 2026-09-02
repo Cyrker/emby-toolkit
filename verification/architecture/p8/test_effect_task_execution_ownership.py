@@ -18,6 +18,11 @@ P8_ROUTER = REPO_ROOT / "src/etk/processes/p8_effect_tasks.py"
 WORKER = REPO_ROOT / "src/etk/processes/worker.py"
 LEGACY_IMPORT_ROOTS = {"database", "extensions", "handler", "task_manager", "tasks"}
 P11_NATIVE_EFFECT_TASKS = {
+    "custom-collections": (
+        "etk.domains.collection.custom_tasks.CustomCollectionTaskService",
+        REPO_ROOT / "src/etk/domains/collection/custom_tasks.py",
+        '"custom-collections": ("tasks.custom_collections"',
+    ),
     "execute-auto-tagging-rules": (
         "etk.domains.media.auto_tagging.AutoTaggingService",
         REPO_ROOT / "src/etk/domains/media/auto_tagging.py",
@@ -37,6 +42,16 @@ P11_NATIVE_EFFECT_TASKS = {
         "etk.domains.collection.refresh.NativeCollectionRefreshService",
         REPO_ROOT / "src/etk/domains/collection/refresh.py",
         '"refresh-collections": ("tasks.tmdb_collections"',
+    ),
+    "process-single-custom-collection": (
+        "etk.domains.collection.custom_tasks.CustomCollectionTaskService",
+        REPO_ROOT / "src/etk/domains/collection/custom_tasks.py",
+        '"process-single-custom-collection": ("tasks.custom_collections"',
+    ),
+    "process_all_custom_collections": (
+        "etk.domains.collection.custom_tasks.CustomCollectionTaskService",
+        REPO_ROOT / "src/etk/domains/collection/custom_tasks.py",
+        '"process_all_custom_collections": ("tasks.custom_collections"',
     ),
 }
 
@@ -143,3 +158,16 @@ def test_worker_profiles_each_build_one_media_effect_executor() -> None:
 
     assert worker_source.count("PersistentMediaEffectExecutor(") == 2
     assert "p8_media_effects_executor" not in worker_source
+
+
+def test_custom_collection_aliases_are_native_and_shared_across_worker_profiles() -> None:
+    worker_source = WORKER.read_text(encoding="utf-8")
+
+    assert {
+        "custom-collections",
+        "process-single-custom-collection",
+        "process_all_custom_collections",
+    }.issubset(set(__import__("etk.processes.worker", fromlist=["_NATIVE_ONLY_EXECUTABLE_TASK_KEYS"])._NATIVE_ONLY_EXECUTABLE_TASK_KEYS))
+    assert worker_source.count("custom_collection_tasks = _custom_collection_task_service(") == 2
+    assert worker_source.count("custom_collection_tasks=custom_collection_tasks") == 2
+    assert "LegacyCustomCollection" not in worker_source

@@ -124,6 +124,34 @@ class FakeStudioImages:
         return TaskOutcome.succeeded("studio images", {"confirmed": 3})
 
 
+class FakeCustomCollections:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, int | None, UUID, str]] = []
+
+    def execute_all(
+        self,
+        progress: P8TaskProgress,
+        *,
+        job_id: UUID,
+        emby_user_id: str = "",
+    ) -> TaskOutcome:
+        self.calls.append(("all", None, job_id, emby_user_id))
+        progress.update(100, "custom collections")
+        return TaskOutcome.succeeded("custom collections", {"confirmed": 2})
+
+    def execute_one(
+        self,
+        collection_id: int,
+        progress: P8TaskProgress,
+        *,
+        job_id: UUID,
+        emby_user_id: str = "",
+    ) -> TaskOutcome:
+        self.calls.append(("one", collection_id, job_id, emby_user_id))
+        progress.update(100, "custom collection")
+        return TaskOutcome.succeeded("custom collection", {"confirmed": 1})
+
+
 class FakeProgress:
     def __init__(self) -> None:
         self.last_progress: int | None = None
@@ -192,9 +220,9 @@ def test_none_result_requires_explicit_terminal_progress() -> None:
     router, _gateway, _sync = _router(FakeCompatibility(None))
     progress = FakeProgress()
 
-    failed = router.execute(_message("custom-collections"), object(), progress)
+    failed = router.execute(_message("generate-all-covers"), object(), progress)
     progress.update(100, "legacy terminal")
-    succeeded = router.execute(_message("custom-collections"), object(), progress)
+    succeeded = router.execute(_message("generate-all-covers"), object(), progress)
 
     assert failed.status is TaskOutcomeStatus.FAILED
     assert succeeded.status is TaskOutcomeStatus.SUCCEEDED
@@ -344,8 +372,50 @@ def test_processor_free_router_does_not_require_a_compatibility_gateway() -> Non
         )
     ]
     assert studio_images.calls == ["studio-images:00000000-0000-0000-0000-000000000295"]
-    with pytest.raises(RuntimeError, match="compatibility execution is unavailable"):
+    with pytest.raises(RuntimeError, match="custom-collection execution is unavailable"):
         router.execute(_message("custom-collections"), object(), FakeProgress())
+
+
+def test_custom_collection_aliases_use_the_processor_free_owner() -> None:
+    gateway = FakeCompatibility()
+    custom = FakeCustomCollections()
+    router = P8EffectTaskRouter(
+        cast(P8EffectsCompatibilityGateway, gateway),
+        cast(UserSyncService, FakeUserSync()),
+        custom_collection_tasks=custom,
+    )
+
+    batch_id = UUID("00000000-0000-0000-0000-000000000296")
+    single_id = UUID("00000000-0000-0000-0000-000000000297")
+    first = router.execute(
+        _message("custom-collections", metadata={"job_id": str(batch_id)}),
+        None,
+        FakeProgress(),
+    )
+    second = router.execute(
+        _message("process_all_custom_collections", metadata={"job_id": str(batch_id)}),
+        None,
+        FakeProgress(),
+    )
+    single = router.execute(
+        _message(
+            "process-single-custom-collection",
+            {"custom_collection_id": 17},
+            metadata={"job_id": str(single_id), "requested_by_user_id": "emby-user"},
+        ),
+        None,
+        FakeProgress(),
+    )
+
+    assert first.status is TaskOutcomeStatus.SUCCEEDED
+    assert second.status is TaskOutcomeStatus.SUCCEEDED
+    assert single.status is TaskOutcomeStatus.SUCCEEDED
+    assert custom.calls == [
+        ("all", None, batch_id, ""),
+        ("all", None, batch_id, ""),
+        ("one", 17, single_id, "emby-user"),
+    ]
+    assert gateway.calls == []
 
 
 def test_manual_auto_tagging_payload_is_strict_and_server_selected() -> None:

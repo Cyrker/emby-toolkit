@@ -51,6 +51,18 @@ from etk.compatibility.upload_monitor import (
     install_persistent_upload_source_cleanup,
 )
 from etk.domains.collection.activation import PostgresCollectionActivationRepository
+from etk.domains.collection.custom_recommendation import (
+    ConfiguredCustomCollectionDiscoveryProvider,
+    SqlAlchemyCustomCollectionRecommendationService,
+)
+from etk.domains.collection.custom_task_adapters import (
+    HttpxCustomCollectionSourceAdapter,
+    HttpxCustomCollectionTmdbAdapter,
+    NativeCustomCollectionRefreshOperationAdapter,
+    SqlAlchemyCustomCollectionLibraryQueryAdapter,
+    SqlAlchemyCustomCollectionMediaIndexAdapter,
+)
+from etk.domains.collection.custom_tasks import CustomCollectionTaskService
 from etk.domains.collection.effect_adapters import (
     HttpxCollectionRemoteEffectsAdapter,
     PersistentCollectionDeletionSuppression,
@@ -64,6 +76,7 @@ from etk.domains.collection.refresh import (
     SqlAlchemyNativeCollectionRefreshRepository,
 )
 from etk.domains.collection.refresh_adapter import HttpxNativeCollectionRefreshAdapter
+from etk.domains.collection.repository import SqlAlchemyCollectionRepository
 from etk.domains.identity.effect_adapters import HttpxEmbyIdentityEffectsAdapter
 from etk.domains.identity.effect_execution import (
     IdentityOperationExecutor,
@@ -387,6 +400,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "auto-subscribe",
         "backfill-organize-record-tmdb-ids",
         "check-expired-users",
+        "custom-collections",
         "execute-auto-tagging-rules",
         "fill-studio-images",
         "full-sync-strm",
@@ -396,6 +410,8 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "manual_subscribe_batch",
         "monitor-115-life-events",
         "play-pool-daily-speedtest",
+        "process-single-custom-collection",
+        "process_all_custom_collections",
         CLEANUP_EXECUTION_TASK_KEY,
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
@@ -1463,6 +1479,13 @@ class WorkerRuntime:
                     activation_provider=HttpxNativeCollectionRefreshAdapter(settings_provider),
                     activation_completion=collection_activation,
                 )
+                custom_collection_tasks = _custom_collection_task_service(
+                    database,
+                    settings_provider,
+                    app_settings,
+                    collection_operations,
+                    collection_operation_executor,
+                )
                 user_activity_provider = HttpxEmbyUserActivityAdapter(settings_provider)
                 user_event_delivery = P8UserEventEffectDelivery(
                     UserPolicyEffectService(
@@ -1560,6 +1583,7 @@ class WorkerRuntime:
                         studio_images_delivery,
                         PersistentStudioImageEffects(media_effects),
                     ),
+                    custom_collection_tasks=custom_collection_tasks,
                 )
                 ingestion_binding = PersistentPendingBindingGateway(
                     ledger=ingestion_ledger,
@@ -1755,6 +1779,13 @@ class WorkerRuntime:
                 ),
                 activation_provider=HttpxNativeCollectionRefreshAdapter(settings_provider),
                 activation_completion=collection_activation,
+            )
+            custom_collection_tasks = _custom_collection_task_service(
+                database,
+                settings_provider,
+                app_settings,
+                collection_operations,
+                collection_operation_executor,
             )
             p115_credentials = SqlAlchemyP115CredentialRepository(
                 database.unit_of_work,
@@ -2233,6 +2264,7 @@ class WorkerRuntime:
                     studio_images_delivery,
                     PersistentStudioImageEffects(media_effects),
                 ),
+                custom_collection_tasks=custom_collection_tasks,
             )
             p9_sharing_tasks = P9SharingTaskRouter(
                 shared_center=shared_center,
@@ -3850,6 +3882,35 @@ def _worker_data_root(config_adapter: Any) -> Path:
     if configured:
         return Path(configured).expanduser().resolve()
     return Path(__file__).resolve().parents[3] / "local_data"
+
+
+def _custom_collection_task_service(
+    database: Any,
+    settings_provider: Callable[[], Any],
+    app_settings: SqlAlchemyAppSettingsRepository,
+    collection_operations: PostgresCollectionOperationRepository,
+    collection_operation_executor: CollectionOperationExecutor,
+) -> CustomCollectionTaskService:
+    """Build the processor-free owner shared by all custom-collection aliases."""
+    return CustomCollectionTaskService(
+        SqlAlchemyCollectionRepository(database.unit_of_work),
+        HttpxCustomCollectionSourceAdapter(
+            settings_provider,
+            SqlAlchemyCustomCollectionRecommendationService(
+                database.unit_of_work,
+                ConfiguredCustomCollectionDiscoveryProvider(settings_provider),
+            ),
+        ),
+        HttpxCustomCollectionTmdbAdapter(settings_provider),
+        SqlAlchemyCustomCollectionMediaIndexAdapter(database.unit_of_work),
+        SqlAlchemyCustomCollectionLibraryQueryAdapter(
+            database.unit_of_work,
+            settings_provider,
+            app_settings,
+        ),
+        NativeCustomCollectionRefreshOperationAdapter(collection_operations, collection_operation_executor),
+        default_emby_user_id=lambda: str(settings_provider().emby_user_id or ""),
+    )
 
 
 def _legacy_compatibility_enabled() -> bool:

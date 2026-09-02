@@ -5,6 +5,9 @@ from importlib import import_module
 from typing import Any, Protocol
 from uuid import UUID
 
+from etk.domains.collection.custom_tasks import (
+    CUSTOM_COLLECTION_BATCH_TASK_KEYS,
+)
 from etk.domains.identity.user_sync import UserSyncService
 from etk.domains.operations.review_reprocess import (
     P8_REVIEW_TASK_KEYS,
@@ -38,11 +41,8 @@ _DISPLAY_NAMES = {
 }
 
 _LEGACY_HANDLERS = {
-    "custom-collections": ("tasks.custom_collections", "task_process_all_custom_collections"),
     "generate-all-covers": ("tasks.covers", "task_generate_all_covers"),
     "generate-custom-collection-covers": ("tasks.covers", "task_generate_all_custom_collection_covers"),
-    "process-single-custom-collection": ("tasks.custom_collections", "process_single_custom_collection"),
-    "process_all_custom_collections": ("tasks.custom_collections", "task_process_all_custom_collections"),
     "scan-cleanup-issues": ("tasks.cleanup", "task_scan_for_cleanup_issues"),
     REVIEW_REPROCESS_ONE_TASK_KEY: ("tasks.media", "task_reprocess_single_item"),
     REVIEW_REPROCESS_ALL_TASK_KEY: ("tasks.media", "task_reprocess_all_review_items"),
@@ -129,6 +129,25 @@ class P8StudioImages(Protocol):
     ) -> TaskOutcome: ...
 
 
+class P8CustomCollectionTasks(Protocol):
+    def execute_all(
+        self,
+        progress: P8TaskProgress,
+        *,
+        job_id: UUID,
+        emby_user_id: str = "",
+    ) -> TaskOutcome: ...
+
+    def execute_one(
+        self,
+        collection_id: int,
+        progress: P8TaskProgress,
+        *,
+        job_id: UUID,
+        emby_user_id: str = "",
+    ) -> TaskOutcome: ...
+
+
 class LegacyP8EffectsCompatibilityGateway:
     """Worker-only allowlist around established P8 task implementations."""
 
@@ -166,6 +185,7 @@ class P8EffectTaskRouter:
         native_collection_refresh: P8NativeCollectionRefresh | None = None,
         auto_tagging: P8AutoTagging | None = None,
         studio_images: P8StudioImages | None = None,
+        custom_collection_tasks: P8CustomCollectionTasks | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._user_sync = user_sync
@@ -176,6 +196,7 @@ class P8EffectTaskRouter:
         self._native_collection_refresh = native_collection_refresh
         self._auto_tagging = auto_tagging
         self._studio_images = studio_images
+        self._custom_collection_tasks = custom_collection_tasks
 
     def execute(
         self,
@@ -283,6 +304,32 @@ class P8EffectTaskRouter:
                 progress,
                 operation_key=f"studio-images:{_metadata_uuid(message.metadata.get('job_id'), 'job_id')}",
             )
+            return TaskOutcome(
+                outcome.status,
+                outcome.message,
+                {**outcome.details, **_details(message.task_key, compatibility=False)},
+            )
+        if (
+            message.task_key in CUSTOM_COLLECTION_BATCH_TASK_KEYS
+            or message.task_key == "process-single-custom-collection"
+        ):
+            if self._custom_collection_tasks is None:
+                raise RuntimeError("P8 custom-collection execution is unavailable")
+            job_id = _metadata_uuid(message.metadata.get("job_id"), "job_id")
+            emby_user_id = str(message.metadata.get("requested_by_user_id") or "").strip()
+            if message.task_key in CUSTOM_COLLECTION_BATCH_TASK_KEYS:
+                outcome = self._custom_collection_tasks.execute_all(
+                    progress,
+                    job_id=job_id,
+                    emby_user_id=emby_user_id,
+                )
+            else:
+                outcome = self._custom_collection_tasks.execute_one(
+                    int(parameters["custom_collection_id"]),
+                    progress,
+                    job_id=job_id,
+                    emby_user_id=emby_user_id,
+                )
             return TaskOutcome(
                 outcome.status,
                 outcome.message,
