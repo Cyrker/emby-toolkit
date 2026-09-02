@@ -26,6 +26,13 @@ P5_TASK_EXECUTION_OWNERS = {
     "restore-nfo-and-images": "tasks.media.task_fill_missing_video_screenshots",
     "role-translation": "tasks.media.task_role_translation",
 }
+P5_NATIVE_EXECUTION_OWNERS = {
+    "actor-translation": "etk.domains.people.task_execution.NativePeopleTaskService",
+    "backfill-media-metadata": "etk.domains.media.task_execution.NativeMediaMetadataTaskService",
+    "populate-metadata": "etk.domains.media.task_execution.NativeMediaMetadataTaskService",
+    "restore-nfo-and-images": "etk.domains.media.task_execution.NativeMediaScreenshotBackfillService",
+    "role-translation": "etk.domains.media.task_execution.NativeMediaMetadataTaskService",
+}
 
 P6_TASK_EXECUTION_OWNERS = {
     "backfill-organize-record-tmdb-ids": ("etk.domains.p115.organize_records.P115OrganizeRecordTmdbBackfillService"),
@@ -78,8 +85,12 @@ P7_TASKS = {
     "recalculate_library_washing_priorities",
 }
 P7_NATIVE_EXECUTION_OWNERS = {
+    "actor-tracking": "etk.domains.people.task_execution.NativePeopleTaskService",
     "auto-subscribe": "etk.domains.subscription.auto_subscribe.AutoSubscribeService",
+    "enrich-aliases": "etk.domains.people.task_execution.NativePeopleTaskService",
     "manual_subscribe_batch": "etk.domains.subscription.manual_batch.ManualSubscriptionBatchService",
+    "merge-duplicate-actors": "etk.domains.people.task_execution.NativePeopleTaskService",
+    "purge-ghost-actors": "etk.domains.people.task_execution.NativePeopleTaskService",
     "recalculate_library_washing_priorities": (
         "etk.domains.p115.washing_recalculation.P115WashingPriorityRecalculationService"
     ),
@@ -217,11 +228,12 @@ def export_tasks() -> dict[str, Any]:
                 "execution_owner": "etk.domains.p115.media_info_restore.P115MediaInfoRestoreService",
             }
         elif task_key in P5_TASK_EXECUTION_OWNERS:
-            execution_owner = P5_TASK_EXECUTION_OWNERS[task_key]
-            ownership_layers: dict[str, Any] = {
+            execution_owner = P5_NATIVE_EXECUTION_OWNERS.get(task_key) or P5_TASK_EXECUTION_OWNERS[task_key]
+            native = task_key in P5_NATIVE_EXECUTION_OWNERS
+            ownership_layers = {
                 "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-                "execution_kind": "legacy-compatibility-callable",
-                "retirement_stage": "P11",
+                "execution_kind": "native-use-case" if native else "legacy-compatibility-callable",
+                **({} if native else {"retirement_stage": "P11"}),
             }
             if isinstance(execution_owner, str):
                 ownership_layers["execution_owner"] = execution_owner

@@ -7625,10 +7625,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativePeopleTaskService enrichment with bounded TMDb reads, durable person metadata upserts, checkpoints, and explicit TaskOutcome mapping.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "subscription/task-envelope"
+        "validation_method": "ordered-task-registry-native-people-task-postgres18-and-redis-celery",
+        "validation_owner": "people/task-execution"
       },
       "task-1460b33e904b": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -7688,10 +7688,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativeMediaMetadataTaskService backfill with bounded TMDb reads, preserved file/person projections, and explicit partial/failed outcomes.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-        "validation_owner": "media/task-envelope"
+        "validation_method": "ordered-task-registry-native-media-task-postgres18-and-worker-outcome",
+        "validation_owner": "media/task-execution"
       },
       "task-45bca81dc49d": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -7715,28 +7715,28 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativeMediaMetadataTaskService population with bounded Emby/TMDb reads, compare-and-swap metadata writes, and checkpoints.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-        "validation_owner": "media/task-envelope"
+        "validation_method": "ordered-task-registry-native-media-task-postgres18-and-worker-outcome",
+        "validation_owner": "media/task-execution"
       },
       "task-55fbf2987899": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativePeopleTaskService actor tracking with bounded TMDb credits reads, subscription scan checkpoints, and explicit partial/failed outcomes.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "subscription/task-envelope"
+        "validation_method": "ordered-task-registry-native-people-task-postgres18-and-redis-celery",
+        "validation_owner": "people/task-execution"
       },
       "task-5bff877a2d18": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativeMediaScreenshotBackfillService with bounded ffmpeg capture, Emby upload/readback, local hash recording, and checkpoints.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-        "validation_owner": "media/task-envelope"
+        "validation_method": "ordered-task-registry-native-screenshot-task-postgres18-and-worker-outcome",
+        "validation_owner": "media/task-execution"
       },
       "task-5d1be2bd7771": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -7805,10 +7805,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativePeopleTaskService duplicate-person merge with media rewrite, fresh-reference fencing, delete readback, and checkpoints.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "subscription/task-envelope"
+        "validation_method": "ordered-task-registry-native-people-task-postgres18-and-redis-celery",
+        "validation_owner": "people/task-execution"
       },
       "task-843ca4a2c14a": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -7904,10 +7904,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativeMediaMetadataTaskService role translation with bounded translation batches, compare-and-swap actor updates, and checkpoints.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-        "validation_owner": "media/task-envelope"
+        "validation_method": "ordered-task-registry-native-media-task-postgres18-and-worker-outcome",
+        "validation_owner": "media/task-execution"
       },
       "task-c30864f78abd": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -7931,10 +7931,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativePeopleTaskService translation with bounded Emby/TMDb reads, cached provider batches, and explicit TaskOutcome mapping.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-        "validation_owner": "media/task-envelope"
+        "validation_method": "ordered-task-registry-native-people-task-postgres18-and-worker-outcome",
+        "validation_owner": "people/task-execution"
       },
       "task-c9f941e93d3e": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
@@ -7976,10 +7976,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativePeopleTaskService ghost-person purge with fresh media-reference fencing, delete readback, and checkpoints.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "subscription/task-envelope"
+        "validation_method": "ordered-task-registry-native-people-task-postgres18-and-redis-celery",
+        "validation_owner": "people/task-execution"
       },
       "task-dc76bfeb372f": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

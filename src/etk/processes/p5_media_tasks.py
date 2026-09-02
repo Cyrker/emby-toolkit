@@ -65,6 +65,28 @@ class P5MediaInfoRestoreUseCase(Protocol):
     ) -> TaskOutcome: ...
 
 
+class P5MediaTaskExecution(Protocol):
+    def execute(
+        self,
+        task_key: str,
+        progress: P5MediaTaskProgress,
+        parameters: Mapping[str, Any],
+    ) -> TaskOutcome: ...
+
+
+class P5PeopleTaskExecution(Protocol):
+    def execute(
+        self,
+        task_key: str,
+        progress: P5MediaTaskProgress,
+        parameters: Mapping[str, Any],
+    ) -> TaskOutcome: ...
+
+
+class P5ScreenshotBackfillUseCase(Protocol):
+    def execute(self, progress: P5MediaTaskProgress) -> TaskOutcome: ...
+
+
 class LegacyP5MediaCompatibilityGateway:
     """Worker-only P11 fallback for P5 tasks whose use cases are still legacy callables."""
 
@@ -94,9 +116,15 @@ class P5MediaTaskRouter:
         self,
         compatibility: P5MediaCompatibilityGateway | None,
         restore_mediainfo: P5MediaInfoRestoreUseCase | None = None,
+        media_tasks: P5MediaTaskExecution | None = None,
+        people_tasks: P5PeopleTaskExecution | None = None,
+        screenshot_backfill: P5ScreenshotBackfillUseCase | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._restore_mediainfo = restore_mediainfo
+        self._media_tasks = media_tasks
+        self._people_tasks = people_tasks
+        self._screenshot_backfill = screenshot_backfill
 
     def execute(
         self,
@@ -136,6 +164,22 @@ class P5MediaTaskRouter:
                     "compatibility_fallback": False,
                 },
             )
+        if message.task_key in {"populate-metadata", "backfill-media-metadata", "role-translation"}:
+            if self._media_tasks is not None:
+                if progress is None:
+                    raise RuntimeError("native P5 media task progress is unavailable")
+                result = self._media_tasks.execute(message.task_key, progress, parameters)
+                return _native_outcome(message.task_key, result, self._media_tasks)
+        if message.task_key == "actor-translation" and self._people_tasks is not None:
+            if progress is None:
+                raise RuntimeError("native P5 people task progress is unavailable")
+            result = self._people_tasks.execute(message.task_key, progress, parameters)
+            return _native_outcome(message.task_key, result, self._people_tasks)
+        if message.task_key == "restore-nfo-and-images" and self._screenshot_backfill is not None:
+            if progress is None:
+                raise RuntimeError("native P5 screenshot task progress is unavailable")
+            result = self._screenshot_backfill.execute(progress)
+            return _native_outcome(message.task_key, result, self._screenshot_backfill)
         if processor is None:
             raise RuntimeError("P5 media processor is unavailable")
         if message.task_key == "backfill-media-metadata" and parameters.get("targets") == []:
@@ -246,11 +290,27 @@ def _outcome_details(task_key: str) -> dict[str, str | bool]:
     }
 
 
+def _native_outcome(task_key: str, result: TaskOutcome, owner: object) -> TaskOutcome:
+    return TaskOutcome(
+        result.status,
+        result.message,
+        {
+            **result.details,
+            "task_key": task_key,
+            "native_handler": type(owner).__name__,
+            "compatibility_fallback": False,
+        },
+    )
+
+
 __all__ = [
     "LegacyP5MediaCompatibilityGateway",
     "P5_COMPATIBILITY_FALLBACK_UNTIL",
     "P5MediaCompatibilityGateway",
     "P5MediaInfoRestoreUseCase",
+    "P5MediaTaskExecution",
+    "P5PeopleTaskExecution",
     "P5MediaTaskProgress",
+    "P5ScreenshotBackfillUseCase",
     "P5MediaTaskRouter",
 ]

@@ -5804,3 +5804,50 @@ Safety boundary:
 
 - No real Emby, 115, TMDb, MoviePilot, Telegram, HDHive, Shared Center, production database, old
   `/config`, external write, push, deployment, release, `web_app.py`, or PyArmor runtime was used.
+
+### P11-People-Metadata
+
+Stage / Batch: P11 / processor-free People and Metadata task owners
+
+HEAD / Commit:
+
+- Pre-slice HEAD: `3d380289` (`refactor(p11): execute native custom collection tasks`).
+- Target checkpoint message: `refactor(p11): execute native people and metadata tasks`.
+
+Implemented:
+
+- Added processor-free People task execution for actor translation, alias enrichment, actor
+  tracking, duplicate-person merge and ghost-person purge, with bounded Emby/TMDb adapters,
+  fresh-reference checks and explicit task outcomes.
+- Added processor-free media metadata population/backfill/role translation and screenshot
+  backfill owners, preserving file/person projections and scoping offline reconciliation to the
+  selected library assets.
+- Added cached provider translation clients without importing the legacy `AITranslator`; both
+  Worker profiles and the native-only allowlist now route these task keys through the new owners.
+- Actor tracking now handles TV cast order and Season metadata, keeps scan-cursor updates
+  non-destructive when TMDb returns no usable credits, and resolves person IMDb identity
+  conflicts inside the PostgreSQL Unit of Work.
+- Regenerated task ownership and retained `.DS_Store` outside the staged set.
+
+Targeted gate:
+
+- P5/P7 application and architecture scope -> `603 passed`, with the existing Starlette WSGI
+  deprecation warning.
+- New People/Metadata application scope -> `8 passed`.
+- Disposable PostgreSQL 18 People/Metadata repositories -> `7 passed`.
+- Scoped Ruff/format and Pyright -> clean (`0 errors, 0 warnings, 0 informations`).
+- Compileall, `uv lock --check`, task manifest currentness and `git diff --check` -> clean.
+
+Focused review:
+
+- Closed the missing actor-work normalizer, TV order/Season publication, empty-credit destructive
+  cleanup, metadata upsert TOCTOU, selected-library offline scope, screenshot Video candidate
+  coverage, duplicate-person rewrite duplication and IMDb identity conflict findings.
+- No real Emby, TMDb, AI provider, production database or other external write was used.
+
+Pending:
+
+- P11 remains `DOING`: the remaining Watchlist/Resubscribe/Assistant and Covers/destructive task
+  owners, Table/Config/Frontend ownership closure, pre-removal, controlled removal and all P11
+  NFR/security/SBOM/vulnerability/License gates are still required.
+- P12 remains `TODO`; Live Acceptance remains `HUMAN_PENDING`.

@@ -131,6 +131,16 @@ from etk.domains.media.studio_images_adapter import (
     studio_image_claim_lease_seconds,
 )
 from etk.domains.media.subscription_projection import SqlAlchemySubscriptionMediaProjection
+from etk.domains.media.task_execution import (
+    FfmpegScreenshotCapture,
+    HttpxEmbyScreenshotUploadAdapter,
+    HttpxMediaCatalogAdapter,
+    HttpxTmdbMetadataAdapter,
+    NativeMediaMetadataTaskService,
+    NativeMediaScreenshotBackfillService,
+    SqlAlchemyMediaMetadataTaskRepository,
+    SqlAlchemyScreenshotRepository,
+)
 from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
 from etk.domains.operations.database_maintenance import (
     DatabaseMaintenanceExecutor,
@@ -231,6 +241,12 @@ from etk.domains.p115.upload_adapters import (
 )
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService, UploadOperation
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.people.task_execution import (
+    HttpxPeopleCatalogAdapter,
+    HttpxTmdbPersonAdapter,
+    NativePeopleTaskService,
+    SqlAlchemyPersonMetadataRepository,
+)
 from etk.domains.sharing import (
     AtomicVirtualImportProjector,
     HttpxEmbyVirtualItemGateway,
@@ -309,6 +325,7 @@ from etk.domains.subscription.provider_execution import SubscriptionOperationExe
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
 from etk.domains.subscription.watchlist import OldSeasonBackfillService
 from etk.domains.system import SqlAlchemyAppSettingsRepository
+from etk.domains.translation import ConfiguredBatchTranslation
 from etk.integrations import (
     DurableTelegramUserBotAdapter,
     HttpxHDHiveAdapter,
@@ -397,11 +414,15 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     | P6_INGESTION_NATIVE_TASK_KEYS
     | P9_NATIVE_TASK_KEYS
     | {
+        "actor-tracking",
+        "actor-translation",
         "auto-subscribe",
+        "backfill-media-metadata",
         "backfill-organize-record-tmdb-ids",
         "check-expired-users",
         "custom-collections",
         "execute-auto-tagging-rules",
+        "enrich-aliases",
         "fill-studio-images",
         "full-sync-strm",
         "generate_embeddings",
@@ -412,11 +433,16 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "play-pool-daily-speedtest",
         "process-single-custom-collection",
         "process_all_custom_collections",
+        "populate-metadata",
+        "merge-duplicate-actors",
+        "purge-ghost-actors",
         CLEANUP_EXECUTION_TASK_KEY,
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
         "refresh-collections",
         "restore_mediainfo",
+        "restore-nfo-and-images",
+        "role-translation",
         "scan-cleanup-issues",
         "scan-organize-115",
         "scan_old_seasons_backfill",
@@ -1250,6 +1276,10 @@ class WorkerRuntime:
                         telegram,
                     ),
                 )
+                media_task_service, people_task_service, screenshot_backfill = _native_media_people_task_services(
+                    database,
+                    settings_provider,
+                )
                 p7_subscription_tasks = P7SubscriptionTaskRouter(
                     compatibility=LegacyP7SubscriptionCompatibilityGateway(),
                     assistant=SubscribeAssistantMaintenanceService(
@@ -1264,6 +1294,7 @@ class WorkerRuntime:
                     ),
                     manual_batch=manual_batch,
                     auto_subscribe=auto_subscribe,
+                    people_tasks=people_task_service,
                 )
                 p9_sharing_tasks = P9SharingTaskRouter(
                     shared_center=shared_center,
@@ -1644,6 +1675,9 @@ class WorkerRuntime:
                             executor=media_effects,
                         ),
                     ),
+                    media_tasks=media_task_service,
+                    people_tasks=people_task_service,
+                    screenshot_backfill=screenshot_backfill,
                 )
                 supervisor.start(role=RuntimeRole.WORKER, background=False)
                 adapter = LegacyTaskAdapter(registry, RuntimeLegacyTaskResolver())
@@ -2155,6 +2189,10 @@ class WorkerRuntime:
                 ),
                 worker_id=f"{self._worker_id}:p115-intro",
             )
+            media_task_service, people_task_service, screenshot_backfill = _native_media_people_task_services(
+                database,
+                settings_provider,
+            )
             p5_media_tasks = P5MediaTaskRouter(
                 compatibility=None,
                 restore_mediainfo=P115MediaInfoRestoreService(
@@ -2170,6 +2208,9 @@ class WorkerRuntime:
                         executor=media_effects,
                     ),
                 ),
+                media_tasks=media_task_service,
+                people_tasks=people_task_service,
+                screenshot_backfill=screenshot_backfill,
             )
             p6_p115_tasks = P6P115TaskRouter(
                 directory_sync=P115DirectorySyncService(
@@ -2228,6 +2269,7 @@ class WorkerRuntime:
                 ),
                 manual_batch=manual_batch,
                 auto_subscribe=auto_subscribe,
+                people_tasks=people_task_service,
             )
             p8_effect_tasks = P8EffectTaskRouter(
                 None,
@@ -2978,11 +3020,20 @@ class WorkerRuntime:
                         definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
                         or definition.key
                         in {
+                            "actor-tracking",
+                            "actor-translation",
                             "auto-subscribe",
+                            "backfill-media-metadata",
                             "check-expired-users",
+                            "enrich-aliases",
                             "manual_subscribe_batch",
+                            "merge-duplicate-actors",
+                            "populate-metadata",
+                            "purge-ghost-actors",
                             "recalculate_library_washing_priorities",
                             "restore_mediainfo",
+                            "restore-nfo-and-images",
+                            "role-translation",
                             "scan-cleanup-issues",
                             "scan_old_seasons_backfill",
                             "sync-all-user-data",
@@ -3911,6 +3962,33 @@ def _custom_collection_task_service(
         NativeCustomCollectionRefreshOperationAdapter(collection_operations, collection_operation_executor),
         default_emby_user_id=lambda: str(settings_provider().emby_user_id or ""),
     )
+
+
+def _native_media_people_task_services(
+    database: Any,
+    settings_provider: Callable[[], Any],
+) -> tuple[NativeMediaMetadataTaskService, NativePeopleTaskService, NativeMediaScreenshotBackfillService]:
+    """Build the processor-free P5/P7 people and media task owners."""
+    media_tasks = NativeMediaMetadataTaskService(
+        repository=SqlAlchemyMediaMetadataTaskRepository(database.unit_of_work),
+        catalog=HttpxMediaCatalogAdapter(settings_provider),
+        metadata=HttpxTmdbMetadataAdapter(settings_provider),
+        translation=ConfiguredBatchTranslation(settings_provider),
+        settings=settings_provider,
+    )
+    people_tasks = NativePeopleTaskService(
+        catalog=HttpxPeopleCatalogAdapter(settings_provider),
+        provider=HttpxTmdbPersonAdapter(settings_provider),
+        repository=SqlAlchemyPersonMetadataRepository(database.unit_of_work),
+        translation=ConfiguredBatchTranslation(settings_provider),
+        actor_enabled=lambda: bool(settings_provider().ai_translate_actor_role),
+    )
+    screenshot_backfill = NativeMediaScreenshotBackfillService(
+        repository=SqlAlchemyScreenshotRepository(database.unit_of_work),
+        capture=FfmpegScreenshotCapture(),
+        upload=HttpxEmbyScreenshotUploadAdapter(settings_provider),
+    )
+    return media_tasks, people_tasks, screenshot_backfill
 
 
 def _legacy_compatibility_enabled() -> bool:

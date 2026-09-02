@@ -142,7 +142,7 @@ def test_worker_executes_targeted_backfill_through_p5_native_router(monkeypatch)
     }
     message, observed_processor = router.calls[0]
     assert message.payload.data == {"targets": [{"tmdb_id": "100", "media_type": "movie"}]}
-    assert observed_processor is processor
+    assert observed_processor is None
 
 
 def test_worker_converts_failed_native_outcome_to_failed_attempt(monkeypatch) -> None:

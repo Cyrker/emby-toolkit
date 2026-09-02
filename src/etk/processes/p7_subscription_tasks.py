@@ -140,6 +140,15 @@ class P7OldSeasonBackfill(Protocol):
     def execute(self, progress: P7TaskProgress) -> Any: ...
 
 
+class P7PeopleTaskExecution(Protocol):
+    def execute(
+        self,
+        task_key: str,
+        progress: P7TaskProgress,
+        parameters: Mapping[str, Any],
+    ) -> TaskOutcome: ...
+
+
 class LegacyP7SubscriptionCompatibilityGateway:
     """Worker-only P11 seam around the remaining established P7 task functions."""
 
@@ -247,6 +256,7 @@ class P7SubscriptionTaskRouter:
         old_season_backfill: P7OldSeasonBackfill | None = None,
         manual_batch: ManualSubscriptionBatchService | None = None,
         auto_subscribe: AutoSubscribeService | None = None,
+        people_tasks: P7PeopleTaskExecution | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._assistant = assistant
@@ -256,6 +266,7 @@ class P7SubscriptionTaskRouter:
         self._old_season_backfill = old_season_backfill
         self._manual_batch = manual_batch
         self._auto_subscribe = auto_subscribe
+        self._people_tasks = people_tasks
 
     def execute(
         self,
@@ -274,6 +285,18 @@ class P7SubscriptionTaskRouter:
             raise ValueError(f"task {message.task_key!r} payload version is not supported")
         payload = TaskPayload.create(message.payload.data, version=message.payload.version).data
         parameters = _normalize_parameters(message.task_key, payload)
+        if (
+            message.task_key
+            in {
+                "actor-tracking",
+                "enrich-aliases",
+                "merge-duplicate-actors",
+                "purge-ghost-actors",
+            }
+            and self._people_tasks is not None
+        ):
+            result = self._people_tasks.execute(message.task_key, progress, parameters)
+            return _native_outcome(message.task_key, result, self._people_tasks)
         if message.task_key == "auto-subscribe":
             if self._auto_subscribe is None:
                 raise RuntimeError("P7 auto-subscribe use case is unavailable")
@@ -412,6 +435,11 @@ def _normalize_parameters(task_key: str, payload: Mapping[str, Any]) -> dict[str
         value = values["subscription_id"]
         if isinstance(value, bool) or not isinstance(value, int) or value < 1:
             raise ValueError("actor-tracking subscription_id must be a positive integer")
+    if task_key == "actor-tracking" and "actor_name" in values:
+        actor_name = str(values["actor_name"] or "").strip()
+        if not actor_name:
+            raise ValueError("actor-tracking actor_name must be a non-empty string")
+        values["actor_name"] = actor_name
     if task_key == "manual_subscribe_batch":
         requests = values.get("subscribe_requests")
         if not isinstance(requests, list) or not all(isinstance(item, Mapping) for item in requests):
@@ -472,12 +500,26 @@ def _explicit_outcome(task_key: str, result: object) -> TaskOutcome:
     )
 
 
+def _native_outcome(task_key: str, result: TaskOutcome, owner: object) -> TaskOutcome:
+    return TaskOutcome(
+        result.status,
+        result.message,
+        {
+            **result.details,
+            "task_key": task_key,
+            "native_handler": type(owner).__name__,
+            "compatibility_fallback": False,
+        },
+    )
+
+
 __all__ = [
     "LegacyP7SubscriptionCompatibilityGateway",
     "LegacySubscribeAssistantMaintenanceGateway",
     "P7_COMPATIBILITY_FALLBACK_UNTIL",
     "P7SubscriptionCompatibilityGateway",
     "P7ResubscribeCleanup",
+    "P7PeopleTaskExecution",
     "P7SubscriptionTaskRouter",
     "P7TaskProgress",
 ]

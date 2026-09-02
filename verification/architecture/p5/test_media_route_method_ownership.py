@@ -12,7 +12,11 @@ from etk.processes import p5_media_tasks  # noqa: E402
 from scripts.refactor.export_bridge_contracts import export_bridge_contracts  # noqa: E402
 from scripts.refactor.export_manifests import _method_bindings  # noqa: E402
 from scripts.refactor.export_routes import P5_EMBY_ROUTE_PATHS, ROUTE_OWNERS, export_routes  # noqa: E402
-from scripts.refactor.export_tasks import P5_TASK_EXECUTION_OWNERS, export_tasks  # noqa: E402
+from scripts.refactor.export_tasks import (  # noqa: E402
+    P5_NATIVE_EXECUTION_OWNERS,
+    P5_TASK_EXECUTION_OWNERS,
+    export_tasks,
+)
 
 EXPECTED_MEDIA_OWNERSHIP = {
     ("GET", "/api/search_emby_library"): (("operations",), "P8", "media/secondary"),
@@ -248,15 +252,24 @@ def test_p5_task_manifest_separates_native_envelope_from_legacy_execution() -> N
         task = tasks[task_key]
         assert task["status"] == "new"
         assert task["new_owner"] == "etk.processes.p5_media_tasks.P5MediaTaskRouter"
-        expected_layers: dict[str, object] = {
-            "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-            "execution_kind": "legacy-compatibility-callable",
-            "retirement_stage": "P11",
-        }
-        if isinstance(execution_owner, str):
-            expected_layers["execution_owner"] = execution_owner
+        expected_layers: dict[str, object]
+        native_owner = P5_NATIVE_EXECUTION_OWNERS.get(task_key)
+        if native_owner is not None:
+            expected_layers = {
+                "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+                "execution_kind": "native-use-case",
+                "execution_owner": native_owner,
+            }
         else:
-            expected_layers["execution_owners"] = execution_owner
+            expected_layers = {
+                "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
+                "execution_kind": "legacy-compatibility-callable",
+                "retirement_stage": "P11",
+            }
+            if isinstance(execution_owner, str):
+                expected_layers["execution_owner"] = execution_owner
+            else:
+                expected_layers["execution_owners"] = execution_owner
         assert task["ownership_layers"] == expected_layers
 
     restore_mediainfo = exported_tasks["restore_mediainfo"]

@@ -34,12 +34,11 @@
       "help": "刷新演员订阅，根据关注演员检查新作品并触发后续订阅处理。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-      "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free NativePeopleTaskService actor tracking with bounded TMDb credits reads, subscription scan checkpoints, and explicit partial/failed outcomes.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.people.task_execution.NativePeopleTaskService"
       },
       "processor_type": "actor",
       "retirement_approval": null,
@@ -51,8 +50,8 @@
       ],
       "target_stage": "P7",
       "task_key": "actor-tracking",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "subscription/task-envelope",
+      "validation_method": "ordered-task-registry-native-people-task-postgres18-and-redis-celery",
+      "validation_owner": "people/task-execution",
       "visible_in": [
         "all",
         "chain",
@@ -69,12 +68,11 @@
       "help": "为演员、导演等人物信息补充中文名。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-      "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free NativePeopleTaskService translation with bounded Emby/TMDb reads, cached provider batches, and explicit TaskOutcome mapping.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "tasks.actors.task_persons_translation",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.people.task_execution.NativePeopleTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -86,8 +84,8 @@
       ],
       "target_stage": "P5",
       "task_key": "actor-translation",
-      "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-      "validation_owner": "media/task-envelope",
+      "validation_method": "ordered-task-registry-native-people-task-postgres18-and-worker-outcome",
+      "validation_owner": "people/task-execution",
       "visible_in": [
         "all",
         "chain",
@@ -171,15 +169,11 @@
       "help": "扫描在库媒体，只对尚未达到当前字段结构版本的电影、剧集、季和分集重新获取 TMDb 元数据并回写。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-      "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free NativeMediaMetadataTaskService backfill with bounded TMDb reads, preserved file/person projections, and explicit partial/failed outcomes.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owners": {
-          "default": "tasks.media.task_backfill_media_metadata",
-          "when_targets_present": "tasks.media.task_backfill_media_metadata_batch"
-        },
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.media.task_execution.NativeMediaMetadataTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -191,8 +185,8 @@
       ],
       "target_stage": "P5",
       "task_key": "backfill-media-metadata",
-      "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-      "validation_owner": "media/task-envelope",
+      "validation_method": "ordered-task-registry-native-media-task-postgres18-and-worker-outcome",
+      "validation_owner": "media/task-execution",
       "visible_in": [
         "all",
         "chain",
@@ -311,12 +305,11 @@
       "help": "补充演员别名、译名等元数据资料，提高搜索和人物匹配命中率。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-      "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free NativePeopleTaskService enrichment with bounded TMDb reads, durable person metadata upserts, checkpoints, and explicit TaskOutcome mapping.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.people.task_execution.NativePeopleTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -328,8 +321,8 @@
       ],
       "target_stage": "P7",
       "task_key": "enrich-aliases",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "subscription/task-envelope",
+      "validation_method": "ordered-task-registry-native-people-task-postgres18-and-redis-celery",
+      "validation_owner": "people/task-execution",
       "visible_in": [
         "all",
         "chain",
@@ -684,12 +677,11 @@
       "help": "合并重复演员条目，减少同一演员因别名、翻译不同造成的分身。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-      "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free NativePeopleTaskService duplicate-person merge with media rewrite, fresh-reference fencing, delete readback, and checkpoints.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.people.task_execution.NativePeopleTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -701,8 +693,8 @@
       ],
       "target_stage": "P7",
       "task_key": "merge-duplicate-actors",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "subscription/task-envelope",
+      "validation_method": "ordered-task-registry-native-people-task-postgres18-and-redis-celery",
+      "validation_owner": "people/task-execution",
       "visible_in": [
         "all"
       ]
@@ -783,12 +775,11 @@
       "help": "同步 Emby 媒体库基础数据到本地缓存，用于后续追剧、订阅、整理、统计和共享匹配。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-      "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free NativeMediaMetadataTaskService population with bounded Emby/TMDb reads, compare-and-swap metadata writes, and checkpoints.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "tasks.media.task_populate_metadata_cache",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.media.task_execution.NativeMediaMetadataTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -800,8 +791,8 @@
       ],
       "target_stage": "P5",
       "task_key": "populate-metadata",
-      "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-      "validation_owner": "media/task-envelope",
+      "validation_method": "ordered-task-registry-native-media-task-postgres18-and-worker-outcome",
+      "validation_owner": "media/task-execution",
       "visible_in": [
         "all",
         "chain",
@@ -919,12 +910,11 @@
       "help": "删除没有有效关联作品的幽灵演员，清理人物库冗余数据。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-      "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free NativePeopleTaskService ghost-person purge with fresh media-reference fencing, delete readback, and checkpoints.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.people.task_execution.NativePeopleTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -936,8 +926,8 @@
       ],
       "target_stage": "P7",
       "task_key": "purge-ghost-actors",
-      "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "subscription/task-envelope",
+      "validation_method": "ordered-task-registry-native-people-task-postgres18-and-redis-celery",
+      "validation_owner": "people/task-execution",
       "visible_in": [
         "all"
       ]
@@ -1086,12 +1076,11 @@
       "help": "扫描 Emby 中缺少主图的电影、分集和家庭视频 STRM，从视频截图并上传到 Emby 图片缓存。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-      "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free NativeMediaScreenshotBackfillService with bounded ffmpeg capture, Emby upload/readback, local hash recording, and checkpoints.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "tasks.media.task_fill_missing_video_screenshots",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.media.task_execution.NativeMediaScreenshotBackfillService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -1103,8 +1092,8 @@
       ],
       "target_stage": "P5",
       "task_key": "restore-nfo-and-images",
-      "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-      "validation_owner": "media/task-envelope",
+      "validation_method": "ordered-task-registry-native-screenshot-task-postgres18-and-worker-outcome",
+      "validation_owner": "media/task-execution",
       "visible_in": [
         "all",
         "chain",
@@ -1188,12 +1177,11 @@
       "help": "为影视条目中的角色名补充中文显示，让演员角色展示更友好。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-      "notes": "P5 native Worker envelope, strict JSON payload, and TaskOutcome owner; the business callable remains lazy compatibility until P11.",
+      "notes": "P11 native-only and compatibility Workers execute processor-free NativeMediaMetadataTaskService role translation with bounded translation batches, compare-and-swap actor updates, and checkpoints.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p5_media_tasks.P5MediaTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "tasks.media.task_role_translation",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.media.task_execution.NativeMediaMetadataTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -1205,8 +1193,8 @@
       ],
       "target_stage": "P5",
       "task_key": "role-translation",
-      "validation_method": "ordered-task-registry-native-router-and-worker-outcome",
-      "validation_owner": "media/task-envelope",
+      "validation_method": "ordered-task-registry-native-media-task-postgres18-and-worker-outcome",
+      "validation_owner": "media/task-execution",
       "visible_in": [
         "all",
         "chain",
