@@ -137,6 +137,22 @@ def test_shared_center_raw_upload_and_readback_use_typed_endpoints() -> None:
     assert client.calls[1][0:2] == ("GET", f"https://center.fixture/api/v1/rawffprobe/{sha1}")
 
 
+def test_shared_center_display_metadata_uses_the_typed_upsert_endpoint() -> None:
+    client = FakeClient([_response(200, {"ok": True, "updated": 1})])
+    adapter = HttpxSharedCenterAdapter(
+        {"p115_shared_center_url": "https://center.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(),
+    )
+    payload = {"skip_logical_share_dispatch": True, "items": [{"display_meta_items_json": []}]}
+
+    result = adapter.upsert_display_metadata(payload)
+
+    assert result.disposition is ProviderDisposition.CONFIRMED
+    assert client.calls[0][0:2] == ("POST", "https://center.fixture/api/v1/metadata/display/upsert")
+    assert client.calls[0][2]["json"] == payload
+
+
 def test_shared_center_reads_standalone_runtime_configuration() -> None:
     client = FakeClient([_response(200, {"ok": True, "items": []})])
     adapter = HttpxSharedCenterAdapter(

@@ -63,6 +63,8 @@ class SharedCenterPort(Protocol):
 
     def display_detail(self, **query: Any) -> ProviderResponse[dict[str, Any]]: ...
 
+    def upsert_display_metadata(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]: ...
+
     def logical_season_manifest(self, group_id: str) -> ProviderResponse[dict[str, Any]]: ...
 
     def get_logical_season_share_channel(self, group_id: str) -> ProviderResponse[dict[str, Any]]: ...
@@ -258,6 +260,14 @@ class HttpxSharedCenterAdapter:
 
     def display_detail(self, **query: Any) -> ProviderResponse[dict[str, Any]]:
         return self._display_query("/api/v1/sources/display-detail", "display_detail", query)
+
+    def upsert_display_metadata(self, payload: Mapping[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        return self.request_json(
+            "POST",
+            "/api/v1/metadata/display/upsert",
+            operation="upsert_display_metadata",
+            json=_object(payload, "display metadata payload"),
+        )
 
     def logical_season_manifest(self, group_id: str) -> ProviderResponse[dict[str, Any]]:
         identifier = _segment(group_id, "logical season group_id")

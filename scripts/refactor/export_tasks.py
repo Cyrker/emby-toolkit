@@ -85,16 +85,19 @@ P7_TASKS = {
     "recalculate_library_washing_priorities",
 }
 P7_NATIVE_EXECUTION_OWNERS = {
+    "add-all-series-to-watchlist": "etk.domains.subscription.watchlist_task_execution.NativeWatchlistTaskService",
     "actor-tracking": "etk.domains.people.task_execution.NativePeopleTaskService",
     "auto-subscribe": "etk.domains.subscription.auto_subscribe.AutoSubscribeService",
     "enrich-aliases": "etk.domains.people.task_execution.NativePeopleTaskService",
     "manual_subscribe_batch": "etk.domains.subscription.manual_batch.ManualSubscriptionBatchService",
     "merge-duplicate-actors": "etk.domains.people.task_execution.NativePeopleTaskService",
     "purge-ghost-actors": "etk.domains.people.task_execution.NativePeopleTaskService",
+    "process-watchlist": "etk.domains.subscription.watchlist_task_execution.NativeWatchlistTaskService",
     "recalculate_library_washing_priorities": (
         "etk.domains.p115.washing_recalculation.P115WashingPriorityRecalculationService"
     ),
     "scan_old_seasons_backfill": "etk.domains.subscription.watchlist.OldSeasonBackfillService",
+    "refresh_completed_series": "etk.domains.subscription.watchlist_task_execution.NativeWatchlistTaskService",
     "subscribe-assistant-maintenance": (
         "etk.domains.subscription.assistant_task_execution.NativeSubscribeAssistantMaintenanceGateway"
     ),

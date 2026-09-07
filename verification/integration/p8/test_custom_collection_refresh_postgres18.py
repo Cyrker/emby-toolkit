@@ -657,5 +657,5 @@ def test_custom_refresh_revision_refuses_lossy_downgrade(
 
     with p8_runtime.engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0026_p11_custom_refresh"
+            "0027_p11_watchlist_display"
         )

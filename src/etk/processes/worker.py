@@ -329,6 +329,16 @@ from etk.domains.subscription.resubscribe_cache import (
 )
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
 from etk.domains.subscription.watchlist import OldSeasonBackfillService
+from etk.domains.subscription.watchlist_task_execution import (
+    HttpxWatchlistLibraryAdapter,
+    HttpxWatchlistMetadataAdapter,
+    NativeWatchlistMoviePilotGateway,
+    NativeWatchlistP115ReclassificationGateway,
+    NativeWatchlistSharedMetadataGateway,
+    NativeWatchlistTaskEffects,
+    NativeWatchlistTaskService,
+    SqlAlchemyWatchlistTaskRepository,
+)
 from etk.domains.system import SqlAlchemyAppSettingsRepository
 from etk.domains.translation import ConfiguredBatchTranslation
 from etk.integrations import (
@@ -420,6 +430,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
     | {
         "actor-tracking",
         "actor-translation",
+        "add-all-series-to-watchlist",
         "auto-subscribe",
         "backfill-media-metadata",
         "backfill-organize-record-tmdb-ids",
@@ -435,6 +446,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "manual_subscribe_batch",
         "monitor-115-life-events",
         "play-pool-daily-speedtest",
+        "process-watchlist",
         "process-single-custom-collection",
         "process_all_custom_collections",
         "populate-metadata",
@@ -444,6 +456,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
         "refresh-collections",
+        "refresh_completed_series",
         "restore_mediainfo",
         "restore-nfo-and-images",
         "role-translation",
@@ -539,6 +552,92 @@ def _p115_native_operation_router(
                 emby=HttpxEmbyQuickDeployGateway(settings_provider),
             ),
         }
+    )
+
+
+class _DeferredWatchlistIntroGateway:
+    def __init__(self, provider: Callable[[], Any]) -> None:
+        self._provider = provider
+
+    def enqueue_imported_episode_ids(
+        self,
+        episode_ids: Any,
+        *,
+        allow_playback_followup: bool = False,
+    ) -> Mapping[str, Any]:
+        gateway = self._provider()
+        if gateway is None:
+            raise RuntimeError("native intro detection gateway is unavailable")
+        return gateway.enqueue_imported_episode_ids(
+            episode_ids,
+            allow_playback_followup=allow_playback_followup,
+        )
+
+
+def _native_watchlist_task_service(
+    *,
+    database: Any,
+    settings_provider: Callable[[], Any],
+    app_settings: SqlAlchemyAppSettingsRepository,
+    moviepilot_gateway: ConfiguredMoviePilotGateway,
+    moviepilot_effects: PersistentMoviePilotEffectGateway,
+    credentials: SqlAlchemyP115CredentialRepository,
+    sharing_operations: PostgresSharingOperationRepository,
+    sharing_identity: SharingServerIdentity,
+    intro: Any,
+) -> NativeWatchlistTaskService:
+    organize_plans = SqlAlchemyP115OrganizePlanRepository(database.unit_of_work)
+    organize_executions = SqlAlchemyP115OrganizeExecutionRepository(database.unit_of_work)
+    plan_service = P115OrganizePlanService(
+        settings=settings_provider,
+        credentials=credentials,
+        directories=HttpxP115DirectoryTreeGateway(
+            credentials=credentials,
+            priority=lambda: str(settings_provider().p115_api_priority),
+        ),
+        sorting_rules=SqlAlchemyP115SortingRulesRepository(database.unit_of_work),
+        rename_config=SqlAlchemyP115RenameConfigRepository(database.unit_of_work),
+        episode_regex=SqlAlchemyP115EpisodeRegexRepository(database.unit_of_work),
+        repository=organize_plans,
+        recognition=ExplicitMoviePilotRecognitionGateway(),
+        naming=MoviePilotOriginalNameGateway(),
+    )
+    execution_service = P115OrganizeExecutionService(
+        plans=organize_plans,
+        repository=organize_executions,
+        mutations=HttpxP115OrganizeMutationGateway(
+            credentials=credentials,
+            priority=lambda: str(settings_provider().p115_api_priority),
+        ),
+    )
+    return NativeWatchlistTaskService(
+        SqlAlchemyWatchlistTaskRepository(database.unit_of_work),
+        HttpxWatchlistMetadataAdapter(settings_provider),
+        HttpxWatchlistLibraryAdapter(settings_provider),
+        library_ids=lambda: tuple(settings_provider().libraries_to_process),
+        effects=NativeWatchlistTaskEffects(
+            database.unit_of_work,
+            settings_provider,
+            moviepilot=NativeWatchlistMoviePilotGateway(
+                database.unit_of_work,
+                app_settings,
+                moviepilot_gateway,
+                moviepilot_effects,
+            ),
+            p115=NativeWatchlistP115ReclassificationGateway(
+                database.unit_of_work,
+                plan_service,
+                execution_service,
+                organize_executions,
+            ),
+            sharing=NativeWatchlistSharedMetadataGateway(
+                database.unit_of_work,
+                app_settings,
+                sharing_operations,
+                sharing_identity.server_id_hash,
+            ),
+            intro=intro,
+        ),
     )
 
 
@@ -1306,6 +1405,17 @@ class WorkerRuntime:
                     manual_batch=manual_batch,
                     auto_subscribe=auto_subscribe,
                     people_tasks=people_task_service,
+                    watchlist_tasks=_native_watchlist_task_service(
+                        database=database,
+                        settings_provider=settings_provider,
+                        app_settings=app_settings,
+                        moviepilot_gateway=moviepilot_gateway,
+                        moviepilot_effects=moviepilot_effects,
+                        credentials=p115_credentials,
+                        sharing_operations=sharing_operations,
+                        sharing_identity=sharing_identity,
+                        intro=_DeferredWatchlistIntroGateway(lambda: self._intro_detection_gateway),
+                    ),
                     resubscribe_cache=NativeResubscribeCacheTaskService(
                         SqlAlchemyResubscribeCacheRepository(database.unit_of_work)
                     ),
@@ -2286,6 +2396,7 @@ class WorkerRuntime:
             p7_subscription_tasks = P7SubscriptionTaskRouter(
                 None,
                 native_assistant,
+                moviepilot_effects=moviepilot_effects,
                 washing_recalculation=washing_recalculation,
                 old_season_backfill=OldSeasonBackfillService(
                     SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
@@ -2293,6 +2404,17 @@ class WorkerRuntime:
                 manual_batch=manual_batch,
                 auto_subscribe=auto_subscribe,
                 people_tasks=people_task_service,
+                watchlist_tasks=_native_watchlist_task_service(
+                    database=database,
+                    settings_provider=settings_provider,
+                    app_settings=app_settings,
+                    moviepilot_gateway=moviepilot_gateway,
+                    moviepilot_effects=moviepilot_effects,
+                    credentials=p115_credentials,
+                    sharing_operations=sharing_operations,
+                    sharing_identity=sharing_identity,
+                    intro=_DeferredWatchlistIntroGateway(lambda: self._intro_detection_gateway),
+                ),
                 resubscribe_cache=NativeResubscribeCacheTaskService(
                     SqlAlchemyResubscribeCacheRepository(database.unit_of_work)
                 ),
@@ -3046,6 +3168,7 @@ class WorkerRuntime:
                         definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
                         or definition.key
                         in {
+                            "add-all-series-to-watchlist",
                             "actor-tracking",
                             "actor-translation",
                             "auto-subscribe",
@@ -3056,7 +3179,9 @@ class WorkerRuntime:
                             "merge-duplicate-actors",
                             "populate-metadata",
                             "purge-ghost-actors",
+                            "process-watchlist",
                             "recalculate_library_washing_priorities",
+                            "refresh_completed_series",
                             "restore_mediainfo",
                             "restore-nfo-and-images",
                             "role-translation",

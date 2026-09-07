@@ -6023,3 +6023,41 @@ Pending / Blocker / Next:
 - No TASK-001 P0/P1/P2 blocker remains. P11 stays `DOING`, P12 stays `TODO`, Live stays
   `HUMAN_PENDING`; continue directly with `TASK-002` and keep the unfinished Watchlist/Resubscribe
   and cover drafts outside this checkpoint.
+
+### P11-TASK-002-Watchlist-20260908
+
+TASK / HEAD:
+
+- `TASK-002 add-all-series-to-watchlist / process-watchlist / refresh_completed_series`;
+  pre-checkpoint HEAD `920a6832`.
+
+Implemented:
+
+- Added the processor-free Watchlist owner, atomic Series/Season/Episode projection, bounded
+  TMDb/Emby reads, durable MoviePilot/115/Shared Center/Emby effects, targeted intro follow-up,
+  stable replay identities, and both Worker profile bindings.
+- Closed focused findings for full-washing delete suppression/local state, 115 already-classified
+  no-op behavior, legacy-compatible Shared Center display payload, and completed-series effect scope;
+  promoted all three keys in the ownership exporter and generated manifest.
+
+Gate:
+
+- Application/Worker/Sharing targeted gate -> `622 passed, 1 warning`; disposable PostgreSQL 18
+  plus migration targeted gate -> `27 passed`; scoped Ruff/format and Pyright
+  (`0 errors, 0 warnings, 0 informations`) passed.
+- Manifest currentness, Alembic single head `0027_p11_watchlist_display`, and `git diff --check`
+  passed. Detailed evidence: `/tmp/etk-refactor-artifacts/p11-watchlist-20260908/summary.md`.
+
+Pending:
+
+- TASK-003 `resubscribe-library`, TASK-004 covers, TASK-005 ownership closure, TASK-006 controlled
+  removal/P11 full gate, and TASK-007 P12 disposable Greenfield remain.
+
+Blocker:
+
+- None in TASK-002 scope.
+
+Next:
+
+- Create the isolated TASK-002 local checkpoint, then continue directly with TASK-003. P11 remains
+  `DOING`, P12 remains `TODO`, and Live remains `HUMAN_PENDING`.

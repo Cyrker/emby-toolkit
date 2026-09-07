@@ -484,9 +484,12 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
 @pytest.mark.parametrize(
     ("task_key", "router_field"),
     [
+        ("add-all-series-to-watchlist", "_p7_subscription_tasks"),
         ("auto-subscribe", "_p7_subscription_tasks"),
         ("check-expired-users", "_p8_effect_tasks"),
+        ("process-watchlist", "_p7_subscription_tasks"),
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
+        ("refresh_completed_series", "_p7_subscription_tasks"),
         ("scan-cleanup-issues", "_p8_effect_tasks"),
         ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
         ("subscribe-assistant-maintenance", "_p7_subscription_tasks"),
@@ -564,9 +567,12 @@ def test_native_worker_routes_manual_subscription_without_legacy_runtime(
 @pytest.mark.parametrize(
     ("task_key", "router_field"),
     [
+        ("add-all-series-to-watchlist", "_p7_subscription_tasks"),
         ("auto-subscribe", "_p7_subscription_tasks"),
         ("check-expired-users", "_p8_effect_tasks"),
+        ("process-watchlist", "_p7_subscription_tasks"),
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
+        ("refresh_completed_series", "_p7_subscription_tasks"),
         ("scan-cleanup-issues", "_p8_effect_tasks"),
         ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
         ("subscribe-assistant-maintenance", "_p7_subscription_tasks"),
@@ -715,8 +721,8 @@ def test_native_chain_rejects_unknown_and_unmigrated_children() -> None:
     with pytest.raises(LookupError, match="unknown task 'unknown-task'"):
         runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
 
-    cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["process-watchlist"]})
-    with pytest.raises(NativeTaskExecutionUnavailable, match="process-watchlist"):
+    cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["generate-all-covers"]})
+    with pytest.raises(NativeTaskExecutionUnavailable, match="generate-all-covers"):
         runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
 
     cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["scan-organize-115"]})
@@ -928,6 +934,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
         | {
             "actor-tracking",
             "actor-translation",
+            "add-all-series-to-watchlist",
             "auto-subscribe",
             "backfill-organize-record-tmdb-ids",
             "backfill-media-metadata",
@@ -943,6 +950,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "manual_subscribe_batch",
             "monitor-115-life-events",
             "play-pool-daily-speedtest",
+            "process-watchlist",
             "process-single-custom-collection",
             "process_all_custom_collections",
             "populate-metadata",
@@ -950,6 +958,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "purge-ghost-actors",
             "recalculate_library_washing_priorities",
             "refresh-collections",
+            "refresh_completed_series",
             "repair-p115-fingerprints",
             "restore_mediainfo",
             "restore-nfo-and-images",

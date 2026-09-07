@@ -113,6 +113,10 @@ class FakeSharedCenter:
         self.calls.append(("upload_raw_ffprobe", payload))
         return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"sha1": payload["sha1"]})
 
+    def upsert_display_metadata(self, payload: dict[str, Any]) -> ProviderResponse[dict[str, Any]]:
+        self.calls.append(("upsert_display_metadata", payload))
+        return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"updated": 1})
+
     def get_raw_ffprobe(self, sha1: str) -> ProviderResponse[dict[str, Any]]:
         self.calls.append(("get_raw_ffprobe", {"sha1": sha1}))
         return ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"item": {"sha1": sha1}})
@@ -421,6 +425,37 @@ def test_sharing_delivery_checkpoints_immediately_before_provider_mutation() -> 
     assert checkpoints == [0]
     assert center.calls == [("lease", {"source_id": "source-1"})]
     assert outcome.disposition is SharingDeliveryDisposition.CONFIRMED
+
+
+def test_display_metadata_delivery_checkpoints_before_write_and_has_no_readback() -> None:
+    center = FakeSharedCenter()
+    delivery = SharingProviderOperationDelivery(
+        shared_center=cast(Any, center),
+        hdhive=cast(Any, FakeHDHive()),
+    )
+    checkpoints: list[int] = []
+    operation = cast(
+        Any,
+        SimpleNamespace(
+            request={
+                "provider": "shared_center",
+                "action": "upsert_display_metadata",
+                "payload": {"items": [{"display_meta_items_json": [{"item_type": "Series"}]}]},
+            }
+        ),
+    )
+
+    outcome = delivery.request(operation, checkpoint=lambda: checkpoints.append(len(center.calls)))
+
+    assert checkpoints == [0]
+    assert center.calls == [
+        (
+            "upsert_display_metadata",
+            {"items": [{"display_meta_items_json": [{"item_type": "Series"}]}]},
+        )
+    ]
+    assert outcome.disposition is SharingDeliveryDisposition.CONFIRMED
+    assert delivery.supports_authoritative_readback(operation) is False
 
 
 def test_sharing_delivery_rejects_invalid_payload_before_provider_checkpoint() -> None:

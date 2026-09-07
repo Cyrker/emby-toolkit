@@ -328,7 +328,20 @@ class P7SubscriptionTaskRouter:
         # processor.  A compatibility Worker must keep using its explicit
         # legacy branch until the complete task owner is proven and promoted.
         if message.task_key in WATCHLIST_TASK_KEYS and self._watchlist_tasks is not None and processor is None:
-            result = self._watchlist_tasks.execute(message.task_key, progress, parameters)
+            if self._moviepilot_effects is None:
+                result = self._watchlist_tasks.execute(message.task_key, progress, parameters)
+            else:
+                job_id = _metadata_uuid(message.metadata, "job_id")
+                attempt_id = _metadata_uuid(message.metadata, "attempt_id")
+                worker_id = _metadata_text(message.metadata, "worker_id")
+                with bind_moviepilot_execution(
+                    job_id=str(job_id),
+                    attempt_id=str(attempt_id),
+                    worker_id=worker_id,
+                    task_key=message.task_key,
+                    checkpoint=progress.checkpoint,
+                ):
+                    result = self._watchlist_tasks.execute(message.task_key, progress, parameters)
             return _native_outcome(message.task_key, result, self._watchlist_tasks)
         if message.task_key in RESUBSCRIBE_TASK_KEYS and self._resubscribe_tasks is not None and processor is None:
             result = self._resubscribe_tasks.execute(message.task_key, progress, parameters)

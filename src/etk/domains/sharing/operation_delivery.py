@@ -218,6 +218,7 @@ def _request_callable(
             "disable_source": "disable_source",
             "acquire_transfer_lease": "acquire_transfer_lease",
             "report_transfer": "report_transfer",
+            "upsert_display_metadata": "upsert_display_metadata",
             "update_logical_season_share_status": "update_logical_season_share_status",
             "share_sync_heartbeat": "share_sync_heartbeat",
             "run_maintenance": "run_maintenance",

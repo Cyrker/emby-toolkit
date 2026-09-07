@@ -7778,7 +7778,7 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativeWatchlistTaskService with atomic Series/Season/Episode projection, durable MoviePilot, 115 organize, Shared Center and Emby effects, per-series continuation, cancellation and no-resend recovery without the legacy callable.",
         "status": "new",
         "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
         "validation_owner": "subscription/task-envelope"
@@ -7859,7 +7859,7 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativeWatchlistTaskService library import plus calibration with atomic Series/Season/Episode projection and durable cross-system effects without the legacy callable.",
         "status": "new",
         "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
         "validation_owner": "subscription/task-envelope"
@@ -8012,7 +8012,7 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
+        "notes": "P11 native-only and compatibility Workers execute processor-free NativeWatchlistTaskService completed-series change detection, atomic metadata projection and durable Emby final refresh without invoking legacy or unrelated cross-system effects.",
         "status": "new",
         "validation_method": "ordered-task-registry-native-router-worker-outcome-postgres18-and-redis-celery",
         "validation_owner": "subscription/task-envelope"

@@ -308,8 +308,9 @@ def test_postgres_sharing_cancellation_is_on_the_single_migration_head(p9_runtim
             )
         )
 
-    assert head == "0026_p11_custom_refresh"
+    assert head == "0027_p11_watchlist_display"
     assert "register_device" in str(constraint)
+    assert "display_metadata" in str(constraint)
     assert "cancelled" in str(status_constraint)
     assert cancel_column == 1
 

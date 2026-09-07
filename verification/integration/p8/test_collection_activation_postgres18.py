@@ -472,6 +472,6 @@ def test_collection_activation_revision_refuses_lossy_downgrade(p8_runtime: Any)
 
     with p8_runtime.engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM etk_migrations.alembic_version")) == (
-            "0026_p11_custom_refresh"
+            "0027_p11_watchlist_display"
         )
     command.upgrade(Config(str(_REPO_ROOT / "alembic.ini")), "head")

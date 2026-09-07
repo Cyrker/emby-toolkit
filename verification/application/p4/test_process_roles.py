@@ -430,6 +430,15 @@ def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
     task_manager.clear_persistent_submission_gateway()
     monkeypatch.setattr(worker_module, "_create_default_container", lambda _settings: (container, config_adapter))
     monkeypatch.setattr(worker_module, "RuntimeSupervisor", Supervisor)
+    watchlist_services: list[Any] = []
+    original_watchlist_factory = worker_module._native_watchlist_task_service
+
+    def record_watchlist_service(**kwargs: Any) -> Any:
+        service = original_watchlist_factory(**kwargs)
+        watchlist_services.append(service)
+        return service
+
+    monkeypatch.setattr(worker_module, "_native_watchlist_task_service", record_watchlist_service)
 
     def fail_background_install(_gateway: object) -> None:
         raise RuntimeError("fixture background install failed")
@@ -446,6 +455,9 @@ def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
 
     assert task_manager._persistent_gateway is None
     assert persistent_p115_credential_gateway() is None
+    assert len(watchlist_services) == 1
+    assert type(watchlist_services[0]).__name__ == "NativeWatchlistTaskService"
+    assert type(watchlist_services[0]._effects._intro).__name__ == "_DeferredWatchlistIntroGateway"
     assert events == ["supervisor.start", "supervisor.stop", "container.close"]
 
 
@@ -538,6 +550,11 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     )
     assert type(state._p7_subscription_tasks._auto_subscribe._repository).__name__ == (
         "SqlAlchemyAutoSubscriptionRepository"
+    )
+    assert type(state._p7_subscription_tasks._watchlist_tasks).__name__ == "NativeWatchlistTaskService"
+    assert type(state._p7_subscription_tasks._watchlist_tasks._effects).__name__ == "NativeWatchlistTaskEffects"
+    assert type(state._p7_subscription_tasks._watchlist_tasks._effects._intro).__name__ == (
+        "_DeferredWatchlistIntroGateway"
     )
     assert type(state._p8_effect_tasks).__name__ == "P8EffectTaskRouter"
     assert state._p8_effect_tasks._compatibility is None

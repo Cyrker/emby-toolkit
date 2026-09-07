@@ -142,7 +142,7 @@ def test_snapshot_claim_schema_is_current_and_rejects_orphan_job_identity(
                 )
             ).scalars()
         )
-    assert head == "0026_p11_custom_refresh"
+    assert head == "0027_p11_watchlist_display"
     assert {
         "ck_sas_snapshot_claim",
         "fk_sas_snapshot_job",
