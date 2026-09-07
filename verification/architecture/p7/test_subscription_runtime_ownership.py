@@ -126,7 +126,7 @@ def test_subscribe_assistant_recovery_keeps_non_consuming_quota_contract() -> No
     assert "consume_quota=" not in washing_source
 
 
-def test_subscribe_assistant_processed_execution_remains_an_explicit_compatibility_boundary() -> None:
+def test_subscribe_assistant_has_a_processor_free_execution_owner() -> None:
     manifest = json.loads(_source("verification/contracts/task-ownership.yaml"))
     task = next(entry for entry in manifest["tasks"] if entry["task_key"] == "subscribe-assistant-maintenance")
 
@@ -134,14 +134,20 @@ def test_subscribe_assistant_processed_execution_remains_an_explicit_compatibili
     assert task["new_owner"] == "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter"
     assert task["ownership_layers"] == {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacySubscribeAssistantMaintenanceGateway",
-        "retirement_stage": "P11",
+        "execution_kind": "native-use-case",
+        "execution_owner": (
+            "etk.domains.subscription.assistant_task_execution.NativeSubscribeAssistantMaintenanceGateway"
+        ),
     }
     assert task["validation_method"] == (
-        "ordered-task-registry-native-envelope-compatibility-worker-outcome-postgres18-and-redis-celery"
+        "ordered-task-registry-native-assistant-application-postgres18-worker-outcome-and-import-sentinel"
     )
-    assert "legacy Subscribe Assistant manager/store" in task["notes"]
+    assert "no legacy Subscribe Assistant processor or manager" in task["notes"]
+
+    source = _source("src/etk/domains/subscription/assistant_task_execution.py")
+    assert "services.subscribe_assistant" not in source
+    assert "task_manager" not in source
+    assert "from database" not in source
 
 
 def test_resubscribe_cache_has_a_separate_processor_free_owner() -> None:

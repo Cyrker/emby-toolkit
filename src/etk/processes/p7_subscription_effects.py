@@ -214,14 +214,26 @@ class PersistentMoviePilotEffectGateway:
             )
         )
 
-    def delete_subscription(self, tmdb_id: int | str, *, season: int | None = None) -> bool:
+    def delete_subscription(
+        self,
+        tmdb_id: int | str,
+        *,
+        season: int | None = None,
+        expected_subscription_id: int | str | None = None,
+    ) -> bool:
         normalized_tmdb = _required_text(tmdb_id, "tmdb_id")
         normalized_season = _optional_nonnegative_int(season, "season")
+        expected_id = (
+            _required_text(expected_subscription_id, "expected_subscription_id")
+            if expected_subscription_id is not None
+            else None
+        )
         identity = self._identity()
         request: dict[str, Any] = {
             "action": "delete",
             "tmdb_id": normalized_tmdb,
-            "expected": {},
+            "expected": {"id": expected_id} if expected_id is not None else {},
+            "preflight_readback": True,
             "origin": _origin(identity),
         }
         if normalized_season is not None:
@@ -229,7 +241,7 @@ class PersistentMoviePilotEffectGateway:
         return self._execute(
             SubscriptionOperationIntent.create(
                 kind=SubscriptionOperationKind.DELETE,
-                scope_key=_scope(identity, "delete", normalized_tmdb, normalized_season, {}),
+                scope_key=_scope(identity, "delete", normalized_tmdb, normalized_season, request["expected"]),
                 request=request,
             )
         )

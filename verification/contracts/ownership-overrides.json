@@ -7922,10 +7922,10 @@
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",
         "fixture_exception": null,
         "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "notes": "P7 owns the durable Worker envelope and lease-fenced phase checkpoints, but the normal processed path still executes through LegacySubscribeAssistantMaintenanceGateway and the legacy Subscribe Assistant manager/store; native-only execution remains unavailable until every enabled phase has a processor-free owner.",
+        "notes": "P11 native-only and compatibility Workers execute the processor-free Subscribe Assistant maintenance owner. All enabled phases use PostgreSQL state, typed MoviePilot readback, durable effects, stable operation occurrences, claim and lease fencing, and no legacy Subscribe Assistant processor or manager.",
         "status": "new",
-        "validation_method": "ordered-task-registry-native-envelope-compatibility-worker-outcome-postgres18-and-redis-celery",
-        "validation_owner": "subscription/task-envelope"
+        "validation_method": "ordered-task-registry-native-assistant-application-postgres18-worker-outcome-and-import-sentinel",
+        "validation_owner": "subscription/assistant-maintenance"
       },
       "task-c70dfb0bd638": {
         "fixture": "verification/fixtures/tasks/ordered-task-catalog.json",

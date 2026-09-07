@@ -5851,3 +5851,175 @@ Pending:
   owners, Table/Config/Frontend ownership closure, pre-removal, controlled removal and all P11
   NFR/security/SBOM/vulnerability/License gates are still required.
 - P12 remains `TODO`; Live Acceptance remains `HUMAN_PENDING`.
+
+### P11-Subscription-Review-20260902
+
+Stage / Batch: P11 / findings-first review of the uncommitted Watchlist, Resubscribe and Assistant WIP
+
+Status: `DOING` (no checkpoint)
+
+Evidence:
+
+- Current WIP adds `src/etk/domains/subscription/task_execution.py` (2,647 lines) and wires six task
+  keys into the native-only Worker before the committed task manifest is regenerated.
+- Scoped application tests -> `57 passed`; P7 application/architecture -> `443 passed, 1 warning`;
+  P7 PG18 WIP scope -> `3 passed`; scoped Ruff/format/Pyright -> clean.
+- `uv run python scripts/refactor/check_manifests.py` correctly reports the committed task manifest as
+  stale; no manifest or ownership promotion was performed.
+
+Findings / blocker:
+
+- Watchlist execution currently publishes SQL/TMDb state and an Emby refresh effect, but does not own
+  the legacy MoviePilot, 115, shared-center, metadata/image and per-series continuation branches
+  (`src/etk/domains/subscription/task_execution.py:256-343`).
+- Resubscribe execution explicitly returns `partial` for delete/HDHive rows and otherwise stages only
+  MoviePilot replacement operations (`:370-416`), while the legacy task still has local file/NFO/
+  subtitle/empty-directory/DB cleanup, 115 deletion, Emby refresh and HDHive branches.
+- Assistant maintenance has phase ledger plumbing, but timeout handling treats a missing provider as
+  an empty readback, history reconciliation reads only the failed page, subscription sync persists
+  the full provider mapping, and download/snapshot phases do not implement the legacy registration,
+  progress, repair and authoritative readback behavior (`:1602-2100`). These are ownership/correctness
+  gaps, not lint failures.
+
+Decision:
+
+- The reliability primitives remain necessary; the over-designed part is the migration shape: a
+  single large subscription execution file plus premature native-only/manifest promotion. Per the
+  handoff stop rule, unresolved P1 ownership findings prevent a checkpoint, manifest regeneration,
+  controlled removal and P12 entry. No files were reset, cleaned, stashed or deleted.
+
+Next:
+
+- Do not add more task keys or process the cover WIP until the subscription owner boundary is either
+  completed with processor-free external effects/readback evidence or explicitly re-scoped by the
+  user. Then run one focused transaction/PG18 review, regenerate manifests, and checkpoint.
+
+External actions: no push, deployment, release, real external write, or Live Acceptance action.
+
+### P11-Delay-Audit-20260902
+
+Stage / Batch: P11 / scope and design audit before the next native owner
+
+Evidence:
+
+- Current `task-ownership.yaml` has `50` task keys: `36` native-use-case, `4` typed-provider-adapter, and `8` legacy-compatibility-callable.
+- The remaining eight keys are three watchlist tasks, two resubscribe tasks, one subscribe-assistant task, and two cover tasks. They still resolve to legacy compatibility gateways in the committed manifest.
+- Route ownership is already `343/343` decorators and `367/367` bindings, but table/config ownership is not closed (`12` legacy tables, `82` legacy dynamic keys, `7` legacy bootstrap keys, and `9` legacy standalone settings).
+- The uncommitted subscription draft is `2,748` lines and combines Watchlist, Resubscribe, and Subscribe Assistant. It is not wired into either Worker profile and its own review records partial external effects for each family.
+- Recent P11 commits added `3,584`, `5,099`, and `6,215` lines respectively for People/Metadata, custom collections, and MoviePilot webhook/transfer; this is migration-surface growth, not evidence that the remaining owners are complete.
+
+Decision:
+
+- Reliability primitives (PostgreSQL UoW, claim/lease, Outbox, idempotency, checkpoint/no-resend, authoritative readback, `INDETERMINATE`, and replay/CAS fences) remain required by the P11 contract.
+- The over-designed part is the migration shape: one large cross-domain draft and premature Worker/manifest promotion. Partial owners must not be promoted or used to justify removal.
+- The next slice is intentionally one bounded local owner, `update-resubscribe-cache`, with no provider write. The incomplete Watchlist/Resubscribe/Assistant draft and cover draft remain unpromoted and are not a checkpoint.
+
+Pending:
+
+- Complete and verify the bounded cache owner, then continue with the remaining task families. P11 stays `DOING`; P12 stays `TODO`; Live Acceptance stays `HUMAN_PENDING`.
+
+### P11-Subscription-Safety-20260902
+
+Stage / Batch: P11 / subscription maintenance safety hardening (still uncommitted)
+
+Implemented:
+
+- Snapshot cleanup now preserves active claims and only removes expired unclaimed rows.
+- Full-washing timeout treats a missing MoviePilot provider as no authoritative readback and leaves
+  the snapshot unchanged for a later retry.
+- Transfer-history reconciliation reads failed plus recent pages, deduplicates records and keeps
+  stable id/fingerprint identities.
+- MoviePilot subscription sync persists only a bounded allowlisted projection and merges it with local
+  state instead of overwriting local timeout/download markers.
+- Download reconciliation registers newly observed typed active-download identities while retaining
+  the existing empty-response safety fence.
+
+Targeted gate:
+
+- Subscription application -> `12 passed`.
+- Subscription PG18 WIP scope -> `3 passed`.
+- Scoped Ruff/format/Pyright -> clean.
+
+Pending:
+
+- These changes close deterministic safety defects but do not yet establish full Watchlist,
+  Resubscribe or Assistant task ownership. Do not regenerate the task manifest or create a checkpoint
+  until the missing processor-free external effects, readback, continuation and recovery behavior is
+  implemented and reviewed.
+
+### P11-Subscription-Scope-Reset-20260902
+
+Stage / Batch: P11 / prevent premature subscription owner promotion
+
+Implemented:
+
+- Removed the uncommitted six-key subscription entries from the Worker native-only allowlist and
+  processor-free compatibility dispatch. Compatibility Worker startup again uses the established
+  `LegacySubscribeAssistantMaintenanceGateway`; the native subscription draft remains untracked and
+  is not constructed by either Worker profile.
+- Restored the native-chain regression assertion to use `process-watchlist`, so an unfinished task
+  cannot be hidden behind an unrelated cover key. The task exporter no longer advertises the six
+  subscription keys as native owners.
+
+Evidence:
+
+- `uv run pytest -q -p no:cacheprovider verification/application/p4/test_worker_outcomes.py` -> `53 passed`.
+- `uv run pytest -q -p no:cacheprovider verification/application/p7 verification/architecture/p7` -> `445 passed, 1 warning`.
+- `uv run pytest -q -p no:cacheprovider verification/application/p9` -> `156 passed`.
+- `uv run python scripts/refactor/check_manifests.py` -> `manifest_check=clean`.
+- `git diff --check` and scoped Ruff remain clean.
+
+Decision / blocker:
+
+- The reliability primitives remain in scope, but a 2,748-line draft cannot be promoted while its
+  Watchlist, Resubscribe and Assistant behavior is only partial. The committed task manifest still
+  truthfully contains eight legacy-compatible keys (six subscription and two cover); ownership,
+  removal, P11 NFR and P12 remain pending. No reset, clean, stash, delete, push, deployment, release
+  or real external write was performed.
+
+### P11-Subscription-Outcome-Safety-20260903
+
+Stage / Batch: P11 / subscription draft safety correction (still uncommitted)
+
+Implemented:
+
+- Native Subscribe Assistant maintenance now distinguishes a missing MoviePilot readback from an authoritative empty result and leaves the timeout snapshot untouched when readback is unavailable.
+- Typed MoviePilot write results are normalized by explicit outcome (`confirmed`/`rejected`/`indeterminate`) instead of Python object truthiness; indeterminate writes raise a durable maintenance error and cannot be checkpointed as success.
+
+Targeted gate:
+
+- `verification/application/p7/test_subscription_task_execution.py` -> `13 passed`.
+- Scoped Ruff, format and `py_compile` for the draft module/test -> clean.
+- `git diff --check` -> clean.
+
+Pending:
+
+- This safety correction does not promote the draft or change the committed ownership manifest. Full processor-free Watchlist, Resubscribe library and Subscribe Assistant behavior, provider readback/continuation, Worker wiring and PG18 recovery evidence remain required before a checkpoint.
+
+### P11-TASK-001-Subscribe-Assistant-20260908
+
+TASK / HEAD:
+
+- `TASK-001 subscribe-assistant-maintenance`; pre-checkpoint HEAD `d650f0e9`.
+
+Implemented:
+
+- Completed the processor-free Subscribe Assistant owner across timeout, history, subscription sync,
+  no-download, download-monitor and snapshot-verify phases; added typed/paged MoviePilot readback,
+  authoritative downloader snapshots, stable durable effect occurrences, suppression and claim fences.
+- Both Worker profiles now use the native owner without resolving a legacy processor; task ownership
+  was promoted only after the application, PG18, Worker and architecture gates passed.
+
+Gate:
+
+- Assistant/MoviePilot/Worker application scope -> `156 passed`; full P7 application/architecture ->
+  `462 passed`; disposable PostgreSQL 18 assistant plus existing runtime regression -> `24 passed`.
+- Scoped Ruff/format, `py_compile`, Pyright (`0 errors, 0 warnings, 0 informations`), manifest
+  currentness and `git diff --check` are clean. Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-subscribe-assistant-20260908/summary.md`.
+
+Pending / Blocker / Next:
+
+- No TASK-001 P0/P1/P2 blocker remains. P11 stays `DOING`, P12 stays `TODO`, Live stays
+  `HUMAN_PENDING`; continue directly with `TASK-002` and keep the unfinished Watchlist/Resubscribe
+  and cover drafts outside this checkpoint.

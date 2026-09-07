@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from threading import Lock
 from typing import Any, NoReturn
-from urllib.parse import quote
+from urllib.parse import quote, urlparse, urlunparse
 
 import httpx
 
@@ -75,6 +75,20 @@ class MoviePilotActiveDownload:
     subscribe_id: int | None
     tmdb_id: str | None
     season: int | None
+    progress: float | None = None
+    state: str = ""
+    tags: tuple[str, ...] = ()
+    tracker_text: str = ""
+    added_at: int | None = None
+    title: str = ""
+    episode: int | None = None
+    moviepilot_active: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class MoviePilotDownloadSnapshot:
+    downloads: tuple[MoviePilotActiveDownload, ...]
+    authoritative: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +171,35 @@ class HttpxMoviePilotGateway:
             subscriptions.append(dict(subscription))
         return MoviePilotListResult(tuple(subscriptions))
 
+    def list_transfer_history(
+        self,
+        *,
+        status: bool | None = None,
+        limit: int = 100,
+        page: int = 1,
+    ) -> tuple[Mapping[str, Any], ...]:
+        """Read a bounded transfer-history page for maintenance reconciliation."""
+        operation = "list-transfer-history"
+        if isinstance(limit, bool) or int(limit) < 1 or int(limit) > 500:
+            raise ValueError("MoviePilot transfer history limit must be between 1 and 500")
+        if isinstance(page, bool) or int(page) < 1:
+            raise ValueError("MoviePilot transfer history page must be positive")
+        params: dict[str, Any] = {"page": int(page), "count": int(limit)}
+        if status is not None:
+            params["status"] = "true" if status else "false"
+        response = self._authorized_request(operation, "GET", "/api/v1/history/transfer", params=params)
+        self._expect_status(response, operation, {200})
+        decoded = self._decode_json(response, operation)
+        values: Any = decoded
+        if isinstance(decoded, Mapping):
+            for key in ("data", "items", "results", "records"):
+                if isinstance(decoded.get(key), list):
+                    values = decoded[key]
+                    break
+        if not isinstance(values, list):
+            self._raise_invalid_response(operation, response, "transfer history is not an array")
+        return tuple(dict(value) for value in values if isinstance(value, Mapping))
+
     def active_downloads(self) -> tuple[MoviePilotActiveDownload, ...]:
         operation = "list-active-downloads"
         response = self._authorized_request(operation, "GET", "/api/v1/download/")
@@ -207,14 +250,185 @@ class HttpxMoviePilotGateway:
                 )
             if all(value.task_hash != task_hash for value in downloads):
                 downloads.append(
-                    MoviePilotActiveDownload(
-                        task_hash,
-                        subscribe_id,
-                        tmdb_id,
-                        season,
+                    _download_projection(
+                        task,
+                        task_hash=task_hash,
+                        subscribe_id=subscribe_id,
+                        tmdb_id=tmdb_id,
+                        season=season,
+                        moviepilot_active=True,
                     )
                 )
         return tuple(downloads)
+
+    def monitor_downloads(self) -> MoviePilotDownloadSnapshot:
+        """Merge MoviePilot-active downloads with an all-torrent downloader snapshot.
+
+        The MoviePilot download endpoint omits completed/seeding torrents.  Stale
+        monitor rows may therefore be removed only when every configured downloader
+        was read successfully.  A partial snapshot is still useful for progress and
+        registration, but is explicitly non-authoritative for absence decisions.
+        """
+        active = self.active_downloads()
+        try:
+            raw_configs = self.get_system_setting("Downloaders")
+        except MoviePilotProviderError:
+            return MoviePilotDownloadSnapshot(active, False)
+        if not isinstance(raw_configs, list):
+            return MoviePilotDownloadSnapshot(active, False)
+
+        complete = True
+        configured = 0
+        all_downloads: list[MoviePilotActiveDownload] = []
+        for raw in raw_configs:
+            if not isinstance(raw, Mapping) or not _downloader_enabled(raw):
+                continue
+            kind = str(raw.get("type") or "").strip().casefold()
+            if kind in {"qbittorrent", "qb", "qbit"}:
+                configured += 1
+                values = self._qbittorrent_downloads(raw)
+            elif kind in {"transmission", "tr"}:
+                configured += 1
+                values = self._transmission_downloads(raw)
+            else:
+                complete = False
+                continue
+            if values is None:
+                complete = False
+                continue
+            all_downloads.extend(values)
+
+        if configured == 0:
+            complete = False
+        return MoviePilotDownloadSnapshot(_merge_download_projections(all_downloads, active), complete)
+
+    def _qbittorrent_downloads(
+        self,
+        configuration: Mapping[str, Any],
+    ) -> tuple[MoviePilotActiveDownload, ...] | None:
+        base_url = _downloader_base_url(configuration)
+        if not base_url:
+            return None
+        username = str(_downloader_value(configuration, "username", "user") or "")
+        password = str(_downloader_value(configuration, "password", "passwd", "pass") or "")
+        api_key = str(_downloader_value(configuration, "apikey", "api_key", "apiKey", "token") or "").strip()
+        headers = {
+            "Accept": "application/json, text/plain, */*",
+            "Origin": base_url,
+            "Referer": f"{base_url}/",
+        }
+        if api_key and api_key not in {"******", "********", "**********"}:
+            headers["Authorization"] = f"Bearer {api_key}"
+        try:
+            with self._client_factory() as client:
+                if "Authorization" not in headers and (username or password):
+                    login = client.post(
+                        f"{base_url}/api/v2/auth/login",
+                        data={"username": username, "password": password},
+                        headers=headers,
+                        timeout=self._timeout_seconds,
+                    )
+                    if login.status_code not in {200, 204} or "fails" in login.text.casefold():
+                        return None
+                response = client.get(
+                    f"{base_url}/api/v2/torrents/info",
+                    headers=headers,
+                    timeout=self._timeout_seconds,
+                )
+        except httpx.HTTPError:
+            return None
+        if response.status_code != 200:
+            return None
+        try:
+            values = response.json()
+        except ValueError:
+            return None
+        if not isinstance(values, list):
+            return None
+        return tuple(
+            _download_projection(value, moviepilot_active=False)
+            for value in values
+            if isinstance(value, Mapping) and _download_hash(value)
+        )
+
+    def _transmission_downloads(
+        self,
+        configuration: Mapping[str, Any],
+    ) -> tuple[MoviePilotActiveDownload, ...] | None:
+        base_url = _downloader_base_url(configuration)
+        if not base_url:
+            return None
+        rpc_url = base_url if base_url.endswith("/transmission/rpc") else f"{base_url}/transmission/rpc"
+        username = str(_downloader_value(configuration, "username", "user") or "")
+        password = str(_downloader_value(configuration, "password", "passwd", "pass") or "")
+        auth = httpx.BasicAuth(username, password) if username or password else None
+        payload = {
+            "method": "torrent-get",
+            "arguments": {
+                "fields": [
+                    "id",
+                    "hashString",
+                    "name",
+                    "percentDone",
+                    "status",
+                    "labels",
+                    "addedDate",
+                ]
+            },
+        }
+        try:
+            with self._client_factory() as client:
+                response = (
+                    client.post(
+                        rpc_url,
+                        json=payload,
+                        auth=auth,
+                        timeout=self._timeout_seconds,
+                    )
+                    if auth is not None
+                    else client.post(
+                        rpc_url,
+                        json=payload,
+                        timeout=self._timeout_seconds,
+                    )
+                )
+                if response.status_code == 409:
+                    session_id = response.headers.get("X-Transmission-Session-Id")
+                    if not session_id:
+                        return None
+                    response = (
+                        client.post(
+                            rpc_url,
+                            json=payload,
+                            headers={"X-Transmission-Session-Id": session_id},
+                            auth=auth,
+                            timeout=self._timeout_seconds,
+                        )
+                        if auth is not None
+                        else client.post(
+                            rpc_url,
+                            json=payload,
+                            headers={"X-Transmission-Session-Id": session_id},
+                            timeout=self._timeout_seconds,
+                        )
+                    )
+        except httpx.HTTPError:
+            return None
+        if response.status_code != 200:
+            return None
+        try:
+            decoded = response.json()
+        except ValueError:
+            return None
+        arguments = decoded.get("arguments") if isinstance(decoded, Mapping) else None
+        values = arguments.get("torrents") if isinstance(arguments, Mapping) else None
+        if not isinstance(values, list):
+            return None
+        return tuple(
+            _download_projection(value, moviepilot_active=False)
+            for value in values
+            if isinstance(value, Mapping) and _download_hash(value)
+        )
 
     def query_subscription(
         self,
@@ -897,6 +1111,190 @@ def _download_hash(value: Mapping[str, Any]) -> str:
     return ""
 
 
+def _download_projection(
+    value: Mapping[str, Any],
+    *,
+    task_hash: str | None = None,
+    subscribe_id: int | None = None,
+    tmdb_id: str | None = None,
+    season: int | None = None,
+    moviepilot_active: bool,
+) -> MoviePilotActiveDownload:
+    media = value.get("media")
+    media_info = media if isinstance(media, Mapping) else {}
+    source = value.get("source")
+    source_info = source if isinstance(source, Mapping) else {}
+    normalized_hash = str(task_hash or _download_hash(value)).strip().casefold()
+    normalized_subscribe_id = subscribe_id or _first_positive_int(
+        value.get("subscribe_id"),
+        value.get("subscribeid"),
+        media_info.get("subscribe_id"),
+        source_info.get("id"),
+    )
+    normalized_tmdb_id = tmdb_id or _first_identifier(
+        value.get("tmdbid"),
+        value.get("tmdb_id"),
+        media_info.get("tmdbid"),
+        media_info.get("tmdb_id"),
+        source_info.get("tmdbid"),
+        source_info.get("tmdb_id"),
+    )
+    normalized_season = season or _first_positive_int(
+        value.get("season"),
+        media_info.get("season"),
+        source_info.get("season"),
+    )
+    return MoviePilotActiveDownload(
+        task_hash=normalized_hash,
+        subscribe_id=normalized_subscribe_id,
+        tmdb_id=normalized_tmdb_id,
+        season=normalized_season,
+        progress=_download_progress(value),
+        state=_first_scalar_text(value, "state", "status", "status_text"),
+        tags=_nested_text_values(value, {"tag", "tags", "label", "labels", "category", "categories"}),
+        tracker_text="\n".join(
+            _nested_text_values(
+                value,
+                {
+                    "tracker",
+                    "trackers",
+                    "tracker_status",
+                    "trackerstatus",
+                    "message",
+                    "msg",
+                    "error",
+                    "errmsg",
+                    "reason",
+                },
+            )
+        )[:4000],
+        added_at=_first_positive_int(value.get("added_on"), value.get("addedDate"), value.get("time")),
+        title=_first_scalar_text(value, "name", "title", "torrent_name", "torrentName")[:500],
+        episode=_first_positive_int(value.get("episode"), media_info.get("episode")),
+        moviepilot_active=moviepilot_active,
+    )
+
+
+def _merge_download_projections(
+    complete: Sequence[MoviePilotActiveDownload],
+    active: Sequence[MoviePilotActiveDownload],
+) -> tuple[MoviePilotActiveDownload, ...]:
+    merged: dict[str, MoviePilotActiveDownload] = {}
+    for value in (*complete, *active):
+        existing = merged.get(value.task_hash)
+        if existing is None:
+            merged[value.task_hash] = value
+            continue
+        tracker_parts = tuple(dict.fromkeys(part for part in (existing.tracker_text, value.tracker_text) if part))
+        merged[value.task_hash] = MoviePilotActiveDownload(
+            task_hash=value.task_hash,
+            subscribe_id=value.subscribe_id or existing.subscribe_id,
+            tmdb_id=value.tmdb_id or existing.tmdb_id,
+            season=value.season or existing.season,
+            progress=value.progress if value.progress is not None else existing.progress,
+            state=value.state or existing.state,
+            tags=tuple(dict.fromkeys((*existing.tags, *value.tags))),
+            tracker_text="\n".join(tracker_parts)[:4000],
+            added_at=value.added_at or existing.added_at,
+            title=value.title or existing.title,
+            episode=value.episode or existing.episode,
+            moviepilot_active=existing.moviepilot_active or value.moviepilot_active,
+        )
+    return tuple(merged.values())
+
+
+def _download_progress(value: Mapping[str, Any]) -> float | None:
+    for key in ("progress", "percent", "completed", "percentDone"):
+        raw = value.get(key)
+        if raw is None or isinstance(raw, bool):
+            continue
+        try:
+            progress = float(raw)
+        except (TypeError, ValueError):
+            continue
+        return progress * 100 if 0 <= progress <= 1 else progress
+    return None
+
+
+def _first_scalar_text(value: Mapping[str, Any], *keys: str) -> str:
+    for key in keys:
+        raw = value.get(key)
+        if isinstance(raw, (str, int, float)) and not isinstance(raw, bool):
+            normalized = str(raw).strip()
+            if normalized:
+                return normalized
+    return ""
+
+
+def _nested_text_values(
+    value: Any,
+    keys: set[str],
+    *,
+    depth: int = 0,
+    capture: bool = False,
+) -> tuple[str, ...]:
+    if depth > 4:
+        return ()
+    found: list[str] = []
+    if isinstance(value, Mapping):
+        for key, nested in value.items():
+            if str(key).casefold() in keys:
+                found.extend(_nested_text_values(nested, keys, depth=depth + 1, capture=True))
+            elif isinstance(nested, (Mapping, list, tuple)):
+                found.extend(_nested_text_values(nested, keys, depth=depth + 1, capture=False))
+    elif isinstance(value, (list, tuple)):
+        for nested in value[:100]:
+            found.extend(_nested_text_values(nested, keys, depth=depth + 1, capture=capture))
+    elif capture and isinstance(value, (str, int, float)) and not isinstance(value, bool):
+        normalized = str(value).strip()
+        if normalized:
+            found.append(normalized[:500])
+    return tuple(dict.fromkeys(found[:100]))
+
+
+def _downloader_enabled(value: Mapping[str, Any]) -> bool:
+    raw = value.get("enabled", True)
+    if isinstance(raw, str):
+        return raw.strip().casefold() not in {"0", "false", "no", "off", "禁用", "关闭"}
+    return bool(raw)
+
+
+def _downloader_value(value: Mapping[str, Any], *keys: str) -> Any:
+    nested = value.get("config")
+    configuration = nested if isinstance(nested, Mapping) else value
+    for key in keys:
+        raw = configuration.get(key)
+        if raw not in (None, ""):
+            return raw
+        raw = value.get(key)
+        if raw not in (None, ""):
+            return raw
+    return None
+
+
+def _downloader_base_url(value: Mapping[str, Any]) -> str:
+    raw_host = str(_downloader_value(value, "host", "url", "server", "address", "domain") or "").strip()
+    if not raw_host:
+        return ""
+    ssl_value = _downloader_value(value, "ssl", "https")
+    use_tls = (
+        ssl_value.strip().casefold() in {"1", "true", "yes", "on"} if isinstance(ssl_value, str) else bool(ssl_value)
+    )
+    candidate = raw_host if "://" in raw_host else f"{'https' if use_tls else 'http'}://{raw_host}"
+    try:
+        parsed = urlparse(candidate)
+        if not parsed.hostname:
+            return ""
+        port = _first_positive_int(_downloader_value(value, "port"))
+        netloc = parsed.netloc
+        if port is not None and parsed.port is None:
+            host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
+            netloc = f"{host}:{port}"
+        return urlunparse((parsed.scheme, netloc, parsed.path.rstrip("/"), "", "", "")).rstrip("/")
+    except ValueError:
+        return ""
+
+
 def _optional_positive_int(value: Any) -> int | None:
     if isinstance(value, bool) or not isinstance(value, (int, str)):
         return None
@@ -930,6 +1328,7 @@ def _first_identifier(*values: Any) -> str | None:
 __all__ = [
     "HttpxMoviePilotGateway",
     "MoviePilotActiveDownload",
+    "MoviePilotDownloadSnapshot",
     "MoviePilotListResult",
     "MoviePilotProviderError",
     "MoviePilotProviderErrorKind",

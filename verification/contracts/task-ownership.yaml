@@ -1437,12 +1437,11 @@
       "help": "运行增强订阅助手巡检，处理下载超时、完成快照复查和过期状态清理。",
       "help_source": "TASK_HELP_TEXTS",
       "new_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-      "notes": "P7 owns the durable Worker envelope and lease-fenced phase checkpoints, but the normal processed path still executes through LegacySubscribeAssistantMaintenanceGateway and the legacy Subscribe Assistant manager/store; native-only execution remains unavailable until every enabled phase has a processor-free owner.",
+      "notes": "P11 native-only and compatibility Workers execute the processor-free Subscribe Assistant maintenance owner. All enabled phases use PostgreSQL state, typed MoviePilot readback, durable effects, stable operation occurrences, claim and lease fencing, and no legacy Subscribe Assistant processor or manager.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacySubscribeAssistantMaintenanceGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.subscription.assistant_task_execution.NativeSubscribeAssistantMaintenanceGateway"
       },
       "processor_type": "watchlist",
       "retirement_approval": null,
@@ -1454,8 +1453,8 @@
       ],
       "target_stage": "P7",
       "task_key": "subscribe-assistant-maintenance",
-      "validation_method": "ordered-task-registry-native-envelope-compatibility-worker-outcome-postgres18-and-redis-celery",
-      "validation_owner": "subscription/task-envelope",
+      "validation_method": "ordered-task-registry-native-assistant-application-postgres18-worker-outcome-and-import-sentinel",
+      "validation_owner": "subscription/assistant-maintenance",
       "visible_in": [
         "all",
         "chain",

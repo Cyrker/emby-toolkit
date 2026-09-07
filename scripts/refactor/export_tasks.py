@@ -95,12 +95,10 @@ P7_NATIVE_EXECUTION_OWNERS = {
         "etk.domains.p115.washing_recalculation.P115WashingPriorityRecalculationService"
     ),
     "scan_old_seasons_backfill": "etk.domains.subscription.watchlist.OldSeasonBackfillService",
-    "update-resubscribe-cache": ("etk.domains.subscription.resubscribe_cache.NativeResubscribeCacheTaskService"),
-}
-P7_COMPATIBILITY_EXECUTION_OWNERS = {
     "subscribe-assistant-maintenance": (
-        "etk.processes.p7_subscription_tasks.LegacySubscribeAssistantMaintenanceGateway"
+        "etk.domains.subscription.assistant_task_execution.NativeSubscribeAssistantMaintenanceGateway"
     ),
+    "update-resubscribe-cache": ("etk.domains.subscription.resubscribe_cache.NativeResubscribeCacheTaskService"),
 }
 P8_TASKS = {
     "custom-collections",
@@ -254,10 +252,7 @@ def export_tasks() -> dict[str, Any]:
             }
         elif task_key in P7_TASKS:
             execution_owner = P7_NATIVE_EXECUTION_OWNERS.get(task_key)
-            compatibility_owner = P7_COMPATIBILITY_EXECUTION_OWNERS.get(
-                task_key,
-                "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
-            )
+            compatibility_owner = "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway"
             entry["ownership_layers"] = {
                 "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
                 "execution_kind": "native-use-case" if execution_owner else "legacy-compatibility-callable",

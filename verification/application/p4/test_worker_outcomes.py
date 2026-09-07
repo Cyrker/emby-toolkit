@@ -489,6 +489,7 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
         ("scan-cleanup-issues", "_p8_effect_tasks"),
         ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
+        ("subscribe-assistant-maintenance", "_p7_subscription_tasks"),
         ("sync-all-user-data", "_p8_effect_tasks"),
         ("hdhive-auto-checkin", "_p9_sharing_tasks"),
         ("update-resubscribe-cache", "_p7_subscription_tasks"),
@@ -568,6 +569,7 @@ def test_native_worker_routes_manual_subscription_without_legacy_runtime(
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
         ("scan-cleanup-issues", "_p8_effect_tasks"),
         ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
+        ("subscribe-assistant-maintenance", "_p7_subscription_tasks"),
         ("update-resubscribe-cache", "_p7_subscription_tasks"),
     ],
 )
@@ -956,6 +958,7 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "scan-monitor-folders",
             "scan-organize-115",
             "scan_old_seasons_backfill",
+            "subscribe-assistant-maintenance",
             "sync-115-directory-tree",
             "sync-all-user-data",
             "system-auto-update",

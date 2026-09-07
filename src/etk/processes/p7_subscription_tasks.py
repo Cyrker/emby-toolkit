@@ -418,6 +418,25 @@ class P7SubscriptionTaskRouter:
                     "affected_count": result.affected_count,
                 },
             )
+        if message.task_key == "subscribe-assistant-maintenance" and self._assistant is not None and processor is None:
+            run = self._assistant.execute(
+                job_id=_metadata_uuid(message.metadata, "job_id"),
+                attempt_id=_metadata_uuid(message.metadata, "attempt_id"),
+                worker_id=_metadata_text(message.metadata, "worker_id"),
+                processor=processor,
+                progress=progress,
+            )
+            return TaskOutcome.succeeded(
+                "订阅助手巡检完成。",
+                {
+                    "task_key": message.task_key,
+                    "native_handler": type(self._assistant).__name__,
+                    "compatibility_fallback": False,
+                    "durable_state": True,
+                    "completed_phases": list(run.completed_phases),
+                    "stats": run.stats,
+                },
+            )
         if processor is None:
             raise RuntimeError(f"P7 task {message.task_key!r} processor is unavailable")
         if self._moviepilot_effects is None:

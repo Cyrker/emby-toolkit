@@ -203,7 +203,14 @@ def test_active_downloads_normalize_supported_response_shapes() -> None:
         {
             "data": {
                 "items": [
-                    {"hashString": "ABCDEF", "media": {"tmdbid": "2500", "season": 1}},
+                    {
+                        "hashString": "ABCDEF",
+                        "media": {"tmdbid": "2500", "season": 1},
+                        "progress": 0.5,
+                        "state": "downloading",
+                        "tags": ["fixture"],
+                        "tracker": {"message": "tracker healthy"},
+                    },
                     {"info_hash": "123456", "source": {"id": 25}},
                 ]
             }
@@ -223,8 +230,100 @@ def test_active_downloads_normalize_supported_response_shapes() -> None:
     active = gateway.active_downloads()
     assert [value.task_hash for value in active] == ["abcdef", "123456"]
     assert (active[0].tmdb_id, active[0].season) == ("2500", 1)
+    assert (active[0].progress, active[0].state, active[0].tags) == (50.0, "downloading", ("fixture",))
+    assert active[0].tracker_text == "tracker healthy"
     assert active[1].subscribe_id == 25
     assert gateway.active_downloads() == ()
+
+
+def test_transfer_history_read_forwards_bounded_page_and_status() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/login/access-token":
+            return _login(request)
+        assert request.method == "GET"
+        assert request.url.path == "/api/v1/history/transfer"
+        assert dict(request.url.params) == {"page": "3", "count": "50", "status": "false"}
+        return httpx.Response(200, json={"items": [{"id": 9}]})
+
+    assert _gateway(handler).list_transfer_history(status=False, limit=50, page=3) == ({"id": 9},)
+
+
+def test_monitor_downloads_merges_all_qbittorrent_tasks_and_marks_snapshot_authoritative() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/login/access-token":
+            return _login(request)
+        if request.url.path == "/api/v1/download/":
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "hash": "active-hash",
+                        "media": {"tmdbid": "2500", "season": 1},
+                        "source": {"id": 25},
+                        "progress": 0.2,
+                    }
+                ],
+            )
+        if request.url.path == "/api/v1/system/setting/Downloaders":
+            return httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "value": [
+                            {
+                                "type": "qbittorrent",
+                                "enabled": True,
+                                "config": {
+                                    "host": "http://qb.fixture.invalid",
+                                    "username": "qb-user",
+                                    "password": "qb-password",
+                                },
+                            }
+                        ]
+                    }
+                },
+            )
+        if request.url.host == "qb.fixture.invalid" and request.url.path == "/api/v2/auth/login":
+            return httpx.Response(200, text="Ok.", headers={"Set-Cookie": "SID=fixture"})
+        if request.url.host == "qb.fixture.invalid" and request.url.path == "/api/v2/torrents/info":
+            return httpx.Response(
+                200,
+                json=[
+                    {"hash": "active-hash", "progress": 0.1, "state": "downloading", "tags": "fixture"},
+                    {"hash": "seeding-hash", "progress": 1.0, "state": "uploading", "tags": "archive"},
+                ],
+            )
+        raise AssertionError(f"unexpected request: {request.method} {request.url}")
+
+    snapshot = _gateway(handler).monitor_downloads()
+
+    assert snapshot.authoritative is True
+    assert [value.task_hash for value in snapshot.downloads] == ["active-hash", "seeding-hash"]
+    assert snapshot.downloads[0].subscribe_id == 25
+    assert snapshot.downloads[0].progress == 20.0
+    assert snapshot.downloads[0].moviepilot_active is True
+    assert snapshot.downloads[1].moviepilot_active is False
+
+
+def test_monitor_downloads_retains_active_rows_but_marks_failed_downloader_snapshot_partial() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/login/access-token":
+            return _login(request)
+        if request.url.path == "/api/v1/download/":
+            return httpx.Response(200, json=[{"hash": "active-hash", "source": {"id": 25}}])
+        if request.url.path == "/api/v1/system/setting/Downloaders":
+            return httpx.Response(
+                200,
+                json={"data": {"value": [{"type": "qbittorrent", "config": {"host": "qb.invalid"}}]}},
+            )
+        if request.url.host == "qb.invalid":
+            return httpx.Response(503)
+        raise AssertionError(f"unexpected request: {request.method} {request.url}")
+
+    snapshot = _gateway(handler).monitor_downloads()
+
+    assert snapshot.authoritative is False
+    assert [value.task_hash for value in snapshot.downloads] == ["active-hash"]
 
 
 def test_active_downloads_reject_items_without_an_authoritative_hash() -> None:

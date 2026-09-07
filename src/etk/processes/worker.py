@@ -272,6 +272,7 @@ from etk.domains.subscription.assistant import (
     SqlAlchemyAssistantMaintenanceRepository,
     SubscribeAssistantMaintenanceService,
 )
+from etk.domains.subscription.assistant_task_execution import NativeSubscribeAssistantMaintenanceGateway
 from etk.domains.subscription.auto_subscribe import AutoSubscribeService
 from etk.domains.subscription.auto_subscribe_adapters import (
     AutoSubscriptionMoviePilotGateway,
@@ -393,7 +394,6 @@ from .p7_subscription_effects import (
 )
 from .p7_subscription_tasks import (
     LegacyP7SubscriptionCompatibilityGateway,
-    LegacySubscribeAssistantMaintenanceGateway,
     P7SubscriptionTaskRouter,
 )
 from .p8_collection_operations import collection_operation_claim_lease_seconds
@@ -450,6 +450,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "scan-cleanup-issues",
         "scan-organize-115",
         "scan_old_seasons_backfill",
+        "subscribe-assistant-maintenance",
         "sync-115-directory-tree",
         "sync-all-user-data",
         "system-auto-update",
@@ -1289,7 +1290,12 @@ class WorkerRuntime:
                     compatibility=LegacyP7SubscriptionCompatibilityGateway(),
                     assistant=SubscribeAssistantMaintenanceService(
                         SqlAlchemyAssistantMaintenanceRepository(database.unit_of_work),
-                        LegacySubscribeAssistantMaintenanceGateway(),
+                        NativeSubscribeAssistantMaintenanceGateway(
+                            database.unit_of_work,
+                            provider=moviepilot_gateway,
+                            effects=moviepilot_effects,
+                            configuration=lambda: _moviepilot_assistant_config(app_settings),
+                        ),
                     ),
                     moviepilot_effects=moviepilot_effects,
                     resubscribe_cleanup=resubscribe_cleanup,
@@ -1867,6 +1873,15 @@ class WorkerRuntime:
                 app_settings,
                 lease_seconds=SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS,
             )
+            native_assistant = SubscribeAssistantMaintenanceService(
+                SqlAlchemyAssistantMaintenanceRepository(database.unit_of_work),
+                NativeSubscribeAssistantMaintenanceGateway(
+                    database.unit_of_work,
+                    provider=moviepilot_gateway,
+                    effects=moviepilot_effects,
+                    configuration=lambda: _moviepilot_assistant_config(app_settings),
+                ),
+            )
             manual_watchlist = SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
             manual_batch = ManualSubscriptionBatchService(
                 SqlAlchemyManualSubscriptionRepository(
@@ -2270,7 +2285,7 @@ class WorkerRuntime:
             )
             p7_subscription_tasks = P7SubscriptionTaskRouter(
                 None,
-                None,
+                native_assistant,
                 washing_recalculation=washing_recalculation,
                 old_season_backfill=OldSeasonBackfillService(
                     SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
@@ -3047,6 +3062,7 @@ class WorkerRuntime:
                             "role-translation",
                             "scan-cleanup-issues",
                             "scan_old_seasons_backfill",
+                            "subscribe-assistant-maintenance",
                             "sync-all-user-data",
                             "system-auto-update",
                             "update-daily-theme",

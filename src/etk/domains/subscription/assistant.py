@@ -57,7 +57,7 @@ class AssistantMaintenanceSession(Protocol):
 class AssistantMaintenanceGateway(Protocol):
     def begin(
         self,
-        processor: object,
+        processor: object | None,
         *,
         job_id: UUID,
         attempt_id: UUID,
@@ -349,7 +349,7 @@ class SubscribeAssistantMaintenanceService:
         job_id: UUID,
         attempt_id: UUID,
         worker_id: str,
-        processor: object,
+        processor: object | None,
         progress: AssistantMaintenanceProgress,
     ) -> AssistantMaintenanceRun:
         session = self._gateway.begin(

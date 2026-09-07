@@ -492,6 +492,8 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
         "emby.tags.apply",
         "daily-theme.replenishment",
         "sharing.intro.export",
+        "moviepilot.webhook.assistant",
+        "moviepilot.webhook.transfer",
     }
     assert type(state._p5_media_tasks).__name__ == "P5MediaTaskRouter"
     assert state._p5_media_tasks._compatibility is None
@@ -519,6 +521,10 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert type(state._p6_ingestion_tasks).__name__ == "P6IngestionTaskRouter"
     assert type(state._p7_subscription_tasks).__name__ == "P7SubscriptionTaskRouter"
     assert state._p7_subscription_tasks._compatibility is None
+    assert type(state._p7_subscription_tasks._assistant).__name__ == "SubscribeAssistantMaintenanceService"
+    assert type(state._p7_subscription_tasks._assistant._gateway).__name__ == (
+        "NativeSubscribeAssistantMaintenanceGateway"
+    )
     assert type(state._p7_subscription_tasks._washing_recalculation).__name__ == (
         "P115WashingPriorityRecalculationService"
     )

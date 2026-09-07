@@ -9,6 +9,7 @@ from etk.domains.system.standalone import StandaloneSettingsRepository
 from .moviepilot import (
     HttpxMoviePilotGateway,
     MoviePilotActiveDownload,
+    MoviePilotDownloadSnapshot,
     MoviePilotListResult,
     MoviePilotQueryResult,
     MoviePilotWriteResult,
@@ -37,8 +38,20 @@ class ConfiguredMoviePilotGateway:
     def list_subscriptions(self) -> MoviePilotListResult:
         return self._gateway().list_subscriptions()
 
+    def list_transfer_history(
+        self,
+        *,
+        status: bool | None = None,
+        limit: int = 100,
+        page: int = 1,
+    ) -> tuple[Mapping[str, Any], ...]:
+        return self._gateway().list_transfer_history(status=status, limit=limit, page=page)
+
     def active_downloads(self) -> tuple[MoviePilotActiveDownload, ...]:
         return self._gateway().active_downloads()
+
+    def monitor_downloads(self) -> MoviePilotDownloadSnapshot:
+        return self._gateway().monitor_downloads()
 
     def query_subscription(
         self,
