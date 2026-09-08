@@ -6100,3 +6100,31 @@ Next:
 
 - Create the isolated TASK-003 local checkpoint, then continue directly with TASK-004. P11 remains
   `DOING`, P12 remains `TODO`, and Live remains `HUMAN_PENDING`.
+
+### P11-TASK-004-Covers-20260908
+
+TASK / HEAD:
+
+- `TASK-004 generate-all-covers / generate-custom-collection-covers`; pre-checkpoint HEAD `8a64cac2`.
+
+Implemented:
+
+- Added the processor-free cover owner to both Worker profiles, preserving existing target/source,
+  style, configuration, badge, local artifact and Emby upload behavior.
+- Added stable per-Job effects, pre-render durable recovery, frozen payload replay, bounded streamed
+  image/font reads and explicit Worker effect tracking; removed both legacy fallback mappings and
+  promoted ownership only after validation.
+
+Gate:
+
+- Cover/Worker/media-effect/P8 architecture scope -> `179 passed, 1 warning`; disposable PostgreSQL
+  18 cover/media-effect scope -> `18 passed`.
+- Scoped Ruff/format, Pyright (`0 errors, 0 warnings, 0 informations`), compileall, `uv lock --check`,
+  manifest currentness and `git diff --check` passed. Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-covers-20260908/summary.md`.
+
+Pending / Blocker / Next:
+
+- No TASK-004 P0/P1/P2 blocker remains. P11 stays `DOING`, P12 stays `TODO`, Live stays
+  `HUMAN_PENDING`; create the isolated TASK-004 checkpoint, then continue directly with TASK-005
+  Table/Config and active-ownership closure.

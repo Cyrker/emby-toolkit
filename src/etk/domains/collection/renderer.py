@@ -99,7 +99,7 @@ class DeterministicCoverRenderer:
         sources: Sequence[bytes],
         title_zh: str,
         title_en: str = "",
-        item_count: int | None = None,
+        item_count: int | str | None = None,
         blur: bool = False,
         seed: int = 0,
         config: Mapping[str, Any] | None = None,
@@ -125,11 +125,30 @@ class DeterministicCoverRenderer:
         if cached is None:
             images = tuple(_decode_image(value) for value in sources)
             if normalized_style == "single_1":
-                image = self._single_1(images[0], title_zh, title_en, seed=seed)
+                image = self._single_1(
+                    images[0],
+                    title_zh,
+                    title_en,
+                    seed=seed,
+                    config=normalized_config,
+                )
             elif normalized_style == "single_2":
-                image = self._single_2(images[0], title_zh, title_en, seed=seed)
+                image = self._single_2(
+                    images[0],
+                    title_zh,
+                    title_en,
+                    seed=seed,
+                    config=normalized_config,
+                )
             else:
-                image = self._multi_1(images, title_zh, title_en, blur=blur, seed=seed)
+                image = self._multi_1(
+                    images,
+                    title_zh,
+                    title_en,
+                    blur=blur,
+                    seed=seed,
+                    config=normalized_config,
+                )
             if normalized_config.get("show_item_count") and item_count is not None:
                 image = _draw_badge(
                     image=image,
@@ -227,7 +246,7 @@ class DeterministicCoverRenderer:
         sources: Sequence[bytes],
         title_zh: str,
         title_en: str,
-        item_count: int | None,
+        item_count: int | str | None,
         blur: bool,
         seed: int,
         config: Mapping[str, Any],
@@ -253,9 +272,14 @@ class DeterministicCoverRenderer:
         title_en: str,
         *,
         seed: int,
+        config: Mapping[str, Any],
     ) -> Image.Image:
         rng = random.Random(seed)
-        base = _tinted_background(source, blur_radius=48, color_ratio=0.72)
+        base = _tinted_background(
+            source,
+            blur_radius=_blur_size(config, "blur_size", 48),
+            color_ratio=_color_ratio(config, "color_ratio", 0.72),
+        )
         card = _rounded(ImageOps.fit(source, (760, 760), method=Image.Resampling.LANCZOS), 90)
         center = (1430, 540)
         for angle, opacity, offset in ((34, 110, (-70, 20)), (17, 155, (-35, 10))):
@@ -263,7 +287,13 @@ class DeterministicCoverRenderer:
             layer = Image.blend(card, tint, 0.45)
             _paste_rotated(base, layer, center=(center[0] + offset[0], center[1] + offset[1]), angle=angle)
         _paste_rotated(base, card, center=center, angle=0)
-        self._draw_titles(base, title_zh, title_en, accent=_dominant_color(source))
+        self._draw_titles(
+            base,
+            title_zh,
+            title_en,
+            accent=_dominant_color(source),
+            font_scale=_font_scale(config, "zh_font_size", "en_font_size"),
+        )
         return base
 
     def _single_2(
@@ -273,10 +303,18 @@ class DeterministicCoverRenderer:
         title_en: str,
         *,
         seed: int,
+        config: Mapping[str, Any],
     ) -> Image.Image:
         rng = random.Random(seed)
         dominant = _dominant_color(source)
-        base = _gradient_background(FULL_COVER_SIZE, _darken_color(dominant, 0.55), (242, 242, 242))
+        if "blur_size" in config or "color_ratio" in config:
+            base = _tinted_background(
+                source,
+                blur_radius=_blur_size(config, "blur_size", 48),
+                color_ratio=_color_ratio(config, "color_ratio", 0.72),
+            )
+        else:
+            base = _gradient_background(FULL_COVER_SIZE, _darken_color(dominant, 0.55), (242, 242, 242))
         draw = ImageDraw.Draw(base, "RGBA")
         for _index in range(7):
             radius = rng.randint(70, 180)
@@ -287,7 +325,13 @@ class DeterministicCoverRenderer:
         shadow = Image.new("RGBA", poster.size, (0, 0, 0, 120)).filter(ImageFilter.GaussianBlur(24))
         base.alpha_composite(shadow, (1170, 120))
         base.alpha_composite(poster, (1140, 90))
-        self._draw_titles(base, title_zh, title_en, accent=dominant)
+        self._draw_titles(
+            base,
+            title_zh,
+            title_en,
+            accent=dominant,
+            font_scale=_font_scale(config, "zh_font_size", "en_font_size"),
+        )
         return base
 
     def _multi_1(
@@ -298,11 +342,16 @@ class DeterministicCoverRenderer:
         *,
         blur: bool,
         seed: int,
+        config: Mapping[str, Any],
     ) -> Image.Image:
         del seed
         dominant = _dominant_color(sources[0])
         base = (
-            _tinted_background(sources[0], blur_radius=55, color_ratio=0.78)
+            _tinted_background(
+                sources[0],
+                blur_radius=_blur_size(config, "blur_size_multi_1", 55),
+                color_ratio=_color_ratio(config, "color_ratio_multi_1", 0.78),
+            )
             if blur
             else _gradient_background(FULL_COVER_SIZE, _darken_color(dominant, 0.6), (245, 245, 245))
         )
@@ -321,7 +370,14 @@ class DeterministicCoverRenderer:
                 )
                 column_layer.alpha_composite(poster, (15, row * 438))
             _paste_rotated(base, column_layer, center=(x + 165, y + 660), angle=-7)
-        self._draw_titles(base, title_zh, title_en, accent=dominant, shadow=blur)
+        self._draw_titles(
+            base,
+            title_zh,
+            title_en,
+            accent=dominant,
+            shadow=blur,
+            font_scale=_font_scale(config, "zh_font_size_multi_1", "en_font_size_multi_1"),
+        )
         return base
 
     def _draw_titles(
@@ -332,10 +388,11 @@ class DeterministicCoverRenderer:
         *,
         accent: tuple[int, int, int],
         shadow: bool = True,
+        font_scale: tuple[float, float] = (1.0, 1.0),
     ) -> None:
         draw = ImageDraw.Draw(image, "RGBA")
-        zh_font = _font(self._zh_font, 150)
-        en_font = _font(self._en_font, 54)
+        zh_font = _font(self._zh_font, round(150 * font_scale[0]))
+        en_font = _font(self._en_font, round(54 * font_scale[1]))
         x, y = 80, 350
         if shadow:
             draw.text((x + 5, y + 5), str(title_zh), font=zh_font, fill=(0, 0, 0, 90))
@@ -360,6 +417,34 @@ def _font(value: bytes, size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFo
         return ImageFont.truetype(BytesIO(value), size=max(1, int(size)))
     except Exception:
         return ImageFont.load_default(size=max(1, int(size)))
+
+
+def _font_scale(config: Mapping[str, Any], zh_key: str, en_key: str) -> tuple[float, float]:
+    return (_positive_float(config.get(zh_key), 1.0), _positive_float(config.get(en_key), 1.0))
+
+
+def _blur_size(config: Mapping[str, Any], key: str, default: int) -> int:
+    try:
+        value = int(config[key])
+    except (KeyError, TypeError, ValueError):
+        return default
+    return value if value >= 0 else default
+
+
+def _color_ratio(config: Mapping[str, Any], key: str, default: float) -> float:
+    try:
+        value = float(config[key])
+    except (KeyError, TypeError, ValueError):
+        return default
+    return value if 0 <= value <= 1 else default
+
+
+def _positive_float(value: Any, default: float) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
 
 
 def _decode_image(value: bytes) -> Image.Image:

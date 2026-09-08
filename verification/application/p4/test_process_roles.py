@@ -499,6 +499,7 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert type(state._media_effects).__name__ == "PersistentMediaEffectExecutor"
     assert state._media_effects._delivery.effect_types == {
         "emby.chapters.update",
+        "emby.cover.apply",
         "emby.mediainfo.apply",
         "emby.studio-image.reconcile",
         "emby.tags.apply",
@@ -561,6 +562,9 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert type(state._p8_effect_tasks._cleanup_scan).__name__ == "CleanupScanService"
     assert type(state._p8_effect_tasks._daily_theme).__name__ == "DailyThemeService"
     assert type(state._p8_effect_tasks._daily_theme._repository).__name__ == ("SqlAlchemyDailyThemeRepository")
+    assert type(state._p8_effect_tasks._cover_tasks).__name__ == "NativeCoverTaskService"
+    assert type(state._p8_effect_tasks._cover_tasks._renderer).__name__ == "ConfiguredCoverRenderer"
+    assert type(state._p8_effect_tasks._cover_tasks._effects).__name__ == "PersistentCoverTaskEffects"
     assert type(state._p9_sharing_tasks).__name__ == "P9SharingTaskRouter"
     assert state._p9_sharing_tasks._compatibility is None
     assert type(state._subscription_executor).__name__ == "SubscriptionOperationExecutor"

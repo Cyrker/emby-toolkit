@@ -441,9 +441,8 @@
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.collection.cover_task_execution.NativeCoverTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,
@@ -477,9 +476,8 @@
       "notes": "P8 native Worker envelope owns strict payload validation, explicit TaskOutcome mapping, and Worker-only compatibility fallback until P11.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p8_effect_tasks.P8EffectTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p8_effect_tasks.LegacyP8EffectsCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.collection.cover_task_execution.NativeCoverTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,

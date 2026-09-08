@@ -125,6 +125,8 @@ P8_NATIVE_EXECUTION_OWNERS = {
     "custom-collections": "etk.domains.collection.custom_tasks.CustomCollectionTaskService",
     "execute-auto-tagging-rules": "etk.domains.media.auto_tagging.AutoTaggingService",
     "fill-studio-images": "etk.domains.media.studio_images.StudioImageService",
+    "generate-all-covers": "etk.domains.collection.cover_task_execution.NativeCoverTaskService",
+    "generate-custom-collection-covers": ("etk.domains.collection.cover_task_execution.NativeCoverTaskService"),
     "generate_embeddings": "etk.domains.media.embeddings.MediaEmbeddingService",
     "process_all_custom_collections": "etk.domains.collection.custom_tasks.CustomCollectionTaskService",
     "process-single-custom-collection": "etk.domains.collection.custom_tasks.CustomCollectionTaskService",

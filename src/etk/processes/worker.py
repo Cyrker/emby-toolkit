@@ -51,6 +51,13 @@ from etk.compatibility.upload_monitor import (
     install_persistent_upload_source_cleanup,
 )
 from etk.domains.collection.activation import PostgresCollectionActivationRepository
+from etk.domains.collection.cover_task_execution import (
+    ConfiguredCoverRenderer,
+    HttpxCoverRemoteAdapter,
+    NativeCoverTaskService,
+    PersistentCoverTaskEffects,
+    SqlAlchemyCoverTargetRepository,
+)
 from etk.domains.collection.custom_recommendation import (
     ConfiguredCustomCollectionDiscoveryProvider,
     SqlAlchemyCustomCollectionRecommendationService,
@@ -451,6 +458,8 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         "enrich-aliases",
         "fill-studio-images",
         "full-sync-strm",
+        "generate-all-covers",
+        "generate-custom-collection-covers",
         "generate_embeddings",
         "intro-fingerprint-backfill",
         "manual-correct-organize-records",
@@ -686,6 +695,30 @@ def _native_resubscribe_task_service(
         ),
         PostgresSubscriptionRuntimeRepository(database.unit_of_work),
         policy,
+    )
+
+
+def _native_cover_task_service(
+    *,
+    database: Any,
+    settings_provider: Callable[[], Any],
+    remote: HttpxCoverRemoteAdapter,
+    media_effects: PersistentMediaEffectExecutor,
+    data_root: Path,
+) -> NativeCoverTaskService:
+    fonts = Path(__file__).resolve().parents[3] / "fonts"
+    return NativeCoverTaskService(
+        SqlAlchemyCoverTargetRepository(database.unit_of_work, settings_provider),
+        remote,
+        ConfiguredCoverRenderer(
+            default_zh_font=fonts / "zh_font.ttf",
+            default_en_font=fonts / "en_font.ttf",
+            default_multi_zh_font=fonts / "zh_font_multi_1.ttf",
+            default_multi_en_font=fonts / "en_font_multi_1.otf",
+            cache_root=data_root / "cover_generator" / "fonts",
+            settings=settings_provider,
+        ),
+        PersistentCoverTaskEffects(media_effects),
     )
 
 
@@ -1300,6 +1333,7 @@ class WorkerRuntime:
                     item_lock=PostgresAutoTaggingItemLock(database.engine),
                 )
                 studio_images_delivery = HttpxStudioImageAdapter(settings_provider)
+                cover_remote = HttpxCoverRemoteAdapter(settings_provider)
                 sharing_identity = SharingServerIdentity(settings_provider, app_settings)
                 shared_center = HttpxSharedCenterAdapter(
                     settings_provider,
@@ -1725,6 +1759,7 @@ class WorkerRuntime:
                             ),
                             auto_tagging_delivery,
                             studio_images_delivery,
+                            cover_remote,
                             MoviePilotWebhookEffectDelivery(
                                 SqlAlchemyMoviePilotAssistantEventRepository(
                                     database.unit_of_work,
@@ -1794,6 +1829,13 @@ class WorkerRuntime:
                         app_settings,
                         studio_images_delivery,
                         PersistentStudioImageEffects(media_effects),
+                    ),
+                    cover_tasks=_native_cover_task_service(
+                        database=database,
+                        settings_provider=settings_provider,
+                        remote=cover_remote,
+                        media_effects=media_effects,
+                        data_root=_worker_data_root(config_adapter),
                     ),
                     custom_collection_tasks=custom_collection_tasks,
                 )
@@ -2272,6 +2314,7 @@ class WorkerRuntime:
                 item_lock=PostgresAutoTaggingItemLock(database.engine),
             )
             studio_images_delivery = HttpxStudioImageAdapter(settings_provider)
+            cover_remote = HttpxCoverRemoteAdapter(settings_provider)
             p115_fingerprint_repair = P115FingerprintRepairService(
                 credentials=p115_credentials,
                 repository=p115_mediainfo_repository,
@@ -2308,6 +2351,7 @@ class WorkerRuntime:
                         DailyThemeReplenishmentEffectDelivery(daily_theme),
                         auto_tagging_delivery,
                         studio_images_delivery,
+                        cover_remote,
                         MoviePilotWebhookEffectDelivery(
                             SqlAlchemyMoviePilotAssistantEventRepository(
                                 database.unit_of_work,
@@ -2526,6 +2570,13 @@ class WorkerRuntime:
                     app_settings,
                     studio_images_delivery,
                     PersistentStudioImageEffects(media_effects),
+                ),
+                cover_tasks=_native_cover_task_service(
+                    database=database,
+                    settings_provider=settings_provider,
+                    remote=cover_remote,
+                    media_effects=media_effects,
+                    data_root=_worker_data_root(config_adapter),
                 ),
                 custom_collection_tasks=custom_collection_tasks,
             )
@@ -3248,6 +3299,8 @@ class WorkerRuntime:
                             "backfill-media-metadata",
                             "check-expired-users",
                             "enrich-aliases",
+                            "generate-all-covers",
+                            "generate-custom-collection-covers",
                             "manual_subscribe_batch",
                             "merge-duplicate-actors",
                             "populate-metadata",

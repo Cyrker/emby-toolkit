@@ -179,3 +179,39 @@ def test_cache_identity_includes_source_order_and_reuses_immutable_result() -> N
     assert first.png is second.png and second.png is third.png
     assert reversed_result.cache_key != first.cache_key
     assert reversed_result.png != first.png
+
+
+def test_explicit_style_tuning_changes_single_and_multi_rendering() -> None:
+    renderer = _full_renderer()
+    sources = _sources()
+    common = {
+        "title_zh": "配置生效",
+        "title_en": "CONFIGURED",
+        "item_count": None,
+        "seed": 17,
+    }
+
+    single_default = renderer.render(style="single_1", sources=sources[:1], blur=False, config={}, **common)
+    single_configured = renderer.render(
+        style="single_1",
+        sources=sources[:1],
+        blur=False,
+        config={"zh_font_size": 0.7, "en_font_size": 1.3, "blur_size": 4, "color_ratio": 0.2},
+        **common,
+    )
+    multi_default = renderer.render(style="multi_1", sources=sources, blur=True, config={}, **common)
+    multi_configured = renderer.render(
+        style="multi_1",
+        sources=sources,
+        blur=True,
+        config={
+            "zh_font_size_multi_1": 0.7,
+            "en_font_size_multi_1": 1.3,
+            "blur_size_multi_1": 4,
+            "color_ratio_multi_1": 0.2,
+        },
+        **common,
+    )
+
+    assert single_configured.png != single_default.png
+    assert multi_configured.png != multi_default.png

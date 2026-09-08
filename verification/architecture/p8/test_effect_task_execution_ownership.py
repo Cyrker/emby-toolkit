@@ -33,6 +33,16 @@ P11_NATIVE_EFFECT_TASKS = {
         REPO_ROOT / "src/etk/domains/media/studio_images.py",
         '"fill-studio-images": ("tasks.media"',
     ),
+    "generate-all-covers": (
+        "etk.domains.collection.cover_task_execution.NativeCoverTaskService",
+        REPO_ROOT / "src/etk/domains/collection/cover_task_execution.py",
+        '"generate-all-covers": ("tasks.covers"',
+    ),
+    "generate-custom-collection-covers": (
+        "etk.domains.collection.cover_task_execution.NativeCoverTaskService",
+        REPO_ROOT / "src/etk/domains/collection/cover_task_execution.py",
+        '"generate-custom-collection-covers": ("tasks.covers"',
+    ),
     "generate_embeddings": (
         "etk.domains.media.embeddings.MediaEmbeddingService",
         REPO_ROOT / "src/etk/domains/media/embeddings.py",
@@ -160,6 +170,16 @@ def test_worker_profiles_each_build_one_media_effect_executor() -> None:
     assert "p8_media_effects_executor" not in worker_source
 
 
+def test_cover_tasks_are_processor_free_in_both_worker_profiles() -> None:
+    worker = __import__("etk.processes.worker", fromlist=["_NATIVE_ONLY_EXECUTABLE_TASK_KEYS"])
+    worker_source = WORKER.read_text(encoding="utf-8")
+
+    assert {"generate-all-covers", "generate-custom-collection-covers"} <= set(worker._NATIVE_ONLY_EXECUTABLE_TASK_KEYS)
+    assert worker_source.count("cover_remote = HttpxCoverRemoteAdapter(settings_provider)") == 2
+    assert worker_source.count("cover_tasks=_native_cover_task_service(") == 2
+    assert worker_source.count("ConfiguredCoverRenderer(") == 1
+
+
 def test_custom_collection_aliases_are_native_and_shared_across_worker_profiles() -> None:
     worker_source = WORKER.read_text(encoding="utf-8")
 
@@ -167,7 +187,13 @@ def test_custom_collection_aliases_are_native_and_shared_across_worker_profiles(
         "custom-collections",
         "process-single-custom-collection",
         "process_all_custom_collections",
-    }.issubset(set(__import__("etk.processes.worker", fromlist=["_NATIVE_ONLY_EXECUTABLE_TASK_KEYS"])._NATIVE_ONLY_EXECUTABLE_TASK_KEYS))
+    }.issubset(
+        set(
+            __import__(
+                "etk.processes.worker", fromlist=["_NATIVE_ONLY_EXECUTABLE_TASK_KEYS"]
+            )._NATIVE_ONLY_EXECUTABLE_TASK_KEYS
+        )
+    )
     assert worker_source.count("custom_collection_tasks = _custom_collection_task_service(") == 2
     assert worker_source.count("custom_collection_tasks=custom_collection_tasks") == 2
     assert "LegacyCustomCollection" not in worker_source

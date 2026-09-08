@@ -487,6 +487,8 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
         ("add-all-series-to-watchlist", "_p7_subscription_tasks"),
         ("auto-subscribe", "_p7_subscription_tasks"),
         ("check-expired-users", "_p8_effect_tasks"),
+        ("generate-all-covers", "_p8_effect_tasks"),
+        ("generate-custom-collection-covers", "_p8_effect_tasks"),
         ("process-watchlist", "_p7_subscription_tasks"),
         ("resubscribe-library", "_p7_subscription_tasks"),
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
@@ -571,6 +573,8 @@ def test_native_worker_routes_manual_subscription_without_legacy_runtime(
         ("add-all-series-to-watchlist", "_p7_subscription_tasks"),
         ("auto-subscribe", "_p7_subscription_tasks"),
         ("check-expired-users", "_p8_effect_tasks"),
+        ("generate-all-covers", "_p8_effect_tasks"),
+        ("generate-custom-collection-covers", "_p8_effect_tasks"),
         ("process-watchlist", "_p7_subscription_tasks"),
         ("resubscribe-library", "_p7_subscription_tasks"),
         ("recalculate_library_washing_priorities", "_p7_subscription_tasks"),
@@ -714,17 +718,13 @@ def test_native_worker_reports_unmigrated_task_without_importing_task_manager(
     assert task_key in store.terminals[0][1]["error_message"]
 
 
-def test_native_chain_rejects_unknown_and_unmigrated_children() -> None:
+def test_native_chain_rejects_unknown_and_dedicated_children() -> None:
     parent = _catalog_projection("task-chain-high-freq", parameters={})
     runtime, _store = _native_catalog_runtime(parent)
     cast(Any, runtime)._service = object()
 
     cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["unknown-task"]})
     with pytest.raises(LookupError, match="unknown task 'unknown-task'"):
-        runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
-
-    cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["generate-all-covers"]})
-    with pytest.raises(NativeTaskExecutionUnavailable, match="generate-all-covers"):
         runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
 
     cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["scan-organize-115"]})
@@ -946,6 +946,8 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
             "execute-auto-tagging-rules",
             "fill-studio-images",
             "full-sync-strm",
+            "generate-all-covers",
+            "generate-custom-collection-covers",
             "generate_embeddings",
             "intro-fingerprint-backfill",
             "manual-correct-organize-records",
@@ -980,5 +982,5 @@ def test_every_catalog_key_has_native_envelope_ownership() -> None:
         }
         | P9_NATIVE_TASK_KEYS
     )
-    assert _NATIVE_ONLY_EXECUTABLE_TASK_KEYS - {CLEANUP_EXECUTION_TASK_KEY} < native_keys
+    assert _NATIVE_ONLY_EXECUTABLE_TASK_KEYS - {CLEANUP_EXECUTION_TASK_KEY} == native_keys
     assert CLEANUP_EXECUTION_TASK_KEY not in native_keys

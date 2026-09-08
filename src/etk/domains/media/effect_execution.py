@@ -120,6 +120,9 @@ class PersistentMediaEffectExecutor:
             return current
         return self._deliver_claimed(claimed)
 
+    def read(self, effect_key: str) -> MediaEffectProjection | None:
+        return self._ledger.read(effect_key)
+
     def reserve_and_execute(
         self,
         *,
