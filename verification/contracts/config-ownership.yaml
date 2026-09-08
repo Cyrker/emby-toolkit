@@ -53,17 +53,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "auth_enabled",
       "mutability": "process_bootstrap",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Authentication",
       "source": "config_manager.py:134",
-      "status": "legacy",
+      "status": "new",
       "storage": "config.ini",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-48a207b2d44a",
@@ -80,17 +83,20 @@
       "environment_aliases": [
         "DB_HOST"
       ],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "db_host",
       "mutability": "process_bootstrap",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Database",
       "source": "config_manager.py:128",
-      "status": "legacy",
+      "status": "new",
       "storage": "config.ini",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-b4c16391ffe2",
@@ -107,17 +113,20 @@
       "environment_aliases": [
         "DB_NAME"
       ],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "db_name",
       "mutability": "process_bootstrap",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Database",
       "source": "config_manager.py:132",
-      "status": "legacy",
+      "status": "new",
       "storage": "config.ini",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-2e48e91c2d81",
@@ -134,17 +143,20 @@
       "environment_aliases": [
         "DB_PASSWORD"
       ],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "db_password",
       "mutability": "process_bootstrap",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": true,
       "section": "Database",
       "source": "config_manager.py:131",
-      "status": "legacy",
+      "status": "new",
       "storage": "config.ini",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-87b4623a0312",
@@ -161,17 +173,20 @@
       "environment_aliases": [
         "DB_PORT"
       ],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "db_port",
       "mutability": "process_bootstrap",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Database",
       "source": "config_manager.py:129",
-      "status": "legacy",
+      "status": "new",
       "storage": "config.ini",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-a0e71f8f2e7d",
@@ -188,17 +203,20 @@
       "environment_aliases": [
         "DB_USER"
       ],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "db_user",
       "mutability": "process_bootstrap",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Database",
       "source": "config_manager.py:130",
-      "status": "legacy",
+      "status": "new",
       "storage": "config.ini",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-16f78a7d6317",
@@ -213,17 +231,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "username",
       "mutability": "process_bootstrap",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Authentication",
       "source": "config_manager.py:135",
-      "status": "legacy",
+      "status": "new",
       "storage": "config.ini",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     }
   ],
   "config_response_only_fields": [
@@ -248,17 +269,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "accept_language",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Network",
       "source": "config_manager.py:226",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-b3ca39c0533a",
@@ -273,17 +297,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "actor_main_role_only",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Actor",
       "source": "config_manager.py:256",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-499a2c24b17c",
@@ -298,17 +325,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "actor_role_add_prefix",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Actor",
       "source": "config_manager.py:255",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-1bcc683818fb",
@@ -323,17 +353,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_api_key",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": true,
       "section": "AITranslation",
       "source": "config_manager.py:230",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-ffdd9b00668b",
@@ -348,17 +381,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_base_url",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:232",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-cba033725581",
@@ -373,17 +409,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_joke_fallback",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:240",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-6619b9cf7862",
@@ -398,17 +437,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_model_name",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:231",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-67781020aef6",
@@ -423,17 +465,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_provider",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:229",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-af919e3cbd66",
@@ -448,17 +493,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_recognition",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:239",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-eaa926deb98a",
@@ -473,17 +521,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_translate_actor_role",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:235",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-1a2749befc19",
@@ -498,17 +549,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_translate_episode_overview",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:238",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-f3e9528f158b",
@@ -523,17 +577,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_translate_overview",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:237",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-0f7a303dc4cd",
@@ -548,17 +605,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_translate_title",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:236",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-827562e94afd",
@@ -573,17 +633,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_translation_mode",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:234",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-5ee91ad144da",
@@ -598,17 +661,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "ai_vector",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "AITranslation",
       "source": "config_manager.py:233",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-891ac870d1a7",
@@ -623,17 +689,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "api_douban_default_cooldown_seconds",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "DoubanAPI",
       "source": "config_manager.py:171",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-e5675f8985d8",
@@ -648,17 +717,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "delay_between_items_sec",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "General",
       "source": "config_manager.py:213",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-6a80fd2e0ecc",
@@ -673,17 +745,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "douban_cookie",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": true,
       "section": "DoubanAPI",
       "source": "config_manager.py:172",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-b62463e0e2ac",
@@ -698,17 +773,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "douban_enable_online_api",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "DoubanAPI",
       "source": "config_manager.py:173",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-f55e4081d721",
@@ -723,17 +801,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "emby_api_key",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": true,
       "section": "Emby",
       "source": "config_manager.py:143",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-558c554a8352",
@@ -748,17 +829,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "emby_api_timeout",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Emby",
       "source": "config_manager.py:146",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-b7c51dc6ea80",
@@ -773,17 +857,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "emby_auth_mode",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Emby",
       "source": "config_manager.py:145",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-d1776f998a88",
@@ -798,17 +885,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "emby_public_url",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Emby",
       "source": "config_manager.py:142",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-271ce6f5e07c",
@@ -823,17 +913,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "emby_server_url",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Emby",
       "source": "config_manager.py:141",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-7553e1dd9e67",
@@ -848,17 +941,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "emby_user_id",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Emby",
       "source": "config_manager.py:144",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-97d6e007a1d5",
@@ -899,17 +995,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "etk_server_url_manual",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:205",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-33dfecdcd6f8",
@@ -924,17 +1023,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "extract_thumb",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "General",
       "source": "config_manager.py:216",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-dfabe2151a6a",
@@ -949,17 +1051,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "github_token",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": true,
       "section": "GitHub",
       "source": "config_manager.py:166",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-8fed126f7eda",
@@ -974,17 +1079,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "keyword_to_tags",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "General",
       "source": "config_manager.py:218",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-d1cee3be237a",
@@ -999,17 +1107,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "libraries_to_process",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Emby",
       "source": "config_manager.py:147",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-5466f77dd0b0",
@@ -1050,17 +1161,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "log_rotation_backup_count",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Logging",
       "source": "config_manager.py:260",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-e2a8abe52197",
@@ -1075,17 +1189,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "log_rotation_size_mb",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Logging",
       "source": "config_manager.py:259",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-724b1ab067d8",
@@ -1100,17 +1217,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "max_actors_to_process",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "General",
       "source": "config_manager.py:214",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-6a4c1960c07d",
@@ -1125,17 +1245,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "max_episode_actors_to_process",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "General",
       "source": "config_manager.py:215",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-c77c87d09a51",
@@ -1150,17 +1273,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "media_image_archive_enabled",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "General",
       "source": "config_manager.py:220",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-d8462c72f6c5",
@@ -1175,17 +1301,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "media_image_archive_path",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "General",
       "source": "config_manager.py:221",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-0afd313eb77a",
@@ -1424,17 +1553,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "network_http_proxy_url",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Network",
       "source": "config_manager.py:224",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-1a805da92dfe",
@@ -1449,17 +1581,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "network_proxy_enabled",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Network",
       "source": "config_manager.py:223",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-cb9d323e9605",
@@ -1474,17 +1609,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_api_priority",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:193",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-13efeeaabde4",
@@ -1499,17 +1637,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_app_id",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:210",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-64b22e16e64c",
@@ -1524,17 +1665,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_copy_play_enabled",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:202",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-ab26bd95fb8b",
@@ -1575,17 +1719,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_enable_sync_delete",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:206",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-34e2119a50fa",
@@ -1674,17 +1821,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_max_workers",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:192",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-55cf5fd3bf7c",
@@ -1699,17 +1849,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_media_root_cid",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:200",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-d5377e6d17c3",
@@ -1730,17 +1883,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_media_root_name",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:201",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-c9fe937c91af",
@@ -1755,17 +1911,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_mediainfo_assisted_recognition",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:207",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-b574f061b0d7",
@@ -1806,17 +1965,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_mp_classify",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:194",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-ca36ff575781",
@@ -1831,17 +1993,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_request_interval",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:191",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-ce7d6c5299c7",
@@ -1856,17 +2021,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_save_path_cid",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:186",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-fe3c6bb09e3d",
@@ -1881,17 +2049,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_save_path_name",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:187",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-0a26abf8b54e",
@@ -1906,17 +2077,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_unrecognized_cid",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:188",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-0b25c5195a6c",
@@ -1931,17 +2105,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "p115_unrecognized_name",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "115",
       "source": "config_manager.py:189",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-42fff09665a1",
@@ -1956,17 +2133,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "proxy_allow_transcoding",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "ReverseProxy",
       "source": "config_manager.py:154",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-0bfe4e4fe86e",
@@ -1981,17 +2161,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "proxy_discovery_url_manual",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "ReverseProxy",
       "source": "config_manager.py:153",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-19e40fc050b2",
@@ -2006,17 +2189,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "proxy_enabled",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "ReverseProxy",
       "source": "config_manager.py:150",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-29dc7b11bf79",
@@ -2031,17 +2217,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "proxy_lock_discovery_address",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "ReverseProxy",
       "source": "config_manager.py:152",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-56e1ba32f252",
@@ -2056,17 +2245,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "proxy_merge_native_libraries",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "ReverseProxy",
       "source": "config_manager.py:155",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-4d184dcb905f",
@@ -2087,17 +2279,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "proxy_native_view_order",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "ReverseProxy",
       "source": "config_manager.py:158",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-9bcf6f84669d",
@@ -2112,17 +2307,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "proxy_native_view_selection",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "ReverseProxy",
       "source": "config_manager.py:156",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-82f222c01be4",
@@ -2137,17 +2335,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "proxy_port",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "ReverseProxy",
       "source": "config_manager.py:151",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-400baa8f93e9",
@@ -2162,17 +2363,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "proxy_show_missing_placeholders",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "ReverseProxy",
       "source": "config_manager.py:159",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-2ab25b09360c",
@@ -2187,17 +2391,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "remove_actors_without_avatars",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "General",
       "source": "config_manager.py:217",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-c3bfe38c81c3",
@@ -2212,17 +2419,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "studio_to_chinese",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "General",
       "source": "config_manager.py:219",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-a8b3a1f9f51e",
@@ -2237,17 +2447,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "system_update_helper_image",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "GitHub",
       "source": "config_manager.py:168",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-526f497f4e55",
@@ -2262,17 +2475,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "system_update_strategy",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "GitHub",
       "source": "config_manager.py:167",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-5d721cd968c6",
@@ -2287,17 +2503,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "task_chain_cron",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Scheduler",
       "source": "config_manager.py:245",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-9fb56283b713",
@@ -2312,17 +2531,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "task_chain_enabled",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Scheduler",
       "source": "config_manager.py:244",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-a3dd85aec321",
@@ -2337,17 +2559,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "task_chain_low_freq_cron",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Scheduler",
       "source": "config_manager.py:250",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-cb680421c9b8",
@@ -2362,17 +2587,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "task_chain_low_freq_enabled",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Scheduler",
       "source": "config_manager.py:249",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-3007c3d41ef6",
@@ -2387,17 +2615,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "task_chain_low_freq_max_runtime_minutes",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Scheduler",
       "source": "config_manager.py:252",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-f949c842eb2b",
@@ -2412,17 +2643,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "task_chain_low_freq_sequence",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Scheduler",
       "source": "config_manager.py:251",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-5f5498fea0df",
@@ -2437,17 +2671,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "task_chain_max_runtime_minutes",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Scheduler",
       "source": "config_manager.py:247",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-464935eabb03",
@@ -2462,17 +2699,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "task_chain_sequence",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Scheduler",
       "source": "config_manager.py:246",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-9cd8971c2f95",
@@ -2487,17 +2727,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "telegram_bot_token",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": true,
       "section": "Telegram",
       "source": "config_manager.py:263",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-e968f9a11f03",
@@ -2512,17 +2755,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "telegram_channel_id",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Telegram",
       "source": "config_manager.py:264",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-877752dd6626",
@@ -2547,17 +2793,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "telegram_notify_types",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Telegram",
       "source": "config_manager.py:266",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-395c0c033bd4",
@@ -2586,17 +2835,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "tg_menu_tasks",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Telegram",
       "source": "config_manager.py:265",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-165d953fe158",
@@ -2613,17 +2865,20 @@
       "environment_aliases": [
         "TMDB_API_BASE_URL"
       ],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "tmdb_api_base_url",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "TMDB",
       "source": "config_manager.py:163",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-6684ad06b6f7",
@@ -2638,17 +2893,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "tmdb_api_key",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": true,
       "section": "TMDB",
       "source": "config_manager.py:162",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-1a93b05b89dc",
@@ -2663,17 +2921,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "tmdb_image_language_preference",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "TMDB",
       "source": "config_manager.py:165",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-3809b34c2618",
@@ -2688,17 +2949,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "tmdb_include_adult",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "TMDB",
       "source": "config_manager.py:164",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "contract_id": "config-7dabacb95659",
@@ -2713,17 +2977,20 @@
         }
       ],
       "environment_aliases": [],
+      "fixture": "verification/unit/platform/test_settings.py",
+      "fixture_exception": null,
       "key": "user_agent",
       "mutability": "dynamic_reload",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.Settings",
+      "notes": "The immutable typed Settings snapshot declares this key; the native adapter preserves bootstrap INI/environment precedence and PostgreSQL dynamic merge semantics across API, Worker, Coordinator and Proxy roles.",
       "secret": false,
       "section": "Network",
       "source": "config_manager.py:225",
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings.dynamic_app_config",
       "target_stage": "P2",
-      "validation_method": "config-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "typed-settings-default-type-secret-precedence-dynamic-merge-and-reload-contract",
+      "validation_owner": "platform/configuration"
     }
   ],
   "environment_aliases": [
@@ -3061,17 +3328,20 @@
       ],
       "contract_id": "setting-b98815c0d5db",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p4/test_p115_persistence.py",
+      "fixture_exception": null,
       "key": "dynamic_app_config",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.platform.config.PostgresLegacyConfigStore",
+      "notes": "The native PostgreSQL config store owns the legacy-compatible aggregate row and request-boundary convergence without importing config_manager.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "postgres18-advisory-lock-atomic-dynamic-merge-rollback-and-role-reload-contract",
+      "validation_owner": "platform/configuration"
     },
     {
       "accesses": [
@@ -3678,54 +3948,44 @@
       "validation_owner": "p115/credentials"
     },
     {
-      "accesses": [
-        {
-          "operation": "get_setting",
-          "source": "handler/p115_copy_play.py:154"
-        },
-        {
-          "operation": "save_setting",
-          "source": "handler/p115_copy_play.py:159"
-        }
-      ],
+      "accesses": [],
       "contract_id": "setting-b6661bf5b234",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p6/test_p115_playback_native_postgres18.py",
+      "fixture_exception": null,
       "key": "p115_copy_play_active_sources",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
+      "notes": "Durable playback operations, artifacts and leases replace the mutable active-source projection; retained handler reads are historical compatibility source only.",
       "restart_level": "call-site-specific",
+      "retirement_approval": "P6.9 durable playback and P11 native interactive playback replacement contract",
       "secret": false,
-      "status": "legacy",
+      "status": "retired-approved",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "postgres18-durable-playback-operation-artifact-and-lease-replacement-contract",
+      "validation_owner": "p115/playback"
     },
     {
-      "accesses": [
-        {
-          "operation": "get_setting",
-          "source": "handler/p115_copy_play.py:145"
-        },
-        {
-          "operation": "save_setting",
-          "source": "handler/p115_copy_play.py:150"
-        }
-      ],
+      "accesses": [],
       "contract_id": "setting-403056a983cd",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p6/test_p115_playback_native_postgres18.py",
+      "fixture_exception": null,
       "key": "p115_copy_play_clones",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
+      "notes": "Generationed playback artifacts and exact remote-ownership receipts replace the mutable clone projection.",
       "restart_level": "call-site-specific",
+      "retirement_approval": "P6.9 durable playback and P11 native interactive playback replacement contract",
       "secret": false,
-      "status": "legacy",
+      "status": "retired-approved",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "postgres18-generation-artifact-ownership-and-reclaim-replacement-contract",
+      "validation_owner": "p115/playback"
     },
     {
       "accesses": [
@@ -3824,54 +4084,44 @@
       "validation_owner": "p115/playback"
     },
     {
-      "accesses": [
-        {
-          "operation": "get_setting",
-          "source": "handler/p115_play_pool.py:664"
-        },
-        {
-          "operation": "save_setting",
-          "source": "handler/p115_play_pool.py:669"
-        }
-      ],
+      "accesses": [],
       "contract_id": "setting-3ff546971deb",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p6/test_p115_playback_postgres18.py",
+      "fixture_exception": null,
       "key": "p115_play_pool_sessions",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
+      "notes": "Owner-scoped p115_playback_qr_sessions replaces the aggregate app_settings session document.",
       "restart_level": "call-site-specific",
+      "retirement_approval": "P6.9 durable playback and P11 native playback recovery replacement contract",
       "secret": false,
-      "status": "legacy",
+      "status": "retired-approved",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "postgres18-qr-session-claim-expiry-and-secret-scrub-replacement-contract",
+      "validation_owner": "p115/playback"
     },
     {
-      "accesses": [
-        {
-          "operation": "get_setting",
-          "source": "handler/p115_play_pool.py:159"
-        },
-        {
-          "operation": "save_setting",
-          "source": "handler/p115_play_pool.py:232"
-        }
-      ],
+      "accesses": [],
       "contract_id": "setting-b81cef705214",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p6/test_p115_playback_native_postgres18.py",
+      "fixture_exception": null,
       "key": "p115_play_pool_user_cookie_rewards",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_reward_repository.SqlAlchemyP115PlaybackRewardRepository",
+      "notes": "Per-user, per-business-date immutable reward receipts replace the mutable aggregate reward mapping.",
       "restart_level": "call-site-specific",
+      "retirement_approval": "P11 native play-pool reward receipt replacement contract",
       "secret": true,
-      "status": "legacy",
+      "status": "retired-approved",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "postgres18-per-user-business-date-reward-receipt-and-entitlement-contract",
+      "validation_owner": "p115/playback"
     },
     {
       "accesses": [
@@ -4066,29 +4316,24 @@
       "validation_owner": "p115/upload-monitor"
     },
     {
-      "accesses": [
-        {
-          "operation": "save_setting",
-          "source": "reverse_proxy.py:108"
-        },
-        {
-          "operation": "get_setting",
-          "source": "reverse_proxy.py:93"
-        }
-      ],
+      "accesses": [],
       "contract_id": "setting-c2a679ada51b",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p6/test_p115_playback_native_postgres18.py",
+      "fixture_exception": null,
       "key": "p115_virtual_play_sessions",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
+      "notes": "Durable virtual playback artifacts plus proxy playback leases replace the mutable aggregate session document.",
       "restart_level": "call-site-specific",
+      "retirement_approval": "P6.9 durable playback and P9 proxy lease replacement contract",
       "secret": false,
-      "status": "legacy",
+      "status": "retired-approved",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "postgres18-durable-virtual-artifact-and-viewer-lease-replacement-contract",
+      "validation_owner": "p115/playback"
     },
     {
       "accesses": [
@@ -4179,17 +4424,20 @@
       ],
       "contract_id": "setting-0dc53344d583",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/application/p3/test_system_integrations.py",
+      "fixture_exception": null,
       "key": "pro_expire_time",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integrations.SystemIntegrationService",
+      "notes": "Native Pro activation and transfer persist the canonical expiry together with the canonical license key through the SQLAlchemy app-settings repository.",
       "restart_level": "call-site-specific",
       "secret": false,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "native-pro-activation-transfer-canonical-settings-write-and-response-contract",
+      "validation_owner": "system/integrations"
     },
     {
       "accesses": [
@@ -4216,17 +4464,20 @@
       ],
       "contract_id": "setting-68b3a424ed9a",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/integration/p3/test_license_alias_cutover_postgres18.py",
+      "fixture_exception": null,
       "key": "pro_license_key",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.system.integrations.SystemIntegrationService",
+      "notes": "Native System integrations own canonical Pro license persistence; the historical license_key alias remains separately retired-approved.",
       "restart_level": "call-site-specific",
       "secret": true,
-      "status": "legacy",
+      "status": "new",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "postgres18-canonical-license-alias-cutover-and-native-write-contract",
+      "validation_owner": "system/integrations"
     },
     {
       "accesses": [
@@ -4641,25 +4892,24 @@
       "validation_owner": "sharing/configuration"
     },
     {
-      "accesses": [
-        {
-          "operation": "get_setting",
-          "source": "tasks/shared_resource_tasks.py:4416"
-        }
-      ],
+      "accesses": [],
       "contract_id": "setting-365ee1017f1a",
       "default_source": "no database default; read fallbacks are call-site-specific",
+      "fixture": "verification/application/p6/test_p115_media_info_formatter.py",
+      "fixture_exception": null,
       "key": "stream_feature_mapping",
       "mutability": "runtime_dynamic",
-      "new_owner": null,
+      "new_owner": "etk.domains.p115.media_info_formatter.format_raw_ffprobe_mediainfo",
+      "notes": "Canonical p115_default_stream_config feature policy and formatted MediaInfo replace the legacy regex list; retained shared-resource task access is historical compatibility source only.",
       "restart_level": "call-site-specific",
+      "retirement_approval": "P6.6 canonical MediaInfo formatter replacement contract",
       "secret": false,
-      "status": "legacy",
+      "status": "retired-approved",
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "app-settings-contract",
-      "validation_owner": "system/configuration"
+      "validation_method": "canonical-stream-policy-feature-normalization-and-source-registration-summary-contract",
+      "validation_owner": "p115/mediainfo"
     },
     {
       "accesses": [

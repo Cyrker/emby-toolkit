@@ -27,12 +27,14 @@ NATIVE_CONFIG_KEYS = {
     "p115_play_pool_config",
     "p115_temp_dir_config",
 }
-DEFERRED_COMPATIBILITY_KEYS = {
-    "p115_copy_play_active_sources",
-    "p115_copy_play_clones",
-    "p115_play_pool_sessions",
-    "p115_play_pool_user_cookie_rewards",
-    "p115_virtual_play_sessions",
+RETIRED_CONFIG_REPLACEMENTS = {
+    "p115_copy_play_active_sources": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
+    "p115_copy_play_clones": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
+    "p115_play_pool_sessions": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
+    "p115_play_pool_user_cookie_rewards": (
+        "etk.domains.p115.playback_reward_repository.SqlAlchemyP115PlaybackRewardRepository"
+    ),
+    "p115_virtual_play_sessions": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
 }
 
 
@@ -146,10 +148,10 @@ def test_playback_migration_is_single_head_and_owns_exactly_four_native_tables()
     repository = _source("src/etk/domains/p115/playback_repository.py")
     assert all(table in repository for table in PLAYBACK_TABLES)
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0024_p11_sharing_cancellation"]
+    assert scripts.get_heads() == ["0027_p11_watchlist_display"]
 
 
-def test_only_actively_native_playback_config_keys_are_claimed() -> None:
+def test_native_playback_config_and_approved_state_replacements_are_claimed() -> None:
     manifest = _json("verification/contracts/config-ownership.yaml")
     settings = {
         str(entry["key"]): entry
@@ -169,10 +171,11 @@ def test_only_actively_native_playback_config_keys_are_claimed() -> None:
         assert entry["status"] == "new"
         assert entry["new_owner"] == "etk.domains.p115.playback.P115PlaybackConfigService"
         assert entry["fixture"] == PLAYBACK_FIXTURE
-    for key in DEFERRED_COMPATIBILITY_KEYS:
+    for key, owner in RETIRED_CONFIG_REPLACEMENTS.items():
         entry = settings[key]
-        assert entry["status"] == "legacy"
-        assert entry["new_owner"] is None
+        assert entry["status"] == "retired-approved"
+        assert entry["new_owner"] == owner
+        assert entry["retirement_approval"]
 
 
 def test_active_legacy_playback_wrappers_check_the_native_gateway_before_fallback() -> None:

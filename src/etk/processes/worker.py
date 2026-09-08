@@ -358,7 +358,7 @@ from etk.domains.subscription.watchlist_task_execution import (
     SqlAlchemyWatchlistTaskRepository,
 )
 from etk.domains.system import SqlAlchemyAppSettingsRepository
-from etk.domains.translation import ConfiguredBatchTranslation
+from etk.domains.translation import ConfiguredBatchTranslation, SqlAlchemyTranslationCache
 from etk.integrations import (
     DurableTelegramUserBotAdapter,
     HttpxHDHiveAdapter,
@@ -4249,18 +4249,19 @@ def _native_media_people_task_services(
     settings_provider: Callable[[], Any],
 ) -> tuple[NativeMediaMetadataTaskService, NativePeopleTaskService, NativeMediaScreenshotBackfillService]:
     """Build the processor-free P5/P7 people and media task owners."""
+    translation_cache = SqlAlchemyTranslationCache(database.unit_of_work)
     media_tasks = NativeMediaMetadataTaskService(
         repository=SqlAlchemyMediaMetadataTaskRepository(database.unit_of_work),
         catalog=HttpxMediaCatalogAdapter(settings_provider),
         metadata=HttpxTmdbMetadataAdapter(settings_provider),
-        translation=ConfiguredBatchTranslation(settings_provider),
+        translation=ConfiguredBatchTranslation(settings_provider, translation_cache),
         settings=settings_provider,
     )
     people_tasks = NativePeopleTaskService(
         catalog=HttpxPeopleCatalogAdapter(settings_provider),
         provider=HttpxTmdbPersonAdapter(settings_provider),
         repository=SqlAlchemyPersonMetadataRepository(database.unit_of_work),
-        translation=ConfiguredBatchTranslation(settings_provider),
+        translation=ConfiguredBatchTranslation(settings_provider, translation_cache),
         actor_enabled=lambda: bool(settings_provider().ai_translate_actor_role),
     )
     screenshot_backfill = NativeMediaScreenshotBackfillService(

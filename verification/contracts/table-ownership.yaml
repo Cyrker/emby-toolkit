@@ -724,6 +724,8 @@
       "constraints_static": [],
       "contract_id": "table-de0b6a2fe15f",
       "create_sql": "CREATE TABLE IF NOT EXISTS media_image_cache ( source_url TEXT PRIMARY KEY, content_hash CHAR(64) NOT NULL, relative_path TEXT NOT NULL, mime_type TEXT NOT NULL, byte_size BIGINT NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p8/test_collection_asset_effects_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_media_image_cache_hash ON media_image_cache (content_hash)",
@@ -734,16 +736,17 @@
         }
       ],
       "name": "media_image_cache",
-      "new_owner": null,
+      "new_owner": "etk.domains.collection.effect_adapters.SqlAlchemyCollectionAssetEffectsAdapter",
+      "notes": "The processor-free collection effect adapter owns cache lookup, streamed archive, atomic publication and unreferenced-source cleanup; both Worker profiles construct it directly.",
       "post_create_alters": [],
       "source": "database/connection.py:347",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "media"
+      "validation_method": "postgres18-content-addressed-image-cache-read-write-cleanup-and-worker-wiring",
+      "validation_owner": "collection/media-image-cache"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -1810,18 +1813,21 @@
       ],
       "contract_id": "table-f2314381266c",
       "create_sql": "CREATE TABLE IF NOT EXISTS person_metadata ( -- 核心身份标识 (建议以 TMDb ID 为主键，因为影视刮削高度依赖 TMDb) tmdb_person_id INTEGER PRIMARY KEY, -- 其他平台的 ID 映射 imdb_id TEXT UNIQUE, douban_celebrity_id TEXT UNIQUE, -- 基础元数据 primary_name TEXT NOT NULL, -- 主要译名 (原 map 表字段) original_name TEXT, -- 原名 (原 metadata 表字段) profile_path TEXT, -- 头像路径 gender INTEGER, -- 性别 adult BOOLEAN, -- 是否成人影星 popularity REAL, -- 热度 -- 时间戳 last_synced_at TIMESTAMP WITH TIME ZONE, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p7/test_people_task_execution_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [],
       "name": "person_metadata",
-      "new_owner": null,
+      "new_owner": "etk.domains.people.task_execution.SqlAlchemyPersonMetadataRepository",
+      "notes": "Processor-free People execution owns person metadata reads, identity-safe upserts, conflict reconciliation and deletes.",
       "post_create_alters": [],
       "source": "database/connection.py:418",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "media"
+      "validation_method": "postgres18-person-metadata-upsert-identity-conflict-delete-and-worker-contract",
+      "validation_owner": "people/person-metadata"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -1854,18 +1860,21 @@
       "constraints_static": [],
       "contract_id": "table-8ae4bf5642fb",
       "create_sql": "CREATE TABLE IF NOT EXISTS processed_log ( item_id TEXT PRIMARY KEY, item_name TEXT, processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), score REAL, assets_synced_at TIMESTAMP WITH TIME ZONE, last_emby_modified_at TIMESTAMP WITH TIME ZONE )",
+      "fixture": "verification/integration/p3/test_database_read_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [],
       "name": "processed_log",
-      "new_owner": null,
+      "new_owner": "etk.domains.operations.database.SqlAlchemyDatabaseReadRepository",
+      "notes": "The native database read repository owns the retained compatibility count projection; native processing state does not write this historical table.",
       "post_create_alters": [],
       "source": "database/connection.py:108",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "operations"
       ],
       "target_stage": "P3",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "operations"
+      "validation_method": "postgres18-retained-processed-log-statistics-projection-contract",
+      "validation_owner": "operations/database-read"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -2199,6 +2208,8 @@
       "constraints_static": [],
       "contract_id": "table-4ffa545ab978",
       "create_sql": "CREATE TABLE IF NOT EXISTS shared_completed_season_share_channels ( id SERIAL PRIMARY KEY, channel_id TEXT NOT NULL UNIQUE, center_source_id TEXT NOT NULL, local_source_id INTEGER REFERENCES shared_rapid_sources(id) ON DELETE SET NULL, hub_id TEXT, manifest_hash TEXT, share_code TEXT, receive_code TEXT, share_url TEXT, share_title TEXT, root_fid TEXT, root_cid TEXT, root_name TEXT, file_count INTEGER NOT NULL DEFAULT 0, total_size BIGINT DEFAULT 0, status TEXT NOT NULL DEFAULT 'creating', review_status TEXT, status_message TEXT, fail_count INTEGER NOT NULL DEFAULT 0, raw_json JSONB NOT NULL DEFAULT '{}'::jsonb, last_checked_at TIMESTAMP WITH TIME ZONE, last_reported_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p9/test_sharing_projection_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_scssc_channel ON shared_completed_season_share_channels (channel_id)",
@@ -2230,16 +2241,17 @@
         }
       ],
       "name": "shared_completed_season_share_channels",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.projection.SqlAlchemySharingProjectionRepository",
+      "notes": "The native sharing projection owns read-only compatibility display of historical completed-season channels; new logical-season channels are center-owned.",
       "post_create_alters": [],
       "source": "database/connection.py:893",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "sharing"
+      "validation_method": "postgres18-retained-completed-season-channel-projection-contract",
+      "validation_owner": "sharing/projection"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -2296,6 +2308,8 @@
       "constraints_static": [],
       "contract_id": "table-448f271fc3b2",
       "create_sql": "CREATE TABLE IF NOT EXISTS shared_credit_ledger_local ( id SERIAL PRIMARY KEY, event_type TEXT NOT NULL, delta INTEGER NOT NULL DEFAULT 0, reason TEXT, ref_id TEXT, source_id TEXT, virtual_id TEXT, tmdb_id TEXT, item_type TEXT, title TEXT, raw_json JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p9/test_sharing_ledger_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_shared_credit_ledger_created ON shared_credit_ledger_local (created_at DESC)",
@@ -2306,16 +2320,18 @@
         }
       ],
       "name": "shared_credit_ledger_local",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.ledger.PostgresContributionLedger",
+      "notes": "The account-scoped sharing_credit_ledger replaces this mutable local display ledger; the frozen legacy table remains schema-compatible but is not an active state owner.",
       "post_create_alters": [],
+      "retirement_approval": "P9-LEDGER approved append-only sharing_credit_ledger replacement contract",
       "source": "database/connection.py:757",
-      "status": "legacy",
+      "status": "retired-approved",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "sharing"
+      "validation_method": "postgres18-account-row-lock-append-only-ledger-idempotency-and-replay-contract",
+      "validation_owner": "sharing/ledger"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -2378,18 +2394,22 @@
       ],
       "contract_id": "table-7d5c24869ef9",
       "create_sql": "CREATE TABLE IF NOT EXISTS shared_credit_snapshot ( id INTEGER PRIMARY KEY DEFAULT 1, device_id TEXT, credit INTEGER NOT NULL DEFAULT 0, contributed_sources INTEGER NOT NULL DEFAULT 0, consumed_sources INTEGER NOT NULL DEFAULT 0, transfer_success INTEGER NOT NULL DEFAULT 0, transfer_failed INTEGER NOT NULL DEFAULT 0, wanted_gaps INTEGER NOT NULL DEFAULT 0, shared_sources INTEGER NOT NULL DEFAULT 0, raw_ffprobe INTEGER NOT NULL DEFAULT 0, remote_devices INTEGER NOT NULL DEFAULT 0, raw_json JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), CONSTRAINT shared_credit_snapshot_singleton CHECK (id = 1) )",
+      "fixture": "verification/integration/p9/test_sharing_ledger_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [],
       "name": "shared_credit_snapshot",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.ledger.PostgresContributionLedger",
+      "notes": "Account-scoped sharing_credit_accounts plus the append-only ledger replace the singleton legacy snapshot; the frozen table is not read or written by the native runtime.",
       "post_create_alters": [],
+      "retirement_approval": "P9-LEDGER approved sharing_credit_accounts replacement contract",
       "source": "database/connection.py:737",
-      "status": "legacy",
+      "status": "retired-approved",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "sharing"
+      "validation_method": "postgres18-account-row-lock-balance-and-ledger-sum-invariant-contract",
+      "validation_owner": "sharing/ledger"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -2478,6 +2498,8 @@
       "constraints_static": [],
       "contract_id": "table-a6902ff252e2",
       "create_sql": "CREATE TABLE IF NOT EXISTS shared_rapid_source_files ( id SERIAL PRIMARY KEY, local_source_id INTEGER NOT NULL REFERENCES shared_rapid_sources(id) ON DELETE CASCADE, fid TEXT, pick_code TEXT, sha1 TEXT NOT NULL, preid TEXT, size BIGINT DEFAULT 0, file_name TEXT NOT NULL, relative_path TEXT, tmdb_id TEXT, item_type TEXT, season_number INTEGER, episode_number INTEGER, center_file_id TEXT, raw_ffprobe_uploaded BOOLEAN NOT NULL DEFAULT FALSE, media_signature_json JSONB NOT NULL DEFAULT '{}'::jsonb, rapid_meta_json JSONB NOT NULL DEFAULT '{}'::jsonb, raw_json JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p9/test_sharing_ledger_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_srsf_source ON shared_rapid_source_files (local_source_id)",
@@ -2509,7 +2531,8 @@
         }
       ],
       "name": "shared_rapid_source_files",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.repository.PostgresSharingOperationRepository",
+      "notes": "Native sharing operations validate and mutate source-file state transactionally; the native projection supplies bounded reads.",
       "post_create_alters": [
         {
           "operation": "ADD COLUMN IF NOT EXISTS preid TEXT",
@@ -2518,13 +2541,13 @@
         }
       ],
       "source": "database/connection.py:838",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "sharing"
+      "validation_method": "postgres18-source-file-prewrite-identity-confirmation-and-recovery-contract",
+      "validation_owner": "sharing/source-registration"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -2665,6 +2688,8 @@
       ],
       "contract_id": "table-4c54e4925f56",
       "create_sql": "CREATE TABLE IF NOT EXISTS shared_rapid_sources ( id SERIAL PRIMARY KEY, source_key TEXT NOT NULL UNIQUE, source_kind TEXT NOT NULL, -- movie / episode / completed_season center_source_id TEXT, tmdb_id TEXT NOT NULL, item_type TEXT NOT NULL, parent_series_tmdb_id TEXT, season_number INTEGER, episode_number INTEGER, title TEXT, release_year INTEGER, sha1 TEXT, preid TEXT, size BIGINT DEFAULT 0, file_name TEXT, root_fid TEXT, root_name TEXT, source_provider TEXT NOT NULL DEFAULT 'local', status TEXT NOT NULL DEFAULT 'active', -- active / available / updating / inconsistent / incomplete / disabled / error center_status TEXT NOT NULL DEFAULT 'local', -- local / reported / failed / disabled manifest_hash TEXT, manifest_version INTEGER NOT NULL DEFAULT 1, file_count INTEGER NOT NULL DEFAULT 0, total_size BIGINT NOT NULL DEFAULT 0, is_clean_version BOOLEAN NOT NULL DEFAULT FALSE, clean_version_confidence REAL, clean_version_meta_json JSONB NOT NULL DEFAULT '{}'::jsonb, media_signature_json JSONB NOT NULL DEFAULT '{}'::jsonb, rapid_meta_json JSONB NOT NULL DEFAULT '{}'::jsonb, raw_json JSONB NOT NULL DEFAULT '{}'::jsonb, last_error TEXT, reported_at TIMESTAMP WITH TIME ZONE, disabled_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p9/test_sharing_ledger_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_srs_status_updated ON shared_rapid_sources (status, updated_at DESC)",
@@ -2710,7 +2735,8 @@
         }
       ],
       "name": "shared_rapid_sources",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.repository.PostgresSharingOperationRepository",
+      "notes": "Native sharing operations own lifecycle and source-registration mutations while the native projection owns API reads.",
       "post_create_alters": [
         {
           "operation": "ADD COLUMN IF NOT EXISTS preid TEXT",
@@ -2719,13 +2745,13 @@
         }
       ],
       "source": "database/connection.py:797",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "sharing"
+      "validation_method": "postgres18-source-registration-state-hash-prewrite-confirmation-and-recovery-contract",
+      "validation_owner": "sharing/source-registration"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -2822,6 +2848,8 @@
       "constraints_static": [],
       "contract_id": "table-2a0a097ba5d7",
       "create_sql": "CREATE TABLE IF NOT EXISTS shared_virtual_imports ( id SERIAL PRIMARY KEY, source_kind TEXT NOT NULL, source_id TEXT NOT NULL, tmdb_id TEXT, item_type TEXT, parent_series_tmdb_id TEXT, season_number INTEGER, episode_number INTEGER, title TEXT, release_year INTEGER, file_count INTEGER NOT NULL DEFAULT 0, total_size BIGINT NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'virtual', watched_count INTEGER NOT NULL DEFAULT 0, played_percent REAL NOT NULL DEFAULT 0, strm_paths_json JSONB NOT NULL DEFAULT '[]'::jsonb, source_payload_json JSONB NOT NULL DEFAULT '{}'::jsonb, files_json JSONB NOT NULL DEFAULT '[]'::jsonb, last_played_at TIMESTAMP WITH TIME ZONE, promoted_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p9/test_virtual_import_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_svi_status_updated ON shared_virtual_imports (status, updated_at DESC)",
@@ -2839,16 +2867,17 @@
         }
       ],
       "name": "shared_virtual_imports",
-      "new_owner": null,
+      "new_owner": "etk.domains.sharing.virtual_import.SqlAlchemyVirtualImportRepository",
+      "notes": "The native virtual-import repository owns creation, readback, reconciliation and removal of the legacy-compatible projection.",
       "post_create_alters": [],
       "source": "database/connection.py:864",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "sharing"
       ],
       "target_stage": "P9",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "sharing"
+      "validation_method": "postgres18-virtual-import-create-state-hash-remove-and-reconcile-contract",
+      "validation_owner": "sharing/virtual-import"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -2885,6 +2914,8 @@
       "constraints_static": [],
       "contract_id": "table-36c950c5930f",
       "create_sql": "CREATE TABLE IF NOT EXISTS subscribe_assistant_delete_records ( fingerprint TEXT PRIMARY KEY, tmdb_id TEXT, season_number INTEGER, episode_json JSONB NOT NULL DEFAULT '[]'::jsonb, reason TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), expires_at TIMESTAMP WITH TIME ZONE )",
+      "fixture": "verification/integration/p7/test_assistant_task_execution_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_sas_delete_records_expires ON subscribe_assistant_delete_records (expires_at)",
@@ -2895,17 +2926,18 @@
         }
       ],
       "name": "subscribe_assistant_delete_records",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.assistant_task_execution.NativeSubscribeAssistantMaintenanceGateway",
+      "notes": "Processor-free assistant maintenance owns deletion suppression records and their bounded expiry cleanup.",
       "post_create_alters": [],
       "source": "database/connection.py:405",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "people"
       ],
       "target_stage": "P7",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "subscription/people"
+      "validation_method": "postgres18-delete-suppression-record-write-read-expiry-and-worker-contract",
+      "validation_owner": "subscription/assistant-maintenance"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -2954,6 +2986,8 @@
       "constraints_static": [],
       "contract_id": "table-d4299a5e4e3d",
       "create_sql": "CREATE TABLE IF NOT EXISTS subscribe_assistant_snapshots ( id SERIAL PRIMARY KEY, tmdb_id TEXT NOT NULL, item_type TEXT NOT NULL DEFAULT 'Series', season_number INTEGER, subscribe_id INTEGER, scope_total INTEGER DEFAULT 0, scope_json JSONB NOT NULL DEFAULT '{}'::jsonb, subscribe_json JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(), last_checked_at TIMESTAMP WITH TIME ZONE )",
+      "fixture": "verification/integration/p7/test_assistant_task_execution_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [
         {
           "definition": "CREATE INDEX idx_sas_snapshots_media ON subscribe_assistant_snapshots (tmdb_id, item_type, season_number)",
@@ -2971,17 +3005,18 @@
         }
       ],
       "name": "subscribe_assistant_snapshots",
-      "new_owner": null,
+      "new_owner": "etk.domains.subscription.assistant_task_execution.NativeSubscribeAssistantMaintenanceGateway",
+      "notes": "Native assistant, watchlist and MoviePilot webhook paths create snapshots; assistant maintenance owns claim, verification, release and retention.",
       "post_create_alters": [],
       "source": "database/connection.py:389",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "subscription",
         "people"
       ],
       "target_stage": "P7",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "subscription/people"
+      "validation_method": "postgres18-snapshot-claim-lease-authoritative-readback-and-recovery-contract",
+      "validation_owner": "subscription/assistant-maintenance"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",
@@ -3041,18 +3076,21 @@
       "constraints_static": [],
       "contract_id": "table-b89ccead984e",
       "create_sql": "CREATE TABLE IF NOT EXISTS translation_cache ( original_text TEXT PRIMARY KEY, translated_text TEXT, engine_used TEXT, last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() )",
+      "fixture": "verification/integration/p5/test_translation_cache_postgres18.py",
+      "fixture_exception": null,
       "indexes_static": [],
       "name": "translation_cache",
-      "new_owner": null,
+      "new_owner": "etk.domains.translation.SqlAlchemyTranslationCache",
+      "notes": "Processor-free media and People translation use one native SQLAlchemy cache owner; cache failures remain best-effort and never replace provider outcomes.",
       "post_create_alters": [],
       "source": "database/connection.py:129",
-      "status": "legacy",
+      "status": "new",
       "target_domains": [
         "media"
       ],
       "target_stage": "P5",
-      "validation_method": "postgres-schema-contract",
-      "validation_owner": "media"
+      "validation_method": "postgres18-batch-hit-upsert-invalid-row-cleanup-and-worker-wiring-contract",
+      "validation_owner": "media/translation"
     },
     {
       "authoritative_schema_fixture": "verification/contracts/db/legacy-schema.sql",

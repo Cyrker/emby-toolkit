@@ -1253,29 +1253,36 @@ class CoordinatorRuntime:
                 schedules_enabled=self.config.schedules_enabled,
             )
 
-    @staticmethod
-    def _load_runtime_context() -> dict[str, Any]:
-        import config_manager
-        import constants
-        import extensions
-        from database import settings_db
-        from handler.p115_temp_dir import get_temp_dir_config
-
-        shared = settings_db.get_shared_resource_config() or {}
-        temp = get_temp_dir_config() or {}
-        tg_userbot = settings_db.get_setting("tg_userbot_config") or {}
+    def _load_runtime_context(self) -> dict[str, Any]:
+        container = self._container
+        adapter = self._config_adapter
+        if container is None or adapter is None:
+            return {}
+        repository = SqlAlchemyAppSettingsRepository(container.database.unit_of_work)
+        settings = adapter.load()
+        values = repository.load_many(
+            (
+                "shared_resource_config",
+                "p115_temp_dir_config",
+                "tg_userbot_config",
+                "p115_upload_monitor_config",
+                "emby_server_id_cache",
+            )
+        )
+        shared_value = values.get("shared_resource_config")
+        temp_value = values.get("p115_temp_dir_config")
+        tg_userbot = values.get("tg_userbot_config")
+        shared = dict(shared_value) if isinstance(shared_value, Mapping) else {}
+        temp = dict(temp_value) if isinstance(temp_value, Mapping) else {}
         upload_config = normalize_upload_monitor_config(
-            settings_db.get_setting("p115_upload_monitor_config") or {},
-            default_extensions=config_manager.APP_CONFIG.get(
-                constants.CONFIG_OPTION_MONITOR_EXTENSIONS,
-                constants.DEFAULT_MONITOR_EXTENSIONS,
-            ),
+            values.get("p115_upload_monitor_config") or {},
+            default_extensions=settings.monitor_extensions,
         )
         return {
             "_shared_resource_enabled": shared.get("p115_shared_resource_enabled", False),
-            "_emby_server_id": str(getattr(extensions, "EMBY_SERVER_ID", "") or "").strip(),
+            "_emby_server_id": str(values.get("emby_server_id_cache") or "").strip(),
             "_p115_temp_cleanup_cron": str(temp.get("cleanup_cron") or "").strip(),
-            "_tg_userbot_config": tg_userbot if isinstance(tg_userbot, dict) else {},
+            "_tg_userbot_config": dict(tg_userbot) if isinstance(tg_userbot, Mapping) else {},
             "_p115_upload_monitor_revision": upload_monitor_config_revision(upload_config),
         }
 

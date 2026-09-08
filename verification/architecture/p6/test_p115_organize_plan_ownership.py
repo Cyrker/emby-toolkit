@@ -192,4 +192,4 @@ def test_dry_run_compatibility_gateways_import_only_pure_legacy_helpers_and_plai
 def test_p6_upload_monitor_migration_is_the_single_alembic_head() -> None:
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
 
-    assert scripts.get_heads() == ["0024_p11_sharing_cancellation"]
+    assert scripts.get_heads() == ["0027_p11_watchlist_display"]

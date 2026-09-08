@@ -6128,3 +6128,34 @@ Pending / Blocker / Next:
 - No TASK-004 P0/P1/P2 blocker remains. P11 stays `DOING`, P12 stays `TODO`, Live stays
   `HUMAN_PENDING`; create the isolated TASK-004 checkpoint, then continue directly with TASK-005
   Table/Config and active-ownership closure.
+
+### P11-TASK-005-Ownership-20260908
+
+TASK / HEAD:
+
+- `TASK-005 Table/Config and active ownership closure`; pre-checkpoint HEAD `6c4b725c`.
+
+Implemented:
+
+- Closed Route/Task/Table/Config/Frontend active ownership. Tables are `37 new / 2
+  retired-approved`; bootstrap/dynamic config are `7/96 new`; standalone settings are `43 new / 11
+  retired-approved`; no legacy or unresolved dynamic setting remains.
+- Added processor-free PostgreSQL translation-cache ownership and installed it in both native media
+  and People tasks. Coordinator runtime context now uses typed Settings plus one native app-settings
+  snapshot and has no dynamic old-runtime imports.
+- Kept the two P9 credit tables, five playback aggregate settings and legacy stream-feature mapping
+  only as evidence-backed approved replacements; no schema or public contract changed.
+
+Gate:
+
+- Application/architecture/contracts/Settings/role/translation scope -> `291 passed, 1 warning`;
+  disposable PostgreSQL 18 table/config/repository scope -> `94 passed`.
+- Scoped Ruff/format and Pyright (`0 errors, 0 warnings, 0 informations`) passed. Compileall,
+  `uv lock --check`, manifest currentness, three secret scans and `git diff --check` passed. Detailed
+  evidence: `/tmp/etk-refactor-artifacts/p11-table-config-20260908/summary.md`.
+
+Pending / Blocker / Next:
+
+- No TASK-005 P0/P1/P2 blocker remains. P11 stays `DOING`, P12 stays `TODO`, Live stays
+  `HUMAN_PENDING`; create the isolated TASK-005 checkpoint, then continue directly with TASK-006
+  pre-removal evidence, controlled active-runtime exit and the single P11 full gate.

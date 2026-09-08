@@ -36,9 +36,23 @@ RETIRED_STANDALONE_SETTING_KEYS = frozenset(
         "media_cleanup_keep_one_per_res",
         "media_cleanup_library_ids",
         "media_cleanup_rules",
+        "p115_copy_play_active_sources",
+        "p115_copy_play_clones",
+        "p115_play_pool_sessions",
+        "p115_play_pool_user_cookie_rewards",
+        "p115_virtual_play_sessions",
+        "stream_feature_mapping",
     }
 )
 RETIRED_STANDALONE_SETTING_SENTINEL_PATHS = ("src/etk/bootstrap/legacy_runtime.py",)
+RETIRED_STANDALONE_SETTING_HISTORICAL_ACCESSES = {
+    "p115_copy_play_active_sources": frozenset({"handler/p115_copy_play.py"}),
+    "p115_copy_play_clones": frozenset({"handler/p115_copy_play.py"}),
+    "p115_play_pool_sessions": frozenset({"handler/p115_play_pool.py"}),
+    "p115_play_pool_user_cookie_rewards": frozenset({"handler/p115_play_pool.py"}),
+    "p115_virtual_play_sessions": frozenset({"reverse_proxy.py"}),
+    "stream_feature_mapping": frozenset({"tasks/shared_resource_tasks.py"}),
+}
 NATIVE_STANDALONE_SETTING_ACCESSES = {
     "recommendation_pool": [
         {
@@ -310,6 +324,8 @@ def _scan_setting_calls() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             item = {"operation": operation, "source": source_ref(path, node.lineno)}
             if keys:
                 for key in keys:
+                    if rel in RETIRED_STANDALONE_SETTING_HISTORICAL_ACCESSES.get(key, ()):
+                        continue
                     resolved[key].append(item)
             elif (
                 operation == "_save_setting_with_cursor"

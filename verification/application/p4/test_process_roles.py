@@ -955,6 +955,60 @@ def test_worker_refreshes_processor_snapshot_at_the_next_root_job_boundary() -> 
     assert supervisor.events == ["stop", ("start", RuntimeRole.WORKER, False)]
 
 
+def test_coordinator_runtime_context_reads_only_native_settings_owners(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    values: dict[str, Any] = {
+        "shared_resource_config": {"p115_shared_resource_enabled": True},
+        "p115_temp_dir_config": {"cleanup_cron": "15 */2 * * *"},
+        "tg_userbot_config": {"enabled": True},
+        "p115_upload_monitor_config": {
+            "enabled": True,
+            "mappings": [
+                {
+                    "local_dir": "/fixture/upload",
+                    "target_cid": "123",
+                }
+            ],
+        },
+        "emby_server_id_cache": "fixture-server",
+    }
+    loads: list[tuple[str, ...]] = []
+    unit_of_work = object()
+
+    class Repository:
+        def __init__(self, candidate: object) -> None:
+            assert candidate is unit_of_work
+
+        def load_many(self, keys: tuple[str, ...]) -> dict[str, Any]:
+            loads.append(keys)
+            return {key: values.get(key) for key in keys}
+
+    runtime = CoordinatorRuntime(config=TaskRuntimeConfig())
+    runtime._container = SimpleNamespace(database=SimpleNamespace(unit_of_work=unit_of_work))
+    runtime._config_adapter = SimpleNamespace(
+        load=lambda: SimpleNamespace(monitor_extensions=[".mkv", ".srt"]),
+    )
+    monkeypatch.setattr(coordinator, "SqlAlchemyAppSettingsRepository", Repository)
+
+    context = runtime._load_runtime_context()
+
+    assert context["_shared_resource_enabled"] is True
+    assert context["_emby_server_id"] == "fixture-server"
+    assert context["_p115_temp_cleanup_cron"] == "15 */2 * * *"
+    assert context["_tg_userbot_config"] == {"enabled": True}
+    assert len(context["_p115_upload_monitor_revision"]) == 64
+    assert loads == [
+        (
+            "shared_resource_config",
+            "p115_temp_dir_config",
+            "tg_userbot_config",
+            "p115_upload_monitor_config",
+            "emby_server_id_cache",
+        )
+    ]
+
+
 def test_coordinator_cron_normalizes_legacy_day_of_week_before_scheduling() -> None:
     assert coordinator._fix_cron_dow("0 6 * * 1-5") == "0 6 * * mon-fri"
     assert coordinator._fix_cron_dow("30 7 * * 0,7") == "30 7 * * sun,sun"
