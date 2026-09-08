@@ -6061,3 +6061,42 @@ Next:
 
 - Create the isolated TASK-002 local checkpoint, then continue directly with TASK-003. P11 remains
   `DOING`, P12 remains `TODO`, and Live remains `HUMAN_PENDING`.
+
+### P11-TASK-003-Resubscribe-20260908
+
+TASK / HEAD:
+
+- `TASK-003 resubscribe-library`; pre-checkpoint HEAD `32093300`.
+
+Implemented:
+
+- Added the processor-free resubscribe owner with per-item MoviePilot, delete and HDHive dispatch;
+  reused the existing durable replacement workflow, Cleanup child jobs, quota ledger and P9 Sharing
+  operation executor instead of reviving direct legacy deletes or adding a new effect framework.
+- Both Worker profiles now construct the owner. Native Cleanup staging carries explicit parent
+  Job/Attempt/Worker identity without importing `task_manager`; disabled or drifted rule/index
+  identities fail closed before durable effects. Ownership was promoted only after the focused gate.
+
+Gate:
+
+- TASK-003 application/Cleanup/resubscribe scope -> `162 passed`; full P7 application, architecture
+  and process roles -> `524 passed, 1 warning`; disposable PG18 resubscribe/Cleanup scope ->
+  `57 passed`; Worker/manifest contracts -> `67 passed`.
+- Scoped Ruff/format, Pyright (`0 errors, 0 warnings, 0 informations`), compileall, `uv lock --check`,
+  manifest currentness and `git diff --check` passed. Detailed evidence:
+  `/tmp/etk-refactor-artifacts/p11-resubscribe-20260908/summary.md`.
+
+Pending:
+
+- TASK-004 covers, TASK-005 ownership closure, TASK-006 controlled removal/full P11 gate and
+  TASK-007 disposable Greenfield remain. Project-wide Pyright and cleanup-scan PG18 drift are
+  assigned to those owning slices; TASK-003 scoped gates are clean.
+
+Blocker:
+
+- None in TASK-003 scope.
+
+Next:
+
+- Create the isolated TASK-003 local checkpoint, then continue directly with TASK-004. P11 remains
+  `DOING`, P12 remains `TODO`, and Live remains `HUMAN_PENDING`.

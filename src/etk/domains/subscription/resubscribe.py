@@ -459,6 +459,8 @@ class SqlAlchemyResubscribeRepository:
                             WHERE idx.tmdb_id = :tmdb_id
                               AND idx.item_type = :item_type
                               AND idx.season_number = :season_number
+                              AND idx.status = 'needed'
+                              AND rule.enabled IS TRUE
                             FOR UPDATE OF idx
                             """
                         ),

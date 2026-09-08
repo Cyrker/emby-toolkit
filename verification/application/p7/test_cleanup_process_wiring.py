@@ -137,14 +137,20 @@ def test_cleanup_direct_callable_requires_and_forwards_persistent_identity() -> 
     ]
 
 
-def test_resubscribe_cleanup_stages_a_child_of_the_current_job() -> None:
+def test_resubscribe_cleanup_stages_a_child_from_explicit_native_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     repository = _CleanupStagingRepository()
     gateway = PersistentResubscribeCleanupGateway(cast(SqlAlchemyCleanupRepository, repository))
     job_id = uuid4()
     progress = _PersistentProgress(job_id, uuid4(), "worker-a")
+    monkeypatch.setattr(
+        task_manager,
+        "current_persistent_execution_identity",
+        lambda: (_ for _ in ()).throw(AssertionError("native cleanup imported legacy execution state")),
+    )
 
-    with task_manager.persistent_execution(progress):
-        result = gateway.stage_version_deletion("emby-old")
+    result = gateway.stage_version_deletion("emby-old", progress=progress)
 
     assert result["item_count"] == 1
     assert repository.calls == [
@@ -155,6 +161,18 @@ def test_resubscribe_cleanup_stages_a_child_of_the_current_job() -> None:
             "parent_worker_id": "worker-a",
         }
     ]
+
+
+def test_resubscribe_cleanup_preserves_compatibility_execution_binding() -> None:
+    repository = _CleanupStagingRepository()
+    gateway = PersistentResubscribeCleanupGateway(cast(SqlAlchemyCleanupRepository, repository))
+    progress = _PersistentProgress(uuid4(), uuid4(), "worker-a")
+
+    with task_manager.persistent_execution(progress):
+        result = gateway.stage_version_deletion("emby-old")
+
+    assert result["item_count"] == 1
+    assert repository.calls[0]["parent_job_id"] == progress.job_id
 
 
 def test_cleanup_job_attempt_capacity_covers_each_item_recovery_budget() -> None:

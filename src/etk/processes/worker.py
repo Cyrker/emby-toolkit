@@ -124,6 +124,7 @@ from etk.domains.media.final_refresh_effects import (
 )
 from etk.domains.media.image_editing_compatibility import LegacyMediaImageEditingGateway
 from etk.domains.media.image_editing_effects import ManualImageEffectDelivery
+from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
 from etk.domains.media.studio_images import StudioImageService
 from etk.domains.media.studio_images_adapter import (
     HttpxStudioImageAdapter,
@@ -268,6 +269,7 @@ from etk.domains.sharing import (
     VirtualImportSourceResolver,
 )
 from etk.domains.sharing.configuration import SharingServerIdentity
+from etk.domains.subscription.adapters import ConfiguredResubscribePolicy
 from etk.domains.subscription.assistant import (
     SqlAlchemyAssistantMaintenanceRepository,
     SubscribeAssistantMaintenanceService,
@@ -323,9 +325,18 @@ from etk.domains.subscription.operation_repository import PostgresSubscriptionOp
 from etk.domains.subscription.operations import SubscriptionOperation
 from etk.domains.subscription.provider_control import HDHiveRegistrationOperationDelivery
 from etk.domains.subscription.provider_execution import SubscriptionOperationExecutor
+from etk.domains.subscription.resubscribe import (
+    PostgresResubscribeOperationStager,
+    SqlAlchemyResubscribeRepository,
+)
 from etk.domains.subscription.resubscribe_cache import (
     NativeResubscribeCacheTaskService,
     SqlAlchemyResubscribeCacheRepository,
+)
+from etk.domains.subscription.resubscribe_task_execution import (
+    NativeResubscribeHDHiveGateway,
+    NativeResubscribeTaskService,
+    SqlAlchemyResubscribeExecutionRepository,
 )
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
 from etk.domains.subscription.watchlist import OldSeasonBackfillService
@@ -455,6 +466,7 @@ _NATIVE_ONLY_EXECUTABLE_TASK_KEYS = (
         CLEANUP_EXECUTION_TASK_KEY,
         "repair-p115-fingerprints",
         "recalculate_library_washing_priorities",
+        "resubscribe-library",
         "refresh-collections",
         "refresh_completed_series",
         "restore_mediainfo",
@@ -638,6 +650,42 @@ def _native_watchlist_task_service(
             ),
             intro=intro,
         ),
+    )
+
+
+def _native_resubscribe_task_service(
+    *,
+    database: Any,
+    app_settings: SqlAlchemyAppSettingsRepository,
+    hdhive: HttpxHDHiveAdapter,
+    sharing_operations: PostgresSharingOperationRepository,
+    sharing_executor: SharingOperationExecutor,
+    cleanup: PersistentResubscribeCleanupGateway,
+    worker_id: str,
+) -> NativeResubscribeTaskService:
+    policy = ConfiguredResubscribePolicy(app_settings)
+    return NativeResubscribeTaskService(
+        SqlAlchemyResubscribeExecutionRepository(
+            database.unit_of_work,
+            SqlAlchemyResubscribeMediaProjection(),
+        ),
+        SqlAlchemyResubscribeRepository(
+            database.unit_of_work,
+            SqlAlchemyResubscribeMediaProjection(),
+            PostgresResubscribeOperationStager(),
+            policy,
+        ),
+        cleanup,
+        NativeResubscribeHDHiveGateway(
+            hdhive,
+            sharing_operations,
+            sharing_executor,
+            lambda: app_settings.load("hdhive_config"),
+            worker_id=worker_id,
+            lease_seconds=SHARING_OPERATION_CLAIM_LEASE_SECONDS,
+        ),
+        PostgresSubscriptionRuntimeRepository(database.unit_of_work),
+        policy,
     )
 
 
@@ -1415,6 +1463,15 @@ class WorkerRuntime:
                         sharing_operations=sharing_operations,
                         sharing_identity=sharing_identity,
                         intro=_DeferredWatchlistIntroGateway(lambda: self._intro_detection_gateway),
+                    ),
+                    resubscribe_tasks=_native_resubscribe_task_service(
+                        database=database,
+                        app_settings=app_settings,
+                        hdhive=hdhive,
+                        sharing_operations=sharing_operations,
+                        sharing_executor=sharing_operation_executor,
+                        cleanup=resubscribe_cleanup,
+                        worker_id=self._worker_id,
                     ),
                     resubscribe_cache=NativeResubscribeCacheTaskService(
                         SqlAlchemyResubscribeCacheRepository(database.unit_of_work)
@@ -2393,6 +2450,13 @@ class WorkerRuntime:
                     ),
                 ),
             )
+            resubscribe_cleanup = PersistentResubscribeCleanupGateway(
+                SqlAlchemyCleanupRepository(
+                    database.unit_of_work,
+                    SqlAlchemyCleanupMediaProjection(),
+                    SettingsCleanupExecutionPolicy(settings_provider, p115_credentials),
+                )
+            )
             p7_subscription_tasks = P7SubscriptionTaskRouter(
                 None,
                 native_assistant,
@@ -2414,6 +2478,15 @@ class WorkerRuntime:
                     sharing_operations=sharing_operations,
                     sharing_identity=sharing_identity,
                     intro=_DeferredWatchlistIntroGateway(lambda: self._intro_detection_gateway),
+                ),
+                resubscribe_tasks=_native_resubscribe_task_service(
+                    database=database,
+                    app_settings=app_settings,
+                    hdhive=hdhive,
+                    sharing_operations=sharing_operations,
+                    sharing_executor=sharing_operation_executor,
+                    cleanup=resubscribe_cleanup,
+                    worker_id=self._worker_id,
                 ),
                 resubscribe_cache=NativeResubscribeCacheTaskService(
                     SqlAlchemyResubscribeCacheRepository(database.unit_of_work)
@@ -3181,6 +3254,7 @@ class WorkerRuntime:
                             "purge-ghost-actors",
                             "process-watchlist",
                             "recalculate_library_washing_priorities",
+                            "resubscribe-library",
                             "refresh_completed_series",
                             "restore_mediainfo",
                             "restore-nfo-and-images",

@@ -1144,9 +1144,8 @@
       "notes": "P7 native Worker envelope owns strict JSON payload validation, cancellation checkpoints, durable effect contexts, and TaskOutcome mapping; the established business callable remains an explicit Worker-only compatibility seam until P11.",
       "ownership_layers": {
         "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-        "execution_kind": "legacy-compatibility-callable",
-        "execution_owner": "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway",
-        "retirement_stage": "P11"
+        "execution_kind": "native-use-case",
+        "execution_owner": "etk.domains.subscription.resubscribe_task_execution.NativeResubscribeTaskService"
       },
       "processor_type": "media",
       "retirement_approval": null,

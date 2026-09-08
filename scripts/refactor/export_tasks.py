@@ -96,6 +96,7 @@ P7_NATIVE_EXECUTION_OWNERS = {
     "recalculate_library_washing_priorities": (
         "etk.domains.p115.washing_recalculation.P115WashingPriorityRecalculationService"
     ),
+    "resubscribe-library": ("etk.domains.subscription.resubscribe_task_execution.NativeResubscribeTaskService"),
     "scan_old_seasons_backfill": "etk.domains.subscription.watchlist.OldSeasonBackfillService",
     "refresh_completed_series": "etk.domains.subscription.watchlist_task_execution.NativeWatchlistTaskService",
     "subscribe-assistant-maintenance": (
