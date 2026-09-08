@@ -6159,3 +6159,28 @@ Pending / Blocker / Next:
 - No TASK-005 P0/P1/P2 blocker remains. P11 stays `DOING`, P12 stays `TODO`, Live stays
   `HUMAN_PENDING`; create the isolated TASK-005 checkpoint, then continue directly with TASK-006
   pre-removal evidence, controlled active-runtime exit and the single P11 full gate.
+
+### P11-TASK-006-Pre-Removal-20260908
+
+TASK / HEAD:
+
+- `TASK-006 pre-removal evidence`; capture HEAD `0dd8d7cb`.
+
+Implemented:
+
+- Reconfirmed Route/Task/Table/Config/Frontend ownership closure and saved the old active entry,
+  native replacement, import/reference scan, image inventory and prior-gate index before removal.
+- Built `etk-refactor:pre-removal-0dd8d7cb`; the image excludes top-level `web_app.py`, PyArmor,
+  `task_manager.py` and `scheduler_manager.py`, but still contains the environment-selectable API,
+  Worker, Coordinator and runtime-supervisor compatibility paths recorded for the removal slice.
+
+Gate:
+
+- Manifest currentness and `git diff --check` passed; the pre-removal image build and content probes
+  passed. Detailed evidence: `/tmp/etk-refactor-artifacts/p11-pre-removal-20260908/summary.md`.
+
+Pending / Blocker / Next:
+
+- No pre-removal blocker remains. P11 stays `DOING`, P12 stays `TODO`, Live stays
+  `HUMAN_PENDING`; create the isolated evidence checkpoint, then remove only active compatibility
+  reachability and run the affected gates before the single P11 full gate.
