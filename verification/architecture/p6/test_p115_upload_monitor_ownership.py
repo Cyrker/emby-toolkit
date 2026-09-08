@@ -103,22 +103,20 @@ def test_coordinator_worker_and_deep_delete_own_the_active_upload_lifecycle() ->
     celery = _source("src/etk/processes/celery_app.py")
     deep_delete = _source("src/etk/processes/p6_deep_delete.py")
 
-    ensure = coordinator.index("self._p115_upload_ingress.ensure_config()")
-    install = coordinator.index("install_persistent_upload_monitor_ingress(self._p115_upload_ingress)")
-    observer_start = coordinator.index("supervisor.start(role=RuntimeRole.COORDINATOR, background=True)")
-    assert ensure < install < observer_start
-    assert "clear_persistent_upload_monitor_ingress(self._p115_upload_ingress)" in coordinator
+    ensure = coordinator.index(").ensure_config()")
+    coordinator_setup = coordinator.index("self._p115_upload_coordinator = P115UploadMonitorCoordinator(")
+    assert ensure < coordinator_setup
+    assert "persistent_upload_monitor_ingress" not in coordinator
     assert "UploadMonitorRuntime" not in coordinator
     assert "handler.p115_upload_monitor" not in coordinator
 
     assert "P115UploadOperationExecutor(" in worker
-    assert "install_persistent_upload_source_cleanup(upload_source_cleanup)" in worker
-    assert worker.count("clear_persistent_upload_source_cleanup(") >= 2
+    assert "persistent_upload_source_cleanup" not in worker
     assert "execute_p115_upload_operation" in celery
     assert 'EXECUTE_P115_UPLOAD_OPERATION_TASK = "etk.p115.upload.execute"' in celery
 
-    assert "persistent_upload_source_cleanup" in deep_delete
-    assert "upload_sources=upload_sources" in deep_delete
+    assert "persistent_upload_source_cleanup" not in deep_delete
+    assert "upload_sources=NativeP115UploadSourceCleanupGateway(" in worker
     assert "delete_local_sources_by_pickcodes" not in deep_delete
     assert "LegacyP115UploadSourceCleanupGateway" not in deep_delete
 

@@ -17,6 +17,10 @@ from etk.domains.p115.intro_sync import (
     extract_intro_chapters,
     merge_intro_chapters,
 )
+from etk.domains.p115.intro_sync_adapters import (
+    ConfiguredP115IntroSyncFeature,
+    PersistentP115IntroSnapshotExporter,
+)
 from etk.domains.p115.media_info import P115MediaInfoCacheRecord
 from etk.domains.p115.router import router
 
@@ -167,6 +171,32 @@ class FakeExporter:
             raise RuntimeError("fixture export failure")
 
 
+class FakeSettings:
+    def __init__(self, value: object) -> None:
+        self.value = value
+
+    def load(self, key: str) -> object:
+        del key
+        return deepcopy(self.value)
+
+    def save(self, key: str, value: Any) -> None:
+        del key, value
+        raise AssertionError("unexpected settings write")
+
+    def delete(self, key: str) -> bool:
+        del key
+        raise AssertionError("unexpected settings delete")
+
+
+class FakeEffectLedger:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def reserve(self, **values: Any) -> object:
+        self.calls.append(deepcopy(values))
+        return object()
+
+
 def _formatted(chapters: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return [
         {
@@ -241,6 +271,60 @@ def test_fixture_freezes_two_auth_none_bodyless_intro_sync_routes() -> None:
         assert route["auth"] == "none"
         assert route["request_body"] is False
         assert route["query"] == [{"name": "emby_item_id", "required": False}]
+
+
+def test_native_intro_feature_reads_the_canonical_shared_resource_snapshot() -> None:
+    enabled = ConfiguredP115IntroSyncFeature(
+        FakeSettings(
+            {
+                "p115_shared_resource_enabled": True,
+                "p115_shared_intro_enabled": True,
+            }
+        )
+    )
+    disabled = ConfiguredP115IntroSyncFeature(
+        FakeSettings(
+            {
+                "p115_shared_resource_enabled": True,
+                "p115_shared_intro_enabled": False,
+            }
+        )
+    )
+
+    assert enabled.enabled() is True
+    assert disabled.enabled() is False
+
+
+def test_native_intro_exporter_stages_one_stable_p9_media_effect() -> None:
+    ledger = FakeEffectLedger()
+    exporter = PersistentP115IntroSnapshotExporter(ledger)  # type: ignore[arg-type]
+
+    exporter.publish_if_changed(
+        sha1=SHA_A.lower(),
+        chapters=INTRO_CHAPTERS,
+        file_name="Fixture.mkv",
+        reason="emby_item_updated",
+        cache_revision=5,
+    )
+    exporter.publish_if_changed(
+        sha1=SHA_A,
+        chapters=INTRO_CHAPTERS,
+        file_name="Fixture.mkv",
+        reason="emby_item_updated",
+        cache_revision=6,
+    )
+
+    assert len(ledger.calls) == 2
+    assert ledger.calls[0]["effect_key"] == ledger.calls[1]["effect_key"]
+    assert ledger.calls[0]["effect_type"] == "sharing.intro.export"
+    assert ledger.calls[0]["aggregate_type"] == "media_asset"
+    assert ledger.calls[0]["aggregate_id"] == SHA_A
+    assert ledger.calls[0]["payload"] == {
+        "sha1": SHA_A,
+        "chapters": INTRO_CHAPTERS,
+        "file_name": "Fixture.mkv",
+        "reason": "emby_item_updated",
+    }
 
 
 @pytest.mark.parametrize("case", FIXTURE_CASES, ids=[str(case["case_id"]) for case in FIXTURE_CASES])

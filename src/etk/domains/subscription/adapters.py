@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping, Sequence
+from copy import deepcopy
 from datetime import datetime
 from typing import Any, Protocol
 from urllib.parse import quote
@@ -33,14 +34,50 @@ class EmbyItemDeletionGateway(Protocol):
     def delete_item(self, item_id: str) -> bool: ...
 
 
-class LegacyAssistantDefaultsAdapter:
-    """Expose the current assistant defaults without importing legacy runtime at startup."""
+_ASSISTANT_DEFAULTS: dict[str, Any] = {
+    "enabled": True,
+    "guard_mode": "balanced",
+    "season_cooldown_days": 14,
+    "volatility_enabled": True,
+    "volatility_window_days": 14,
+    "pending_enhanced_enabled": True,
+    "pending_use_volatility": False,
+    "pending_fake_total_episodes": 99,
+    "pause_enhanced_enabled": True,
+    "tv_air_pause_days": 14,
+    "airing_pause_days": 30,
+    "tv_no_download_days": 0,
+    "no_download_actions": [],
+    "download_monitor_enabled": False,
+    "manual_delete_listen": True,
+    "tracker_response_listen": True,
+    "download_timeout_minutes": 120,
+    "download_progress_threshold": 10,
+    "download_retry_limit": 3,
+    "auto_search_when_delete": True,
+    "skip_deletion": True,
+    "delete_record_retention_hours": 24,
+    "delete_exclude_tags": ["H&R"],
+    "tracker_keywords": [
+        "torrent not registered with this tracker",
+        "torrent banned",
+    ],
+    "best_version_type": "tv_episode",
+    "best_version_episode_to_full": True,
+    "best_version_full_consistency_check_enabled": True,
+    "full_washing_timeout_hours": 72,
+    "subscription_cleanup_history_type": "none",
+    "subscription_cleanup_history_scenes": ["completed"],
+    "verify_enabled": True,
+    "verify_interval_hours": 12,
+    "snapshot_retention_days": 180,
+}
 
+
+class StaticAssistantDefaults:
     @staticmethod
     def defaults() -> Mapping[str, Any]:
-        from services.subscribe_assistant.config import default_assistant_config_dict
-
-        return default_assistant_config_dict()
+        return deepcopy(_ASSISTANT_DEFAULTS)
 
 
 class ConfiguredSubscriptionAvailabilityGateway:
@@ -366,7 +403,7 @@ __all__ = [
     "EmbyItemDeletionGateway",
     "ConfiguredResubscribePolicy",
     "HttpxEmbyItemDeletionGateway",
-    "LegacyAssistantDefaultsAdapter",
+    "StaticAssistantDefaults",
     "MoviePilotWatchlistGateway",
     "NativeActorRuntimeGateway",
     "NativeActorSearchGateway",

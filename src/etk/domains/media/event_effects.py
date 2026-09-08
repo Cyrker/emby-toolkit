@@ -26,15 +26,15 @@ _EVENT_EFFECT_TYPES = {
 class P5MediaEventEffectDelivery:
     effect_types = frozenset(_EVENT_EFFECT_TYPES.values())
 
-    def __init__(self, compatibility: P5MediaEventGateway) -> None:
-        self._compatibility = compatibility
+    def __init__(self, gateway: P5MediaEventGateway) -> None:
+        self._gateway = gateway
 
     def deliver(self, effect: MediaEffectProjection) -> Mapping[str, Any]:
         payload = effect.payload
         event_payload = payload.get("event_payload")
         if not isinstance(event_payload, Mapping):
             raise ValueError("P5 media event effect payload is invalid")
-        result = self._compatibility.handle(
+        result = self._gateway.handle(
             dict(event_payload),
             host_url=str(payload.get("host_url") or ""),
             remote_addr=str(payload.get("remote_addr") or ""),
@@ -62,18 +62,20 @@ class PersistentP5MediaEventGateway:
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
-        compatibility: P5MediaEventGateway,
+        gateway: P5MediaEventGateway,
         *,
         worker_id: str | None = None,
         lease_seconds: float | Callable[[], float] = 90,
+        defer: bool = False,
     ) -> None:
         self._ledger = PostgresMediaEffectLedger(uow_factory)
         self._executor = PersistentMediaEffectExecutor(
             self._ledger,
-            P5MediaEventEffectDelivery(compatibility),
+            P5MediaEventEffectDelivery(gateway),
             worker_id=worker_id,
             lease_seconds=lease_seconds,
         )
+        self._defer = bool(defer)
 
     def handle(
         self,
@@ -97,6 +99,15 @@ class PersistentP5MediaEventGateway:
             aggregate_id=_event_aggregate_id(payload),
             payload=effect_payload,
         )
+        if self._defer and not reservation.effect.status.terminal:
+            return ServiceResult(
+                {
+                    "status": "event_effect_pending",
+                    "effect_id": str(reservation.effect.id),
+                    "effect_status": reservation.effect.status.value,
+                },
+                202,
+            )
         return self.execute(reservation.effect.id)
 
     def execute(self, effect_id: UUID) -> ServiceResult:

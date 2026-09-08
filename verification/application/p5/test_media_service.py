@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -236,7 +236,7 @@ def _service() -> tuple[MediaService, FakeRepository, FakeJobs, FakeImages, Fake
     images = FakeImages()
     events = FakeEvents()
     service = MediaService(
-        repository=repository,
+        repository=cast(Any, repository),
         settings=lambda: Settings(),
         jobs=jobs,
         images=images,

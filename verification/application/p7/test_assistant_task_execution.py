@@ -122,7 +122,7 @@ class _NativeAssistantOwner:
 
 def test_router_dispatches_assistant_without_resolving_a_legacy_processor() -> None:
     assistant = _NativeAssistantOwner()
-    router = P7SubscriptionTaskRouter(compatibility=None, assistant=cast(Any, assistant))
+    router = P7SubscriptionTaskRouter(assistant=cast(Any, assistant))
     job_id = uuid4()
     attempt_id = uuid4()
 

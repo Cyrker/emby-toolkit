@@ -257,13 +257,11 @@ def export_tasks() -> dict[str, Any]:
                 "execution_owner": P6_TASK_EXECUTION_OWNERS[task_key],
             }
         elif task_key in P7_TASKS:
-            execution_owner = P7_NATIVE_EXECUTION_OWNERS.get(task_key)
-            compatibility_owner = "etk.processes.p7_subscription_tasks.LegacyP7SubscriptionCompatibilityGateway"
+            execution_owner = P7_NATIVE_EXECUTION_OWNERS[task_key]
             entry["ownership_layers"] = {
                 "envelope_owner": "etk.processes.p7_subscription_tasks.P7SubscriptionTaskRouter",
-                "execution_kind": "native-use-case" if execution_owner else "legacy-compatibility-callable",
-                "execution_owner": execution_owner or compatibility_owner,
-                **({} if execution_owner else {"retirement_stage": "P11"}),
+                "execution_kind": "native-use-case",
+                "execution_owner": execution_owner,
             }
         elif task_key in P8_TASKS:
             execution_owner = P8_NATIVE_EXECUTION_OWNERS.get(task_key)

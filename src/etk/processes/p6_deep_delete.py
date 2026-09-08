@@ -3,27 +3,30 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from etk.compatibility.upload_monitor import persistent_upload_source_cleanup
-from etk.domains.p115.bridge_compatibility import (
-    EmbeddedP115SharedCleanupGateway,
-    LegacyP115DeleteReadbackGateway,
-    LegacyP115MediaCleanupReceiptGateway,
-)
 from etk.domains.p115.deep_delete import P115DeepDeleteExecutionService
+from etk.processes.native_operations import NativeOperationProgress
 
 
-def execute_p115_deep_delete_operation(payload: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Worker-importable P6 operation; compatibility effects remain explicit until P11."""
+class NativeP115DeepDeleteOperation:
+    def __init__(self, service: P115DeepDeleteExecutionService) -> None:
+        self._service = service
 
-    upload_sources = persistent_upload_source_cleanup()
-    if upload_sources is None:
-        raise RuntimeError("persistent P115 upload source cleanup gateway is not installed")
-    return P115DeepDeleteExecutionService(
-        p115=LegacyP115DeleteReadbackGateway(),
-        upload_sources=upload_sources,
-        media=LegacyP115MediaCleanupReceiptGateway(),
-        shared=EmbeddedP115SharedCleanupGateway(),
-    ).execute(payload)
+    def execute(
+        self,
+        parameters: Mapping[str, Any],
+        progress: NativeOperationProgress,
+    ) -> Mapping[str, Any]:
+        snapshot = parameters.get("snapshot")
+        token = str(snapshot.get("delete_token") or "") if isinstance(snapshot, Mapping) else ""
+        if not token:
+            raise ValueError("native P115 deep-delete operation has no delete token")
+        progress.checkpoint()
+        label = f"p115-deep-delete:{token}"
+        progress.record_started_effect(label)
+        result = self._service.execute(parameters)
+        progress.record_committed_effect(label)
+        progress.update(100, "115 深度删除已完成")
+        return result
 
 
-__all__ = ["execute_p115_deep_delete_operation"]
+__all__ = ["NativeP115DeepDeleteOperation"]

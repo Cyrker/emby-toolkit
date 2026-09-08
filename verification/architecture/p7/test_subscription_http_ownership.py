@@ -42,7 +42,9 @@ def test_actor_and_watchlist_bindings_have_native_manifest_owners() -> None:
         assert all(binding["fixture_exception"] is None for binding in owned)
 
 
-def test_actor_and_watchlist_native_routes_precede_compatibility_mount(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_actor_and_watchlist_native_routes_ignore_the_retired_compatibility_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     manifest = json.loads(ROUTE_MANIFEST.read_text(encoding="utf-8"))["method_bindings"]
     owned = [binding for binding in manifest if binding.get("new_owner") in OWNERS]
@@ -54,9 +56,7 @@ def test_actor_and_watchlist_native_routes_precede_compatibility_mount(monkeypat
             assert path in schema_paths
             assert binding["method"].lower() in schema_paths[path]
 
-        compatibility_index = next(
-            index for index, route in enumerate(app.routes) if getattr(route, "name", None) == "legacy-compatibility"
-        )
+        assert not any(getattr(route, "name", None) == "legacy-compatibility" for route in app.routes)
         native_router_indexes = {
             index
             for index, route in enumerate(app.routes)
@@ -64,6 +64,5 @@ def test_actor_and_watchlist_native_routes_precede_compatibility_mount(monkeypat
             or getattr(route, "original_router", None) is watchlist_router
         }
         assert len(native_router_indexes) == 2
-        assert all(index < compatibility_index for index in native_router_indexes)
     finally:
         app.state.container.close()

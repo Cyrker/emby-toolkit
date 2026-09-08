@@ -94,8 +94,7 @@ def test_intro_detection_runtime_is_wired_through_worker_coordinator_celery_and_
     assert "LegacyP7IntroRuntimeSource" not in worker
     assert "LegacyP9IntroChaptersChangedHook" not in worker
     assert "execute_p115_intro_detection_operation" in worker
-    assert "install_persistent_intro_detection_gateway(intro_detection_gateway)" in worker
-    assert "clear_persistent_intro_detection_gateway" in worker
+    assert "persistent_intro_detection_gateway" not in worker
     assert "P115IntroDetectionCoordinator" in coordinator
     assert "intro_result = intro.tick()" in coordinator
     assert EXECUTE_P115_INTRO_DETECTION_OPERATION_TASK in celery
@@ -104,8 +103,7 @@ def test_intro_detection_runtime_is_wired_through_worker_coordinator_celery_and_
     assert '"p115.intro-runtime"' in app_factory
     assert "PostgresP115IntroRuntimeSource" in app_factory
     assert "LegacyP7IntroRuntimeSource" not in app_factory
-    assert "install_persistent_intro_detection_gateway(intro_detection_gateway)" in app_factory
-    assert "clear_persistent_intro_detection_gateway(intro_detection_gateway)" in app_factory
+    assert "persistent_intro_detection_gateway" not in app_factory
 
 
 def test_intro_task_and_legacy_tables_have_native_p6_10_ownership_without_contract_drift() -> None:

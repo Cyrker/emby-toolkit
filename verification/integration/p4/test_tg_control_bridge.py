@@ -593,7 +593,7 @@ def test_replay_safe_search_externalizes_raw_result_to_owner_bound_secret(
         bridge.consume_resource_secret(receipt["search_result_ref"], "d" * 64)
 
 
-def test_tg_transfer_facade_creates_a_postgres_backed_worker_job(
+def test_legacy_tg_transfer_facade_fails_closed_without_dynamic_worker_job(
     p4_runtime: DatabaseRuntime,
     p4_store: PostgresJobStore,
 ) -> None:
@@ -609,40 +609,23 @@ def test_tg_transfer_facade_creates_a_postgres_backed_worker_job(
     }
     task_manager.install_persistent_submission_gateway(gateway)
     try:
-        assert DurableTelegramTaskQueue().put(payload)
-        assert DurableTelegramTaskQueue().put(payload)
+        with pytest.raises(RuntimeError, match="persistent task submission was rejected"):
+            DurableTelegramTaskQueue().put(payload)
     finally:
         task_manager.clear_persistent_submission_gateway(gateway)
 
-    projection = p4_store.get_current_job()
-    assert projection is not None
-    assert projection.job.queue_name == "legacy.backlog"
-    assert projection.job.task_key.startswith("legacy-operation:")
-    safe_payload = projection.job.request_payload["parameters"]["payload"]
-    assert safe_payload["type"] == "offline_download"
-    assert safe_payload["resource_kind"] == "p115_offline"
-    assert safe_payload["candidate"] == {"source_chat_id": "-10042", "message_id": 99}
-    assert safe_payload["metadata"] == {"source": "test"}
-    assert len(safe_payload["delivery_key"]) == 64
-    assert safe_payload["secret_ref"] == safe_payload["delivery_key"]
-    assert len(safe_payload["semantic_source_hash"]) == 64
-    serialized_job = json.dumps(projection.job.request_payload, ensure_ascii=False, sort_keys=True)
-    assert raw_url not in serialized_job
-    assert "private" not in serialized_job
-    assert projection.job.request_payload["legacy_operation"] == {
-        "module": "tasks.subscriptions",
-        "qualname": "task_process_channel_transfer",
-    }
+    assert p4_store.get_current_job() is None
     with p4_runtime.engine.connect() as connection:
-        assert connection.scalar(text("SELECT count(*) FROM job_runs")) == 1
-        secret_state = connection.execute(
-            text("SELECT value_json FROM app_settings WHERE setting_key = :setting_key"),
-            {"setting_key": f"runtime.secret.telegram-resource.{safe_payload['secret_ref']}"},
-        ).scalar_one()
-    assert raw_url in json.dumps(secret_state, ensure_ascii=False, sort_keys=True)
+        assert connection.scalar(text("SELECT count(*) FROM job_runs")) == 0
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM app_settings WHERE setting_key LIKE 'runtime.secret.telegram-resource.%'")
+            )
+            == 0
+        )
 
 
-def test_resource_action_submission_is_postgres_idempotent_and_retryable(
+def test_legacy_resource_action_submission_fails_closed_without_dynamic_job(
     p4_runtime: DatabaseRuntime,
     p4_store: PostgresJobStore,
 ) -> None:
@@ -658,8 +641,8 @@ def test_resource_action_submission_is_postgres_idempotent_and_retryable(
     }
     task_manager.install_persistent_submission_gateway(gateway)
     try:
-        assert submit_telegram_resource_action(action)
-        assert submit_telegram_resource_action(action)
+        with pytest.raises(RuntimeError, match="persistent task submission was rejected"):
+            submit_telegram_resource_action(action)
     finally:
         task_manager.clear_persistent_submission_gateway(gateway)
 
@@ -678,9 +661,9 @@ def test_resource_action_submission_is_postgres_idempotent_and_retryable(
             .mappings()
             .one()
         )
-        max_attempts = connection.scalar(text("SELECT max_attempts FROM job_runs"))
-        request_payload = connection.execute(text("SELECT request_payload_json FROM job_runs")).scalar_one()
+        secret_count = connection.scalar(
+            text("SELECT count(*) FROM app_settings WHERE setting_key LIKE 'runtime.secret.telegram-resource.%'")
+        )
 
-    assert dict(counts) == {"jobs": 1, "attempts": 1, "idempotency": 1}
-    assert max_attempts == 6
-    assert action["payload"]["url"] not in json.dumps(request_payload, ensure_ascii=False, sort_keys=True)
+    assert dict(counts) == {"jobs": 0, "attempts": 0, "idempotency": 0}
+    assert secret_count == 0

@@ -99,9 +99,15 @@ class FakeEmbyIdentityGateway:
         assert access_token == "fixture-token"
         return {"success": self.test_success, "error": "fixture failure"}
 
-    def install_plugin(self, authorization: Mapping[str, Any], settings: Settings) -> Mapping[str, Any]:
+    def install_plugin(
+        self,
+        authorization: Mapping[str, Any],
+        settings: Settings,
+        request_id: str,
+    ) -> Mapping[str, Any]:
         assert authorization["AccessToken"] == "fixture-token"
         assert settings.emby_api_key.get_secret_value() == "fixture-token"
+        assert request_id
         return deepcopy(self.plugin_result)
 
     def configure_libraries(

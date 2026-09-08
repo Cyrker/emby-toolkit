@@ -163,13 +163,15 @@ def test_resubscribe_cleanup_stages_a_child_from_explicit_native_progress(
     ]
 
 
-def test_resubscribe_cleanup_preserves_compatibility_execution_binding() -> None:
+def test_resubscribe_cleanup_requires_explicit_native_execution_identity() -> None:
     repository = _CleanupStagingRepository()
     gateway = PersistentResubscribeCleanupGateway(cast(SqlAlchemyCleanupRepository, repository))
     progress = _PersistentProgress(uuid4(), uuid4(), "worker-a")
 
     with task_manager.persistent_execution(progress):
-        result = gateway.stage_version_deletion("emby-old")
+        with pytest.raises(RuntimeError, match="explicit native Worker progress identity"):
+            gateway.stage_version_deletion("emby-old", progress=None)
+        result = gateway.stage_version_deletion("emby-old", progress=progress)
 
     assert result["item_count"] == 1
     assert repository.calls[0]["parent_job_id"] == progress.job_id

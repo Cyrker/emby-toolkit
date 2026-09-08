@@ -34,11 +34,11 @@ def test_native_app_and_worker_do_not_construct_legacy_credential_store() -> Non
         names = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
         assert "LegacyP115CredentialStore" not in names, source
         assert "SqlAlchemyP115CredentialRepository" in names, source
-        assert "install_persistent_p115_credential_gateway" in names, source
-        assert "invalidate_legacy_p115_credential_clients" in names, source
+        assert "install_persistent_p115_credential_gateway" not in names, source
+        assert "invalidate_legacy_p115_credential_clients" not in names, source
 
 
-def test_active_legacy_provider_reads_and_refresh_writes_use_installed_gateway() -> None:
+def test_historical_legacy_provider_preserves_the_bounded_credential_seam() -> None:
     tree = ast.parse(LEGACY_PROVIDER.read_text(encoding="utf-8"))
     functions = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
 

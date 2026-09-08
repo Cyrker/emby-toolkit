@@ -114,3 +114,77 @@ def test_runtime_context_and_translation_cache_have_native_wiring_sentinels() ->
     assert "SqlAlchemyAppSettingsRepository(container.database.unit_of_work)" in coordinator
     assert "SqlAlchemyTranslationCache(database.unit_of_work)" in worker
     assert "ConfiguredBatchTranslation(settings_provider, translation_cache)" in worker
+
+
+def test_active_worker_submission_and_p7_effect_paths_have_no_dynamic_legacy_fallback() -> None:
+    jobs = (REPO_ROOT / "src/etk/domains/operations/jobs.py").read_text(encoding="utf-8")
+    worker = (REPO_ROOT / "src/etk/processes/worker.py").read_text(encoding="utf-8")
+    subscription_effects = (REPO_ROOT / "src/etk/processes/p7_subscription_effects.py").read_text(encoding="utf-8")
+    resubscribe_cleanup = (REPO_ROOT / "src/etk/processes/p7_resubscribe_cleanup.py").read_text(encoding="utf-8")
+
+    assert "importlib" not in jobs
+    assert '"legacy_operation"' not in jobs
+    assert "dynamic callable submission is disabled" in jobs
+    assert "dynamic background callable submission is disabled" in jobs
+    assert "from .p7_cleanup import" not in worker
+    assert "import etk.processes.p7_cleanup" not in worker
+    assert "task_manager" not in subscription_effects
+    assert "task_manager" not in resubscribe_cleanup
+
+
+def test_api_and_worker_active_adapters_do_not_reach_removed_compatibility_owners() -> None:
+    app_factory = (REPO_ROOT / "src/etk/bootstrap/app_factory.py").read_text(encoding="utf-8")
+    worker = (REPO_ROOT / "src/etk/processes/worker.py").read_text(encoding="utf-8")
+    native_adapter_sources = (
+        REPO_ROOT / "src/etk/domains/p115/directory_transport.py",
+        REPO_ROOT / "src/etk/domains/p115/intro_sync_adapters.py",
+        REPO_ROOT / "src/etk/domains/p115/rename_renderer.py",
+        REPO_ROOT / "src/etk/domains/media/discover_defaults.py",
+    )
+    retired_symbols = (
+        "DisabledCompatibilityApplication",
+        "LegacyAssistantDefaultsAdapter",
+        "LegacyDiscoverDefaults",
+        "LegacyP115DirectoryGateway",
+        "LegacyP115DirectoryTreeGateway",
+        "LegacyP115IntroSnapshotExporter",
+        "LegacyP115IntroSyncFeature",
+        "LegacyP115PlanNamingGateway",
+        "LegacyP115RenamePreviewGateway",
+        "LegacyP115RuleRecognitionGateway",
+        "LegacyP115SortingRuleDirectoryGateway",
+        "clear_persistent_intro_detection_gateway",
+        "clear_persistent_media_effect_gateway",
+        "clear_persistent_p115_credential_gateway",
+        "clear_persistent_playback_gateway",
+        "install_persistent_intro_detection_gateway",
+        "install_persistent_p115_credential_gateway",
+        "install_persistent_playback_gateway",
+        "invalidate_legacy_p115_credential_clients",
+    )
+
+    assert "compatibility_app" not in app_factory
+    for symbol in retired_symbols:
+        assert symbol not in app_factory
+        assert symbol not in worker
+    for source in native_adapter_sources:
+        text = source.read_text(encoding="utf-8")
+        assert "from handler" not in text
+        assert "from database" not in text
+        assert "from services" not in text
+
+
+def test_refactor_image_context_excludes_retired_runtime_sources() -> None:
+    ignored = {
+        line.strip()
+        for line in (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+    assert {
+        "web_app.py",
+        "pyarmor_runtime_000000/",
+        "src/etk/bootstrap/legacy_runtime.py",
+        "src/etk/compatibility/flask_app.py",
+        "src/etk/compatibility/legacy_jobs.py",
+    } <= ignored

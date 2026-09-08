@@ -250,10 +250,10 @@ def test_fingerprint_worker_uses_native_http_provider_without_legacy_runtime_fal
     assert "import_module" not in transport
     assert "handler.p115_service" not in transport
     assert "LegacyP115FingerprintRemoteGateway" not in worker
-    assert worker.count("HttpxP115FingerprintRemoteGateway(") == 2
+    assert worker.count("HttpxP115FingerprintRemoteGateway(") == 1
 
 
-def test_mediainfo_and_intro_use_native_sdk_direct_urls_in_both_worker_profiles() -> None:
+def test_mediainfo_and_intro_use_native_sdk_direct_urls_in_the_native_worker() -> None:
     transport = _source("src/etk/domains/p115/direct_url_transport.py")
     worker = _source("src/etk/processes/worker.py")
 
@@ -275,7 +275,7 @@ def test_mediainfo_and_intro_use_native_sdk_direct_urls_in_both_worker_profiles(
     assert ".download_url_app(" in transport
     assert ".download_url_open(" not in transport
     assert ".download_url(" not in transport
-    assert worker.count("P115SdkDirectUrlGateway(") == 6
+    assert worker.count("P115SdkDirectUrlGateway(") == 3
 
 
 def test_legacy_webhook_and_consistency_seams_only_submit_the_p6_native_repair_task() -> None:

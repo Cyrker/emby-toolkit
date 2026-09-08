@@ -3,10 +3,13 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
+import re
 import secrets
 import time
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
+from functools import lru_cache
 from pathlib import PurePath
 from typing import Any, cast
 
@@ -30,6 +33,7 @@ from .organize_plan import (
     P115SourceNode,
 )
 from .rename_config import P115RenamePreviewGateway, P115WashingPriorityConfigGateway
+from .rename_renderer import P115RenameRenderer
 from .sorting_rules import P115SortingRuleDirectoryGateway
 
 _OPENAPI_DEVICE_CODE_URL = "https://passportapi.115.com/open/authDeviceCode"
@@ -419,8 +423,8 @@ class LegacyP115SortingRuleDirectoryGateway(P115SortingRuleDirectoryGateway):
         return tuple(cast(Mapping[str, Any], node) for node in path)
 
 
-class LegacyP115RenamePreviewGateway(P115RenamePreviewGateway):
-    """Render fixed compatibility samples without provider or persistence access."""
+class NativeP115RenamePreviewGateway(P115RenamePreviewGateway):
+    """Render fixed preview samples without provider or persistence access."""
 
     def preview(
         self,
@@ -428,8 +432,6 @@ class LegacyP115RenamePreviewGateway(P115RenamePreviewGateway):
         config: Mapping[str, Any],
         templates: Mapping[str, Any],
     ) -> Mapping[str, str]:
-        from handler.p115_rename import P115RenameRenderer
-
         movie = _rename_preview_payload(is_tv=False)
         tv = _rename_preview_payload(is_tv=True)
         customization_rules = config.get("customization", P115RenameRenderer.DEFAULT_CUSTOMIZATION)
@@ -590,8 +592,8 @@ def _value_set(value: object) -> set[str]:
     return {str(item).strip().casefold() for item in values if item not in (None, "")}
 
 
-class LegacyP115RuleRecognitionGateway(P115PlanRecognitionGateway):
-    """Use only the legacy pure rule parser; never construct SmartOrganizer."""
+class NativeP115RuleRecognitionGateway(P115PlanRecognitionGateway):
+    """Recognize organize candidates with the extracted pure rule parser."""
 
     def recognize(
         self,
@@ -601,8 +603,6 @@ class LegacyP115RuleRecognitionGateway(P115PlanRecognitionGateway):
         episode_rules: Sequence[Mapping[str, Any]],
         policy: Mapping[str, Any],
     ) -> Mapping[str, Any]:
-        from handler.p115_service import _build_rule_parse_result
-
         parent_name = node.path.rsplit("/", 2)[-2] if "/" in node.path else ""
         forced_type = str(hints.get("media_type") or "").strip() or None
         result = deepcopy(
@@ -675,8 +675,8 @@ class LegacyP115RuleRecognitionGateway(P115PlanRecognitionGateway):
         return cast(Mapping[str, Any], result)
 
 
-class LegacyP115PlanNamingGateway(P115PlanNamingGateway):
-    """Render names through the pure compatibility renderer without any I/O."""
+class NativeP115PlanNamingGateway(P115PlanNamingGateway):
+    """Render names through the native pure renderer without any I/O."""
 
     def render_names(
         self,
@@ -685,8 +685,6 @@ class LegacyP115PlanNamingGateway(P115PlanNamingGateway):
         recognition: Mapping[str, Any],
         config: Mapping[str, Any],
     ) -> Mapping[str, str]:
-        from handler.p115_rename import P115RenameRenderer
-
         raw_details = recognition.get("details")
         details = dict(raw_details) if isinstance(raw_details, Mapping) else {}
         title = str(recognition.get("title") or details.get("title") or "").strip()
@@ -923,6 +921,276 @@ def _stable_json_hash(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+_NOISE_TOKEN_PATTERNS = (
+    r"(?i)\b(?:WEB[-_. ]?DL|WEB[-_. ]?RIP|BLU[-_. ]?RAY|BDRIP|BRRIP|REMUX|DVDRIP|HDTV|UHD)\b",
+    r"(?i)\b(?:HDR10\+?|HDR|DV|DOVI|DOLBY[.\s_-]*VISION|HLG)\b",
+    (
+        r"(?i)\b(?:HEVC|AVC|X265|X264|H265|H264|10BIT|8BIT|AAC[.\s_-]*\d?(?:\.\d)?|"
+        r"DDP[.\s_-]*\d?(?:\.\d)?|DD[.\s_-]*\d?(?:\.\d)?|TRUEHD|ATMOS|DTS(?:[-_. ]?HD)?|FLAC)\b"
+    ),
+    r"(?i)\b(?:2160P|1080P|720P|576P|480P|4K)\b",
+    r"(?i)\b(?:NF|NETFLIX|AMZN|AMAZON|DSNP|DISNEY|HMAX|MAX|ATVP|APPLE|IQIYI|YOUKU|WEB)\b",
+    r"(?i)\b(?:MULTI|DUAL[-_. ]?AUDIO|DUAL|PROPER|REPACK|READNFO|EXTENDED|UNCUT|COMPLETE|FINAL)\b",
+    r"(?i)\b(?:CHS|CHT|ENG|JPN|KOR|GB|BIG5|简中|繁中|中字|双语|国粤|内封|外挂|特效字幕)\b",
+    r"(?i)\b(?:AAC2\.0|AAC5\.1|DDP5\.1|DD5\.1|DTS5\.1|TRUEHD7\.1|ATMOS7\.1)\b",
+    r"(?i)\b(?:CAM|TS|TC|R5)\b",
+)
+_DATE_EPISODE_PATTERNS = (
+    re.compile(r"(?<!\d)(20\d{2})[.\-_ ](0[1-9]|1[0-2])[.\-_ ]([0-3]\d)(?!\d)"),
+    re.compile(r"(?<!\d)(20\d{2})(0[1-9]|1[0-2])([0-3]\d)(?!\d)"),
+)
+_SPECIAL_FLAG_PATTERNS = (
+    re.compile(r"(?i)(?:^|[ .\-_/\[(])(?:specials?|sp|ova|oad|oads|extra(?:s)?|ncop|nced)(?:$|[ .\-_/\])])"),
+    re.compile(r"(?:特别篇|特別篇|番外(?:篇)?|外传|外傳|总集篇|總集篇|OVA|OAD)", re.IGNORECASE),
+)
+
+
+@lru_cache(maxsize=2000)
+def _build_rule_parse_result(
+    filename: str,
+    main_dir_name: str = "",
+    has_season_subdirs: bool = False,
+    forced_media_type: str | None = None,
+    is_folder: bool = False,
+) -> dict[str, Any]:
+    del is_folder
+    source_texts = [str(value) for value in (filename, main_dir_name) if value]
+    combined_text = " / ".join(source_texts)
+    result: dict[str, Any] = {
+        "tmdb_id": None,
+        "media_type": _normalize_rule_media_type(forced_media_type),
+        "title": None,
+        "year": None,
+        "season_number": None,
+        "episode_number": None,
+        "is_special": False,
+        "confidence": "low",
+        "evidence": [],
+        "source": "rules",
+    }
+    explicit_tmdb_id = _rule_extract_tmdb_id(filename, main_dir_name)
+    if explicit_tmdb_id:
+        result["tmdb_id"] = explicit_tmdb_id
+        result["confidence"] = "high"
+        result["evidence"].append("explicit_tmdb")
+
+    season_number = None
+    episode_number = None
+    season_evidence: list[str] = []
+    for text in source_texts:
+        season, episode, evidence = _rule_extract_season_episode_from_text(text)
+        if season_number is None and season is not None:
+            season_number = season
+        if episode_number is None and episode is not None:
+            episode_number = episode
+        season_evidence.extend(evidence)
+        if season_number is not None and episode_number is not None and "special" not in season_evidence:
+            break
+    if has_season_subdirs and season_number is None:
+        season_number = 1
+        season_evidence.append("season_subdir")
+    result["season_number"] = season_number
+    result["episode_number"] = episode_number
+    result["is_special"] = "special" in season_evidence or _rule_detect_special(combined_text)
+    result["evidence"].extend(value for value in season_evidence if value not in result["evidence"])
+
+    generic_dir = bool(main_dir_name and re.search(r"(?i)\b(collection|合集|系列|pack|misc|unknown)\b", main_dir_name))
+    title_candidates = [filename] if filename else []
+    if main_dir_name and main_dir_name != filename and not generic_dir:
+        title_candidates.insert(0, main_dir_name)
+    for candidate in title_candidates:
+        clean_title = _clean_rule_title(candidate)
+        if clean_title:
+            result["title"] = clean_title
+            break
+    if not result["title"] and main_dir_name:
+        result["title"] = _clean_rule_title(main_dir_name)
+    for candidate in title_candidates:
+        year = _extract_rule_year(candidate)
+        if year:
+            result["year"] = year
+            result["evidence"].append("year")
+            break
+
+    if result["media_type"] is None:
+        if (
+            result["season_number"] is not None
+            or has_season_subdirs
+            or (result["episode_number"] is not None and result["season_number"] is not None)
+        ):
+            result["media_type"] = "tv"
+            result["evidence"].append("tv_structure")
+        elif result["tmdb_id"]:
+            result["media_type"] = "movie"
+        elif result["title"] and result["year"]:
+            result["media_type"] = "movie"
+    if result["is_special"] and result["season_number"] is None:
+        result["season_number"] = 0
+    if result["tmdb_id"]:
+        result["confidence"] = "high"
+    elif result["title"] and (result["year"] or result["media_type"] or result["episode_number"] is not None):
+        result["confidence"] = "medium"
+    elif result["title"]:
+        result["confidence"] = "low"
+    return result
+
+
+def _normalize_rule_media_type(value: object) -> str | None:
+    text = str(value or "").strip().lower()
+    if text in {"movie", "movies", "film", "电影"}:
+        return "movie"
+    if text in {"tv", "series", "episode", "season", "show", "电视剧", "剧集", "番剧", "动漫"}:
+        return "tv"
+    return None
+
+
+def _parse_rule_cn_number(value: object) -> int | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    digit_map = {"零": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+    unit_map = {"十": 10, "百": 100}
+    total = current = 0
+    for character in text:
+        if character in digit_map:
+            current = digit_map[character]
+        elif character in unit_map:
+            if current == 0:
+                current = 1
+            total += current * unit_map[character]
+            current = 0
+    total += current
+    return total or None
+
+
+def _clean_rule_title(text: object) -> str:
+    if not text:
+        return ""
+    value = os.path.splitext(os.path.basename(str(text).replace("\\", "/").strip()))[0]
+    value = re.sub(r"[？?！!：:；;，,、]+", " ", value)
+    cutoff_patterns = (
+        r"(?i)\b(?:s\d{1,4}[ .\-_]*e\d{1,4}|season[ .\-_]*\d{1,4}|ep(?:isode)?[ .\-_]*\d{1,4})\b",
+        r"第\s*[一二三四五六七八九十百零\d]+\s*[季集话話回]",
+        r"(?<!\d)(?:19|20)\d{2}(?!\d)",
+        r"(?i)\b(?:part|pt|cd)[ .\-_]*\d{1,2}\b",
+        r"(?i)\b(?:tmdb|tmdbid)[=\-_ ]*\d+\b",
+        r"(?i)\b(?:specials?|ova|oad|sp|extra(?:s)?|collection|complete)\b",
+        r"(?i)\b(?:h[ ._-]?26[45]|x26[45])\b",
+        r"(?i)\b(?:flac|aac|ddp|dd|dts|truehd|atmos)[ ._-]*\d(?:\.\d)?\b",
+        *_NOISE_TOKEN_PATTERNS,
+    )
+    cutoffs: list[tuple[int, str]] = []
+    for pattern in cutoff_patterns:
+        match = re.search(pattern, value)
+        if match:
+            prefix = value[: match.start()].strip(" ._-")
+            if prefix:
+                cutoffs.append((match.start(), prefix))
+    if cutoffs:
+        value = min(cutoffs, key=lambda item: item[0])[1]
+    for pattern in _NOISE_TOKEN_PATTERNS:
+        value = re.sub(pattern, " ", value)
+    value = re.sub(
+        (
+            r"(?i)\b(?:s\d{1,4}[ .\-_]*e\d{1,4}|season[ .\-_]*\d{1,4}|"
+            r"ep(?:isode)?[ .\-_]*\d{1,4}|第\s*[一二三四五六七八九十百零\d]+\s*[季集话話回])\b"
+        ),
+        " ",
+        value,
+    )
+    value = re.sub(r"(?i)\b(?:part|pt|cd)[ .\-_]*\d{1,2}\b", " ", value)
+    value = re.sub(r"(?i)\b(?:tmdb|tmdbid)[=\-_ ]*\d+\b", " ", value)
+    value = re.sub(r"(?<!\d)(?:19|20)\d{2}(?!\d)", " ", value)
+    value = re.sub(r"(?i)\b(?:specials?|ova|oad|sp|extra(?:s)?|collection|complete)\b", " ", value)
+    value = re.sub(r"(?i)\b(?:h[ ._-]?26[45]|x26[45])\b", " ", value)
+    value = re.sub(r"(?i)\b(?:flac|aac|ddp|dd|dts|truehd|atmos)[ ._-]*\d(?:\.\d)?\b", " ", value)
+    value = re.sub(r"(?i)(?:[-_. ]+)?[A-Za-z0-9][A-Za-z0-9._-]{1,20}@[A-Za-z0-9][A-Za-z0-9._-]{1,20}$", " ", value)
+    value = re.sub(r"(?<!\w)\d\.\d(?!\w)", " ", value)
+    value = re.sub(r"[\[\](){}]", " ", value)
+    value = re.sub(r"[._]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip(" -_./")
+
+
+def _extract_rule_year(text: object) -> int | None:
+    matches = list(re.finditer(r"(?<!\d)((?:19|20)\d{2})(?!\d)", str(text or "")))
+    return int(matches[-1].group(1)) if matches else None
+
+
+def _rule_detect_special(text: object) -> bool:
+    return any(pattern.search(str(text or "")) for pattern in _SPECIAL_FLAG_PATTERNS)
+
+
+def _rule_extract_tmdb_id(*texts: object) -> str | None:
+    pattern = re.compile(r"(?i)(?:tmdb|tmdbid)[=\-_ ]*(\d{2,10})")
+    for text in texts:
+        match = pattern.search(str(text or ""))
+        if match:
+            return match.group(1)
+    return None
+
+
+def _rule_extract_date_episode(text: object) -> int | None:
+    for pattern in _DATE_EPISODE_PATTERNS:
+        match = pattern.search(str(text or ""))
+        if match:
+            return int("".join(match.groups()))
+    return None
+
+
+def _rule_extract_season_episode_from_text(text: object) -> tuple[int | None, int | None, list[str]]:
+    normalized = str(text or "").replace("\\", "/")
+    if not normalized:
+        return None, None, []
+    evidence: list[str] = []
+    match = re.search(r"(?i)(?:^|[ .\-_/\[(])s(\d{1,4})[ .\-_]*[eEpP](\d{1,4})(?:$|[ .\-_/\])])", normalized)
+    if match:
+        return int(match.group(1)), int(match.group(2)), ["sxe"]
+    match = re.search(r"(?i)(?:^|[ .\-_/\[(])season[ .\-_]*(\d{1,4})(?:$|[ .\-_/\])])", normalized)
+    season = int(match.group(1)) if match else None
+    if match:
+        evidence.append("season_word")
+    match = re.search(r"第\s*([一二三四五六七八九十百零\d]+)\s*季", normalized)
+    if match and season is None:
+        season = _parse_rule_cn_number(match.group(1))
+        if season is not None:
+            evidence.append("season_zh")
+    match = re.search(r"(?i)(?:^|[ .\-_/\[(])(?:ep|episode)[ .\-_]*(\d{1,4})(?:$|[ .\-_/\])])", normalized)
+    episode = int(match.group(1)) if match else None
+    if match:
+        evidence.append("episode_word")
+    match = re.search(r"(?i)(?:^|[ .\-_/\[(])e(\d{1,4})(?:$|[ .\-_/\])])", normalized)
+    if match and episode is None:
+        episode = int(match.group(1))
+        evidence.append("episode_e")
+    match = re.search(r"第\s*([一二三四五六七八九十百零\d]+)\s*[集话話回]", normalized)
+    if match and episode is None:
+        episode = _parse_rule_cn_number(match.group(1))
+        if episode is not None:
+            evidence.append("episode_zh")
+    if episode is None:
+        episode = _rule_extract_date_episode(normalized)
+        if episode is not None:
+            evidence.append("episode_date")
+    if _rule_detect_special(normalized):
+        if season is None:
+            season = 0
+        evidence.append("special")
+    if episode is None:
+        match = re.search(r"(?i)(?:^|[ .\-_/\[(])(?:sp|ova|oad)(\d{1,4})(?:$|[ .\-_/\])])", normalized)
+        if match:
+            episode = int(match.group(1))
+            evidence.extend(("special", "episode_special_code"))
+    if (
+        season is None
+        and episode is not None
+        and any(flag in normalized.lower() for flag in ("ep", "episode", "第", "话", "話", "回"))
+    ):
+        season = 1
+    return season, episode, evidence
+
+
 def _success_data(payload: Mapping[str, Any]) -> dict[str, Any]:
     if not payload.get("state"):
         raise P115ProviderError(str(payload.get("message") or "获取失败"))
@@ -1021,6 +1289,13 @@ def _rename_preview_payload(*, is_tv: bool) -> dict[str, Any]:
     }
 
 
+# Historical names remain importable for old source and tests, but the active
+# container binds the native names below.
+LegacyP115RenamePreviewGateway = NativeP115RenamePreviewGateway
+LegacyP115RuleRecognitionGateway = NativeP115RuleRecognitionGateway
+LegacyP115PlanNamingGateway = NativeP115PlanNamingGateway
+
+
 __all__ = [
     "HttpxP115AuthorizationGateway",
     "LegacyP115CredentialStore",
@@ -1032,5 +1307,8 @@ __all__ = [
     "LegacyP115RuleRecognitionGateway",
     "LegacyP115SortingRuleDirectoryGateway",
     "LegacyP115WashingPriorityConfigGateway",
+    "NativeP115PlanNamingGateway",
+    "NativeP115RenamePreviewGateway",
+    "NativeP115RuleRecognitionGateway",
     "P115ProviderError",
 ]

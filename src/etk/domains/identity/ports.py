@@ -37,7 +37,12 @@ class EmbyIdentityGateway(Protocol):
 
     def test_connection(self, base_url: str, access_token: str) -> Mapping[str, Any]: ...
 
-    def install_plugin(self, authorization: Mapping[str, Any], settings: Settings) -> Mapping[str, Any]: ...
+    def install_plugin(
+        self,
+        authorization: Mapping[str, Any],
+        settings: Settings,
+        request_id: str,
+    ) -> Mapping[str, Any]: ...
 
     def configure_libraries(
         self,

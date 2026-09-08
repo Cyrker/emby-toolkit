@@ -58,10 +58,9 @@ def test_cache_task_service_rejects_other_task_keys() -> None:
         service.execute("resubscribe-library", _Progress(), {})
 
 
-def test_router_uses_cache_owner_for_compatibility_and_native_workers() -> None:
+def test_router_uses_native_cache_owner_without_a_processor() -> None:
     repository = _Repository({"candidates": 0, "matched": 0, "purged": 0, "failed": 0})
     router = P7SubscriptionTaskRouter(
-        compatibility=None,
         assistant=None,
         resubscribe_cache=NativeResubscribeCacheTaskService(repository),
     )
@@ -71,7 +70,7 @@ def test_router_uses_cache_owner_for_compatibility_and_native_workers() -> None:
         payload={},
     )
 
-    outcome = router.execute(message, processor=object(), progress=_Progress())
+    outcome = router.execute(message, processor=None, progress=_Progress())
 
     assert outcome.status is TaskOutcomeStatus.SUCCEEDED
     assert outcome.details["compatibility_fallback"] is False

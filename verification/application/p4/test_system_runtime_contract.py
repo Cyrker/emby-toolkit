@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 from uuid import UUID
 
@@ -357,25 +358,23 @@ def test_restart_submits_durable_worker_operation_and_preserves_http_status() ->
         _assert_json_case(client.post("/api/system/restart"), "restart-submit-error")
 
     restart_call = store.create_calls[0]
-    assert restart_call["queue_name"] == "legacy.background"
+    assert restart_call["queue_name"] == "legacy.serial"
     assert restart_call["trigger_type"] == "system"
-    assert restart_call["max_attempts"] == 3
+    assert restart_call["max_attempts"] == 1
     assert restart_call["timeout_seconds"] == 180
     assert restart_call["idempotency_key"] == "fixture-restart-1"
     assert restart_call["idempotency_scope"] == "api.system.restart"
     assert restart_call["payload"]["call_style"] == "direct"
-    assert restart_call["payload"]["legacy_operation"] == {
-        "module": "etk.domains.operations.system_runtime",
-        "qualname": "run_system_restart_persistent",
-    }
+    assert restart_call["payload"]["native_operation"] == "system.restart"
+    assert "legacy_operation" not in restart_call["payload"]
 
 
-def test_restart_control_plane_runs_only_inside_worker_operation(monkeypatch) -> None:
-    calls = []
+def test_restart_control_plane_runs_only_inside_worker_operation() -> None:
+    calls: list[str] = []
 
     class Gateway:
-        def restart(self) -> Mapping[str, Any]:
-            calls.append("restart")
+        def restart(self, request_id: str) -> Mapping[str, Any]:
+            calls.append(request_id)
             return {
                 "ok": True,
                 "target_service": "api",
@@ -383,15 +382,29 @@ def test_restart_control_plane_runs_only_inside_worker_operation(monkeypatch) ->
                 "message": "fixture restart observed",
             }
 
-    monkeypatch.setattr(system_runtime, "ControlPlaneSystemRestartGateway", Gateway)
+    progress_events: list[tuple[Any, ...]] = []
+    progress = SimpleNamespace(
+        job_id=JOB_ID,
+        checkpoint=lambda: progress_events.append(("checkpoint",)),
+        record_started_effect=lambda label: progress_events.append(("started", label)),
+        record_committed_effect=lambda label: progress_events.append(("committed", label)),
+        update=lambda value, message: progress_events.append(("update", value, message)),
+    )
+    operation = system_runtime.NativeSystemRestartOperation(system_runtime.SystemRestartService(Gateway()))
 
-    assert system_runtime.run_system_restart_persistent() == {
+    assert operation.execute({}, cast(Any, progress)) == {
         "ok": True,
         "target_service": "api",
         "container_name": "fixture-etk-api",
         "message": "fixture restart observed",
     }
-    assert calls == ["restart"]
+    assert calls == [str(JOB_ID)]
+    assert progress_events == [
+        ("checkpoint",),
+        ("started", "system-restart:api"),
+        ("committed", "system-restart:api"),
+        ("update", 100, "API 服务重启请求已提交"),
+    ]
 
 
 def test_api_lifespan_uses_foreground_runtime_and_keeps_database_lazy(tmp_path: Path) -> None:
@@ -414,7 +427,7 @@ def test_api_lifespan_uses_foreground_runtime_and_keeps_database_lazy(tmp_path: 
 
     with TestClient(app) as client:
         assert client.get("/api/health").json() == {"status": "ok"}
-        assert app.state.compatibility_app.flask_app is None
+        assert not hasattr(app.state, "compatibility_app")
         assert database_calls == []
         assert runtime_events == [("start", RuntimeRole.API, False)]
 

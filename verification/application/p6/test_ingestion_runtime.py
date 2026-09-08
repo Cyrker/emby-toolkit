@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 from uuid import UUID
 
+import httpx
 import pytest
 from pydantic import SecretStr
 
@@ -20,13 +21,16 @@ from etk.domains.ingestion import (
     MonitorSource,
     PendingBindingProjection,
 )
+from etk.domains.p115.media_info_adapters import ControlledProcessOutput, ControlledProcessProfile
+from etk.domains.p115.media_info_formatter import P115MediaInfoPolicySnapshot
 from etk.platform import Settings
 from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus, PublishBatchResult
 from etk.processes.celery_app import EXECUTE_INGESTION_MONITOR_TASK
 from etk.processes.p6_ingestion import (
     CeleryIngestionMonitorPublisher,
     IngestionMonitorCoordinator,
-    LegacyIngestionPreparationGateway,
+    NativeIngestionFingerprintGateway,
+    NativeIngestionPreparationGateway,
     PersistentIngestionIngressGateway,
     PersistentPendingBindingGateway,
 )
@@ -452,55 +456,222 @@ def test_worker_timeout_does_not_steal_an_active_callback_binding_claim() -> Non
     assert ledger.current == _binding(status=BindingStatus.CLAIMED)
 
 
-def test_strm_polling_requires_the_current_pickcode_or_sha1_identity(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from handler import emby
-
+def test_strm_polling_requires_the_current_pickcode_or_sha1_identity() -> None:
     binding = _binding()
     observed = {
         "Id": "101",
+        "Type": "Movie",
         "Path": binding.path,
         "MediaSources": [{"Path": "https://etk.example.invalid/api/p115/play/stale-pick"}],
     }
-    monkeypatch.setattr(
-        emby,
-        "wait_for_emby_items_by_path",
-        lambda *_args, **_kwargs: {binding.path: observed},
-    )
-    monkeypatch.setattr(emby, "_normalize_emby_media_path", lambda path: str(path))
-    gateway = LegacyIngestionPreparationGateway(
-        lambda: Settings(
+    transport = httpx.MockTransport(lambda _request: httpx.Response(200, json={"Items": [observed]}))
+    gateway = NativeIngestionPreparationGateway(
+        settings=lambda: Settings(
             emby_server_url="http://emby.example.invalid",
             emby_api_key=SecretStr("fixture-token"),
             emby_user_id="fixture-user",
-        )
+        ),
+        pending_bindings=cast(Any, object()),
+        processes=cast(Any, object()),
+        policies=cast(Any, object()),
+        client_factory=lambda: httpx.Client(transport=transport),
+        sleep=lambda _delay: None,
     )
 
-    assert gateway.poll(binding, object()) is None
+    assert gateway.poll(binding) is None
 
     observed["MediaSources"] = [{"Path": "https://etk.example.invalid/api/p115/play/pc-fixture"}]
-    assert gateway.poll(binding, object()) == observed
+    assert gateway.poll(binding) == observed
 
 
-def test_coordinator_installs_ingress_before_watchdog_and_clears_it_after_stop(
+def test_native_ingestion_fingerprint_gateway_resolves_account_bound_strm_identity(tmp_path) -> None:
+    path = tmp_path / "Movie.strm"
+    path.write_text("https://etk.example.invalid/api/p115/play/pc%2Dfixture/Movie.mkv", encoding="utf-8")
+    calls: list[tuple[str, str]] = []
+    repository = SimpleNamespace(
+        resolve_sha1_by_pick_code=lambda pick_code, *, account_id: calls.append((pick_code, account_id)) or "a" * 40
+    )
+    gateway = NativeIngestionFingerprintGateway(
+        settings=lambda: Settings(monitor_sha1_pc_search=True),
+        credentials=cast(Any, SimpleNamespace(load=lambda: SimpleNamespace(account_id="115001"))),
+        repository=cast(Any, repository),
+    )
+
+    assert gateway.extract(str(path)) == ("pc-fixture", "A" * 40)
+    assert calls == [("pc-fixture", "115001")]
+
+
+def test_native_ingestion_fingerprint_gateway_supports_virtual_sha1_and_disabled_policy() -> None:
+    repository = SimpleNamespace(
+        resolve_sha1_by_pick_code=lambda *_args, **_options: (_ for _ in ()).throw(
+            AssertionError("virtual SHA1 must not query the PickCode repository")
+        )
+    )
+    url = f"https://etk.example.invalid/api/p115/virtual-play/item/{'a' * 40}"
+    enabled = NativeIngestionFingerprintGateway(
+        settings=lambda: Settings(monitor_sha1_pc_search=True),
+        credentials=cast(Any, object()),
+        repository=cast(Any, repository),
+    )
+    disabled = NativeIngestionFingerprintGateway(
+        settings=lambda: Settings(monitor_sha1_pc_search=False),
+        credentials=cast(Any, object()),
+        repository=cast(Any, repository),
+    )
+
+    assert enabled.extract(url) == (None, "A" * 40)
+    assert disabled.extract(url) == (None, None)
+
+
+def test_native_ingestion_preparation_uses_bounded_ffprobe_and_reserves_physical_binding(tmp_path) -> None:
+    path = tmp_path / "Movie.mkv"
+    path.write_bytes(b"fixture")
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    bindings: list[tuple[str, Mapping[str, Any] | None]] = []
+
+    class Processes:
+        def run(self, *args: Any, **options: Any) -> Any:
+            calls.append((args, dict(options)))
+            return SimpleNamespace(
+                succeeded=True,
+                parsed_output={
+                    "format": {"format_name": "matroska", "duration": "1", "size": "7"},
+                    "streams": [{"index": 0, "codec_type": "video", "codec_name": "h264"}],
+                    "chapters": [],
+                },
+            )
+
+    pending = SimpleNamespace(
+        enqueue_binding=lambda binding_path, *, mediainfo=None: bindings.append((binding_path, mediainfo))
+    )
+    gateway = NativeIngestionPreparationGateway(
+        settings=Settings,
+        pending_bindings=cast(Any, pending),
+        processes=cast(Any, Processes()),
+        policies=cast(
+            Any,
+            SimpleNamespace(
+                snapshot=lambda: P115MediaInfoPolicySnapshot.create(
+                    language_mapping=[{"label": "英语", "value": "en", "aliases": ["eng"]}],
+                    default_stream_config={},
+                    language_mapping_revision="language-v1",
+                    default_stream_config_revision="streams-v1",
+                )
+            ),
+        ),
+    )
+
+    assert gateway.prepare(_monitor_item(str(path))) is True
+    assert calls[0][0][0] is ControlledProcessProfile.FFPROBE
+    assert calls[0][0][1][-1] == str(path)
+    assert calls[0][1] == {
+        "max_stdin_bytes": 0,
+        "max_stdout_bytes": 16 * 1024 * 1024,
+        "max_stderr_bytes": 256 * 1024,
+        "timeout_seconds": 300.0,
+        "output": ControlledProcessOutput.JSON,
+    }
+    assert bindings[0][0] == str(path)
+    assert bindings[0][1] is not None
+
+
+@pytest.mark.parametrize(
+    ("succeeded", "parsed_output"),
+    ((False, {}), (True, [])),
+)
+def test_native_ingestion_preparation_rejects_failed_or_invalid_ffprobe(
+    tmp_path,
+    succeeded: bool,
+    parsed_output: object,
+) -> None:
+    path = tmp_path / "Movie.mkv"
+    path.write_bytes(b"fixture")
+    pending = SimpleNamespace(
+        enqueue_binding=lambda *_args, **_options: (_ for _ in ()).throw(
+            AssertionError("invalid ffprobe must not reserve a binding")
+        )
+    )
+    processes = SimpleNamespace(
+        run=lambda *_args, **_options: SimpleNamespace(succeeded=succeeded, parsed_output=parsed_output)
+    )
+    gateway = NativeIngestionPreparationGateway(
+        settings=Settings,
+        pending_bindings=cast(Any, pending),
+        processes=cast(Any, processes),
+        policies=cast(Any, object()),
+    )
+
+    assert gateway.prepare(_monitor_item(str(path))) is False
+
+
+def test_native_ingestion_preparation_reserves_strm_without_ffprobe(tmp_path) -> None:
+    path = tmp_path / "Movie.strm"
+    path.write_text("https://etk.example.invalid/api/p115/play/pc-fixture", encoding="utf-8")
+    calls: list[tuple[str, Mapping[str, Any] | None]] = []
+    pending = SimpleNamespace(
+        enqueue_binding=lambda binding_path, *, mediainfo=None: calls.append((binding_path, mediainfo))
+    )
+    gateway = NativeIngestionPreparationGateway(
+        settings=Settings,
+        pending_bindings=cast(Any, pending),
+        processes=cast(
+            Any,
+            SimpleNamespace(
+                run=lambda *_args, **_options: (_ for _ in ()).throw(
+                    AssertionError("STRM preparation must not run ffprobe")
+                )
+            ),
+        ),
+        policies=cast(Any, object()),
+    )
+
+    item = replace(_monitor_item(str(path)), classification=MonitorClassification.STRM)
+    assert gateway.prepare(item) is True
+    assert calls == [(str(path), None)]
+
+
+def test_native_ingestion_poll_distinguishes_authoritative_empty_from_transport_failure() -> None:
+    settings = Settings(
+        emby_server_url="http://emby.example.invalid",
+        emby_api_key=SecretStr("fixture-token"),
+        emby_user_id="fixture-user",
+    )
+    empty = NativeIngestionPreparationGateway(
+        settings=lambda: settings,
+        pending_bindings=cast(Any, object()),
+        processes=cast(Any, object()),
+        policies=cast(Any, object()),
+        client_factory=lambda: httpx.Client(
+            transport=httpx.MockTransport(lambda _request: httpx.Response(200, json={"Items": []}))
+        ),
+        sleep=lambda _delay: None,
+    )
+    failed = NativeIngestionPreparationGateway(
+        settings=lambda: settings,
+        pending_bindings=cast(Any, object()),
+        processes=cast(Any, object()),
+        policies=cast(Any, object()),
+        client_factory=lambda: httpx.Client(
+            transport=httpx.MockTransport(lambda _request: httpx.Response(503, json={"error": "fixture"}))
+        ),
+        sleep=lambda _delay: None,
+    )
+
+    assert empty.poll(_binding()) is None
+    with pytest.raises(RuntimeError, match="Emby ingestion path query failed"):
+        failed.poll(_binding())
+
+
+def test_coordinator_leader_starts_and_stops_native_schedules(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import task_manager
     from etk.processes import coordinator as coordinator_module
 
     events: list[str] = []
 
-    class Supervisor:
-        def start(self, **_options: Any) -> None:
-            events.append("supervisor.start")
-
-        def stop(self) -> None:
-            events.append("supervisor.stop")
-
     class Schedules:
         def __init__(self, _service: object) -> None:
-            return None
+            events.append("schedules.init")
 
         def start(self) -> None:
             events.append("schedules.start")
@@ -508,60 +679,25 @@ def test_coordinator_installs_ingress_before_watchdog_and_clears_it_after_stop(
         def stop(self) -> None:
             events.append("schedules.stop")
 
-    monkeypatch.setattr(coordinator_module, "RuntimeSupervisor", Supervisor)
     monkeypatch.setattr(coordinator_module, "PersistentScheduleManager", Schedules)
-    monkeypatch.setattr(
-        coordinator_module,
-        "install_persistent_ingestion_ingress",
-        lambda _gateway: events.append("ingress.install"),
-    )
-    monkeypatch.setattr(
-        coordinator_module,
-        "clear_persistent_ingestion_ingress",
-        lambda _gateway: events.append("ingress.clear"),
-    )
-    monkeypatch.setattr(
-        coordinator_module,
-        "install_persistent_upload_monitor_ingress",
-        lambda _gateway: events.append("upload.install"),
-    )
-    monkeypatch.setattr(
-        coordinator_module,
-        "clear_persistent_upload_monitor_ingress",
-        lambda _gateway: events.append("upload.clear"),
-    )
-    monkeypatch.setattr(
-        task_manager,
-        "install_persistent_submission_gateway",
-        lambda _gateway: events.append("tasks.install"),
-    )
-    monkeypatch.setattr(
-        task_manager,
-        "clear_persistent_submission_gateway",
-        lambda _gateway: events.append("tasks.clear"),
-    )
     runtime = coordinator_module.CoordinatorRuntime.__new__(coordinator_module.CoordinatorRuntime)
     state = cast(Any, runtime)
     state._service = object()
-    state._ingestion_ingress = object()
-    state._ingestion_coordinator = SimpleNamespace(synchronize_enabled=lambda _enabled: events.append("ingestion.sync"))
-    state._p115_upload_ingress = SimpleNamespace(
-        ensure_config=lambda: events.append("upload.ensure_config"),
-        enabled=lambda: True,
+    state._native_telegram_search_manager = SimpleNamespace(
+        apply_listener_state=lambda: events.append("telegram.apply"),
+        stop_listener=lambda: events.append("telegram.stop"),
     )
-    state._p115_upload_coordinator = object()
-    state._config_adapter = SimpleNamespace(load=lambda: Settings(monitor_enabled=True))
-    state._gateway = None
     state._schedules = None
-    state._supervisor = None
     state._refresh_settings = lambda **_options: events.append("settings.refresh")
 
-    runtime._become_leader()
-    runtime._shutdown_leader()
+    runtime._become_native_leader()
+    runtime._shutdown_native_leader()
 
-    assert events.index("ingress.install") < events.index("supervisor.start")
-    assert events.index("upload.ensure_config") < events.index("upload.install")
-    assert events.index("upload.install") < events.index("supervisor.start")
-    assert events.index("supervisor.stop") < events.index("ingress.clear")
-    assert events.index("supervisor.stop") < events.index("upload.clear")
-    assert events.index("ingress.clear") < events.index("tasks.clear")
+    assert events == [
+        "schedules.init",
+        "schedules.start",
+        "settings.refresh",
+        "telegram.apply",
+        "telegram.stop",
+        "schedules.stop",
+    ]

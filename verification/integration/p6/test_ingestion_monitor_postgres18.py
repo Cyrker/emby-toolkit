@@ -35,7 +35,7 @@ from etk.platform.db import DatabaseRuntime
 from etk.processes.p6_ingestion import (
     IngestionBindingIndeterminate,
     IngestionMonitorExecutor,
-    LegacyIngestionBindingDelivery,
+    NativeIngestionBindingDelivery,
     PersistentPendingBindingGateway,
 )
 
@@ -539,7 +539,7 @@ class _BindingJobs:
         assert key
         return self.projection
 
-    def submit_legacy_callable(self, *_args: Any, **_options: Any) -> Any:
+    def submit_native_operation(self, *_args: Any, **_options: Any) -> Any:
         self.calls += 1
         self.submissions.append((_args, dict(_options)))
         self.projection = SimpleNamespace(job=SimpleNamespace(id=UUID("00000000-0000-0000-0000-000000000978")))
@@ -551,13 +551,24 @@ class _FailOnceBindingJobs(_BindingJobs):
         super().__init__()
         self.failures = 1
 
-    def submit_legacy_callable(self, *_args: Any, **_options: Any) -> Any:
+    def submit_native_operation(self, *_args: Any, **_options: Any) -> Any:
         if self.failures:
             self.failures -= 1
             self.calls += 1
             self.submissions.append((_args, dict(_options)))
             raise RuntimeError("fixture crash before Job reservation")
-        return super().submit_legacy_callable(*_args, **_options)
+        return super().submit_native_operation(*_args, **_options)
+
+
+class _BindingMediaInfo:
+    def __init__(self, value: object | None = None) -> None:
+        self.value = value
+        self.calls = 0
+
+    def find_by_sha1(self, _sha1: str, *, record_hit: bool = False) -> Any:
+        assert record_hit is True
+        self.calls += 1
+        return SimpleNamespace(formatted=self.value) if self.value is not None else None
 
 
 def _binding_delivery_fixture(
@@ -566,7 +577,8 @@ def _binding_delivery_fixture(
     bridge: _BindingBridge,
     jobs: _BindingJobs | None = None,
     use_cached_mediainfo: bool = False,
-) -> tuple[LegacyIngestionBindingDelivery, Any, _BindingJobs]:
+    media_info: _BindingMediaInfo | None = None,
+) -> tuple[NativeIngestionBindingDelivery, Any, _BindingJobs]:
     monitor = _ledger(runtime).record(_created("/library/Effect.strm", "binding-effect"))[0].item
     binding = (
         _ledger(runtime)
@@ -588,10 +600,11 @@ def _binding_delivery_fixture(
         lease_seconds=60,
     )
     return (
-        LegacyIngestionBindingDelivery(
+        NativeIngestionBindingDelivery(
             jobs=lambda: cast(Any, jobs),
             uow_factory=runtime.unit_of_work,
             bridge=cast(Any, bridge),
+            media_info=cast(Any, media_info or _BindingMediaInfo()),
             media_effects=effects,
         ),
         binding,
@@ -637,24 +650,16 @@ def test_binding_mediainfo_indeterminate_effect_is_terminal_and_never_replayed(
 
 def test_binding_crash_replay_reuses_durable_effect_snapshot_after_runtime_drift(
     p6_runtime: DatabaseRuntime,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from handler.p115_service import P115CacheManager
-
     bridge = _BindingBridge()
     jobs = _FailOnceBindingJobs()
-    cache = {"value": {"MediaSourceInfo": {"marker": "original"}}, "calls": 0}
-
-    def cached_mediainfo(_sha1: str) -> Any:
-        cache["calls"] = int(cache["calls"]) + 1
-        return cache["value"]
-
-    monkeypatch.setattr(P115CacheManager, "get_mediainfo_cache_text", staticmethod(cached_mediainfo))
+    cache = _BindingMediaInfo({"MediaSourceInfo": {"marker": "original"}})
     delivery, binding, _ = _binding_delivery_fixture(
         p6_runtime,
         bridge=bridge,
         jobs=jobs,
         use_cached_mediainfo=True,
+        media_info=cache,
     )
     original_item = {
         "Id": "episode-101",
@@ -667,7 +672,7 @@ def test_binding_crash_replay_reuses_durable_effect_snapshot_after_runtime_drift
         delivery.deliver(binding, original_item)
 
     bridge.revision = "e" * 64
-    cache["value"] = {"MediaSourceInfo": {"marker": "drifted"}}
+    cache.value = {"MediaSourceInfo": {"marker": "drifted"}}
     replay = delivery.deliver(
         binding,
         {
@@ -684,20 +689,25 @@ def test_binding_crash_replay_reuses_durable_effect_snapshot_after_runtime_drift
     assert effect.payload["emby_authorization_revision"] == "d" * 64
     assert effect.payload["mediainfo"] == {"MediaSourceInfo": {"marker": "original"}}
     assert bridge.calls == 1
-    assert cache["calls"] == 1
+    assert cache.calls == 1
     assert jobs.calls == 2
     assert replay["item_id"] == "episode-101"
     successful_args, successful_options = jobs.submissions[-1]
-    assert successful_args[1] == "主动入库: Original episode name"
-    assert successful_args[4] == {
-        "item_id": "series-original",
-        "force_full_update": False,
-        "new_episode_ids": ["episode-101"],
-        "is_new_item": True,
-        "aggregate_notification": False,
-    }
+    assert successful_args == (
+        "media.reprocess-item",
+        {
+            "item_id": "episode-101",
+            "restore_media_info": False,
+        },
+    )
+    assert successful_options["display_name"] == "主动入库: Original episode name"
     assert successful_options["idempotency_scope"] == "ingestion-binding"
     assert successful_options["idempotency_key"] == str(binding.id)
+
+
+class _Fingerprints:
+    def extract(self, _path: str) -> tuple[str, str]:
+        return "fixture-pick", "E" * 40
 
 
 def test_deleted_monitor_item_stages_only_durable_emby_deleted_notification(
@@ -722,7 +732,7 @@ def test_deleted_monitor_item_stages_only_durable_emby_deleted_notification(
         preparation=cast(Any, object()),
         pending_bindings=cast(Any, object()),
         media_effects=cast(Any, object()),
-        processor=lambda: (_ for _ in ()).throw(AssertionError("deleted event must not load a processor")),
+        fingerprints=cast(Any, object()),
         worker_id="delete-worker",
     )
 
@@ -758,11 +768,6 @@ def test_deleted_monitor_item_stages_only_durable_emby_deleted_notification(
         "operation_revision": item.request_hash.hex(),
     }
     assert "deep-delete" not in str(effect_row["payload_json"])
-
-
-class _ProcessorFingerprints:
-    def _extract_115_fingerprints(self, _path: str) -> tuple[str, str]:
-        return "fixture-pick", "E" * 40
 
 
 class _NoopBindingDelivery:
@@ -835,14 +840,14 @@ class _ExecutorPreparation:
         self.poll_item = dict(poll_item) if poll_item is not None else None
         self.callback_claim: Any | None = None
 
-    def prepare(self, item: Any, _processor: Any) -> bool:
+    def prepare(self, item: Any) -> bool:
         self.gateway.enqueue_binding(
             item.path,
             mediainfo={"MediaSourceInfo": {"MediaStreams": []}},
         )
         return True
 
-    def poll(self, binding: Any, _processor: Any) -> Mapping[str, Any] | None:
+    def poll(self, binding: Any) -> Mapping[str, Any] | None:
         if self.confirm_during_poll or self.claim_during_poll:
             claimed = self.ledger.claim_binding_by_id(
                 binding.id,
@@ -924,7 +929,7 @@ def _physical_ingestion_executor(
         preparation=preparation,
         pending_bindings=pending,
         media_effects=effects,
-        processor=_ProcessorFingerprints,
+        fingerprints=_Fingerprints(),
         worker_id="fixture-ingestion",
     )
     return executor, item, ledger, notification, preparation

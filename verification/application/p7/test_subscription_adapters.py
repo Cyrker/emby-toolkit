@@ -9,13 +9,12 @@ from pydantic import SecretStr
 from etk.domains.subscription.adapters import (
     ConfiguredSubscriptionAvailabilityGateway,
     HttpxEmbyItemDeletionGateway,
-    LegacyAssistantDefaultsAdapter,
     NativeWatchlistExternalDeleteGateway,
+    StaticAssistantDefaults,
 )
 from etk.domains.subscription.moviepilot import MoviePilotListResult, MoviePilotWriteResult
 from etk.domains.subscription.watchlist import WatchlistDeleteContext
 from etk.platform import Settings
-from services.subscribe_assistant.config import default_assistant_config_dict
 
 
 class FakeSettingsRepository:
@@ -177,5 +176,16 @@ def test_subscription_availability_uses_injected_probes_and_degrades_probe_failu
     assert degraded.status()["shared_pool_configured"] is False
 
 
-def test_assistant_defaults_adapter_matches_the_existing_canonical_defaults() -> None:
-    assert LegacyAssistantDefaultsAdapter.defaults() == default_assistant_config_dict()
+def test_assistant_defaults_adapter_returns_isolated_native_defaults() -> None:
+    first = dict(StaticAssistantDefaults.defaults())
+    second = dict(StaticAssistantDefaults.defaults())
+
+    assert first["enabled"] is True
+    assert first["guard_mode"] == "balanced"
+    assert first["delete_exclude_tags"] == ["H&R"]
+    assert first["tracker_keywords"] == [
+        "torrent not registered with this tracker",
+        "torrent banned",
+    ]
+    first["delete_exclude_tags"].append("fixture")
+    assert second["delete_exclude_tags"] == ["H&R"]

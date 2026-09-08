@@ -235,7 +235,7 @@ def test_coordinator_runtime_fails_closed_on_collection_dispatch_degradation(mon
         )(),
     )
     monkeypatch.setattr(runtime, "_refresh_settings", lambda: None)
-    monkeypatch.setattr(runtime, "_process_telegram_commands", lambda: None)
+    monkeypatch.setattr(runtime, "_process_native_telegram_search_commands", lambda: None)
 
     with pytest.raises(RuntimeError, match="Collection operation Outbox dispatch is degraded"):
         runtime._tick()

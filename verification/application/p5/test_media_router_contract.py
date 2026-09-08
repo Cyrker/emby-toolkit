@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -258,7 +258,7 @@ def _client() -> Any:
     jobs = FakeJobs()
     events = FakeEvents()
     service = MediaService(
-        repository=repository,
+        repository=cast(Any, repository),
         settings=lambda: settings,
         jobs=jobs,
         images=FakeImages(),

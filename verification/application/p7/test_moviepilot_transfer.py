@@ -381,13 +381,13 @@ def test_blocked_plan_never_prepares_an_execution() -> None:
     assert executions.calls == []
 
 
-def test_both_worker_profiles_register_exactly_one_native_moviepilot_delivery() -> None:
+def test_worker_registers_exactly_one_native_moviepilot_delivery() -> None:
     source = (_REPO_ROOT / "src/etk/processes/worker.py").read_text(encoding="utf-8")
     coordinator_source = (_REPO_ROOT / "src/etk/processes/coordinator.py").read_text(encoding="utf-8")
 
-    assert source.count("MoviePilotWebhookEffectDelivery(") == 2
-    assert source.count("_moviepilot_transfer_processor(") == 3
-    assert source.count("active_downloads=moviepilot_gateway.active_downloads") == 2
-    assert source.count("MoviePilotFullWashingOperations(subscription_operations)") == 2
+    assert source.count("MoviePilotWebhookEffectDelivery(") == 1
+    assert source.count("_moviepilot_transfer_processor(") == 2
+    assert source.count("active_downloads=moviepilot_gateway.active_downloads") == 1
+    assert source.count("MoviePilotFullWashingOperations(subscription_operations)") == 1
     assert "MoviePilotTransferJobProcessor" not in source
-    assert coordinator_source.count("MOVIEPILOT_ASSISTANT_EVENT_TYPE") == 3
+    assert coordinator_source.count("MOVIEPILOT_ASSISTANT_EVENT_TYPE") == 2

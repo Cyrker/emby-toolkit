@@ -13,15 +13,10 @@ class PersistentResubscribeCleanupGateway:
     def __init__(self, repository: SqlAlchemyCleanupRepository) -> None:
         self._repository = repository
 
-    def stage_version_deletion(self, emby_id: str, *, progress: Any | None = None) -> dict[str, Any]:
+    def stage_version_deletion(self, emby_id: str, *, progress: Any) -> dict[str, Any]:
         identity = _progress_identity(progress)
-        if identity is None:
-            # Compatibility handlers do not receive the native progress object.
-            import task_manager
-
-            identity = task_manager.current_persistent_execution_identity()
         if not isinstance(identity, Mapping):
-            raise RuntimeError("resubscribe cleanup requires a persistent Worker identity")
+            raise RuntimeError("resubscribe cleanup requires an explicit native Worker progress identity")
         parent_job_id = UUID(str(identity.get("job_id") or ""))
         parent_attempt_id = UUID(str(identity.get("attempt_id") or ""))
         parent_worker_id = str(identity.get("worker_id") or "").strip()

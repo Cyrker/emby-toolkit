@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import httpx
 from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -13,6 +13,8 @@ from .strm_sync import P115StrmSyncClient
 
 _OPENAPI_FILES_URL = "https://proapi.115.com/open/ufile/files"
 _COOKIE_FILES_URL = "https://webapi.115.com/files"
+_OPENAPI_SEARCH_URL = "https://proapi.115.com/open/ufile/search"
+_COOKIE_SEARCH_URL = "https://webapi.115.com/files/search"
 
 _COOKIE_USER_AGENTS = {
     "web": (
@@ -46,6 +48,66 @@ class P115DirectoryTransportError(RuntimeError):
 
 class P115DirectoryCredentialChanged(RuntimeError):
     pass
+
+
+class _SearchableP115DirectoryTreeClient(Protocol):
+    def list_page(
+        self,
+        *,
+        cid: str,
+        limit: int,
+        offset: int,
+        search: str = "",
+    ) -> Mapping[str, Any]: ...
+
+    def directory_path(self, directory_id: str) -> Sequence[Mapping[str, Any]]: ...
+
+
+class HttpxP115DirectoryGateway:
+    """Serve the directory picker through the account-bound native transport."""
+
+    def __init__(self, directories: HttpxP115DirectoryTreeGateway) -> None:
+        self._directories = directories
+
+    def list_entries(
+        self,
+        *,
+        cid: int,
+        search: str,
+        expected_account_id: str,
+    ) -> Mapping[str, Any] | None:
+        client = self._directories.open(expected_account_id=expected_account_id)
+        if client is None:
+            return None
+        searchable = cast(_SearchableP115DirectoryTreeClient, client)
+        return searchable.list_page(
+            cid=str(cid),
+            limit=1000,
+            offset=0,
+            search=str(search or "").strip(),
+        )
+
+
+class HttpxP115SortingRuleDirectoryGateway:
+    """Resolve sorting-rule paths through the same account-bound transport."""
+
+    def __init__(self, directories: HttpxP115DirectoryTreeGateway) -> None:
+        self._directories = directories
+
+    def is_available(self, *, expected_account_id: str) -> bool:
+        return self._directories.open(expected_account_id=expected_account_id) is not None
+
+    def resolve_path(
+        self,
+        *,
+        cid: str,
+        expected_account_id: str,
+    ) -> Sequence[Mapping[str, Any]] | None:
+        client = self._directories.open(expected_account_id=expected_account_id)
+        if client is None:
+            return None
+        searchable = cast(_SearchableP115DirectoryTreeClient, client)
+        return tuple(searchable.directory_path(str(cid)))
 
 
 class HttpxP115DirectoryTreeGateway:
@@ -181,15 +243,28 @@ class _FallbackP115DirectoryTreeClient:
         limit: int,
         offset: int,
         file_type: int | None = None,
+        search: str = "",
     ) -> Mapping[str, Any]:
         if self._pinned is not None:
-            return self._pinned.list_page(cid=cid, limit=limit, offset=offset, file_type=file_type)
+            return self._pinned.list_page(
+                cid=cid,
+                limit=limit,
+                offset=offset,
+                file_type=file_type,
+                search=search,
+            )
 
         last_response: Mapping[str, Any] | None = None
         last_error: Exception | None = None
         for client in self._clients:
             try:
-                response = client.list_page(cid=cid, limit=limit, offset=offset, file_type=file_type)
+                response = client.list_page(
+                    cid=cid,
+                    limit=limit,
+                    offset=offset,
+                    file_type=file_type,
+                    search=search,
+                )
             except P115DirectoryCredentialChanged:
                 raise
             except Exception as exc:
@@ -255,8 +330,13 @@ class _HttpxP115DirectoryTreeClient:
         limit: int,
         offset: int,
         file_type: int | None = None,
+        search: str = "",
     ) -> Mapping[str, Any]:
-        url = _OPENAPI_FILES_URL if self._backend == "openapi" else _COOKIE_FILES_URL
+        normalized_search = str(search or "").strip()
+        if normalized_search:
+            url = _OPENAPI_SEARCH_URL if self._backend == "openapi" else _COOKIE_SEARCH_URL
+        else:
+            url = _OPENAPI_FILES_URL if self._backend == "openapi" else _COOKIE_FILES_URL
         params = {
             "cid": str(cid),
             "limit": int(limit),
@@ -267,6 +347,8 @@ class _HttpxP115DirectoryTreeClient:
         }
         if file_type is not None:
             params["type"] = int(file_type)
+        if normalized_search:
+            params["search_value"] = normalized_search
         if self._backend == "cookie":
             params["aid"] = 1
 
@@ -468,7 +550,10 @@ def p115_cookie_user_agent(app_type: str) -> str:
 
 
 __all__ = [
+    "HttpxP115DirectoryGateway",
     "HttpxP115DirectoryTreeGateway",
+    "HttpxP115SortingRuleDirectoryGateway",
+    "HttpxP115StrmSyncGateway",
     "P115DirectoryCredentialChanged",
     "P115DirectoryTransportError",
     "p115_cookie_user_agent",

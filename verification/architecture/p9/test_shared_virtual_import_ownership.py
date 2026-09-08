@@ -29,8 +29,8 @@ def test_shared_virtual_import_routes_and_runtime_wiring_are_native_owned() -> N
     worker = (REPO_ROOT / "src/etk/processes/worker.py").read_text(encoding="utf-8")
     assert 'register_use_case(\n        "sharing.virtual-imports"' in app_factory
     assert 'virtual_imports=current.use_case("sharing.virtual-imports")' in app_factory
-    assert worker.count("rapid_transfers=RapidTransferOperationDelivery(") == 2
-    assert worker.count("virtual_imports=VirtualImportOperationDelivery(") == 2
+    assert worker.count("rapid_transfers=RapidTransferOperationDelivery(") == 1
+    assert worker.count("virtual_imports=VirtualImportOperationDelivery(") == 1
 
 
 def test_shared_virtual_import_native_imports_do_not_load_legacy_modules() -> None:

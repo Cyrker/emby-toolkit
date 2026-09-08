@@ -413,42 +413,17 @@ class PersistentMoviePilotEffectGateway:
 
     def _checkpoint_or_cancel(self, operation_id: UUID) -> None:
         try:
-            binding = _MOVIEPILOT_EXECUTION.get()
-            if binding is not None:
-                binding.checkpoint()
-            else:
-                import task_manager
-
-                task_manager.persistent_execution_checkpoint()
+            _require_moviepilot_execution().checkpoint()
         except BaseException:
             self._repository.request_cancel(operation_id)
             raise
 
     @staticmethod
     def _checkpoint_before_reserve() -> None:
-        binding = _MOVIEPILOT_EXECUTION.get()
-        if binding is not None:
-            binding.checkpoint()
-            return
-        import task_manager
-
-        task_manager.persistent_execution_checkpoint()
+        _require_moviepilot_execution().checkpoint()
 
     def _identity(self) -> dict[str, str]:
-        binding = _MOVIEPILOT_EXECUTION.get()
-        if binding is not None:
-            return binding.identity()
-        import task_manager
-
-        identity = task_manager.current_persistent_execution_identity()
-        if not isinstance(identity, Mapping):
-            raise RuntimeError("durable MoviePilot effect requires a persistent Worker identity")
-        required = {
-            key: str(identity.get(key) or "").strip() for key in ("job_id", "attempt_id", "worker_id", "task_key")
-        }
-        if not all(required.values()):
-            raise RuntimeError("durable MoviePilot effect identity is incomplete")
-        return required
+        return _require_moviepilot_execution().identity()
 
     def _quota(self) -> SubscriptionQuotaRequirement:
         value = self._settings.load(MOVIEPILOT_CONFIG_SETTING)
@@ -470,6 +445,13 @@ def _origin(identity: Mapping[str, str]) -> dict[str, str]:
             "operation_occurrence": occurrence,
         }
     return {"task_key": identity["task_key"], "job_id": identity["job_id"]}
+
+
+def _require_moviepilot_execution() -> MoviePilotExecutionBinding:
+    binding = _MOVIEPILOT_EXECUTION.get()
+    if binding is None:
+        raise RuntimeError("durable MoviePilot effect requires a bound native Worker execution")
+    return binding
 
 
 def _scope(

@@ -7,7 +7,9 @@ import httpx
 import pytest
 
 from etk.domains.p115 import (
+    HttpxP115DirectoryGateway,
     HttpxP115DirectoryTreeGateway,
+    HttpxP115SortingRuleDirectoryGateway,
     HttpxP115StrmSyncGateway,
     P115CredentialSnapshot,
     P115DirectoryTransportError,
@@ -110,6 +112,63 @@ def test_openapi_transport_pins_backend_and_sends_exact_authoritative_page_reque
     assert request.headers["authorization"] == "Bearer fixture-openapi-token"
     assert request.headers["user-agent"] == "Emby-toolkit/1.0 (OpenAPI)"
     assert "cookie" not in request.headers
+
+
+def test_native_directory_picker_uses_bounded_list_and_search_endpoints() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"state": True, "data": []})
+
+    tree = HttpxP115DirectoryTreeGateway(
+        credentials=FakeCredentials([_snapshot(cookie="")]),
+        priority=lambda: "openapi",
+        client_factory=_client_factory(httpx.MockTransport(handler)),
+    )
+    gateway = HttpxP115DirectoryGateway(tree)
+
+    assert gateway.list_entries(cid=7, search="", expected_account_id="115001") is not None
+    assert gateway.list_entries(cid=8, search="fixture", expected_account_id="115001") is not None
+
+    assert [str(request.url.copy_with(query=None)) for request in requests] == [
+        "https://proapi.115.com/open/ufile/files",
+        "https://proapi.115.com/open/ufile/search",
+    ]
+    assert dict(requests[0].url.params)["cid"] == "7"
+    assert dict(requests[0].url.params).get("search_value") is None
+    assert dict(requests[1].url.params)["cid"] == "8"
+    assert dict(requests[1].url.params)["search_value"] == "fixture"
+
+
+def test_native_sorting_rule_directory_resolves_account_bound_path() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "state": True,
+                "data": {
+                    "path": [
+                        {"cid": "0", "name": "root"},
+                        {"cid": "media", "name": "Media"},
+                    ],
+                    "list": [],
+                },
+            },
+        )
+
+    tree = HttpxP115DirectoryTreeGateway(
+        credentials=FakeCredentials([_snapshot(cookie="")]),
+        priority=lambda: "openapi",
+        client_factory=_client_factory(httpx.MockTransport(handler)),
+    )
+    gateway = HttpxP115SortingRuleDirectoryGateway(tree)
+
+    assert gateway.is_available(expected_account_id="115001") is True
+    assert gateway.resolve_path(cid="media", expected_account_id="115001") == (
+        {"cid": "0", "name": "root"},
+        {"cid": "media", "name": "Media"},
+    )
 
 
 def test_cookie_transport_uses_priority_once_and_normalizes_cookie_directory_aliases() -> None:

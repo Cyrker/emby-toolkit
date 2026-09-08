@@ -68,33 +68,30 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
         for node in ast.walk(tree)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "P6P115TaskRouter"
     ]
-    full_router_calls = [call for call in p6_router_calls if len(call.args) == 6]
-    isolated_router_calls = [
-        call
-        for call in p6_router_calls
-        if not call.args
-        and {
-            "directory_sync",
-            "organize_execution",
-            "organize_record_tmdb_backfill",
-            "strm_sync",
-            "fingerprint_repair",
-            "intro_backfill",
-            "organize_reconciliation",
-        }
-        <= {keyword.arg for keyword in call.keywords}
-    ]
-    assert len(full_router_calls) == 1
-    assert len(isolated_router_calls) == 1
-    p6_router_call = full_router_calls[0]
-    assert isinstance(p6_router_call.args[2], ast.Call)
-    assert isinstance(p6_router_call.args[2].func, ast.Name)
-    assert p6_router_call.args[2].func.id == "P115StrmSyncService"
-    assert isinstance(p6_router_call.args[4], ast.Name)
-    assert p6_router_call.args[4].id == "playback_service"
-    assert isinstance(p6_router_call.args[5], ast.Call)
-    assert isinstance(p6_router_call.args[5].func, ast.Name)
-    assert p6_router_call.args[5].func.id == "P115IntroBackfillTaskService"
+    assert len(p6_router_calls) == 1
+    p6_router_call = p6_router_calls[0]
+    assert not p6_router_call.args
+    router_values = {keyword.arg: keyword.value for keyword in p6_router_call.keywords}
+    assert {
+        "directory_sync",
+        "organize_execution",
+        "organize_record_tmdb_backfill",
+        "strm_sync",
+        "fingerprint_repair",
+        "playback",
+        "intro_backfill",
+        "organize_reconciliation",
+    } <= set(router_values)
+    strm_sync = router_values["strm_sync"]
+    assert isinstance(strm_sync, ast.Call)
+    assert isinstance(strm_sync.func, ast.Name)
+    assert strm_sync.func.id == "P115StrmSyncService"
+    assert isinstance(router_values["playback"], ast.Name)
+    assert router_values["playback"].id == "playback_service"
+    intro_backfill = router_values["intro_backfill"]
+    assert isinstance(intro_backfill, ast.Call)
+    assert isinstance(intro_backfill.func, ast.Name)
+    assert intro_backfill.func.id == "P115IntroBackfillTaskService"
     strm_mediainfo_assignments = [
         node
         for node in ast.walk(tree)
@@ -105,14 +102,14 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
         and isinstance(node.value.func, ast.Name)
         and node.value.func.id == "P115StrmMediaInfoEnrichmentService"
     ]
-    assert len(strm_mediainfo_assignments) == 2
+    assert len(strm_mediainfo_assignments) == 1
     strm_mediainfo_targets = {
         target.id
         for assignment in strm_mediainfo_assignments
         for target in assignment.targets
         if isinstance(target, ast.Name)
     }
-    strm_mediainfo_keyword = next(keyword for keyword in p6_router_call.args[2].keywords if keyword.arg == "mediainfo")
+    strm_mediainfo_keyword = next(keyword for keyword in strm_sync.keywords if keyword.arg == "mediainfo")
     assert isinstance(strm_mediainfo_keyword.value, ast.Name)
     assert strm_mediainfo_keyword.value.id in strm_mediainfo_targets
     fingerprint_assignments = [
@@ -125,15 +122,15 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
         and isinstance(node.value.func, ast.Name)
         and node.value.func.id == "P115FingerprintRepairService"
     ]
-    assert len(fingerprint_assignments) == 2
+    assert len(fingerprint_assignments) == 1
     fingerprint_variables = {
         target.id
         for assignment in fingerprint_assignments
         for target in assignment.targets
         if isinstance(target, ast.Name)
     }
-    assert isinstance(p6_router_call.args[3], ast.Name)
-    assert p6_router_call.args[3].id in fingerprint_variables
+    assert isinstance(router_values["fingerprint_repair"], ast.Name)
+    assert router_values["fingerprint_repair"].id in fingerprint_variables
     restore_calls = [
         node
         for node in ast.walk(tree)
@@ -141,7 +138,7 @@ def test_p6_5_worker_uses_confirmable_httpx_emby_delivery_not_legacy_notify() ->
         and isinstance(node.func, ast.Name)
         and node.func.id == "P115MediaInfoRestoreService"
     ]
-    assert len(restore_calls) == 2
+    assert len(restore_calls) == 1
     for restore_call in restore_calls:
         fingerprint_keyword = next(keyword for keyword in restore_call.keywords if keyword.arg == "fingerprints")
         assert isinstance(fingerprint_keyword.value, ast.Name)

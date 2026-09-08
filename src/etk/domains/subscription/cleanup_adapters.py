@@ -371,6 +371,13 @@ class SqlAlchemyCleanupMediaGateway:
                         "asset_emby_id": asset_emby_id,
                     }
                 )
+            if not _frozen_media_version_matches(target, sha1s[index], pick_codes[index]):
+                return CleanupEffectResult.indeterminate(
+                    {
+                        "type": "media_cleanup_version_identity_changed",
+                        "emby_id": emby_id,
+                    }
+                )
             removed_asset = dict(asset)
             assets.pop(index)
             emby_ids.pop(index)
@@ -654,6 +661,7 @@ class LegacyCleanupMediaGateway:
             series_id=str(target.get("series_id") or ""),
             local_only=self._local_only,
             operation_id=operation_id,
+            target=target,
         )
         if result.get("ok") is True:
             return CleanupEffectResult.confirmed(dict(result))
@@ -1250,6 +1258,30 @@ def _aligned_media_versions(
     if len({len(assets), len(emby_ids), len(sha1s), len(pick_codes)}) != 1:
         return None
     return assets, emby_ids, sha1s, pick_codes
+
+
+def _frozen_media_version_matches(target: Mapping[str, Any], sha1: str, pick_code: str) -> bool:
+    local = target.get("local")
+    if not isinstance(local, Mapping):
+        return True
+    raw_files = local.get("files")
+    if not isinstance(raw_files, list):
+        return True
+    frozen = [
+        (
+            str(value.get("sha1") or "").strip().upper(),
+            str(value.get("pick_code") or "").strip().casefold(),
+        )
+        for value in raw_files
+        if isinstance(value, Mapping)
+        and (str(value.get("sha1") or "").strip() or str(value.get("pick_code") or "").strip())
+    ]
+    if not frozen:
+        return True
+    current = (str(sha1 or "").strip().upper(), str(pick_code or "").strip().casefold())
+    return len(frozen) == 1 and all(
+        not expected or expected == observed for expected, observed in zip(frozen[0], current, strict=True)
+    )
 
 
 def _reconcile_offline_media_scope(

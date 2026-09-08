@@ -134,7 +134,7 @@ def test_dry_run_service_has_only_read_provider_calls_and_no_effect_runtime_depe
     assert client_calls == {"list_page"}
 
 
-def test_dry_run_compatibility_gateways_import_only_pure_legacy_helpers_and_plaintext_defaults() -> None:
+def test_dry_run_native_gateways_use_plaintext_defaults_without_legacy_provider_imports() -> None:
     tree = ast.parse(ADAPTER_MODULE.read_text(encoding="utf-8"))
     module_imports = {
         (str(node.module), alias.name) for node in tree.body if isinstance(node, ast.ImportFrom) for alias in node.names
@@ -149,9 +149,19 @@ def test_dry_run_compatibility_gateways_import_only_pure_legacy_helpers_and_plai
         node.name: node
         for node in tree.body
         if isinstance(node, ast.ClassDef)
-        and node.name in {"LegacyP115RuleRecognitionGateway", "LegacyP115PlanNamingGateway"}
+        and node.name in {"NativeP115RuleRecognitionGateway", "NativeP115PlanNamingGateway"}
     }
-    assert set(classes) == {"LegacyP115RuleRecognitionGateway", "LegacyP115PlanNamingGateway"}
+    assert set(classes) == {"NativeP115RuleRecognitionGateway", "NativeP115PlanNamingGateway"}
+    aliases = {
+        node.targets[0].id: node.value.id
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and isinstance(node.value, ast.Name)
+    }
+    assert aliases["LegacyP115RuleRecognitionGateway"] == "NativeP115RuleRecognitionGateway"
+    assert aliases["LegacyP115PlanNamingGateway"] == "NativeP115PlanNamingGateway"
 
     observed_imports: dict[str, set[tuple[str, str]]] = {}
     for name, class_node in classes.items():
@@ -182,10 +192,8 @@ def test_dry_run_compatibility_gateways_import_only_pure_legacy_helpers_and_plai
         assert called_names.isdisjoint(FORBIDDEN_PROVIDER_WRITES)
 
     assert observed_imports == {
-        "LegacyP115RuleRecognitionGateway": {
-            ("handler.p115_service", "_build_rule_parse_result"),
-        },
-        "LegacyP115PlanNamingGateway": {("handler.p115_rename", "P115RenameRenderer")},
+        "NativeP115RuleRecognitionGateway": set(),
+        "NativeP115PlanNamingGateway": set(),
     }
 
 

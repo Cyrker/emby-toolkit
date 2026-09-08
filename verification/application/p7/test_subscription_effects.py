@@ -8,14 +8,12 @@ import pytest
 import task_manager
 from database import settings_db as legacy_settings_db
 from etk.domains.subscription.operations import SubscriptionOperation, SubscriptionOperationStatus
-from etk.platform.tasks import TaskOutcomeStatus
 from etk.processes.p7_subscription_effects import (
     DurableMoviePilotEffectIndeterminateError,
     PersistentMoviePilotEffectGateway,
     _scope,
     bind_moviepilot_operation_occurrence,
 )
-from etk.processes.p7_subscription_tasks import _explicit_outcome
 from handler import moviepilot
 from tasks import subscriptions
 
@@ -225,7 +223,6 @@ def test_manual_subscription_rejection_returns_failed_task_outcome(monkeypatch) 
     assert result["status"] == "failed"
     assert result["retryable"] is False
     assert result["provider_failures"] == [{"action": "create", "tmdb_id": "101", "item_type": "Movie", "season": None}]
-    assert _explicit_outcome("manual_subscribe_batch", result).status is TaskOutcomeStatus.FAILED
 
 
 def test_full_series_indeterminate_effect_is_not_swallowed(monkeypatch) -> None:
@@ -276,7 +273,6 @@ def test_auto_subscription_stage_one_failure_survives_empty_wanted_list(monkeypa
 
     assert result["status"] == "failed"
     assert result["provider_failures"] == [{"action": "revive", "tmdb_id": "101", "item_type": "Movie", "season": None}]
-    assert _explicit_outcome("auto-subscribe", result).status is TaskOutcomeStatus.FAILED
 
 
 def test_auto_pending_state_rejection_prevents_local_success(monkeypatch) -> None:

@@ -200,10 +200,10 @@ def _projection(task_key: str = "sync-115-directory-tree") -> Any:
     ids=["payload-task-mismatch", "missing-native-payload"],
 )
 def test_worker_rejects_native_identity_mismatch_before_legacy_dispatch(
-    monkeypatch: pytest.MonkeyPatch,
     task_key: str,
     native_operation: str | None,
 ) -> None:
+    assert not hasattr(worker_module, "_processor")
     projection = _projection(task_key)
     if native_operation is not None:
         projection.job.request_payload["native_operation"] = native_operation
@@ -212,12 +212,6 @@ def test_worker_rejects_native_identity_mismatch_before_legacy_dispatch(
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = None
-    monkeypatch.setattr(
-        worker_module,
-        "_processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError("identity mismatch resolved a legacy processor")),
-    )
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
 
@@ -240,14 +234,9 @@ def test_worker_rejects_native_identity_mismatch_before_legacy_dispatch(
     ],
 )
 def test_worker_executes_p6_sync_without_resolving_legacy_processor(
-    monkeypatch: pytest.MonkeyPatch,
     task_key: str,
 ) -> None:
-    monkeypatch.setattr(
-        worker_module,
-        "_processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError("native P6 sync must not resolve a legacy processor")),
-    )
+    assert not hasattr(worker_module, "_processor")
     projection = _projection(task_key)
     store = ExecutionStore(projection)
     router = FakeP6Router()
@@ -255,8 +244,6 @@ def test_worker_executes_p6_sync_without_resolving_legacy_processor(
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = None
-    state._native_only = True
     state._p6_p115_tasks = router
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
@@ -272,9 +259,8 @@ def test_worker_executes_p6_sync_without_resolving_legacy_processor(
     assert router.calls[0][0].task_key == task_key
 
 
-def test_native_only_worker_dispatches_approved_organize_execution_without_legacy_processor(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_worker_dispatches_approved_organize_execution_without_legacy_processor() -> None:
+    assert not hasattr(worker_module, "_processor")
     projection = _projection("scan-organize-115")
     projection.job.request_payload["parameters"] = {"execution_id": "00000000-0000-0000-0000-000000000603"}
     store = ExecutionStore(projection)
@@ -283,14 +269,7 @@ def test_native_only_worker_dispatches_approved_organize_execution_without_legac
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = None
-    state._native_only = True
     state._p6_p115_tasks = router
-    monkeypatch.setattr(
-        worker_module,
-        "_processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError("native organize resolved a legacy processor")),
-    )
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
 
@@ -302,6 +281,7 @@ def test_native_only_worker_dispatches_approved_organize_execution_without_legac
 def test_native_worker_executes_organize_record_backfill_without_legacy_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    assert not hasattr(worker_module, "_processor")
     projection = _projection("backfill-organize-record-tmdb-ids")
     store = ExecutionStore(projection)
     repository = FakeOrganizeRecordRepository()
@@ -312,14 +292,7 @@ def test_native_worker_executes_organize_record_backfill_without_legacy_runtime(
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = None
-    state._native_only = True
     state._p6_p115_tasks = router
-    monkeypatch.setattr(
-        worker_module,
-        "_processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError("native backfill resolved a legacy processor")),
-    )
     original_import = builtins.__import__
 
     def guarded_import(
@@ -357,6 +330,7 @@ def test_native_worker_executes_organize_record_backfill_without_legacy_runtime(
 def test_native_worker_executes_real_directory_service_without_legacy_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    assert not hasattr(worker_module, "_processor")
     responses = iter(
         (
             httpx.Response(
@@ -392,14 +366,7 @@ def test_native_worker_executes_real_directory_service_without_legacy_runtime(
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = None
-    state._native_only = True
     state._p6_p115_tasks = P6P115TaskRouter(directory_sync=directory_sync)
-    monkeypatch.setattr(
-        worker_module,
-        "_processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError("native directory sync resolved a processor")),
-    )
     original_import = builtins.__import__
 
     def guarded_import(
@@ -452,6 +419,7 @@ def test_native_worker_executes_real_fingerprint_service_without_legacy_runtime(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    assert not hasattr(worker_module, "_processor")
     file_id = "9001"
     pick_code = str(to_pickcode(int(file_id)))
     sha1 = "A" * 40
@@ -511,14 +479,7 @@ def test_native_worker_executes_real_fingerprint_service_without_legacy_runtime(
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = None
-    state._native_only = True
     state._p6_p115_tasks = P6P115TaskRouter(fingerprint_repair=repair)
-    monkeypatch.setattr(
-        worker_module,
-        "_processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError("native fingerprint repair resolved a processor")),
-    )
     original_import = builtins.__import__
 
     def guarded_import(
@@ -568,10 +529,8 @@ def test_native_worker_executes_real_fingerprint_service_without_legacy_runtime(
     assert result["details"]["compatibility_fallback"] is False
 
 
-def test_worker_persists_partial_directory_sync_details_on_failed_attempt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(worker_module, "_processor", lambda _identity: None)
+def test_worker_persists_partial_directory_sync_details_on_failed_attempt() -> None:
+    assert not hasattr(worker_module, "_processor")
     projection = _projection()
     store = ExecutionStore(projection)
     router = FakeP6Router(
@@ -584,7 +543,6 @@ def test_worker_persists_partial_directory_sync_details_on_failed_attempt(
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = None
     state._p6_p115_tasks = router
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]

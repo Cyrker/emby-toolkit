@@ -82,7 +82,12 @@ class FakeScope:
         self.pickcodes: tuple[str, ...] = ("pc-fixture",)
         self.pick_code = "pc-fixture"
         self.snapshots: tuple[Mapping[str, Any], ...] = ({"pick_code": "pc-fixture", "fid": "501", "parent_id": "500"},)
+        self.cleanup_target: Mapping[str, Any] = _media_target()
         self.calls: list[tuple[str, Any]] = []
+
+    def media_cleanup_target(self, emby_item_id: str, item_type: str) -> Mapping[str, Any] | None:
+        self.calls.append(("target", (emby_item_id, item_type)))
+        return self.cleanup_target
 
     def pickcodes_for_deleted_item(self, emby_item_id: str, item_type: str) -> Sequence[str]:
         self.calls.append(("pickcodes", (emby_item_id, item_type)))
@@ -186,6 +191,20 @@ def _snapshot(*, created_at: float = 1_000.0, token: str = "fixture-token") -> d
         "series_id": "",
         "pickcodes": ["pc-fixture"],
         "p115_file_snapshots": [{"pick_code": "pc-fixture", "fid": "501", "parent_id": "500"}],
+        "p115_sync_delete_enabled": True,
+        "media_cleanup_target": _media_target(),
+    }
+
+
+def _media_target() -> dict[str, Any]:
+    return {
+        "emby_id": "100",
+        "tmdb_id": "fixture-tmdb",
+        "item_type": "Movie",
+        "title": "Fixture",
+        "series_id": "",
+        "season_number": None,
+        "episode_number": None,
     }
 
 
@@ -292,6 +311,7 @@ def test_prepare_series_fallback_freezes_anchor_and_child_pickcodes() -> None:
     service, _identities, verifier, emby, scope, snapshots, _submissions = _service()
     verifier.item = {"Path": "/api/p115/play/pc-fixture"}
     emby.root = {"Type": "Series", "Name": "Series Fixture", "SeriesId": "series-1"}
+    scope.cleanup_target = {**_media_target(), "item_type": "Series"}
     emby.children = [{"Path": "/api/p115/play/pc-child"}]
     scope.pickcodes = ()
     scope.pick_code = ""
@@ -312,6 +332,45 @@ def test_prepare_series_fallback_freezes_anchor_and_child_pickcodes() -> None:
     assert emby.child_calls == ["100"]
 
 
+def test_prepare_freezes_disabled_sync_delete_without_reading_p115_file_identity() -> None:
+    identities = FakeIdentities()
+    verifier = FakeVerifier()
+    emby = FakeEmby()
+    scope = FakeScope()
+    snapshots = FakeSnapshots()
+    submissions = FakeSubmissions()
+    policy_calls = 0
+
+    def sync_delete_enabled() -> bool:
+        nonlocal policy_calls
+        policy_calls += 1
+        return False
+
+    service = P115DeepDeleteService(
+        identities=identities,
+        verifier=verifier,
+        emby=emby,
+        scope=scope,
+        snapshots=snapshots,
+        submissions=submissions,
+        sync_delete_enabled=sync_delete_enabled,
+        clock=lambda: 1_000.0,
+        token_factory=lambda: "fixture-token",
+    )
+
+    result = service.prepare_by_sha1(
+        SHA1,
+        {"root_item_id": "100", "anchor_item_id": "101", "item_type": "Movie"},
+    )
+
+    assert result.payload == {"ok": True, "token": "fixture-token", "pickcode_count": 1}
+    stored = snapshots.store_calls[0][1]
+    assert stored["p115_sync_delete_enabled"] is False
+    assert stored["p115_file_snapshots"] == []
+    assert policy_calls == 1
+    assert not any(call[0] == "snapshots" for call in scope.calls)
+
+
 def test_prepare_virtual_item_freezes_local_only_snapshot_without_scope_calls() -> None:
     service, _identities, verifier, _emby, scope, snapshots, _submissions = _service()
     verifier.item = {"Path": f"/api/p115/virtual-play/77/{SHA1}"}
@@ -330,7 +389,7 @@ def test_prepare_virtual_item_freezes_local_only_snapshot_without_scope_calls() 
     }
     assert snapshots.store_calls[0][1]["local_only"] is True
     assert snapshots.store_calls[0][1]["pickcodes"] == []
-    assert scope.calls == []
+    assert scope.calls == [("target", ("100", "Movie"))]
 
 
 @pytest.mark.parametrize(
@@ -354,7 +413,7 @@ def test_commit_pickcode_and_sha1_routes_submit_exact_internal_operation(case_id
         {
             "operation": P115_DEEP_DELETE_OPERATION,
             "payload": {"schema_version": 1, "snapshot": _snapshot()},
-            "max_attempts": 5,
+            "max_attempts": 1,
             "timeout_seconds": 900,
             "idempotency_scope": "deep-delete",
             "idempotency_key": "fixture-token",
@@ -501,8 +560,11 @@ class RecordingExecutionPorts:
         self,
         pickcodes: Sequence[str],
         file_snapshots: Sequence[Mapping[str, Any]],
+        *,
+        enabled: bool,
     ) -> Mapping[str, Any]:
         del pickcodes, file_snapshots
+        assert enabled is True
         self.events.append("p115")
         return {"ok": True, "confirmed": True}
 
@@ -512,6 +574,7 @@ class RecordingExecutionPorts:
             return {"ok": True, "confirmed": True}
         self.events.append("media")
         assert kwargs["operation_id"] == "fixture-token"
+        assert kwargs["target"] == _media_target()
         return {"ok": True, "receipt_state": "local_committed"}
 
 

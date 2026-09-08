@@ -53,7 +53,6 @@ class Gateway:
         self.model_configs: list[dict[str, Any]] = []
         self.proxy_calls: list[tuple[str, str]] = []
         self.telegram_calls: list[tuple[str, str]] = []
-        self.runtime_expiries: list[str] = []
         self.ai_result = ExternalResult({"success": True, "message": "fixture ai ok"})
         self.models_result = ExternalResult({"success": True, "models": ["fixture-model"], "count": 1})
         self.proxy_result = ExternalResult({"success": True, "message": "fixture proxy ok"})
@@ -107,9 +106,6 @@ class Gateway:
         assert license_key == "fixture-license"
         assert server_id == "fixture-server"
         return self.pro_result
-
-    def update_runtime_license(self, expire_time: str) -> None:
-        self.runtime_expiries.append(expire_time)
 
 
 def _build_app(tmp_path: Path, *, auth_enabled: bool = True):
@@ -253,7 +249,6 @@ def test_ai_telegram_pricing_and_pro_success_contracts(tmp_path: Path) -> None:
             "pro_expire_time": "2099-12-31T23:59:59Z",
         },
     ]
-    assert gateway.runtime_expiries == ["2099-12-31T23:59:59Z"] * 2
 
 
 def test_validation_fallback_and_gateway_failure_envelopes(tmp_path: Path) -> None:

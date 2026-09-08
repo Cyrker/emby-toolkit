@@ -142,12 +142,7 @@ def test_p7_router_executes_old_season_backfill_without_processor_or_compatibili
             del progress
             return OldSeasonBackfillResult(3, 2, "fixture completed")
 
-    class Compatibility:
-        def execute(self, *_args: object, **_kwargs: object) -> object:
-            raise AssertionError("native old-season backfill must not use compatibility execution")
-
     task_router = P7SubscriptionTaskRouter(
-        Compatibility(),
         None,
         old_season_backfill=Backfill(),
     )

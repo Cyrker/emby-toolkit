@@ -1,30 +1,39 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from etk.compatibility.background import spawn
+from etk.domains.media.effects import PostgresMediaEffectLedger
+from etk.domains.sharing.configuration import SharingConfigurationService
+from etk.domains.sharing.intro_effects import SHARED_INTRO_EXPORT_EFFECT
+from etk.domains.system.standalone import StandaloneSettingsRepository
+from etk.platform.jobs.json_payload import canonical_json
 
 logger = logging.getLogger(__name__)
 
 
-class LegacyP115IntroSyncFeature:
-    """Compatibility read seam for the P9-owned shared-resource feature flags."""
+class ConfiguredP115IntroSyncFeature:
+    """Read the P9-owned shared-intro feature flags from native app settings."""
+
+    def __init__(self, settings: StandaloneSettingsRepository) -> None:
+        self._configuration = SharingConfigurationService(settings)
 
     def enabled(self) -> bool:
         try:
-            from database import settings_db
-
-            config = settings_db.get_shared_resource_config() or {}
+            config = self._configuration.load()
             return bool(config.get("p115_shared_resource_enabled")) and bool(config.get("p115_shared_intro_enabled"))
         except Exception:
             logger.debug("P115 shared intro feature lookup failed; treating it as disabled", exc_info=True)
             return False
 
 
-class LegacyP115IntroSnapshotExporter:
-    """Best-effort compatibility seam until P9 owns durable SharedCenter delivery."""
+class PersistentP115IntroSnapshotExporter:
+    """Stage changed intro snapshots through the durable P9 media-effect path."""
+
+    def __init__(self, ledger: PostgresMediaEffectLedger) -> None:
+        self._ledger = ledger
 
     def publish_if_changed(
         self,
@@ -35,41 +44,21 @@ class LegacyP115IntroSnapshotExporter:
         reason: str,
         cache_revision: int,
     ) -> None:
-        snapshot = tuple(dict(chapter) for chapter in chapters)
-        spawn(
-            self._publish,
-            sha1,
-            snapshot,
-            str(file_name or "").strip(),
-            str(reason or "").strip(),
-            cache_revision,
+        del cache_revision
+        payload = {
+            "sha1": str(sha1 or "").strip().upper(),
+            "chapters": [dict(chapter) for chapter in chapters],
+            "file_name": str(file_name or "").strip(),
+            "reason": str(reason or "etk_intro_detection").strip(),
+        }
+        digest = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
+        self._ledger.reserve(
+            effect_key=f"p9:{SHARED_INTRO_EXPORT_EFFECT}:{payload['sha1']}:{digest}",
+            effect_type=SHARED_INTRO_EXPORT_EFFECT,
+            aggregate_type="media_asset",
+            aggregate_id=payload["sha1"],
+            payload=payload,
         )
 
-    @staticmethod
-    def _publish(
-        sha1: str,
-        chapters: Sequence[Mapping[str, Any]],
-        file_name: str,
-        reason: str,
-        cache_revision: int,
-    ) -> None:
-        try:
-            from handler.shared_center_client import SharedCenterClient, shared_center_enabled
 
-            if not LegacyP115IntroSyncFeature().enabled() or not shared_center_enabled():
-                return
-            SharedCenterClient().upload_intro_chapters(
-                sha1,
-                [dict(chapter) for chapter in chapters],
-                file_name=file_name,
-                reason=reason,
-            )
-        except Exception:
-            logger.debug(
-                "P115 intro snapshot compatibility export failed at cache revision %s",
-                cache_revision,
-                exc_info=True,
-            )
-
-
-__all__ = ["LegacyP115IntroSnapshotExporter", "LegacyP115IntroSyncFeature"]
+__all__ = ["ConfiguredP115IntroSyncFeature", "PersistentP115IntroSnapshotExporter"]

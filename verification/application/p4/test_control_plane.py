@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 import task_manager
-from etk.domains.identity.compatibility import LegacyEmbyIdentityGateway
+from etk.domains.identity.adapters import HttpxEmbyIdentityGateway
 from etk.platform import Settings
 from etk.platform.control_plane import ControlPlaneClient, ControlPlaneError
 from etk.processes.control_plane import (
@@ -430,6 +430,7 @@ def test_control_plane_client_clears_effect_marker_after_confirmed_pre_effect_fa
         base_url="http://control-plane:5260",
         token_file=token_file,
         transport=httpx.MockTransport(handler),
+        track_legacy_effects=True,
     )
 
     with pytest.raises(ControlPlaneError, match="before dispatch") as raised:
@@ -504,6 +505,7 @@ def test_control_plane_client_reconciles_a_lost_execute_response(
         base_url="http://control-plane:5260",
         token_file=token_file,
         transport=httpx.MockTransport(handler),
+        track_legacy_effects=True,
     )
 
     if expected_certainty == "observed-complete":
@@ -776,15 +778,17 @@ def test_plugin_container_resolution_requires_authorized_stable_server_id(monkey
         )
 
 
-def test_identity_plugin_gateway_dispatches_to_control_plane(monkeypatch) -> None:
+def test_identity_plugin_gateway_dispatches_to_control_plane() -> None:
     captured = {}
 
     class Client:
+        def __init__(self, **values):
+            captured["client"] = values
+
         def install_emby_plugin(self, **values):
-            captured.update(values)
+            captured["command"] = values
             return {"ok": True, "plugin_install": {"ok": True, "message": "fixture ready"}}
 
-    monkeypatch.setattr("etk.platform.control_plane.ControlPlaneClient", Client)
     settings = Settings(
         emby_server_url="http://emby.invalid",
         emby_api_key=SecretStr("fixture-token"),
@@ -793,16 +797,22 @@ def test_identity_plugin_gateway_dispatches_to_control_plane(monkeypatch) -> Non
         etk_server_url_manual="http://192.168.1.10:5257",
     )
 
-    result = LegacyEmbyIdentityGateway().install_plugin(
+    result = HttpxEmbyIdentityGateway(
+        lambda: settings,
+        control_plane_factory=lambda: Client(track_legacy_effects=False),
+    ).install_plugin(
         {"_normalized_url": "http://emby.invalid", "AccessToken": "fixture-token"},
         settings,
+        "fixture-job",
     )
 
     assert result == {"ok": True, "message": "fixture ready"}
-    assert captured == {
+    assert captured["client"] == {"track_legacy_effects": False}
+    assert captured["command"] == {
         "emby_url": "http://emby.invalid",
         "emby_token": "fixture-token",
         "etk_origin": "http://192.168.1.10:5257",
+        "request_id": "fixture-job",
     }
 
 

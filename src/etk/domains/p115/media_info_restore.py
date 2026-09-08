@@ -236,6 +236,7 @@ class P115MediaInfoRestoreService:
         *,
         operation_key: str,
         force_full_update: bool = False,
+        emby_item_ids: Sequence[str] | None = None,
     ) -> TaskOutcome:
         normalized_operation = _operation_key(operation_key)
         mode = "full" if force_full_update else "incremental"
@@ -253,6 +254,11 @@ class P115MediaInfoRestoreService:
             return _failed(progress, "115 账号在指纹补齐期间发生变化，媒体信息未继续处理。", stats)
 
         targets = self._repository.list_restore_targets(account_id=initial_account)
+        requested_ids = frozenset(
+            str(value or "").strip() for value in (emby_item_ids or ()) if str(value or "").strip()
+        )
+        if emby_item_ids is not None:
+            targets = tuple(target for target in targets if target.emby_item_id in requested_ids)
         stats["restore_targets"] = len(targets)
         stats["unresolved_after_fingerprint_repair"] = _detail_int(
             fingerprint_outcome.details,

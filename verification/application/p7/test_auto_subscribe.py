@@ -727,7 +727,7 @@ def test_request_delay_has_checkpoints_on_both_sides() -> None:
 
 def test_router_executes_auto_subscribe_without_processor_or_compatibility() -> None:
     service, *_rest = _service()
-    router = P7SubscriptionTaskRouter(None, None, auto_subscribe=service)
+    router = P7SubscriptionTaskRouter(None, auto_subscribe=service)
     message = TaskMessage.create(
         task_key="auto-subscribe",
         processor=ProcessorIdentity.MEDIA,
@@ -756,7 +756,7 @@ def test_router_passes_the_real_worker_lease_to_auto_subscribe_claims() -> None:
             captured.append(execution)
             return AutoSubscriptionResult(0, 0, 0, (), False, 0, 0, 0, "done")
 
-    router = P7SubscriptionTaskRouter(None, None, auto_subscribe=Service())  # type: ignore[arg-type]
+    router = P7SubscriptionTaskRouter(None, auto_subscribe=Service())  # type: ignore[arg-type]
     message = TaskMessage.create(
         task_key="auto-subscribe",
         processor=ProcessorIdentity.MEDIA,

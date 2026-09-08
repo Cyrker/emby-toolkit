@@ -23,6 +23,9 @@ __pycache__/
 *.pyd
 web_app.py
 pyarmor_runtime_000000/
+src/etk/bootstrap/legacy_runtime.py
+src/etk/compatibility/flask_app.py
+src/etk/compatibility/legacy_jobs.py
 
 # ----------------------------------------------------------------
 # Node.js / Frontend Specific

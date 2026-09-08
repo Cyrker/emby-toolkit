@@ -54,38 +54,10 @@ from etk.processes.runtime_config import TaskRuntimeConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 REDIS_IMAGE = "redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf"
-OPERATION_MODULE = "verification.integration.p4.test_celery_redis_runtime"
-
 pytestmark = pytest.mark.skipif(
     os.environ.get("ETK_RUN_CELERY_REDIS_INTEGRATION") != "1",
     reason="set ETK_RUN_CELERY_REDIS_INTEGRATION=1 to start disposable Redis and Celery processes",
 )
-
-
-def _safe_point_operation(processor: Any, *, marker: str, mode: str) -> dict[str, Any]:
-    """Test-only, importable operation with no external service calls."""
-
-    marker_path = Path(marker)
-    marker_path.parent.mkdir(parents=True, exist_ok=True)
-    marker_path.with_suffix(".started").write_text(str(os.getpid()), encoding="utf-8")
-    if mode == "block-once":
-        first_marker = marker_path.with_suffix(".first")
-        try:
-            descriptor = os.open(first_marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-        except FileExistsError:
-            return {"second_attempt": True}
-        else:
-            os.close(descriptor)
-    elif mode != "safe-point":
-        raise ValueError(f"unknown test operation mode: {mode}")
-
-    deadline = time.monotonic() + 60
-    while time.monotonic() < deadline:
-        if processor is not None and processor.is_stop_requested():
-            marker_path.with_suffix(".stopped").write_text("observed", encoding="utf-8")
-            return {"stop_observed": True}
-        time.sleep(0.05)
-    raise TimeoutError("test operation did not observe a cooperative stop before its safety deadline")
 
 
 @dataclass(slots=True)
@@ -343,6 +315,12 @@ def _start_manual_subscription_stub() -> tuple[
             parsed = urlsplit(self.path)
             with lock:
                 state.requests.append(self.path)
+            if parsed.path in {"/api/v1/history/transfer", "/api/v1/subscribe/"}:
+                if self.headers.get("Authorization") != "Bearer fixture-mp-token":
+                    self._respond(401, {})
+                    return
+                self._respond(200, [])
+                return
             movie_titles = {
                 820001: "手动订阅测试电影",
                 820002: "自动订阅测试电影",
@@ -417,7 +395,7 @@ def _start_manual_subscription_stub() -> tuple[
                 return
             self._respond(404, {})
 
-        def _respond(self, status: int, payload_value: Mapping[str, Any]) -> None:
+        def _respond(self, status: int, payload_value: object) -> None:
             payload = json.dumps(payload_value, ensure_ascii=False, separators=(",", ":")).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
@@ -4522,12 +4500,36 @@ def test_p7_cleanup_worker_restart_uses_readback_only_after_duplicate_delivery(
                 )
 
 
-def test_subscribe_assistant_restart_resumes_frozen_phases_through_real_compatibility_worker(
+def test_subscribe_assistant_restart_resumes_frozen_phases_through_real_native_worker(
     p4_store: PostgresJobStore,
     p4_runtime: DatabaseRuntime,
     p4_runtime_environment: RuntimeEnvironment,
     tmp_path: Path,
 ) -> None:
+    server, server_thread, _stub = _start_manual_subscription_stub()
+    prior_settings = _snapshot_app_settings(p4_runtime, ("mp_config",))
+    with p4_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO app_settings (setting_key, value_json, last_updated_at)
+                VALUES ('mp_config', CAST(:value AS jsonb), NOW())
+                ON CONFLICT (setting_key) DO UPDATE SET
+                    value_json = EXCLUDED.value_json,
+                    last_updated_at = NOW()
+                """
+            ),
+            {
+                "value": json.dumps(
+                    {
+                        "moviepilot_url": f"http://127.0.0.1:{server.server_port}",
+                        "moviepilot_username": "fixture-user",
+                        "moviepilot_password": "fixture-password",
+                    },
+                    separators=(",", ":"),
+                )
+            },
+        )
     phases = tuple(phase for phase in ASSISTANT_MAINTENANCE_PHASES if phase != "download_check")
     created = p4_store.create_job(
         task_key="subscribe-assistant-maintenance",
@@ -4589,16 +4591,7 @@ def test_subscribe_assistant_restart_resumes_frozen_phases_through_real_compatib
     assert len(retries) == 1
     second_attempt = retries[0].id
 
-    compatibility_environment = RuntimeEnvironment(
-        environment={
-            **p4_runtime_environment.environment,
-            "ETK_ENABLE_LEGACY_COMPATIBILITY": "true",
-        },
-        config=p4_runtime_environment.config,
-        data_dir=p4_runtime_environment.data_dir,
-        queue_name=p4_runtime_environment.queue_name,
-    )
-    worker = _start_worker(compatibility_environment, tmp_path / "subscribe-assistant-worker")
+    worker = _start_worker(p4_runtime_environment, tmp_path / "subscribe-assistant-worker")
     try:
         _wait_for_worker(worker, p4_runtime_environment.config)
         _send_delivery(p4_runtime_environment.config, created.job.id, second_attempt, count=2)
@@ -4628,170 +4621,45 @@ def test_subscribe_assistant_restart_resumes_frozen_phases_through_real_compatib
                 text("DELETE FROM subscribe_assistant_state WHERE state_key = :state_key"),
                 {"state_key": f"maintenance:{created.job.id}"},
             )
+        _restore_app_settings(p4_runtime, prior_settings, ("mp_config",))
+        _shutdown_http_stub(server, server_thread)
 
 
-def test_sigkill_worker_child_recovers_expired_lease_and_retries(
+def test_real_worker_rejects_dynamic_legacy_operation_payload_even_when_compatibility_is_requested(
     p4_store: PostgresJobStore,
-    p4_runtime: DatabaseRuntime,
     p4_runtime_environment: RuntimeEnvironment,
     tmp_path: Path,
 ) -> None:
-    marker = tmp_path / "kill-recovery"
-    created = _create_operation_job(
-        p4_store,
-        p4_runtime_environment.queue_name,
-        marker=marker,
-        mode="block-once",
-        max_attempts=2,
-    )
+    marker = tmp_path / "dynamic-operation-must-not-run"
+    created = p4_store.create_job(
+        task_key="p4-test-dynamic-operation",
+        queue_name=p4_runtime_environment.queue_name,
+        payload={
+            "payload_version": 1,
+            "parameters": {"marker": str(marker)},
+            "positional_parameters": [],
+            "processor_type": "media",
+            "display_name": "P4 forbidden dynamic operation",
+            "silent": True,
+            "legacy_operation": {
+                "module": "verification.integration.p4.test_celery_redis_runtime",
+                "qualname": "_safe_point_operation",
+            },
+        },
+    ).projection
     worker = _start_worker(p4_runtime_environment, tmp_path / "worker", compatibility=True)
-    coordinator: ManagedProcess | None = None
-    replacement: ManagedProcess | None = None
     try:
         _wait_for_worker(worker, p4_runtime_environment.config)
-        coordinator = _start_coordinator(p4_runtime_environment, tmp_path / "coordinator")
-        running = _wait_for_job(p4_store, created.job.id, {JobStatus.RUNNING}, timeout=30)
-        _wait_until(marker.with_suffix(".first").exists, description="first worker attempt to enter the test operation")
-        worker_id = running.current_attempt.worker_id
-        assert worker_id is not None
-        execution_pid = int(worker_id.rsplit(":", 1)[1])
-        os.kill(execution_pid, signal.SIGKILL)
-        if execution_pid == worker.process.pid:
-            worker.process.wait(timeout=10)
-            worker.stream.close()
-            replacement = _start_worker(
-                p4_runtime_environment,
-                tmp_path / "replacement-worker",
-                compatibility=True,
-            )
-            _wait_for_worker(replacement, p4_runtime_environment.config)
+        _send_delivery(p4_runtime_environment.config, created.job.id, created.current_attempt.id)
+        failed = _wait_for_job(p4_store, created.job.id, {JobStatus.FAILED}, timeout=30)
 
-        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.SUCCEEDED}, timeout=45)
-        assert completed.current_attempt.attempt_no == 2
-        with p4_runtime.engine.connect() as connection:
-            attempts = connection.execute(
-                text(
-                    "SELECT attempt_no, status, error_type FROM job_attempts WHERE job_id = :job_id ORDER BY attempt_no"
-                ),
-                {"job_id": created.job.id},
-            ).all()
-        assert attempts == [(1, "lost", "worker_lost"), (2, "succeeded", None)]
+        assert failed.current_attempt.status is AttemptStatus.FAILED
+        assert failed.current_attempt.error_type == "NativeTaskExecutionUnavailable"
+        assert not marker.exists()
+        assert "_safe_point_operation" not in worker.read_log()
     finally:
-        if coordinator is not None:
-            assert coordinator.stop() == 128 + signal.SIGTERM
-        if replacement is not None:
-            assert replacement.stop() == 0
-        elif worker.process.poll() is None:
+        if worker.process.poll() is None:
             assert worker.stop() == 0
-
-
-@pytest.mark.parametrize(
-    ("control", "terminal_status", "attempt_status"),
-    [
-        ("cancel", JobStatus.CANCELLED, AttemptStatus.CANCELLED),
-        ("timeout", JobStatus.TIMED_OUT, AttemptStatus.TIMED_OUT),
-    ],
-)
-def test_worker_cooperative_safe_point_persists_cancel_and_timeout(
-    control: str,
-    terminal_status: JobStatus,
-    attempt_status: AttemptStatus,
-    p4_store: PostgresJobStore,
-    p4_runtime_environment: RuntimeEnvironment,
-    tmp_path: Path,
-) -> None:
-    marker = tmp_path / control
-    created = _create_operation_job(
-        p4_store,
-        p4_runtime_environment.queue_name,
-        marker=marker,
-        mode="safe-point",
-        timeout_seconds=1 if control == "timeout" else None,
-    )
-    worker = _start_worker(p4_runtime_environment, tmp_path / "worker", compatibility=True)
-    try:
-        _wait_for_worker(worker, p4_runtime_environment.config)
-        _send_delivery(p4_runtime_environment.config, created.job.id, created.attempt.id)
-        _wait_for_job(p4_store, created.job.id, {JobStatus.RUNNING}, timeout=30)
-        _wait_until(marker.with_suffix(".started").exists, description="test operation to reach its safe point")
-        if control == "cancel":
-            requested = p4_store.request_cancel(created.job.id)
-            assert requested.job.status is JobStatus.CANCEL_REQUESTED
-        completed = _wait_for_job(p4_store, created.job.id, {terminal_status}, timeout=20)
-        assert completed.current_attempt.status is attempt_status
-        assert marker.with_suffix(".stopped").read_text(encoding="utf-8") == "observed"
-    finally:
-        assert worker.stop() == 0
-
-
-def test_two_workers_keep_root_backlog_globally_serial(
-    p4_store: PostgresJobStore,
-    p4_runtime: DatabaseRuntime,
-    p4_runtime_environment: RuntimeEnvironment,
-    tmp_path: Path,
-) -> None:
-    first_marker = tmp_path / "serial-first"
-    second_marker = tmp_path / "serial-second"
-    first = _create_operation_job(
-        p4_store,
-        p4_runtime_environment.queue_name,
-        marker=first_marker,
-        mode="safe-point",
-    )
-    second = _create_operation_job(
-        p4_store,
-        p4_runtime_environment.queue_name,
-        marker=second_marker,
-        mode="safe-point",
-    )
-    workers = [
-        _start_worker(p4_runtime_environment, tmp_path / "worker-1", compatibility=True),
-        _start_worker(p4_runtime_environment, tmp_path / "worker-2", compatibility=True),
-    ]
-    try:
-        for worker in workers:
-            _wait_for_worker(worker, p4_runtime_environment.config)
-
-        _send_delivery(p4_runtime_environment.config, first.job.id, first.attempt.id)
-        _wait_for_job(p4_store, first.job.id, {JobStatus.RUNNING}, timeout=30)
-        _wait_until(first_marker.with_suffix(".started").exists, description="first root operation to start")
-
-        _send_delivery(p4_runtime_environment.config, second.job.id, second.attempt.id)
-
-        def dispatch_was_deferred() -> bool:
-            with p4_runtime.engine.connect() as connection:
-                row = connection.execute(
-                    text(
-                        """
-                        SELECT status, available_at > created_at
-                        FROM outbox_events
-                        WHERE aggregate_id = :attempt_id
-                        """
-                    ),
-                    {"attempt_id": str(second.attempt.id)},
-                ).one()
-            return row == ("pending", True)
-
-        _wait_until(
-            dispatch_was_deferred,
-            description="second root delivery to be deferred while the first root is running",
-        )
-        assert not second_marker.with_suffix(".started").exists()
-        queued = p4_store.get_job(second.job.id)
-        assert queued is not None and queued.job.status is JobStatus.QUEUED
-
-        p4_store.request_cancel(first.job.id)
-        _wait_for_job(p4_store, first.job.id, {JobStatus.CANCELLED}, timeout=10)
-
-        _send_delivery(p4_runtime_environment.config, second.job.id, second.attempt.id)
-        _wait_for_job(p4_store, second.job.id, {JobStatus.RUNNING}, timeout=20)
-        _wait_until(second_marker.with_suffix(".started").exists, description="second root operation to start")
-        p4_store.request_cancel(second.job.id)
-        _wait_for_job(p4_store, second.job.id, {JobStatus.CANCELLED}, timeout=10)
-    finally:
-        for worker in workers:
-            if worker.process.poll() is None:
-                assert worker.stop() == 0
 
 
 def test_two_real_coordinators_elect_one_leader_and_fail_over_on_sigterm(
@@ -4841,34 +4709,6 @@ def test_worker_executes_empty_chain_then_stops_cleanly_on_sigterm(
         assert "Warm shutdown" in log
         assert "Worker runtime shutdown failed" not in log
         assert "Traceback (most recent call last)" not in log
-    finally:
-        if worker.process.poll() is None:
-            worker.kill()
-
-
-def test_active_worker_sigterm_reaches_cooperative_safe_point_before_shutdown_timeout(
-    p4_store: PostgresJobStore,
-    p4_runtime_environment: RuntimeEnvironment,
-    tmp_path: Path,
-) -> None:
-    marker = tmp_path / "active-sigterm"
-    created = _create_operation_job(
-        p4_store,
-        p4_runtime_environment.queue_name,
-        marker=marker,
-        mode="safe-point",
-    )
-    worker = _start_worker(p4_runtime_environment, tmp_path / "worker", compatibility=True)
-    try:
-        _wait_for_worker(worker, p4_runtime_environment.config)
-        _send_delivery(p4_runtime_environment.config, created.job.id, created.attempt.id)
-        _wait_for_job(p4_store, created.job.id, {JobStatus.RUNNING}, timeout=30)
-        _wait_until(marker.with_suffix(".started").exists, description="active operation to reach its safe point")
-
-        assert worker.stop(timeout=p4_runtime_environment.config.worker_shutdown_timeout_seconds + 3) == 0
-        assert marker.with_suffix(".stopped").read_text(encoding="utf-8") == "observed"
-        completed = _wait_for_job(p4_store, created.job.id, {JobStatus.CANCELLED}, timeout=5)
-        assert completed.current_attempt.status is AttemptStatus.CANCELLED
     finally:
         if worker.process.poll() is None:
             worker.kill()
@@ -6064,32 +5904,6 @@ def _create_empty_chain_job(store: PostgresJobStore, queue_name: str):
             "processor_type": "media",
             "display_name": "P4 empty task-chain smoke",
             "silent": True,
-        },
-    )
-
-
-def _create_operation_job(
-    store: PostgresJobStore,
-    queue_name: str,
-    *,
-    marker: Path,
-    mode: str,
-    max_attempts: int = 1,
-    timeout_seconds: int | None = None,
-):
-    return store.create_job(
-        task_key="p4-test-safe-point",
-        queue_name=queue_name,
-        max_attempts=max_attempts,
-        timeout_seconds=timeout_seconds,
-        payload={
-            "payload_version": 1,
-            "parameters": {"marker": str(marker), "mode": mode},
-            "positional_parameters": [],
-            "processor_type": "media",
-            "display_name": "P4 test-only safe point",
-            "silent": True,
-            "legacy_operation": {"module": OPERATION_MODULE, "qualname": "_safe_point_operation"},
         },
     )
 

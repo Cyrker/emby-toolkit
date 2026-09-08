@@ -6,7 +6,9 @@ from typing import Any
 
 from sqlalchemy import text
 
+from etk.domains.media.effects import PostgresMediaEffectLedger
 from etk.domains.p115.intro_sync import P115IntroSyncService
+from etk.domains.p115.intro_sync_adapters import PersistentP115IntroSnapshotExporter
 from etk.domains.p115.media_info_repository import SqlAlchemyP115MediaInfoRepository
 from etk.platform.db import DatabaseRuntime
 
@@ -195,6 +197,66 @@ def test_postgres18_intro_sync_updates_cache_without_staging_bridge_effect_or_ou
         )
     assert int(row["cache_revision"]) == 1
     assert row["mediainfo_json"][0]["Chapters"] == INTRO_CHAPTERS
+
+
+def test_postgres18_native_intro_exporter_stages_one_durable_p9_effect_and_outbox(
+    p6_runtime: DatabaseRuntime,
+) -> None:
+    _insert_cache(p6_runtime, chapters=[])
+    service = P115IntroSyncService(
+        repository=_repository(p6_runtime),
+        feature=EnabledFeature(),
+        verifier=VerifiedItem(),
+        exporter=PersistentP115IntroSnapshotExporter(
+            PostgresMediaEffectLedger(p6_runtime.unit_of_work),
+        ),
+        account_id=lambda: "115001",
+    )
+
+    result = service.sync_by_sha1(SHA_A, "1001")
+
+    assert result == {"ok": True, "updated": True, "chapter_count": 2}
+    with p6_runtime.engine.connect() as connection:
+        effect = (
+            connection.execute(
+                text(
+                    """
+                    SELECT effect_type, aggregate_type, aggregate_id, payload_json, status
+                    FROM media_effects
+                    """
+                )
+            )
+            .mappings()
+            .one()
+        )
+        outbox = (
+            connection.execute(
+                text(
+                    """
+                    SELECT topic, aggregate_type, aggregate_id, status
+                    FROM outbox_events
+                    """
+                )
+            )
+            .mappings()
+            .one()
+        )
+    assert dict(effect) == {
+        "effect_type": "sharing.intro.export",
+        "aggregate_type": "media_asset",
+        "aggregate_id": SHA_A,
+        "payload_json": {
+            "sha1": SHA_A,
+            "chapters": INTRO_CHAPTERS,
+            "file_name": "Fixture.mkv",
+            "reason": "emby_item_updated",
+        },
+        "status": "pending",
+    }
+    assert outbox["topic"] == "media.effect.requested"
+    assert outbox["aggregate_type"] == "media_effect"
+    assert outbox["aggregate_id"]
+    assert outbox["status"] == "pending"
 
 
 def test_postgres18_formatted_cache_cas_returns_none_for_missing_row(

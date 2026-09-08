@@ -13,38 +13,66 @@ class SystemContainerNotFoundError(LookupError):
 
 
 class SystemRestartGateway(Protocol):
-    def restart(self) -> Mapping[str, Any]: ...
+    def restart(self, request_id: str) -> Mapping[str, Any]: ...
+
+
+class SystemRestartProgress(Protocol):
+    job_id: Any
+
+    def checkpoint(self) -> None: ...
+
+    def update(self, progress: int, message: str) -> None: ...
+
+    def record_started_effect(self, label: str) -> None: ...
+
+    def record_committed_effect(self, label: str) -> None: ...
 
 
 class ControlPlaneSystemRestartGateway:
     """Dispatch restart to the pre-running observer instead of the Worker Docker host."""
 
-    def restart(self) -> Mapping[str, Any]:
-        return ControlPlaneClient().restart_service("api")
+    def restart(self, request_id: str) -> Mapping[str, Any]:
+        return ControlPlaneClient(track_legacy_effects=False).restart_service(
+            "api",
+            request_id=request_id,
+        )
 
 
 class SystemRestartService:
     def __init__(self, gateway: SystemRestartGateway) -> None:
         self._gateway = gateway
 
-    def restart(self) -> Mapping[str, Any]:
-        return self._gateway.restart()
+    def restart(self, request_id: str) -> Mapping[str, Any]:
+        return self._gateway.restart(request_id)
 
 
-def run_system_restart_persistent() -> dict[str, Any]:
-    """Execute Docker control only after a durable Worker has claimed the Job."""
-    import task_manager
+class NativeSystemRestartOperation:
+    def __init__(self, service: SystemRestartService | None = None) -> None:
+        self._service = service or SystemRestartService(ControlPlaneSystemRestartGateway())
 
-    task_manager.persistent_execution_checkpoint()
-    service = SystemRestartService(ControlPlaneSystemRestartGateway())
-    result = dict(service.restart())
-    return result
+    def execute(
+        self,
+        parameters: Mapping[str, Any],
+        progress: SystemRestartProgress,
+    ) -> Mapping[str, Any]:
+        if parameters:
+            raise ValueError("system restart operation does not accept parameters")
+        progress.checkpoint()
+        request_id = str(progress.job_id)
+        if not request_id:
+            raise ValueError("system restart operation requires a persistent Job identity")
+        label = "system-restart:api"
+        progress.record_started_effect(label)
+        result = dict(self._service.restart(request_id))
+        progress.record_committed_effect(label)
+        progress.update(100, "API 服务重启请求已提交")
+        return result
 
 
 __all__ = [
     "ControlPlaneSystemRestartGateway",
+    "NativeSystemRestartOperation",
     "SystemContainerNotFoundError",
     "SystemRestartGateway",
     "SystemRestartService",
-    "run_system_restart_persistent",
 ]

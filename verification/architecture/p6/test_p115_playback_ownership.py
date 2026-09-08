@@ -217,16 +217,9 @@ def test_active_legacy_playback_wrappers_check_the_native_gateway_before_fallbac
         function = _function("handler/p115_copy_play.py", function_name)
         assert "persistent_playback_gateway" in _called_names(function)
 
-    role_sources = {
-        "src/etk/bootstrap/app_factory.py": (
-            "install_persistent_playback_gateway",
-            "clear_persistent_playback_gateway",
-        ),
-        "src/etk/processes/worker.py": ("install_persistent_playback_gateway", "clear_persistent_playback_gateway"),
-    }
-    for relative_path, calls in role_sources.items():
+    for relative_path in ("src/etk/bootstrap/app_factory.py", "src/etk/processes/worker.py"):
         source = _source(relative_path)
-        assert all(call in source for call in calls)
+        assert "persistent_playback_gateway" not in source
 
 
 def test_p9_effects_and_proxy_transport_stay_outside_native_playback_core() -> None:

@@ -216,6 +216,38 @@ class HttpxMediaCatalogAdapter:
                     break
         return tuple(result)
 
+    def item(self, item_id: str) -> Mapping[str, Any] | None:
+        normalized_id = str(item_id or "").strip()
+        if not normalized_id:
+            return None
+        settings = self._settings()
+        base_url = settings.emby_server_url.strip().rstrip("/")
+        user_id = settings.emby_user_id.strip()
+        token = settings.emby_api_key.get_secret_value().strip()
+        if not base_url or not user_id or not token:
+            raise RuntimeError("metadata task requires configured Emby authorization")
+        try:
+            with self._client_factory() as client:
+                response = client.get(
+                    f"{base_url}/Users/{quote(user_id, safe='')}/Items/{quote(normalized_id, safe='')}",
+                    params={
+                        "Fields": (
+                            "ProviderIds,Type,Name,OriginalTitle,PremiereDate,CommunityRating,Genres,Studios,"
+                            "OfficialRating,ProductionYear,Path,Overview,SeriesId,ParentIndexNumber,IndexNumber,Id"
+                        )
+                    },
+                    headers={"Accept": "application/json", "X-Emby-Token": token},
+                )
+                if response.status_code == 404:
+                    return None
+                response.raise_for_status()
+                payload: Any = response.json()
+        except (httpx.HTTPError, TypeError, ValueError) as exc:
+            raise RuntimeError("Emby item query failed") from exc
+        if not isinstance(payload, Mapping):
+            raise RuntimeError("Emby item query returned an invalid object")
+        return dict(payload)
+
     def _get(
         self,
         base_url: str,

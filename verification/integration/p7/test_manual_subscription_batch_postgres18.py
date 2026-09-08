@@ -118,7 +118,7 @@ def _router(
         SqlAlchemyWatchlistMediaProjectionRepository(runtime.unit_of_work),
         clock=lambda: datetime(2026, 8, 30, 4, tzinfo=UTC),
     )
-    return P7SubscriptionTaskRouter(None, None, manual_batch=service)
+    return P7SubscriptionTaskRouter(None, manual_batch=service)
 
 
 def _message(runtime: DatabaseRuntime, requests: list[Mapping[str, Any]]) -> TaskMessage:

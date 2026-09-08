@@ -163,24 +163,24 @@ def test_p11_effect_tasks_have_native_execution_ownership_and_no_legacy_fallback
         assert forbidden_fallback not in router_source
 
 
-def test_worker_profiles_each_build_one_media_effect_executor() -> None:
+def test_native_worker_builds_one_media_effect_executor() -> None:
     worker_source = WORKER.read_text(encoding="utf-8")
 
-    assert worker_source.count("PersistentMediaEffectExecutor(") == 2
+    assert worker_source.count("PersistentMediaEffectExecutor(") == 1
     assert "p8_media_effects_executor" not in worker_source
 
 
-def test_cover_tasks_are_processor_free_in_both_worker_profiles() -> None:
+def test_cover_tasks_are_processor_free_in_the_native_worker() -> None:
     worker = __import__("etk.processes.worker", fromlist=["_NATIVE_ONLY_EXECUTABLE_TASK_KEYS"])
     worker_source = WORKER.read_text(encoding="utf-8")
 
     assert {"generate-all-covers", "generate-custom-collection-covers"} <= set(worker._NATIVE_ONLY_EXECUTABLE_TASK_KEYS)
-    assert worker_source.count("cover_remote = HttpxCoverRemoteAdapter(settings_provider)") == 2
-    assert worker_source.count("cover_tasks=_native_cover_task_service(") == 2
+    assert worker_source.count("cover_remote = HttpxCoverRemoteAdapter(settings_provider)") == 1
+    assert worker_source.count("cover_tasks=_native_cover_task_service(") == 1
     assert worker_source.count("ConfiguredCoverRenderer(") == 1
 
 
-def test_custom_collection_aliases_are_native_and_shared_across_worker_profiles() -> None:
+def test_custom_collection_aliases_are_native_in_the_single_worker_profile() -> None:
     worker_source = WORKER.read_text(encoding="utf-8")
 
     assert {
@@ -194,6 +194,6 @@ def test_custom_collection_aliases_are_native_and_shared_across_worker_profiles(
             )._NATIVE_ONLY_EXECUTABLE_TASK_KEYS
         )
     )
-    assert worker_source.count("custom_collection_tasks = _custom_collection_task_service(") == 2
-    assert worker_source.count("custom_collection_tasks=custom_collection_tasks") == 2
+    assert worker_source.count("custom_collection_tasks = _custom_collection_task_service(") == 1
+    assert worker_source.count("custom_collection_tasks=custom_collection_tasks") == 1
     assert "LegacyCustomCollection" not in worker_source

@@ -9,7 +9,11 @@ from uuid import UUID
 
 from etk.platform.jobs.types import UnitOfWorkFactory
 
-from .effect_execution import MediaEffectDeliveryRejected, PersistentMediaEffectExecutor
+from .effect_execution import (
+    MediaEffectDeliveryIndeterminate,
+    MediaEffectDeliveryRejected,
+    PersistentMediaEffectExecutor,
+)
 from .effects import MediaEffectProjection, MediaEffectStatus, PostgresMediaEffectLedger
 from .image_editing import (
     ImageEditingGateway,
@@ -46,6 +50,11 @@ class ManualImageEffectDelivery:
             )
         )
         if not outcome.success:
+            if outcome.effect_status == "indeterminate":
+                raise MediaEffectDeliveryIndeterminate(
+                    outcome.message or "图片替换结果无法确认",
+                    error={"operation": "manual-image-update"},
+                )
             raise MediaEffectDeliveryRejected(
                 outcome.message or "图片替换被提供方拒绝",
                 error={"operation": "manual-image-update"},
@@ -67,6 +76,7 @@ class PersistentMediaImageEditingGateway:
         *,
         worker_id: str | None = None,
         lease_seconds: float | Callable[[], float] = 90,
+        defer: bool = False,
     ) -> None:
         self._compatibility = compatibility
         self._ledger = PostgresMediaEffectLedger(uow_factory)
@@ -76,6 +86,7 @@ class PersistentMediaImageEditingGateway:
             worker_id=worker_id,
             lease_seconds=lease_seconds,
         )
+        self._defer = bool(defer)
 
     def processor_ready(self) -> bool:
         return self._compatibility.processor_ready()
@@ -104,6 +115,13 @@ class PersistentMediaImageEditingGateway:
             aggregate_id=str(payload["item_id"]),
             payload=payload,
         )
+        if self._defer and not reservation.effect.status.terminal:
+            return ImageUpdateOutcome(
+                False,
+                "图片替换任务已提交",
+                effect_id=str(reservation.effect.id),
+                effect_status=reservation.effect.status.value,
+            )
         return self.execute(reservation.effect.id)
 
     def execute(self, effect_id: UUID) -> ImageUpdateOutcome:

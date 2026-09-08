@@ -4,6 +4,7 @@ import logging
 import re
 from collections.abc import Callable, Mapping
 from copy import deepcopy
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from pydantic import BaseModel, RootModel
@@ -89,7 +90,11 @@ class ConfigurationService:
             self._add_discovery_previews(payload)
             payload["emby_server_id"] = self._gateway.server_id()
             payload["custom_theme"] = self._repository.load("custom_theme") or {}
-            payload["pro_license_key"] = MASKED_SECRET if self._repository.load("pro_license_key") else ""
+            pro_license_key = self._repository.load("pro_license_key")
+            pro_expire_time = str(self._repository.load("pro_expire_time") or "").strip()
+            payload["pro_license_key"] = MASKED_SECRET if pro_license_key else ""
+            payload["pro_expire_time"] = pro_expire_time
+            payload["is_pro_active"] = bool(pro_license_key) and _future_datetime(pro_expire_time)
             return SystemResult(payload)
         except Exception:
             logger.exception("Reading system configuration failed")
@@ -194,3 +199,14 @@ class ConfigurationService:
             if payload.get("proxy_lock_discovery_address")
             else ""
         )
+
+
+def _future_datetime(value: str) -> bool:
+    try:
+        expires_at = datetime.fromisoformat(str(value or "").strip().replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    now = datetime.now(UTC)
+    if expires_at.tzinfo is None:
+        now = now.replace(tzinfo=None)
+    return expires_at > now

@@ -15,11 +15,6 @@ import pytest
 from apscheduler.jobstores.base import JobLookupError
 from celery.exceptions import Reject
 
-from etk.bootstrap.runtime_supervisor import RuntimeRole
-from etk.compatibility.p115_credentials import (
-    clear_persistent_p115_credential_gateway,
-    persistent_p115_credential_gateway,
-)
 from etk.domains.operations.jobs import JobSubmissionService
 from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus, PublishBatchResult
 from etk.processes import coordinator
@@ -399,12 +394,11 @@ def test_worker_startup_shutdown_race_does_not_claim_a_delivery(monkeypatch) -> 
     assert runtime._store is None
 
 
-def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
+def test_legacy_compatibility_environment_cannot_restore_worker_profile(monkeypatch) -> None:
     import task_manager
     from etk.compatibility import background
 
     events: list[str] = []
-    clear_persistent_p115_credential_gateway()
     monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     database = SimpleNamespace(
         unit_of_work=lambda: None,
@@ -418,18 +412,8 @@ def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
     )
     config_adapter = SimpleNamespace(load=lambda: SimpleNamespace(emby_api_timeout=30))
 
-    class Supervisor:
-        def start(self, *, role: RuntimeRole, background: bool) -> None:
-            assert role is RuntimeRole.WORKER
-            assert background is False
-            events.append("supervisor.start")
-
-        def stop(self) -> None:
-            events.append("supervisor.stop")
-
     task_manager.clear_persistent_submission_gateway()
     monkeypatch.setattr(worker_module, "_create_default_container", lambda _settings: (container, config_adapter))
-    monkeypatch.setattr(worker_module, "RuntimeSupervisor", Supervisor)
     watchlist_services: list[Any] = []
     original_watchlist_factory = worker_module._native_watchlist_task_service
 
@@ -450,20 +434,27 @@ def test_worker_start_failure_clears_submission_gateway(monkeypatch) -> None:
     )
     runtime = WorkerRuntime(config=TaskRuntimeConfig())
 
-    with pytest.raises(RuntimeError, match="fixture background install failed"):
-        runtime.start()
+    runtime.start()
 
     assert task_manager._persistent_gateway is None
-    assert persistent_p115_credential_gateway() is None
     assert len(watchlist_services) == 1
     assert type(watchlist_services[0]).__name__ == "NativeWatchlistTaskService"
     assert type(watchlist_services[0]._effects._intro).__name__ == "_DeferredWatchlistIntroGateway"
-    assert events == ["supervisor.start", "supervisor.stop", "container.close"]
+    state = cast(Any, runtime)
+    assert type(state._ingestion_executor._preparation).__name__ == "NativeIngestionPreparationGateway"
+    assert type(state._ingestion_executor._fingerprints).__name__ == "NativeIngestionFingerprintGateway"
+    assert type(state._p115_upload_executor._provider).__name__ == "NativeP115UploadProvider"
+    assert type(state._p115_upload_executor._projection).__name__ == "NativeP115UploadProjection"
+    assert events == []
+
+    runtime.close()
+
+    assert task_manager._persistent_gateway is None
+    assert events == ["container.close"]
 
 
 def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -> None:
     events: list[str] = []
-    clear_persistent_p115_credential_gateway()
     monkeypatch.delenv("ETK_ENABLE_LEGACY_COMPATIBILITY", raising=False)
     database = SimpleNamespace(
         unit_of_work=lambda: None,
@@ -477,29 +468,21 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     )
     config_adapter = SimpleNamespace(load=lambda: SimpleNamespace(emby_api_timeout=30))
 
-    class Supervisor:
-        def start(self, *, role: RuntimeRole, background: bool) -> None:
-            assert role is RuntimeRole.WORKER
-            assert background is False
-            events.append("supervisor.start")
-
-        def stop(self) -> None:
-            events.append("supervisor.stop")
-
     monkeypatch.setattr(worker_module, "_create_default_container", lambda _settings: (container, config_adapter))
-    monkeypatch.setattr(worker_module, "RuntimeSupervisor", Supervisor)
     runtime = WorkerRuntime(config=TaskRuntimeConfig())
 
     runtime.start()
 
     state = cast(Any, runtime)
-    assert state._native_only is True
-    assert state._adapter is None
-    assert persistent_p115_credential_gateway() is state._p115_credentials
+    assert worker_module.os.environ["ETK_PROCESS_ROLE"] == "worker"
     assert type(state._media_effects).__name__ == "PersistentMediaEffectExecutor"
     assert state._media_effects._delivery.effect_types == {
         "emby.chapters.update",
         "emby.cover.apply",
+        "emby.library.paths_changed",
+        "emby.event.image.update",
+        "emby.event.metadata.update",
+        "emby.image.manual_update",
         "emby.mediainfo.apply",
         "emby.studio-image.reconcile",
         "emby.tags.apply",
@@ -532,8 +515,36 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
         "HttpxP115OrganizeReadbackGateway"
     )
     assert type(state._p6_ingestion_tasks).__name__ == "P6IngestionTaskRouter"
+    assert type(state._ingestion_executor).__name__ == "IngestionMonitorExecutor"
+    assert type(state._ingestion_executor._preparation).__name__ == "NativeIngestionPreparationGateway"
+    assert type(state._ingestion_executor._fingerprints).__name__ == "NativeIngestionFingerprintGateway"
+    assert type(state._ingestion_binding._delivery).__name__ == "NativeIngestionBindingDelivery"
+    assert type(state._p115_upload_executor).__name__ == "P115UploadOperationExecutor"
+    assert type(state._p115_upload_executor._provider).__name__ == "NativeP115UploadProvider"
+    assert type(state._p115_upload_executor._projection).__name__ == "NativeP115UploadProjection"
+    assert type(state._p115_upload_executor._projection._repository).__name__ == (
+        "SqlAlchemyP115UploadProjectionRepository"
+    )
+    native_handlers = state._native_operations._handlers
+    assert {
+        "identity.post-authorization",
+        "system.restart",
+        "p115.deep-delete.execute",
+        "media.reprocess-item",
+        "media.cast-update",
+        "media.metadata-event-sync",
+        "p115.temp-cleanup",
+        "system.pro-status-check",
+        "media.plugin-update-check",
+    } <= set(native_handlers)
+    deep_delete = native_handlers["p115.deep-delete.execute"]
+    assert type(deep_delete).__name__ == "NativeP115DeepDeleteOperation"
+    assert type(deep_delete._service._p115).__name__ == "NativeP115DeleteReadbackGateway"
+    assert type(deep_delete._service._upload_sources).__name__ == "NativeP115UploadSourceCleanupGateway"
+    assert type(deep_delete._service._media).__name__ == "NativeP115MediaCleanupReceiptGateway"
+    assert type(deep_delete._service._shared).__name__ == "NativeP115SharedCleanupGateway"
     assert type(state._p7_subscription_tasks).__name__ == "P7SubscriptionTaskRouter"
-    assert state._p7_subscription_tasks._compatibility is None
+    assert not hasattr(state._p7_subscription_tasks, "_compatibility")
     assert type(state._p7_subscription_tasks._assistant).__name__ == "SubscribeAssistantMaintenanceService"
     assert type(state._p7_subscription_tasks._assistant._gateway).__name__ == (
         "NativeSubscribeAssistantMaintenanceGateway"
@@ -570,28 +581,31 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
     assert type(state._subscription_executor).__name__ == "SubscriptionOperationExecutor"
     assert type(state._identity_executor).__name__ == "IdentityOperationExecutor"
     assert type(state._database_maintenance_executor).__name__ == "DatabaseMaintenanceExecutor"
-    assert events == ["supervisor.start"]
+    assert events == []
 
     runtime.close()
 
-    assert events == ["supervisor.start", "supervisor.stop", "container.close"]
+    assert events == ["container.close"]
     assert state._media_effects is None
     assert state._p5_media_tasks._compatibility is None
     assert state._p5_media_tasks._restore_mediainfo is None
     assert state._p6_p115_tasks is None
     assert state._p6_ingestion_tasks is None
+    assert state._ingestion_executor is None
+    assert state._ingestion_binding is None
+    assert state._ingestion_ingress is None
+    assert state._p115_upload_executor is None
+    assert state._native_operations is None
     assert state._p7_subscription_tasks is None
     assert state._p8_effect_tasks is None
     assert state._p9_sharing_tasks is None
     assert state._subscription_executor is None
     assert state._identity_executor is None
     assert state._database_maintenance_executor is None
-    assert persistent_p115_credential_gateway() is None
 
 
-def test_native_worker_start_failure_stops_supervisor_and_closes_container(monkeypatch) -> None:
+def test_native_worker_start_failure_closes_container(monkeypatch) -> None:
     events: list[str] = []
-    clear_persistent_p115_credential_gateway()
     monkeypatch.delenv("ETK_ENABLE_LEGACY_COMPATIBILITY", raising=False)
     database = SimpleNamespace(
         unit_of_work=lambda: None,
@@ -605,24 +619,17 @@ def test_native_worker_start_failure_stops_supervisor_and_closes_container(monke
     )
     config_adapter = SimpleNamespace(load=lambda: SimpleNamespace(emby_api_timeout=30))
 
-    class Supervisor:
-        def start(self, *, role: RuntimeRole, background: bool) -> None:
-            assert role is RuntimeRole.WORKER
-            assert background is False
-            events.append("supervisor.start")
-            raise RuntimeError("fixture native supervisor start failed")
-
-        def stop(self) -> None:
-            events.append("supervisor.stop")
-
     monkeypatch.setattr(worker_module, "_create_default_container", lambda _settings: (container, config_adapter))
-    monkeypatch.setattr(worker_module, "RuntimeSupervisor", Supervisor)
+    monkeypatch.setattr(
+        worker_module,
+        "PostgresJobStore",
+        lambda *_args, **_options: (_ for _ in ()).throw(RuntimeError("fixture native setup failed")),
+    )
 
-    with pytest.raises(RuntimeError, match="fixture native supervisor start failed"):
+    with pytest.raises(RuntimeError, match="fixture native setup failed"):
         WorkerRuntime(config=TaskRuntimeConfig()).start()
 
-    assert events == ["supervisor.start", "supervisor.stop", "container.close"]
-    assert persistent_p115_credential_gateway() is None
+    assert events == ["container.close"]
 
 
 def test_celery_rejects_and_requeues_delivery_after_sticky_shutdown(monkeypatch) -> None:
@@ -768,77 +775,30 @@ def test_worker_rejects_playback_before_start_after_shutdown_request(monkeypatch
     assert cast(Any, runtime)._p115_playback_executor is None
 
 
-def test_worker_shutdown_clears_p115_upload_source_cleanup(monkeypatch) -> None:
-    events: list[object] = []
-    cleanup_gateway = object()
+def test_worker_shutdown_clears_native_p115_upload_executor() -> None:
     runtime = WorkerRuntime(config=TaskRuntimeConfig())
     cast(Any, runtime)._started = True
-    cast(Any, runtime)._p115_upload_source_cleanup = cleanup_gateway
-    monkeypatch.setattr(
-        worker_module,
-        "clear_persistent_upload_source_cleanup",
-        lambda gateway: events.append(gateway),
-    )
+    cast(Any, runtime)._p115_upload_executor = object()
 
     runtime.close()
 
-    assert events == [cleanup_gateway]
-    assert cast(Any, runtime)._p115_upload_source_cleanup is None
+    assert cast(Any, runtime)._p115_upload_executor is None
     assert cast(Any, runtime)._started is False
 
 
-def test_worker_shutdown_clears_the_installed_playback_gateway() -> None:
-    from etk.compatibility.playback import (
-        clear_persistent_playback_gateway,
-        install_persistent_playback_gateway,
-        persistent_playback_gateway,
-    )
-
-    gateway = cast(Any, object())
+def test_worker_shutdown_clears_native_p115_playback_executor() -> None:
     runtime = WorkerRuntime(config=TaskRuntimeConfig())
     cast(Any, runtime)._started = True
-    cast(Any, runtime)._playback_gateway = gateway
-    clear_persistent_playback_gateway()
-    install_persistent_playback_gateway(gateway)
-    try:
-        runtime.close()
-        assert persistent_playback_gateway() is None
-        assert cast(Any, runtime)._playback_gateway is None
-        assert cast(Any, runtime)._started is False
-    finally:
-        clear_persistent_playback_gateway(gateway)
+    cast(Any, runtime)._p115_playback_executor = object()
+
+    runtime.close()
+
+    assert cast(Any, runtime)._p115_playback_executor is None
+    assert cast(Any, runtime)._started is False
 
 
-def test_coordinator_applies_upload_config_before_observer_and_clears_ingress_on_shutdown(
-    monkeypatch,
-) -> None:
-    import task_manager
-
+def test_coordinator_leader_starts_only_native_schedules_and_listener(monkeypatch) -> None:
     events: list[str] = []
-
-    class UploadIngress:
-        def ensure_config(self) -> None:
-            events.append("upload.ensure_config")
-
-        def enabled(self) -> bool:
-            return True
-
-    class IngestionCoordinator:
-        def synchronize_enabled(self, enabled: bool) -> None:
-            assert enabled is True
-            events.append("ingestion.synchronize")
-
-        def reset_enabled_state(self) -> None:
-            events.append("ingestion.reset")
-
-    class Supervisor:
-        def start(self, *, role: RuntimeRole, background: bool) -> None:
-            assert role is RuntimeRole.COORDINATOR
-            assert background is True
-            events.append("supervisor.start")
-
-        def stop(self) -> None:
-            events.append("supervisor.stop")
 
     class Schedules:
         def __init__(self, _service: object) -> None:
@@ -850,63 +810,28 @@ def test_coordinator_applies_upload_config_before_observer_and_clears_ingress_on
         def stop(self) -> None:
             events.append("schedules.stop")
 
+    manager = SimpleNamespace(
+        apply_listener_state=lambda: events.append("listener.apply"),
+        stop_listener=lambda: events.append("listener.stop"),
+    )
     runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
     runtime._service = cast(Any, object())
-    runtime._ingestion_ingress = cast(Any, object())
-    runtime._ingestion_coordinator = cast(Any, IngestionCoordinator())
-    runtime._p115_upload_ingress = cast(Any, UploadIngress())
-    runtime._p115_upload_coordinator = cast(Any, object())
-    runtime._config_adapter = cast(
-        Any,
-        SimpleNamespace(load=lambda: SimpleNamespace(monitor_enabled=True)),
-    )
-    runtime._supervisor = None
-    runtime._gateway = None
     runtime._schedules = None
+    cast(Any, runtime)._native_telegram_search_manager = manager
     runtime._refresh_settings = lambda *, force=False: events.append(f"refresh:{force}")  # type: ignore[method-assign]
 
-    monkeypatch.setattr(coordinator, "RuntimeSupervisor", Supervisor)
     monkeypatch.setattr(coordinator, "PersistentScheduleManager", Schedules)
-    monkeypatch.setattr(coordinator, "PersistentTaskManagerGateway", lambda _service: object())
-    monkeypatch.setattr(
-        coordinator,
-        "install_persistent_ingestion_ingress",
-        lambda _ingress: events.append("ingestion.install"),
-    )
-    monkeypatch.setattr(
-        coordinator,
-        "install_persistent_upload_monitor_ingress",
-        lambda _ingress: events.append("upload.install"),
-    )
-    monkeypatch.setattr(
-        coordinator,
-        "clear_persistent_ingestion_ingress",
-        lambda _ingress: events.append("ingestion.clear"),
-    )
-    monkeypatch.setattr(
-        coordinator,
-        "clear_persistent_upload_monitor_ingress",
-        lambda _ingress: events.append("upload.clear"),
-    )
-    monkeypatch.setattr(
-        task_manager,
-        "install_persistent_submission_gateway",
-        lambda _gateway: events.append("task.install"),
-    )
-    monkeypatch.setattr(
-        task_manager,
-        "clear_persistent_submission_gateway",
-        lambda _gateway: events.append("task.clear"),
-    )
 
-    runtime._become_leader()
-    runtime._shutdown_leader()
+    runtime._become_native_leader()
+    runtime._shutdown_native_leader()
 
-    assert events.index("upload.ensure_config") < events.index("upload.install")
-    assert events.index("upload.install") < events.index("supervisor.start")
-    assert events.index("supervisor.stop") < events.index("upload.clear")
-    assert events.count("upload.install") == 1
-    assert events.count("upload.clear") == 1
+    assert events == [
+        "schedules.start",
+        "refresh:True",
+        "listener.apply",
+        "listener.stop",
+        "schedules.stop",
+    ]
 
 
 def test_system_update_unsuccessful_result_is_not_marked_as_worker_success() -> None:
@@ -921,7 +846,7 @@ def test_system_update_unsuccessful_result_is_not_marked_as_worker_success() -> 
         _raise_for_reported_failure("populate-metadata", {"ok": False, "message": "domain-specific result"})
 
 
-def test_worker_refreshes_processor_snapshot_at_the_next_root_job_boundary() -> None:
+def test_worker_refreshes_native_settings_snapshot_at_the_next_root_job_boundary() -> None:
     class SettingsSnapshot:
         def __init__(self, values: dict[str, Any]) -> None:
             self.values = values
@@ -933,26 +858,14 @@ def test_worker_refreshes_processor_snapshot_at_the_next_root_job_boundary() -> 
         def load(self) -> SettingsSnapshot:
             return SettingsSnapshot({"task_chain_sequence": ["populate-metadata"]})
 
-    class Supervisor:
-        def __init__(self) -> None:
-            self.events: list[Any] = []
-
-        def stop(self) -> None:
-            self.events.append("stop")
-
-        def start(self, *, role: Any, background: bool) -> None:
-            self.events.append(("start", role, background))
-
     runtime = WorkerRuntime(config=TaskRuntimeConfig())
-    supervisor = Supervisor()
     cast(Any, runtime)._config_adapter = ConfigAdapter()
-    cast(Any, runtime)._supervisor = supervisor
     cast(Any, runtime)._last_settings = {"task_chain_sequence": []}
 
     runtime._refresh_settings()
     runtime._refresh_settings()
 
-    assert supervisor.events == ["stop", ("start", RuntimeRole.WORKER, False)]
+    assert cast(Any, runtime)._last_settings == {"task_chain_sequence": ["populate-metadata"]}
 
 
 def test_coordinator_runtime_context_reads_only_native_settings_owners(
@@ -1044,22 +957,74 @@ def test_coordinator_cron_normalizes_legacy_day_of_week_before_scheduling() -> N
     assert str(cleanup["trigger"].fields[4]) == "sun"
 
 
-def test_native_coordinator_schedules_only_processor_free_daily_tasks() -> None:
-    manager = PersistentScheduleManager(
-        cast(JobSubmissionService, object()),
-        native_only=True,
-    )
+def test_coordinator_schedules_one_processor_free_plan() -> None:
+    manager = PersistentScheduleManager(cast(JobSubmissionService, object()))
     scheduler = FakeScheduler()
     cast(Any, manager)._scheduler = scheduler
 
-    assert manager.sync({}, schedules_enabled=True)
+    assert manager.sync(
+        {
+            "task_chain_enabled": True,
+            "task_chain_cron": "0 6 * * *",
+            "task_chain_sequence": ["populate-metadata"],
+            "task_chain_low_freq_enabled": True,
+            "task_chain_low_freq_cron": "0 7 * * *",
+            "task_chain_low_freq_sequence": ["check-watchlist"],
+            "_shared_resource_enabled": True,
+            "_emby_server_id": "fixture-server",
+            "_p115_temp_cleanup_cron": "15 */2 * * *",
+        },
+        schedules_enabled=True,
+    )
 
     assert {job["id"] for job in scheduler.jobs} == {
+        "high_freq_task_chain_job",
+        "low_freq_task_chain_job",
         "daily_theme_job",
+        "shared_share_status_sync_job",
         "play_pool_daily_speedtest_job",
+        "p115_temp_dir_cleanup_job",
+        "pro_status_check_job",
+        "etk_plugin_update_startup_job",
     }
-    task_keys = {job["kwargs"]["task_key"] for job in scheduler.jobs}
-    assert task_keys == {"update-daily-theme", "play-pool-daily-speedtest"}
+    task_keys = {job["kwargs"]["task_key"] for job in scheduler.jobs if "task_key" in job["kwargs"]}
+    assert task_keys == {
+        "task-chain-high-freq",
+        "task-chain-low-freq",
+        "update-daily-theme",
+        "shared-share-status-sync",
+        "play-pool-daily-speedtest",
+    }
+    operation_keys = {job["kwargs"]["operation_key"] for job in scheduler.jobs if "operation_key" in job["kwargs"]}
+    assert operation_keys == {
+        "p115.temp-cleanup",
+        "system.pro-status-check",
+        "media.plugin-update-check",
+    }
+
+
+def test_coordinator_submits_scheduled_operations_by_native_key() -> None:
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    service = SimpleNamespace(
+        is_busy=lambda: False,
+        submit_native_operation=lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+    manager = PersistentScheduleManager(cast(Any, service))
+
+    manager._submit_operation(
+        operation_key="p115.temp-cleanup",
+        name="115播放临时目录清理",
+        schedule_id="p115_temp_dir_cleanup_job",
+        parameters={"older_than_hours": 3},
+    )
+
+    assert len(calls) == 1
+    args, options = calls[0]
+    assert args == ("p115.temp-cleanup", {"older_than_hours": 3})
+    assert options["display_name"] == "115播放临时目录清理"
+    assert options["trigger_type"] == "schedule"
+    assert options["idempotency_scope"] == "schedule:p115_temp_dir_cleanup_job"
+    assert options["max_attempts"] == 1
 
 
 def test_schedule_sync_validates_the_full_plan_before_replacing_jobs() -> None:
@@ -1186,7 +1151,7 @@ def test_coordinator_tick_filters_recovery_and_publish_to_job_dispatch_topic(mon
     runtime._publisher = cast(Any, object())
     runtime._publisher_id = "fixture-coordinator"
     monkeypatch.setattr(runtime, "_refresh_settings", lambda: None)
-    monkeypatch.setattr(runtime, "_process_telegram_commands", lambda: None)
+    monkeypatch.setattr(runtime, "_process_native_telegram_search_commands", lambda: None)
 
     runtime._tick()
 
@@ -1220,13 +1185,14 @@ def test_native_coordinator_tick_consumes_telegram_search_commands(monkeypatch) 
     runtime._publisher_id = "fixture-native-coordinator"
     runtime._config_adapter = cast(Any, SimpleNamespace(load=lambda: SimpleNamespace()))
     events: list[str] = []
+    monkeypatch.setattr(runtime, "_refresh_settings", lambda: None)
     monkeypatch.setattr(
         runtime,
         "_process_native_telegram_search_commands",
         lambda: events.append("telegram-search"),
     )
 
-    runtime._tick(compatibility=False)
+    runtime._tick()
 
     assert events == ["telegram-search"]
     assert store.publish_options is not None

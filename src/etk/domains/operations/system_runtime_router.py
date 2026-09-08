@@ -14,7 +14,6 @@ from etk.platform.jobs import JobStatus
 from etk.platform.web import PermissionPolicy, get_request_session
 
 from .jobs import JobSubmissionService, TaskBusyError
-from .system_runtime import run_system_restart_persistent
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/system", tags=["operations"])
@@ -86,11 +85,11 @@ def restart_system(request: Request) -> Any:
         return denied
     try:
         idempotency_key = str(request.headers.get("idempotency-key") or "").strip() or None
-        submitted = _jobs(request).submit_background_operation(
-            run_system_restart_persistent,
-            (),
+        submitted = _jobs(request).submit_native_operation(
+            "system.restart",
             {},
-            max_attempts=3,
+            display_name="重启 ETK API 服务",
+            trigger_type="system",
             timeout_seconds=180,
             idempotency_key=idempotency_key,
             idempotency_scope="api.system.restart" if idempotency_key else None,

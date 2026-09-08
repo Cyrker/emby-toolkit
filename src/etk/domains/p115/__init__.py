@@ -9,6 +9,9 @@ from .adapters import (
     LegacyP115RuleRecognitionGateway,
     LegacyP115SortingRuleDirectoryGateway,
     LegacyP115WashingPriorityConfigGateway,
+    NativeP115PlanNamingGateway,
+    NativeP115RenamePreviewGateway,
+    NativeP115RuleRecognitionGateway,
     P115ProviderError,
 )
 from .auth_directory import (
@@ -31,6 +34,12 @@ from .deep_delete import (
     P115DeepDeleteService,
     SqlAlchemyP115DeepDeleteSnapshotRepository,
 )
+from .deep_delete_adapters import (
+    NativeP115DeleteReadbackGateway,
+    NativeP115MediaCleanupReceiptGateway,
+    NativeP115SharedCleanupGateway,
+    SqlAlchemyP115DeepDeleteScopeGateway,
+)
 from .direct_url_transport import P115SdkDirectUrlGateway
 from .directory_sync import (
     P115DirectoryCacheEntry,
@@ -44,7 +53,9 @@ from .directory_sync import (
     P115TaskProgress,
 )
 from .directory_transport import (
+    HttpxP115DirectoryGateway,
     HttpxP115DirectoryTreeGateway,
+    HttpxP115SortingRuleDirectoryGateway,
     HttpxP115StrmSyncGateway,
     P115DirectoryCredentialChanged,
     P115DirectoryTransportError,
@@ -108,7 +119,7 @@ from .intro_runtime import (
     select_intro_provider_identity,
 )
 from .intro_sync import P115IntroSyncService
-from .intro_sync_adapters import LegacyP115IntroSnapshotExporter, LegacyP115IntroSyncFeature
+from .intro_sync_adapters import ConfiguredP115IntroSyncFeature, PersistentP115IntroSnapshotExporter
 from .iso_probe import (
     NativeP115IsoProbeGateway,
     P115IsoProbeLimits,
@@ -352,6 +363,7 @@ from .strm_sync_repository import SqlAlchemyP115StrmSyncRepository
 from .upload_adapters import (
     LegacyP115UploadProjection,
     LegacyP115UploadProvider,
+    NativeP115UploadProvider,
     NativeP115UploadSourceCleanupGateway,
 )
 from .upload_monitor import (
@@ -361,6 +373,7 @@ from .upload_monitor import (
     UploadMonitorControl,
     UploadOperation,
 )
+from .upload_projection import NativeP115UploadProjection, SqlAlchemyP115UploadProjectionRepository
 from .upload_repository import PostgresP115UploadMonitorRepository
 from .washing_priority import (
     P115_WASHING_PRIORITY_CONFIG_SETTING,
@@ -399,7 +412,9 @@ __all__ = [
     "HttpxP115FingerprintRemoteGateway",
     "HttpxP115BoundedDownloadGateway",
     "HttpxP115AuthorizationGateway",
+    "HttpxP115DirectoryGateway",
     "HttpxP115DirectoryTreeGateway",
+    "HttpxP115SortingRuleDirectoryGateway",
     "HttpxP115StrmSyncGateway",
     "HttpxP115OrganizeMutationGateway",
     "HttpxP115OrganizeReadbackGateway",
@@ -441,7 +456,15 @@ __all__ = [
     "NativeIntroPolicyAdapter",
     "NativeP115IsoProbeGateway",
     "NativeP115IntroDetectionGateway",
+    "NativeP115PlanNamingGateway",
+    "NativeP115RenamePreviewGateway",
+    "NativeP115RuleRecognitionGateway",
     "NativeP115IntroDirectUrlGateway",
+    "NativeP115DeleteReadbackGateway",
+    "NativeP115MediaCleanupReceiptGateway",
+    "NativeP115SharedCleanupGateway",
+    "NativeP115UploadProjection",
+    "NativeP115UploadProvider",
     "NativeP115UploadSourceCleanupGateway",
     "P115AuthDirectoryService",
     "P115_AUTH_TOKENS_SETTING",
@@ -627,6 +650,7 @@ __all__ = [
     "SqlAlchemyP115DirectoryCacheRepository",
     "SqlAlchemyP115CredentialRepository",
     "SqlAlchemyP115DeepDeleteSnapshotRepository",
+    "SqlAlchemyP115DeepDeleteScopeGateway",
     "SqlAlchemyP115EpisodeRegexRepository",
     "SqlAlchemyP115MediaInfoRepository",
     "SqlAlchemyP115MaintenanceRepository",
@@ -638,6 +662,7 @@ __all__ = [
     "SqlAlchemyP115StrmSyncRepository",
     "SqlAlchemyP115WashingPriorityRepository",
     "SqlAlchemyP115WashingRecalculationRepository",
+    "SqlAlchemyP115UploadProjectionRepository",
     "PostgresP115StrmSyncCoordinator",
     "PostgresP115IntroDetectionRepository",
     "PostgresP115PlaybackRepository",
@@ -672,8 +697,8 @@ __all__ = [
     "runtime_config_revision",
     "select_intro_provider_identity",
     "legacy_account_bound_direct_urls",
-    "LegacyP115IntroSnapshotExporter",
-    "LegacyP115IntroSyncFeature",
+    "ConfiguredP115IntroSyncFeature",
+    "PersistentP115IntroSnapshotExporter",
     "UploadedSource",
     "UploadMonitorControl",
     "UploadOperation",

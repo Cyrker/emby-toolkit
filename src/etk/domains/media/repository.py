@@ -82,6 +82,33 @@ class MediaRepository(Protocol):
 
     def load_setting(self, key: str) -> Any: ...
 
+    def original_language(self, identity: MediaIdentity) -> str: ...
+
+    def replace_cached_images(
+        self,
+        requested_type: MediaItemType,
+        identity: MediaIdentity,
+        *,
+        root_images: Mapping[str, str | None] | None = None,
+        season_posters: Mapping[int, str | None] | None = None,
+        episode_still: str | None = None,
+    ) -> int: ...
+
+    def record_episode_screenshot(
+        self,
+        series_tmdb_id: str,
+        season_number: int,
+        episode_number: int,
+        content_hash: str,
+    ) -> bool: ...
+
+    def clear_episode_screenshot(
+        self,
+        series_tmdb_id: str,
+        season_number: int,
+        episode_number: int,
+    ) -> bool: ...
+
     def get_image_policy(self, key: ImagePolicyKey) -> ImagePolicyRecord | None: ...
 
     def replace_image_policy(
@@ -92,6 +119,15 @@ class MediaRepository(Protocol):
     ) -> tuple[Mapping[str, Any], ...]: ...
 
     def source_is_referenced(self, source_url: str) -> bool: ...
+
+    def update_cached_image_path(
+        self,
+        identity: MediaIdentity,
+        image_type: str,
+        value: str,
+    ) -> int: ...
+
+    def sync_emby_metadata(self, item_id: str, item: Mapping[str, Any]) -> bool: ...
 
     def bind_emby_item(
         self,
@@ -317,7 +353,8 @@ class SqlAlchemyMediaRepository:
                 uow.session.execute(
                     text(
                         """
-                        SELECT tmdb_id, item_type, parent_series_tmdb_id, season_number, episode_number
+                        SELECT tmdb_id, item_type, parent_series_tmdb_id, season_number, episode_number,
+                               official_rating_json
                         FROM media_metadata
                         WHERE jsonb_exists(emby_item_ids_json, :item_id)
                         ORDER BY last_updated_at DESC NULLS LAST
@@ -616,6 +653,214 @@ class SqlAlchemyMediaRepository:
                 {"key": str(key)},
             )
 
+    def original_language(self, identity: MediaIdentity) -> str:
+        item_type = MediaItemType.MOVIE.value if identity.media_type == "movie" else MediaItemType.SERIES.value
+        with self._unit_of_work() as uow:
+            value = uow.session.scalar(
+                text(
+                    """
+                    SELECT original_language
+                    FROM media_metadata
+                    WHERE tmdb_id = :tmdb_id AND item_type = :item_type
+                    """
+                ),
+                {"tmdb_id": identity.tmdb_id, "item_type": item_type},
+            )
+        return str(value or "").strip()
+
+    def replace_cached_images(
+        self,
+        requested_type: MediaItemType,
+        identity: MediaIdentity,
+        *,
+        root_images: Mapping[str, str | None] | None = None,
+        season_posters: Mapping[int, str | None] | None = None,
+        episode_still: str | None = None,
+    ) -> int:
+        updated = 0
+        with self._unit_of_work() as uow:
+            if requested_type is MediaItemType.BOXSET and root_images is not None:
+                result = uow.session.execute(
+                    text(
+                        """
+                        UPDATE collections_info
+                        SET poster_path = :poster,
+                            backdrop_path = :backdrop,
+                            last_checked_at = NOW()
+                        WHERE tmdb_collection_id = :tmdb_id
+                        """
+                    ),
+                    {
+                        "poster": root_images.get("poster"),
+                        "backdrop": root_images.get("backdrop"),
+                        "tmdb_id": identity.tmdb_id,
+                    },
+                )
+                updated += int(getattr(result, "rowcount", 0) or 0)
+            elif requested_type in {MediaItemType.MOVIE, MediaItemType.SERIES} and root_images is not None:
+                result = uow.session.execute(
+                    text(
+                        """
+                        UPDATE media_metadata
+                        SET poster_path = :poster,
+                            backdrop_path = :backdrop,
+                            logo_path = :logo,
+                            thumb_path = :thumb,
+                            last_updated_at = NOW()
+                        WHERE tmdb_id = :tmdb_id AND item_type = :item_type
+                        """
+                    ),
+                    {
+                        "poster": root_images.get("poster"),
+                        "backdrop": root_images.get("backdrop"),
+                        "logo": root_images.get("logo"),
+                        "thumb": root_images.get("thumb"),
+                        "tmdb_id": identity.tmdb_id,
+                        "item_type": requested_type.value,
+                    },
+                )
+                updated += int(getattr(result, "rowcount", 0) or 0)
+                if requested_type is MediaItemType.SERIES and season_posters is not None:
+                    uow.session.execute(
+                        text(
+                            """
+                            UPDATE media_metadata
+                            SET poster_path = NULL, last_updated_at = NOW()
+                            WHERE parent_series_tmdb_id = :tmdb_id AND item_type = 'Season'
+                            """
+                        ),
+                        {"tmdb_id": identity.tmdb_id},
+                    )
+                    for number, poster_path in season_posters.items():
+                        result = uow.session.execute(
+                            text(
+                                """
+                                UPDATE media_metadata
+                                SET poster_path = :poster_path, last_updated_at = NOW()
+                                WHERE parent_series_tmdb_id = :tmdb_id
+                                  AND item_type = 'Season'
+                                  AND season_number = :season_number
+                                """
+                            ),
+                            {
+                                "poster_path": poster_path,
+                                "tmdb_id": identity.tmdb_id,
+                                "season_number": int(number),
+                            },
+                        )
+                        updated += int(getattr(result, "rowcount", 0) or 0)
+            elif requested_type is MediaItemType.SEASON and identity.season_number is not None:
+                result = uow.session.execute(
+                    text(
+                        """
+                        UPDATE media_metadata
+                        SET poster_path = :poster_path, last_updated_at = NOW()
+                        WHERE parent_series_tmdb_id = :tmdb_id
+                          AND item_type = 'Season'
+                          AND season_number = :season_number
+                        """
+                    ),
+                    {
+                        "poster_path": (season_posters or {}).get(identity.season_number),
+                        "tmdb_id": identity.tmdb_id,
+                        "season_number": identity.season_number,
+                    },
+                )
+                updated += int(getattr(result, "rowcount", 0) or 0)
+            elif (
+                requested_type is MediaItemType.EPISODE
+                and identity.season_number is not None
+                and identity.episode_number is not None
+            ):
+                result = uow.session.execute(
+                    text(
+                        """
+                        UPDATE media_metadata
+                        SET poster_path = :episode_still,
+                            backdrop_path = :episode_still,
+                            logo_path = NULL,
+                            thumb_path = :episode_still,
+                            last_updated_at = NOW()
+                        WHERE parent_series_tmdb_id = :tmdb_id
+                          AND item_type = 'Episode'
+                          AND season_number = :season_number
+                          AND episode_number = :episode_number
+                        """
+                    ),
+                    {
+                        "episode_still": episode_still,
+                        "tmdb_id": identity.tmdb_id,
+                        "season_number": identity.season_number,
+                        "episode_number": identity.episode_number,
+                    },
+                )
+                updated += int(getattr(result, "rowcount", 0) or 0)
+            if updated:
+                uow.commit()
+        return updated
+
+    def record_episode_screenshot(
+        self,
+        series_tmdb_id: str,
+        season_number: int,
+        episode_number: int,
+        content_hash: str,
+    ) -> bool:
+        with self._unit_of_work() as uow:
+            result = uow.session.execute(
+                text(
+                    """
+                    UPDATE media_metadata
+                    SET screenshot_hash = :content_hash, last_updated_at = NOW()
+                    WHERE parent_series_tmdb_id = :tmdb_id
+                      AND item_type = 'Episode'
+                      AND season_number = :season_number
+                      AND episode_number = :episode_number
+                      AND (poster_path IS NULL OR btrim(poster_path) = '')
+                    """
+                ),
+                {
+                    "content_hash": str(content_hash or "").strip().lower(),
+                    "tmdb_id": str(series_tmdb_id or "").strip(),
+                    "season_number": int(season_number),
+                    "episode_number": int(episode_number),
+                },
+            )
+            changed = bool(int(getattr(result, "rowcount", 0) or 0))
+            if changed:
+                uow.commit()
+        return changed
+
+    def clear_episode_screenshot(
+        self,
+        series_tmdb_id: str,
+        season_number: int,
+        episode_number: int,
+    ) -> bool:
+        with self._unit_of_work() as uow:
+            result = uow.session.execute(
+                text(
+                    """
+                    UPDATE media_metadata
+                    SET screenshot_hash = NULL, last_updated_at = NOW()
+                    WHERE parent_series_tmdb_id = :tmdb_id
+                      AND item_type = 'Episode'
+                      AND season_number = :season_number
+                      AND episode_number = :episode_number
+                      AND screenshot_hash IS NOT NULL
+                    """
+                ),
+                {
+                    "tmdb_id": str(series_tmdb_id or "").strip(),
+                    "season_number": int(season_number),
+                    "episode_number": int(episode_number),
+                },
+            )
+            changed = bool(int(getattr(result, "rowcount", 0) or 0))
+            if changed:
+                uow.commit()
+        return changed
+
     def get_image_policy(self, key: ImagePolicyKey) -> ImagePolicyRecord | None:
         with self._unit_of_work() as uow:
             row = (
@@ -725,6 +970,116 @@ class SqlAlchemyMediaRepository:
                 {"value": json.dumps([{"source_url": str(source_url or "").strip()}])},
             )
         return bool(value)
+
+    def update_cached_image_path(
+        self,
+        identity: MediaIdentity,
+        image_type: str,
+        value: str,
+    ) -> int:
+        column = {
+            "Primary": "poster_path",
+            "Backdrop": "backdrop_path",
+            "Logo": "logo_path",
+            "Thumb": "thumb_path",
+        }.get(str(image_type or "").strip().title())
+        if column is None:
+            return 0
+        parameters: dict[str, Any] = {
+            "tmdb_id": identity.tmdb_id,
+            "value": str(value or ""),
+        }
+        if identity.item_type in {MediaItemType.MOVIE, MediaItemType.SERIES}:
+            where = "tmdb_id = :tmdb_id AND item_type = :item_type"
+            parameters["item_type"] = identity.item_type.value
+        elif identity.item_type is MediaItemType.SEASON:
+            where = "parent_series_tmdb_id = :tmdb_id AND item_type = 'Season' AND season_number = :season_number"
+            parameters["season_number"] = identity.season_number
+        elif identity.item_type is MediaItemType.EPISODE:
+            where = (
+                "parent_series_tmdb_id = :tmdb_id AND item_type = 'Episode' "
+                "AND season_number = :season_number AND episode_number = :episode_number"
+            )
+            parameters["season_number"] = identity.season_number
+            parameters["episode_number"] = identity.episode_number
+        else:
+            return 0
+        with self._unit_of_work() as uow:
+            result = uow.session.execute(
+                text(f"UPDATE media_metadata SET {column} = :value, last_updated_at = NOW() WHERE {where}"),
+                parameters,
+            )
+            count = int(getattr(result, "rowcount", 0) or 0)
+            if count:
+                uow.commit()
+        return count
+
+    def sync_emby_metadata(self, item_id: str, item: Mapping[str, Any]) -> bool:
+        normalized_id = str(item_id or "").strip()
+        if not normalized_id:
+            return False
+        with self._unit_of_work() as uow:
+            row = (
+                uow.session.execute(
+                    text(
+                        """
+                        SELECT tmdb_id, item_type, parent_series_tmdb_id, season_number, episode_number
+                        FROM media_metadata
+                        WHERE emby_item_ids_json @> CAST(:ids AS jsonb)
+                        ORDER BY last_updated_at DESC NULLS LAST
+                        """
+                    ),
+                    {"ids": json.dumps([normalized_id])},
+                )
+                .mappings()
+                .all()
+            )
+            if len(row) != 1:
+                return False
+            target = row[0]
+            official_ratings = _json_mapping(target.get("official_rating_json"))
+            if "OfficialRating" in item:
+                official_ratings["US"] = str(item.get("OfficialRating") or "")
+            values = {
+                "title": item.get("Name"),
+                "original_title": item.get("OriginalTitle"),
+                "overview": item.get("Overview"),
+                "release_date": str(item.get("PremiereDate") or "").strip() or None,
+                "release_year": _optional_integer(item.get("ProductionYear")),
+                "official_rating_json": json.dumps(official_ratings, ensure_ascii=False),
+                "custom_rating": item.get("CustomRating"),
+                "tags_json": json.dumps(_emby_tag_names(item), ensure_ascii=False),
+                "tmdb_id": target["tmdb_id"],
+                "item_type": target["item_type"],
+                "season_number": target["season_number"],
+                "episode_number": target["episode_number"],
+            }
+            updated = uow.session.execute(
+                text(
+                    """
+                    UPDATE media_metadata
+                    SET title = :title,
+                        original_title = :original_title,
+                        overview = :overview,
+                        release_date = COALESCE(CAST(:release_date AS date), release_date),
+                        release_year = COALESCE(:release_year, release_year),
+                        official_rating_json = CAST(:official_rating_json AS jsonb),
+                        custom_rating = :custom_rating,
+                        tags_json = CAST(:tags_json AS jsonb),
+                        last_synced_at = NOW(),
+                        last_updated_at = NOW()
+                    WHERE tmdb_id = :tmdb_id
+                      AND item_type = :item_type
+                      AND season_number IS NOT DISTINCT FROM :season_number
+                      AND episode_number IS NOT DISTINCT FROM :episode_number
+                    """
+                ),
+                values,
+            )
+            changed = int(getattr(updated, "rowcount", 0) or 0) == 1
+            if changed:
+                uow.commit()
+        return changed
 
     def bind_emby_item(
         self,
@@ -1302,6 +1657,24 @@ def _image_key_parameters(key: ImagePolicyKey) -> dict[str, Any]:
 
 def _json_list(value: Any) -> list[Any]:
     return list(value) if isinstance(value, list) else []
+
+
+def _json_mapping(value: Any) -> dict[str, Any]:
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
+def _emby_tag_names(item: Mapping[str, Any]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    values = [*_json_list(item.get("Tags")), *_json_list(item.get("TagItems"))]
+    for value in values:
+        raw = value.get("Name") if isinstance(value, Mapping) else value
+        name = str(raw or "").strip()
+        key = name.casefold()
+        if name and key not in seen:
+            seen.add(key)
+            result.append(name)
+    return result
 
 
 def _mapping(value: Any) -> dict[str, Any]:

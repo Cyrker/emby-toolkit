@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
-import sys
 import threading
 from collections.abc import Callable, Mapping
 from enum import StrEnum
@@ -48,10 +46,6 @@ class RuntimeAdapter(Protocol):
 
 
 def _default_adapter_factory() -> RuntimeAdapter:
-    if os.environ.get("ETK_ENABLE_LEGACY_COMPATIBILITY", "").strip().casefold() in {"1", "true", "yes", "on"}:
-        from .legacy_runtime import LegacyRuntimeAdapter
-
-        return LegacyRuntimeAdapter()
     return NativeRuntimeAdapter()
 
 
@@ -79,7 +73,7 @@ class NativeRuntimeAdapter:
 
 
 class RuntimeSupervisor:
-    """Own the compatibility runtime lifecycle without importing it at module load."""
+    """Own the process-local native runtime lifecycle."""
 
     def __init__(self, adapter_factory: Callable[[], RuntimeAdapter] | None = None):
         self._adapter_factory = adapter_factory or _default_adapter_factory
@@ -250,22 +244,7 @@ _SUPERVISOR: RuntimeSupervisor | None = None
 
 
 def get_runtime_supervisor() -> RuntimeSupervisor:
-    """Return a context-injected supervisor without importing Flask in native mode."""
-    # Flask is a development-only dependency in the native profile.  When a
-    # compatibility application is already active (or a legacy unit test has
-    # imported Flask), inspect the loaded module instead of importing it here.
-    flask_module = sys.modules.get("flask")
-    if flask_module is not None:
-        try:
-            current_app = flask_module.current_app
-            injected = current_app.extensions.get("etk_runtime_supervisor")
-            if isinstance(injected, RuntimeSupervisor):
-                return injected
-            if injected is not None:
-                return injected
-        except RuntimeError:
-            pass
-
+    """Return the process-local native runtime supervisor."""
     global _SUPERVISOR
     with _SUPERVISOR_LOCK:
         if _SUPERVISOR is None:

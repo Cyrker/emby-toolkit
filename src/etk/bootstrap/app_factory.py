@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -13,26 +12,9 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, Response
 from starlette.staticfiles import StaticFiles
 
-from etk.compatibility.disabled import DisabledCompatibilityApplication
-from etk.compatibility.intro_detection import (
-    LazyPersistentIntroDetectionGateway,
-    clear_persistent_intro_detection_gateway,
-    install_persistent_intro_detection_gateway,
-)
-from etk.compatibility.p115_credentials import (
-    LazyPersistentP115CredentialGateway,
-    clear_persistent_p115_credential_gateway,
-    install_persistent_p115_credential_gateway,
-    invalidate_legacy_p115_credential_clients,
-)
 from etk.compatibility.persistent_runtime_state import (
     PersistentRuntimeStateStore,
     PostgresRuntimeStateBackend,
-)
-from etk.compatibility.playback import (
-    NativePlaybackCompatibilityGateway,
-    clear_persistent_playback_gateway,
-    install_persistent_playback_gateway,
 )
 from etk.compatibility.response_contract import fastapi_json_response
 from etk.compatibility.tg_control_bridge import TelegramControlBridge
@@ -56,8 +38,8 @@ from etk.domains.collection.query_adapters import HttpxCollectionQueryAdapter
 from etk.domains.collection.router import effects_router as collection_effects_router
 from etk.domains.collection.router import router as collection_router
 from etk.domains.identity import (
+    HttpxEmbyIdentityGateway,
     IdentityService,
-    LegacyEmbyIdentityGateway,
     PersistentPostAuthorizationSubmitter,
     RuntimeConfigurationWriter,
     SqlAlchemyCollectionUserProjection,
@@ -90,21 +72,18 @@ from etk.domains.ingestion import PostgresIngestionMonitorLedger
 from etk.domains.media.actor_subscription_projection import SqlAlchemyActorSubscriptionProjection
 from etk.domains.media.bridge_client import HttpxEmbyBridgeClient, HttpxPluginUpdateGateway
 from etk.domains.media.cast_editor import MediaCastEditorService
-from etk.domains.media.cast_editor_compatibility import LegacyMediaCastEditorGateway
+from etk.domains.media.cast_editor_adapters import (
+    HttpxMediaCastEditorGateway,
+    SqlAlchemyCastEditorRepository,
+)
 from etk.domains.media.cast_editor_router import router as media_cast_editor_router
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
 from etk.domains.media.collection_projection import SqlAlchemyCollectionMediaProjection
-from etk.domains.media.compatibility import (
-    LegacyMediaImageGateway,
-    LegacyMediaMappingDefaults,
-    LegacyMediaRuntimeGateway,
-    LegacyP5MediaEventGateway,
-)
 from etk.domains.media.daily_theme import DailyThemeService
 from etk.domains.media.daily_theme_repository import SqlAlchemyDailyThemeRepository
 from etk.domains.media.discover import DiscoverService
 from etk.domains.media.discover_adapters import HttpxDiscoverProviderAdapter
-from etk.domains.media.discover_compatibility import LegacyDiscoverDefaults
+from etk.domains.media.discover_defaults import StaticDiscoverDefaults
 from etk.domains.media.discover_effects import DiscoverEffectsService
 from etk.domains.media.discover_projection import SqlAlchemyDiscoverProjection
 from etk.domains.media.discover_router import effects_router as discover_effects_router
@@ -113,18 +92,21 @@ from etk.domains.media.editing import MediaEditingService
 from etk.domains.media.editing_effects import PersistentMediaInfoCommandGateway
 from etk.domains.media.editing_router import router as media_editing_router
 from etk.domains.media.effects import PostgresMediaEffectLedger
+from etk.domains.media.event_adapters import HttpxP5MediaEventProvider, NativeP5MediaEventGateway
 from etk.domains.media.event_effects import PersistentP5MediaEventGateway
 from etk.domains.media.future_events import (
     P8CollectionRemovalEventGateway,
     P8FutureDomainEventGateway,
 )
+from etk.domains.media.image_adapters import HttpxMediaImageGateway, StaticMediaMappingDefaults
 from etk.domains.media.image_editing import MediaImageEditingService
-from etk.domains.media.image_editing_compatibility import LegacyMediaImageEditingGateway
+from etk.domains.media.image_editing_adapters import HttpxMediaImageEditingGateway
 from etk.domains.media.image_editing_effects import PersistentMediaImageEditingGateway
 from etk.domains.media.image_editing_router import router as media_image_editing_router
 from etk.domains.media.image_proxy import MediaImageProxyService
-from etk.domains.media.image_proxy_compatibility import LegacyMediaImageProxyGateway
+from etk.domains.media.image_proxy_adapters import HttpxMediaImageProxyGateway
 from etk.domains.media.image_proxy_router import router as media_image_proxy_router
+from etk.domains.media.image_store import SqlAlchemyMediaImageStore
 from etk.domains.media.repository import SqlAlchemyMediaRepository
 from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
 from etk.domains.media.router import router as media_router
@@ -149,7 +131,7 @@ from etk.domains.operations.database_router import router as database_read_route
 from etk.domains.operations.job_router import router as job_router
 from etk.domains.operations.jobs import (
     JobSubmissionService,
-    LegacyProcessorReadiness,
+    PersistentRuntimeReadiness,
     PersistentRuntimeStatusReader,
 )
 from etk.domains.operations.log_router import router as log_router
@@ -164,22 +146,20 @@ from etk.domains.operations.runtime_router import router as runtime_query_router
 from etk.domains.operations.system_runtime_router import router as system_runtime_router
 from etk.domains.p115 import (
     AtomicP115LocalStrmLibraryGateway,
+    ConfiguredP115IntroSyncFeature,
     HttpxEmbyIntroFavoriteGateway,
     HttpxP115AuthorizationGateway,
     HttpxP115BoundedDownloadGateway,
     HttpxP115BridgeEmbyGateway,
+    HttpxP115DirectoryGateway,
+    HttpxP115DirectoryTreeGateway,
     HttpxP115OrganizeMutationGateway,
+    HttpxP115SortingRuleDirectoryGateway,
     IntroDetectionSubmissionService,
-    LegacyP115DeepDeleteScopeGateway,
-    LegacyP115DirectoryGateway,
-    LegacyP115DirectoryTreeGateway,
-    LegacyP115IntroSnapshotExporter,
-    LegacyP115IntroSyncFeature,
-    LegacyP115PlanNamingGateway,
-    LegacyP115RenamePreviewGateway,
-    LegacyP115RuleRecognitionGateway,
-    LegacyP115SortingRuleDirectoryGateway,
     NativeP115IntroDetectionGateway,
+    NativeP115PlanNamingGateway,
+    NativeP115RenamePreviewGateway,
+    NativeP115RuleRecognitionGateway,
     OsP115LocalDirectoryBrowser,
     P115AuthDirectoryService,
     P115DeepDeleteJobGateway,
@@ -207,11 +187,13 @@ from etk.domains.p115 import (
     P115SpeedtestService,
     P115StrmReplaceService,
     P115WashingPriorityService,
+    PersistentP115IntroSnapshotExporter,
     PostgresP115IntroDetectionRepository,
     PostgresP115IntroRuntimeSource,
     PostgresP115PlaybackRepository,
     PostgresP115StrmSyncCoordinator,
     SqlAlchemyP115CredentialRepository,
+    SqlAlchemyP115DeepDeleteScopeGateway,
     SqlAlchemyP115DeepDeleteSnapshotRepository,
     SqlAlchemyP115EpisodeRegexRepository,
     SqlAlchemyP115MaintenanceRepository,
@@ -261,13 +243,13 @@ from etk.domains.subscription.adapters import (
     ConfiguredResubscribePolicy,
     ConfiguredSubscriptionAvailabilityGateway,
     HttpxEmbyItemDeletionGateway,
-    LegacyAssistantDefaultsAdapter,
     NativeActorRuntimeGateway,
     NativeActorSearchGateway,
     NativeWatchlistExternalDeleteGateway,
     PersistentActorRefreshGateway,
     PersistentResubscribeTaskGateway,
     PersistentWatchlistRefreshGateway,
+    StaticAssistantDefaults,
 )
 from etk.domains.subscription.cleanup import CleanupService
 from etk.domains.subscription.cleanup_adapters import SettingsCleanupExecutionPolicy
@@ -315,8 +297,8 @@ from etk.domains.subscription.resubscribe_router import router as resubscribe_ro
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
 from etk.domains.subscription.watchlist import WatchlistService
 from etk.domains.subscription.watchlist_router import router as watchlist_router
-from etk.domains.system.compatibility import LegacyConfigurationGateway
 from etk.domains.system.configuration import ConfigurationService
+from etk.domains.system.configuration_adapters import HttpxConfigurationGateway
 from etk.domains.system.configuration_router import router as configuration_router
 from etk.domains.system.integration_compatibility import HttpxSystemIntegrationGateway
 from etk.domains.system.integration_router import router as system_integration_router
@@ -327,6 +309,7 @@ from etk.domains.system.standalone import (
     StandaloneSettingsService,
 )
 from etk.domains.system.standalone_router import router as standalone_settings_router
+from etk.domains.translation import ConfiguredBatchTranslation, SqlAlchemyTranslationCache
 from etk.integrations import (
     DurableTelegramUserBotAdapter,
     HttpxHDHiveAdapter,
@@ -339,7 +322,7 @@ from etk.platform.observability import MetricsMiddleware, TraceIdMiddleware, get
 from etk.platform.tasks import TaskRegistry
 from etk.platform.web import CookieSessionMiddleware
 from etk.platform.web.session_codec import LazyNativeSessionCodec
-from etk.processes.p6_ingestion import LegacyIngestionBindingDelivery, PersistentPendingBindingGateway
+from etk.processes.p6_ingestion import NativeIngestionBindingDelivery, PersistentPendingBindingGateway
 from etk.processes.p6_playback import P115PlaybackOperationExecutor
 from etk.processes.p8_identity import identity_operation_claim_lease_seconds
 
@@ -381,60 +364,14 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        persistent_gateway = None
-        background_gateway = None
-        playback_gateway = None
-        intro_detection_gateway = None
-        p115_credential_gateway = None
         try:
             if start_runtime:
-                if compatibility_enabled:
-                    from etk.compatibility.background import (
-                        PersistentBackgroundGateway,
-                        install_persistent_background_gateway,
-                    )
-                    from etk.compatibility.persistent_tasks import LazyPersistentTaskManagerGateway
-                    from task_manager import install_persistent_submission_gateway
-
-                    persistent_gateway = LazyPersistentTaskManagerGateway(
-                        lambda: app_container.use_case("operations.jobs")
-                    )
-                    background_gateway = PersistentBackgroundGateway(lambda: app_container.use_case("operations.jobs"))
-                    install_persistent_submission_gateway(persistent_gateway)
-                    install_persistent_background_gateway(background_gateway)
-                playback_gateway = NativePlaybackCompatibilityGateway(lambda: app_container.use_case("p115.playback"))
-                intro_detection_gateway = LazyPersistentIntroDetectionGateway(
-                    lambda: app_container.use_case("p115.intro-detection-gateway")
-                )
-                p115_credential_gateway = LazyPersistentP115CredentialGateway(
-                    lambda: app_container.repository("p115.credentials")
-                )
-                install_persistent_p115_credential_gateway(p115_credential_gateway)
-                install_persistent_playback_gateway(playback_gateway)
-                install_persistent_intro_detection_gateway(intro_detection_gateway)
                 runtime.start(role=RuntimeRole.API, background=False)
             yield
         finally:
             try:
-                try:
-                    if background_gateway is not None:
-                        from etk.compatibility.background import clear_persistent_background_gateway
-
-                        clear_persistent_background_gateway(background_gateway)
-                    if playback_gateway is not None:
-                        clear_persistent_playback_gateway(playback_gateway)
-                    if intro_detection_gateway is not None:
-                        clear_persistent_intro_detection_gateway(intro_detection_gateway)
-                    if p115_credential_gateway is not None:
-                        clear_persistent_p115_credential_gateway(p115_credential_gateway)
-                    if persistent_gateway is not None:
-                        if compatibility_enabled:
-                            from task_manager import clear_persistent_submission_gateway
-
-                            clear_persistent_submission_gateway(persistent_gateway)
-                finally:
-                    if start_runtime:
-                        runtime.stop()
+                if start_runtime:
+                    runtime.stop()
             finally:
                 app_container.close()
 
@@ -458,23 +395,8 @@ def create_app(
             runtime=runtime,
         )
 
-    compatibility_enabled = _legacy_compatibility_enabled()
-    compatibility_app: Any = DisabledCompatibilityApplication()
-    if compatibility_enabled:
-        from etk.compatibility.flask_app import LazyCompatibilityApplication, create_flask_app
-
-        compatibility_app = LazyCompatibilityApplication(
-            partial(
-                create_flask_app,
-                static_dir=static_dir,
-                data_dir=data_dir,
-                secret_key=secret_key,
-                supervisor=runtime,
-                configuration_synchronizer=configuration_synchronizer,
-            )
-        )
     if owns_container:
-        _register_media_providers(app_container, compatibility_app)
+        _register_media_providers(app_container, _resolve_data_dir(data_dir))
         _register_subscription_providers(app_container)
     app.state.runtime_supervisor = runtime
     app.state.container = app_container
@@ -555,34 +477,24 @@ def create_app(
     def prometheus_metrics() -> Any:
         return metrics_response()
 
-    app.state.compatibility_app = compatibility_app
+    resolved_static = (static_dir or _default_static_dir()).resolve()
+    assets_dir = resolved_static / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+    if resolved_static.is_dir():
+        app.mount("/static", StaticFiles(directory=resolved_static), name="static")
 
-    if compatibility_enabled:
-        # Explicit migration-only opt-in; the native profile has no WSGI fallback.
-        app.mount("/", compatibility_app, name="legacy-compatibility")
-    else:
-        resolved_static = (static_dir or _default_static_dir()).resolve()
-        assets_dir = resolved_static / "assets"
-        if assets_dir.is_dir():
-            app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-        if resolved_static.is_dir():
-            app.mount("/static", StaticFiles(directory=resolved_static), name="static")
-
-        @app.get("/{path:path}", include_in_schema=False)
-        async def spa_fallback(path: str) -> Response:
-            candidate = resolved_static / path
-            if path and candidate.is_file() and resolved_static in candidate.parents:
-                return FileResponse(candidate)
-            index = resolved_static / "index.html"
-            if index.is_file():
-                return FileResponse(index)
-            return Response(status_code=404)
+    @app.get("/{path:path}", include_in_schema=False)
+    async def spa_fallback(path: str) -> Response:
+        candidate = resolved_static / path
+        if path and candidate.is_file() and resolved_static in candidate.parents:
+            return FileResponse(candidate)
+        index = resolved_static / "index.html"
+        if index.is_file():
+            return FileResponse(index)
+        return Response(status_code=404)
 
     return app
-
-
-def _legacy_compatibility_enabled() -> bool:
-    return os.environ.get("ETK_ENABLE_LEGACY_COMPATIBILITY", "").strip().casefold() in {"1", "true", "yes", "on"}
 
 
 def _create_default_container(data_dir: Path | None) -> tuple[AppContainer, LegacyConfigAdapter]:
@@ -618,7 +530,10 @@ def _register_identity_providers(
             lambda: current.database.unit_of_work(),
         ),
     )
-    container.register_client("identity", lambda _: LegacyEmbyIdentityGateway())
+    container.register_client(
+        "identity",
+        lambda current: HttpxEmbyIdentityGateway(lambda: current.settings),
+    )
     container.register_use_case(
         "identity",
         lambda current: IdentityService(
@@ -661,7 +576,7 @@ def _register_job_providers(container: AppContainer) -> None:
             current.use_case("operations.jobs"),
         ),
     )
-    container.register_client("operations.job-readiness", lambda _: LegacyProcessorReadiness())
+    container.register_client("operations.job-readiness", lambda _: PersistentRuntimeReadiness())
 
 
 def _register_log_providers(container: AppContainer, data_dir: Path | None) -> None:
@@ -727,7 +642,13 @@ def _register_system_providers(
             lambda: current.database.unit_of_work(),
         ),
     )
-    container.register_client("system-configuration", lambda _: LegacyConfigurationGateway())
+    container.register_client(
+        "system-configuration",
+        lambda current: HttpxConfigurationGateway(
+            lambda: current.settings,
+            current.repository("app-settings"),
+        ),
+    )
     container.register_use_case(
         "system-configuration",
         lambda current: ConfigurationService(
@@ -747,7 +668,10 @@ def _register_system_providers(
     )
     container.register_client(
         "system-integrations",
-        lambda current: HttpxSystemIntegrationGateway(lambda: current.settings),
+        lambda current: HttpxSystemIntegrationGateway(
+            lambda: current.settings,
+            current.repository("app-settings"),
+        ),
     )
     container.register_use_case(
         "system-integrations",
@@ -918,7 +842,7 @@ def _register_users_providers(container: AppContainer) -> None:
             current.use_case("operations.jobs"),
         ),
     )
-    container.register_client("media.discover-defaults", lambda _: LegacyDiscoverDefaults())
+    container.register_client("media.discover-defaults", lambda _: StaticDiscoverDefaults())
     container.register_client(
         "media.discover-provider",
         lambda current: HttpxDiscoverProviderAdapter(lambda: current.settings),
@@ -1054,7 +978,7 @@ def _register_sharing_providers(container: AppContainer) -> None:
 
 def _register_media_providers(
     container: AppContainer,
-    compatibility_app: Any,
+    data_root: Path,
 ) -> None:
     container.register_repository(
         "media",
@@ -1070,18 +994,31 @@ def _register_media_providers(
     )
     container.register_client(
         "media-images",
-        lambda current: LegacyMediaImageGateway(lambda: current.settings),
+        lambda current: HttpxMediaImageGateway(
+            lambda: current.settings,
+            current.repository("media"),
+            current.repository("media-image-store"),
+            HttpxP5MediaEventProvider(lambda: current.settings),
+            lambda tmdb_id: current.client("collection.effects").stage_missing_cleanup(tmdb_id),
+        ),
     )
     container.register_client(
-        "media-p5-events-legacy",
-        lambda _: LegacyP5MediaEventGateway(compatibility_app),
+        "media-p5-events-native",
+        lambda current: NativeP5MediaEventGateway(
+            lambda: current.settings,
+            current.repository("media"),
+            lambda: current.use_case("operations.jobs"),
+            HttpxP5MediaEventProvider(lambda: current.settings),
+            current.repository("media-image-store"),
+        ),
     )
     container.register_client(
         "media-p5-events",
         lambda current: PersistentP5MediaEventGateway(
             lambda: current.database.unit_of_work(),
-            current.client("media-p5-events-legacy"),
+            current.client("media-p5-events-native"),
             lease_seconds=lambda: max(float(current.settings.emby_api_timeout) + 30, 90),
+            defer=True,
         ),
     )
     container.register_client(
@@ -1104,31 +1041,59 @@ def _register_media_providers(
     )
     container.register_client(
         "media-mapping-defaults",
-        lambda _: LegacyMediaMappingDefaults(),
+        lambda _: StaticMediaMappingDefaults(),
     )
     container.register_client(
         "media-runtime",
-        lambda _: LegacyMediaRuntimeGateway(),
+        lambda _: PersistentRuntimeReadiness(),
+    )
+    container.register_repository(
+        "media-image-store",
+        lambda current: SqlAlchemyMediaImageStore(
+            current.database.unit_of_work,
+            lambda: current.settings,
+            data_root,
+        ),
     )
     container.register_client(
-        "media-image-editing-legacy",
-        lambda _: LegacyMediaImageEditingGateway(),
+        "media-image-editing-native",
+        lambda current: HttpxMediaImageEditingGateway(
+            lambda: current.settings,
+            current.repository("media"),
+            current.repository("media-image-store"),
+        ),
     )
     container.register_client(
         "media-image-editing",
         lambda current: PersistentMediaImageEditingGateway(
             lambda: current.database.unit_of_work(),
-            current.client("media-image-editing-legacy"),
+            current.client("media-image-editing-native"),
             lease_seconds=lambda: max(float(current.settings.emby_api_timeout) + 30, 90),
+            defer=True,
         ),
     )
     container.register_client(
+        "media-image-proxy",
+        lambda current: HttpxMediaImageProxyGateway(
+            lambda: current.settings,
+            current.repository("media-image-store"),
+        ),
+    )
+    container.register_repository(
         "media-cast-editor",
-        lambda _: LegacyMediaCastEditorGateway(),
+        lambda current: SqlAlchemyCastEditorRepository(current.database.unit_of_work),
     )
     container.register_client(
-        "media-image-proxy",
-        lambda _: LegacyMediaImageProxyGateway(),
+        "media-cast-editor",
+        lambda current: HttpxMediaCastEditorGateway(
+            lambda: current.settings,
+            current.repository("media-cast-editor"),
+            lambda: current.use_case("operations.jobs"),
+            ConfiguredBatchTranslation(
+                lambda: current.settings,
+                SqlAlchemyTranslationCache(current.database.unit_of_work),
+            ),
+        ),
     )
     container.register_client(
         "media-plugin-updates",
@@ -1203,10 +1168,11 @@ def _register_p115_providers(container: AppContainer) -> None:
         "ingestion.pending-bindings",
         lambda current: PersistentPendingBindingGateway(
             ledger=current.repository("ingestion.monitor"),
-            delivery=LegacyIngestionBindingDelivery(
+            delivery=NativeIngestionBindingDelivery(
                 jobs=lambda: current.use_case("operations.jobs"),
                 uow_factory=current.database.unit_of_work,
                 bridge=current.client("media-emby-bridge"),
+                media_info=current.repository("p115.media-info"),
                 lease_seconds=lambda: max(float(current.settings.emby_api_timeout) + 30, 90),
             ),
             lease_seconds=max(float(current.settings.emby_api_timeout) + 30, 90),
@@ -1214,10 +1180,7 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_repository(
         "p115.credentials",
-        lambda current: SqlAlchemyP115CredentialRepository(
-            current.database.unit_of_work,
-            on_change=invalidate_legacy_p115_credential_clients,
-        ),
+        lambda current: SqlAlchemyP115CredentialRepository(current.database.unit_of_work),
     )
     container.register_client(
         "p115.authorization",
@@ -1240,11 +1203,16 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "p115.directories",
-        lambda _: LegacyP115DirectoryGateway(),
+        lambda current: HttpxP115DirectoryGateway(current.client("p115.directory-tree")),
     )
     container.register_client(
         "p115.directory-tree",
-        lambda _: LegacyP115DirectoryTreeGateway(),
+        lambda current: HttpxP115DirectoryTreeGateway(
+            credentials=current.repository("p115.credentials"),
+            priority=lambda: current.settings.p115_api_priority,
+            settings=lambda: current.settings,
+            direct_urls=current.client("p115.maintenance-direct-urls"),
+        ),
     )
     container.register_client(
         "p115.maintenance-operations",
@@ -1272,7 +1240,7 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "p115.sorting-rule-directories",
-        lambda _: LegacyP115SortingRuleDirectoryGateway(),
+        lambda current: HttpxP115SortingRuleDirectoryGateway(current.client("p115.directory-tree")),
     )
     container.register_repository(
         "p115.rename-config",
@@ -1341,15 +1309,21 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "p115.intro-sync-feature",
-        lambda _: LegacyP115IntroSyncFeature(),
+        lambda current: ConfiguredP115IntroSyncFeature(current.repository("app-settings")),
     )
     container.register_client(
         "p115.intro-snapshot-exporter",
-        lambda _: LegacyP115IntroSnapshotExporter(),
+        lambda current: PersistentP115IntroSnapshotExporter(
+            PostgresMediaEffectLedger(current.database.unit_of_work),
+        ),
     )
     container.register_client(
         "p115.deep-delete-scope",
-        lambda _: LegacyP115DeepDeleteScopeGateway(),
+        lambda current: SqlAlchemyP115DeepDeleteScopeGateway(
+            current.database.unit_of_work,
+            current.repository("p115.credentials"),
+            current.client("p115.maintenance-operations"),
+        ),
     )
     container.register_client(
         "p115.deep-delete-jobs",
@@ -1357,7 +1331,7 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "p115.rename-preview",
-        lambda _: LegacyP115RenamePreviewGateway(),
+        lambda _: NativeP115RenamePreviewGateway(),
     )
     container.register_client(
         "p115.washing-priority-config",
@@ -1365,11 +1339,11 @@ def _register_p115_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "p115.plan-recognition",
-        lambda _: LegacyP115RuleRecognitionGateway(),
+        lambda _: NativeP115RuleRecognitionGateway(),
     )
     container.register_client(
         "p115.plan-naming",
-        lambda _: LegacyP115PlanNamingGateway(),
+        lambda _: NativeP115PlanNamingGateway(),
     )
     container.register_client(
         "p115.organize-mutations",
@@ -1611,6 +1585,7 @@ def _register_p115_providers(container: AppContainer) -> None:
             scope=current.client("p115.deep-delete-scope"),
             snapshots=current.repository("p115.deep-delete-snapshots"),
             submissions=current.client("p115.deep-delete-jobs"),
+            sync_delete_enabled=lambda: current.settings.p115_enable_sync_delete,
         ),
     )
     container.register_use_case(
@@ -1751,7 +1726,7 @@ def _register_subscription_providers(container: AppContainer) -> None:
     )
     container.register_client(
         "subscription.assistant-defaults",
-        lambda _: LegacyAssistantDefaultsAdapter(),
+        lambda _: StaticAssistantDefaults(),
     )
     container.register_client(
         "subscription.availability",

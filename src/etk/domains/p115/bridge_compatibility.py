@@ -182,12 +182,13 @@ class P115DeepDeleteJobGateway:
     ) -> P115DeepDeleteJob:
         if operation != P115_DEEP_DELETE_OPERATION:
             raise ValueError(f"unsupported P115 internal operation: {operation}")
-        from etk.processes.p6_deep_delete import execute_p115_deep_delete_operation
-
-        submitted = self._jobs().submit_background_operation(
-            execute_p115_deep_delete_operation,
-            (dict(payload),),
-            {},
+        if max_attempts != 1:
+            raise ValueError("native P115 deep-delete requires exactly one Job delivery attempt")
+        submitted = self._jobs().submit_native_operation(
+            operation,
+            dict(payload),
+            display_name="115 深度删除",
+            trigger_type="system",
             max_attempts=max_attempts,
             timeout_seconds=timeout_seconds,
             idempotency_scope=idempotency_scope,
@@ -200,11 +201,11 @@ class P115DeepDeleteJobGateway:
         if projection is None:
             return None
         request = projection.job.request_payload
-        positional = request.get("positional_parameters") if isinstance(request, Mapping) else None
-        payload = (
-            positional[0] if isinstance(positional, list) and positional and isinstance(positional[0], Mapping) else {}
+        payload = request.get("parameters") if isinstance(request, Mapping) else None
+        return P115DeepDeleteJob(
+            str(projection.job.id),
+            dict(payload) if isinstance(payload, Mapping) else {},
         )
-        return P115DeepDeleteJob(str(projection.job.id), dict(payload))
 
 
 class LegacyP115UploadSourceCleanupGateway:
@@ -253,7 +254,9 @@ class LegacyP115MediaCleanupReceiptGateway:
         series_id: str,
         local_only: bool,
         operation_id: str,
+        target: Mapping[str, Any],
     ) -> Mapping[str, Any]:
+        del target
         from database import maintenance_db
 
         result = maintenance_db.cleanup_deleted_media_item(

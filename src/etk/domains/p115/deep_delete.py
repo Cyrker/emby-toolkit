@@ -34,6 +34,8 @@ class P115DeepDeleteEmbyGateway(Protocol):
 
 
 class P115DeepDeleteScopePort(Protocol):
+    def media_cleanup_target(self, emby_item_id: str, item_type: str) -> Mapping[str, Any] | None: ...
+
     def pickcodes_for_deleted_item(self, emby_item_id: str, item_type: str) -> Sequence[str]: ...
 
     def pick_code_by_sha1(self, sha1: str) -> str | None: ...
@@ -73,6 +75,8 @@ class P115DeleteReadbackPort(Protocol):
         self,
         pickcodes: Sequence[str],
         file_snapshots: Sequence[Mapping[str, Any]],
+        *,
+        enabled: bool,
     ) -> Mapping[str, Any]: ...
 
 
@@ -90,6 +94,7 @@ class P115MediaCleanupReceiptPort(Protocol):
         series_id: str,
         local_only: bool,
         operation_id: str,
+        target: Mapping[str, Any],
     ) -> Mapping[str, Any]: ...
 
 
@@ -190,6 +195,7 @@ class P115DeepDeleteService:
         scope: P115DeepDeleteScopePort,
         snapshots: P115DeepDeleteSnapshotRepository,
         submissions: P115DeepDeleteSubmissionPort,
+        sync_delete_enabled: Callable[[], bool] = lambda: True,
         clock: Callable[[], float] = time.time,
         token_factory: Callable[[], str] = lambda: secrets.token_urlsafe(24),
     ) -> None:
@@ -199,6 +205,7 @@ class P115DeepDeleteService:
         self._scope = scope
         self._snapshots = snapshots
         self._submissions = submissions
+        self._sync_delete_enabled = sync_delete_enabled
         self._clock = clock
         self._token_factory = token_factory
 
@@ -258,6 +265,15 @@ class P115DeepDeleteService:
         actual_type = str(root.get("Type") or requested_type).strip().title()
         if actual_type != requested_type:
             return ServiceResult({"ok": False, "error": "root item type mismatch"}, 409)
+        cleanup_target = self._scope.media_cleanup_target(root_item_id, actual_type)
+        if not isinstance(cleanup_target, Mapping):
+            return ServiceResult({"ok": False, "error": "delete scope identity mismatch"}, 409)
+        cleanup_target = dict(cleanup_target)
+        if (
+            str(cleanup_target.get("emby_id") or "").strip() != root_item_id
+            or str(cleanup_target.get("item_type") or "").strip().title() != actual_type
+        ):
+            return ServiceResult({"ok": False, "error": "delete scope identity mismatch"}, 409)
 
         token = str(self._token_factory() or "").strip()
         if not token:
@@ -276,8 +292,10 @@ class P115DeepDeleteService:
                 "series_id": series_id,
                 "pickcodes": [],
                 "p115_file_snapshots": [],
+                "p115_sync_delete_enabled": False,
                 "local_only": True,
                 "virtual_id": virtual_id,
+                "media_cleanup_target": cleanup_target,
             }
             self._snapshots.store(token, snapshot)
             return ServiceResult(
@@ -309,7 +327,13 @@ class P115DeepDeleteService:
         if actual_type in _EXACT_VERSION_TYPES:
             pickcodes = (matched_anchor,)
 
-        file_snapshots = _normalize_file_snapshots(self._scope.file_snapshots(pickcodes), pickcodes)
+        sync_delete_enabled = bool(self._sync_delete_enabled())
+        file_snapshots = _normalize_file_snapshots(
+            self._scope.file_snapshots(pickcodes) if sync_delete_enabled else (),
+            pickcodes,
+        )
+        if sync_delete_enabled and len(file_snapshots) != len(pickcodes):
+            return ServiceResult({"ok": False, "error": "delete scope identity mismatch"}, 409)
         snapshot = {
             "created_at": created_at,
             "delete_token": token,
@@ -319,6 +343,8 @@ class P115DeepDeleteService:
             "series_id": series_id,
             "pickcodes": list(pickcodes),
             "p115_file_snapshots": file_snapshots,
+            "p115_sync_delete_enabled": sync_delete_enabled,
+            "media_cleanup_target": cleanup_target,
         }
         self._snapshots.store(token, snapshot)
         return ServiceResult({"ok": True, "token": token, "pickcode_count": len(pickcodes)})
@@ -354,7 +380,7 @@ class P115DeepDeleteService:
             job = self._submissions.submit(
                 P115_DEEP_DELETE_OPERATION,
                 operation_payload,
-                max_attempts=5,
+                max_attempts=1,
                 timeout_seconds=900,
                 idempotency_scope="deep-delete",
                 idempotency_key=token,
@@ -395,6 +421,13 @@ class P115DeepDeleteExecutionService:
         if not isinstance(raw_local_only, bool):
             raise ValueError("deep-delete execution local_only must be a boolean")
         local_only = raw_local_only
+        raw_sync_delete_enabled = snapshot.get("p115_sync_delete_enabled", True)
+        if not isinstance(raw_sync_delete_enabled, bool):
+            raise ValueError("deep-delete execution sync-delete policy must be a boolean")
+        sync_delete_enabled = raw_sync_delete_enabled
+        media_cleanup_target = snapshot.get("media_cleanup_target")
+        if not isinstance(media_cleanup_target, Mapping):
+            raise ValueError("deep-delete execution media cleanup target is missing")
         raw_pickcodes = _sequence(snapshot.get("pickcodes"), label="pickcodes")
         raw_file_snapshots = _mapping_sequence(
             snapshot.get("p115_file_snapshots"),
@@ -417,7 +450,11 @@ class P115DeepDeleteExecutionService:
                 upload_result = self._upload_sources.delete_sources(pickcodes)
             except Exception as exc:
                 upload_result = {"ok": False, "error": str(exc)}
-            p115_result = self._p115.delete_and_reconcile(pickcodes, file_snapshots)
+            p115_result = self._p115.delete_and_reconcile(
+                pickcodes,
+                file_snapshots,
+                enabled=sync_delete_enabled,
+            )
             if not isinstance(p115_result, Mapping) or p115_result.get("ok") is not True:
                 raise RuntimeError("115 delete was not confirmed")
 
@@ -428,6 +465,7 @@ class P115DeepDeleteExecutionService:
             series_id=series_id,
             local_only=local_only,
             operation_id=operation_id,
+            target=media_cleanup_target,
         )
         if isinstance(media_result, Mapping) and media_result.get("indeterminate") is True:
             raise PersistentEffectIndeterminate("shared cleanup outcome is unknown; automatic replay is forbidden")
@@ -561,13 +599,16 @@ def _normalize_file_snapshots(
         fid = str(snapshot.get("fid") or snapshot.get("id") or "").strip()
         if not pick_code or not fid or pick_code.casefold() not in allowed:
             continue
-        output.append(
-            {
-                "pick_code": pick_code,
-                "fid": fid,
-                "parent_id": str(snapshot.get("parent_id") or "").strip(),
-            }
-        )
+        entry = {
+            "pick_code": pick_code,
+            "fid": fid,
+            "parent_id": str(snapshot.get("parent_id") or "").strip(),
+        }
+        for key in ("account_id", "backend", "credential_fingerprint", "sha1"):
+            value = str(snapshot.get(key) or "").strip()
+            if value:
+                entry[key] = value
+        output.append(entry)
     return output
 
 

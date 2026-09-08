@@ -1,58 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
-from contextlib import nullcontext
-from importlib import import_module
+from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 from uuid import UUID
 
-from etk.domains.subscription.assistant import (
-    ASSISTANT_MAINTENANCE_PHASES,
-    ASSISTANT_SNAPSHOT_CLAIM_LEASE_SECONDS,
-    AssistantMaintenanceSession,
-    SubscribeAssistantMaintenanceService,
-)
+from etk.domains.subscription.assistant import SubscribeAssistantMaintenanceService
 from etk.domains.subscription.auto_subscribe import AutoSubscribeService, AutoSubscriptionExecution
 from etk.domains.subscription.manual_batch import ManualSubscriptionBatchService
-from etk.platform.jobs import normalize_json_object
 from etk.platform.tasks import ProcessorIdentity, TaskMessage, TaskOutcome, TaskOutcomeStatus, TaskPayload
 from etk.platform.tasks.catalog import P7_NATIVE_TASK_KEYS
 
 from .p7_subscription_effects import bind_moviepilot_execution
-
-P7_COMPATIBILITY_FALLBACK_UNTIL = "P11"
-
-_DISPLAY_NAMES = {
-    "enrich-aliases": "演员数据补充",
-    "process-watchlist": "刷新智能追剧",
-    "subscribe-assistant-maintenance": "订阅助手巡检",
-    "actor-tracking": "刷新演员订阅",
-    "auto-subscribe": "统一订阅处理",
-    "refresh_completed_series": "已完结剧集复活检查",
-    "add-all-series-to-watchlist": "一键扫描库内剧集",
-    "resubscribe-library": "媒体订阅删除",
-    "manual_subscribe_batch": "批量订阅",
-    "scan_old_seasons_backfill": "扫描缺季的剧",
-    "update-resubscribe-cache": "刷新媒体整理",
-    "merge-duplicate-actors": "合并重复演员",
-    "purge-ghost-actors": "清理幽灵演员",
-    "recalculate_library_washing_priorities": "重新计算洗版优先级",
-}
-
-_LEGACY_HANDLERS = {
-    "enrich-aliases": ("tasks.actors", "task_enrich_aliases"),
-    "process-watchlist": ("tasks.watchlist", "task_process_watchlist"),
-    "actor-tracking": ("tasks.actors", "task_process_actor_subscriptions"),
-    "auto-subscribe": ("tasks.subscriptions", "task_auto_subscribe"),
-    "refresh_completed_series": ("tasks.watchlist", "task_refresh_completed_series"),
-    "add-all-series-to-watchlist": ("tasks.watchlist", "task_add_all_series_to_watchlist"),
-    "resubscribe-library": ("tasks.resubscribe", "task_resubscribe_library"),
-    "manual_subscribe_batch": ("tasks.subscriptions", "task_manual_subscribe_batch"),
-    "update-resubscribe-cache": ("tasks.resubscribe", "task_update_resubscribe_cache"),
-    "merge-duplicate-actors": ("tasks.actors", "task_merge_duplicate_actors"),
-    "purge-ghost-actors": ("tasks.actors", "task_purge_ghost_actors"),
-    "recalculate_library_washing_priorities": ("tasks.p115", "task_recalculate_library_washing_priorities"),
-}
 
 _EXPECTED_PROCESSORS = {
     "process-watchlist": ProcessorIdentity.WATCHLIST,
@@ -90,15 +48,6 @@ WATCHLIST_TASK_KEYS = frozenset(
 RESUBSCRIBE_TASK_KEYS = frozenset({"resubscribe-library", "update-resubscribe-cache"})
 
 
-class P7SubscriptionCompatibilityGateway(Protocol):
-    def execute(
-        self,
-        task_key: str,
-        processor: object,
-        parameters: Mapping[str, Any],
-    ) -> object: ...
-
-
 class P7TaskProgress(Protocol):
     def update(self, progress: int, message: str) -> None: ...
 
@@ -127,10 +76,6 @@ class P7MoviePilotEffects(Protocol):
         *,
         operation_occurrence: str | None = None,
     ) -> bool: ...
-
-
-class P7ResubscribeCleanup(Protocol):
-    def stage_version_deletion(self, emby_id: str) -> Mapping[str, Any]: ...
 
 
 class P7WashingRecalculation(Protocol):
@@ -167,109 +112,11 @@ class P7NativeTaskExecution(Protocol):
     ) -> TaskOutcome: ...
 
 
-class LegacyP7SubscriptionCompatibilityGateway:
-    """Worker-only P11 seam around the remaining established P7 task functions."""
-
-    def execute(
-        self,
-        task_key: str,
-        processor: object,
-        parameters: Mapping[str, Any],
-    ) -> object:
-        values = dict(parameters)
-        if task_key == "actor-tracking" and "subscription_id" in values:
-            module_name, function_name = "tasks.actors", "task_scan_actor_media"
-            values = {"subscription_id": values["subscription_id"]}
-        else:
-            module_name, function_name = _LEGACY_HANDLERS[task_key]
-            if task_key == "process-watchlist":
-                values.pop("item_name", None)
-            elif task_key == "actor-tracking":
-                values.pop("actor_name", None)
-        handler = getattr(import_module(module_name), function_name)
-        if not callable(handler):
-            raise TypeError(f"P7 compatibility target {module_name}.{function_name} is not callable")
-        return handler(processor, **values)
-
-
-class LegacySubscribeAssistantSession:
-    def __init__(
-        self,
-        processor: object,
-        *,
-        job_id: UUID,
-        attempt_id: UUID,
-        worker_id: str,
-    ) -> None:
-        manager_module = import_module("services.subscribe_assistant.manager")
-        self._store = import_module("services.subscribe_assistant.store")
-        self._job_id = job_id
-        self._attempt_id = attempt_id
-        self._worker_id = worker_id
-        config = getattr(processor, "config", None)
-        if not isinstance(config, Mapping):
-            raise RuntimeError("subscribe assistant maintenance requires processor config")
-        self._manager = manager_module.SubscribeAssistantManager(dict(config))
-
-    def phases(self) -> Sequence[str]:
-        phases: list[str] = list(ASSISTANT_MAINTENANCE_PHASES[:6])
-        if self._manager.cfg.download_monitor_enabled:
-            phases.append("download_check")
-        if self._manager.cfg.verify_enabled:
-            phases.append("snapshot_verify")
-        return tuple(phases)
-
-    def run_phase(self, phase: str, checkpoint: Callable[[], None]) -> int:
-        checkpoint()
-        if phase == "delete_records_cleanup":
-            return int(self._store.cleanup_delete_records())
-        if phase == "snapshot_cleanup":
-            return int(self._store.cleanup_snapshots(self._manager.cfg.snapshot_retention_days))
-        handlers = {
-            "washing_timeout": self._manager.run_full_washing_timeout_check,
-            "history_reconcile": self._manager.run_transfer_history_reconcile,
-            "moviepilot_subscription_sync": self._manager.run_moviepilot_subscription_sync,
-            "no_download_check": self._manager.run_no_download_check,
-            "download_check": self._manager.run_download_check,
-            "snapshot_verify": lambda: self._manager.run_snapshot_verify(
-                job_id=self._job_id,
-                attempt_id=self._attempt_id,
-                worker_id=self._worker_id,
-                lease_seconds=ASSISTANT_SNAPSHOT_CLAIM_LEASE_SECONDS,
-                checkpoint=checkpoint,
-            ),
-        }
-        try:
-            handler = handlers[phase]
-        except KeyError:
-            raise LookupError(f"unknown subscribe assistant maintenance phase: {phase}") from None
-        return max(int(handler()), 0)
-
-
-class LegacySubscribeAssistantMaintenanceGateway:
-    def begin(
-        self,
-        processor: object,
-        *,
-        job_id: UUID,
-        attempt_id: UUID,
-        worker_id: str,
-    ) -> AssistantMaintenanceSession:
-        return LegacySubscribeAssistantSession(
-            processor,
-            job_id=job_id,
-            attempt_id=attempt_id,
-            worker_id=worker_id,
-        )
-
-
 class P7SubscriptionTaskRouter:
     def __init__(
         self,
-        compatibility: P7SubscriptionCompatibilityGateway | None,
         assistant: SubscribeAssistantMaintenanceService | None,
         moviepilot_effects: P7MoviePilotEffects | None = None,
-        resubscribe_cleanup: P7ResubscribeCleanup | None = None,
         washing_recalculation: P7WashingRecalculation | None = None,
         old_season_backfill: P7OldSeasonBackfill | None = None,
         manual_batch: ManualSubscriptionBatchService | None = None,
@@ -279,10 +126,8 @@ class P7SubscriptionTaskRouter:
         resubscribe_tasks: P7NativeTaskExecution | None = None,
         resubscribe_cache: P7NativeTaskExecution | None = None,
     ) -> None:
-        self._compatibility = compatibility
         self._assistant = assistant
         self._moviepilot_effects = moviepilot_effects
-        self._resubscribe_cleanup = resubscribe_cleanup
         self._washing_recalculation = washing_recalculation
         self._old_season_backfill = old_season_backfill
         self._manual_batch = manual_batch
@@ -307,6 +152,8 @@ class P7SubscriptionTaskRouter:
             raise ValueError(f"task {message.task_key!r} requires the {expected.value} processor identity")
         if message.payload.version != 1:
             raise ValueError(f"task {message.task_key!r} payload version is not supported")
+        if processor is not None:
+            raise ValueError("P7 native task router does not accept a legacy processor")
         payload = TaskPayload.create(message.payload.data, version=message.payload.version).data
         parameters = _normalize_parameters(message.task_key, payload)
         if (
@@ -324,10 +171,9 @@ class P7SubscriptionTaskRouter:
         if message.task_key == "update-resubscribe-cache" and self._resubscribe_cache is not None:
             result = self._resubscribe_cache.execute(message.task_key, progress, parameters)
             return _native_outcome(message.task_key, result, self._resubscribe_cache)
-        # Optional native owners are only eligible when the caller has no
-        # processor.  A compatibility Worker must keep using its explicit
-        # legacy branch until the complete task owner is proven and promoted.
-        if message.task_key in WATCHLIST_TASK_KEYS and self._watchlist_tasks is not None and processor is None:
+        if message.task_key in WATCHLIST_TASK_KEYS:
+            if self._watchlist_tasks is None:
+                raise RuntimeError(f"P7 task {message.task_key!r} native owner is unavailable")
             if self._moviepilot_effects is None:
                 result = self._watchlist_tasks.execute(message.task_key, progress, parameters)
             else:
@@ -343,7 +189,9 @@ class P7SubscriptionTaskRouter:
                 ):
                     result = self._watchlist_tasks.execute(message.task_key, progress, parameters)
             return _native_outcome(message.task_key, result, self._watchlist_tasks)
-        if message.task_key in RESUBSCRIBE_TASK_KEYS and self._resubscribe_tasks is not None and processor is None:
+        if message.task_key in RESUBSCRIBE_TASK_KEYS:
+            if self._resubscribe_tasks is None:
+                raise RuntimeError(f"P7 task {message.task_key!r} native owner is unavailable")
             result = self._resubscribe_tasks.execute(message.task_key, progress, parameters)
             return _native_outcome(message.task_key, result, self._resubscribe_tasks)
         if message.task_key == "auto-subscribe":
@@ -431,7 +279,9 @@ class P7SubscriptionTaskRouter:
                     "affected_count": result.affected_count,
                 },
             )
-        if message.task_key == "subscribe-assistant-maintenance" and self._assistant is not None and processor is None:
+        if message.task_key == "subscribe-assistant-maintenance":
+            if self._assistant is None:
+                raise RuntimeError("P7 subscribe-assistant maintenance use case is unavailable")
             run = self._assistant.execute(
                 job_id=_metadata_uuid(message.metadata, "job_id"),
                 attempt_id=_metadata_uuid(message.metadata, "attempt_id"),
@@ -450,45 +300,7 @@ class P7SubscriptionTaskRouter:
                     "stats": run.stats,
                 },
             )
-        if processor is None:
-            raise RuntimeError(f"P7 task {message.task_key!r} processor is unavailable")
-        if self._moviepilot_effects is None:
-            effects_context = nullcontext()
-        else:
-            from handler.moviepilot import persistent_moviepilot_effects
-
-            effects_context = persistent_moviepilot_effects(self._moviepilot_effects)
-        if self._resubscribe_cleanup is None:
-            cleanup_context = nullcontext()
-        else:
-            cleanup_module = import_module("tasks.resubscribe")
-            cleanup_context = cleanup_module.persistent_resubscribe_cleanup(self._resubscribe_cleanup)
-        with effects_context, cleanup_context:
-            if message.task_key == "subscribe-assistant-maintenance":
-                if self._assistant is None:
-                    raise RuntimeError("P7 subscribe-assistant maintenance use case is unavailable")
-                run = self._assistant.execute(
-                    job_id=_metadata_uuid(message.metadata, "job_id"),
-                    attempt_id=_metadata_uuid(message.metadata, "attempt_id"),
-                    worker_id=_metadata_text(message.metadata, "worker_id"),
-                    processor=processor,
-                    progress=progress,
-                )
-                return TaskOutcome.succeeded(
-                    "订阅助手巡检完成。",
-                    {
-                        "task_key": message.task_key,
-                        "native_handler": type(self).__name__,
-                        "compatibility_fallback": False,
-                        "durable_state": True,
-                        "completed_phases": list(run.completed_phases),
-                        "stats": run.stats,
-                    },
-                )
-            if self._compatibility is None:
-                raise RuntimeError(f"P7 task {message.task_key!r} compatibility owner is unavailable")
-            result = self._compatibility.execute(message.task_key, processor, parameters)
-            return _explicit_outcome(message.task_key, result)
+        raise RuntimeError(f"P7 task {message.task_key!r} native owner is unavailable")
 
 
 def _normalize_parameters(task_key: str, payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -533,41 +345,6 @@ def _metadata_text(values: Mapping[str, Any], field: str) -> str:
     return value
 
 
-def _explicit_outcome(task_key: str, result: object) -> TaskOutcome:
-    details = {
-        "task_key": task_key,
-        "native_handler": "P7SubscriptionTaskRouter",
-        "compatibility_fallback": True,
-        "fallback_retirement_stage": P7_COMPATIBILITY_FALLBACK_UNTIL,
-    }
-    if isinstance(result, TaskOutcome):
-        return TaskOutcome(result.status, result.message, {**result.details, **details})
-    if result is None or result is True:
-        return TaskOutcome.succeeded(f"{_DISPLAY_NAMES[task_key]}兼容处理完成，未报告失败。", details)
-    if result is False:
-        return TaskOutcome.failed(f"{_DISPLAY_NAMES[task_key]}兼容处理返回失败。", details)
-    if isinstance(result, Mapping):
-        legacy_result = normalize_json_object(dict(result), field=f"{task_key} compatibility result")
-        outcome_details = {**details, "legacy_result": legacy_result}
-        message = str(legacy_result.get("message") or f"{_DISPLAY_NAMES[task_key]}兼容处理完成。")
-        status = str(legacy_result.get("status") or "").strip().lower()
-        if legacy_result.get("skipped") is True or status in {TaskOutcomeStatus.SKIPPED.value, "not_applicable"}:
-            return TaskOutcome.skipped(message, outcome_details)
-        if status == "deferred":
-            return TaskOutcome.skipped(message, outcome_details)
-        if status == TaskOutcomeStatus.PARTIAL.value:
-            return TaskOutcome.partial(message, outcome_details)
-        if task_key == "recalculate_library_washing_priorities" and int(legacy_result.get("errors") or 0) > 0:
-            return TaskOutcome.partial(message, outcome_details)
-        if legacy_result.get("ok") is False or status in {TaskOutcomeStatus.FAILED.value, "indeterminate"}:
-            return TaskOutcome.failed(message, outcome_details)
-        return TaskOutcome.succeeded(message, outcome_details)
-    return TaskOutcome.succeeded(
-        f"{_DISPLAY_NAMES[task_key]}兼容处理完成，未报告失败。",
-        {**details, "legacy_result_type": type(result).__name__},
-    )
-
-
 def _native_outcome(task_key: str, result: TaskOutcome, owner: object) -> TaskOutcome:
     return TaskOutcome(
         result.status,
@@ -582,11 +359,6 @@ def _native_outcome(task_key: str, result: TaskOutcome, owner: object) -> TaskOu
 
 
 __all__ = [
-    "LegacyP7SubscriptionCompatibilityGateway",
-    "LegacySubscribeAssistantMaintenanceGateway",
-    "P7_COMPATIBILITY_FALLBACK_UNTIL",
-    "P7SubscriptionCompatibilityGateway",
-    "P7ResubscribeCleanup",
     "P7PeopleTaskExecution",
     "P7NativeTaskExecution",
     "P7SubscriptionTaskRouter",

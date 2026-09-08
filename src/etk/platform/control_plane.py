@@ -33,6 +33,7 @@ class ControlPlaneClient:
         base_url: str | None = None,
         token_file: Path | None = None,
         transport: httpx.BaseTransport | None = None,
+        track_legacy_effects: bool = False,
     ) -> None:
         self._base_url = str(base_url or os.environ.get("ETK_CONTROL_PLANE_URL") or "").strip().rstrip("/")
         self._token_file = token_file or Path(
@@ -42,6 +43,7 @@ class ControlPlaneClient:
             )
         )
         self._transport = transport
+        self._track_legacy_effects = bool(track_legacy_effects)
 
     def restart_service(self, target_service: str, *, request_id: str | None = None) -> dict[str, Any]:
         return self._command(
@@ -100,7 +102,8 @@ class ControlPlaneClient:
         timeout_seconds: float,
     ) -> dict[str, Any]:
         self._validate_base_url()
-        resolved_request_id = str(request_id or _current_job_id() or "").strip()
+        inherited_request_id = _current_job_id() if self._track_legacy_effects and request_id is None else None
+        resolved_request_id = str(request_id or inherited_request_id or "").strip()
         if not resolved_request_id:
             raise ControlPlaneError(
                 "control-plane command requires a persistent Job identity",
@@ -163,7 +166,8 @@ class ControlPlaneClient:
                     request_id=resolved_request_id,
                 )
 
-            _record_effect_started(effect_label)
+            if self._track_legacy_effects:
+                _record_effect_started(effect_label)
             try:
                 result = _post_command(
                     client,
@@ -174,18 +178,22 @@ class ControlPlaneClient:
                 )
             except ControlPlaneError as exc:
                 if exc.certainty == "confirmed-no-effect":
-                    _record_effect_abandoned(effect_label)
+                    if self._track_legacy_effects:
+                        _record_effect_abandoned(effect_label)
                 elif exc.certainty == "observed-complete":
-                    _record_effect_committed(effect_label)
+                    if self._track_legacy_effects:
+                        _record_effect_committed(effect_label)
                 raise
             except (httpx.HTTPError, ValueError) as exc:
                 status = _query_command(client, resolved_request_id, headers=headers)
                 certainty = _certainty(status) if status is not None else "unknown"
                 if certainty == "observed-complete" and status is not None:
-                    _record_effect_committed(effect_label)
+                    if self._track_legacy_effects:
+                        _record_effect_committed(effect_label)
                     return status
                 if certainty == "confirmed-no-effect":
-                    _record_effect_abandoned(effect_label)
+                    if self._track_legacy_effects:
+                        _record_effect_abandoned(effect_label)
                 raise ControlPlaneError(
                     f"control-plane command failed: {exc}",
                     certainty=certainty,
@@ -195,13 +203,15 @@ class ControlPlaneClient:
         certainty = _certainty(result)
         if certainty != "observed-complete":
             if certainty == "confirmed-no-effect":
-                _record_effect_abandoned(effect_label)
+                if self._track_legacy_effects:
+                    _record_effect_abandoned(effect_label)
             raise ControlPlaneError(
                 str(result.get("message") or "control-plane command outcome is not confirmed"),
                 certainty=certainty,
                 request_id=resolved_request_id,
             )
-        _record_effect_committed(effect_label)
+        if self._track_legacy_effects:
+            _record_effect_committed(effect_label)
         return result
 
     def _validate_base_url(self) -> None:

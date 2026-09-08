@@ -15,7 +15,6 @@ from etk.domains.subscription.cleanup_execution import CLEANUP_EXECUTION_TASK_KE
 from etk.platform.jobs import AttemptStatus, InvalidStateTransitionError, JobStatus
 from etk.platform.tasks import TaskHandlerKind, TaskMessage, TaskOutcome, TaskRegistry
 from etk.platform.tasks.catalog import (
-    NATIVE_TASK_KEYS,
     P4_NATIVE_TASK_KEYS,
     P5_NATIVE_TASK_KEYS,
     P6_NATIVE_TASK_KEYS,
@@ -23,6 +22,8 @@ from etk.platform.tasks.catalog import (
     P8_NATIVE_TASK_KEYS,
     P9_NATIVE_TASK_KEYS,
 )
+from etk.processes import worker as worker_module
+from etk.processes.native_operations import NativeOperationProgress, NativeOperationRouter
 from etk.processes.runtime_config import TaskRuntimeConfig
 from etk.processes.worker import (
     _NATIVE_ONLY_EXECUTABLE_TASK_KEYS,
@@ -91,32 +92,42 @@ _UNCOOPERATIVE_STARTED = Event()
 _UNCOOPERATIVE_RELEASE = Event()
 
 
-def _finite_overrun_operation() -> dict[str, bool]:
-    import time
+class _FiniteOverrunOperation:
+    def execute(
+        self,
+        _parameters: Mapping[str, Any],
+        _progress: NativeOperationProgress,
+    ) -> Mapping[str, Any]:
+        import time
 
-    time.sleep(0.05)
-    return {"ok": True}
+        time.sleep(0.05)
+        return {"ok": True}
 
 
-def _uncooperative_operation(effect: str) -> dict[str, bool]:
-    import task_manager
-
-    if effect == "inflight":
-        task_manager.record_persistent_effect_started("fixture-provider-write")
-    elif effect == "committed":
-        task_manager.record_persistent_effect_committed("fixture-provider-write")
-    _UNCOOPERATIVE_STARTED.set()
-    assert _UNCOOPERATIVE_RELEASE.wait(2), "test did not release the operation"
-    return {"ok": True}
+class _UncooperativeOperation:
+    def execute(
+        self,
+        parameters: Mapping[str, Any],
+        progress: NativeOperationProgress,
+    ) -> Mapping[str, Any]:
+        effect = str(parameters.get("effect") or "none")
+        if effect == "inflight":
+            progress.record_started_effect("fixture-provider-write")
+        elif effect == "committed":
+            progress.record_started_effect("fixture-provider-write")
+            progress.record_committed_effect("fixture-provider-write")
+        _UNCOOPERATIVE_STARTED.set()
+        assert _UNCOOPERATIVE_RELEASE.wait(2), "test did not release the operation"
+        return {"ok": True}
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TASK_FIXTURE = REPO_ROOT / "verification" / "fixtures" / "tasks" / "ordered-task-catalog.json"
 
 
-def _direct_projection(operation: Callable[..., object], *, parameters: dict, timeout_seconds: float):
-    module = str(operation.__module__)
-    qualname = str(operation.__qualname__)
+def _legacy_direct_projection(*, parameters: dict, timeout_seconds: float):
+    module = "third_party.fixture"
+    qualname = "unsafe_callable"
     job = SimpleNamespace(
         id=UUID("00000000-0000-0000-0000-000000000211"),
         task_key=f"background-operation:{module}:{qualname}",
@@ -140,6 +151,26 @@ def _direct_projection(operation: Callable[..., object], *, parameters: dict, ti
         attempt_no=1,
     )
     return SimpleNamespace(job=job, current_attempt=attempt)
+
+
+def _native_operation_projection(
+    operation_key: str,
+    *,
+    parameters: dict[str, object],
+    timeout_seconds: float,
+):
+    projection = _legacy_direct_projection(parameters=parameters, timeout_seconds=timeout_seconds)
+    projection.job.task_key = f"native-operation:{operation_key}"
+    projection.job.request_payload = {
+        "payload_version": 1,
+        "parameters": parameters,
+        "processor_type": "media",
+        "display_name": operation_key,
+        "silent": True,
+        "call_style": "native",
+        "native_operation": operation_key,
+    }
+    return projection
 
 
 def _catalog_projection(
@@ -199,10 +230,21 @@ class StubP6Router:
 class StubProcessorFreeRouter:
     def __init__(self) -> None:
         self.calls: list[tuple[TaskMessage, object | None, object]] = []
+        self.review_calls: list[tuple[str, Mapping[str, Any], object | None, object]] = []
 
     def execute(self, message: TaskMessage, processor: object | None, progress: object) -> TaskOutcome:
         self.calls.append((message, processor, progress))
         return TaskOutcome.succeeded("fixture processor-free success")
+
+    def execute_review(
+        self,
+        task_key: str,
+        parameters: Mapping[str, Any],
+        processor: object | None,
+        progress: object,
+    ) -> TaskOutcome:
+        self.review_calls.append((task_key, parameters, processor, progress))
+        return TaskOutcome.succeeded("fixture processor-free review success")
 
 
 def _catalog_runtime(projection: object, router: StubP6Router) -> tuple[WorkerRuntime, ExecutionStore]:
@@ -211,7 +253,6 @@ def _catalog_runtime(projection: object, router: StubP6Router) -> tuple[WorkerRu
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = object()
     state._p6_p115_tasks = router
     return runtime, store
 
@@ -222,14 +263,14 @@ def _native_catalog_runtime(projection: object) -> tuple[WorkerRuntime, Executio
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = None
-    state._native_only = True
     return runtime, store
 
 
-def _direct_runtime(
+def _native_operation_runtime(
     projection,
     *,
+    operation_key: str,
+    handler: object,
     terminate_process: Callable[[], None],
     termination_grace_seconds: float = 0.01,
 ):
@@ -250,7 +291,7 @@ def _direct_runtime(
     state = cast(Any, runtime)
     state._store = store
     state._registry = MissingRegistry()
-    state._adapter = object()
+    state._native_operations = NativeOperationRouter({operation_key: cast(Any, handler)})
     return runtime, store
 
 
@@ -535,14 +576,11 @@ def test_native_processor_free_tasks_do_not_import_task_manager(
 def test_native_worker_routes_manual_subscription_without_legacy_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    assert not hasattr(worker_module, "_processor")
     projection = _catalog_projection("manual_subscribe_batch", parameters={"subscribe_requests": []})
     runtime, store = _native_catalog_runtime(projection)
     router = StubProcessorFreeRouter()
     cast(Any, runtime)._p7_subscription_tasks = router
-    monkeypatch.setattr(
-        "etk.processes.worker._processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError("manual batch resolved a processor")),
-    )
     original_import = builtins.__import__
 
     def guarded_import(
@@ -585,19 +623,16 @@ def test_native_worker_routes_manual_subscription_without_legacy_runtime(
         ("update-resubscribe-cache", "_p7_subscription_tasks"),
     ],
 )
-def test_compatibility_worker_does_not_resolve_processor_for_native_tasks(
+def test_worker_routes_native_tasks_without_a_processor_symbol(
     monkeypatch: pytest.MonkeyPatch,
     task_key: str,
     router_field: str,
 ) -> None:
+    assert not hasattr(worker_module, "_processor")
     projection = _catalog_projection(task_key, parameters={})
     runtime, store = _catalog_runtime(projection, StubP6Router())
     router = StubProcessorFreeRouter()
     setattr(cast(Any, runtime), router_field, router)
-    monkeypatch.setattr(
-        "etk.processes.worker._processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError(f"{task_key} resolved a processor")),
-    )
     if task_key == "check-expired-users":
         original_import = builtins.__import__
         forbidden = ("database", "extensions", "handler", "task_manager", "tasks.users")
@@ -622,11 +657,10 @@ def test_compatibility_worker_does_not_resolve_processor_for_native_tasks(
     assert router.calls[0][1] is None
 
 
-@pytest.mark.parametrize("native_only", [False, True])
 def test_manual_reconciliation_task_is_processor_free_without_task_manager(
     monkeypatch: pytest.MonkeyPatch,
-    native_only: bool,
 ) -> None:
+    assert not hasattr(worker_module, "_processor")
     projection = _catalog_projection(
         "manual-correct-organize-records",
         parameters={
@@ -635,15 +669,7 @@ def test_manual_reconciliation_task_is_processor_free_without_task_manager(
         },
     )
     router = StubP6Router()
-    if native_only:
-        runtime, store = _native_catalog_runtime(projection)
-        cast(Any, runtime)._p6_p115_tasks = router
-    else:
-        runtime, store = _catalog_runtime(projection, router)
-    monkeypatch.setattr(
-        "etk.processes.worker._processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError("manual reconciliation resolved a processor")),
-    )
+    runtime, store = _catalog_runtime(projection, router)
     original_import = builtins.__import__
 
     def guarded_import(
@@ -665,37 +691,16 @@ def test_manual_reconciliation_task_is_processor_free_without_task_manager(
     assert len(router.calls) == 1
 
 
-@pytest.mark.parametrize(
-    "task_key",
-    sorted((NATIVE_TASK_KEYS - _NATIVE_ONLY_EXECUTABLE_TASK_KEYS) | P8_REVIEW_TASK_KEYS),
-)
-def test_native_worker_reports_unmigrated_task_without_importing_task_manager(
+@pytest.mark.parametrize("task_key", sorted(P8_REVIEW_TASK_KEYS))
+def test_worker_routes_native_review_tasks_without_importing_task_manager(
     monkeypatch: pytest.MonkeyPatch,
     task_key: str,
 ) -> None:
     projection = _catalog_projection(task_key, parameters={})
     runtime, store = _native_catalog_runtime(projection)
-    state = cast(Any, runtime)
-
-    class FailingExecutionOwner:
-        def execute(self, *_args: object, **_kwargs: object) -> object:
-            raise AssertionError("unmigrated native-only task reached a task router or adapter")
-
-        def execute_review(self, *_args: object, **_kwargs: object) -> object:
-            raise AssertionError("unmigrated native-only review task reached a compatibility router")
-
-    failing_owner = FailingExecutionOwner()
-    state._adapter = failing_owner
-    state._p5_media_tasks = failing_owner
-    state._p6_p115_tasks = failing_owner
-    state._p6_ingestion_tasks = failing_owner
-    state._p7_subscription_tasks = failing_owner
-    state._p8_effect_tasks = failing_owner
-    state._p9_sharing_tasks = failing_owner
-    monkeypatch.setattr(
-        "etk.processes.worker._processor",
-        lambda _identity: (_ for _ in ()).throw(AssertionError("native-only task resolved a legacy processor")),
-    )
+    router = StubProcessorFreeRouter()
+    cast(Any, runtime)._p8_effect_tasks = router
+    assert not hasattr(worker_module, "_processor")
     original_import = builtins.__import__
 
     def guarded_import(
@@ -713,9 +718,10 @@ def test_native_worker_reports_unmigrated_task_without_importing_task_manager(
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
 
-    assert [status for status, _values in store.terminals] == ["failed"]
-    assert store.terminals[0][1]["error_type"] == NativeTaskExecutionUnavailable.__name__
-    assert task_key in store.terminals[0][1]["error_message"]
+    assert [status for status, _values in store.terminals] == ["succeeded"]
+    assert len(router.review_calls) == 1
+    assert router.review_calls[0][0] == task_key
+    assert router.review_calls[0][2] is None
 
 
 def test_native_chain_rejects_unknown_and_dedicated_children() -> None:
@@ -723,11 +729,11 @@ def test_native_chain_rejects_unknown_and_dedicated_children() -> None:
     runtime, _store = _native_catalog_runtime(parent)
     cast(Any, runtime)._service = object()
 
-    cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["unknown-task"]})
+    cast(Any, runtime)._last_settings = {"task_chain_sequence": ["unknown-task"]}
     with pytest.raises(LookupError, match="unknown task 'unknown-task'"):
         runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
 
-    cast(Any, runtime)._supervisor = SimpleNamespace(config={"task_chain_sequence": ["scan-organize-115"]})
+    cast(Any, runtime)._last_settings = {"task_chain_sequence": ["scan-organize-115"]}
     with pytest.raises(ValueError, match="dedicated entrypoint"):
         runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
 
@@ -759,7 +765,7 @@ def test_task_chain_does_not_report_completed_after_a_failed_child() -> None:
     state._store = ChainStore()
     state._service = ChainService()
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._supervisor = SimpleNamespace(config={"task_chain_sequence": ["sync-all-user-data"]})
+    state._last_settings = {"task_chain_sequence": ["sync-all-user-data"]}
     state.execute = lambda **_values: None
 
     with pytest.raises(RuntimeError, match="workflow child 'sync-all-user-data' failed"):
@@ -822,10 +828,43 @@ def test_scan_organize_failure_before_terminal_marker_uses_normal_worker_failure
     assert store.terminals[0][1]["error_type"] == "RuntimeError"
 
 
-def test_finite_direct_overrun_without_effects_cannot_be_marked_succeeded() -> None:
-    projection = _direct_projection(_finite_overrun_operation, parameters={}, timeout_seconds=0.01)
-    runtime, store = _direct_runtime(
+def test_dynamic_legacy_operation_payload_fails_closed_without_importing_callable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    projection = _legacy_direct_projection(parameters={}, timeout_seconds=0.01)
+    runtime = WorkerRuntime(config=TaskRuntimeConfig(heartbeat_seconds=60, lease_seconds=120))
+    store = ExecutionStore(projection)
+    state = cast(Any, runtime)
+    state._store = store
+    state._registry = SimpleNamespace(require=lambda _task_key: (_ for _ in ()).throw(KeyError()))
+    original_import = builtins.__import__
+
+    def guarded_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] | None = (),
+        level: int = 0,
+    ) -> Any:
+        if name == "third_party.fixture" or name.startswith("third_party.fixture."):
+            raise AssertionError("dynamic legacy callable was imported")
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert [status for status, _values in store.terminals] == ["failed"]
+    assert store.terminals[0][1]["error_type"] == NativeTaskExecutionUnavailable.__name__
+
+
+def test_finite_native_operation_overrun_without_effects_cannot_be_marked_succeeded() -> None:
+    operation_key = "fixture.finite-timeout"
+    projection = _native_operation_projection(operation_key, parameters={}, timeout_seconds=0.01)
+    runtime, store = _native_operation_runtime(
         projection,
+        operation_key=operation_key,
+        handler=_FiniteOverrunOperation(),
         terminate_process=lambda: None,
         termination_grace_seconds=1,
     )
@@ -838,10 +877,15 @@ def test_finite_direct_overrun_without_effects_cannot_be_marked_succeeded() -> N
 
 
 def test_cleanup_partial_terminalizes_once_without_retrying() -> None:
-    projection = _direct_projection(_finite_overrun_operation, parameters={}, timeout_seconds=30)
+    projection = _legacy_direct_projection(parameters={}, timeout_seconds=30)
     projection.job.task_key = CLEANUP_EXECUTION_TASK_KEY
     projection.job.max_attempts = 11
-    runtime, store = _direct_runtime(projection, terminate_process=lambda: None)
+    runtime, store = _native_operation_runtime(
+        projection,
+        operation_key="fixture.unused",
+        handler=_FiniteOverrunOperation(),
+        terminate_process=lambda: None,
+    )
     projection.job.request_payload["native_task"] = CLEANUP_EXECUTION_TASK_KEY
     projection.job.request_payload.pop("legacy_operation", None)
     projection.job.request_payload["parameters"] = {
@@ -870,7 +914,7 @@ def test_cleanup_partial_terminalizes_once_without_retrying() -> None:
         ("committed", "failed", "PersistentExecutionInterruptedAfterEffect"),
     ],
 )
-def test_uncooperative_direct_timeout_is_fenced_before_injected_termination(
+def test_uncooperative_native_operation_timeout_is_fenced_before_injected_termination(
     effect: str,
     terminal: str,
     error_type: str | None,
@@ -878,13 +922,16 @@ def test_uncooperative_direct_timeout_is_fenced_before_injected_termination(
     _UNCOOPERATIVE_STARTED.clear()
     _UNCOOPERATIVE_RELEASE.clear()
     termination_observed = Event()
-    projection = _direct_projection(
-        _uncooperative_operation,
+    operation_key = "fixture.uncooperative-timeout"
+    projection = _native_operation_projection(
+        operation_key,
         parameters={"effect": effect},
         timeout_seconds=0.01,
     )
-    runtime, store = _direct_runtime(
+    runtime, store = _native_operation_runtime(
         projection,
+        operation_key=operation_key,
+        handler=_UncooperativeOperation(),
         terminate_process=lambda: termination_observed.set(),
     )
     failures: list[BaseException] = []

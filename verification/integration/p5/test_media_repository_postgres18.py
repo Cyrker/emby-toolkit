@@ -11,9 +11,11 @@ from sqlalchemy import text
 
 from etk.bootstrap.app_factory import create_app
 from etk.bootstrap.runtime_supervisor import RuntimeSupervisor
+from etk.domains.media.image_store import SqlAlchemyMediaImageStore
 from etk.domains.media.models import ImagePolicyKey, MediaItemType
 from etk.domains.media.policies import MediaPresentationPolicy, format_metadata_payload
 from etk.domains.media.repository import MediaAssetAlignmentError, SqlAlchemyMediaRepository
+from etk.platform import Settings
 from etk.platform.db import DatabaseRuntime
 
 SHA_A = "A" * 40
@@ -425,7 +427,7 @@ def test_pg18_default_app_serves_metadata_without_materializing_flask(
         supervisor=RuntimeSupervisor(),
     )
 
-    assert app.state.compatibility_app.flask_app is None
+    assert not hasattr(app.state, "compatibility_app")
     with TestClient(app) as client:
         response = client.get(
             "/api/emby/metadata",
@@ -438,4 +440,90 @@ def test_pg18_default_app_serves_metadata_without_materializing_flask(
     assert response.json()["name"] == "Native Movie"
     assert "_emby_item_ids" not in response.json()
     assert "_screenshot_hash" not in response.json()
-    assert app.state.compatibility_app.flask_app is None
+    assert not hasattr(app.state, "compatibility_app")
+
+
+def test_pg18_emby_metadata_sync_matches_nullable_root_identity_and_ignores_empty_date(
+    p5_runtime: DatabaseRuntime,
+) -> None:
+    _insert_media(
+        p5_runtime,
+        tmdb_id="600",
+        item_type="Movie",
+        title="Before",
+        emby_item_ids_json=["movie-600"],
+    )
+    with p5_runtime.engine.begin() as connection:
+        connection.execute(
+            text("UPDATE media_metadata SET release_date = DATE '2026-01-02' WHERE tmdb_id = '600'"),
+        )
+
+    assert _repository(p5_runtime).sync_emby_metadata(
+        "movie-600",
+        {
+            "Name": "After",
+            "PremiereDate": "",
+            "Tags": ["Drama"],
+            "TagItems": [{"Name": "Fixture"}, {"Name": "Drama"}],
+            "OfficialRating": "PG-13",
+            "CustomRating": "Fixture Rating",
+        },
+    )
+
+    with p5_runtime.engine.connect() as connection:
+        row = (
+            connection.execute(
+                text(
+                    """
+                SELECT title, release_date, tags_json, official_rating_json, custom_rating
+                FROM media_metadata WHERE tmdb_id = '600'
+                """
+                ),
+            )
+            .mappings()
+            .one()
+        )
+    assert row["title"] == "After"
+    assert str(row["release_date"]) == "2026-01-02"
+    assert row["tags_json"] == ["Drama", "Fixture"]
+    assert row["official_rating_json"] == {"US": "PG-13"}
+    assert row["custom_rating"] == "Fixture Rating"
+
+
+def test_pg18_native_image_store_round_trip_and_reference_safe_discard(
+    p5_runtime: DatabaseRuntime,
+    tmp_path: Path,
+) -> None:
+    store = SqlAlchemyMediaImageStore(
+        p5_runtime.unit_of_work,
+        lambda: Settings(media_image_archive_enabled=True, media_image_archive_path=str(tmp_path / "images")),
+        tmp_path,
+    )
+    source = "https://images.fixture.invalid/poster.jpg"
+    cached = store.store(source, b"fixture-image", "image/jpeg")
+    content_hash = str(cached["content_hash"])
+
+    assert store.get(content_hash) is not None
+    assert store.get_source(source) is not None
+    with p5_runtime.engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO media_image_policy_cache (
+                    item_type, tmdb_id, season_number, episode_number, policy_json, images_json
+                ) VALUES (
+                    'Movie', '700', -1, -1, '[]'::jsonb, CAST(:images AS jsonb)
+                )
+                """
+            ),
+            {"images": json.dumps([{"source_url": source}])},
+        )
+
+    assert store.discard_unreferenced_sources((source,)) == 0
+    assert Path(str(cached["path"])).is_file()
+    with p5_runtime.engine.begin() as connection:
+        connection.execute(text("DELETE FROM media_image_policy_cache WHERE tmdb_id = '700'"))
+
+    assert store.discard_unreferenced_sources((source,)) == 1
+    assert store.get_source(source) is None
+    assert not Path(str(cached["path"])).exists()

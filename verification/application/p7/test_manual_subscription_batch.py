@@ -392,7 +392,7 @@ def test_cancellation_before_first_item_prevents_all_effects() -> None:
 def test_router_executes_manual_batch_without_processor_or_compatibility() -> None:
     service, tmdb, _effects, _quota, _repository, _watchlist = _service()
     tmdb.movies[101] = _released_movie()
-    router = P7SubscriptionTaskRouter(None, None, manual_batch=service)
+    router = P7SubscriptionTaskRouter(None, manual_batch=service)
     message = TaskMessage.create(
         task_key="manual_subscribe_batch",
         processor=ProcessorIdentity.MEDIA,
@@ -472,7 +472,7 @@ def test_router_rejects_invalid_manual_batch_envelopes(
     expected_exception: type[Exception],
 ) -> None:
     service, *_rest = _service()
-    router = P7SubscriptionTaskRouter(None, None, manual_batch=service)
+    router = P7SubscriptionTaskRouter(None, manual_batch=service)
     message = TaskMessage.create(
         task_key="manual_subscribe_batch",
         processor=ProcessorIdentity.MEDIA,

@@ -14,7 +14,7 @@ from flask import Flask
 import config_manager
 from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.p115 import (
-    LegacyP115RenamePreviewGateway,
+    NativeP115RenamePreviewGateway,
     P115RenameConfigService,
     P115RenameConfigSnapshot,
 )
@@ -65,7 +65,7 @@ def _native_client(
     washing = FakeWashingPriority()
     service = P115RenameConfigService(
         repository=repository,
-        preview=LegacyP115RenamePreviewGateway(),
+        preview=NativeP115RenamePreviewGateway(),
         washing_priority=washing,
     )
     container = AppContainer(

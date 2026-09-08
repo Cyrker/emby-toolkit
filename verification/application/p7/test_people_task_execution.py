@@ -191,7 +191,7 @@ def test_actor_tracking_enriches_tv_order_and_seasons_when_supported() -> None:
 def test_p7_router_executes_people_owner_without_processor() -> None:
     catalog = Catalog()
     owner = NativePeopleTaskService(catalog, Provider(), Repository())
-    router = P7SubscriptionTaskRouter(None, None, people_tasks=owner)
+    router = P7SubscriptionTaskRouter(None, people_tasks=owner)
     message = TaskMessage.create(
         task_key="actor-tracking",
         processor=ProcessorIdentity.ACTOR,

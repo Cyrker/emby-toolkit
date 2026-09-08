@@ -150,6 +150,17 @@ class P8CustomCollectionTasks(Protocol):
     ) -> TaskOutcome: ...
 
 
+class P8ReviewReprocess(Protocol):
+    def execute(
+        self,
+        task_key: str,
+        parameters: Mapping[str, Any],
+        progress: P8TaskProgress,
+        *,
+        operation_key: str,
+    ) -> TaskOutcome: ...
+
+
 class LegacyP8EffectsCompatibilityGateway:
     """Worker-only allowlist around established P8 task implementations."""
 
@@ -189,6 +200,7 @@ class P8EffectTaskRouter:
         studio_images: P8StudioImages | None = None,
         cover_tasks: P8CoverTasks | None = None,
         custom_collection_tasks: P8CustomCollectionTasks | None = None,
+        review_reprocess: P8ReviewReprocess | None = None,
     ) -> None:
         self._compatibility = compatibility
         self._user_sync = user_sync
@@ -201,6 +213,7 @@ class P8EffectTaskRouter:
         self._studio_images = studio_images
         self._cover_tasks = cover_tasks
         self._custom_collection_tasks = custom_collection_tasks
+        self._review_reprocess = review_reprocess
 
     def execute(
         self,
@@ -365,11 +378,23 @@ class P8EffectTaskRouter:
     ) -> TaskOutcome:
         if task_key not in P8_REVIEW_TASK_KEYS:
             raise LookupError(f"unknown P8 review task key: {task_key}")
+        normalized = _normalize_review_parameters(task_key, parameters)
+        if self._review_reprocess is not None:
+            outcome = self._review_reprocess.execute(
+                task_key,
+                normalized,
+                progress,
+                operation_key=f"review:{getattr(progress, 'job_id', task_key)}",
+            )
+            return TaskOutcome(
+                outcome.status,
+                outcome.message,
+                {**outcome.details, **_details(task_key, compatibility=False)},
+            )
         if processor is None:
             raise RuntimeError(f"P8 review task {task_key!r} media processor is unavailable")
         if self._compatibility is None:
             raise RuntimeError(f"P8 review task {task_key!r} compatibility execution is unavailable")
-        normalized = _normalize_review_parameters(task_key, parameters)
         result = self._compatibility.execute(task_key, processor, normalized)
         return _explicit_outcome(task_key, result, progress)
 
@@ -522,6 +547,7 @@ __all__ = [
     "P8EffectsCompatibilityGateway",
     "P8MediaEmbeddings",
     "P8NativeCollectionRefresh",
+    "P8ReviewReprocess",
     "P8StudioImages",
     "P8TaskProgress",
     "P8UserExpiry",

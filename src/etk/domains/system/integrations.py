@@ -70,8 +70,6 @@ class SystemIntegrationGateway(Protocol):
 
     def pro_action(self, action: str, license_key: str, server_id: str) -> Mapping[str, Any]: ...
 
-    def update_runtime_license(self, expire_time: str) -> None: ...
-
 
 class SystemIntegrationService:
     def __init__(
@@ -190,7 +188,6 @@ class SystemIntegrationService:
                 )
             expire_time = str(result.get("expire_time") or "2099-12-31T23:59:59Z")
             self._repository.save_many({"pro_license_key": license_key, "pro_expire_time": expire_time})
-            self._gateway.update_runtime_license(expire_time)
             default_message = "激活成功！" if action == "activate" else "换绑成功！"
             return SystemResult({"success": True, "message": result.get("msg", default_message)})
         except Exception:

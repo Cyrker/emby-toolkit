@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import time
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol, cast
@@ -14,6 +15,9 @@ from .models import P115CredentialSnapshot
 
 
 class _P115SdkClient(Protocol):
+    user_id: int | str
+    user_key: str
+
     def request(
         self,
         url: str,
@@ -39,6 +43,9 @@ class _P115SdkClient(Protocol):
 
 SdkClientFactory = Callable[[P115CredentialSnapshot, str], _P115SdkClient]
 HttpClientFactory = Callable[[], httpx.Client]
+
+_UPLOAD_PART_SIZE = 64 * 1024 * 1024
+_UPLOAD_ENDPOINT = "https://oss-cn-shenzhen.aliyuncs.com"
 
 
 class P115MaintenanceTransportError(RuntimeError):
@@ -158,6 +165,10 @@ class P115PinnedOperationsClient:
     def backend(self) -> str:
         return self._backend
 
+    @property
+    def credential_fingerprint(self) -> str:
+        return _credential_fingerprint(self._snapshot, self._backend)
+
     def list_children(self, parent_id: str) -> tuple[dict[str, Any], ...]:
         parent = str(parent_id or "").strip()
         if not parent:
@@ -267,6 +278,127 @@ class P115PinnedOperationsClient:
         finally:
             self._assert_credentials()
         return _mapping(value, "115 file info")
+
+    def upload_local_file(
+        self,
+        path: str,
+        parent_id: str,
+        *,
+        session: Mapping[str, Any],
+        checkpoint: Callable[[Mapping[str, Any]], None],
+        progress: Callable[[int], None] | None = None,
+    ) -> Mapping[str, Any]:
+        """Upload one stable local file while persisting every resumable request checkpoint."""
+
+        from p115oss import oss_multipart_upload_init, oss_upload, upload_file, upload_file_init
+
+        oss_upload_sync = cast(Callable[..., object], oss_upload)
+        multipart_init_sync = cast(Callable[..., object], oss_multipart_upload_init)
+
+        source = os.path.abspath(str(path or ""))
+        target = str(parent_id or "").strip()
+        if not os.path.isfile(source) or not target:
+            raise ValueError("115 upload source and target directory are required")
+        size = os.path.getsize(source)
+        filename = os.path.basename(source)
+        resume = dict(session)
+        sdk = self._sdk_factory(self._snapshot, self._backend)
+        api_kwargs: dict[str, Any] = {}
+        if self._backend == "openapi":
+            api_kwargs["headers"] = {"authorization": f"Bearer {self._snapshot.access_token}"}
+        else:
+            api_kwargs["user_id"] = str(sdk.user_id)
+            api_kwargs["user_key"] = str(sdk.user_key)
+
+        self._assert_credentials()
+        try:
+            checkpoint(
+                {
+                    **resume,
+                    "phase": "upload_init" if not resume.get("upload_id") else "multipart_upload",
+                    "target_cid": target,
+                    "filename": filename,
+                    "filesize": size,
+                }
+            )
+            if not resume.get("callback") or not resume.get("upload_id"):
+                initialized = upload_file_init(
+                    source,
+                    pid=target,
+                    filename=filename,
+                    filesize=size,
+                    **api_kwargs,
+                )
+                if not isinstance(initialized, Mapping) or initialized.get("state") is not True:
+                    raise P115MaintenanceTransportError("115 upload initialization was rejected")
+                if initialized.get("reuse"):
+                    return dict(initialized)
+                data = initialized.get("data")
+                if not isinstance(data, Mapping):
+                    raise P115MaintenanceTransportError("115 upload initialization payload is invalid")
+                callback_value = data.get("callback")
+                object_key = str(data.get("object") or "").strip()
+                bucket = str(data.get("bucket") or "").strip()
+                if not callback_value or not object_key or not bucket:
+                    raise P115MaintenanceTransportError("115 upload initialization has no resumable OSS identity")
+                if size <= _UPLOAD_PART_SIZE:
+                    direct = {
+                        **resume,
+                        "phase": "direct_upload",
+                        "target_cid": target,
+                        "filename": filename,
+                        "filesize": size,
+                        "callback": callback_value,
+                        "object": object_key,
+                        "bucket": bucket,
+                    }
+                    checkpoint(direct)
+                    with open(source, "rb") as stream:
+                        result = oss_upload_sync(
+                            object_key,
+                            stream,
+                            callback=callback_value,
+                            bucket=bucket,
+                            endpoint=_UPLOAD_ENDPOINT,
+                            reporthook=progress,
+                            **({"headers": api_kwargs["headers"]} if "headers" in api_kwargs else {}),
+                        )
+                    return _mapping(result, "115 direct upload")
+                upload_id = multipart_init_sync(
+                    object_key,
+                    None,
+                    bucket=bucket,
+                    endpoint=_UPLOAD_ENDPOINT,
+                    **({"headers": api_kwargs["headers"]} if "headers" in api_kwargs else {}),
+                )
+                resume = {
+                    "filename": filename,
+                    "filesha1": str(data.get("filesha1") or data.get("fileid") or ""),
+                    "filesize": size,
+                    "partsize": _UPLOAD_PART_SIZE,
+                    "callback": callback_value,
+                    "upload_id": str(upload_id),
+                    "bucket": bucket,
+                }
+                checkpoint(resume)
+
+            result = upload_file(
+                source,
+                pid=target,
+                filename=str(resume.get("filename") or filename),
+                filesha1=str(resume.get("filesha1") or ""),
+                filesize=int(resume.get("filesize") or size),
+                partsize=int(resume.get("partsize") or _UPLOAD_PART_SIZE),
+                callback=resume["callback"],
+                upload_id=str(resume["upload_id"]),
+                bucket=str(resume.get("bucket") or "fhnfile"),
+                endpoint=_UPLOAD_ENDPOINT,
+                reporthook=progress,
+                **api_kwargs,
+            )
+            return _mapping(result, "115 multipart upload")
+        finally:
+            self._assert_credentials()
 
     def clear_recycle_bin(self) -> Mapping[str, Any]:
         self._assert_credentials()

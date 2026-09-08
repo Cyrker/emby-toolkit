@@ -5,31 +5,14 @@ from types import SimpleNamespace
 from typing import Any, cast
 from uuid import UUID
 
-import pytest
-
 import task_manager
 from etk.platform.jobs import JobStatus
 from etk.platform.tasks import TaskMessage, TaskOutcome, TaskRegistry
-from etk.processes import worker as worker_module
 from etk.processes.runtime_config import TaskRuntimeConfig
 from etk.processes.worker import WorkerRuntime
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TASK_FIXTURE = REPO_ROOT / "verification" / "fixtures" / "tasks" / "ordered-task-catalog.json"
-
-
-class Processor:
-    def __init__(self) -> None:
-        self.stopped = False
-
-    def signal_stop(self) -> None:
-        self.stopped = True
-
-    def clear_stop_signal(self) -> None:
-        self.stopped = False
-
-    def is_stop_requested(self) -> bool:
-        return self.stopped
 
 
 class ExecutionStore:
@@ -61,11 +44,6 @@ class ExecutionStore:
     def cancel_attempt(self, **values: Any) -> Any:
         self.terminals.append(("cancelled", values))
         return self.projection
-
-
-class FailingLegacyAdapter:
-    def execute(self, _message: object) -> object:
-        raise AssertionError("P5 native task must not execute through LegacyTaskAdapter")
 
 
 class FakeNativeRouter:
@@ -107,29 +85,25 @@ def _projection(task_key: str, parameters: dict[str, Any]) -> Any:
 
 
 def _runtime(
-    monkeypatch: pytest.MonkeyPatch,
     router: FakeNativeRouter,
     projection: Any,
-) -> tuple[WorkerRuntime, ExecutionStore, Processor]:
-    processor = Processor()
-    monkeypatch.setattr(worker_module, "_processor", lambda _identity: processor)
+) -> tuple[WorkerRuntime, ExecutionStore]:
     runtime = WorkerRuntime(config=TaskRuntimeConfig(heartbeat_seconds=60, lease_seconds=120))
     store = ExecutionStore(projection)
     state = cast(Any, runtime)
     state._store = store
     state._registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    state._adapter = FailingLegacyAdapter()
     state._p5_media_tasks = router
-    return runtime, store, processor
+    return runtime, store
 
 
-def test_worker_executes_targeted_backfill_through_p5_native_router(monkeypatch) -> None:
+def test_worker_executes_targeted_backfill_through_p5_native_router() -> None:
     projection = _projection(
         "backfill-media-metadata",
         {"targets": [{"tmdb_id": "100", "media_type": "movie"}]},
     )
     router = FakeNativeRouter(TaskOutcome.succeeded("targeted backfill complete", {"count": 1}))
-    runtime, store, processor = _runtime(monkeypatch, router, projection)
+    runtime, store = _runtime(router, projection)
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
 
@@ -145,10 +119,10 @@ def test_worker_executes_targeted_backfill_through_p5_native_router(monkeypatch)
     assert observed_processor is None
 
 
-def test_worker_converts_failed_native_outcome_to_failed_attempt(monkeypatch) -> None:
+def test_worker_converts_failed_native_outcome_to_failed_attempt() -> None:
     projection = _projection("populate-metadata", {})
     router = FakeNativeRouter(TaskOutcome.failed("metadata failed"))
-    runtime, store, _processor = _runtime(monkeypatch, router, projection)
+    runtime, store = _runtime(router, projection)
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
 
@@ -157,15 +131,15 @@ def test_worker_converts_failed_native_outcome_to_failed_attempt(monkeypatch) ->
     assert store.terminals[0][1]["error_message"] == "metadata failed"
 
 
-def test_worker_rejects_negative_progress_even_when_native_fallback_returns_success(monkeypatch) -> None:
+def test_worker_ignores_removed_legacy_thread_status_when_native_outcome_succeeds() -> None:
     projection = _projection("restore-nfo-and-images", {})
     router = FakeNativeRouter(
         TaskOutcome.succeeded("compatibility returned None"),
         report_failure=True,
     )
-    runtime, store, _processor = _runtime(monkeypatch, router, projection)
+    runtime, store = _runtime(router, projection)
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
 
-    assert [status for status, _values in store.terminals] == ["failed"]
-    assert store.terminals[0][1]["error_message"] == "native compatibility reported failure"
+    assert [status for status, _values in store.terminals] == ["succeeded"]
+    assert store.terminals[0][1]["result"]["status"] == "succeeded"

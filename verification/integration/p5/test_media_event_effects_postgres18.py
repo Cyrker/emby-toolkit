@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import text
 
-from etk.domains.media.event_effects import PersistentP5MediaEventGateway
+from etk.domains.media.effect_execution import PersistentMediaEffectExecutor
+from etk.domains.media.effects import PostgresMediaEffectLedger
+from etk.domains.media.event_effects import P5MediaEventEffectDelivery, PersistentP5MediaEventGateway
 from etk.domains.media.models import ServiceResult
 from etk.platform.db import DatabaseRuntime
 
@@ -111,3 +114,32 @@ def test_pg18_p5_event_rejection_and_unknown_outcome_are_terminal_without_replay
     with p5_runtime.engine.connect() as connection:
         statuses = set(connection.scalars(text("SELECT status FROM media_effects")))
     assert statuses == {"rejected", "indeterminate"}
+
+
+def test_pg18_p5_event_api_defers_and_worker_delivery_confirms_once(
+    p5_runtime: DatabaseRuntime,
+) -> None:
+    native = FakeEventCompatibility()
+    api = PersistentP5MediaEventGateway(
+        p5_runtime.unit_of_work,
+        native,
+        defer=True,
+    )
+    payload = _payload("fixture-event-worker")
+
+    pending = api.handle(payload, host_url="http://fixture.invalid/", remote_addr="127.0.0.1")
+    assert pending.status_code == 202
+    assert pending.payload["effect_status"] == "pending"
+    assert native.calls == []
+
+    executor = PersistentMediaEffectExecutor(
+        PostgresMediaEffectLedger(p5_runtime.unit_of_work),
+        P5MediaEventEffectDelivery(native),
+        worker_id="fixture-worker:event",
+    )
+    confirmed = executor.execute(UUID(str(pending.payload["effect_id"])))
+    replay = executor.execute(confirmed.id)
+
+    assert confirmed.status.value == "confirmed"
+    assert replay == confirmed
+    assert len(native.calls) == 1

@@ -5,10 +5,7 @@ from typing import Any
 
 import pytest
 
-from etk.platform.tasks import TaskOutcomeStatus
 from etk.processes.p7_subscription_effects import DurableMoviePilotEffectIndeterminateError
-from etk.processes.p7_subscription_tasks import _explicit_outcome
-from etk.processes.worker import _reported_failure_is_retryable
 from tasks import resubscribe
 
 
@@ -266,36 +263,6 @@ def test_non_persistent_hdhive_resubscribe_fails_before_inline_client(monkeypatc
         }
     ]
     assert result["retryable"] is False
-
-
-def test_deferred_and_non_retryable_legacy_results_remain_visible_to_worker() -> None:
-    deferred = _explicit_outcome(
-        "resubscribe-library",
-        {"ok": True, "status": "deferred", "message": "fixture child pending"},
-    )
-    actor_unknown = _explicit_outcome(
-        "purge-ghost-actors",
-        {"ok": False, "status": "partial", "message": "fixture unknown", "retryable": False},
-    )
-
-    assert deferred.status is TaskOutcomeStatus.SKIPPED
-    assert actor_unknown.status is TaskOutcomeStatus.PARTIAL
-    assert _reported_failure_is_retryable(actor_unknown) is False
-
-
-def test_washing_priority_partial_failure_is_not_reported_as_succeeded() -> None:
-    succeeded = _explicit_outcome(
-        "recalculate_library_washing_priorities",
-        {"processed": 3, "updated": 2, "errors": 0},
-    )
-    partial = _explicit_outcome(
-        "recalculate_library_washing_priorities",
-        {"processed": 3, "updated": 2, "errors": 1},
-    )
-
-    assert succeeded.status is TaskOutcomeStatus.SUCCEEDED
-    assert partial.status is TaskOutcomeStatus.PARTIAL
-    assert partial.details["legacy_result"] == {"processed": 3, "updated": 2, "errors": 1}
 
 
 @pytest.mark.parametrize(

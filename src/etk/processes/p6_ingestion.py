@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import socket
+import time
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from typing import Any, Protocol
+from urllib.parse import unquote
 from uuid import UUID, uuid4
 
+import httpx
 from sqlalchemy import text
 
 from etk.compatibility.ingestion_monitor import PersistentIngestionBinding, PersistentIngestionIngress
@@ -40,11 +44,20 @@ from etk.domains.media.effects import (
     PostgresMediaEffectLedger,
 )
 from etk.domains.operations.jobs import JobSubmissionService
+from etk.domains.p115.bridge_compatibility import p115_item_matches
+from etk.domains.p115.media_info_adapters import (
+    ControlledProcessOutput,
+    ControlledProcessProfile,
+    ControlledProcessRunner,
+)
+from etk.domains.p115.media_info_formatter import (
+    P115MediaInfoPolicySnapshot,
+    format_raw_ffprobe_mediainfo,
+)
 from etk.platform import Settings
 from etk.platform.jobs import OutboxClaim, PostgresJobStore, PublishBatchResult
 from etk.platform.jobs.types import UnitOfWorkFactory
 from etk.platform.observability.redaction import redact_sensitive
-from etk.platform.tasks import ProcessorIdentity
 
 from .celery_app import EXECUTE_INGESTION_MONITOR_TASK, create_celery_app
 from .runtime_config import TaskRuntimeConfig
@@ -54,12 +67,24 @@ INGESTION_CLAIM_LEASE_SECONDS = 420
 INGESTION_MAX_ATTEMPTS = 3
 INGESTION_RETRY_SECONDS = 10
 _POLL_DELAYS = (0, 0.25, 0.5, 1, 2, 4, 8)
+_P115_PLAY_PATH = re.compile(r"/api/p115/play/([^/?#]+)", re.IGNORECASE)
+_P115_VIRTUAL_PLAY_PATH = re.compile(
+    r"/api/p115/virtual-play/[^/?#]+/([A-Fa-f0-9]{40})(?:[/?#]|$)",
+    re.IGNORECASE,
+)
+_FFPROBE_STDOUT_LIMIT = 16 * 1024 * 1024
+_FFPROBE_STDERR_LIMIT = 256 * 1024
+_FFPROBE_TIMEOUT_SECONDS = 300.0
 
 
 class IngestionPreparationPort(Protocol):
-    def prepare(self, item: MonitorItemProjection, processor: Any) -> bool: ...
+    def prepare(self, item: MonitorItemProjection) -> bool: ...
 
-    def poll(self, binding: PendingBindingProjection, processor: Any) -> Mapping[str, Any] | None: ...
+    def poll(self, binding: PendingBindingProjection) -> Mapping[str, Any] | None: ...
+
+
+class IngestionFingerprintPort(Protocol):
+    def extract(self, path: str) -> tuple[str | None, str | None]: ...
 
 
 class IngestionBindingDeliveryPort(Protocol):
@@ -68,6 +93,22 @@ class IngestionBindingDeliveryPort(Protocol):
         binding: PendingBindingProjection,
         item: Mapping[str, Any],
     ) -> Mapping[str, Any]: ...
+
+
+class P115MediaInfoCacheReader(Protocol):
+    def find_by_sha1(self, sha1: str, *, record_hit: bool = False) -> Any: ...
+
+
+class P115IngestionCredentialStore(Protocol):
+    def load(self) -> Any: ...
+
+
+class P115IngestionFingerprintRepository(Protocol):
+    def resolve_sha1_by_pick_code(self, pick_code: str, *, account_id: str) -> str | None: ...
+
+
+class P115IngestionPolicyProvider(Protocol):
+    def snapshot(self) -> P115MediaInfoPolicySnapshot: ...
 
 
 class PersistentIngestionIngressGateway(PersistentIngestionIngress):
@@ -162,8 +203,8 @@ class IngestionBindingInProgress(RuntimeError):
     pass
 
 
-class LegacyIngestionBindingDelivery(IngestionBindingDeliveryPort):
-    """Compatibility effects behind one durable, idempotent binding completion port."""
+class NativeIngestionBindingDelivery(IngestionBindingDeliveryPort):
+    """Confirm MediaInfo once, then submit the bounded native reprocess operation."""
 
     def __init__(
         self,
@@ -171,11 +212,13 @@ class LegacyIngestionBindingDelivery(IngestionBindingDeliveryPort):
         jobs: Callable[[], JobSubmissionService],
         uow_factory: UnitOfWorkFactory,
         bridge: MediaInfoBridgeGateway,
+        media_info: P115MediaInfoCacheReader,
         media_effects: PersistentMediaEffectExecutor | None = None,
         lease_seconds: float | Callable[[], float] = 90,
     ) -> None:
         self._jobs = jobs
         self._bridge = bridge
+        self._media_info = media_info
         self._media_effect_ledger = PostgresMediaEffectLedger(uow_factory)
         self._media_effects = media_effects or PersistentMediaEffectExecutor(
             self._media_effect_ledger,
@@ -189,8 +232,6 @@ class LegacyIngestionBindingDelivery(IngestionBindingDeliveryPort):
         binding: PendingBindingProjection,
         item: Mapping[str, Any],
     ) -> Mapping[str, Any]:
-        from routes.webhook import _handle_full_processing_flow
-
         idempotency_scope = "ingestion-binding"
         idempotency_key = str(binding.id)
         effect_key = f"p6:ingestion-binding:emby.mediainfo.apply:{binding.id}"
@@ -222,9 +263,8 @@ class LegacyIngestionBindingDelivery(IngestionBindingDeliveryPort):
             if binding.media_info is not None:
                 mediainfo: object = binding.media_info
             elif binding.sha1:
-                from handler.p115_service import P115CacheManager
-
-                mediainfo = P115CacheManager.get_mediainfo_cache_text(binding.sha1)
+                record = self._media_info.find_by_sha1(binding.sha1, record_hit=True)
+                mediainfo = getattr(record, "formatted", None)
                 if not mediainfo:
                     raise IngestionBindingRejected("pending binding MediaInfo cache was not found")
             else:
@@ -269,28 +309,16 @@ class LegacyIngestionBindingDelivery(IngestionBindingDeliveryPort):
         if not staged_item_id or staged_item_type not in {"Movie", "Episode"}:
             raise IngestionBindingIndeterminate("durable MediaInfo effect has no resumable Emby item identity")
 
-        target_item_id = staged_item_id
-        new_episode_ids: list[str] | None = None
         if staged_item_type == "Episode":
             if not staged_series_id:
                 raise IngestionBindingIndeterminate("durable Episode MediaInfo effect has no SeriesId")
-            target_item_id = staged_series_id
-            new_episode_ids = [staged_item_id]
-        submitted = jobs.submit_legacy_callable(
-            _handle_full_processing_flow,
-            f"主动入库: {staged_item_name}",
-            ProcessorIdentity.MEDIA,
-            (),
+        submitted = jobs.submit_native_operation(
+            "media.reprocess-item",
             {
-                "item_id": target_item_id,
-                "force_full_update": False,
-                "new_episode_ids": new_episode_ids,
-                "is_new_item": True,
-                "aggregate_notification": False,
+                "item_id": staged_item_id,
+                "restore_media_info": False,
             },
-            silent=True,
-            queue_when_busy=True,
-            max_attempts=3,
+            display_name=f"主动入库: {staged_item_name}",
             idempotency_scope=idempotency_scope,
             idempotency_key=idempotency_key,
         )
@@ -498,42 +526,178 @@ class PersistentPendingBindingGateway(PersistentIngestionBinding):
         return True
 
 
-class LegacyIngestionPreparationGateway(IngestionPreparationPort):
-    def __init__(self, settings: Callable[[], Settings]) -> None:
+class NativeIngestionFingerprintGateway(IngestionFingerprintPort):
+    """Resolve the account-bound 115 identity without loading a Processor."""
+
+    def __init__(
+        self,
+        *,
+        settings: Callable[[], Settings],
+        credentials: P115IngestionCredentialStore,
+        repository: P115IngestionFingerprintRepository,
+    ) -> None:
         self._settings = settings
+        self._credentials = credentials
+        self._repository = repository
 
-    def prepare(self, item: MonitorItemProjection, processor: Any) -> bool:
-        import monitor_service
+    def extract(self, path: str) -> tuple[str | None, str | None]:
+        if not self._settings().monitor_sha1_pc_search:
+            return None, None
+        value = str(path or "").strip()
+        if not value:
+            return None, None
+        sample = value
+        if not value.startswith(("http://", "https://")):
+            if not value.casefold().endswith(".strm") or not os.path.isfile(value):
+                return None, None
+            try:
+                with open(value, encoding="utf-8", errors="ignore") as stream:
+                    sample = stream.read(2048).strip()
+            except OSError:
+                return None, None
 
-        if item.classification is MonitorClassification.PHYSICAL:
-            return item.path in monitor_service.prepare_physical_files_for_binding(processor, [item.path])
+        play = _P115_PLAY_PATH.search(sample)
+        virtual = _P115_VIRTUAL_PLAY_PATH.search(sample)
+        pick_code = unquote(play.group(1)).strip() if play else ""
+        sha1 = virtual.group(1).upper() if virtual else ""
+        if pick_code and not sha1:
+            account_id = str(getattr(self._credentials.load(), "account_id", "") or "").strip()
+            if account_id:
+                sha1 = (
+                    str(
+                        self._repository.resolve_sha1_by_pick_code(
+                            pick_code,
+                            account_id=account_id,
+                        )
+                        or ""
+                    )
+                    .strip()
+                    .upper()
+                )
+        return pick_code or None, sha1 or None
+
+
+class NativeIngestionPreparationGateway(IngestionPreparationPort):
+    """Prepare a stable file and perform bounded Emby path readback."""
+
+    def __init__(
+        self,
+        *,
+        settings: Callable[[], Settings],
+        pending_bindings: PersistentPendingBindingGateway,
+        processes: ControlledProcessRunner,
+        policies: P115IngestionPolicyProvider,
+        client_factory: Callable[[], httpx.Client] | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        self._settings = settings
+        self._pending_bindings = pending_bindings
+        self._processes = processes
+        self._policies = policies
+        self._client_factory = client_factory or self._default_client
+        self._sleep = sleep
+
+    def prepare(self, item: MonitorItemProjection) -> bool:
         if item.classification is MonitorClassification.STRM:
-            monitor_service._prepare_strm_for_binding(processor, item.path)
+            self._pending_bindings.enqueue_binding(item.path)
+            return True
+        if item.classification is MonitorClassification.PHYSICAL:
+            outcome = self._processes.run(
+                ControlledProcessProfile.FFPROBE,
+                (
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-print_format",
+                    "json",
+                    "-show_format",
+                    "-show_streams",
+                    "-show_chapters",
+                    item.path,
+                ),
+                max_stdin_bytes=0,
+                max_stdout_bytes=_FFPROBE_STDOUT_LIMIT,
+                max_stderr_bytes=_FFPROBE_STDERR_LIMIT,
+                timeout_seconds=_FFPROBE_TIMEOUT_SECONDS,
+                output=ControlledProcessOutput.JSON,
+            )
+            raw = outcome.parsed_output
+            if not outcome.succeeded or not isinstance(raw, Mapping):
+                return False
+            formatted = format_raw_ffprobe_mediainfo(
+                raw,
+                file_name=os.path.basename(item.path),
+                file_size=os.path.getsize(item.path),
+                policy=self._policies.snapshot(),
+            )
+            if not formatted:
+                return False
+            self._pending_bindings.enqueue_binding(item.path, mediainfo=dict(formatted[0]))
             return True
         raise ValueError(f"unsupported ingestion preparation classification: {item.classification.value}")
 
-    def poll(self, binding: PendingBindingProjection, processor: Any) -> Mapping[str, Any] | None:
-        from etk.domains.p115.bridge_compatibility import p115_item_matches
-        from handler import emby
-
-        del processor
+    def poll(self, binding: PendingBindingProjection) -> Mapping[str, Any] | None:
         settings = self._settings()
-        found = emby.wait_for_emby_items_by_path(
-            [binding.path],
-            str(settings.emby_server_url or "").strip().rstrip("/"),
-            settings.emby_api_key.get_secret_value().strip(),
-            str(settings.emby_user_id or "").strip() or None,
-            retry_delays=_POLL_DELAYS,
-        )
-        key = emby._normalize_emby_media_path(binding.path)
-        item = found.get(key)
-        if (
-            item is not None
-            and binding.path.casefold().endswith(".strm")
-            and not p115_item_matches(item, binding.sha1 or "", binding.pick_code or "")
-        ):
-            return None
-        return item
+        base_url = str(settings.emby_server_url or "").strip().rstrip("/")
+        token = settings.emby_api_key.get_secret_value().strip()
+        user_id = str(settings.emby_user_id or "").strip()
+        if not base_url or not token:
+            raise RuntimeError("ingestion polling requires configured Emby authorization")
+        expected_path = normalize_media_path(binding.path)
+        had_response = False
+        last_error: Exception | None = None
+        with self._client_factory() as client:
+            for delay in _POLL_DELAYS:
+                if delay:
+                    self._sleep(delay)
+                params = {
+                    "Path": binding.path,
+                    "Recursive": "true",
+                    "Fields": (
+                        "Path,MediaSources,ProviderIds,SeriesId,SeasonId,ParentId,"
+                        "IndexNumber,ParentIndexNumber,Type,Name"
+                    ),
+                    "EnableTotalRecordCount": "false",
+                }
+                if user_id:
+                    params["UserId"] = user_id
+                try:
+                    response = client.get(
+                        f"{base_url}/Items",
+                        params=params,
+                        headers={"Accept": "application/json", "X-Emby-Token": token},
+                    )
+                    response.raise_for_status()
+                    payload: Any = response.json()
+                except (httpx.HTTPError, TypeError, ValueError) as exc:
+                    last_error = exc
+                    continue
+                if not isinstance(payload, Mapping) or not isinstance(payload.get("Items"), list):
+                    raise RuntimeError("Emby ingestion path query returned an invalid response")
+                had_response = True
+                for raw_item in payload["Items"]:
+                    if not isinstance(raw_item, Mapping):
+                        continue
+                    item = dict(raw_item)
+                    if (
+                        normalize_media_path(item.get("Path")) != expected_path
+                        or not str(item.get("Id") or "").strip()
+                        or str(item.get("Type") or "").strip() not in {"Movie", "Episode"}
+                    ):
+                        continue
+                    if binding.path.casefold().endswith(".strm") and not p115_item_matches(
+                        item,
+                        binding.sha1 or "",
+                        binding.pick_code or "",
+                    ):
+                        continue
+                    return item
+        if not had_response and last_error is not None:
+            raise RuntimeError("Emby ingestion path query failed") from last_error
+        return None
+
+    def _default_client(self) -> httpx.Client:
+        return httpx.Client(timeout=max(1.0, float(self._settings().emby_api_timeout)))
 
 
 class CeleryIngestionMonitorPublisher:
@@ -675,7 +839,7 @@ class IngestionMonitorExecutor:
         preparation: IngestionPreparationPort,
         pending_bindings: PersistentPendingBindingGateway,
         media_effects: Any,
-        processor: Callable[[], Any],
+        fingerprints: IngestionFingerprintPort,
         worker_id: str,
         lease_seconds: float = INGESTION_CLAIM_LEASE_SECONDS,
     ) -> None:
@@ -685,7 +849,7 @@ class IngestionMonitorExecutor:
         self._preparation = preparation
         self._pending_bindings = pending_bindings
         self._media_effects = media_effects
-        self._processor = processor
+        self._fingerprints = fingerprints
         self._worker_id = str(worker_id or "").strip()
         self._lease_seconds = float(lease_seconds)
         if not self._worker_id or self._lease_seconds <= 0:
@@ -714,17 +878,9 @@ class IngestionMonitorExecutor:
             if not valid_etk_strm_content(content):
                 return self._reject(claimed, "invalid_etk_strm")
 
-        processor = self._processor()
-
-        def fingerprints(path: str) -> tuple[str | None, str | None]:
-            raw_pick_code, raw_sha1 = processor._extract_115_fingerprints(path)
-            pick_code = str(raw_pick_code or "").strip() or None
-            sha1 = str(raw_sha1 or "").strip().upper() or None
-            return pick_code, sha1
-
         try:
-            with self._pending_bindings.monitor_item(claimed, fingerprint=fingerprints) as binding_scope:
-                prepared = self._preparation.prepare(claimed, processor)
+            with self._pending_bindings.monitor_item(claimed, fingerprint=self._fingerprints.extract) as binding_scope:
+                prepared = self._preparation.prepare(claimed)
                 binding = binding_scope.reserved_binding
         except Exception as exc:
             return self._retry_or_reject(claimed, "media_preparation_failed", exc)
@@ -753,7 +909,7 @@ class IngestionMonitorExecutor:
             return self._retry(claimed, "path_notification_in_progress")
 
         try:
-            emby_item = self._preparation.poll(binding, processor)
+            emby_item = self._preparation.poll(binding)
         except Exception as exc:
             reconciled = self._reconcile_binding_state(claimed, binding, effect_id)
             if reconciled is not None:
@@ -1082,14 +1238,16 @@ __all__ = [
     "INGESTION_CLAIM_LEASE_SECONDS",
     "INGESTION_MONITOR_TOPICS",
     "IngestionBindingDeliveryPort",
+    "IngestionFingerprintPort",
     "IngestionBindingIndeterminate",
     "IngestionBindingRejected",
     "IngestionCoordinatorResult",
     "IngestionMonitorCoordinator",
     "IngestionMonitorExecutor",
     "IngestionPreparationPort",
-    "LegacyIngestionBindingDelivery",
-    "LegacyIngestionPreparationGateway",
+    "NativeIngestionBindingDelivery",
+    "NativeIngestionFingerprintGateway",
+    "NativeIngestionPreparationGateway",
     "PersistentIngestionIngressGateway",
     "PersistentPendingBindingGateway",
 ]

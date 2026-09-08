@@ -7,13 +7,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.p115 import (
-    LegacyP115PlanNamingGateway,
-    LegacyP115RuleRecognitionGateway,
+    NativeP115PlanNamingGateway,
+    NativeP115RuleRecognitionGateway,
     P115CredentialSnapshot,
     P115EpisodeRegexSnapshot,
     P115OrganizePlan,
@@ -28,6 +29,9 @@ from etk.domains.p115 import (
     policy_revision,
     runtime_config_revision,
 )
+from etk.domains.p115 import adapters as p115_adapters_module
+from etk.domains.p115 import rename_renderer as rename_renderer_module
+from etk.domains.p115.rename_renderer import P115RenameRenderer
 from etk.domains.p115.router import router
 from etk.platform import AppContainer, Settings
 from etk.platform.web import CookieSessionMiddleware
@@ -483,11 +487,7 @@ def test_explicit_sidecar_hint_moves_subtitle_without_requiring_video_mediainfo(
     data = _plan_data(result)
     assert data["status"] == "ready"
     assert data["recognition_evidence"]["subtitle"]["sidecar"] is True
-    moved_ids = {
-        action["subject"].get("file_id")
-        for action in data["actions"]
-        if action["kind"] == "MOVE"
-    }
+    moved_ids = {action["subject"].get("file_id") for action in data["actions"] if action["kind"] == "MOVE"}
     assert moved_ids == {"video", "subtitle"}
 
 
@@ -1089,7 +1089,7 @@ def test_pure_compatibility_recognition_and_naming_adapters_never_construct_an_o
         size=20 * 1024 * 1024,
         raw_hash="f" * 64,
     )
-    recognition = LegacyP115RuleRecognitionGateway().recognize(
+    recognition = NativeP115RuleRecognitionGateway().recognize(
         node,
         hints={
             "title": "绝命毒师",
@@ -1102,7 +1102,7 @@ def test_pure_compatibility_recognition_and_naming_adapters_never_construct_an_o
         episode_rules=(),
         policy={},
     )
-    names = LegacyP115PlanNamingGateway().render_names(
+    names = NativeP115PlanNamingGateway().render_names(
         node,
         recognition=recognition,
         config={
@@ -1144,7 +1144,7 @@ def test_cached_video_info_reaches_the_real_default_template_renderer() -> None:
                 },
             }
         },
-        naming=LegacyP115PlanNamingGateway(),
+        naming=NativeP115PlanNamingGateway(),
         rename_config={
             "main_dir_template": "{{title}}",
             "movie_file_template": "{{title}} {{resolution}} {{videoCodec}} {{audioCodec}}{{fileExt}}",
@@ -1166,6 +1166,80 @@ def test_cached_video_info_reaches_the_real_default_template_renderer() -> None:
     assert rename_action["destination"]["name"] == "寄生虫 2160p HEVC TrueHD Atmos 7.1.mkv"
 
 
+def test_rename_renderer_normalizes_templates_and_customization_rules(caplog: pytest.LogCaptureFixture) -> None:
+    assert P115RenameRenderer.normalize_mp_jinja_template(None) == ""
+    assert P115RenameRenderer.normalize_mp_jinja_template("{{ episode|string }.zfill(2) }} {{ fps }}FPS") == (
+        "{{ (episode|string).zfill(2) }} {{ fps }}"
+    )
+    assert P115RenameRenderer.extract_customization("AA", "\nA\nA\n(?=A)\n[") == "A"
+    assert P115RenameRenderer.extract_customization("NF AMZN", ["NF", "AMZN"]) == "NF@AMZN"
+    assert P115RenameRenderer.extract_customization("NF", object()) == ""
+    assert "忽略无效" in caplog.text
+
+
+def test_rename_renderer_separator_cleanup_reaches_stable_and_bounded_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert P115RenameRenderer.cleanup_empty_separators("Movie -- .mkv") == "Movie.mkv"
+
+    calls = 0
+
+    def never_stable(_pattern: str, _replacement: str, value: str, *_args: Any, **_kwargs: Any) -> str:
+        nonlocal calls
+        calls += 1
+        return f"{value}x"
+
+    monkeypatch.setattr(rename_renderer_module.re, "sub", never_stable)
+    assert P115RenameRenderer.cleanup_empty_separators("Movie")
+    assert calls > 30
+
+
+def test_rename_renderer_title_initial_and_label_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert P115RenameRenderer.get_title_initial("---") == ""
+    assert P115RenameRenderer.get_title_initial("-alpha") == "A"
+
+    def fail_pinyin(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("fixture pinyin failure")
+
+    monkeypatch.setattr(rename_renderer_module, "pinyin", fail_pinyin)
+    assert P115RenameRenderer.get_title_initial("中") == "中"
+    assert P115RenameRenderer.format_video_codec_label("HEVC AVC", "h265") == "H265 H264"
+    assert P115RenameRenderer.format_video_codec_label("", "hevc") == ""
+    assert P115RenameRenderer.format_audio_label("TrueHD 7.1", True) == "TrueHD"
+    assert P115RenameRenderer.format_audio_label("TrueHD 7.1", False) == "TrueHD 7.1"
+    assert P115RenameRenderer.format_fps_label("variable") == ("variable", "variable")
+
+
+def test_rename_renderer_builds_actor_context_for_string_list_and_unknown_values() -> None:
+    string_context = P115RenameRenderer({"actors": "Actor One"}).build_template_context()
+    assert string_context["actors"] == "Actor One"
+
+    list_context = P115RenameRenderer(
+        {
+            "actors": [
+                {"name": "Actor One"},
+                {"original_name": "Actor Two"},
+                {},
+                "Actor Three",
+                "",
+                "Ignored Sixth Actor",
+            ]
+        }
+    ).build_template_context(is_tv=True, season_num=2, episode_num=3, original_name="Show.Part.2.mkv")
+    assert list_context["actors"] == "Actor One、Actor Two、Actor Three"
+    assert list_context["season_episode"] == "S02E03"
+    assert list_context["part"] == "2"
+
+    unknown_context = P115RenameRenderer({"actors": {"name": "ignored"}}).build_template_context()
+    assert unknown_context["actors"] == ""
+
+
+def test_rename_renderer_returns_empty_for_blank_or_failed_template() -> None:
+    renderer = P115RenameRenderer({"title": "Fixture"})
+    assert renderer.render_template(None) == ""
+    assert renderer.render_template("{{ 1 / 0 }}") == ""
+
+
 def test_default_language_mapping_participates_in_real_rule_recognition() -> None:
     sha1 = "8" * 40
     service, *_ = _service(
@@ -1183,7 +1257,7 @@ def test_default_language_mapping_participates_in_real_rule_recognition() -> Non
             }
         ],
         media_info={sha1: {"snapshot_hash": "f" * 64, "has_video": True, "stream_count": 1}},
-        recognition=LegacyP115RuleRecognitionGateway(),
+        recognition=NativeP115RuleRecognitionGateway(),
     )
 
     data = _plan_data(
@@ -1232,3 +1306,113 @@ def test_legacy_video_extension_and_unknown_size_remain_eligible() -> None:
 
     assert data["status"] == "ready"
     assert [action["kind"] for action in data["actions"]] == ["ENSURE_DIRECTORY", "MOVE"]
+
+
+@pytest.mark.parametrize(
+    ("filename", "main_dir", "season_subdirs", "forced_type", "expected"),
+    [
+        (
+            "Movie.2020.tmdb-123.mkv",
+            "",
+            False,
+            None,
+            {"tmdb_id": "123", "media_type": "movie", "year": 2020, "confidence": "high"},
+        ),
+        (
+            "Show Episode 3.mkv",
+            "Show",
+            True,
+            None,
+            {"media_type": "tv", "season_number": 1, "episode_number": 3, "confidence": "medium"},
+        ),
+        (
+            "Film 2021.mkv",
+            "",
+            False,
+            None,
+            {"media_type": "movie", "year": 2021, "confidence": "medium"},
+        ),
+        (
+            "OVA.mkv",
+            "",
+            False,
+            None,
+            {"media_type": "tv", "season_number": 0, "is_special": True, "confidence": "low"},
+        ),
+        (
+            "Title.mkv",
+            "",
+            False,
+            "invalid",
+            {"media_type": None, "confidence": "low"},
+        ),
+        (
+            "",
+            "合集",
+            False,
+            "movies",
+            {"title": "合集", "media_type": "movie", "confidence": "medium"},
+        ),
+    ],
+)
+def test_rule_parser_classifies_identity_structure_title_and_confidence(
+    filename: str,
+    main_dir: str,
+    season_subdirs: bool,
+    forced_type: str | None,
+    expected: Mapping[str, Any],
+) -> None:
+    result = p115_adapters_module._build_rule_parse_result(
+        filename,
+        main_dir,
+        season_subdirs,
+        forced_type,
+    )
+    assert {key: result[key] for key in expected} == expected
+
+
+def test_rule_parser_number_title_and_identity_helpers_cover_noise_boundaries() -> None:
+    assert p115_adapters_module._normalize_rule_media_type("电影") == "movie"
+    assert p115_adapters_module._normalize_rule_media_type("番剧") == "tv"
+    assert p115_adapters_module._normalize_rule_media_type("music") is None
+
+    assert p115_adapters_module._parse_rule_cn_number("") is None
+    assert p115_adapters_module._parse_rule_cn_number("12") == 12
+    assert p115_adapters_module._parse_rule_cn_number("十二") == 12
+    assert p115_adapters_module._parse_rule_cn_number("两百三") == 203
+    assert p115_adapters_module._parse_rule_cn_number("unknown") is None
+
+    assert p115_adapters_module._clean_rule_title("") == ""
+    assert p115_adapters_module._clean_rule_title("Movie.2020.2160p.WEB-DL.mkv") == "Movie"
+    assert p115_adapters_module._clean_rule_title("2020.2160p.mkv") == ""
+    assert p115_adapters_module._clean_rule_title("Clean_Title.mkv") == "Clean Title"
+    assert p115_adapters_module._extract_rule_year("Movie 1999 Remaster 2020") == 2020
+    assert p115_adapters_module._extract_rule_year("No year") is None
+    assert p115_adapters_module._rule_detect_special("Show OVA") is True
+    assert p115_adapters_module._rule_detect_special("Regular episode") is False
+    assert p115_adapters_module._rule_extract_tmdb_id("Movie tmdb=12345") == "12345"
+    assert p115_adapters_module._rule_extract_tmdb_id("Movie") is None
+    assert p115_adapters_module._rule_extract_date_episode("News 2026-09-08") == 20260908
+    assert p115_adapters_module._rule_extract_date_episode("News 20260908") == 20260908
+    assert p115_adapters_module._rule_extract_date_episode("News") is None
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("", (None, None, [])),
+        ("Show S01E02", (1, 2, ["sxe"])),
+        ("Show Season 3 Episode 4", (3, 4, ["season_word", "episode_word"])),
+        ("Show 第三季 第十二集", (3, 12, ["season_zh", "episode_zh"])),
+        ("Show E5", (None, 5, ["episode_e"])),
+        ("Show EP6", (1, 6, ["episode_word"])),
+        ("News 2026-09-08", (None, 20260908, ["episode_date"])),
+        ("Show OVA", (0, None, ["special"])),
+        ("Show SP7", (None, 7, ["special", "episode_special_code"])),
+    ],
+)
+def test_rule_parser_extracts_episode_notations(
+    value: str,
+    expected: tuple[int | None, int | None, list[str]],
+) -> None:
+    assert p115_adapters_module._rule_extract_season_episode_from_text(value) == expected

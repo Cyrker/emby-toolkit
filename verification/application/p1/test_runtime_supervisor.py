@@ -4,14 +4,12 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from flask import Flask
 
 from etk.bootstrap.runtime_supervisor import (
     RuntimeReloadError,
     RuntimeRole,
     RuntimeState,
     RuntimeSupervisor,
-    get_runtime_supervisor,
 )
 
 
@@ -137,11 +135,3 @@ def test_stop_failure_retains_adapter_for_cleanup_retry() -> None:
     supervisor.stop()
     assert supervisor.state is RuntimeState.STOPPED
     assert events[-2:] == [("stop",), ("stop",)]
-
-
-def test_flask_context_resolves_injected_supervisor() -> None:
-    app = Flask("supervisor-test")
-    injected = object()
-    app.extensions["etk_runtime_supervisor"] = injected
-    with app.app_context():
-        assert get_runtime_supervisor() is injected

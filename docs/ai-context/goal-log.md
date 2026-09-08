@@ -6184,3 +6184,48 @@ Pending / Blocker / Next:
 - No pre-removal blocker remains. P11 stays `DOING`, P12 stays `TODO`, Live stays
   `HUMAN_PENDING`; create the isolated evidence checkpoint, then remove only active compatibility
   reachability and run the affected gates before the single P11 full gate.
+
+### P11-TASK-006-Controlled-Removal-20260909
+
+TASK / HEAD:
+
+- `TASK-006 controlled active-runtime removal and P11 full gate`; pre-checkpoint HEAD `ff629da6`.
+
+Implemented:
+
+- Removed active API/Worker/Coordinator reachability to the WSGI fallback and legacy
+  Processor/TaskManager/SchedulerManager paths while retaining historical source outside the active
+  runtime. The final image excludes `web_app.py`, PyArmor and the compatibility runtime modules.
+- Reconfirmed all seven final task keys as processor-free native owners: Subscribe Assistant,
+  Watchlist (three keys), Resubscribe and Covers (two keys). Table/Config ownership remains `37 new / 2
+  retired-approved`, bootstrap/dynamic config `7/96 new`, and standalone settings `43 new / 11
+  retired-approved`.
+- Added targeted behavioral coverage for native identity, scheduled maintenance, media/image/cast,
+  115 upload/projection/organize/delete, review reprocessing and naming contracts. No production
+  external provider or protected legacy entry was executed.
+
+Gate:
+
+- Complete non-integration coverage run -> `2644 passed`; disposable PostgreSQL 18 integration ->
+  `756 passed`; separately instrumented disposable Redis/Celery subprocess gate -> `37 passed`.
+- Final coverage uses the conservative full `domains + processes` changed-code scope: changed lines
+  `3313/3464 = 95.64%`; changed branches `1040/1152 = 90.28%`. Bridge, contribution point,
+  deletion, idempotency and authentication contracts remain included in the passing suites.
+- Full Ruff/format -> clean (`777 files`); Pyright -> `0 errors, 0 warnings, 0 informations`;
+  compileall, `uv lock --check`, manifest/OpenAPI currentness, active ownership (`6 passed`) and
+  `git diff --check` passed.
+- Frontend typecheck, `26` unit tests, build and `8` E2E tests passed; docs install/build passed.
+  Final Linux arm64 image `etk-refactor:p11-task006-20260908` is
+  `sha256:b42317c3237d109550bd83297e92ef2a917b90528c0876bb8fbca8716025629e`
+  (`332082236` bytes) and passed exclusion/import probes.
+- NFR performance passed: health p95 `0.660083ms`, database APIs at most `2.135833ms`, Job creation
+  p95 `2.437375ms`, raw DB comparisons within `110%`, and zero running Jobs after the benchmark;
+  reliability/observability -> `28 passed`. Reachable High/Critical dependency findings are zero;
+  retained advisories, SBOMs and license inventories are recorded without hiding residual risk.
+  Detailed evidence: `/tmp/etk-refactor-artifacts/p11-task006-20260908/`.
+
+Pending / Blocker / Next:
+
+- No P11 P0/P1/P2 blocker remains; P11 is `DONE`. Create the isolated TASK-006 local checkpoint,
+  then run TASK-007's three disposable Greenfield rounds. P12 remains `TODO`; Live remains
+  `HUMAN_PENDING`. No push, deployment, release or real external write was performed.

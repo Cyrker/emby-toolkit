@@ -15,41 +15,12 @@ from typing import Any
 from uuid import UUID
 
 from etk.bootstrap.app_factory import _create_default_container
-from etk.bootstrap.runtime_supervisor import RuntimeRole, RuntimeSupervisor
-from etk.compatibility.background import PersistentBackgroundGateway
-from etk.compatibility.ingestion_monitor import (
-    clear_persistent_ingestion_binding,
-    clear_persistent_ingestion_ingress,
-    install_persistent_ingestion_binding,
-    install_persistent_ingestion_ingress,
-)
-from etk.compatibility.intro_detection import (
-    clear_persistent_intro_detection_gateway,
-    install_persistent_intro_detection_gateway,
-)
-from etk.compatibility.legacy_jobs import LegacyTaskAdapter
-from etk.compatibility.media_effects import clear_persistent_media_effect_gateway
-from etk.compatibility.p115_credentials import (
-    clear_persistent_p115_credential_gateway,
-    install_persistent_p115_credential_gateway,
-    invalidate_legacy_p115_credential_clients,
-)
 from etk.compatibility.persistent_runtime_state import (
     PersistentRuntimeStateStore,
     PostgresRuntimeStateBackend,
 )
-from etk.compatibility.persistent_tasks import PersistentTaskManagerGateway
-from etk.compatibility.playback import (
-    NativePlaybackCompatibilityGateway,
-    clear_persistent_playback_gateway,
-    install_persistent_playback_gateway,
-)
 from etk.compatibility.tg_control_bridge import TelegramControlBridge
 from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
-from etk.compatibility.upload_monitor import (
-    clear_persistent_upload_source_cleanup,
-    install_persistent_upload_source_cleanup,
-)
 from etk.domains.collection.activation import PostgresCollectionActivationRepository
 from etk.domains.collection.cover_task_execution import (
     ConfiguredCoverRenderer,
@@ -84,6 +55,7 @@ from etk.domains.collection.refresh import (
 )
 from etk.domains.collection.refresh_adapter import HttpxNativeCollectionRefreshAdapter
 from etk.domains.collection.repository import SqlAlchemyCollectionRepository
+from etk.domains.identity.adapters import HttpxEmbyIdentityGateway
 from etk.domains.identity.effect_adapters import HttpxEmbyIdentityEffectsAdapter
 from etk.domains.identity.effect_execution import (
     IdentityOperationExecutor,
@@ -92,14 +64,7 @@ from etk.domains.identity.effect_execution import (
 )
 from etk.domains.identity.operation_repository import PostgresIdentityOperationRepository
 from etk.domains.identity.operations import IdentityOperation
-from etk.domains.identity.repository import SqlAlchemyIdentityRepository
-from etk.domains.identity.user_activity_adapters import HttpxEmbyUserActivityAdapter
-from etk.domains.identity.user_activity_effects import (
-    LegacyUserEventEffectsAdapter,
-    P8UserEventEffectDelivery,
-    SqlAlchemyTemplatePropagationRepository,
-    UserPolicyEffectService,
-)
+from etk.domains.identity.post_authorization import NativeIdentityPostAuthorizationOperation
 from etk.domains.identity.user_expiry import IdentityUserExpiryService
 from etk.domains.identity.user_sync import SqlAlchemyUserSyncRepository, UserSyncService
 from etk.domains.identity.user_sync_adapter import HttpxEmbyUserSyncAdapter
@@ -111,26 +76,29 @@ from etk.domains.media.auto_tagging_adapter import (
     PostgresAutoTaggingItemLock,
 )
 from etk.domains.media.bridge_client import HttpxEmbyBridgeClient
+from etk.domains.media.cast_editor_adapters import NativeCastUpdateOperation, SqlAlchemyCastEditorRepository
 from etk.domains.media.cleanup_projection import SqlAlchemyCleanupMediaProjection
-from etk.domains.media.compatibility import LegacyP5MediaEventGateway
 from etk.domains.media.daily_theme import DailyThemeService
 from etk.domains.media.daily_theme_effects import DailyThemeReplenishmentEffectDelivery
 from etk.domains.media.daily_theme_repository import SqlAlchemyDailyThemeRepository
 from etk.domains.media.discover_adapters import HttpxDiscoverProviderAdapter
-from etk.domains.media.discover_compatibility import LegacyDiscoverDefaults
+from etk.domains.media.discover_defaults import StaticDiscoverDefaults
 from etk.domains.media.editing_effects import BridgeMediaEffectDelivery, PersistentMediaInfoCommandGateway
 from etk.domains.media.effect_execution import PersistentMediaEffectExecutor, RoutedMediaEffectDelivery
 from etk.domains.media.effects import MediaEffectProjection, PostgresMediaEffectLedger
 from etk.domains.media.embeddings import MediaEmbeddingService, SqlAlchemyMediaEmbeddingRepository
 from etk.domains.media.embeddings_adapter import ConfiguredMediaEmbeddingProvider
-from etk.domains.media.event_effects import P5MediaEventEffectDelivery
-from etk.domains.media.final_refresh_effects import (
-    EmbyMetadataRefreshEffectDelivery,
-    clear_final_refresh_settings_provider,
-    install_final_refresh_settings_provider,
+from etk.domains.media.event_adapters import (
+    HttpxP5MediaEventProvider,
+    NativeMetadataEventOperation,
+    NativeP5MediaEventGateway,
 )
-from etk.domains.media.image_editing_compatibility import LegacyMediaImageEditingGateway
+from etk.domains.media.event_effects import P5MediaEventEffectDelivery
+from etk.domains.media.image_editing_adapters import HttpxMediaImageEditingGateway
 from etk.domains.media.image_editing_effects import ManualImageEffectDelivery
+from etk.domains.media.image_store import SqlAlchemyMediaImageStore
+from etk.domains.media.repository import SqlAlchemyMediaRepository
+from etk.domains.media.reprocess import NativeMediaItemReprocessOperation, NativeMediaItemReprocessService
 from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
 from etk.domains.media.studio_images import StudioImageService
 from etk.domains.media.studio_images_adapter import (
@@ -154,11 +122,20 @@ from etk.domains.operations.database_maintenance import (
     DatabaseMaintenanceExecutor,
     PostgresDatabaseMaintenanceRepository,
 )
-from etk.domains.operations.jobs import (
-    JobSubmissionService,
-    import_legacy_operation,
+from etk.domains.operations.jobs import JobSubmissionService
+from etk.domains.operations.review_reprocess import (
+    P8_REVIEW_TASK_KEYS,
+    NativeReviewReprocessExecutor,
+    SqlAlchemyReviewReprocessRepository,
 )
-from etk.domains.operations.review_reprocess import P8_REVIEW_TASK_KEYS
+from etk.domains.operations.scheduled_maintenance import (
+    HttpxProStatusGateway,
+    HttpxScheduledPluginUpdateGateway,
+    NativeP115TempCleanupOperation,
+    NativePluginUpdateCheckOperation,
+    NativeProStatusCheckOperation,
+)
+from etk.domains.operations.system_runtime import NativeSystemRestartOperation
 from etk.domains.p115 import (
     AtomicP115LocalStrmLibraryGateway,
     ChromaprintProcessAdapter,
@@ -176,11 +153,16 @@ from etk.domains.p115 import (
     IntroDetectionExecutionService,
     IntroDetectionOperation,
     IntroDetectionSubmissionService,
-    LegacyP115StrmSyncGateway,
     NativeIntroDetectionBatchEngine,
     NativeIntroPolicyAdapter,
+    NativeP115DeleteReadbackGateway,
     NativeP115IntroDetectionGateway,
     NativeP115IntroDirectUrlGateway,
+    NativeP115MediaCleanupReceiptGateway,
+    NativeP115SharedCleanupGateway,
+    NativeP115UploadProjection,
+    NativeP115UploadProvider,
+    NativeP115UploadSourceCleanupGateway,
     P115DirectorySyncService,
     P115FingerprintRepairService,
     P115IntroBackfillTaskService,
@@ -205,6 +187,7 @@ from etk.domains.p115 import (
     PostgresP115IntroRuntimeSource,
     PostgresP115PlaybackRepository,
     PostgresP115StrmSyncCoordinator,
+    PostgresP115UploadMonitorRepository,
     SqlAlchemyP115CredentialRepository,
     SqlAlchemyP115DirectoryCacheRepository,
     SqlAlchemyP115EpisodeRegexRepository,
@@ -217,10 +200,12 @@ from etk.domains.p115 import (
     SqlAlchemyP115RenameConfigRepository,
     SqlAlchemyP115SortingRulesRepository,
     SqlAlchemyP115StrmSyncRepository,
+    SqlAlchemyP115UploadProjectionRepository,
     SqlAlchemyP115WashingPriorityRepository,
     SqlAlchemyP115WashingRecalculationRepository,
     select_intro_provider_identity,
 )
+from etk.domains.p115.deep_delete import P115DeepDeleteExecutionService
 from etk.domains.p115.iso_probe import NativeP115IsoProbeGateway
 from etk.domains.p115.media_info_adapters import (
     ControlledProcessRunner,
@@ -242,13 +227,7 @@ from etk.domains.p115.playback_reward_repository import (
     SqlAlchemyP115PlaybackRewardRepository,
     SqlAlchemyP115PlaybackUserGateway,
 )
-from etk.domains.p115.upload_adapters import (
-    LegacyP115UploadProjection,
-    LegacyP115UploadProvider,
-    NativeP115UploadSourceCleanupGateway,
-)
-from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService, UploadOperation
-from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
+from etk.domains.p115.upload_monitor import UploadOperation
 from etk.domains.people.task_execution import (
     HttpxPeopleCatalogAdapter,
     HttpxTmdbPersonAdapter,
@@ -383,7 +362,6 @@ from etk.platform.jobs import (
 from etk.platform.observability.redaction import redact_sensitive
 from etk.platform.tasks import ProcessorIdentity, TaskOutcome, TaskOutcomeStatus, TaskRegistry
 from etk.platform.tasks.catalog import (
-    NATIVE_TASK_KEYS,
     P4_NATIVE_TASK_KEYS,
     P5_NATIVE_TASK_KEYS,
     P6_INGESTION_NATIVE_TASK_KEYS,
@@ -395,12 +373,13 @@ from etk.platform.tasks.catalog import (
 )
 
 from .native_operations import NativeOperationRouter
-from .p5_media_tasks import LegacyP5MediaCompatibilityGateway, P5MediaTaskRouter
+from .p5_media_tasks import P5MediaTaskRouter
+from .p6_deep_delete import NativeP115DeepDeleteOperation
 from .p6_ingestion import (
-    INGESTION_CLAIM_LEASE_SECONDS,
     IngestionMonitorExecutor,
-    LegacyIngestionBindingDelivery,
-    LegacyIngestionPreparationGateway,
+    NativeIngestionBindingDelivery,
+    NativeIngestionFingerprintGateway,
+    NativeIngestionPreparationGateway,
     PersistentIngestionIngressGateway,
     PersistentPendingBindingGateway,
 )
@@ -421,17 +400,16 @@ from .p7_subscription_effects import (
     PersistentMoviePilotEffectGateway,
 )
 from .p7_subscription_tasks import (
-    LegacyP7SubscriptionCompatibilityGateway,
     P7SubscriptionTaskRouter,
 )
 from .p8_collection_operations import collection_operation_claim_lease_seconds
 from .p8_database_maintenance import DATABASE_MAINTENANCE_CLAIM_LEASE_SECONDS
-from .p8_effect_tasks import LegacyP8EffectsCompatibilityGateway, P8EffectTaskRouter
+from .p8_effect_tasks import P8EffectTaskRouter
 from .p8_identity import (
     IDENTITY_OPERATION_CLAIM_LEASE_SECONDS,
     identity_operation_claim_lease_seconds,
 )
-from .p9_sharing import LegacyP9SharingCompatibilityGateway, P9SharingTaskRouter
+from .p9_sharing import P9SharingTaskRouter
 from .p9_sharing_operations import SHARING_OPERATION_CLAIM_LEASE_SECONDS
 from .runtime_config import TaskRuntimeConfig
 
@@ -545,35 +523,62 @@ def _p115_native_operation_router(
     credentials: SqlAlchemyP115CredentialRepository,
     app_settings: SqlAlchemyAppSettingsRepository,
     settings_provider: Callable[[], Any],
+    playback: P115PlaybackService,
+    media_reprocess: NativeMediaItemReprocessService | None = None,
+    deep_delete: NativeP115DeepDeleteOperation | None = None,
 ) -> NativeOperationRouter:
     provider = P115PrimaryOperationsGateway(
         credentials=credentials,
         priority=lambda: settings_provider().p115_api_priority,
     )
     facts = SqlAlchemyP115MaintenanceRepository(database.unit_of_work)
-    return NativeOperationRouter(
-        {
-            "p115.mkdir": P115MkdirOperation(provider),
-            "p115.recycle-bin-empty": P115RecycleBinEmptyOperation(provider),
-            "p115.empty-unrecognized": P115UnrecognizedEmptyOperation(
-                provider=provider,
-                facts=facts,
-            ),
-            "p115.moviepilot-rename-export": P115MoviePilotRenameExportOperation(
-                gateway=ConfiguredMoviePilotGateway(app_settings),
-                settings=app_settings,
-            ),
-            "p115.quick-deploy": P115QuickDeployOperation(
-                settings=settings_provider,
-                credentials=credentials,
-                provider=provider,
-                account_lock=P115QuickDeployLock(database.raw_pool.connection),
-                app_settings=app_settings,
-                local_configuration=SqlAlchemyP115QuickDeployConfigurationRepository(database.unit_of_work),
-                emby=HttpxEmbyQuickDeployGateway(settings_provider),
-            ),
-        }
-    )
+    handlers: dict[str, Any] = {
+        "identity.post-authorization": NativeIdentityPostAuthorizationOperation(
+            settings_provider,
+            HttpxEmbyIdentityGateway(settings_provider),
+        ),
+        "media.cast-update": NativeCastUpdateOperation(
+            settings_provider,
+            SqlAlchemyCastEditorRepository(database.unit_of_work),
+        ),
+        "media.metadata-event-sync": NativeMetadataEventOperation(
+            HttpxP5MediaEventProvider(settings_provider),
+            SqlAlchemyMediaRepository(database.unit_of_work),
+        ),
+        "p115.mkdir": P115MkdirOperation(provider),
+        "p115.recycle-bin-empty": P115RecycleBinEmptyOperation(provider),
+        "p115.empty-unrecognized": P115UnrecognizedEmptyOperation(
+            provider=provider,
+            facts=facts,
+        ),
+        "p115.moviepilot-rename-export": P115MoviePilotRenameExportOperation(
+            gateway=ConfiguredMoviePilotGateway(app_settings),
+            settings=app_settings,
+        ),
+        "p115.quick-deploy": P115QuickDeployOperation(
+            settings=settings_provider,
+            credentials=credentials,
+            provider=provider,
+            account_lock=P115QuickDeployLock(database.raw_pool.connection),
+            app_settings=app_settings,
+            local_configuration=SqlAlchemyP115QuickDeployConfigurationRepository(database.unit_of_work),
+            emby=HttpxEmbyQuickDeployGateway(settings_provider),
+        ),
+        "system.restart": NativeSystemRestartOperation(),
+        "p115.temp-cleanup": NativeP115TempCleanupOperation(playback),
+        "system.pro-status-check": NativeProStatusCheckOperation(
+            app_settings,
+            HttpxProStatusGateway(settings_provider),
+        ),
+        "media.plugin-update-check": NativePluginUpdateCheckOperation(
+            HttpxScheduledPluginUpdateGateway(settings_provider)
+        ),
+    }
+    if media_reprocess is not None:
+        handlers["media.reprocess-item"] = NativeMediaItemReprocessOperation(media_reprocess)
+    if deep_delete is not None:
+        handlers["p115.deep-delete.execute"] = deep_delete
+    return NativeOperationRouter(handlers)
 
 
 class _DeferredWatchlistIntroGateway:
@@ -847,24 +852,6 @@ class _ExecutionControl:
                 "inflight_effects": list(self._inflight_effects),
                 "committed_effects": list(self._committed_effects),
             }
-
-
-class RuntimeLegacyTaskResolver:
-    """Resolve executable state only inside an initialized Worker process."""
-
-    def resolve(self, task_key: str, processor: ProcessorIdentity):
-        import extensions
-
-        try:
-            task_function, _display_name, registered_processor = extensions.TASK_REGISTRY[task_key]
-        except (KeyError, TypeError, ValueError) as exc:
-            raise LookupError(f"legacy task registry does not contain {task_key!r}") from exc
-        if str(registered_processor) != processor.value:
-            raise RuntimeError(f"legacy task {task_key!r} processor identity changed at runtime")
-        resolved_processor = _processor(processor)
-        if resolved_processor is None:
-            raise RuntimeError(f"{processor.value} processor is unavailable")
-        return task_function, resolved_processor
 
 
 @dataclass(slots=True)
@@ -1157,13 +1144,9 @@ class WorkerRuntime:
         self._container: Any = None
         self._config_adapter: Any = None
         self._last_settings: dict[str, Any] | None = None
-        self._supervisor: RuntimeSupervisor | None = None
         self._store: PostgresJobStore | None = None
         self._registry: TaskRegistry | None = None
         self._service: JobSubmissionService | None = None
-        self._adapter: LegacyTaskAdapter | None = None
-        self._native_only = False
-        self._p115_credentials: SqlAlchemyP115CredentialRepository | None = None
         self._media_effects: PersistentMediaEffectExecutor | None = None
         self._p5_media_tasks = P5MediaTaskRouter(compatibility=None)
         self._p6_p115_tasks: P6P115TaskRouter | None = None
@@ -1185,12 +1168,7 @@ class WorkerRuntime:
         self._identity_executor: IdentityOperationExecutor | None = None
         self._database_maintenance_executor: DatabaseMaintenanceExecutor | None = None
         self._sharing_operation_executor: SharingOperationExecutor | None = None
-        self._playback_gateway: NativePlaybackCompatibilityGateway | None = None
         self._intro_detection_gateway: NativeP115IntroDetectionGateway | None = None
-        self._p115_upload_source_cleanup: NativeP115UploadSourceCleanupGateway | None = None
-        self._gateway: PersistentTaskManagerGateway | None = None
-        self._background_gateway: PersistentBackgroundGateway | None = None
-        self._final_refresh_settings_provider: Callable[[], Any] | None = None
         self._worker_id = f"{socket.gethostname()}:{os.getpid()}"
         self._workflow_depth = threading.local()
         self._active_executions: dict[UUID, tuple[Any, _ExecutionControl]] = {}
@@ -1213,794 +1191,12 @@ class WorkerRuntime:
             if self._started:
                 return
             os.environ["ETK_PROCESS_ROLE"] = "worker"
-            if not _legacy_compatibility_enabled():
-                self._start_native_only()
-                return
-            container, config_adapter = _create_default_container(None)
-            supervisor = RuntimeSupervisor()
-            background_gateway: PersistentBackgroundGateway | None = None
-            submission_gateway_installed = False
-            media_effect_gateway_installed = False
-            ingestion_binding_gateway_installed = False
-            ingestion_ingress_gateway_installed = False
-            final_refresh_settings_provider_installed = False
-            upload_source_cleanup_installed = False
-            playback_gateway_installed = False
-            intro_detection_gateway_installed = False
-            p115_credential_gateway_installed = False
-            ingestion_binding: PersistentPendingBindingGateway | None = None
-            upload_source_cleanup: NativeP115UploadSourceCleanupGateway | None = None
-            intro_detection_gateway: NativeP115IntroDetectionGateway | None = None
-            try:
-                settings_provider = config_adapter.load
-                database = container.database
-                cleanup_repository = SqlAlchemyCleanupExecutionRepository(database.unit_of_work)
-                store = PostgresJobStore(
-                    lambda: database.unit_of_work(),
-                    execution_guard=PostgresExecutionGuard(database.raw_pool),
-                    cancellation_policy=cleanup_repository,
-                )
-                registry = TaskRegistry.from_fixture(_task_fixture())
-                service = JobSubmissionService(store, registry)
-                app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
-                p115_credentials = SqlAlchemyP115CredentialRepository(
-                    database.unit_of_work,
-                    on_change=invalidate_legacy_p115_credential_clients,
-                )
-                native_operations = _p115_native_operation_router(
-                    database,
-                    p115_credentials,
-                    app_settings,
-                    settings_provider,
-                )
-                install_persistent_p115_credential_gateway(p115_credentials)
-                p115_credential_gateway_installed = True
-                washing_priority_repository = SqlAlchemyP115WashingPriorityRepository(database.unit_of_work)
-                washing_recalculation = P115WashingPriorityRecalculationService(
-                    repository=SqlAlchemyP115WashingRecalculationRepository(database.unit_of_work),
-                    state=washing_priority_repository,
-                    settings=settings_provider,
-                    episode_runtime=HttpxP115EpisodeRuntimeGateway(settings_provider),
-                )
-                cleanup_scan = CleanupScanService(
-                    SqlAlchemyCleanupScanRepository(
-                        database.unit_of_work,
-                        SqlAlchemyCleanupMediaProjection(),
-                    ),
-                    HttpxCleanupEmbyInventoryGateway(settings_provider),
-                    settings_provider,
-                )
-                subscription_operations = PostgresSubscriptionOperationRepository(database.unit_of_work)
-                moviepilot_gateway = ConfiguredMoviePilotGateway(app_settings)
-                subscription_executor = SubscriptionOperationExecutor(
-                    subscription_operations,
-                    moviepilot_gateway,
-                )
-                identity_operations = PostgresIdentityOperationRepository(database.unit_of_work)
-                identity_effects = HttpxEmbyIdentityEffectsAdapter(settings_provider)
-                identity_registration = RegistrationSagaCoordinator(
-                    identity_operations,
-                    identity_effects,
-                )
-                identity_mutations = IdentityUserMutationCoordinator(
-                    identity_operations,
-                    identity_effects,
-                )
-                identity_executor = IdentityOperationExecutor(
-                    identity_registration,
-                    identity_mutations,
-                    identity_operations,
-                )
-                database_maintenance_repository = PostgresDatabaseMaintenanceRepository(database.unit_of_work)
-                database_maintenance_executor = DatabaseMaintenanceExecutor(
-                    database_maintenance_repository,
-                    unit_of_work=database.unit_of_work,
-                    worker_id=f"{self._worker_id}:database-maintenance",
-                    lease_seconds=DATABASE_MAINTENANCE_CLAIM_LEASE_SECONDS,
-                )
-                moviepilot_effects = PersistentMoviePilotEffectGateway(
-                    subscription_operations,
-                    subscription_executor,
-                    app_settings,
-                    lease_seconds=SUBSCRIPTION_OPERATION_CLAIM_LEASE_SECONDS,
-                )
-                manual_watchlist = SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
-                manual_batch = ManualSubscriptionBatchService(
-                    SqlAlchemyManualSubscriptionRepository(
-                        database.unit_of_work,
-                        SqlAlchemySubscriptionMediaProjection(),
-                    ),
-                    app_settings,
-                    HttpxManualSubscriptionTmdbAdapter(settings_provider),
-                    moviepilot_effects,
-                    ManualSubscriptionQuotaLedger(PostgresSubscriptionRuntimeRepository(database.unit_of_work)),
-                    manual_watchlist,
-                )
-                resubscribe_cleanup = PersistentResubscribeCleanupGateway(
-                    SqlAlchemyCleanupRepository(
-                        database.unit_of_work,
-                        SqlAlchemyCleanupMediaProjection(),
-                        SettingsCleanupExecutionPolicy(settings_provider, p115_credentials),
-                    )
-                )
-                daily_theme = DailyThemeService(
-                    HttpxDiscoverProviderAdapter(settings_provider),
-                    SqlAlchemyDailyThemeRepository(database.unit_of_work),
-                    LegacyDiscoverDefaults(),
-                )
-                auto_tagging_delivery = HttpxAutoTaggingAdapter(
-                    settings_provider,
-                    item_lock=PostgresAutoTaggingItemLock(database.engine),
-                )
-                studio_images_delivery = HttpxStudioImageAdapter(settings_provider)
-                cover_remote = HttpxCoverRemoteAdapter(settings_provider)
-                sharing_identity = SharingServerIdentity(settings_provider, app_settings)
-                shared_center = HttpxSharedCenterAdapter(
-                    settings_provider,
-                    configuration=lambda: app_settings.load("shared_resource_config"),
-                    server_id_hash=sharing_identity.server_id_hash,
-                )
-                hdhive = HttpxHDHiveAdapter(
-                    settings_provider,
-                    configuration=lambda: app_settings.load("hdhive_config"),
-                )
-                telegram = HttpxTelegramBotAdapter(settings_provider)
-                telegram_resource_secrets = TelegramResourceSecretStore(
-                    PostgresRuntimeStateBackend(database.raw_pool.connection)
-                )
-                telegram_userbot = DurableTelegramUserBotAdapter(
-                    TelegramControlBridge(
-                        connection_factory=database.raw_pool.connection,
-                        resource_secrets=telegram_resource_secrets,
-                    )
-                )
-                p115_mediainfo_repository = SqlAlchemyP115MediaInfoRepository(database.unit_of_work)
-                sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
-                cleanup_source_lifecycle = SharingService(
-                    PostgresContributionLedger(database.unit_of_work),
-                    shared_center,
-                    sharing_operations,
-                    unit_of_work=database.unit_of_work,
-                    projection=SqlAlchemySharingProjectionRepository(database.unit_of_work),
-                )
-                cleanup_executor = CleanupExecutionService(
-                    cleanup_repository,
-                    local=SafeLocalCleanupGateway(),
-                    media=SqlAlchemyCleanupMediaGateway(
-                        database.unit_of_work,
-                        cleanup_source_lifecycle,
-                    ),
-                    p115=NativeCleanupP115Gateway(
-                        P115PrimaryOperationsGateway(
-                            credentials=p115_credentials,
-                            priority=lambda: str(settings_provider().p115_api_priority),
-                        )
-                    ),
-                    emby=ConfiguredCleanupEmbyGateway(settings_provider),
-                    lease_seconds=max(self.config.lease_seconds, 60),
-                )
-                virtual_imports = VirtualImportService(
-                    resolver=VirtualImportSourceResolver(shared_center),
-                    repository=SqlAlchemyVirtualImportRepository(database.unit_of_work),
-                    projector=AtomicVirtualImportProjector(
-                        settings=settings_provider,
-                        libraries=AtomicP115LocalStrmLibraryGateway(),
-                    ),
-                    configuration=lambda: app_settings.load("shared_resource_config"),
-                )
-                auto_transfer_delivery = AutoSubscriptionTransferOperationDelivery(
-                    repository=sharing_operations,
-                    hdhive=hdhive,
-                    telegram=telegram_userbot,
-                    p115=NativeP115ResourceTransferGateway(p115_credentials, settings_provider),
-                )
-                sharing_operation_executor = SharingOperationExecutor(
-                    sharing_operations,
-                    SharingProviderOperationDelivery(
-                        shared_center=shared_center,
-                        hdhive=hdhive,
-                        telegram=telegram,
-                        raw_ffprobe_loader=partial(_load_sharing_raw_ffprobe, p115_mediainfo_repository),
-                        virtual_imports=VirtualImportOperationDelivery(
-                            virtual_imports,
-                            HttpxEmbyVirtualItemGateway(settings_provider),
-                        ),
-                        rapid_transfers=RapidTransferOperationDelivery(
-                            repository=sharing_operations,
-                            virtual_imports=virtual_imports,
-                            credentials=p115_credentials,
-                            settings=settings_provider,
-                            center=shared_center,
-                            p115=NativeP115RapidTransferGateway(
-                                credentials=p115_credentials,
-                                priority=lambda: str(settings_provider().p115_api_priority),
-                                target_cid=lambda: str(settings_provider().p115_save_path_cid),
-                            ),
-                        ),
-                        extra_deliveries=(
-                            LogicalSeasonShareTransferOperationDelivery(
-                                repository=sharing_operations,
-                                virtual_imports=virtual_imports,
-                                credentials=p115_credentials,
-                                settings=settings_provider,
-                                center=shared_center,
-                                p115=NativeP115LogicalSeasonShareGateway(
-                                    credentials=p115_credentials,
-                                    priority=lambda: str(settings_provider().p115_api_priority),
-                                    target_cid=lambda: str(settings_provider().p115_save_path_cid),
-                                ),
-                            ),
-                            auto_transfer_delivery,
-                            HDHiveRegistrationOperationDelivery(hdhive, app_settings),
-                        ),
-                    ),
-                    max_attempts=4,
-                )
-                auto_tmdb = HttpxManualSubscriptionTmdbAdapter(settings_provider)
-                auto_subscribe = AutoSubscribeService(
-                    SqlAlchemyAutoSubscriptionRepository(
-                        database.unit_of_work,
-                        SqlAlchemySubscriptionMediaProjection(),
-                    ),
-                    app_settings,
-                    auto_tmdb,
-                    ManualSubscriptionQuotaLedger(PostgresSubscriptionRuntimeRepository(database.unit_of_work)),
-                    AutoSubscriptionMoviePilotGateway(moviepilot_effects, app_settings, auto_tmdb),
-                    PersistentOrderedAutoSubscriptionSources(
-                        center=shared_center,
-                        hdhive=hdhive,
-                        telegram=telegram_userbot,
-                        operations=sharing_operations,
-                        executor=sharing_operation_executor,
-                        virtual_imports=virtual_imports,
-                        shared_configuration=lambda: app_settings.load("shared_resource_config"),
-                        telegram_configuration=lambda: app_settings.load("tg_userbot_config"),
-                        worker_id=self._worker_id,
-                        lease_seconds=SHARING_OPERATION_CLAIM_LEASE_SECONDS,
-                    ),
-                    TelegramAutoSubscriptionNotifications(
-                        SqlAlchemyAutoSubscriptionNotificationDirectory(database.unit_of_work),
-                        telegram,
-                    ),
-                )
-                media_task_service, people_task_service, screenshot_backfill = _native_media_people_task_services(
-                    database,
-                    settings_provider,
-                )
-                p7_subscription_tasks = P7SubscriptionTaskRouter(
-                    compatibility=LegacyP7SubscriptionCompatibilityGateway(),
-                    assistant=SubscribeAssistantMaintenanceService(
-                        SqlAlchemyAssistantMaintenanceRepository(database.unit_of_work),
-                        NativeSubscribeAssistantMaintenanceGateway(
-                            database.unit_of_work,
-                            provider=moviepilot_gateway,
-                            effects=moviepilot_effects,
-                            configuration=lambda: _moviepilot_assistant_config(app_settings),
-                        ),
-                    ),
-                    moviepilot_effects=moviepilot_effects,
-                    resubscribe_cleanup=resubscribe_cleanup,
-                    washing_recalculation=washing_recalculation,
-                    old_season_backfill=OldSeasonBackfillService(
-                        SqlAlchemyWatchlistMediaProjectionRepository(database.unit_of_work)
-                    ),
-                    manual_batch=manual_batch,
-                    auto_subscribe=auto_subscribe,
-                    people_tasks=people_task_service,
-                    watchlist_tasks=_native_watchlist_task_service(
-                        database=database,
-                        settings_provider=settings_provider,
-                        app_settings=app_settings,
-                        moviepilot_gateway=moviepilot_gateway,
-                        moviepilot_effects=moviepilot_effects,
-                        credentials=p115_credentials,
-                        sharing_operations=sharing_operations,
-                        sharing_identity=sharing_identity,
-                        intro=_DeferredWatchlistIntroGateway(lambda: self._intro_detection_gateway),
-                    ),
-                    resubscribe_tasks=_native_resubscribe_task_service(
-                        database=database,
-                        app_settings=app_settings,
-                        hdhive=hdhive,
-                        sharing_operations=sharing_operations,
-                        sharing_executor=sharing_operation_executor,
-                        cleanup=resubscribe_cleanup,
-                        worker_id=self._worker_id,
-                    ),
-                    resubscribe_cache=NativeResubscribeCacheTaskService(
-                        SqlAlchemyResubscribeCacheRepository(database.unit_of_work)
-                    ),
-                )
-                p9_sharing_tasks = P9SharingTaskRouter(
-                    shared_center=shared_center,
-                    hdhive=hdhive,
-                    telegram=telegram,
-                    compatibility=LegacyP9SharingCompatibilityGateway(),
-                )
-                ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
-                upload_repository = PostgresP115UploadMonitorRepository(database.unit_of_work)
-                upload_config = P115UploadMonitorConfigService(
-                    upload_repository,
-                    lambda: config_adapter.load().monitor_extensions,
-                )
-                upload_source_cleanup = NativeP115UploadSourceCleanupGateway(
-                    upload_repository,
-                    upload_config.get,
-                )
-                ingestion_ingress = PersistentIngestionIngressGateway(
-                    settings=settings_provider,
-                    ledger=ingestion_ledger,
-                )
-                p6_ingestion_tasks = P6IngestionTaskRouter(
-                    P6IngestionScanService(
-                        settings=settings_provider,
-                        ingress=ingestion_ingress,
-                        known_paths=ingestion_ledger,
-                    )
-                )
-                playback_repository = PostgresP115PlaybackRepository(database.unit_of_work)
-                playback_users = SqlAlchemyP115PlaybackUserGateway(
-                    SqlAlchemyP115PlaybackRewardRepository(database.unit_of_work),
-                    telegram,
-                )
-                playback_config = P115PlaybackConfigService(
-                    SqlAlchemyP115PlaybackConfigBackend(database.unit_of_work),
-                    playback_users,
-                )
-                playback_executor = P115PlaybackOperationExecutor(
-                    repository=playback_repository,
-                    provider=NativeP115PlaybackProvider(
-                        NativeP115PoolPlaybackClientFactory(
-                            playback_config,
-                            primary_credentials=p115_credentials,
-                        ),
-                        NativeP115PlaybackRapidSigner(
-                            P115SdkDirectUrlGateway(
-                                credentials=p115_credentials,
-                                priority=lambda: str(settings_provider().p115_api_priority),
-                            ),
-                            p115_credentials,
-                        ),
-                    ),
-                    config=playback_config,
-                    worker_id=f"{self._worker_id}:p115-playback",
-                )
-                playback_service = P115PlaybackService(
-                    config=playback_config,
-                    repository=playback_repository,
-                    sources=SqlAlchemyP115PlaybackSourceGateway(
-                        database.unit_of_work,
-                        primary_credentials=p115_credentials,
-                        priority=lambda: str(settings_provider().p115_api_priority),
-                    ),
-                    direct_links=NativeP115DirectLinkGateway(
-                        playback_config,
-                        p115_credentials,
-                        priority=lambda: str(settings_provider().p115_api_priority),
-                    ),
-                    executor=playback_executor,
-                )
-                playback_gateway = NativePlaybackCompatibilityGateway(lambda: playback_service)
-                bridge_client = HttpxEmbyBridgeClient(settings_provider)
-                p115_fingerprint_repair = P115FingerprintRepairService(
-                    credentials=p115_credentials,
-                    repository=p115_mediainfo_repository,
-                    hints=LocalP115FingerprintHintGateway(),
-                    remote=HttpxP115FingerprintRemoteGateway(
-                        credentials=p115_credentials,
-                        priority=lambda: str(settings_provider().p115_api_priority),
-                    ),
-                    local_root=lambda: str(config_adapter.load().local_strm_root or ""),
-                )
-                processes = ControlledProcessRunner()
-                intro_repository = PostgresP115IntroDetectionRepository(database.unit_of_work)
-                intro_source = PostgresP115IntroRuntimeSource(
-                    database.unit_of_work,
-                    intro_repository,
-                    app_settings,
-                    HttpxEmbyIntroFavoriteGateway(settings_provider),
-                )
-                intro_detection_gateway = NativeP115IntroDetectionGateway(
-                    submission=IntroDetectionSubmissionService(intro_repository),
-                    source=intro_source,
-                    account_id=lambda: p115_credentials.load().account_id,
-                    provider_identity=lambda: select_intro_provider_identity(
-                        p115_credentials,
-                        lambda: settings_provider().p115_api_priority,
-                    ),
-                )
-                intro_fingerprints = P115IntroFingerprintAdapter(
-                    NativeP115IntroDirectUrlGateway(
-                        p115_credentials,
-                        P115SdkDirectUrlGateway(
-                            credentials=p115_credentials,
-                            priority=lambda: str(settings_provider().p115_api_priority),
-                        ),
-                    ),
-                    ChromaprintProcessAdapter(processes),
-                )
-                intro_executor = P115IntroDetectionOperationExecutor(
-                    repository=intro_repository,
-                    service=IntroDetectionExecutionService(
-                        NativeIntroDetectionBatchEngine(
-                            intro_repository,
-                            intro_fingerprints,
-                            EmbyAuthorizationRevisionAdapter(bridge_client),
-                        ),
-                        NativeIntroPolicyAdapter(intro_source),
-                    ),
-                    worker_id=f"{self._worker_id}:p115-intro",
-                )
-                mediainfo_policies = PersistentP115MediaInfoPolicyProvider(app_settings)
-                media_probe = P115MediaProbeService(
-                    direct_urls=P115SdkDirectUrlGateway(
-                        credentials=p115_credentials,
-                        priority=lambda: str(settings_provider().p115_api_priority),
-                    ),
-                    processes=processes,
-                    iso=NativeP115IsoProbeGateway(processes),
-                    policies=mediainfo_policies,
-                )
-                strm_mediainfo = P115StrmMediaInfoEnrichmentService(
-                    credentials=p115_credentials,
-                    repository=p115_mediainfo_repository,
-                    probe=media_probe,
-                    policies=mediainfo_policies,
-                )
-                organize_plans = SqlAlchemyP115OrganizePlanRepository(database.unit_of_work)
-                organize_executions = SqlAlchemyP115OrganizeExecutionRepository(database.unit_of_work)
-                p6_p115_tasks = P6P115TaskRouter(
-                    P115DirectorySyncService(
-                        settings=app_settings,
-                        credentials=p115_credentials,
-                        directories=HttpxP115DirectoryTreeGateway(
-                            credentials=p115_credentials,
-                            priority=lambda: str(settings_provider().p115_api_priority),
-                        ),
-                        repository=SqlAlchemyP115DirectoryCacheRepository(database.unit_of_work),
-                    ),
-                    P115OrganizeExecutionService(
-                        plans=organize_plans,
-                        repository=organize_executions,
-                        mutations=HttpxP115OrganizeMutationGateway(
-                            credentials=p115_credentials,
-                            priority=lambda: str(settings_provider().p115_api_priority),
-                        ),
-                    ),
-                    P115StrmSyncService(
-                        settings=config_adapter.load,
-                        credentials=p115_credentials,
-                        sorting_rules=SqlAlchemyP115SortingRulesRepository(database.unit_of_work),
-                        rename_config=SqlAlchemyP115RenameConfigRepository(database.unit_of_work),
-                        remote=LegacyP115StrmSyncGateway(config_adapter.load),
-                        libraries=AtomicP115LocalStrmLibraryGateway(),
-                        repository=SqlAlchemyP115StrmSyncRepository(database.unit_of_work),
-                        coordinator=PostgresP115StrmSyncCoordinator(database.engine),
-                        mediainfo=strm_mediainfo,
-                    ),
-                    p115_fingerprint_repair,
-                    playback_service,
-                    P115IntroBackfillTaskService(intro_detection_gateway),
-                    organize_record_tmdb_backfill=P115OrganizeRecordTmdbBackfillService(
-                        SqlAlchemyP115OrganizeRecordsRepository(database.unit_of_work)
-                    ),
-                    organize_reconciliation=P115OrganizeExecutionService(
-                        plans=organize_plans,
-                        repository=organize_executions,
-                        mutations=HttpxP115OrganizeReadbackGateway(
-                            credentials=p115_credentials,
-                            priority=lambda: str(settings_provider().p115_api_priority),
-                        ),
-                    ),
-                )
-                from etk.compatibility.flask_app import LazyCompatibilityApplication, create_flask_app
+            self._start_native()
 
-                event_compatibility = LazyCompatibilityApplication(
-                    partial(
-                        create_flask_app,
-                        supervisor=supervisor,
-                        blueprint_specs=(("routes.webhook", "webhook_bp"),),
-                    )
-                )
-                collection_operations = PostgresCollectionOperationRepository(database.unit_of_work)
-                collection_activation = PostgresCollectionActivationRepository(
-                    database.unit_of_work,
-                    collection_operations,
-                )
-                collection_operation_executor = CollectionOperationExecutor(
-                    collection_operations,
-                    HttpxCollectionRemoteEffectsAdapter(settings_provider),
-                    SqlAlchemyCollectionAssetEffectsAdapter(
-                        database.unit_of_work,
-                        settings_provider,
-                        data_root=_worker_data_root(config_adapter),
-                    ),
-                    PersistentCollectionDeletionSuppression(
-                        PersistentRuntimeStateStore(PostgresRuntimeStateBackend(database.raw_pool.connection))
-                    ),
-                    worker_id=f"{self._worker_id}:collection-operation",
-                    lease_seconds=lambda: collection_operation_claim_lease_seconds(
-                        config_adapter.load().emby_api_timeout,
-                    ),
-                    activation_provider=HttpxNativeCollectionRefreshAdapter(settings_provider),
-                    activation_completion=collection_activation,
-                )
-                custom_collection_tasks = _custom_collection_task_service(
-                    database,
-                    settings_provider,
-                    app_settings,
-                    collection_operations,
-                    collection_operation_executor,
-                )
-                user_activity_provider = HttpxEmbyUserActivityAdapter(settings_provider)
-                user_event_delivery = P8UserEventEffectDelivery(
-                    UserPolicyEffectService(
-                        user_activity_provider,
-                        SqlAlchemyIdentityRepository(database.unit_of_work),
-                        SqlAlchemyTemplatePropagationRepository(database.unit_of_work),
-                    ),
-                    LegacyUserEventEffectsAdapter(settings_provider),
-                )
-                media_effects_ledger = PostgresMediaEffectLedger(database.unit_of_work)
-                media_effects = PersistentMediaEffectExecutor(
-                    media_effects_ledger,
-                    RoutedMediaEffectDelivery(
-                        [
-                            BridgeMediaEffectDelivery(bridge_client),
-                            EmbyMetadataRefreshEffectDelivery(settings_provider),
-                            ManualImageEffectDelivery(LegacyMediaImageEditingGateway()),
-                            P5MediaEventEffectDelivery(LegacyP5MediaEventGateway(event_compatibility)),
-                            user_event_delivery,
-                            SharedIntroExportEffectDelivery(app_settings, shared_center),
-                            DailyThemeReplenishmentEffectDelivery(daily_theme),
-                            EmbyPathChangeEffectDelivery(
-                                settings_provider,
-                                HttpxEmbyPathChangeGateway(),
-                            ),
-                            auto_tagging_delivery,
-                            studio_images_delivery,
-                            cover_remote,
-                            MoviePilotWebhookEffectDelivery(
-                                SqlAlchemyMoviePilotAssistantEventRepository(
-                                    database.unit_of_work,
-                                    full_washing_guard=partial(
-                                        _moviepilot_full_washing_guard,
-                                        app_settings,
-                                    ),
-                                    active_downloads=moviepilot_gateway.active_downloads,
-                                ),
-                                _moviepilot_transfer_processor(
-                                    database=database,
-                                    settings_provider=settings_provider,
-                                    credentials=p115_credentials,
-                                    media_info=strm_mediainfo,
-                                    plan_repository=organize_plans,
-                                    execution_repository=organize_executions,
-                                    jobs=lambda: service,
-                                ),
-                                MoviePilotFullWashingOperations(subscription_operations),
-                                full_washing_timeout_hours=partial(
-                                    _moviepilot_full_washing_timeout_hours,
-                                    app_settings,
-                                ),
-                                snapshot_retention_days=partial(
-                                    _moviepilot_snapshot_retention_days,
-                                    app_settings,
-                                ),
-                            ),
-                        ]
-                    ),
-                    worker_id=f"{self._worker_id}:media-effect",
-                    lease_seconds=lambda: studio_image_claim_lease_seconds(config_adapter.load().emby_api_timeout),
-                )
-                p8_effect_tasks = P8EffectTaskRouter(
-                    LegacyP8EffectsCompatibilityGateway(),
-                    UserSyncService(
-                        HttpxEmbyUserSyncAdapter(settings_provider),
-                        SqlAlchemyUserSyncRepository(database.unit_of_work),
-                    ),
-                    cleanup_scan,
-                    IdentityUserExpiryService(
-                        identity_operations,
-                        identity_mutations,
-                        lease_seconds=lambda: identity_operation_claim_lease_seconds(
-                            settings_provider().emby_api_timeout
-                        ),
-                    ),
-                    daily_theme=daily_theme,
-                    media_embeddings=MediaEmbeddingService(
-                        SqlAlchemyMediaEmbeddingRepository(database.unit_of_work),
-                        ConfiguredMediaEmbeddingProvider(settings_provider),
-                        enabled=lambda: bool(settings_provider().ai_vector),
-                    ),
-                    native_collection_refresh=NativeCollectionRefreshService(
-                        HttpxNativeCollectionRefreshAdapter(settings_provider),
-                        SqlAlchemyNativeCollectionRefreshRepository(database.unit_of_work),
-                        auto_subscribe=lambda: _app_setting_flag(
-                            app_settings, "native_collections_config", "auto_sub_enabled"
-                        ),
-                    ),
-                    auto_tagging=AutoTaggingService(
-                        app_settings,
-                        auto_tagging_delivery,
-                        PersistentAutoTaggingEffects(media_effects),
-                    ),
-                    studio_images=StudioImageService(
-                        app_settings,
-                        studio_images_delivery,
-                        PersistentStudioImageEffects(media_effects),
-                    ),
-                    cover_tasks=_native_cover_task_service(
-                        database=database,
-                        settings_provider=settings_provider,
-                        remote=cover_remote,
-                        media_effects=media_effects,
-                        data_root=_worker_data_root(config_adapter),
-                    ),
-                    custom_collection_tasks=custom_collection_tasks,
-                )
-                ingestion_binding = PersistentPendingBindingGateway(
-                    ledger=ingestion_ledger,
-                    delivery=LegacyIngestionBindingDelivery(
-                        jobs=lambda: service,
-                        uow_factory=database.unit_of_work,
-                        bridge=bridge_client,
-                        media_effects=media_effects,
-                    ),
-                    claimant_id=f"{self._worker_id}:binding",
-                    lease_seconds=INGESTION_CLAIM_LEASE_SECONDS,
-                )
-                ingestion_executor = IngestionMonitorExecutor(
-                    uow_factory=database.unit_of_work,
-                    ledger=ingestion_ledger,
-                    settings=settings_provider,
-                    preparation=LegacyIngestionPreparationGateway(settings_provider),
-                    pending_bindings=ingestion_binding,
-                    media_effects=media_effects,
-                    processor=lambda: _processor(ProcessorIdentity.MEDIA),
-                    worker_id=f"{self._worker_id}:ingestion",
-                    lease_seconds=INGESTION_CLAIM_LEASE_SECONDS,
-                )
-
-                def submit_upload_screenshot(operation: UploadOperation, _path: str) -> str:
-                    submitted = service.submit_task(
-                        "restore-nfo-and-images",
-                        {},
-                        trigger_type="upload-monitor",
-                        idempotency_scope="p115-upload-screenshot",
-                        idempotency_key=str(operation.id),
-                        max_attempts=3,
-                        silent=True,
-                    )
-                    return str(submitted.projection.job.id)
-
-                p115_upload_executor = P115UploadOperationExecutor(
-                    repository=upload_repository,
-                    provider=LegacyP115UploadProvider(),
-                    projection=LegacyP115UploadProjection(
-                        ingestion=ingestion_ingress,
-                        submit_screenshot=submit_upload_screenshot,
-                    ),
-                    worker_id=f"{self._worker_id}:p115-upload",
-                )
-                p5_media_tasks = P5MediaTaskRouter(
-                    compatibility=LegacyP5MediaCompatibilityGateway(),
-                    restore_mediainfo=P115MediaInfoRestoreService(
-                        credentials=p115_credentials,
-                        repository=p115_mediainfo_repository,
-                        fingerprints=p115_fingerprint_repair,
-                        emby=HttpxEmbyMediaInfoQueryGateway(settings_provider),
-                        probe=media_probe,
-                        policies=mediainfo_policies,
-                        commands=PersistentMediaInfoCommandGateway(
-                            database.unit_of_work,
-                            bridge_client,
-                            executor=media_effects,
-                        ),
-                    ),
-                    media_tasks=media_task_service,
-                    people_tasks=people_task_service,
-                    screenshot_backfill=screenshot_backfill,
-                )
-                supervisor.start(role=RuntimeRole.WORKER, background=False)
-                adapter = LegacyTaskAdapter(registry, RuntimeLegacyTaskResolver())
-                gateway = PersistentTaskManagerGateway(service)
-                background_gateway = PersistentBackgroundGateway(lambda: service)
-                from etk.compatibility.background import install_persistent_background_gateway
-                from etk.compatibility.media_effects import install_persistent_media_effect_gateway
-                from task_manager import install_persistent_submission_gateway
-
-                install_persistent_submission_gateway(gateway)
-                submission_gateway_installed = True
-                install_persistent_background_gateway(background_gateway)
-                install_final_refresh_settings_provider(settings_provider)
-                final_refresh_settings_provider_installed = True
-                install_persistent_media_effect_gateway(media_effects)
-                media_effect_gateway_installed = True
-                install_persistent_ingestion_binding(ingestion_binding)
-                ingestion_binding_gateway_installed = True
-                install_persistent_ingestion_ingress(ingestion_ingress)
-                ingestion_ingress_gateway_installed = True
-                install_persistent_upload_source_cleanup(upload_source_cleanup)
-                upload_source_cleanup_installed = True
-                install_persistent_playback_gateway(playback_gateway)
-                playback_gateway_installed = True
-                install_persistent_intro_detection_gateway(intro_detection_gateway)
-                intro_detection_gateway_installed = True
-            except BaseException:
-                try:
-                    if p115_credential_gateway_installed:
-                        clear_persistent_p115_credential_gateway(p115_credentials)
-                    if intro_detection_gateway_installed and intro_detection_gateway is not None:
-                        clear_persistent_intro_detection_gateway(intro_detection_gateway)
-                    if playback_gateway_installed:
-                        clear_persistent_playback_gateway(playback_gateway)
-                    if upload_source_cleanup_installed and upload_source_cleanup is not None:
-                        clear_persistent_upload_source_cleanup(upload_source_cleanup)
-                    if ingestion_ingress_gateway_installed:
-                        clear_persistent_ingestion_ingress(ingestion_ingress)
-                    if ingestion_binding_gateway_installed and ingestion_binding is not None:
-                        clear_persistent_ingestion_binding(ingestion_binding)
-                    if media_effect_gateway_installed:
-                        clear_persistent_media_effect_gateway(media_effects)
-                    if final_refresh_settings_provider_installed:
-                        clear_final_refresh_settings_provider(settings_provider)
-                    if background_gateway is not None:
-                        from etk.compatibility.background import clear_persistent_background_gateway
-
-                        clear_persistent_background_gateway(background_gateway)
-                    if submission_gateway_installed:
-                        from task_manager import clear_persistent_submission_gateway
-
-                        clear_persistent_submission_gateway(gateway)
-                    supervisor.stop()
-                finally:
-                    container.close()
-                raise
-            self._container = container
-            self._config_adapter = config_adapter
-            self._last_settings = container.settings.to_runtime_dict()
-            self._supervisor = supervisor
-            self._store = store
-            self._registry = registry
-            self._service = service
-            self._adapter = adapter
-            self._media_effects = media_effects
-            self._p5_media_tasks = p5_media_tasks
-            self._p6_p115_tasks = p6_p115_tasks
-            self._p6_ingestion_tasks = p6_ingestion_tasks
-            self._p7_subscription_tasks = p7_subscription_tasks
-            self._p8_effect_tasks = p8_effect_tasks
-            self._p9_sharing_tasks = p9_sharing_tasks
-            self._native_operations = native_operations
-            self._p7_cleanup_executor = cleanup_executor
-            self._p7_cleanup_repository = cleanup_repository
-            self._ingestion_executor = ingestion_executor
-            self._ingestion_binding = ingestion_binding
-            self._ingestion_ingress = ingestion_ingress
-            self._p115_upload_executor = p115_upload_executor
-            self._p115_playback_executor = playback_executor
-            self._p115_intro_executor = intro_executor
-            self._subscription_executor = subscription_executor
-            self._collection_operation_executor = collection_operation_executor
-            self._identity_executor = identity_executor
-            self._database_maintenance_executor = database_maintenance_executor
-            self._sharing_operation_executor = sharing_operation_executor
-            self._playback_gateway = playback_gateway
-            self._intro_detection_gateway = intro_detection_gateway
-            self._p115_upload_source_cleanup = upload_source_cleanup
-            self._gateway = gateway
-            self._background_gateway = background_gateway
-            self._final_refresh_settings_provider = settings_provider
-            self._native_only = False
-            self._p115_credentials = p115_credentials
-            self._started = True
-
-    def _start_native_only(self) -> None:
+    def _start_native(self) -> None:
         """Initialize the current processor-free Worker execution slice."""
 
         container, config_adapter = _create_default_container(None)
-        supervisor: RuntimeSupervisor | None = None
         p115_credentials: SqlAlchemyP115CredentialRepository | None = None
         try:
             settings_provider = config_adapter.load
@@ -2044,17 +1240,7 @@ class WorkerRuntime:
                 collection_operations,
                 collection_operation_executor,
             )
-            p115_credentials = SqlAlchemyP115CredentialRepository(
-                database.unit_of_work,
-                on_change=invalidate_legacy_p115_credential_clients,
-            )
-            native_operations = _p115_native_operation_router(
-                database,
-                p115_credentials,
-                app_settings,
-                settings_provider,
-            )
-            install_persistent_p115_credential_gateway(p115_credentials)
+            p115_credentials = SqlAlchemyP115CredentialRepository(database.unit_of_work)
             washing_priority_repository = SqlAlchemyP115WashingPriorityRepository(database.unit_of_work)
             washing_recalculation = P115WashingPriorityRecalculationService(
                 repository=SqlAlchemyP115WashingRecalculationRepository(database.unit_of_work),
@@ -2307,7 +1493,7 @@ class WorkerRuntime:
             daily_theme = DailyThemeService(
                 HttpxDiscoverProviderAdapter(settings_provider),
                 SqlAlchemyDailyThemeRepository(database.unit_of_work),
-                LegacyDiscoverDefaults(),
+                StaticDiscoverDefaults(),
             )
             auto_tagging_delivery = HttpxAutoTaggingAdapter(
                 settings_provider,
@@ -2327,6 +1513,26 @@ class WorkerRuntime:
             )
             mediainfo_policies = PersistentP115MediaInfoPolicyProvider(app_settings)
             processes = ControlledProcessRunner()
+            upload_executor = P115UploadOperationExecutor(
+                repository=PostgresP115UploadMonitorRepository(database.unit_of_work),
+                provider=NativeP115UploadProvider(
+                    P115PrimaryOperationsGateway(
+                        credentials=p115_credentials,
+                        priority=lambda: str(settings_provider().p115_api_priority),
+                    )
+                ),
+                projection=NativeP115UploadProjection(
+                    settings=settings_provider,
+                    credentials=p115_credentials,
+                    repository=SqlAlchemyP115UploadProjectionRepository(database.unit_of_work),
+                    sorting_rules=SqlAlchemyP115SortingRulesRepository(database.unit_of_work),
+                    rename_config=SqlAlchemyP115RenameConfigRepository(database.unit_of_work),
+                    ingestion=ingestion_ingress,
+                    processes=processes,
+                    policies=mediainfo_policies,
+                ),
+                worker_id=f"{self._worker_id}:p115-upload",
+            )
             media_probe = P115MediaProbeService(
                 direct_urls=P115SdkDirectUrlGateway(
                     credentials=p115_credentials,
@@ -2342,16 +1548,41 @@ class WorkerRuntime:
                 probe=media_probe,
                 policies=mediainfo_policies,
             )
+            media_repository = SqlAlchemyMediaRepository(database.unit_of_work)
+            image_store = SqlAlchemyMediaImageStore(
+                database.unit_of_work,
+                settings_provider,
+                _worker_data_root(config_adapter),
+            )
+            manual_image_delivery = ManualImageEffectDelivery(
+                HttpxMediaImageEditingGateway(
+                    settings_provider,
+                    media_repository,
+                    image_store,
+                )
+            )
+            p5_event_delivery = P5MediaEventEffectDelivery(
+                NativeP5MediaEventGateway(
+                    settings_provider,
+                    media_repository,
+                    lambda: service,
+                    HttpxP5MediaEventProvider(settings_provider),
+                    image_store,
+                )
+            )
             media_effects = PersistentMediaEffectExecutor(
                 PostgresMediaEffectLedger(database.unit_of_work),
                 RoutedMediaEffectDelivery(
                     [
                         BridgeMediaEffectDelivery(bridge_client),
+                        EmbyPathChangeEffectDelivery(settings_provider, HttpxEmbyPathChangeGateway()),
                         SharedIntroExportEffectDelivery(app_settings, shared_center),
                         DailyThemeReplenishmentEffectDelivery(daily_theme),
                         auto_tagging_delivery,
                         studio_images_delivery,
                         cover_remote,
+                        manual_image_delivery,
+                        p5_event_delivery,
                         MoviePilotWebhookEffectDelivery(
                             SqlAlchemyMoviePilotAssistantEventRepository(
                                 database.unit_of_work,
@@ -2427,21 +1658,88 @@ class WorkerRuntime:
                 database,
                 settings_provider,
             )
-            p5_media_tasks = P5MediaTaskRouter(
-                compatibility=None,
-                restore_mediainfo=P115MediaInfoRestoreService(
+            media_info_restore = P115MediaInfoRestoreService(
+                credentials=p115_credentials,
+                repository=p115_mediainfo_repository,
+                fingerprints=p115_fingerprint_repair,
+                emby=HttpxEmbyMediaInfoQueryGateway(settings_provider),
+                probe=media_probe,
+                policies=mediainfo_policies,
+                commands=PersistentMediaInfoCommandGateway(
+                    database.unit_of_work,
+                    bridge_client,
+                    executor=media_effects,
+                ),
+            )
+            media_reprocess = NativeMediaItemReprocessService(
+                HttpxMediaCatalogAdapter(settings_provider),
+                media_task_service,
+                media_info_restore,
+            )
+            native_operations = _p115_native_operation_router(
+                database,
+                p115_credentials,
+                app_settings,
+                settings_provider,
+                playback_service,
+                media_reprocess,
+                NativeP115DeepDeleteOperation(
+                    P115DeepDeleteExecutionService(
+                        p115=NativeP115DeleteReadbackGateway(
+                            P115PrimaryOperationsGateway(
+                                credentials=p115_credentials,
+                                priority=lambda: str(settings_provider().p115_api_priority),
+                            )
+                        ),
+                        upload_sources=NativeP115UploadSourceCleanupGateway(
+                            PostgresP115UploadMonitorRepository(database.unit_of_work),
+                            lambda: app_settings.load("p115_upload_monitor_config"),
+                        ),
+                        media=NativeP115MediaCleanupReceiptGateway(
+                            SqlAlchemyCleanupMediaGateway(
+                                database.unit_of_work,
+                                cleanup_source_lifecycle,
+                            )
+                        ),
+                        shared=NativeP115SharedCleanupGateway(),
+                    )
+                ),
+            )
+            ingestion_binding = PersistentPendingBindingGateway(
+                ledger=ingestion_ledger,
+                delivery=NativeIngestionBindingDelivery(
+                    jobs=lambda: service,
+                    uow_factory=database.unit_of_work,
+                    bridge=bridge_client,
+                    media_info=p115_mediainfo_repository,
+                    media_effects=media_effects,
+                    lease_seconds=lambda: max(float(settings_provider().emby_api_timeout) + 30, 90),
+                ),
+                claimant_id=f"{self._worker_id}:ingestion-binding",
+                lease_seconds=max(float(settings_provider().emby_api_timeout) + 30, 90),
+            )
+            ingestion_executor = IngestionMonitorExecutor(
+                uow_factory=database.unit_of_work,
+                ledger=ingestion_ledger,
+                settings=settings_provider,
+                preparation=NativeIngestionPreparationGateway(
+                    settings=settings_provider,
+                    pending_bindings=ingestion_binding,
+                    processes=processes,
+                    policies=mediainfo_policies,
+                ),
+                pending_bindings=ingestion_binding,
+                media_effects=media_effects,
+                fingerprints=NativeIngestionFingerprintGateway(
+                    settings=settings_provider,
                     credentials=p115_credentials,
                     repository=p115_mediainfo_repository,
-                    fingerprints=p115_fingerprint_repair,
-                    emby=HttpxEmbyMediaInfoQueryGateway(settings_provider),
-                    probe=media_probe,
-                    policies=mediainfo_policies,
-                    commands=PersistentMediaInfoCommandGateway(
-                        database.unit_of_work,
-                        bridge_client,
-                        executor=media_effects,
-                    ),
                 ),
+                worker_id=f"{self._worker_id}:ingestion",
+            )
+            p5_media_tasks = P5MediaTaskRouter(
+                compatibility=None,
+                restore_mediainfo=media_info_restore,
                 media_tasks=media_task_service,
                 people_tasks=people_task_service,
                 screenshot_backfill=screenshot_backfill,
@@ -2502,7 +1800,6 @@ class WorkerRuntime:
                 )
             )
             p7_subscription_tasks = P7SubscriptionTaskRouter(
-                None,
                 native_assistant,
                 moviepilot_effects=moviepilot_effects,
                 washing_recalculation=washing_recalculation,
@@ -2579,6 +1876,10 @@ class WorkerRuntime:
                     data_root=_worker_data_root(config_adapter),
                 ),
                 custom_collection_tasks=custom_collection_tasks,
+                review_reprocess=NativeReviewReprocessExecutor(
+                    SqlAlchemyReviewReprocessRepository(database.unit_of_work),
+                    media_reprocess,
+                ),
             )
             p9_sharing_tasks = P9SharingTaskRouter(
                 shared_center=shared_center,
@@ -2586,26 +1887,16 @@ class WorkerRuntime:
                 telegram=telegram,
                 compatibility=None,
             )
-            supervisor = RuntimeSupervisor()
-            supervisor.start(role=RuntimeRole.WORKER, background=False)
         except BaseException:
-            clear_persistent_p115_credential_gateway(p115_credentials)
-            if supervisor is not None:
-                try:
-                    supervisor.stop()
-                except Exception:
-                    logger.exception("Unable to stop a partially started native Worker supervisor")
             container.close()
             raise
         assert p115_credentials is not None
         self._container = container
         self._config_adapter = config_adapter
         self._last_settings = container.settings.to_runtime_dict()
-        self._supervisor = supervisor
         self._store = store
         self._registry = registry
         self._service = service
-        self._adapter = None
         self._media_effects = media_effects
         self._p5_media_tasks = p5_media_tasks
         self._p6_p115_tasks = p6_p115_tasks
@@ -2616,16 +1907,18 @@ class WorkerRuntime:
         self._native_operations = native_operations
         self._p7_cleanup_executor = cleanup_executor
         self._p7_cleanup_repository = cleanup_repository
+        self._ingestion_executor = ingestion_executor
+        self._ingestion_binding = ingestion_binding
         self._ingestion_ingress = ingestion_ingress
+        self._p115_upload_executor = upload_executor
         self._subscription_executor = subscription_executor
         self._collection_operation_executor = collection_operation_executor
         self._identity_executor = identity_executor
         self._database_maintenance_executor = database_maintenance_executor
         self._sharing_operation_executor = sharing_operation_executor
+        self._p115_playback_executor = playback_executor
         self._p115_intro_executor = intro_executor
         self._intro_detection_gateway = intro_detection_gateway
-        self._p115_credentials = p115_credentials
-        self._native_only = True
         self._started = True
 
     def request_shutdown(self) -> None:
@@ -2650,65 +1943,6 @@ class WorkerRuntime:
             if not self._started:
                 return
             errors: list[Exception] = []
-            if self._p115_credentials is not None:
-                try:
-                    clear_persistent_p115_credential_gateway(self._p115_credentials)
-                except Exception as exc:
-                    errors.append(exc)
-            if self._intro_detection_gateway is not None:
-                try:
-                    clear_persistent_intro_detection_gateway(self._intro_detection_gateway)
-                except Exception as exc:
-                    errors.append(exc)
-            if self._playback_gateway is not None:
-                try:
-                    clear_persistent_playback_gateway(self._playback_gateway)
-                except Exception as exc:
-                    errors.append(exc)
-            if self._p115_upload_source_cleanup is not None:
-                try:
-                    clear_persistent_upload_source_cleanup(self._p115_upload_source_cleanup)
-                except Exception as exc:
-                    errors.append(exc)
-            if self._ingestion_ingress is not None:
-                try:
-                    clear_persistent_ingestion_ingress(self._ingestion_ingress)
-                except Exception as exc:
-                    errors.append(exc)
-            if self._ingestion_binding is not None:
-                try:
-                    clear_persistent_ingestion_binding(self._ingestion_binding)
-                except Exception as exc:
-                    errors.append(exc)
-            if self._media_effects is not None:
-                try:
-                    clear_persistent_media_effect_gateway(self._media_effects)
-                except Exception as exc:
-                    errors.append(exc)
-            if self._final_refresh_settings_provider is not None:
-                try:
-                    clear_final_refresh_settings_provider(self._final_refresh_settings_provider)
-                except Exception as exc:
-                    errors.append(exc)
-            if self._background_gateway is not None:
-                try:
-                    from etk.compatibility.background import clear_persistent_background_gateway
-
-                    clear_persistent_background_gateway(self._background_gateway)
-                except Exception as exc:
-                    errors.append(exc)
-            if self._gateway is not None:
-                try:
-                    from task_manager import clear_persistent_submission_gateway
-
-                    clear_persistent_submission_gateway(self._gateway)
-                except Exception as exc:
-                    errors.append(exc)
-            if self._supervisor is not None:
-                try:
-                    self._supervisor.stop()
-                except Exception as exc:
-                    errors.append(exc)
             if self._container is not None:
                 try:
                     self._container.close()
@@ -2717,13 +1951,9 @@ class WorkerRuntime:
             self._container = None
             self._config_adapter = None
             self._last_settings = None
-            self._supervisor = None
             self._store = None
             self._registry = None
             self._service = None
-            self._adapter = None
-            self._native_only = False
-            self._p115_credentials = None
             self._media_effects = None
             self._p5_media_tasks = P5MediaTaskRouter(compatibility=None)
             self._p6_p115_tasks = None
@@ -2745,12 +1975,7 @@ class WorkerRuntime:
             self._identity_executor = None
             self._database_maintenance_executor = None
             self._sharing_operation_executor = None
-            self._playback_gateway = None
             self._intro_detection_gateway = None
-            self._p115_upload_source_cleanup = None
-            self._gateway = None
-            self._background_gateway = None
-            self._final_refresh_settings_provider = None
             self._active_executions.clear()
             self._active_ingestion_executions = 0
             self._active_p115_upload_executions = 0
@@ -3206,7 +2431,6 @@ class WorkerRuntime:
         job = projection.job
         attempt = projection.current_attempt
         registry = self._registry
-        adapter = self._adapter
         if registry is None:
             raise RuntimeError("Worker task registry is not initialized")
         try:
@@ -3263,12 +2487,9 @@ class WorkerRuntime:
         native_task_unavailable = (
             not native_operation_key
             and not native_task_key
-            and (
-                job.task_key in P8_REVIEW_TASK_KEYS
-                or (definition is not None and definition.key not in _NATIVE_ONLY_EXECUTABLE_TASK_KEYS)
-            )
+            and (definition is not None and definition.key not in _NATIVE_ONLY_EXECUTABLE_TASK_KEYS)
         )
-        if self._native_only and native_task_unavailable:
+        if native_task_unavailable:
             unavailable_key = definition.key if definition is not None else job.task_key
             store.fail_attempt(
                 job_id=job.id,
@@ -3276,62 +2497,15 @@ class WorkerRuntime:
                 worker_id=self._worker_id,
                 error_type=NativeTaskExecutionUnavailable.__name__,
                 error_message=f"native Worker execution owner is unavailable for task {unavailable_key!r}",
-                error_details={"task_key": unavailable_key, "native_only": True},
+                error_details={"task_key": unavailable_key},
                 retryable=False,
                 honor_cancel_request=False,
             )
             return
-        processor_identity = ProcessorIdentity(envelope["processor_type"])
-        processor = (
-            None
-            if (
-                self._native_only
-                or (
-                    definition is not None
-                    and (
-                        definition.key in (P4_NATIVE_TASK_KEYS | P6_NATIVE_TASK_KEYS)
-                        or definition.key
-                        in {
-                            "add-all-series-to-watchlist",
-                            "actor-tracking",
-                            "actor-translation",
-                            "auto-subscribe",
-                            "backfill-media-metadata",
-                            "check-expired-users",
-                            "enrich-aliases",
-                            "generate-all-covers",
-                            "generate-custom-collection-covers",
-                            "manual_subscribe_batch",
-                            "merge-duplicate-actors",
-                            "populate-metadata",
-                            "purge-ghost-actors",
-                            "process-watchlist",
-                            "recalculate_library_washing_priorities",
-                            "resubscribe-library",
-                            "refresh_completed_series",
-                            "restore_mediainfo",
-                            "restore-nfo-and-images",
-                            "role-translation",
-                            "scan-cleanup-issues",
-                            "scan_old_seasons_backfill",
-                            "subscribe-assistant-maintenance",
-                            "sync-all-user-data",
-                            "system-auto-update",
-                            "update-daily-theme",
-                            "update-resubscribe-cache",
-                        }
-                    )
-                )
-            )
-            or envelope.get("call_style") == "direct"
-            else _processor(processor_identity)
-        )
+        processor = None
         if (
-            adapter is None
-            and (
-                definition is None
-                or (definition.key not in NATIVE_TASK_KEYS and job.task_key not in P8_REVIEW_TASK_KEYS)
-            )
+            definition is None
+            and job.task_key not in P8_REVIEW_TASK_KEYS
             and not native_operation_key
             and not native_task_key
         ):
@@ -3339,9 +2513,9 @@ class WorkerRuntime:
                 job_id=job.id,
                 attempt_id=attempt.id,
                 worker_id=self._worker_id,
-                error_type="LegacyTaskAdapterUnavailable",
-                error_message="native Worker cannot execute a legacy task without compatibility mode",
-                error_details={"task_key": job.task_key, "native_only": self._native_only},
+                error_type=NativeTaskExecutionUnavailable.__name__,
+                error_message=f"native Worker execution owner is unavailable for task {job.task_key!r}",
+                error_details={"task_key": job.task_key},
                 retryable=False,
                 honor_cancel_request=False,
             )
@@ -3410,13 +2584,7 @@ class WorkerRuntime:
                     payload_version=int(envelope["payload_version"]),
                     metadata={"job_id": str(job.id), "attempt_id": str(attempt.id)},
                 )
-                if self._native_only:
-                    result = self._p5_media_tasks.execute(message, processor, progress)
-                else:
-                    from task_manager import persistent_execution
-
-                    with persistent_execution(progress):
-                        result = self._p5_media_tasks.execute(message, processor, progress)
+                result = self._p5_media_tasks.execute(message, None, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P5 native task {definition.key!r} did not return TaskOutcome")
             elif definition is not None and definition.key in P6_NATIVE_TASK_KEYS:
@@ -3460,13 +2628,7 @@ class WorkerRuntime:
                 )
                 if self._p7_subscription_tasks is None:
                     raise RuntimeError("P7 subscription task router is unavailable")
-                if self._native_only:
-                    result = self._p7_subscription_tasks.execute(message, processor, progress)
-                else:
-                    from task_manager import persistent_execution
-
-                    with persistent_execution(progress):
-                        result = self._p7_subscription_tasks.execute(message, processor, progress)
+                result = self._p7_subscription_tasks.execute(message, None, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P7 native task {definition.key!r} did not return TaskOutcome")
             elif definition is not None and definition.key in P8_NATIVE_TASK_KEYS:
@@ -3486,13 +2648,7 @@ class WorkerRuntime:
                 )
                 if self._p8_effect_tasks is None:
                     raise RuntimeError("P8 effect task router is unavailable")
-                if self._native_only or definition.key == "check-expired-users":
-                    result = self._p8_effect_tasks.execute(message, processor, progress)
-                else:
-                    from task_manager import persistent_execution
-
-                    with persistent_execution(progress):
-                        result = self._p8_effect_tasks.execute(message, processor, progress)
+                result = self._p8_effect_tasks.execute(message, None, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P8 native task {definition.key!r} did not return TaskOutcome")
             elif definition is not None and definition.key in P9_NATIVE_TASK_KEYS:
@@ -3512,52 +2668,28 @@ class WorkerRuntime:
                 )
                 if self._p9_sharing_tasks is None:
                     raise RuntimeError("P9 sharing task router is unavailable")
-                if self._native_only:
-                    result = self._p9_sharing_tasks.execute(message, processor, progress)
-                else:
-                    from task_manager import persistent_execution
-
-                    with persistent_execution(progress):
-                        result = self._p9_sharing_tasks.execute(message, processor, progress)
+                result = self._p9_sharing_tasks.execute(message, None, progress)
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P9 native task {definition.key!r} did not return TaskOutcome")
             elif job.task_key in P8_REVIEW_TASK_KEYS:
                 if self._p8_effect_tasks is None:
                     raise RuntimeError("P8 effect task router is unavailable")
-                if self._native_only:
-                    result = self._p8_effect_tasks.execute_review(
-                        job.task_key,
-                        envelope["parameters"],
-                        processor,
-                        progress,
-                    )
-                else:
-                    from task_manager import persistent_execution
-
-                    with persistent_execution(progress):
-                        result = self._p8_effect_tasks.execute_review(
-                            job.task_key,
-                            envelope["parameters"],
-                            processor,
-                            progress,
-                        )
+                result = self._p8_effect_tasks.execute_review(
+                    job.task_key,
+                    envelope["parameters"],
+                    None,
+                    progress,
+                )
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P8 review task {job.task_key!r} did not return TaskOutcome")
             elif definition is not None:
-                if adapter is None:
-                    raise RuntimeError("Worker legacy task adapter is not initialized")
-                message = registry.create_message(
-                    definition.key,
-                    envelope["parameters"],
-                    payload_version=int(envelope["payload_version"]),
-                    metadata={"job_id": str(job.id), "attempt_id": str(attempt.id)},
+                raise NativeTaskExecutionUnavailable(
+                    f"native Worker execution owner is unavailable for task {definition.key!r}"
                 )
-                from task_manager import persistent_execution
-
-                with persistent_execution(progress):
-                    result = adapter.execute(message)
             else:
-                result = self._execute_importable_operation(envelope, processor, progress)
+                raise NativeTaskExecutionUnavailable(
+                    f"native Worker execution owner is unavailable for task {job.task_key!r}"
+                )
             p4_terminalization_reported = _p4_terminalized_native_outcome(job.task_key, result)
             progress.raise_if_reported_failure()
             _raise_for_reported_failure(job.task_key, result)
@@ -3803,31 +2935,6 @@ class WorkerRuntime:
             progress=progress,
         )
 
-    def _execute_importable_operation(
-        self,
-        envelope: Mapping[str, Any],
-        processor: Any,
-        progress: _ExecutionProgress,
-    ) -> Any:
-        operation = envelope.get("legacy_operation")
-        if not isinstance(operation, Mapping):
-            raise LookupError("Job task key is not present in the frozen task registry")
-        task_function = import_legacy_operation(
-            str(operation.get("module") or ""),
-            str(operation.get("qualname") or ""),
-        )
-        args = envelope.get("positional_parameters", [])
-        if not isinstance(args, list):
-            raise InvalidJsonPayloadError("positional_parameters must be a JSON array")
-        from task_manager import persistent_execution
-
-        with persistent_execution(progress):
-            if envelope.get("call_style") == "direct":
-                if progress.task_key != CLEANUP_EXECUTION_TASK_KEY:
-                    progress.checkpoint()
-                return task_function(*args, **envelope["parameters"])
-            return task_function(processor, *args, **envelope["parameters"])
-
     def _execute_chain(self, parent: JobProjection) -> dict[str, Any]:
         depth = int(getattr(self._workflow_depth, "value", 0))
         if depth >= _WORKFLOW_DEPTH_LIMIT:
@@ -3841,9 +2948,9 @@ class WorkerRuntime:
     def _execute_chain_at_depth(self, parent: JobProjection) -> dict[str, Any]:
         store = self._require_store()
         service = self._service
-        if service is None or self._supervisor is None:
+        config = self._last_settings
+        if service is None or config is None:
             raise RuntimeError("Worker runtime is not initialized")
-        config = self._supervisor.config
         if parent.job.task_key == _HIGH_CHAIN:
             sequence = config.get("task_chain_sequence", [])
             max_minutes = int(config.get("task_chain_max_runtime_minutes") or 0)
@@ -3873,7 +2980,7 @@ class WorkerRuntime:
                 raise LookupError(f"task chain contains unknown task {task_key!r}") from exc
             if not definition.chain_eligible:
                 raise ValueError(f"task chain contains a task that requires a dedicated entrypoint: {task_key!r}")
-            if self._native_only and task_key not in _NATIVE_ONLY_EXECUTABLE_TASK_KEYS:
+            if task_key not in _NATIVE_ONLY_EXECUTABLE_TASK_KEYS:
                 raise NativeTaskExecutionUnavailable(
                     f"task chain contains task without a native Worker execution owner: {task_key!r}"
                 )
@@ -3932,15 +3039,10 @@ class WorkerRuntime:
     def _refresh_settings(self) -> None:
         with self._lock:
             adapter = self._config_adapter
-            supervisor = self._supervisor
-            if adapter is None or supervisor is None:
+            if adapter is None:
                 raise RuntimeError("Worker runtime configuration is not initialized")
             settings = adapter.load()
             values = settings.to_runtime_dict()
-            if values == self._last_settings:
-                return
-            supervisor.stop()
-            supervisor.start(role=RuntimeRole.WORKER, background=False)
             self._last_settings = values
 
     def _register_execution(self, job_id: UUID, processor: Any, control: _ExecutionControl) -> None:
@@ -4075,16 +3177,6 @@ def _native_task_identity_error(task_key: str, envelope: Mapping[str, Any]) -> s
     if native_key and native_key != CLEANUP_EXECUTION_TASK_KEY:
         return "native task identity is not allowlisted"
     return None
-
-
-def _processor(identity: ProcessorIdentity) -> Any:
-    import extensions
-
-    return {
-        ProcessorIdentity.MEDIA: extensions.media_processor_instance,
-        ProcessorIdentity.WATCHLIST: extensions.watchlist_processor_instance,
-        ProcessorIdentity.ACTOR: extensions.actor_subscription_processor_instance,
-    }[identity]
 
 
 def _signal_stop(processor: Any) -> None:
@@ -4272,12 +3364,7 @@ def _native_media_people_task_services(
     return media_tasks, people_tasks, screenshot_backfill
 
 
-def _legacy_compatibility_enabled() -> bool:
-    return os.environ.get("ETK_ENABLE_LEGACY_COMPATIBILITY", "").strip().casefold() in {"1", "true", "yes", "on"}
-
-
 __all__ = [
-    "RuntimeLegacyTaskResolver",
     "WorkerShutdownRequested",
     "WorkerRuntime",
     "close_worker_runtime",

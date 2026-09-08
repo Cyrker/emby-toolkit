@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from sqlalchemy import text
 
+from etk.domains.media.effect_execution import PersistentMediaEffectExecutor
+from etk.domains.media.effects import PostgresMediaEffectLedger
 from etk.domains.media.image_editing import (
     ImageUpdateCommand,
     ImageUpdateOutcome,
     TmdbImageCatalog,
 )
-from etk.domains.media.image_editing_effects import PersistentMediaImageEditingGateway
+from etk.domains.media.image_editing_effects import ManualImageEffectDelivery, PersistentMediaImageEditingGateway
 from etk.platform.db import DatabaseRuntime
 
 
@@ -108,3 +112,38 @@ def test_pg18_manual_image_upload_roundtrips_bytes_and_unknown_outcome_never_rep
         ).all()
     assert len(errors) == 1
     assert "fixture-secret" not in str(errors[0])
+
+
+def test_pg18_manual_image_api_defers_and_worker_delivery_confirms_once(
+    p5_runtime: DatabaseRuntime,
+) -> None:
+    native = FakeCompatibilityGateway()
+    api = PersistentMediaImageEditingGateway(
+        p5_runtime.unit_of_work,
+        native,
+        defer=True,
+    )
+    command = ImageUpdateCommand(
+        item_id="fixture-worker-image",
+        image_type="poster",
+        image_url="https://fixture.invalid/worker.jpg",
+        image_bytes=None,
+        content_type=None,
+    )
+
+    pending = api.update_image(command)
+    assert pending.success is False
+    assert pending.effect_status == "pending"
+    assert native.commands == []
+
+    executor = PersistentMediaEffectExecutor(
+        PostgresMediaEffectLedger(p5_runtime.unit_of_work),
+        ManualImageEffectDelivery(native),
+        worker_id="fixture-worker:image",
+    )
+    confirmed = executor.execute(UUID(str(pending.effect_id)))
+    replay = executor.execute(confirmed.id)
+
+    assert confirmed.status.value == "confirmed"
+    assert replay == confirmed
+    assert native.commands == [command]

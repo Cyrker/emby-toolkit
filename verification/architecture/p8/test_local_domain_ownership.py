@@ -81,7 +81,9 @@ def test_p8_local_sources_do_not_reverse_import_legacy_runtime() -> None:
         assert not any(module.split(".")[0] in LEGACY_IMPORT_ROOTS for module in imports), path
 
 
-def test_secondary_local_and_effect_routes_precede_compatibility(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_secondary_local_and_effect_routes_ignore_the_retired_compatibility_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     expected = {(route["method"], route["path"]) for route in fixture["routes"]}
@@ -94,16 +96,14 @@ def test_secondary_local_and_effect_routes_precede_compatibility(monkeypatch: py
         for method, path in P8_EFFECT_PATHS:
             assert method.casefold() in schema[path]
 
-        compatibility_index = next(
-            index for index, route in enumerate(app.routes) if getattr(route, "name", None) == "legacy-compatibility"
-        )
+        assert not any(getattr(route, "name", None) == "legacy-compatibility" for route in app.routes)
         for expected_router in (database_router, discover_router, secondary_router):
             indexes = [
                 index
                 for index, route in enumerate(app.routes)
                 if getattr(route, "original_router", None) is expected_router
             ]
-            assert len(indexes) == 1 and indexes[0] < compatibility_index
+            assert len(indexes) == 1
     finally:
         app.state.container.close()
 

@@ -69,6 +69,10 @@ def p7_runtime(migrated_p7_postgres_url: str) -> Iterator[DatabaseRuntime]:
     runtime.start()
     with runtime.engine.begin() as connection:
         connection.execute(text("DELETE FROM cleanup_execution_items"))
+        connection.execute(text("DELETE FROM cleanup_index"))
+        connection.execute(text("DELETE FROM resubscribe_index"))
+        connection.execute(text("DELETE FROM resubscribe_rules"))
+        connection.execute(text("DELETE FROM media_metadata"))
         connection.execute(text("DELETE FROM subscribe_assistant_snapshots"))
         connection.execute(text("DELETE FROM subscribe_assistant_state"))
         connection.execute(text("DELETE FROM subscribe_assistant_delete_records"))

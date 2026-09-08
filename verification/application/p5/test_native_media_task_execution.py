@@ -3,7 +3,12 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+import httpx
+import pytest
+from pydantic import SecretStr
+
 from etk.domains.media.task_execution import (
+    HttpxMediaCatalogAdapter,
     NativeMediaMetadataTaskService,
     NativeMediaScreenshotBackfillService,
 )
@@ -198,3 +203,35 @@ def test_screenshot_backfill_does_not_resend_when_readback_already_confirms() ->
     assert result.status is TaskOutcomeStatus.SUCCEEDED
     assert upload.uploads == []
     assert len(repository.records) == 1
+
+
+def _http_catalog(response: httpx.Response, *, settings: Settings | None = None) -> HttpxMediaCatalogAdapter:
+    def respond(_request: httpx.Request) -> httpx.Response:
+        return response
+
+    return HttpxMediaCatalogAdapter(
+        lambda: (
+            settings
+            or Settings(
+                emby_server_url="http://emby.fixture.invalid",
+                emby_user_id="fixture-user",
+                emby_api_key=SecretStr("fixture-token"),
+            )
+        ),
+        client_factory=lambda: httpx.Client(transport=httpx.MockTransport(respond)),
+    )
+
+
+def test_http_media_catalog_item_validates_identity_before_request() -> None:
+    catalog = _http_catalog(httpx.Response(200, json={"Id": "item-1"}))
+    assert catalog.item("") is None
+
+    with pytest.raises(RuntimeError, match="configured Emby authorization"):
+        _http_catalog(httpx.Response(200, json={}), settings=Settings()).item("item-1")
+
+
+def test_http_media_catalog_item_handles_absent_valid_and_invalid_readback() -> None:
+    assert _http_catalog(httpx.Response(404)).item("item-1") is None
+    assert _http_catalog(httpx.Response(200, json={"Id": "item-1"})).item("item-1") == {"Id": "item-1"}
+    with pytest.raises(RuntimeError, match="invalid object"):
+        _http_catalog(httpx.Response(200, json=[])).item("item-1")

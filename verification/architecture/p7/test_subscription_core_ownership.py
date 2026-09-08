@@ -54,7 +54,7 @@ def test_subscription_core_keeps_media_metadata_sql_behind_p5_projection() -> No
     assert not any(module.split(".")[0] in {"database", "handler", "routes", "tasks"} for module in _imports(ROUTER))
 
 
-def test_p7_http_fixtures_are_all_native_and_precede_compatibility_mount(
+def test_p7_http_fixtures_are_all_native_when_the_retired_compatibility_flag_is_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
@@ -69,9 +69,7 @@ def test_p7_http_fixtures_are_all_native_and_precede_compatibility_mount(
         for method, path in expected:
             assert path in schema
             assert method.casefold() in schema[path]
-        compatibility_index = next(
-            index for index, route in enumerate(app.routes) if getattr(route, "name", None) == "legacy-compatibility"
-        )
+        assert not any(getattr(route, "name", None) == "legacy-compatibility" for route in app.routes)
         native_routers = (
             cleanup_router,
             core_router,
@@ -84,7 +82,6 @@ def test_p7_http_fixtures_are_all_native_and_precede_compatibility_mount(
             if any(getattr(route, "original_router", None) is router for router in native_routers)
         }
         assert len(indexes) == len(native_routers)
-        assert all(index < compatibility_index for index in indexes)
     finally:
         app.state.container.close()
 

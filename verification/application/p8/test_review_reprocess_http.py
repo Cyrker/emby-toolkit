@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 from uuid import UUID
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -11,11 +12,15 @@ from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.operations.database_router import effects_router
 from etk.domains.operations.jobs import SubmittedJob, TaskBusyError
 from etk.domains.operations.review_reprocess import (
+    REVIEW_REPROCESS_ALL_TASK_KEY,
+    REVIEW_REPROCESS_ONE_TASK_KEY,
+    NativeReviewReprocessExecutor,
     ReviewJobPort,
     ReviewReprocessRepository,
     ReviewReprocessService,
 )
 from etk.platform import AppContainer, Settings
+from etk.platform.tasks import TaskOutcome, TaskOutcomeStatus
 from etk.platform.web import CookieSessionMiddleware
 
 SECRET_KEY = b"p8-review-reprocess-fixture-key"
@@ -199,3 +204,104 @@ def test_batch_review_reprocess_validation_busy_and_submission_failure() -> None
             "idempotency_key": None,
         },
     )
+
+
+class ExecutorProgress:
+    def __init__(self) -> None:
+        self.events: list[tuple[Any, ...]] = []
+
+    def checkpoint(self) -> None:
+        self.events.append(("checkpoint",))
+
+    def update(self, value: int, message: str) -> None:
+        self.events.append(("update", value, message))
+
+
+class ExecutorReprocess:
+    def __init__(self, outcomes: list[TaskOutcome]) -> None:
+        self.outcomes = list(outcomes)
+        self.calls: list[dict[str, Any]] = []
+
+    def execute(self, item_id: str, _progress: Any, **options: Any) -> TaskOutcome:
+        self.calls.append({"item_id": item_id, **options})
+        return self.outcomes.pop(0)
+
+
+def test_native_review_executor_routes_single_item_and_rejects_unknown_task() -> None:
+    reprocess = ExecutorReprocess([TaskOutcome.succeeded(), TaskOutcome.succeeded()])
+    executor = NativeReviewReprocessExecutor(cast(Any, object()), cast(Any, reprocess))
+
+    first = executor.execute(
+        REVIEW_REPROCESS_ONE_TASK_KEY,
+        {"item_id": " item-1 ", "failure_reason": "缺失媒体信息"},
+        ExecutorProgress(),
+        operation_key="review",
+    )
+    second = executor.execute(
+        REVIEW_REPROCESS_ONE_TASK_KEY,
+        {"item_id": "item-2", "failure_reason": "manual"},
+        ExecutorProgress(),
+        operation_key="review",
+    )
+
+    assert first.status is TaskOutcomeStatus.SUCCEEDED
+    assert second.status is TaskOutcomeStatus.SUCCEEDED
+    assert reprocess.calls == [
+        {"item_id": "item-1", "operation_key": "review:item-1", "media_info_only": True},
+        {"item_id": "item-2", "operation_key": "review:item-2", "media_info_only": False},
+    ]
+    with pytest.raises(LookupError, match="unknown P8 review task key"):
+        executor.execute("unknown", {}, ExecutorProgress(), operation_key="review")
+
+
+def test_native_review_executor_skips_an_empty_batch() -> None:
+    progress = ExecutorProgress()
+    repository = SimpleNamespace(items=lambda **_options: ())
+    executor = NativeReviewReprocessExecutor(cast(Any, repository), cast(Any, object()))
+
+    outcome = executor.execute(
+        REVIEW_REPROCESS_ALL_TASK_KEY,
+        {"reason_filter": "missing"},
+        progress,
+        operation_key="review",
+    )
+
+    assert outcome.status is TaskOutcomeStatus.SKIPPED
+    assert outcome.details == {"processed": 0, "failed": 0}
+    assert progress.events == [("update", 100, "列表为空。")]
+
+
+@pytest.mark.parametrize(
+    ("outcomes", "expected"),
+    [
+        ([TaskOutcome.failed(), TaskOutcome.failed()], TaskOutcomeStatus.FAILED),
+        ([TaskOutcome.succeeded(), TaskOutcome.failed()], TaskOutcomeStatus.PARTIAL),
+        ([TaskOutcome.succeeded(), TaskOutcome.partial()], TaskOutcomeStatus.PARTIAL),
+        ([TaskOutcome.succeeded(), TaskOutcome.succeeded()], TaskOutcomeStatus.SUCCEEDED),
+    ],
+)
+def test_native_review_executor_aggregates_batch_outcomes(
+    outcomes: list[TaskOutcome],
+    expected: TaskOutcomeStatus,
+) -> None:
+    rows = (
+        {"item_id": "item-1", "item_name": "One", "reason": "缺失媒体信息"},
+        {"item_id": "item-2", "item_name": "Two", "reason": "manual"},
+    )
+    repository = SimpleNamespace(items=lambda **_options: rows)
+    reprocess = ExecutorReprocess(outcomes)
+    progress = ExecutorProgress()
+    executor = NativeReviewReprocessExecutor(cast(Any, repository), cast(Any, reprocess))
+
+    outcome = executor.execute(
+        REVIEW_REPROCESS_ALL_TASK_KEY,
+        {"reason_filter": None},
+        progress,
+        operation_key="review",
+    )
+
+    assert outcome.status is expected
+    assert outcome.details["processed"] == 2
+    assert reprocess.calls[0]["media_info_only"] is True
+    assert reprocess.calls[1]["media_info_only"] is False
+    assert progress.events[-1] == ("update", 100, "批量重新处理完成。")

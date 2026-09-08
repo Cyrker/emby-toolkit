@@ -8,11 +8,10 @@ from uuid import UUID
 
 import pytest
 
-from etk.compatibility.legacy_jobs import LegacyTaskAdapter
 from etk.platform.jobs import AttemptStatus, JobStatus
-from etk.platform.tasks import ProcessorIdentity, TaskMessage, TaskOutcome, TaskRegistry
+from etk.platform.tasks import TaskMessage, TaskOutcome, TaskRegistry
 from etk.processes import p5_media_tasks, worker
-from etk.processes.p5_media_tasks import LegacyP5MediaCompatibilityGateway, P5MediaTaskRouter
+from etk.processes.p5_media_tasks import P5MediaTaskRouter
 from etk.processes.runtime_config import TaskRuntimeConfig
 from etk.processes.worker import WorkerRuntime
 
@@ -69,15 +68,6 @@ class _NoopMonitor:
         return None
 
 
-class _Resolver:
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, ProcessorIdentity]] = []
-
-    def resolve(self, task_key: str, processor: ProcessorIdentity) -> tuple[object, object]:
-        self.calls.append((task_key, processor))
-        raise AssertionError("LegacyTaskAdapter must not execute a native P5 task")
-
-
 class _Restore:
     def __init__(self) -> None:
         self.calls: list[tuple[object, str, bool]] = []
@@ -94,23 +84,24 @@ class _Restore:
         return TaskOutcome.succeeded("native restore complete", {"restored": 1})
 
 
-class _Compatibility:
+class _MediaTasks:
     def __init__(self) -> None:
         self.calls: list[tuple[str, object, Mapping[str, Any]]] = []
 
     def execute(
         self,
         task_key: str,
-        processor: object,
+        progress: object,
         parameters: Mapping[str, Any],
-    ) -> object:
-        self.calls.append((task_key, processor, dict(parameters)))
-        return True
+    ) -> TaskOutcome:
+        self.calls.append((task_key, progress, dict(parameters)))
+        cast(Any, progress).update(43, "native metadata progress")
+        return TaskOutcome.succeeded("native metadata complete", {"processed": 5})
 
 
 class _CapturingRouter(P5MediaTaskRouter):
-    def __init__(self, compatibility: object, restore: object | None = None) -> None:
-        super().__init__(cast(Any, compatibility), cast(Any, restore))
+    def __init__(self, *, restore: object | None = None, media_tasks: object | None = None) -> None:
+        super().__init__(None, cast(Any, restore), media_tasks=cast(Any, media_tasks))
         self.calls: list[tuple[TaskMessage, object | None, object | None]] = []
 
     def execute(
@@ -121,20 +112,6 @@ class _CapturingRouter(P5MediaTaskRouter):
     ) -> TaskOutcome:
         self.calls.append((message, processor, progress))
         return super().execute(message, processor, cast(Any, progress))
-
-
-class _Processor:
-    def __init__(self) -> None:
-        self.clear_calls = 0
-
-    def clear_stop_signal(self) -> None:
-        self.clear_calls += 1
-
-    def signal_stop(self) -> None:
-        raise AssertionError("processor stop was not expected")
-
-    def is_stop_requested(self) -> bool:
-        return False
 
 
 def _projection(task_key: str, parameters: Mapping[str, object]) -> object:
@@ -166,46 +143,36 @@ def _projection(task_key: str, parameters: Mapping[str, object]) -> object:
 def _runtime(
     projection: object,
     router: P5MediaTaskRouter,
-) -> tuple[WorkerRuntime, _Store, _Resolver]:
+) -> tuple[WorkerRuntime, _Store]:
     registry = TaskRegistry.from_fixture(TASK_FIXTURE)
-    resolver = _Resolver()
     store = _Store(projection)
     runtime = WorkerRuntime(config=TaskRuntimeConfig(heartbeat_seconds=60, lease_seconds=120))
     state = cast(Any, runtime)
     state._store = store
     state._registry = registry
-    state._adapter = LegacyTaskAdapter(registry, cast(Any, resolver))
     state._p5_media_tasks = router
-    return runtime, store, resolver
+    return runtime, store
 
 
 def test_worker_restore_mediainfo_is_native_without_processor_or_legacy_handler(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(worker, "_HeartbeatMonitor", _NoopMonitor)
-    processor_resolutions: list[ProcessorIdentity] = []
     legacy_imports: list[str] = []
-
-    def reject_processor(identity: ProcessorIdentity) -> object:
-        processor_resolutions.append(identity)
-        raise AssertionError("restore_mediainfo must not resolve Processor")
 
     def reject_legacy_import(module_name: str) -> object:
         legacy_imports.append(module_name)
         raise AssertionError("tasks.media.task_restore_mediainfo must not be imported")
 
-    monkeypatch.setattr(worker, "_processor", reject_processor)
     monkeypatch.setattr(p5_media_tasks, "import_module", reject_legacy_import)
     restore = _Restore()
-    router = _CapturingRouter(LegacyP5MediaCompatibilityGateway(), restore)
+    router = _CapturingRouter(restore=restore)
     projection = _projection("restore_mediainfo", {"force_full_update": True})
-    runtime, store, resolver = _runtime(projection, router)
+    runtime, store = _runtime(projection, router)
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
 
     assert [status for status, _values in store.terminals] == ["succeeded"]
-    assert processor_resolutions == []
-    assert resolver.calls == []
     assert legacy_imports == []
     assert len(router.calls) == 1
     message, processor, progress = router.calls[0]
@@ -224,36 +191,33 @@ def test_worker_restore_mediainfo_is_native_without_processor_or_legacy_handler(
     }
 
 
-def test_worker_other_p5_tasks_keep_processor_and_compatibility_dispatch(
+def test_worker_other_p5_tasks_use_native_services_without_processor_dispatch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(worker, "_HeartbeatMonitor", _NoopMonitor)
-    processor = _Processor()
-    processor_resolutions: list[ProcessorIdentity] = []
-
-    def resolve_processor(identity: ProcessorIdentity) -> _Processor:
-        processor_resolutions.append(identity)
-        return processor
-
-    monkeypatch.setattr(worker, "_processor", resolve_processor)
-    compatibility = _Compatibility()
-    router = _CapturingRouter(compatibility)
+    media_tasks = _MediaTasks()
+    router = _CapturingRouter(media_tasks=media_tasks)
     projection = _projection("populate-metadata", {"batch_size": 5, "force_full_update": False})
-    runtime, store, resolver = _runtime(projection, router)
+    runtime, store = _runtime(projection, router)
 
     runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
 
     assert [status for status, _values in store.terminals] == ["succeeded"]
-    assert processor_resolutions == [ProcessorIdentity.MEDIA]
-    assert resolver.calls == []
     assert len(router.calls) == 1
-    assert router.calls[0][1] is processor
+    assert router.calls[0][1] is None
     assert router.calls[0][2] is not None
-    assert compatibility.calls == [
+    assert media_tasks.calls == [
         (
             "populate-metadata",
-            processor,
+            router.calls[0][2],
             {"batch_size": 5, "force_full_update": False},
         )
     ]
-    assert processor.clear_calls == 2
+    assert store.heartbeats[0]["progress"] == 43
+    result = cast(dict[str, object], store.terminals[0][1]["result"])
+    assert result["details"] == {
+        "processed": 5,
+        "task_key": "populate-metadata",
+        "native_handler": "_MediaTasks",
+        "compatibility_fallback": False,
+    }

@@ -1183,7 +1183,6 @@ def test_p7_router_executes_washing_without_processor_or_legacy_gateway() -> Non
     recalculation = FakeRouterRecalculation()
     task_router = P7SubscriptionTaskRouter(
         None,
-        None,
         washing_recalculation=recalculation,
     )
     message = TaskMessage.create(

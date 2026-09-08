@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -10,39 +9,6 @@ from starlette.routing import Mount
 
 from etk.bootstrap.app_factory import create_app
 from etk.bootstrap.runtime_supervisor import RuntimeAdapter, RuntimeRole, RuntimeSupervisor
-from etk.compatibility.p115_credentials import (
-    LazyPersistentP115CredentialGateway,
-    clear_persistent_p115_credential_gateway,
-    persistent_p115_credential_gateway,
-)
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-API_BASELINE = REPO_ROOT / "verification" / "contracts" / "http" / "legacy-runtime-url-map.json"
-
-EXPECTED_BLUEPRINT_NAMES = (
-    "watchlist",
-    "collections",
-    "custom_collections",
-    "actor_subscriptions",
-    "logs",
-    "database_admin",
-    "system",
-    "media_api",
-    "media_proxy",
-    "actions",
-    "cover_generator_config",
-    "tasks",
-    "resubscribe",
-    "media_cleanup_bp",
-    "user_management_bp",
-    "webhook_bp",
-    "unified_auth_bp",
-    "user_portal_bp",
-    "discover_bp",
-    "115_bp",
-    "subscription_bp",
-    "shared_resource_bp",
-)
 
 
 class NoopAdapter(RuntimeAdapter):
@@ -78,19 +44,6 @@ class RecordingAdapter(RuntimeAdapter):
         self.events.append(("stop",))
 
 
-def _contract_bindings(flask_app) -> set[tuple[str, str]]:
-    return {
-        (method, rule.rule)
-        for rule in flask_app.url_map.iter_rules()
-        for method in sorted(rule.methods - {"HEAD", "OPTIONS"})
-    }
-
-
-def _baseline_bindings() -> set[tuple[str, str]]:
-    payload = json.loads(API_BASELINE.read_text(encoding="utf-8"))
-    return {(method, rule["path"]) for rule in payload["rules"] for method in rule["methods_contract"]}
-
-
 def test_fastapi_health_uses_native_static_fallback_without_legacy_runtime(tmp_path: Path) -> None:
     static_dir = tmp_path / "static"
     static_dir.mkdir()
@@ -103,9 +56,8 @@ def test_fastapi_health_uses_native_static_fallback_without_legacy_runtime(tmp_p
         secret_key=b"fixture-session-signing-key",
         supervisor=runtime,
     )
-    compatibility = app.state.compatibility_app
-
     assert not any(isinstance(route, Mount) and route.name == "legacy-compatibility" for route in app.routes)
+    assert not hasattr(app.state, "compatibility_app")
     assert getattr(app.routes[-1], "name", None) == "spa_fallback"
     assert (
         next(index for index, route in enumerate(app.routes) if getattr(route, "path", None) == "/api/health")
@@ -117,11 +69,10 @@ def test_fastapi_health_uses_native_static_fallback_without_legacy_runtime(tmp_p
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
     assert response.headers["content-type"] == "application/json"
-    assert compatibility.flask_app is None
     assert not (tmp_path / "data").exists()
 
 
-def test_flask_compatibility_routes_spa_static_and_setup_contract(tmp_path: Path, monkeypatch) -> None:
+def test_legacy_compatibility_environment_cannot_restore_wsgi_fallback(tmp_path: Path, monkeypatch) -> None:
     data_dir = tmp_path / "data"
     static_dir = tmp_path / "static"
     static_dir.mkdir()
@@ -138,7 +89,8 @@ def test_flask_compatibility_routes_spa_static_and_setup_contract(tmp_path: Path
         secret_key=b"fixture-session-signing-key",
         supervisor=runtime,
     )
-    compatibility = app.state.compatibility_app
+    assert not any(isinstance(route, Mount) and route.name == "legacy-compatibility" for route in app.routes)
+    assert not hasattr(app.state, "compatibility_app")
 
     with TestClient(app) as client:
         assert client.get("/login").text == "<html>fixture SPA</html>"
@@ -154,25 +106,11 @@ def test_flask_compatibility_routes_spa_static_and_setup_contract(tmp_path: Path
             "message": "系统未配置",
         }
 
-    flask_app = compatibility.materialize()
-    assert tuple(flask_app.blueprints) == EXPECTED_BLUEPRINT_NAMES
-    assert len(flask_app.blueprints) == 22
 
-    compatibility_bindings = _contract_bindings(flask_app)
-    assert len(list(flask_app.url_map.iter_rules())) == 344
-    assert len(compatibility_bindings) == 361
-    assert compatibility_bindings | {("GET", "/api/health")} == _baseline_bindings()
-
-    from handler.tg_userbot import is_tg_task_consumer_running
-
-    assert not is_tg_task_consumer_running()
-
-
-def test_p4_api_startup_keeps_compatibility_app_lazy_and_owns_no_background_services(
+def test_p4_api_startup_ignores_compatibility_flag_and_owns_no_background_services(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    clear_persistent_p115_credential_gateway()
     data_dir = tmp_path / "data"
     static_dir = tmp_path / "static"
     static_dir.mkdir()
@@ -190,11 +128,9 @@ def test_p4_api_startup_keeps_compatibility_app_lazy_and_owns_no_background_serv
     )
 
     with TestClient(app) as client:
-        assert app.state.compatibility_app.flask_app is None
+        assert not hasattr(app.state, "compatibility_app")
         assert client.get("/api/health").json() == {"status": "ok"}
-        assert app.state.compatibility_app.flask_app is None
+        assert not hasattr(app.state, "compatibility_app")
         assert events == [("start", RuntimeRole.API, False)]
-        assert isinstance(persistent_p115_credential_gateway(), LazyPersistentP115CredentialGateway)
 
     assert events == [("start", RuntimeRole.API, False), ("stop",)]
-    assert persistent_p115_credential_gateway() is None

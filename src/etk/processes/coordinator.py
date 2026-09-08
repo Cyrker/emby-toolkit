@@ -21,21 +21,6 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 
 from etk.bootstrap.app_factory import _create_default_container, _resolve_data_dir
-from etk.bootstrap.runtime_supervisor import RuntimeRole, RuntimeSupervisor
-from etk.compatibility.ingestion_monitor import (
-    clear_persistent_ingestion_ingress,
-    install_persistent_ingestion_ingress,
-)
-from etk.compatibility.persistent_tasks import PersistentTaskManagerGateway
-from etk.compatibility.scheduled_operations import (
-    check_etk_plugin_update,
-    cleanup_p115_temp_videos,
-    verify_pro_status,
-)
-from etk.compatibility.upload_monitor import (
-    clear_persistent_upload_monitor_ingress,
-    install_persistent_upload_monitor_ingress,
-)
 from etk.domains.collection.operation_repository import PostgresCollectionOperationRepository
 from etk.domains.identity.operation_repository import PostgresIdentityOperationRepository
 from etk.domains.ingestion import PostgresIngestionMonitorLedger
@@ -77,7 +62,6 @@ from .p5_media_effects import CeleryMediaEffectPublisher, MediaEffectOutboxDispa
 from .p6_ingestion import (
     CeleryIngestionMonitorPublisher,
     IngestionMonitorCoordinator,
-    PersistentIngestionIngressGateway,
 )
 from .p6_intro_detection import CeleryP115IntroDetectionPublisher, P115IntroDetectionCoordinator
 from .p6_playback import CeleryP115PlaybackPublisher, P115PlaybackCoordinator
@@ -121,11 +105,6 @@ _MANAGED_SCHEDULE_IDS = frozenset(
         _PLUGIN_UPDATE_JOB,
     }
 )
-_SCHEDULED_OPERATIONS: dict[str, Callable[..., Any]] = {
-    "check-etk-plugin-update": check_etk_plugin_update,
-    "cleanup-p115-temp-videos": cleanup_p115_temp_videos,
-    "verify-pro-status": verify_pro_status,
-}
 
 
 class CeleryOutboxPublisher:
@@ -242,9 +221,8 @@ class CoordinatorLeadership:
 class PersistentScheduleManager:
     """APScheduler computes fire times; callbacks only create persistent Jobs."""
 
-    def __init__(self, service: JobSubmissionService, *, native_only: bool = False) -> None:
+    def __init__(self, service: JobSubmissionService) -> None:
         self._service = service
-        self._native_only = bool(native_only)
         self._scheduler = BackgroundScheduler(
             timezone="Asia/Shanghai",
             job_defaults={"misfire_grace_time": 300, "coalesce": True, "max_instances": 1},
@@ -283,9 +261,7 @@ class PersistentScheduleManager:
         fingerprint = json.dumps(relevant, ensure_ascii=False, sort_keys=True, default=str)
         if fingerprint == self._fingerprint:
             return False
-        plan = self._build_native_plan() if schedules_enabled and self._native_only else None
-        if plan is None:
-            plan = self._build_plan(values) if schedules_enabled else {}
+        plan = self._build_plan(values) if schedules_enabled else {}
         for job_id, (function, trigger, name, kwargs) in plan.items():
             self._scheduler.add_job(
                 function,
@@ -351,14 +327,14 @@ class PersistentScheduleManager:
         cleanup_cron = str(values.get("_p115_temp_cleanup_cron") or "").strip()
         if cleanup_cron:
             plan[_P115_TEMP_CLEANUP_JOB] = self._operation_spec(
-                "cleanup-p115-temp-videos",
+                "p115.temp-cleanup",
                 "115播放临时目录清理",
                 CronTrigger.from_crontab(_fix_cron_dow(cleanup_cron), timezone="Asia/Shanghai"),
                 _P115_TEMP_CLEANUP_JOB,
                 {"older_than_hours": 3},
             )
         plan[_PRO_STATUS_JOB] = self._operation_spec(
-            "verify-pro-status",
+            "system.pro-status-check",
             "Pro状态检查",
             CronTrigger.from_crontab("0 3 * * *", timezone="Asia/Shanghai"),
             _PRO_STATUS_JOB,
@@ -366,29 +342,13 @@ class PersistentScheduleManager:
         )
         if not self._startup_operation_scheduled:
             plan[_PLUGIN_UPDATE_JOB] = self._operation_spec(
-                "check-etk-plugin-update",
+                "media.plugin-update-check",
                 "ETK MediaInfo Bridge 更新检查",
                 DateTrigger(run_date=datetime.now(UTC) + timedelta(seconds=30)),
                 _PLUGIN_UPDATE_JOB,
                 {},
             )
         return plan
-
-    def _build_native_plan(self) -> dict[str, tuple[Callable[..., Any], Any, str, dict[str, Any]]]:
-        return {
-            _DAILY_THEME_JOB: (
-                self._submit,
-                CronTrigger.from_crontab("5 0 * * *", timezone="Asia/Shanghai"),
-                "update-daily-theme",
-                {"task_key": "update-daily-theme", "schedule_id": _DAILY_THEME_JOB},
-            ),
-            _PLAY_POOL_JOB: (
-                self._submit,
-                CronTrigger.from_crontab("45 12 * * *", timezone="Asia/Shanghai"),
-                "play-pool-daily-speedtest",
-                {"task_key": "play-pool-daily-speedtest", "schedule_id": _PLAY_POOL_JOB},
-            ),
-        }
 
     def _operation_spec(
         self,
@@ -412,9 +372,7 @@ class PersistentScheduleManager:
 
     def _submit(self, *, task_key: str, schedule_id: str) -> None:
         if self._service.is_busy():
-            logger.info(
-                "Scheduled Job skipped because the compatibility serial queue is busy", extra={"task_key": task_key}
-            )
+            logger.info("Scheduled Job skipped because the serial queue is busy", extra={"task_key": task_key})
             return
         minute = datetime.now(UTC).replace(second=0, microsecond=0).isoformat()
         try:
@@ -441,23 +399,19 @@ class PersistentScheduleManager:
         schedule_id: str,
         parameters: Mapping[str, Any],
     ) -> None:
-        operation = _SCHEDULED_OPERATIONS[operation_key]
         if self._service.is_busy():
             logger.info("Scheduled operation skipped because the serial queue is busy", extra={"name": name})
             return
         minute = datetime.now(UTC).replace(second=0, microsecond=0).isoformat()
         try:
-            self._service.submit_legacy_callable(
-                operation,
-                name,
-                "media",
-                (),
+            self._service.submit_native_operation(
+                operation_key,
                 parameters,
-                silent=True,
+                display_name=name,
                 trigger_type="schedule",
                 idempotency_scope=f"schedule:{schedule_id}",
                 idempotency_key=minute,
-                max_attempts=3,
+                max_attempts=1,
             )
         except TaskBusyError:
             logger.info("Scheduled operation lost the serial busy race", extra={"name": name})
@@ -485,21 +439,17 @@ class CoordinatorRuntime:
         self._stop = threading.Event()
         self._container: Any = None
         self._config_adapter: Any = None
-        self._supervisor: RuntimeSupervisor | None = None
         self._leadership: CoordinatorLeadership | None = None
         self._store: PostgresJobStore | None = None
         self._service: JobSubmissionService | None = None
-        self._gateway: PersistentTaskManagerGateway | None = None
         self._schedules: PersistentScheduleManager | None = None
         self._publisher = CeleryOutboxPublisher(self.config)
         self._media_effect_publisher = CeleryMediaEffectPublisher(self.config)
         self._media_effect_dispatcher: MediaEffectOutboxDispatcher | None = None
         self._ingestion_publisher = CeleryIngestionMonitorPublisher(self.config)
         self._ingestion_coordinator: IngestionMonitorCoordinator | None = None
-        self._ingestion_ingress: PersistentIngestionIngressGateway | None = None
         self._p115_upload_publisher = CeleryP115UploadPublisher(self.config)
         self._p115_upload_coordinator: P115UploadMonitorCoordinator | None = None
-        self._p115_upload_ingress: P115UploadMonitorIngressService | None = None
         self._p115_playback_publisher = CeleryP115PlaybackPublisher(self.config)
         self._p115_playback_coordinator: P115PlaybackCoordinator | None = None
         self._p115_intro_publisher = CeleryP115IntroDetectionPublisher(self.config)
@@ -526,155 +476,9 @@ class CoordinatorRuntime:
 
     def run(self) -> None:
         os.environ["ETK_PROCESS_ROLE"] = "coordinator"
-        if not _legacy_compatibility_enabled():
-            self._run_native_only()
-            return
-        container, config_adapter = _create_default_container(None)
-        database = container.database
-        cleanup_execution_repository = SqlAlchemyCleanupExecutionRepository(database.unit_of_work)
-        store = PostgresJobStore(
-            lambda: database.unit_of_work(),
-            cancellation_policy=cleanup_execution_repository,
-        )
-        registry = TaskRegistry.from_fixture(_task_fixture())
-        service = JobSubmissionService(store, registry)
-        leadership = CoordinatorLeadership(database.raw_pool)
-        self._container = container
-        self._config_adapter = config_adapter
-        self._store = store
-        self._media_effect_dispatcher = MediaEffectOutboxDispatcher(
-            store,
-            PostgresMediaEffectLedger(database.unit_of_work),
-            self._media_effect_publisher,
-            self.config,
-            publisher_id=f"{self._publisher_id}:media-effect",
-            replay_safe_effect_types=(
-                DAILY_THEME_REPLENISHMENT_EFFECT_TYPE,
-                MOVIEPILOT_ASSISTANT_EVENT_TYPE,
-            ),
-        )
-        ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
-        self._ingestion_ingress = PersistentIngestionIngressGateway(
-            settings=config_adapter.load,
-            ledger=ingestion_ledger,
-        )
-        self._ingestion_coordinator = IngestionMonitorCoordinator(
-            store=store,
-            ledger=ingestion_ledger,
-            publisher=self._ingestion_publisher,
-            config=self.config,
-            publisher_id=f"{self._publisher_id}:ingestion",
-        )
-        upload_repository = PostgresP115UploadMonitorRepository(database.unit_of_work)
-        upload_config = P115UploadMonitorConfigService(
-            upload_repository,
-            lambda: config_adapter.load().monitor_extensions,
-        )
-        self._p115_upload_ingress = P115UploadMonitorIngressService(
-            config=upload_config,
-            repository=upload_repository,
-        )
-        self._p115_upload_coordinator = P115UploadMonitorCoordinator(
-            store=store,
-            repository=upload_repository,
-            config_service=upload_config,
-            publisher=self._p115_upload_publisher,
-            config=self.config,
-            publisher_id=f"{self._publisher_id}:p115-upload",
-        )
-        playback_repository = PostgresP115PlaybackRepository(database.unit_of_work)
-        self._p115_playback_coordinator = P115PlaybackCoordinator(
-            store=store,
-            repository=playback_repository,
-            publisher=self._p115_playback_publisher,
-            config=self.config,
-            publisher_id=f"{self._publisher_id}:p115-playback",
-        )
-        intro_repository = PostgresP115IntroDetectionRepository(database.unit_of_work)
-        self._p115_intro_coordinator = P115IntroDetectionCoordinator(
-            store=store,
-            repository=intro_repository,
-            publisher=self._p115_intro_publisher,
-            config=self.config,
-            publisher_id=f"{self._publisher_id}:p115-intro",
-        )
-        self._subscription_coordinator = SubscriptionOperationCoordinator(
-            store=store,
-            repository=PostgresSubscriptionOperationRepository(database.unit_of_work),
-            runtime_repository=PostgresSubscriptionRuntimeRepository(database.unit_of_work),
-            publisher=self._subscription_publisher,
-            config=self.config,
-            publisher_id=f"{self._publisher_id}:subscription",
-        )
-        self._collection_operation_coordinator = CollectionOperationCoordinator(
-            store=store,
-            repository=PostgresCollectionOperationRepository(database.unit_of_work),
-            publisher=self._collection_operation_publisher,
-            config=self.config,
-            publisher_id=f"{self._publisher_id}:collection-operation",
-        )
-        self._identity_coordinator = IdentityOperationCoordinator(
-            store=store,
-            repository=PostgresIdentityOperationRepository(database.unit_of_work),
-            publisher=self._identity_publisher,
-            config=self.config,
-            publisher_id=f"{self._publisher_id}:identity",
-        )
-        self._database_maintenance_coordinator = DatabaseMaintenanceCoordinator(
-            store=store,
-            repository=PostgresDatabaseMaintenanceRepository(database.unit_of_work),
-            publisher=self._database_maintenance_publisher,
-            config=self.config,
-            publisher_id=f"{self._publisher_id}:database-maintenance",
-        )
-        self._sharing_operation_coordinator = SharingOperationCoordinator(
-            store=store,
-            repository=PostgresSharingOperationRepository(database.unit_of_work),
-            publisher=self._sharing_operation_publisher,
-            config=self.config,
-            publisher_id=f"{self._publisher_id}:sharing-operation",
-        )
-        self._cleanup_execution_repository = cleanup_execution_repository
-        self._service = service
-        self._leadership = leadership
-        self._write_health("standby")
-        try:
-            while not self._stop.is_set():
-                if leadership.acquired and not leadership.validate():
-                    logger.warning("Coordinator leadership lease was lost")
-                    self._shutdown_leader()
-                    self._write_health("standby")
-                    self._stop.wait(self.config.coordinator_interval_seconds)
-                    continue
-                if not leadership.acquired:
-                    if not leadership.try_acquire():
-                        self._write_health("standby")
-                        self._stop.wait(self.config.coordinator_interval_seconds)
-                        continue
-                    self._become_leader()
-                try:
-                    self._tick()
-                except Exception:
-                    logger.exception("Coordinator iteration failed")
-                    self._write_health("degraded")
-                else:
-                    self._write_health("leader")
-                self._stop.wait(self.config.coordinator_interval_seconds)
-        finally:
-            errors: list[Exception] = []
-            for cleanup in (self._shutdown_leader, leadership.release, container.close):
-                try:
-                    cleanup()
-                except Exception as exc:
-                    errors.append(exc)
-            try:
-                self._write_health("stopped")
-            except Exception as exc:
-                errors.append(exc)
-            if errors:
-                raise ExceptionGroup("Coordinator shutdown failed", errors)
+        self._run_native()
 
-    def _run_native_only(self) -> None:
+    def _run_native(self) -> None:
         """Dispatch native Job and operation Outboxes without legacy daemons."""
 
         from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
@@ -846,7 +650,7 @@ class CoordinatorRuntime:
                         continue
                     self._become_native_leader()
                 try:
-                    self._tick(compatibility=False)
+                    self._tick()
                 except Exception:
                     logger.exception("Native Coordinator iteration failed")
                     self._write_health("degraded")
@@ -873,10 +677,10 @@ class CoordinatorRuntime:
     def _become_native_leader(self) -> None:
         if self._service is None:
             raise RuntimeError("Native Coordinator Job submission service is not initialized")
-        schedules = PersistentScheduleManager(self._service, native_only=True)
+        schedules = PersistentScheduleManager(self._service)
         self._schedules = schedules
         schedules.start()
-        schedules.sync({}, schedules_enabled=self.config.schedules_enabled)
+        self._refresh_settings(force=True)
         manager = self._native_telegram_search_manager
         if manager is not None:
             manager.apply_listener_state()
@@ -890,95 +694,15 @@ class CoordinatorRuntime:
         if schedules is not None:
             schedules.stop()
 
-    def _become_leader(self) -> None:
-        if (
-            self._service is None
-            or self._ingestion_ingress is None
-            or self._ingestion_coordinator is None
-            or self._p115_upload_ingress is None
-            or self._p115_upload_coordinator is None
-        ):
-            raise RuntimeError("Coordinator services are not initialized")
-        supervisor = RuntimeSupervisor()
-        self._supervisor = supervisor
-        try:
-            self._p115_upload_ingress.ensure_config()
-            install_persistent_ingestion_ingress(self._ingestion_ingress)
-            install_persistent_upload_monitor_ingress(self._p115_upload_ingress)
-            gateway = PersistentTaskManagerGateway(self._service)
-            self._gateway = gateway
-            from task_manager import install_persistent_submission_gateway
-
-            install_persistent_submission_gateway(gateway)
-            settings = self._config_adapter.load() if self._config_adapter is not None else None
-            if settings is None:
-                raise RuntimeError("Coordinator settings are not initialized")
-            self._ingestion_coordinator.synchronize_enabled(settings.monitor_enabled)
-            # The UserBot can submit an incoming transfer as soon as its listener starts.
-            supervisor.start(role=RuntimeRole.COORDINATOR, background=True)
-            if not self._p115_upload_ingress.enabled():
-                self._p115_upload_ingress.apply_config()
-            schedules = PersistentScheduleManager(self._service)
-            self._schedules = schedules
-            schedules.start()
-            self._refresh_settings(force=True)
-        except Exception:
-            self._shutdown_leader()
-            raise
-
-    def _shutdown_leader(self) -> None:
-        errors: list[Exception] = []
-        if self._schedules is not None:
-            try:
-                self._schedules.stop()
-            except Exception as exc:
-                errors.append(exc)
-        if self._supervisor is not None:
-            try:
-                self._supervisor.stop()
-            except Exception as exc:
-                errors.append(exc)
-        if self._ingestion_ingress is not None:
-            try:
-                clear_persistent_ingestion_ingress(self._ingestion_ingress)
-            except Exception as exc:
-                errors.append(exc)
-        if self._p115_upload_ingress is not None:
-            try:
-                clear_persistent_upload_monitor_ingress(self._p115_upload_ingress)
-            except Exception as exc:
-                errors.append(exc)
-        if self._gateway is not None:
-            try:
-                from task_manager import clear_persistent_submission_gateway
-
-                clear_persistent_submission_gateway(self._gateway)
-            except Exception as exc:
-                errors.append(exc)
-        ingestion = getattr(self, "_ingestion_coordinator", None)
-        reset_enabled = getattr(ingestion, "reset_enabled_state", None)
-        if callable(reset_enabled):
-            reset_enabled()
-        self._schedules = None
-        self._gateway = None
-        self._supervisor = None
-        if errors:
-            raise ExceptionGroup("Coordinator leader shutdown failed", errors)
-
-    def _tick(self, *, compatibility: bool = True) -> None:
+    def _tick(self) -> None:
         store = self._store
         if store is None:
             raise RuntimeError("Coordinator store is not initialized")
-        if compatibility:
-            self._refresh_settings()
-            self._process_telegram_commands()
-        else:
-            manager = getattr(self, "_native_telegram_search_manager", None)
-            if manager is not None:
-                manager.apply_listener_state()
-            self._process_native_telegram_search_commands()
-            if self._config_adapter is not None:
-                self._last_settings = self._config_adapter.load()
+        self._refresh_settings()
+        manager = getattr(self, "_native_telegram_search_manager", None)
+        if manager is not None:
+            manager.apply_listener_state()
+        self._process_native_telegram_search_commands()
         cleanup = getattr(self, "_cleanup_execution_repository", None)
         if cleanup is not None:
             cleanup.protect_stale_post_effect_cancellations()
@@ -1178,26 +902,6 @@ class CoordinatorRuntime:
             if sharing_result.publish.failed or sharing_result.publish.dead:
                 raise RuntimeError("Sharing operation Outbox dispatch is degraded")
 
-    def _process_telegram_commands(self) -> None:
-        from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
-        from etk.compatibility.tg_control_bridge import TelegramCommandExecutor, TelegramControlBridge
-        from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
-        from handler.tg_userbot import TGUserBotManager
-
-        container = self._container
-        if container is None or container.database.raw_pool is None:
-            raise RuntimeError("Coordinator Telegram command database is unavailable")
-        connection_factory = container.database.raw_pool.connection
-        executor = TelegramCommandExecutor(
-            TelegramControlBridge(
-                connection_factory=connection_factory,
-                resource_secrets=TelegramResourceSecretStore(PostgresRuntimeStateBackend(connection_factory)),
-            ),
-            owner_id=self._publisher_id,
-            lease_seconds=max(60, int(self.config.coordinator_interval_seconds * 3)),
-        )
-        executor.process_pending(TGUserBotManager.get_instance(), limit=8)
-
     def _process_native_telegram_search_commands(self) -> None:
         from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
         from etk.compatibility.tg_control_bridge import TelegramCommandExecutor, TelegramControlBridge
@@ -1229,20 +933,6 @@ class CoordinatorRuntime:
             return
         settings = adapter.load()
         runtime_context = self._load_runtime_context()
-        settings_changed = (
-            self._last_settings is not None and settings.to_runtime_dict() != self._last_settings.to_runtime_dict()
-        )
-        runtime_context_changed = (
-            self._last_runtime_context is not None and runtime_context != self._last_runtime_context
-        )
-        if settings_changed or runtime_context_changed:
-            # Recreate only the Coordinator-owned compatibility adapters; the
-            # API and Worker consume their own immutable snapshots.
-            if self._supervisor is not None:
-                self._supervisor.stop()
-                self._supervisor.start(role=RuntimeRole.COORDINATOR, background=True)
-                if self._p115_upload_ingress is not None and not self._p115_upload_ingress.enabled():
-                    self._p115_upload_ingress.apply_config()
         self._last_settings = settings
         self._last_runtime_context = runtime_context
         if self._schedules is not None:
@@ -1306,10 +996,6 @@ def coordinator_health(path: Path, *, max_age_seconds: float = 10) -> bool:
         return payload.get("state") in {"leader", "standby"} and 0 <= age <= max_age_seconds
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         return False
-
-
-def _legacy_compatibility_enabled() -> bool:
-    return os.environ.get("ETK_ENABLE_LEGACY_COMPATIBILITY", "").strip().casefold() in {"1", "true", "yes", "on"}
 
 
 def _task_fixture() -> Path:

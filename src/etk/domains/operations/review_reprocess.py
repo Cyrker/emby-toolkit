@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from etk.platform.db import SqlAlchemyUnitOfWork
 from etk.platform.jobs import ActiveJobConflictError, normalize_json_object
-from etk.platform.tasks import ProcessorIdentity
+from etk.platform.tasks import ProcessorIdentity, TaskOutcome, TaskOutcomeStatus
 
 from .jobs import JobSubmissionService, SubmittedJob, TaskBusyError
 
@@ -26,6 +26,19 @@ class ReviewReprocessHttpResult:
 
 class ReviewReprocessRepository(Protocol):
     def item(self, item_id: str) -> Mapping[str, Any] | None: ...
+
+    def items(self, *, reason_filter: str | None = None) -> Sequence[Mapping[str, Any]]: ...
+
+
+class ReviewItemReprocess(Protocol):
+    def execute(
+        self,
+        item_id: str,
+        progress: Any,
+        *,
+        operation_key: str,
+        media_info_only: bool = False,
+    ) -> TaskOutcome: ...
 
 
 class ReviewJobPort(Protocol):
@@ -73,6 +86,82 @@ class SqlAlchemyReviewReprocessRepository:
                 .first()
             )
         return dict(row) if row is not None else None
+
+    def items(self, *, reason_filter: str | None = None) -> Sequence[Mapping[str, Any]]:
+        normalized_reason = str(reason_filter or "").strip()
+        with self._unit_of_work() as uow:
+            rows = (
+                uow.session.execute(
+                    text(
+                        """
+                        SELECT DISTINCT ON (item_id) item_id, item_name, reason
+                        FROM failed_log
+                        WHERE (:reason = '' OR reason LIKE :reason_prefix)
+                        ORDER BY item_id, failed_at DESC NULLS LAST
+                        """
+                    ),
+                    {"reason": normalized_reason, "reason_prefix": f"{normalized_reason}%"},
+                )
+                .mappings()
+                .all()
+            )
+        return tuple(dict(row) for row in rows)
+
+
+class NativeReviewReprocessExecutor:
+    def __init__(self, repository: ReviewReprocessRepository, reprocess: ReviewItemReprocess) -> None:
+        self._repository = repository
+        self._reprocess = reprocess
+
+    def execute(
+        self,
+        task_key: str,
+        parameters: Mapping[str, Any],
+        progress: Any,
+        *,
+        operation_key: str,
+    ) -> TaskOutcome:
+        if task_key == REVIEW_REPROCESS_ONE_TASK_KEY:
+            item_id = str(parameters.get("item_id") or "").strip()
+            media_info_only = "缺失媒体信息" in str(parameters.get("failure_reason") or "")
+            return self._reprocess.execute(
+                item_id,
+                progress,
+                operation_key=f"{operation_key}:{item_id}",
+                media_info_only=media_info_only,
+            )
+        if task_key != REVIEW_REPROCESS_ALL_TASK_KEY:
+            raise LookupError(f"unknown P8 review task key: {task_key}")
+
+        rows = tuple(self._repository.items(reason_filter=parameters.get("reason_filter")))
+        if not rows:
+            progress.update(100, "列表为空。")
+            return TaskOutcome.skipped("列表为空。", {"processed": 0, "failed": 0})
+        outcomes: list[TaskOutcome] = []
+        for index, row in enumerate(rows, 1):
+            progress.checkpoint()
+            item_id = str(row.get("item_id") or "").strip()
+            progress.update(
+                min(95, int((index - 1) * 95 / len(rows))),
+                f"正在重新处理 {index}/{len(rows)}: {str(row.get('item_name') or item_id)}",
+            )
+            outcomes.append(
+                self._reprocess.execute(
+                    item_id,
+                    progress,
+                    operation_key=f"{operation_key}:{item_id}",
+                    media_info_only="缺失媒体信息" in str(row.get("reason") or ""),
+                )
+            )
+        failed = sum(outcome.status is TaskOutcomeStatus.FAILED for outcome in outcomes)
+        partial = sum(outcome.status is TaskOutcomeStatus.PARTIAL for outcome in outcomes)
+        details = {"processed": len(outcomes), "failed": failed, "partial": partial}
+        progress.update(100, "批量重新处理完成。")
+        if failed == len(outcomes):
+            return TaskOutcome.failed("批量重新处理失败。", details)
+        if failed or partial:
+            return TaskOutcome.partial("批量重新处理部分完成。", details)
+        return TaskOutcome.succeeded("批量重新处理完成。", details)
 
 
 class PersistentReviewJobGateway:
@@ -278,6 +367,7 @@ def _submitted_result(submitted: SubmittedJob, message: str) -> ReviewReprocessH
 
 __all__ = [
     "P8_REVIEW_TASK_KEYS",
+    "NativeReviewReprocessExecutor",
     "PersistentReviewJobGateway",
     "REVIEW_REPROCESS_ALL_TASK_KEY",
     "REVIEW_REPROCESS_ONE_TASK_KEY",

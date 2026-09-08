@@ -989,9 +989,7 @@ def _build_actions(
             else ""
         )
         media_info_preconditions = (
-            {"media_info_snapshot_hash": media_info_snapshot_hash}
-            if media_info_snapshot_hash
-            else {}
+            {"media_info_snapshot_hash": media_info_snapshot_hash} if media_info_snapshot_hash else {}
         )
         source_preconditions = {
             "source_id": planned.node.id,

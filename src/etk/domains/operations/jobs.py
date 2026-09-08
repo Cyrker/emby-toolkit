@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import importlib
-import json
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -129,54 +126,25 @@ class JobSubmissionService:
     ) -> SubmittedJob:
         processor = ProcessorIdentity(processor_type)
         definition = self._match_definition(task_function, task_name, processor)
-        if definition is not None:
-            if args:
-                raise UnsupportedLegacyOperationError(
-                    f"catalog task {definition.key!r} cannot persist positional arguments"
-                )
-            return self.submit_task(
-                definition.key,
-                kwargs,
-                trigger_type=trigger_type,
-                silent=silent,
-                reject_when_busy=not queue_when_busy,
-                idempotency_key=idempotency_key,
-                idempotency_scope=idempotency_scope,
-                max_attempts=max_attempts,
-                queue_name="legacy.backlog" if queue_when_busy else "legacy.serial",
-            )
-
-        module = str(getattr(task_function, "__module__", "") or "").strip()
-        qualname = str(getattr(task_function, "__qualname__", "") or "").strip()
-        if not module or not qualname or "<locals>" in qualname or "<lambda>" in qualname:
+        if definition is None:
             raise UnsupportedLegacyOperationError(
-                f"task {task_name!r} must use an explicit persistent operation adapter"
+                f"task {task_name!r} is not a catalog task; dynamic callable submission is disabled"
             )
-        operation_key = _operation_key(module, qualname)
-        payload = {
-            "payload_version": 1,
-            "parameters": normalize_json_object(dict(kwargs), field="parameters"),
-            "positional_parameters": _normalize_json_list(args),
-            "processor_type": processor.value,
-            "display_name": str(task_name),
-            "silent": bool(silent),
-            "legacy_operation": {"module": module, "qualname": qualname},
-        }
-        if not queue_when_busy and self._store.has_active_job():
-            raise TaskBusyError("another job is active")
-        try:
-            result = self._store.create_job(
-                task_key=operation_key,
-                payload=payload,
-                queue_name="legacy.backlog" if queue_when_busy else "legacy.serial",
-                trigger_type=trigger_type,
-                max_attempts=max_attempts,
-                idempotency_key=idempotency_key,
-                idempotency_scope=idempotency_scope,
+        if args:
+            raise UnsupportedLegacyOperationError(
+                f"catalog task {definition.key!r} cannot persist positional arguments"
             )
-        except ActiveJobConflictError as exc:
-            raise TaskBusyError("another job is active") from exc
-        return SubmittedJob(result.projection, result.reused)
+        return self.submit_task(
+            definition.key,
+            kwargs,
+            trigger_type=trigger_type,
+            silent=silent,
+            reject_when_busy=not queue_when_busy,
+            idempotency_key=idempotency_key,
+            idempotency_scope=idempotency_scope,
+            max_attempts=max_attempts,
+            queue_name="legacy.backlog" if queue_when_busy else "legacy.serial",
+        )
 
     def submit_background_operation(
         self,
@@ -190,29 +158,19 @@ class JobSubmissionService:
         idempotency_key: str | None = None,
         idempotency_scope: str | None = None,
     ) -> SubmittedJob:
-        module, qualname = _importable_identity(operation)
-        payload = {
-            "payload_version": 1,
-            "parameters": normalize_json_object(dict(kwargs), field="parameters"),
-            "positional_parameters": _normalize_json_list(args),
-            "processor_type": ProcessorIdentity.MEDIA.value,
-            "display_name": str(getattr(operation, "__name__", "background operation")),
-            "silent": True,
-            "call_style": "direct",
-            "legacy_operation": {"module": module, "qualname": qualname},
-        }
-        result = self._store.create_job(
-            task_key=_operation_key(module, qualname, prefix="background-operation"),
-            payload=payload,
-            queue_name="legacy.background",
-            trigger_type="system",
-            scheduled_for=scheduled_for,
-            max_attempts=max_attempts,
-            timeout_seconds=timeout_seconds,
-            idempotency_key=idempotency_key,
-            idempotency_scope=idempotency_scope,
+        del (
+            operation,
+            args,
+            kwargs,
+            scheduled_for,
+            max_attempts,
+            timeout_seconds,
+            idempotency_key,
+            idempotency_scope,
         )
-        return SubmittedJob(result.projection, result.reused)
+        raise UnsupportedLegacyOperationError(
+            "dynamic background callable submission is disabled; use a catalog task or native operation"
+        )
 
     def submit_native_operation(
         self,
@@ -323,34 +281,25 @@ class JobSubmissionService:
         return None
 
 
-class LegacyProcessorReadiness:
-    """Compatibility health/signalling port; it never executes a task."""
-
-    def media_ready(self) -> bool:
-        import extensions
-
-        return extensions.media_processor_instance is not None
-
-    def any_ready(self) -> bool:
-        return bool(self._processors())
-
-    def signal_stop_all(self) -> None:
-        for processor in self._processors():
-            processor.signal_stop()
+class PersistentRuntimeReadiness:
+    """Report readiness for the persistent Job runtime without process-local workers."""
 
     @staticmethod
-    def _processors() -> tuple[Any, ...]:
-        import extensions
+    def media_ready() -> bool:
+        return True
 
-        return tuple(
-            processor
-            for processor in (
-                extensions.media_processor_instance,
-                extensions.watchlist_processor_instance,
-                extensions.actor_subscription_processor_instance,
-            )
-            if processor is not None
-        )
+    @staticmethod
+    def processor_ready() -> bool:
+        return True
+
+    @staticmethod
+    def any_ready() -> bool:
+        return True
+
+    @staticmethod
+    def signal_stop_all() -> None:
+        # Cancellation is durable in the Job Store and observed by the Worker.
+        return None
 
 
 class PersistentRuntimeStatusReader:
@@ -419,17 +368,6 @@ def serialize_projection(projection: JobProjection) -> dict[str, Any]:
     }
 
 
-def import_legacy_operation(module: str, qualname: str) -> Callable[..., Any]:
-    if not module or not qualname or "<" in qualname:
-        raise UnsupportedLegacyOperationError("legacy operation is not importable")
-    value: Any = importlib.import_module(module)
-    for segment in qualname.split("."):
-        value = getattr(value, segment)
-    if not callable(value):
-        raise UnsupportedLegacyOperationError(f"{module}:{qualname} is not callable")
-    return value
-
-
 def _task_payload(
     definition: TaskDefinition,
     parameters: Mapping[str, Any] | None,
@@ -446,33 +384,11 @@ def _task_payload(
     }
 
 
-def _operation_key(module: str, qualname: str, *, prefix: str = "legacy-operation") -> str:
-    identity = f"{module}:{qualname}"
-    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20]
-    return f"{prefix}:{digest}"
-
-
 def _native_operation_key(value: str) -> str:
     normalized = str(value or "").strip().lower()
     if re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", normalized) is None:
         raise ValueError("native operation key must be a stable lowercase identifier")
     return normalized
-
-
-def _importable_identity(function: Callable[..., Any]) -> tuple[str, str]:
-    module = str(getattr(function, "__module__", "") or "").strip()
-    qualname = str(getattr(function, "__qualname__", "") or "").strip()
-    if not module or not qualname or "<locals>" in qualname or "<lambda>" in qualname:
-        raise UnsupportedLegacyOperationError("background operation must be a top-level importable callable")
-    return module, qualname
-
-
-def _normalize_json_list(values: tuple[Any, ...]) -> list[Any]:
-    encoded = json.dumps(list(values), allow_nan=False, ensure_ascii=False, separators=(",", ":"))
-    decoded = json.loads(encoded)
-    if not isinstance(decoded, list):
-        raise UnsupportedLegacyOperationError("positional parameters must be JSON values")
-    return decoded
 
 
 def _default_status_message(status: JobStatus, display_name: str) -> str:
@@ -497,13 +413,12 @@ __all__ = [
     "ApprovedExecutionRequiredError",
     "IdempotencyConflictError",
     "JobSubmissionService",
-    "LegacyProcessorReadiness",
+    "PersistentRuntimeReadiness",
     "PersistentRuntimeStatusReader",
     "SubmittedJob",
     "TaskBusyError",
     "UnknownTaskError",
     "UnsupportedLegacyOperationError",
-    "import_legacy_operation",
     "project_legacy_status",
     "serialize_projection",
 ]

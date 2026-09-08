@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Mapping
+from typing import Any, Protocol
 
 from etk.domains.operations.jobs import JobSubmissionService
 from etk.platform.config import Settings
-from etk.platform.jobs import JobProjection, JobStatus
+from etk.platform.control_plane import ControlPlaneError
+from etk.platform.jobs import JobProjection
 
-from .compatibility import LegacyEmbyIdentityGateway
-from .ports import PostAuthorizationSubmission
+from .ports import EmbyIdentityGateway, PostAuthorizationSubmission
 
 
 def identity_authorization_revision(settings: Settings) -> str:
@@ -23,57 +23,100 @@ def identity_authorization_revision(settings: Settings) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def _load_persisted_identity_settings() -> Settings:
-    import config_manager
-    from database import settings_db
+class IdentityPostAuthorizationProgress(Protocol):
+    job_id: Any
 
-    values: dict[str, Any] = dict(config_manager.APP_CONFIG or {})
-    persisted = settings_db.get_setting("dynamic_app_config") or {}
-    if isinstance(persisted, dict):
-        values.update(persisted)
-    return Settings.model_validate(values)
+    def checkpoint(self) -> None: ...
+
+    def update(self, progress: int, message: str) -> None: ...
+
+    def record_started_effect(self, label: str) -> None: ...
+
+    def record_committed_effect(self, label: str) -> None: ...
+
+    def record_abandoned_effect(self, label: str) -> None: ...
 
 
-def run_identity_post_authorization_persistent(
-    expected_revision: str,
-    expected_user_id: str,
-) -> dict[str, Any]:
-    """Install the plugin and configure libraries using only persisted authorization."""
-    import task_manager
+class NativeIdentityPostAuthorizationOperation:
+    def __init__(
+        self,
+        settings: Callable[[], Settings],
+        gateway: EmbyIdentityGateway,
+    ) -> None:
+        self._settings = settings
+        self._gateway = gateway
 
-    settings = _load_persisted_identity_settings()
-    if settings.emby_auth_mode != "user_token":
-        raise RuntimeError("Emby 服务授权模式无效")
-    if settings.emby_user_id.strip() != str(expected_user_id or "").strip():
-        raise RuntimeError("Emby 服务授权用户已变化，拒绝执行旧授权任务")
-    if identity_authorization_revision(settings) != str(expected_revision or "").strip():
-        raise RuntimeError("Emby 服务授权已变化，拒绝执行旧授权任务")
+    def execute(
+        self,
+        parameters: Mapping[str, Any],
+        progress: IdentityPostAuthorizationProgress,
+    ) -> Mapping[str, Any]:
+        expected_revision = str(parameters.get("expected_revision") or "").strip()
+        expected_user_id = str(parameters.get("expected_user_id") or "").strip()
+        if not expected_revision or not expected_user_id:
+            raise ValueError("identity post-authorization parameters are incomplete")
+        settings = self._settings()
+        progress.checkpoint()
+        return self._execute(settings, expected_revision, expected_user_id, progress)
 
-    access_token = settings.emby_api_key.get_secret_value().strip()
-    if not settings.emby_server_url.strip() or not access_token:
-        raise RuntimeError("Emby 服务授权不完整")
-    authorization = {
-        "_normalized_url": settings.emby_server_url.strip().rstrip("/"),
-        "AccessToken": access_token,
-        "User": {"Id": settings.emby_user_id.strip()},
-    }
-    gateway = LegacyEmbyIdentityGateway()
-    task_manager.persistent_execution_checkpoint()
-    plugin_install = dict(gateway.install_plugin(authorization, settings))
-    if not plugin_install.get("ok"):
-        raise RuntimeError(plugin_install.get("message") or "ETK 插件安装失败")
-    task_manager.persistent_execution_checkpoint()
-    task_manager.record_persistent_effect_started("emby-library-configuration")
-    library_config = dict(gateway.configure_libraries(authorization, plugin_install))
-    if not library_config.get("ok"):
-        raise RuntimeError(library_config.get("message") or "Emby 媒体库加速配置失败")
-    task_manager.record_persistent_effect_committed("emby-library-configuration")
-    return {
-        "ok": True,
-        "plugin_install": plugin_install,
-        "library_config": library_config,
-        "emby_user_id": settings.emby_user_id.strip(),
-    }
+    def _execute(
+        self,
+        settings: Settings,
+        expected_revision: str,
+        expected_user_id: str,
+        progress: IdentityPostAuthorizationProgress,
+    ) -> Mapping[str, Any]:
+        if settings.emby_auth_mode != "user_token":
+            raise RuntimeError("Emby 服务授权模式无效")
+        if settings.emby_user_id.strip() != str(expected_user_id or "").strip():
+            raise RuntimeError("Emby 服务授权用户已变化，拒绝执行旧授权任务")
+        if identity_authorization_revision(settings) != str(expected_revision or "").strip():
+            raise RuntimeError("Emby 服务授权已变化，拒绝执行旧授权任务")
+
+        access_token = settings.emby_api_key.get_secret_value().strip()
+        if not settings.emby_server_url.strip() or not access_token:
+            raise RuntimeError("Emby 服务授权不完整")
+        request_id = str(progress.job_id or "").strip()
+        if not request_id:
+            raise RuntimeError("Emby 授权后配置缺少持久化 Job identity")
+        authorization = {
+            "_normalized_url": settings.emby_server_url.strip().rstrip("/"),
+            "AccessToken": access_token,
+            "User": {"Id": settings.emby_user_id.strip()},
+        }
+        plugin_label = f"identity-plugin-install:{expected_revision}"
+        progress.record_started_effect(plugin_label)
+        try:
+            plugin_install = dict(self._gateway.install_plugin(authorization, settings, request_id))
+        except ControlPlaneError as exc:
+            if exc.certainty == "confirmed-no-effect":
+                progress.record_abandoned_effect(plugin_label)
+            elif exc.certainty == "observed-complete":
+                progress.record_committed_effect(plugin_label)
+            raise
+        if not plugin_install.get("ok"):
+            raise RuntimeError(plugin_install.get("message") or "ETK 插件安装失败")
+        progress.record_committed_effect(plugin_label)
+        progress.update(50, "ETK 插件安装已确认")
+        progress.checkpoint()
+        library_label = f"identity-library-configuration:{expected_revision}"
+        progress.record_started_effect(library_label)
+        library_config = dict(self._gateway.configure_libraries(authorization, plugin_install))
+        if not library_config.get("ok"):
+            certainty = str(library_config.get("certainty") or "unknown")
+            if certainty == "confirmed-no-effect":
+                progress.record_abandoned_effect(library_label)
+            elif certainty == "observed-complete":
+                progress.record_committed_effect(library_label)
+            raise RuntimeError(library_config.get("message") or "Emby 媒体库加速配置失败")
+        progress.record_committed_effect(library_label)
+        progress.update(100, "Emby 授权后配置已完成")
+        return {
+            "ok": True,
+            "plugin_install": plugin_install,
+            "library_config": library_config,
+            "emby_user_id": settings.emby_user_id.strip(),
+        }
 
 
 class PersistentPostAuthorizationSubmitter:
@@ -86,23 +129,16 @@ class PersistentPostAuthorizationSubmitter:
         if not user_id:
             raise ValueError("Emby 服务授权缺少用户 ID")
         jobs = self._jobs()
-        submitted = jobs.submit_background_operation(
-            run_identity_post_authorization_persistent,
-            (revision, user_id),
-            {},
-            max_attempts=5,
+        submitted = jobs.submit_native_operation(
+            "identity.post-authorization",
+            {"expected_revision": revision, "expected_user_id": user_id},
+            display_name="Emby 授权后配置",
+            trigger_type="system",
             timeout_seconds=900,
             idempotency_scope="identity-post-authorization",
             idempotency_key=revision,
         )
         projection = submitted.projection
-        if (
-            submitted.reused
-            and projection.job.status in {JobStatus.FAILED, JobStatus.TIMED_OUT, JobStatus.CANCELLED}
-            and _terminal_job_is_safe_to_resume(projection)
-        ):
-            submitted = jobs.resume_terminal(projection.job.id)
-            projection = submitted.projection
         return PostAuthorizationSubmission(
             job_id=str(projection.job.id),
             status=projection.job.status.value,
@@ -122,21 +158,8 @@ def _projection_error_type(projection: JobProjection) -> str | None:
     return summary_type or None
 
 
-def _terminal_job_is_safe_to_resume(projection: JobProjection) -> bool:
-    if _projection_error_type(projection) in {
-        "PersistentEffectIndeterminate",
-        "PersistentExecutionInterruptedAfterEffect",
-    }:
-        return False
-    details = projection.current_attempt.error_details or {}
-    control = details.get("control")
-    if not isinstance(control, dict):
-        return True
-    return not control.get("inflight_effects") and not control.get("committed_effects")
-
-
 __all__ = [
+    "NativeIdentityPostAuthorizationOperation",
     "PersistentPostAuthorizationSubmitter",
     "identity_authorization_revision",
-    "run_identity_post_authorization_persistent",
 ]

@@ -18,7 +18,7 @@ from etk.compatibility.background import (
 )
 from etk.compatibility.persistent_tasks import PersistentTaskManagerGateway
 from etk.domains.operations.jobs import JobSubmissionService, UnsupportedLegacyOperationError
-from etk.platform.jobs import InvalidJsonPayloadError, JobStatus
+from etk.platform.jobs import JobStatus
 from etk.platform.tasks import TaskRegistry
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -30,6 +30,10 @@ def fixture_background_operation(value: dict[str, object], *, enabled: bool = Tr
     return {"value": value, "enabled": enabled}
 
 
+def task_populate_metadata_cache() -> None:
+    raise AssertionError("submission mapping must not execute the catalog function")
+
+
 class CaptureStore:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
@@ -38,6 +42,10 @@ class CaptureStore:
         self.calls.append(values)
         projection = SimpleNamespace(job=SimpleNamespace(id=JOB_ID))
         return SimpleNamespace(projection=projection, reused=False)
+
+    @staticmethod
+    def has_active_job() -> bool:
+        return False
 
 
 class FakeBackgroundService:
@@ -60,7 +68,7 @@ class FakeBackgroundService:
     ):
         del max_attempts, timeout_seconds, idempotency_key, idempotency_scope
         self.calls.append((function, args, kwargs, scheduled_for))
-        return SimpleNamespace(projection=SimpleNamespace(job=SimpleNamespace(id=JOB_ID)))
+        raise UnsupportedLegacyOperationError("dynamic background callable submission is disabled")
 
     def get(self, job_id: UUID):
         assert job_id == JOB_ID
@@ -76,78 +84,84 @@ class FakeBackgroundService:
         self.cancelled.append(job_id)
 
 
-def test_background_operation_persists_only_importable_strict_json_payloads() -> None:
+def test_background_operation_submission_is_permanently_disabled() -> None:
     store = CaptureStore()
     service = JobSubmissionService(store, TaskRegistry.from_fixture(TASK_FIXTURE))  # type: ignore[arg-type]
     scheduled_for = datetime(2026, 8, 23, tzinfo=UTC)
 
-    submitted = service.submit_background_operation(
-        fixture_background_operation,
-        ({"id": "fixture"},),
-        {"enabled": False},
-        scheduled_for=scheduled_for,
+    with pytest.raises(UnsupportedLegacyOperationError, match="dynamic background callable submission is disabled"):
+        service.submit_background_operation(
+            fixture_background_operation,
+            ({"id": "fixture"},),
+            {"enabled": False},
+            scheduled_for=scheduled_for,
+            max_attempts=5,
+            timeout_seconds=900,
+            idempotency_key="fixture-token",
+            idempotency_scope="fixture-background",
+        )
+
+    assert store.calls == []
+
+
+def test_legacy_callable_submission_only_maps_known_catalog_functions() -> None:
+    store = CaptureStore()
+    service = JobSubmissionService(store, TaskRegistry.from_fixture(TASK_FIXTURE))  # type: ignore[arg-type]
+
+    submitted = service.submit_legacy_callable(
+        task_populate_metadata_cache,
+        "同步媒体数据",
+        "media",
+        (),
+        {"force_full_update": False},
+        silent=False,
+        queue_when_busy=True,
     )
 
     assert submitted.projection.job.id == JOB_ID
-    call = store.calls[0]
-    assert call["queue_name"] == "legacy.background"
-    assert call["scheduled_for"] == scheduled_for
-    assert call["max_attempts"] == 1
-    assert call["timeout_seconds"] is None
-    assert call["payload"] == {
+    assert store.calls[0]["task_key"] == "populate-metadata"
+    payload = store.calls[0]["payload"]
+    assert payload == {
         "payload_version": 1,
-        "parameters": {"enabled": False},
-        "positional_parameters": [{"id": "fixture"}],
+        "parameters": {"force_full_update": False},
         "processor_type": "media",
-        "display_name": "fixture_background_operation",
-        "silent": True,
-        "call_style": "direct",
-        "legacy_operation": {
-            "module": __name__,
-            "qualname": "fixture_background_operation",
-        },
+        "display_name": "同步媒体数据",
+        "silent": False,
     }
+    assert isinstance(payload, dict)
+    assert "legacy_operation" not in payload
 
-    with pytest.raises(UnsupportedLegacyOperationError, match="top-level importable"):
-        service.submit_background_operation(lambda: None, (), {})
-    with pytest.raises(InvalidJsonPayloadError):
-        service.submit_background_operation(fixture_background_operation, (), {"bad": object()})
-
-    service.submit_background_operation(
-        fixture_background_operation,
-        ({"id": "retryable"},),
-        {},
-        max_attempts=5,
-        timeout_seconds=900,
-        idempotency_key="fixture-token",
-        idempotency_scope="fixture-background",
-    )
-    policy_call = store.calls[-1]
-    assert policy_call["max_attempts"] == 5
-    assert policy_call["timeout_seconds"] == 900
-    assert policy_call["idempotency_key"] == "fixture-token"
-    assert policy_call["idempotency_scope"] == "fixture-background"
+    with pytest.raises(UnsupportedLegacyOperationError, match="dynamic callable submission is disabled"):
+        service.submit_legacy_callable(
+            fixture_background_operation,
+            "unknown",
+            "media",
+            (),
+            {},
+            silent=True,
+        )
+    assert len(store.calls) == 1
 
 
-def test_api_spawn_and_delay_use_the_persistent_gateway_without_dispatcher(monkeypatch) -> None:
+def test_api_spawn_and_delay_propagate_disabled_dynamic_submission(monkeypatch) -> None:
     service = FakeBackgroundService()
     gateway = PersistentBackgroundGateway(lambda: service)
     monkeypatch.setenv("ETK_PROCESS_ROLE", "api")
     install_persistent_background_gateway(gateway)
     try:
-        immediate = spawn(fixture_background_operation, {"id": "one"}, enabled=False)
-        delayed = spawn_later(3, fixture_background_operation, {"id": "two"})
+        with pytest.raises(UnsupportedLegacyOperationError, match="dynamic background callable submission is disabled"):
+            spawn(fixture_background_operation, {"id": "one"}, enabled=False)
+        with pytest.raises(UnsupportedLegacyOperationError, match="dynamic background callable submission is disabled"):
+            spawn_later(3, fixture_background_operation, {"id": "two"})
         recovered = gateway.lookup(idempotency_scope="fixture", idempotency_key="known")
         missing = gateway.lookup(idempotency_scope="fixture", idempotency_key="missing")
 
-        assert isinstance(immediate, PersistentBackgroundHandle)
-        assert isinstance(delayed, PersistentBackgroundHandle)
         assert isinstance(recovered, PersistentBackgroundHandle)
         assert recovered.job_id == JOB_ID
         assert missing is None
         assert service.lookups == [("fixture", "known"), ("fixture", "missing")]
-        assert immediate.ready()
-        immediate.kill()
+        assert recovered.ready()
+        recovered.kill()
         assert service.cancelled == [JOB_ID]
         assert service.calls[0][3] is None
         assert service.calls[1][3] is not None

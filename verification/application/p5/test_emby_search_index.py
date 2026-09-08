@@ -241,7 +241,7 @@ def test_repository_failures_preserve_503_envelopes() -> None:
     assert updated.json() == {"ok": False, "error": "search index update failed"}
 
 
-def test_search_ownership_is_fixture_backed_and_precedes_compatibility_mount(
+def test_search_ownership_is_fixture_backed_and_legacy_environment_cannot_restore_mount(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     routes = json.loads(ROUTE_MANIFEST.read_text(encoding="utf-8"))
@@ -272,16 +272,13 @@ def test_search_ownership_is_fixture_backed_and_precedes_compatibility_mount(
     monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     app = create_app(start_runtime=False)
     try:
-        compatibility_index = next(
-            index for index, route in enumerate(app.routes) if getattr(route, "name", None) == "legacy-compatibility"
-        )
         native_routes = [
-            (index, nested)
-            for index, included in enumerate(app.routes)
+            nested
+            for included in app.routes
             for nested in getattr(getattr(included, "original_router", None), "routes", ())
             if isinstance(nested, APIRoute) and nested.path in {path for _method, path in SEARCH_ROUTES}
         ]
         assert len(native_routes) == 2
-        assert all(index < compatibility_index for index, _route in native_routes)
+        assert not any(getattr(route, "name", None) == "legacy-compatibility" for route in app.routes)
     finally:
         app.state.container.close()

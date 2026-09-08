@@ -3,11 +3,10 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 
-from etk.compatibility.legacy_registry import get_legacy_emby_server_id
 from etk.platform import Settings
 
 from .integrations import ExternalResult
@@ -15,9 +14,14 @@ from .integrations import ExternalResult
 _PRO_AUTH_WORKER_URL = "https://auth.55565576.xyz"
 
 
+class _SettingsReader(Protocol):
+    def load(self, key: str) -> Any: ...
+
+
 class HttpxSystemIntegrationGateway:
-    def __init__(self, settings: Callable[[], Settings]) -> None:
+    def __init__(self, settings: Callable[[], Settings], repository: _SettingsReader) -> None:
         self._settings = settings
+        self._repository = repository
 
     def test_ai(self, config: Mapping[str, Any]) -> ExternalResult:
         from ai_translator import AITranslator
@@ -177,7 +181,8 @@ class HttpxSystemIntegrationGateway:
         return payload if isinstance(payload, Mapping) else None
 
     def server_id(self) -> str | None:
-        return get_legacy_emby_server_id()
+        value = str(self._repository.load("emby_server_id_cache") or "").strip()
+        return value or None
 
     def pro_action(self, action: str, license_key: str, server_id: str) -> Mapping[str, Any]:
         with self._client(timeout=10) as client:
@@ -187,12 +192,6 @@ class HttpxSystemIntegrationGateway:
             )
         payload = response.json()
         return payload if isinstance(payload, Mapping) else {}
-
-    def update_runtime_license(self, expire_time: str) -> None:
-        import config_manager
-
-        config_manager.APP_CONFIG["is_pro_active"] = True
-        config_manager.APP_CONFIG["pro_expire_time"] = expire_time
 
     def _client(self, *, timeout: float) -> httpx.Client:
         settings = self._settings()

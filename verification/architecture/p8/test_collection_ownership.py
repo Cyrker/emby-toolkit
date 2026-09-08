@@ -88,7 +88,7 @@ def test_collection_repository_keeps_cross_domain_tables_behind_owner_projection
     assert "collections_info" not in user_source
 
 
-def test_collection_routes_and_effects_precede_compatibility_mount(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_collection_routes_and_effects_ignore_the_retired_compatibility_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ETK_ENABLE_LEGACY_COMPATIBILITY", "1")
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     expected = {(route["method"], route["path"]) for route in fixture["routes"]}
@@ -100,15 +100,12 @@ def test_collection_routes_and_effects_precede_compatibility_mount(monkeypatch: 
         for method, path in EFFECT_OPERATIONS:
             assert method.casefold() in schema[path]
 
-        compatibility_index = next(
-            index for index, route in enumerate(app.routes) if getattr(route, "name", None) == "legacy-compatibility"
-        )
+        assert not any(getattr(route, "name", None) == "legacy-compatibility" for route in app.routes)
         router_indexes = {
             index
             for index, route in enumerate(app.routes)
             if getattr(route, "original_router", None) is collection_router
         }
         assert len(router_indexes) == 1
-        assert all(index < compatibility_index for index in router_indexes)
     finally:
         app.state.container.close()

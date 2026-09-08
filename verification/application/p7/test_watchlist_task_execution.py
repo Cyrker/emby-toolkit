@@ -662,7 +662,6 @@ def test_router_binds_stable_moviepilot_execution_identity_for_watchlist_owner()
     effects = PersistentMoviePilotEffectGateway(cast(Any, None), cast(Any, None), cast(Any, None))
     owner = _BoundWatchlistOwner(effects)
     router = P7SubscriptionTaskRouter(
-        compatibility=None,
         assistant=None,
         moviepilot_effects=effects,
         watchlist_tasks=owner,

@@ -9,6 +9,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from typing import Any, Protocol
 
+from .maintenance_transport import P115PinnedOperationsClient, P115PrimaryOperationsGateway
 from .strm_adapters import AtomicP115LocalStrmLibraryGateway
 from .upload_monitor import (
     P115UploadProjection,
@@ -129,6 +130,452 @@ class NativeP115UploadSourceCleanupGateway:
         result["records_replaced"] = len(removable) - result["records_removed"]
         result["ok"] = result["failed"] == 0
         return result
+
+
+class NativeP115UploadProvider(P115UploadProvider):
+    """Account/backend-pinned upload transport with authoritative readback."""
+
+    def __init__(self, operations: P115PrimaryOperationsGateway) -> None:
+        self._operations = operations
+
+    def execute(
+        self,
+        operation: UploadOperation,
+        *,
+        checkpoint: Callable[[str, Mapping[str, Any]], None],
+    ) -> UploadProviderOutcome:
+        session = dict(operation.upload_session or {})
+        if session.get("readback_only"):
+            return self.readback(operation)
+        try:
+            observed = observe_upload_file(operation.path, str(operation.mapping["local_dir"]))
+        except Exception as exc:
+            return _outcome(
+                UploadProviderDisposition.REJECTED,
+                operation,
+                request_sent=False,
+                session=session,
+                error={"type": "source_unavailable", "message": str(exc)},
+            )
+        if operation.fingerprint is None or observed != operation.fingerprint:
+            return _outcome(
+                UploadProviderDisposition.REJECTED,
+                operation,
+                request_sent=False,
+                session=session,
+                error={"type": "source_fingerprint_changed"},
+            )
+
+        try:
+            client = self._open(operation, session)
+        except Exception as exc:
+            return _outcome(
+                UploadProviderDisposition.RETRYABLE,
+                operation,
+                request_sent=False,
+                session=session,
+                error={"type": "upload_backend_unavailable", "message": str(exc)},
+            )
+        if client is None:
+            return _outcome(
+                UploadProviderDisposition.RETRYABLE,
+                operation,
+                request_sent=False,
+                session=session,
+                error={"type": "upload_backend_unavailable"},
+            )
+        try:
+            identity = self._content_identity(operation, session)
+        except OSError as exc:
+            return _outcome(
+                UploadProviderDisposition.RETRYABLE,
+                operation,
+                request_sent=False,
+                session=session,
+                error={"type": "source_read_failed", "message": str(exc)},
+            )
+        session.update(identity)
+        session.update(
+            {
+                "backend": client.backend,
+                "account_id": client.account_id,
+                "credential_fingerprint": client.credential_fingerprint,
+                "phase": "prepared",
+                "request_sent": False,
+                "requested_target_cid": str(operation.mapping["target_cid"]),
+            }
+        )
+        request_sent = False
+        uploaded_bytes = int(session.get("uploaded_bytes") or 0)
+        last_progress_at = 0.0
+
+        def persist(values: Mapping[str, Any]) -> None:
+            nonlocal request_sent
+            request_sent = True
+            session.update(dict(values))
+            session.update(
+                {
+                    "backend": client.backend,
+                    "account_id": client.account_id,
+                    "credential_fingerprint": client.credential_fingerprint,
+                    "request_sent": True,
+                    "readback_only": True,
+                    "content_sha1": identity["content_sha1"],
+                    "preid": identity["preid"],
+                }
+            )
+            checkpoint(client.backend, session)
+
+        def progress(delta: int) -> None:
+            nonlocal uploaded_bytes, last_progress_at
+            try:
+                uploaded_bytes = min(int(identity["filesize"]), uploaded_bytes + max(0, int(delta or 0)))
+            except (TypeError, ValueError):
+                return
+            now = time.monotonic()
+            if uploaded_bytes < int(identity["filesize"]) and now - last_progress_at < 1:
+                return
+            persist(
+                {
+                    **session,
+                    "phase": "uploading",
+                    "uploaded_bytes": uploaded_bytes,
+                    "total_bytes": int(identity["filesize"]),
+                    "progress": round(uploaded_bytes / max(int(identity["filesize"]), 1) * 100, 1),
+                }
+            )
+            last_progress_at = now
+
+        try:
+            target_cid = self._resolve_target_directory(
+                operation,
+                client=client,
+                session=session,
+                checkpoint=persist,
+            )
+            session["resolved_target_cid"] = target_cid
+            result = client.upload_local_file(
+                operation.path,
+                target_cid,
+                session=session,
+                checkpoint=persist,
+                progress=progress,
+            )
+        except Exception as exc:
+            replay = replace(
+                operation,
+                upload_backend=client.backend,
+                upload_session={**session, "readback_only": request_sent},
+            )
+            observed_outcome = self.readback(replay) if request_sent else None
+            if observed_outcome is not None and observed_outcome.disposition is UploadProviderDisposition.CONFIRMED:
+                return observed_outcome
+            return _outcome(
+                UploadProviderDisposition.INDETERMINATE if request_sent else UploadProviderDisposition.RETRYABLE,
+                replay,
+                request_sent=request_sent,
+                session={**session, "readback_only": request_sent},
+                error={"type": "upload_request_failed", "message": str(exc)},
+            )
+
+        replay = replace(
+            operation,
+            upload_backend=client.backend,
+            upload_session={**session, "upload_response_received": bool(result)},
+        )
+        observed_outcome = self.readback(replay)
+        if observed_outcome.disposition is UploadProviderDisposition.CONFIRMED:
+            return observed_outcome
+        return _outcome(
+            UploadProviderDisposition.INDETERMINATE,
+            replay,
+            request_sent=True,
+            session={**session, "readback_only": True},
+            error={"type": "upload_receipt_not_confirmed"},
+        )
+
+    def readback(self, operation: UploadOperation) -> UploadProviderOutcome:
+        session = dict(operation.upload_session or {})
+        target_cid = str(
+            session.get("resolved_target_cid")
+            or session.get("requested_target_cid")
+            or operation.mapping.get("target_cid")
+            or ""
+        ).strip()
+        filename = str(session.get("filename") or os.path.basename(operation.path)).strip()
+        content_sha1 = str(session.get("content_sha1") or "").strip().upper()
+        expected_size = int(session.get("filesize") or (operation.fingerprint.size if operation.fingerprint else 0))
+        if not target_cid or not filename or not content_sha1 or expected_size < 0:
+            return _outcome(
+                UploadProviderDisposition.INDETERMINATE,
+                operation,
+                request_sent=True,
+                session={**session, "readback_only": True},
+                error={"type": "upload_readback_identity_missing"},
+            )
+        try:
+            client = self._open(operation, session, require_pinned=True)
+            if client is None:
+                raise RuntimeError("115 pinned upload client is unavailable")
+            matches = [
+                item
+                for item in client.list_children(target_cid)
+                if not _is_directory(item)
+                and _item_name(item) == filename
+                and _item_size(item) == expected_size
+                and _item_sha1(item) == content_sha1
+            ]
+        except Exception as exc:
+            return _outcome(
+                UploadProviderDisposition.INDETERMINATE,
+                operation,
+                request_sent=True,
+                session={**session, "readback_only": True},
+                error={"type": "upload_readback_failed", "message": str(exc)},
+            )
+        if len(matches) != 1:
+            return _outcome(
+                UploadProviderDisposition.INDETERMINATE,
+                operation,
+                request_sent=True,
+                session={**session, "readback_only": True},
+                error={
+                    "type": "upload_readback_ambiguous" if matches else "upload_readback_not_found",
+                    "matches": len(matches),
+                },
+            )
+        item = matches[0]
+        fid = _item_id(item)
+        pick_code = _item_pick_code(item)
+        if not fid or not pick_code:
+            return _outcome(
+                UploadProviderDisposition.INDETERMINATE,
+                operation,
+                request_sent=True,
+                session={**session, "readback_only": True},
+                error={"type": "upload_readback_receipt_incomplete"},
+            )
+        receipt = {
+            "fid": fid,
+            "parent_id": target_cid,
+            "file_name": filename,
+            "sha1": content_sha1,
+            "preid": str(session.get("preid") or "").upper(),
+            "pick_code": pick_code,
+            "size": expected_size,
+            "backend": client.backend,
+            "account_id": client.account_id,
+            "credential_fingerprint": client.credential_fingerprint,
+            "evidence": "authoritative_parent_listing",
+        }
+        return _outcome(
+            UploadProviderDisposition.CONFIRMED,
+            replace(operation, upload_backend=client.backend),
+            request_sent=True,
+            session={**session, "readback_only": False, "phase": "remote_confirmed"},
+            receipt=receipt,
+        )
+
+    def delete(
+        self,
+        operation: UploadOperation,
+        source: UploadedSource,
+        *,
+        checkpoint: Callable[[str, Mapping[str, Any]], None],
+    ) -> UploadProviderOutcome:
+        before = self.readback_delete(operation, source)
+        if before.disposition in {UploadProviderDisposition.CONFIRMED, UploadProviderDisposition.REJECTED}:
+            return before
+        session = self._delete_session(operation, source)
+        fid = str(session.get("fid") or "")
+        try:
+            client = self._open(operation, session, require_pinned=True)
+            if client is None:
+                raise RuntimeError("115 pinned delete client is unavailable")
+        except Exception as exc:
+            return _outcome(
+                UploadProviderDisposition.RETRYABLE,
+                operation,
+                request_sent=False,
+                session=session,
+                error={"type": "delete_backend_unavailable", "message": str(exc)},
+            )
+        session.update(
+            {
+                "phase": "remote_delete",
+                "request_sent": True,
+                "readback_only": True,
+                "credential_fingerprint": client.credential_fingerprint,
+            }
+        )
+        checkpoint(client.backend, session)
+        try:
+            response = client.delete_files([fid])
+            if not _provider_response_succeeded(response):
+                raise RuntimeError("115 remote delete was not accepted")
+        except Exception as exc:
+            replay = replace(operation, upload_backend=client.backend, upload_session=session)
+            after = self.readback_delete(replay, source)
+            if after.disposition is UploadProviderDisposition.CONFIRMED:
+                return after
+            return _outcome(
+                UploadProviderDisposition.INDETERMINATE,
+                operation,
+                request_sent=True,
+                session=session,
+                error={"type": "remote_delete_failed", "message": str(exc)},
+            )
+        return self.readback_delete(replace(operation, upload_backend=client.backend, upload_session=session), source)
+
+    def readback_delete(self, operation: UploadOperation, source: UploadedSource) -> UploadProviderOutcome:
+        session = self._delete_session(operation, source)
+        fid = str(session.get("fid") or "")
+        if (
+            not fid
+            or str(session.get("backend") or "") not in {"openapi", "cookie"}
+            or not str(session.get("account_id") or "")
+        ):
+            return _outcome(
+                UploadProviderDisposition.REJECTED,
+                operation,
+                request_sent=False,
+                session=session,
+                error={"type": "delete_remote_identity_missing_or_unpinned"},
+            )
+        try:
+            client = self._open(operation, session, require_pinned=True)
+            if client is None:
+                raise RuntimeError("115 pinned delete readback client is unavailable")
+            response = client.file_info(fid)
+            exists = _remote_file_info_exists(response, fid)
+        except Exception as exc:
+            return _outcome(
+                UploadProviderDisposition.INDETERMINATE,
+                operation,
+                request_sent=True,
+                session=session,
+                error={"type": "remote_delete_readback_failed", "message": str(exc)},
+            )
+        if exists is False:
+            return _outcome(
+                UploadProviderDisposition.CONFIRMED,
+                replace(operation, upload_backend=client.backend),
+                request_sent=True,
+                session=session,
+                receipt={
+                    "fid": fid,
+                    "parent_id": str(session.get("parent_id") or ""),
+                    "pick_code": source.pick_code,
+                    "backend": client.backend,
+                    "account_id": client.account_id,
+                    "deleted": True,
+                    "evidence": "authoritative_absence_readback",
+                },
+            )
+        return _outcome(
+            UploadProviderDisposition.INDETERMINATE,
+            operation,
+            request_sent=True,
+            session=session,
+            error={"type": "remote_delete_still_present"},
+        )
+
+    def _open(
+        self,
+        operation: UploadOperation,
+        session: Mapping[str, Any],
+        *,
+        require_pinned: bool = False,
+    ) -> P115PinnedOperationsClient | None:
+        account_id = str(session.get("account_id") or "").strip()
+        backend = str(operation.upload_backend or session.get("backend") or "").strip().casefold()
+        fingerprint = str(session.get("credential_fingerprint") or "").strip()
+        if require_pinned and (not account_id or backend not in {"openapi", "cookie"}):
+            raise RuntimeError("115 upload provider identity is not pinned")
+        return self._operations.open(
+            expected_account_id=account_id or None,
+            expected_backend=backend or None,
+            expected_credential_fingerprint=fingerprint or None,
+        )
+
+    @staticmethod
+    def _resolve_target_directory(
+        operation: UploadOperation,
+        *,
+        client: P115PinnedOperationsClient,
+        session: dict[str, Any],
+        checkpoint: Callable[[Mapping[str, Any]], None],
+    ) -> str:
+        existing = str(session.get("resolved_target_cid") or "").strip()
+        if existing:
+            return existing
+        current_cid = str(operation.mapping["target_cid"])
+        relative_dir = os.path.dirname(operation.relative_path)
+        for name in [part for part in relative_dir.replace("\\", "/").split("/") if part not in {"", ".", ".."}]:
+            matches = [
+                item for item in client.list_children(current_cid) if _is_directory(item) and _item_name(item) == name
+            ]
+            if len(matches) > 1:
+                raise RuntimeError(f"115 target directory readback is ambiguous: {name}")
+            if not matches:
+                checkpoint(
+                    {
+                        **session,
+                        "phase": "mkdir",
+                        "mkdir_parent_cid": current_cid,
+                        "mkdir_name": name,
+                    }
+                )
+                response = client.create_directory(current_cid, name)
+                if not _provider_response_succeeded(response):
+                    raise RuntimeError(f"115 target directory creation was rejected: {name}")
+                matches = [
+                    item
+                    for item in client.list_children(current_cid)
+                    if _is_directory(item) and _item_name(item) == name
+                ]
+            if len(matches) != 1 or not _item_id(matches[0]):
+                raise RuntimeError(f"115 target directory was not authoritatively confirmed: {name}")
+            current_cid = _item_id(matches[0])
+        return current_cid
+
+    @staticmethod
+    def _content_identity(operation: UploadOperation, session: Mapping[str, Any]) -> dict[str, Any]:
+        content_sha1 = str(session.get("content_sha1") or "").strip().upper()
+        preid = str(session.get("preid") or "").strip().upper()
+        if content_sha1 and preid:
+            return {
+                "content_sha1": content_sha1,
+                "preid": preid,
+                "filename": os.path.basename(operation.path),
+                "filesize": operation.fingerprint.size if operation.fingerprint else os.path.getsize(operation.path),
+            }
+        digest = hashlib.sha1()
+        first = b""
+        with open(operation.path, "rb") as stream:
+            while chunk := stream.read(1024 * 1024):
+                if not first:
+                    first = chunk[:131072]
+                digest.update(chunk)
+        return {
+            "content_sha1": digest.hexdigest().upper(),
+            "preid": hashlib.sha1(first).hexdigest().upper(),
+            "filename": os.path.basename(operation.path),
+            "filesize": operation.fingerprint.size if operation.fingerprint else os.path.getsize(operation.path),
+        }
+
+    @staticmethod
+    def _delete_session(operation: UploadOperation, source: UploadedSource) -> dict[str, Any]:
+        return {
+            **dict(operation.upload_session or {}),
+            "backend": str(source.remote_receipt.get("backend") or "").strip().casefold(),
+            "account_id": str(source.remote_receipt.get("account_id") or "").strip(),
+            "credential_fingerprint": str(source.remote_receipt.get("credential_fingerprint") or "").strip(),
+            "fid": str(source.remote_receipt.get("fid") or "").strip(),
+            "parent_id": str(source.remote_receipt.get("parent_id") or source.target_cid).strip(),
+            "pick_code": source.pick_code,
+            "readback_only": True,
+        }
 
 
 class LegacyP115UploadProvider(P115UploadProvider):
@@ -988,9 +1435,36 @@ def _is_directory(item: Mapping[str, Any]) -> bool:
     return str(category) == "0" or str(item.get("is_dir") or "").casefold() in {"1", "true"}
 
 
+def _provider_response_succeeded(value: Mapping[str, Any]) -> bool:
+    if value.get("state") is True or value.get("success") is True:
+        return True
+    return str(value.get("code") or "").strip() in {"0", "200"}
+
+
+def _remote_file_info_exists(value: Mapping[str, Any], expected_fid: str) -> bool:
+    if _provider_response_succeeded(value):
+        data: object = value.get("data")
+        if isinstance(data, list):
+            data = data[0] if data else None
+        if isinstance(data, Mapping):
+            observed = _item_id(data)
+            return not observed or observed == expected_fid
+        return True
+    code = str(value.get("code") or value.get("errno") or "").strip()
+    message = str(
+        value.get("error_msg") or value.get("message") or value.get("msg") or value.get("error") or ""
+    ).casefold()
+    if code in {"20004", "70004", "404"} or any(
+        marker in message for marker in ("不存在", "not found", "no such file", "file not exist")
+    ):
+        return False
+    raise RuntimeError("115 remote file readback was not authoritative")
+
+
 __all__ = [
     "LegacyP115UploadProjection",
     "LegacyP115UploadProvider",
+    "NativeP115UploadProvider",
     "NativeP115UploadSourceCleanupGateway",
     "P115CompletedUploadSourceRepository",
 ]

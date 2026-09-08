@@ -347,22 +347,22 @@ def test_native_coordinator_tick_dispatches_without_legacy_runtime_hooks() -> No
     runtime._config_adapter = SimpleNamespace(load=lambda: calls.append("settings") or settings)
     runtime._cleanup_execution_repository = None
     runtime._sharing_operation_coordinator = cast(Any, Sharing())
-    runtime._refresh_settings = lambda **_options: (_ for _ in ()).throw(  # type: ignore[method-assign]
-        AssertionError("native Coordinator called compatibility settings refresh")
-    )
-    runtime._process_telegram_commands = lambda: (_ for _ in ()).throw(  # type: ignore[method-assign]
-        AssertionError("native Coordinator called legacy Telegram runtime")
-    )
+
+    def refresh_settings(**_options: Any) -> None:
+        calls.append("settings")
+        runtime._last_settings = settings
+
+    runtime._refresh_settings = refresh_settings  # type: ignore[method-assign]
     runtime._process_native_telegram_search_commands = (  # type: ignore[method-assign]
         lambda: calls.append("telegram-search")
     )
 
-    runtime._tick(compatibility=False)
+    runtime._tick()
 
     assert runtime._last_settings is settings
     assert calls == [
-        "telegram-search",
         "settings",
+        "telegram-search",
         "enqueue",
         "recover",
         "requeue",
@@ -396,7 +396,7 @@ def test_native_coordinator_closes_container_when_startup_initialization_fails(
     runtime._write_health = health.append  # type: ignore[method-assign]
 
     with pytest.raises(RuntimeError, match="fixture native initialization failed"):
-        runtime._run_native_only()
+        runtime._run_native()
 
     assert container.closed is True
     assert health == ["stopped"]
