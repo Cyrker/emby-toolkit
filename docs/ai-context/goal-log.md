@@ -6271,6 +6271,6 @@ Gate:
 
 Pending / Blocker / Next:
 
-- No P12 P0/P1/P2 blocker remains; P12 is `DONE`. Live external-system acceptance remains
-  `HUMAN_PENDING`. Create the isolated P12 local checkpoint. No push, deployment, release or real
-  external write was performed.
+- No P12 P0/P1/P2 blocker remains; P12 is `DONE`; local checkpoint `32d980ce` records the harness,
+  guard tests and tracker state. Live external-system acceptance remains `HUMAN_PENDING`. No push,
+  deployment, release or real external write was performed.
