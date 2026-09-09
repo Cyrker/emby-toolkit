@@ -6229,3 +6229,48 @@ Pending / Blocker / Next:
 - No P11 P0/P1/P2 blocker remains; P11 is `DONE`. Create the isolated TASK-006 local checkpoint,
   then run TASK-007's three disposable Greenfield rounds. P12 remains `TODO`; Live remains
   `HUMAN_PENDING`. No push, deployment, release or real external write was performed.
+
+### P12-TASK-007-Greenfield-20260910
+
+TASK / HEAD:
+
+- `TASK-007 disposable Greenfield create/rebuild/failure-recovery`; source and pre-checkpoint HEAD
+  `cc367594`.
+
+Implemented:
+
+- Added a guarded P12 harness and focused guard tests. The harness requires new prefixed absolute
+  roots, an isolated `etk-p12-*` Project, an explicit local `sha256:` image, loopback ports, exact
+  services/mounts/volumes/network labels, a fake Docker socket and ownership revalidation before
+  every `down --volumes`.
+- The disposable topology uses PostgreSQL 18, Redis, fresh named volumes and the P11 image
+  `sha256:b42317c3237d109550bd83297e92ef2a917b90528c0876bb8fbca8716025629e`; Compose runs with
+  `--no-build --pull never`, Coordinator schedules disabled and no external credentials.
+- A generated local administrator fixture authorizes protected API probes without real setup or
+  external identity. Its signed cookie is never persisted, its database row is removed, and each
+  final invariant snapshot proves the fixture count returned to zero.
+
+Gate:
+
+- Harness guard scope -> `18 passed`; scoped Ruff/format and Pyright
+  (`0 errors, 0 warnings, 0 informations`) passed. Actual Compose v5 `!override` resolution passed.
+- Evidence Project `etk-p12-20260910-cc367594-j` completed first empty create, second empty rebuild,
+  injected `migrate` exit `42`, and clean failure recovery. All three successful states reported
+  PostgreSQL `18.6` (`180006`), Alembic `0027_p11_watchlist_display`, `78` public tables, `50` task
+  keys and the seven final P11 owners; both PG18 schema/query tests passed in every state. Live
+  read-only configuration, review/media, subscription, actor-subscription and sharing projections
+  all returned authoritative empty results.
+- In every successful state, a paused Worker retained a queued `sync-115-directory-tree` Job,
+  unpause completed it through native `P6P115TaskRouter`, and idempotent replay returned the same
+  Job ID. Final snapshots contain one succeeded Job, one idempotency record, one processed Outbox,
+  zero active Jobs and zero media/quota/credit invariant violations.
+- Every successful state, the injected-failure state and the final harness exit have empty
+  container/network/volume inventories. Final evidence:
+  `/tmp/etk-refactor-artifacts/p12-greenfield-20260910-j/`; manifest SHA-256
+  `8618506d1a2e127ea03dda64bfec41d511c7a8933ad77c2753f74f3ffe224b71`.
+
+Pending / Blocker / Next:
+
+- No P12 P0/P1/P2 blocker remains; P12 is `DONE`. Live external-system acceptance remains
+  `HUMAN_PENDING`. Create the isolated P12 local checkpoint. No push, deployment, release or real
+  external write was performed.
