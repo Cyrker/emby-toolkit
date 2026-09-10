@@ -33,10 +33,6 @@ class TelegramTestRequest(BaseModel):
     chat_id: str | int | None = None
 
 
-class LicenseRequest(BaseModel):
-    license_key: str | None = None
-
-
 class ExternalObjectResponse(RootModel[dict[str, Any]]):
     pass
 
@@ -140,37 +136,3 @@ async def test_telegram(request: Request) -> JSONResponse:
 @router.get("/system/about_info", response_model=AboutInfoResponse)
 def about_info(request: Request) -> JSONResponse:
     return _response(_service(request).about_info())
-
-
-@router.get("/system/pro_pricing", response_model=ExternalObjectResponse)
-def pro_pricing(request: Request) -> JSONResponse:
-    denied = _admin_denial(request)
-    if denied is not None:
-        return denied
-    return _response(_service(request).pricing())
-
-
-@router.post(
-    "/system/activate_pro",
-    response_model=ExternalObjectResponse,
-    openapi_extra=_request_body(LicenseRequest),
-)
-async def activate_pro(request: Request) -> JSONResponse:
-    denied = _admin_denial(request)
-    if denied is not None:
-        return denied
-    payload = LicenseRequest.model_validate(await _json_object(request)).model_dump(exclude_none=True)
-    return _response(_service(request).activate(payload))
-
-
-@router.post(
-    "/system/transfer_pro",
-    response_model=ExternalObjectResponse,
-    openapi_extra=_request_body(LicenseRequest),
-)
-async def transfer_pro(request: Request) -> JSONResponse:
-    denied = _admin_denial(request)
-    if denied is not None:
-        return denied
-    payload = LicenseRequest.model_validate(await _json_object(request)).model_dump(exclude_none=True)
-    return _response(_service(request).transfer(payload))

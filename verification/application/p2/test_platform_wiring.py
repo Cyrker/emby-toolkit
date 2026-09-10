@@ -82,6 +82,11 @@ def test_default_container_loads_dynamic_settings_when_greenfield_database_is_co
     assert app.state.settings.proxy_enabled is True
     assert app.state.settings.get("future_dynamic_key") == "preserved"
     assert app.state.config_adapter is not None
+    identity = app.state.container.use_case("identity")
+    configuration = app.state.container.use_case("system-configuration")
+    assert identity._configuration is configuration._writer
+    assert identity._configuration._persistence is app.state.config_adapter
+    assert configuration._writer._persistence is app.state.config_adapter
 
 
 def test_default_container_loads_dynamic_settings_from_legacy_database_ini(

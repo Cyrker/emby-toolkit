@@ -351,12 +351,18 @@ def create_app(
         assert container is not None
         app_container, config_adapter = container, None
     if owns_container:
-        _register_identity_providers(app_container, runtime)
+        assert config_adapter is not None
+        configuration_writer = RuntimeConfigurationWriter(
+            app_container,
+            runtime,
+            persistence=config_adapter,
+        )
+        _register_identity_providers(app_container, configuration_writer)
         _register_job_providers(app_container)
         _register_operation_query_providers(app_container)
         _register_log_providers(app_container, data_dir)
         _register_database_read_providers(app_container)
-        _register_system_providers(app_container, runtime)
+        _register_system_providers(app_container, configuration_writer)
         _register_collection_providers(app_container)
         _register_users_providers(app_container)
         _register_p115_providers(app_container)
@@ -522,7 +528,7 @@ def _create_default_container(data_dir: Path | None) -> tuple[AppContainer, Lega
 
 def _register_identity_providers(
     container: AppContainer,
-    supervisor: RuntimeSupervisor,
+    configuration_writer: RuntimeConfigurationWriter,
 ) -> None:
     container.register_repository(
         "identity",
@@ -540,7 +546,7 @@ def _register_identity_providers(
             settings=lambda: current.settings,
             repository=current.repository("identity"),
             gateway=current.client("identity"),
-            configuration=RuntimeConfigurationWriter(current, supervisor),
+            configuration=configuration_writer,
             post_authorization=PersistentPostAuthorizationSubmitter(lambda: current.use_case("operations.jobs")),
         ),
     )
@@ -634,7 +640,7 @@ def _register_database_read_providers(container: AppContainer) -> None:
 
 def _register_system_providers(
     container: AppContainer,
-    supervisor: RuntimeSupervisor,
+    configuration_writer: RuntimeConfigurationWriter,
 ) -> None:
     container.register_repository(
         "app-settings",
@@ -654,7 +660,7 @@ def _register_system_providers(
         lambda current: ConfigurationService(
             settings=lambda: current.settings,
             repository=current.repository("app-settings"),
-            writer=RuntimeConfigurationWriter(current, supervisor),
+            writer=configuration_writer,
             gateway=current.client("system-configuration"),
         ),
     )
@@ -670,14 +676,12 @@ def _register_system_providers(
         "system-integrations",
         lambda current: HttpxSystemIntegrationGateway(
             lambda: current.settings,
-            current.repository("app-settings"),
         ),
     )
     container.register_use_case(
         "system-integrations",
         lambda current: SystemIntegrationService(
             settings=lambda: current.settings,
-            repository=current.repository("app-settings"),
             gateway=current.client("system-integrations"),
         ),
     )

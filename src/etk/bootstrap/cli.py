@@ -121,7 +121,6 @@ def _run_proxy(args: argparse.Namespace) -> int:
     config_path = Path(configured) / "config.ini" if configured else None
     settings = LegacyConfigAdapter(config_path, environ=os.environ).load()
     app = create_proxy_app(
-        license_active=bool(settings.proxy_enabled and settings.get("is_pro_active", False)),
         allow_transcoding=settings.proxy_allow_transcoding,
         static_dir=os.environ.get("ETK_STATIC_DIR"),
     )

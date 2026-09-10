@@ -534,7 +534,6 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
         "media.cast-update",
         "media.metadata-event-sync",
         "p115.temp-cleanup",
-        "system.pro-status-check",
         "media.plugin-update-check",
     } <= set(native_handlers)
     deep_delete = native_handlers["p115.deep-delete.execute"]
@@ -950,7 +949,6 @@ def test_coordinator_cron_normalizes_legacy_day_of_week_before_scheduling() -> N
         "daily_theme_job",
         "play_pool_daily_speedtest_job",
         "p115_temp_dir_cleanup_job",
-        "pro_status_check_job",
         "etk_plugin_update_startup_job",
     }
     cleanup = next(job for job in scheduler.jobs if job["id"] == "p115_temp_dir_cleanup_job")
@@ -984,7 +982,6 @@ def test_coordinator_schedules_one_processor_free_plan() -> None:
         "shared_share_status_sync_job",
         "play_pool_daily_speedtest_job",
         "p115_temp_dir_cleanup_job",
-        "pro_status_check_job",
         "etk_plugin_update_startup_job",
     }
     task_keys = {job["kwargs"]["task_key"] for job in scheduler.jobs if "task_key" in job["kwargs"]}
@@ -998,7 +995,6 @@ def test_coordinator_schedules_one_processor_free_plan() -> None:
     operation_keys = {job["kwargs"]["operation_key"] for job in scheduler.jobs if "operation_key" in job["kwargs"]}
     assert operation_keys == {
         "p115.temp-cleanup",
-        "system.pro-status-check",
         "media.plugin-update-check",
     }
 

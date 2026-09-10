@@ -35,6 +35,7 @@ class FakeIdentityRepository:
         self.users: list[dict[str, Any]] = []
         self.admins = {"fixture-admin"}
         self.pending_registrations: set[str] = set()
+        self.accept_upserts = True
 
     @staticmethod
     def projection_revision() -> int:
@@ -42,6 +43,8 @@ class FakeIdentityRepository:
 
     def upsert_user(self, user: Mapping[str, Any], *, expected_revision: int) -> bool:
         assert expected_revision == 0
+        if not self.accept_upserts:
+            return False
         self.users.append(deepcopy(dict(user)))
         return True
 
@@ -279,6 +282,30 @@ def test_unconfigured_setup_recovery_and_password_non_persistence(tmp_path: Path
     )
 
 
+def test_setup_reports_committed_authorization_when_identity_projection_changes(tmp_path: Path) -> None:
+    app, holder, repository, _gateway, configuration = _build_app(tmp_path, configured=False)
+    repository.accept_upserts = False
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/auth/setup",
+            json={
+                "url": EMBY_URL,
+                "username": "fixture-admin",
+                "password": "fixture-password",
+            },
+        )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "status": "error",
+        "message": "Emby 服务授权已保存，但授权期间用户状态发生变化；请刷新后重新登录",
+    }
+    assert holder.value.emby_auth_mode == "user_token"
+    assert configuration.updates[-1]["emby_api_key"] == "fixture-token"
+    assert repository.users == []
+
+
 def test_configured_login_status_reauthorize_logout_and_cookie_bridge(tmp_path: Path) -> None:
     app, _, repository, gateway, configuration = _build_app(tmp_path, configured=True)
     codec = _legacy_codec()
@@ -378,6 +405,26 @@ def test_configured_login_status_reauthorize_logout_and_cookie_bridge(tmp_path: 
             "emby_username": "Fixture User",
             "emby_is_admin": False,
         }
+
+
+def test_login_rejects_identity_projection_conflict_without_creating_session(tmp_path: Path) -> None:
+    app, _, repository, _gateway, _configuration = _build_app(tmp_path, configured=True)
+    repository.accept_upserts = False
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/auth/login",
+            json={"username": "fixture-user", "password": "fixture-password"},
+        )
+        assert client.cookies.get("session") is None
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "status": "error",
+        "message": "登录期间用户状态发生变化，请重试",
+        "code": "IDENTITY_STATE_CHANGED",
+    }
+    assert repository.users == []
 
 
 def test_login_does_not_publish_remote_registration_user_before_local_commit(tmp_path: Path) -> None:

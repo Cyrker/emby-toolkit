@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
 from etk.platform import Settings
 
@@ -12,45 +12,10 @@ from .models import SystemResult
 
 logger = logging.getLogger(__name__)
 
-PRO_PRICING_FALLBACK_TIERS = [
-    {
-        "key": "month",
-        "tier": "M",
-        "label": "月付",
-        "amount": "8.00",
-        "amount_cents": 800,
-        "currency": "CNY",
-        "note": "",
-    },
-    {
-        "key": "year",
-        "tier": "Y",
-        "label": "年付",
-        "amount": "68.00",
-        "amount_cents": 6800,
-        "currency": "CNY",
-        "note": "",
-    },
-    {
-        "key": "lifetime",
-        "tier": "L",
-        "label": "终身",
-        "amount": "188.00",
-        "amount_cents": 18800,
-        "currency": "CNY",
-        "note": "含部署",
-    },
-]
-
-
 @dataclass(frozen=True, slots=True)
 class ExternalResult:
     payload: Any
     status_code: int = 200
-
-
-class IntegrationSettingsRepository(Protocol):
-    def save_many(self, values: Mapping[str, Any]) -> None: ...
 
 
 class SystemIntegrationGateway(Protocol):
@@ -64,23 +29,15 @@ class SystemIntegrationGateway(Protocol):
 
     def about_info(self) -> tuple[str, list[dict[str, Any]]]: ...
 
-    def pricing(self) -> Mapping[str, Any] | None: ...
-
-    def server_id(self) -> str | None: ...
-
-    def pro_action(self, action: str, license_key: str, server_id: str) -> Mapping[str, Any]: ...
-
 
 class SystemIntegrationService:
     def __init__(
         self,
         *,
         settings: Callable[[], Settings],
-        repository: IntegrationSettingsRepository,
         gateway: SystemIntegrationGateway,
     ) -> None:
         self._settings = settings
-        self._repository = repository
         self._gateway = gateway
 
     def test_ai(self, incoming: Mapping[str, Any]) -> SystemResult:
@@ -144,56 +101,6 @@ class SystemIntegrationService:
             logger.exception("Reading release information failed")
             return SystemResult({"error": "获取版本信息时发生服务器内部错误"}, 500)
 
-    def pricing(self) -> SystemResult:
-        try:
-            normalized = _normalize_pro_pricing(self._gateway.pricing())
-        except Exception as exc:
-            logger.warning("Pro pricing gateway failed: %s", exc)
-            normalized = None
-        return SystemResult(normalized or _fallback_pro_pricing("云端价格暂不可用，已显示默认价格"))
-
-    def activate(self, incoming: Mapping[str, Any]) -> SystemResult:
-        return self._pro_action(
-            "activate", incoming, empty_message="请输入激活码", failure_message="激活码无效或已被使用"
-        )
-
-    def transfer(self, incoming: Mapping[str, Any]) -> SystemResult:
-        return self._pro_action(
-            "transfer", incoming, empty_message="请输入曾使用过的激活码", failure_message="换绑失败"
-        )
-
-    def _pro_action(
-        self,
-        action: str,
-        incoming: Mapping[str, Any],
-        *,
-        empty_message: str,
-        failure_message: str,
-    ) -> SystemResult:
-        license_key = str(incoming.get("license_key") or "").strip()
-        if not license_key:
-            return SystemResult({"success": False, "message": empty_message}, 400)
-        server_id = self._gateway.server_id()
-        if not server_id:
-            return SystemResult(
-                {"success": False, "message": "无法获取本机 Server ID，请确保 Emby 连接正常"},
-                500,
-            )
-        try:
-            result = self._gateway.pro_action(action, license_key, server_id)
-            if not result.get("success") or not result.get("is_pro"):
-                return SystemResult(
-                    {"success": False, "message": result.get("msg", failure_message)},
-                    400,
-                )
-            expire_time = str(result.get("expire_time") or "2099-12-31T23:59:59Z")
-            self._repository.save_many({"pro_license_key": license_key, "pro_expire_time": expire_time})
-            default_message = "激活成功！" if action == "activate" else "换绑成功！"
-            return SystemResult({"success": True, "message": result.get("msg", default_message)})
-        except Exception:
-            logger.exception("Pro %s request failed", action)
-            return SystemResult({"success": False, "message": "连接验证服务器失败，请检查网络"}, 500)
-
     def _restore_masked(self, incoming: Mapping[str, Any]) -> dict[str, Any]:
         current = self._settings().to_runtime_dict()
         result = dict(incoming)
@@ -201,57 +108,3 @@ class SystemIntegrationService:
             if result.get(key) == MASKED_SECRET:
                 result[key] = current.get(key, "")
         return result
-
-
-def _fallback_pro_pricing(message: str) -> dict[str, Any]:
-    return {
-        "success": True,
-        "source": "fallback",
-        "currency": "CNY",
-        "tiers": PRO_PRICING_FALLBACK_TIERS,
-        "fallback": True,
-        "message": message,
-    }
-
-
-def _normalize_pro_pricing(payload: Mapping[str, Any] | None) -> dict[str, Any] | None:
-    if not isinstance(payload, Mapping) or not isinstance(payload.get("tiers"), list):
-        return None
-    normalized: list[dict[str, Any]] = []
-    allowed_keys = {"month", "quarter", "year", "lifetime"}
-    allowed_tiers = {"M", "Q", "Y", "L"}
-    for raw in payload["tiers"]:
-        if not isinstance(raw, Mapping):
-            continue
-        key = str(raw.get("key") or "").strip()
-        tier = str(raw.get("tier") or "").strip().upper()
-        if key not in allowed_keys or tier not in allowed_tiers:
-            continue
-        try:
-            amount_cents = int(cast(Any, raw.get("amount_cents")))
-        except (TypeError, ValueError):
-            continue
-        if amount_cents <= 0:
-            continue
-        normalized.append(
-            {
-                "key": key,
-                "tier": tier,
-                "label": str(raw.get("label") or key).strip(),
-                "amount": f"{amount_cents / 100:.2f}",
-                "amount_cents": amount_cents,
-                "currency": "CNY",
-                "note": str(raw.get("note") or "").strip(),
-            }
-        )
-    if not normalized:
-        return None
-    order = {"month": 0, "quarter": 1, "year": 2, "lifetime": 3}
-    normalized.sort(key=lambda item: order.get(item["key"], 99))
-    return {
-        "success": True,
-        "source": "worker",
-        "currency": "CNY",
-        "tiers": normalized,
-        "fallback": False,
-    }

@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
-from starlette.websockets import WebSocketDisconnect
 
 from etk.processes.proxy import InMemoryPlaybackLeaseStore, InMemoryVirtualLibrary, VirtualItem, create_proxy_app
 
@@ -34,7 +33,7 @@ def _catalog() -> InMemoryVirtualLibrary:
     return catalog
 
 
-def test_proxy_license_health_and_virtual_library_contract() -> None:
+def test_proxy_health_and_virtual_library_contract() -> None:
     app = create_proxy_app(catalog=_catalog())
 
     with TestClient(app) as client:
@@ -127,7 +126,7 @@ def test_proxy_progress_refreshes_device_bound_lease_without_session_id() -> Non
         assert progress.status_code == 200
 
 
-def test_proxy_expired_lease_reclamation_and_inactive_license() -> None:
+def test_proxy_expired_lease_reclamation() -> None:
     now = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
     clock = [now]
     leases = InMemoryPlaybackLeaseStore(clock=lambda: clock[0])
@@ -136,25 +135,9 @@ def test_proxy_expired_lease_reclamation_and_inactive_license() -> None:
     clock[0] = now + timedelta(seconds=2)
     assert leases.reclaim_expired() == 1
 
-    app = create_proxy_app(catalog=_catalog(), license_active=False)
-    with TestClient(app) as client:
-        assert client.get("/api/health").status_code == 200
-        denied = client.get("/Users/user-1/Views")
-        assert denied.status_code == 403
-        assert denied.headers["content-type"].startswith("application/json")
-
-
-def test_proxy_websocket_fake_echo_and_inactive_rejection() -> None:
+def test_proxy_websocket_fake_echo() -> None:
     app = create_proxy_app(catalog=_catalog())
     with TestClient(app) as client:
         with client.websocket_connect("/embywebsocket") as websocket:
             websocket.send_text("fixture-message")
             assert websocket.receive_text() == "fixture-message"
-
-    inactive = create_proxy_app(catalog=_catalog(), license_active=False)
-    with TestClient(inactive) as client:
-        try:
-            with client.websocket_connect("/embywebsocket"):
-                raise AssertionError("inactive proxy websocket unexpectedly connected")
-        except WebSocketDisconnect as exc:
-            assert exc.code in {403, 4403}

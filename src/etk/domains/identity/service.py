@@ -241,7 +241,10 @@ class IdentityService:
             return error_result("保存配置失败，请检查日志", status_code=500)
         user = _authorization_user(authorization)
         if not self._start_session(user, session, expected_revision=projection_revision):
-            return error_result("授权期间用户状态发生变化，请重新登录", status_code=409)
+            return error_result(
+                "Emby 服务授权已保存，但授权期间用户状态发生变化；请刷新后重新登录",
+                status_code=409,
+            )
         try:
             plugin_install, library_config = self._post_authorization(settings)
         except Exception:
@@ -399,7 +402,8 @@ class IdentityService:
         if not user_id:
             return False
         try:
-            self.repository.upsert_user(user, expected_revision=expected_revision)
+            if not self.repository.upsert_user(user, expected_revision=expected_revision):
+                return False
             if not self.repository.is_active(user_id):
                 return False
             is_admin = self.repository.is_admin(user_id)

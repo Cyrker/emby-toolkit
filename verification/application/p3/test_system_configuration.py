@@ -34,8 +34,6 @@ class SettingsRepository:
     def __init__(self) -> None:
         self.values: dict[str, Any] = {
             "custom_theme": {"primary": "fixture-blue"},
-            "pro_license_key": "fixture-license",
-            "pro_expire_time": "2099-12-31T23:59:59Z",
         }
 
     def load(self, key: str) -> Any:
@@ -209,9 +207,7 @@ def test_read_masks_secrets_and_adds_legacy_derived_fields(tmp_path: Path) -> No
     assert payload["future_dynamic_key"] == "preserved"
     assert payload["emby_server_id"] == "fixture-server"
     assert payload["custom_theme"] == {"primary": "fixture-blue"}
-    assert payload["pro_license_key"] == "********"
-    assert payload["pro_expire_time"] == "2099-12-31T23:59:59Z"
-    assert payload["is_pro_active"] is True
+    assert {"pro_license_key", "pro_expire_time", "is_pro_active"}.isdisjoint(payload)
     assert payload["etk_server_url_auto_detected"] == EMBY_URL
     assert payload["proxy_discovery_url_auto_detected"] == "http://proxy.example.invalid"
 

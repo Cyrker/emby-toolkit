@@ -7,7 +7,6 @@ from pathlib import Path
 import config_manager
 from database import settings_db
 from etk.bootstrap.legacy_runtime import LegacyRuntimeAdapter
-from etk.domains.system.integration_router import LicenseRequest
 from handler import shared_center_client
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -58,7 +57,7 @@ def test_legacy_runtime_tier_hint_reads_only_the_canonical_license(monkeypatch) 
     assert calls == ["pro_license_key"]
 
 
-def test_license_alias_is_retired_without_removing_the_activation_request_field() -> None:
+def test_license_alias_is_retired_and_historical_migration_is_retained() -> None:
     manifest = json.loads((REPO_ROOT / "verification/contracts/config-ownership.yaml").read_text(encoding="utf-8"))
     settings = {item["key"]: item for item in manifest["standalone_app_settings"]}
     alias = settings["license_key"]
@@ -67,9 +66,6 @@ def test_license_alias_is_retired_without_removing_the_activation_request_field(
     assert alias["status"] == "retired-approved"
     assert alias["retirement_approval"]
     assert alias["accesses"] == []
-
-    license_schema = LicenseRequest.model_json_schema()
-    assert set(license_schema["properties"]) == {"license_key"}
 
     migration = (REPO_ROOT / "migrations/versions/0021_p11_license_alias_cutover.py").read_text(encoding="utf-8")
     assert "license_key" in migration

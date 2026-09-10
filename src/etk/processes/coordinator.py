@@ -89,7 +89,6 @@ _DAILY_THEME_JOB = "daily_theme_job"
 _SHARED_SYNC_JOB = "shared_share_status_sync_job"
 _PLAY_POOL_JOB = "play_pool_daily_speedtest_job"
 _P115_TEMP_CLEANUP_JOB = "p115_temp_dir_cleanup_job"
-_PRO_STATUS_JOB = "pro_status_check_job"
 _PLUGIN_UPDATE_JOB = "etk_plugin_update_startup_job"
 _JOB_DISPATCH_TOPIC = "job.dispatch.requested"
 _JOB_DISPATCH_TOPICS = (_JOB_DISPATCH_TOPIC,)
@@ -101,7 +100,6 @@ _MANAGED_SCHEDULE_IDS = frozenset(
         _SHARED_SYNC_JOB,
         _PLAY_POOL_JOB,
         _P115_TEMP_CLEANUP_JOB,
-        _PRO_STATUS_JOB,
         _PLUGIN_UPDATE_JOB,
     }
 )
@@ -333,13 +331,6 @@ class PersistentScheduleManager:
                 _P115_TEMP_CLEANUP_JOB,
                 {"older_than_hours": 3},
             )
-        plan[_PRO_STATUS_JOB] = self._operation_spec(
-            "system.pro-status-check",
-            "Pro状态检查",
-            CronTrigger.from_crontab("0 3 * * *", timezone="Asia/Shanghai"),
-            _PRO_STATUS_JOB,
-            {},
-        )
         if not self._startup_operation_scheduled:
             plan[_PLUGIN_UPDATE_JOB] = self._operation_spec(
                 "media.plugin-update-check",

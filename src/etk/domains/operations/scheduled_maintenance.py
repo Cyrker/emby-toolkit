@@ -4,7 +4,6 @@ import re
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Protocol
 from urllib.parse import quote
@@ -17,7 +16,6 @@ from etk.platform.jobs import PersistentEffectIndeterminate
 _PLUGIN_NAME = "ETK MediaInfo Bridge"
 _PLUGIN_TASK_KEY = "ETKMediaInfoBridgeUpdate"
 _LATEST_PLUGIN_RELEASE_API = "https://api.github.com/repos/hbq0405/etk-mediainfo-bridge/releases/latest"
-_PRO_AUTH_WORKER_URL = "https://auth.55565576.xyz"
 
 
 class ScheduledOperationProgress(Protocol):
@@ -34,12 +32,6 @@ class P115PlaybackCleanupPort(Protocol):
     def cleanup(self) -> int: ...
 
     def is_pool_enabled(self) -> bool: ...
-
-
-class AppSettingsPort(Protocol):
-    def load(self, key: str) -> Any: ...
-
-    def save_many(self, values: Mapping[str, Any]) -> None: ...
 
 
 class ScheduledWriteStatus(StrEnum):
@@ -66,10 +58,6 @@ class PluginUpdatePort(Protocol):
     def pending_restart(self) -> bool: ...
 
     def restart(self) -> ScheduledWriteResult: ...
-
-
-class ProStatusPort(Protocol):
-    def check(self, server_id: str) -> Mapping[str, Any]: ...
 
 
 class NativeP115TempCleanupOperation:
@@ -207,73 +195,6 @@ class NativePluginUpdateCheckOperation:
         }
 
 
-class NativeProStatusCheckOperation:
-    def __init__(
-        self,
-        repository: AppSettingsPort,
-        gateway: ProStatusPort,
-        *,
-        now: Callable[[], datetime] = lambda: datetime.now(UTC),
-    ) -> None:
-        self._repository = repository
-        self._gateway = gateway
-        self._now = now
-
-    def execute(
-        self,
-        parameters: Mapping[str, Any],
-        progress: ScheduledOperationProgress,
-    ) -> Mapping[str, Any]:
-        if parameters:
-            raise ValueError("Pro status check does not accept parameters")
-        server_id = str(self._repository.load("emby_server_id_cache") or "").strip()
-        if not server_id:
-            return {"ok": True, "checked": False, "reason": "server_id_unavailable"}
-        progress.checkpoint()
-        try:
-            response = self._gateway.check(server_id)
-        except Exception as exc:
-            retained = self._saved_status_is_valid()
-            return {
-                "ok": retained,
-                "checked": False,
-                "active": retained,
-                "reason": "request_failed",
-                "message": str(exc),
-            }
-        if response.get("success") and response.get("is_pro"):
-            expire_time = str(response.get("expire_time") or "2099-12-31T23:59:59Z").strip()
-            self._repository.save_many({"pro_expire_time": expire_time})
-            progress.update(100, "Pro 状态已确认")
-            return {"ok": True, "checked": True, "active": True, "pro_expire_time": expire_time}
-        if response.get("success"):
-            self._repository.save_many({"pro_expire_time": ""})
-            progress.update(100, "Pro 状态已确认")
-            return {
-                "ok": True,
-                "checked": True,
-                "active": False,
-                "message": str(response.get("msg") or ""),
-            }
-        retained = self._saved_status_is_valid()
-        return {
-            "ok": retained,
-            "checked": True,
-            "active": retained,
-            "message": str(response.get("msg") or "authorization check failed"),
-        }
-
-    def _saved_status_is_valid(self) -> bool:
-        license_key = str(self._repository.load("pro_license_key") or "").strip()
-        expires_at = _parse_datetime(self._repository.load("pro_expire_time"))
-        if not license_key or expires_at is None:
-            return False
-        now = self._now()
-        if expires_at.tzinfo is None:
-            now = now.replace(tzinfo=None)
-        return expires_at > now
-
-
 class HttpxScheduledPluginUpdateGateway:
     def __init__(
         self,
@@ -383,34 +304,6 @@ class HttpxScheduledPluginUpdateGateway:
         )
 
 
-class HttpxProStatusGateway:
-    def __init__(
-        self,
-        settings: Callable[[], Settings],
-        *,
-        client_factory: Callable[[], httpx.Client] | None = None,
-    ) -> None:
-        self._settings = settings
-        self._client_factory = client_factory or self._default_client
-
-    def check(self, server_id: str) -> Mapping[str, Any]:
-        with self._client_factory() as client:
-            response = client.post(
-                _PRO_AUTH_WORKER_URL,
-                json={"action": "check", "server_id": str(server_id or "").strip()},
-            )
-        response.raise_for_status()
-        payload: Any = response.json()
-        if not isinstance(payload, Mapping):
-            raise RuntimeError("Pro status endpoint returned an invalid payload")
-        return dict(payload)
-
-    def _default_client(self) -> httpx.Client:
-        settings = self._settings()
-        proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
-        return httpx.Client(proxy=proxy or None, timeout=httpx.Timeout(10.0, connect=5.0))
-
-
 def _task_end_time(task: Mapping[str, Any] | None) -> str:
     result = task.get("LastExecutionResult") if isinstance(task, Mapping) else None
     return str(result.get("EndTimeUtc") or "").strip() if isinstance(result, Mapping) else ""
@@ -421,25 +314,10 @@ def _version_tuple(value: object) -> tuple[int, int, int, int] | None:
     return tuple((numbers + [0, 0, 0, 0])[:4]) if numbers else None  # type: ignore[return-value]
 
 
-def _parse_datetime(value: object) -> datetime | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-    try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except ValueError:
-        try:
-            return datetime.strptime(text.split(".")[0].replace("T", " "), "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            return None
-
-
 __all__ = [
-    "HttpxProStatusGateway",
     "HttpxScheduledPluginUpdateGateway",
     "NativeP115TempCleanupOperation",
     "NativePluginUpdateCheckOperation",
-    "NativeProStatusCheckOperation",
     "ScheduledWriteResult",
     "ScheduledWriteStatus",
 ]

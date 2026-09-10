@@ -129,11 +129,9 @@ from etk.domains.operations.review_reprocess import (
     SqlAlchemyReviewReprocessRepository,
 )
 from etk.domains.operations.scheduled_maintenance import (
-    HttpxProStatusGateway,
     HttpxScheduledPluginUpdateGateway,
     NativeP115TempCleanupOperation,
     NativePluginUpdateCheckOperation,
-    NativeProStatusCheckOperation,
 )
 from etk.domains.operations.system_runtime import NativeSystemRestartOperation
 from etk.domains.p115 import (
@@ -566,10 +564,6 @@ def _p115_native_operation_router(
         ),
         "system.restart": NativeSystemRestartOperation(),
         "p115.temp-cleanup": NativeP115TempCleanupOperation(playback),
-        "system.pro-status-check": NativeProStatusCheckOperation(
-            app_settings,
-            HttpxProStatusGateway(settings_provider),
-        ),
         "media.plugin-update-check": NativePluginUpdateCheckOperation(
             HttpxScheduledPluginUpdateGateway(settings_provider)
         ),

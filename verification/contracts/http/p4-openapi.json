@@ -19460,51 +19460,6 @@
         ]
       }
     },
-    "/api/system/activate_pro": {
-      "post": {
-        "operationId": "activate_pro_api_system_activate_pro_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "license_key": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "title": "License Key"
-                  }
-                },
-                "title": "LicenseRequest",
-                "type": "object"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExternalObjectResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Activate Pro",
-        "tags": [
-          "system"
-        ]
-      }
-    },
     "/api/system/menu_config": {
       "get": {
         "operationId": "get_menu_config_api_system_menu_config_get",
@@ -19586,27 +19541,6 @@
         ]
       }
     },
-    "/api/system/pro_pricing": {
-      "get": {
-        "operationId": "pro_pricing_api_system_pro_pricing_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExternalObjectResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Pro Pricing",
-        "tags": [
-          "system"
-        ]
-      }
-    },
     "/api/system/restart": {
       "post": {
         "operationId": "restart_system_api_system_restart_post",
@@ -19627,51 +19561,6 @@
         "summary": "Restart System",
         "tags": [
           "operations"
-        ]
-      }
-    },
-    "/api/system/transfer_pro": {
-      "post": {
-        "operationId": "transfer_pro_api_system_transfer_pro_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "license_key": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "title": "License Key"
-                  }
-                },
-                "title": "LicenseRequest",
-                "type": "object"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ExternalObjectResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Transfer Pro",
-        "tags": [
-          "system"
         ]
       }
     },

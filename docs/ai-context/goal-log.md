@@ -6274,3 +6274,45 @@ Pending / Blocker / Next:
 - No P12 P0/P1/P2 blocker remains; P12 is `DONE`; local checkpoint `32d980ce` records the harness,
   guard tests and tracker state. Live external-system acceptance remains `HUMAN_PENDING`. No push,
   deployment, release or real external write was performed.
+
+### DIRECT-REQ-001-Full-Access-20260910
+
+TASK / HEAD:
+
+- Remove the current native ETK Pro purchase/activation system and license gates; pre-checkpoint HEAD
+  `971fe7b3`.
+
+Implemented:
+
+- Replaced the General Settings commercial card with a static fully-unlocked state and removed Pro
+  pricing, purchase, activation, renewal, transfer and marketing UI/API bindings. Removed Pro labels
+  from Virtual Library, TG channel monitoring and the Telegram quick menu.
+- Retired the three native Pro APIs, remote authorization gateway and daily status operation. HTTP
+  and WebSocket Proxy no longer accept or enforce a license state; normal login/admin permissions,
+  feature enable switches and third-party Shared Center/HDHive entitlements remain unchanged.
+- Fixed the native configuration writer exposed by the local image rebuild: identity and system
+  configuration now share one serialized PostgreSQL-backed writer, reject non-persistent bootstrap
+  updates and preserve committed configuration across API restart. Identity projection conflicts now
+  honor repository CAS rejection and report that service authorization was already saved.
+
+Gate:
+
+- Current backend/application regression scope -> `125 passed`; ownership/static contracts -> `14
+  passed`. Scoped Ruff/format and Pyright (`0 errors, 0 warnings, 0 informations`), manifest currentness,
+  OpenAPI currentness and `git diff --check` passed.
+- Frontend typecheck, `26` unit tests, API-boundary check and production build passed; the build has
+  only the existing Vite large-chunk warning. Browser validation showed `Emby Toolkit 完整功能版`,
+  `全部功能已解锁，无需激活码`, `全部解锁` and `虚拟库`, with no upgrade action.
+- Final local arm64 image `etk-refactor:local-full-access-final-971fe7b3` is
+  `sha256:0b67b2db921702f5df4433f0f013c232f52ca135a2ccd7ee5fdd93764527cef7`
+  (`327115557` bytes). All native services are healthy, migrate exited `0`, runtime OpenAPI is
+  `318 paths / 373 operations`, and the three Pro routes are absent. A local-only fixture proved
+  configuration survives API restart; the fixture was removed and the original four standalone
+  app-setting rows were preserved.
+
+Pending / Blocker / Next:
+
+- No DIRECT-REQ-001 P0/P1/P2 blocker remains. The prior Emby authorization was never present in the
+  mounted config volume or `dynamic_app_config`, so it cannot be reconstructed; the local page is
+  restored to `/setup` and requires one human re-authorization. Live remains `HUMAN_PENDING`. No
+  push, deployment, release or real external write was performed.

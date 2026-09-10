@@ -8,10 +8,7 @@
       "routes/system.py:343",
       "routes/system.py:416",
       "routes/system.py:467",
-      "routes/system.py:732",
-      "routes/system.py:874",
-      "routes/system.py:898",
-      "routes/system.py:946"
+      "routes/system.py:732"
     ],
     "external_validation": "pending"
   },
@@ -20,16 +17,12 @@
     {"method": "POST", "path": "/api/ai/models", "permission": "admin"},
     {"method": "POST", "path": "/api/proxy/test", "permission": "public"},
     {"method": "POST", "path": "/api/telegram/test", "permission": "admin"},
-    {"method": "GET", "path": "/api/system/about_info", "permission": "public"},
-    {"method": "GET", "path": "/api/system/pro_pricing", "permission": "admin"},
-    {"method": "POST", "path": "/api/system/activate_pro", "permission": "admin"},
-    {"method": "POST", "path": "/api/system/transfer_pro", "permission": "admin"}
+    {"method": "GET", "path": "/api/system/about_info", "permission": "public"}
   ],
   "live_acceptance": {
     "ai": "pending",
     "tmdb_proxy": "pending",
     "telegram": "pending",
-    "github": "pending",
-    "pro_worker": "pending"
+    "github": "pending"
   }
 }

@@ -2356,10 +2356,11 @@
       "route-binding-bfaf052fd1db": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.system.integration_router",
-        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
-        "status": "new",
-        "validation_method": "pytest-contract-and-openapi",
+        "new_owner": null,
+        "notes": "The native Pro activation route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
+        "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
+        "status": "retired-approved",
+        "validation_method": "pytest-native-route-absence-and-openapi",
         "validation_owner": "system/integrations"
       },
       "route-binding-c158af28ae58": {
@@ -2401,10 +2402,11 @@
       "route-binding-cadc848c90c6": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.system.integration_router",
-        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
-        "status": "new",
-        "validation_method": "pytest-contract-and-openapi",
+        "new_owner": null,
+        "notes": "The native Pro pricing route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
+        "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
+        "status": "retired-approved",
+        "validation_method": "pytest-native-route-absence-and-openapi",
         "validation_owner": "system/integrations"
       },
       "route-binding-cff5dce4a210": {
@@ -2482,10 +2484,11 @@
       "route-binding-f3d4ebd0e19b": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.system.integration_router",
-        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
-        "status": "new",
-        "validation_method": "pytest-contract-and-openapi",
+        "new_owner": null,
+        "notes": "The native Pro device-transfer route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
+        "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
+        "status": "retired-approved",
+        "validation_method": "pytest-native-route-absence-and-openapi",
         "validation_owner": "system/integrations"
       },
       "route-binding-f49b64f755a7": {
@@ -5148,10 +5151,11 @@
       "route-decorator-121de60e0d10": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.system.integration_router",
-        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
-        "status": "new",
-        "validation_method": "pytest-contract-and-openapi",
+        "new_owner": null,
+        "notes": "The native Pro activation route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
+        "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
+        "status": "retired-approved",
+        "validation_method": "pytest-native-route-absence-and-openapi",
         "validation_owner": "system/integrations"
       },
       "route-decorator-14851d67a6d5": {
@@ -5382,10 +5386,11 @@
       "route-decorator-8122e33d4a91": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.system.integration_router",
-        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
-        "status": "new",
-        "validation_method": "pytest-contract-and-openapi",
+        "new_owner": null,
+        "notes": "The native Pro device-transfer route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
+        "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
+        "status": "retired-approved",
+        "validation_method": "pytest-native-route-absence-and-openapi",
         "validation_owner": "system/integrations"
       },
       "route-decorator-8381564bc3c5": {
@@ -5634,10 +5639,11 @@
       "route-decorator-d8830447a610": {
         "fixture": "verification/fixtures/http/system-integration-routes.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.system.integration_router",
-        "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
-        "status": "new",
-        "validation_method": "pytest-contract-and-openapi",
+        "new_owner": null,
+        "notes": "The native Pro pricing route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
+        "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
+        "status": "retired-approved",
+        "validation_method": "pytest-native-route-absence-and-openapi",
         "validation_owner": "system/integrations"
       },
       "route-decorator-dc34513fe7f4": {
@@ -7859,10 +7865,10 @@
       "setting-ab3540f4bf93": {
         "fixture": "verification/integration/p3/test_license_alias_cutover_postgres18.py",
         "fixture_exception": null,
-        "notes": "P11 migration 0021 copies a non-empty historical license_key string into canonical pro_license_key only when the canonical value is absent or empty. The alias row is preserved for rollback inspection, while operational readers use only the canonical setting; the request field named license_key remains part of the Pro activation API and is not this retired storage contract.",
+        "notes": "P11 migration 0021 copies a non-empty historical license_key string into canonical pro_license_key only when the canonical value is absent or empty. The alias row is preserved for rollback inspection, while operational readers use only the canonical setting; the retired Pro activation API no longer exposes a request field with the same name.",
         "retirement_approval": "P11 Pro license alias cutover 0021; historical source row preserved",
         "status": "retired-approved",
-        "validation_method": "postgres18-cutover-operational-reader-sentinel-and-openapi-request-contract",
+        "validation_method": "postgres18-cutover-and-operational-reader-sentinel",
         "validation_owner": "system/integrations"
       },
       "setting-4640efe53366": {

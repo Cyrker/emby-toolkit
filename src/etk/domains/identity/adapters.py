@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import threading
 import time
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol
@@ -9,8 +11,11 @@ import httpx
 
 from etk.bootstrap.runtime_supervisor import RuntimeSupervisor
 from etk.platform import AppContainer, Settings
+from etk.platform.config import BOOTSTRAP_KEYS
 from etk.platform.control_plane import ControlPlaneClient
 from etk.platform.internal_urls import derive_internal_service_url, validate_internal_service_url
+
+logger = logging.getLogger(__name__)
 
 _ETK_LIBRARY_ITEM_TYPES = {
     "movies": {"Movie", "BoxSet"},
@@ -29,6 +34,10 @@ class _PluginInstaller(Protocol):
         etk_origin: str,
         request_id: str | None = None,
     ) -> dict[str, Any]: ...
+
+
+class _ConfigurationPersistence(Protocol):
+    def merge_and_save(self, settings: Settings, updates: Mapping[str, Any]) -> Settings: ...
 
 
 class HttpxEmbyIdentityGateway:
@@ -312,17 +321,41 @@ class HttpxEmbyIdentityGateway:
 class RuntimeConfigurationWriter:
     """Validate, persist, reload, and synchronize one process configuration snapshot."""
 
-    def __init__(self, container: AppContainer, supervisor: RuntimeSupervisor) -> None:
+    def __init__(
+        self,
+        container: AppContainer,
+        supervisor: RuntimeSupervisor,
+        *,
+        persistence: _ConfigurationPersistence | None = None,
+    ) -> None:
         self._container = container
         self._supervisor = supervisor
+        self._persistence = persistence
+        self._lock = threading.Lock()
 
     def save(self, updates: Mapping[str, Any]) -> Settings:
-        validated = self._container.settings.with_updates(updates)
-        self._supervisor.save_config_and_reload(dict(updates))
-        runtime_config = self._supervisor.config
-        refreshed = validated.with_updates(runtime_config) if runtime_config else validated
-        self._container.settings = refreshed
-        return refreshed
+        bootstrap_updates = sorted(set(updates) & set(BOOTSTRAP_KEYS))
+        if bootstrap_updates:
+            raise ValueError(f"bootstrap settings require explicit INI persistence: {', '.join(bootstrap_updates)}")
+
+        with self._lock:
+            validated = self._container.settings.with_updates(updates)
+            if self._persistence is None:
+                self._supervisor.save_config_and_reload(dict(updates))
+                runtime_config = self._supervisor.config
+                refreshed = validated.with_updates(runtime_config) if runtime_config else validated
+            else:
+                persisted = self._persistence.merge_and_save(validated, updates)
+                try:
+                    self._supervisor.save_config_and_reload(persisted.to_runtime_dict())
+                except Exception:
+                    logger.exception("Runtime reload failed after configuration was persisted")
+                    refreshed = persisted
+                else:
+                    runtime_config = self._supervisor.config
+                    refreshed = persisted.with_updates(runtime_config) if runtime_config else persisted
+            self._container.settings = refreshed
+            return refreshed
 
 
 def _http_base_url(value: str) -> str:

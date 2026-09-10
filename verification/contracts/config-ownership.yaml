@@ -3548,7 +3548,7 @@
       "key": "license_key",
       "mutability": "runtime_dynamic",
       "new_owner": null,
-      "notes": "P11 migration 0021 copies a non-empty historical license_key string into canonical pro_license_key only when the canonical value is absent or empty. The alias row is preserved for rollback inspection, while operational readers use only the canonical setting; the request field named license_key remains part of the Pro activation API and is not this retired storage contract.",
+      "notes": "P11 migration 0021 copies a non-empty historical license_key string into canonical pro_license_key only when the canonical value is absent or empty. The alias row is preserved for rollback inspection, while operational readers use only the canonical setting; the retired Pro activation API no longer exposes a request field with the same name.",
       "restart_level": "call-site-specific",
       "retirement_approval": "P11 Pro license alias cutover 0021; historical source row preserved",
       "secret": true,
@@ -3556,7 +3556,7 @@
       "storage": "app_settings",
       "storage_default": null,
       "target_stage": "P2",
-      "validation_method": "postgres18-cutover-operational-reader-sentinel-and-openapi-request-contract",
+      "validation_method": "postgres18-cutover-and-operational-reader-sentinel",
       "validation_owner": "system/integrations"
     },
     {

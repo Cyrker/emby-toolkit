@@ -16,28 +16,19 @@
         >
           <n-grid class="settings-top-cards" cols="1 l:2" :x-gap="24" :y-gap="16" responsive="screen">
             <n-gi>
-              <n-card :bordered="false" class="dashboard-card pro-card">
+              <n-card :bordered="false" class="dashboard-card">
                 <div class="top-card-content">
                   <div>
-                    <div class="top-card-title" :style="{ color: proStatusInfo.color }">
-                      <span class="top-card-icon">{{ proStatusInfo.icon }}</span>
-                      Emby Toolkit {{ proStatusInfo.text }}
+                    <div class="top-card-title">
+                      <span class="top-card-icon">✓</span>
+                      Emby Toolkit 完整功能版
                     </div>
                     <div class="top-card-desc">
-                      <span v-html="proStatusInfo.desc"></span><br/>
-                      <span v-if="configModel?.is_pro_active" class="pro-expire-time">
-                        {{ configModel?.pro_expire_time?.startsWith('2099') ? '到期时间：永久有效' : '到期时间：' + configModel?.pro_expire_time?.split('T')[0] }}
-                      </span>
+                      全部功能已解锁，无需激活码
                     </div>
                   </div>
                   <n-space align="center">
-                    <n-tag v-if="configModel?.is_pro_active" type="warning" size="large" round :bordered="false" class="pro-active-tag">
-                      已激活
-                    </n-tag>
-                    <n-button type="warning" size="large" strong @click="showProModal = true">
-                      <template #icon><n-icon><DiamondIcon /></n-icon></template>
-                      {{ configModel?.is_pro_active ? '续期 Pro' : '升级 Pro' }}
-                    </n-button>
+                    <n-tag type="success" size="large" round :bordered="false">全部解锁</n-tag>
                   </n-space>
                 </div>
               </n-card>
@@ -165,7 +156,7 @@
                 <!-- ########## 右侧卡片: 虚拟库 (反向代理) ########## -->
                 <n-gi>
                   <n-card :bordered="false" class="dashboard-card">
-                    <template #header><span class="card-title">虚拟库（Pro）</span></template>
+                    <template #header><span class="card-title">虚拟库</span></template>
                     
                     <!-- 同样使用紧凑双列 -->
                     <n-grid cols="1 m:2" :x-gap="12" :y-gap="12" responsive="screen">
@@ -1207,7 +1198,7 @@
                     <n-card :bordered="false" class="dashboard-card">
                       <template #header>
                         <div style="display: flex; align-items: center; justify-content: space-between;">
-                          <span class="card-title">TG 频道监听 (Pro)</span>
+                          <span class="card-title">TG 频道监听</span>
                           <n-button secondary type="info" @click="tgMonitorModalRef?.open()">
                             <template #icon><n-icon :component="PaperPlaneIcon" /></template>
                             配置
@@ -2011,73 +2002,6 @@
       </n-space>
     </template>
   </n-modal>
-  <!-- ★★★ Pro 激活模态框 ★★★ -->
-  <n-modal v-model:show="showProModal" preset="card" :title="isTransferMode ? '🔄 换绑 Pro 设备' : (configModel?.is_pro_active ? '💎 续期 Pro 高级版' : '💎 升级 Pro 高级版')" :style="modalStyle(500)" class="custom-modal glass-modal">
-      <n-space vertical :size="20">
-        
-        <!-- 正常激活/续期模式显示的 UI -->
-        <template v-if="!isTransferMode">
-          <n-radio-group v-model:value="proTier" name="pro_tier_group" style="width: 100%;">
-            <n-grid :cols="proTierGridCols" :x-gap="12" :y-gap="12">
-              <n-gi v-for="option in proTierOptions" :key="option.key">
-                <n-radio-button :value="option.key" style="width: 100%; text-align: center; padding: 10px 0; height: auto;">
-                  <div style="font-size: 16px; font-weight: bold;">{{ option.label }}</div>
-                  <div style="color: #d48806; font-size: 18px; margin-top: 4px;">
-                    ￥{{ option.amountText }}<span v-if="option.note">({{ option.note }})</span>
-                  </div>
-                </n-radio-button>
-              </n-gi>
-            </n-grid>
-          </n-radio-group>
-
-          <div style="text-align: center; background: #fafafa; padding: 15px; border-radius: 8px; border: 1px dashed #eee;">
-            <n-image width="180" src="/img/ptskm.jpg" fallback-src="https://via.placeholder.com/180?text=WeChat+Pay" />
-            <div style="margin-top: 10px; font-size: 14px;">
-              请使用微信扫码支付 <b style="color: #d03050; font-size: 18px;">￥{{ proPrice }}</b>
-            </div>
-            <div style="margin-top: 8px; font-size: 13px; color: #666;">
-              支付成功后，请截图有交易单号的支付详情页发送给 TG机器人: <a href="https://t.me/metkd_bot" target="_blank" style="color: var(--n-primary-color); font-weight: bold;">@ETK大管家</a> 领取激活码。
-            </div>
-          </div>
-        </template>
-
-        <!-- 换绑模式显示的 UI -->
-        <template v-else>
-          <n-alert type="info" :show-icon="true">
-            如果您重装了 Emby 导致 Server ID 变更，可以在此输入您<b>最后一次购买/使用过</b>的激活码。<br/>
-            系统将自动把剩余的 Pro 时长转移到当前新设备上。
-          </n-alert>
-        </template>
-
-        <n-divider style="margin: 0;" />
-
-        <n-form-item :label="isTransferMode ? '请输入曾用过的激活码：' : '请输入获取到的激活码：'">
-          <n-input
-            v-model:value="licenseKey"
-            placeholder="例如: ETK-M-A1B2C3D4"
-            size="large"
-            clearable
-            @keyup.enter="handleActivatePro"
-          />
-        </n-form-item>
-
-        <!-- 模式切换按钮 -->
-        <div style="text-align: center; font-size: 13px; color: #888;">
-          <a v-if="!isTransferMode && !configModel?.is_pro_active" @click="isTransferMode = true" style="cursor: pointer; color: var(--n-primary-color); text-decoration: underline;">重装了 Emby？点击这里换绑设备</a>
-          <a v-if="isTransferMode" @click="isTransferMode = false" style="cursor: pointer; color: var(--n-primary-color); text-decoration: underline;">返回激活/续期</a>
-        </div>
-      </n-space>
-
-      <template #footer>
-        <n-space justify="end">
-          <n-button @click="showProModal = false">取消</n-button>
-          <n-button type="warning" @click="handleActivatePro" :loading="isActivating" :disabled="!licenseKey">
-            {{ proActionButtonText }}
-          </n-button>
-        </n-space>
-      </template>
-    </n-modal>
-
     <!-- ★ 引入频道监听模态框 -->
     <TelegramTemplateModal ref="telegramTemplateModalRef" />
     <TGMonitorModal ref="tgMonitorModalRef" />
@@ -2115,7 +2039,6 @@ import {
   ListOutline as ListIcon, 
   ColorWandOutline as ColorWandIcon,
   SearchOutline as SearchIcon,
-  DiamondOutline as DiamondIcon,
   ArrowUpOutline as ArrowUpIcon,
   RefreshOutline as RefreshIcon,
   PaperPlaneOutline as PaperPlaneIcon,
@@ -2402,15 +2325,6 @@ const isTestingProxy = ref(false);
 const isCleaningOffline = ref(false);
 const isClearingVectors = ref(false);
 const isTestingAI = ref(false);
-// ★★★ Pro 激活相关状态与逻辑 ★★★
-const showProModal = ref(false);
-const licenseKey = ref('');
-const isActivating = ref(false);
-const proTier = ref('year'); // 默认选中年付
-const isTransferMode = ref(false);
-const proPricing = ref(null);
-const isLoadingProPricing = ref(false);
-
 const loadTempDirConfig = async () => {
   tempDirConfigLoading.value = true;
   try {
@@ -2455,156 +2369,6 @@ const saveTempDirConfig = async () => {
     tempDirConfigSaving.value = false;
   }
 };
-
-const fallbackProTierOptions = [
-  { key: 'month', tier: 'M', label: '月付', amount: '8.00', amountText: '8', note: '' },
-  { key: 'year', tier: 'Y', label: '年付', amount: '68.00', amountText: '68', note: '' },
-  { key: 'lifetime', tier: 'L', label: '终身', amount: '188.00', amountText: '188', note: '含部署' }
-];
-
-const normalizeProTierOption = (item) => {
-  const amount = String(item?.amount || '0.00');
-  return {
-    key: item?.key,
-    tier: item?.tier,
-    label: item?.label || item?.key,
-    amount,
-    amountText: amount.replace(/\.00$/, ''),
-    note: item?.note || ''
-  };
-};
-
-const proTierOptions = computed(() => {
-  const tiers = Array.isArray(proPricing.value?.tiers) ? proPricing.value.tiers : [];
-  const options = tiers.map(normalizeProTierOption).filter(item => item.key && item.amount !== '0.00');
-  return options.length ? options : fallbackProTierOptions;
-});
-
-const proTierGridCols = computed(() => {
-  if (isMobile.value) return 1;
-  return Math.min(Math.max(proTierOptions.value.length, 1), 4);
-});
-
-const syncSelectedProTier = () => {
-  if (proTierOptions.value.some(item => item.key === proTier.value)) return;
-  proTier.value = proTierOptions.value.find(item => item.key === 'year')?.key || proTierOptions.value[0]?.key || 'year';
-};
-
-const loadProPricing = async () => {
-  if (isLoadingProPricing.value) return;
-  isLoadingProPricing.value = true;
-  try {
-    const response = await apiClient.get(apiPath('api_system_pro_pricing_a4b44944'));
-    if (response.data?.success && Array.isArray(response.data.tiers)) {
-      proPricing.value = response.data;
-      syncSelectedProTier();
-    }
-  } catch (error) {
-    console.warn('加载 Pro 价格失败，使用本地兜底价格:', error);
-  } finally {
-    isLoadingProPricing.value = false;
-  }
-};
-
-const proPrice = computed(() => {
-  return proTierOptions.value.find(item => item.key === proTier.value)?.amount || '0.00';
-});
-
-const proActionButtonText = computed(() => {
-  if (isTransferMode.value) return '换绑';
-  return configModel.value?.is_pro_active ? '续期' : '激活';
-});
-
-watch(showProModal, (visible) => {
-  if (visible && !isTransferMode.value) {
-    loadProPricing();
-  }
-});
-
-const handleActivatePro = async () => {
-  if (!licenseKey.value.trim()) {
-    message.warning('请输入激活码');
-    return;
-  }
-  isActivating.value = true;
-  try {
-    const wasProBefore = configModel.value?.is_pro_active;
-    
-    // ★ 智能判断请求哪个接口
-    const endpoint = isTransferMode.value ? apiPath('api_system_transfer_pro_3939230c') : apiPath('api_system_activate_pro_388aa671');
-
-    const response = await apiClient.post(endpoint, {
-      license_key: licenseKey.value.trim()
-    });
-    
-    if (response.data.success) {
-      showProModal.value = false;
-      
-      // 如果是换绑，或者首次激活，都需要重启容器加载 302 服务
-      if (isTransferMode.value || !wasProBefore) {
-        dialog.success({
-          title: isTransferMode.value ? '🎉 换绑成功' : '🎉 激活成功',
-          content: 'Pro 高级功能已就绪。系统将在 3 秒后自动重启以加载 302 反代服务...',
-          positiveText: '好的',
-          closable: false,
-          maskClosable: false,
-          onPositiveClick: () => {}
-        });
-        
-        setTimeout(() => {
-          triggerRestart();
-        }, 3000);
-      } else {
-        // 续期：直接刷新页面
-        dialog.success({
-          title: '🎉 续期成功',
-          content: '感谢您的持续支持！您的 Pro 高级版有效期已成功延长。',
-          positiveText: '好的',
-          onPositiveClick: () => {
-            window.location.reload(); 
-          }
-        });
-      }
-      
-    } else {
-      message.error(response.data.message || '操作失败，请检查激活码');
-    }
-  } catch (error) {
-    message.error(error.response?.data?.message || '连接验证服务器失败，请检查网络');
-  } finally {
-    isActivating.value = false;
-  }
-};
-
-// ★★★ 智能判断 Pro 用户的尊贵等级 ★★★
-const proStatusInfo = computed(() => {
-  if (!configModel.value?.is_pro_active) {
-    return { 
-      icon: '💎', 
-      text: '免费基础版', 
-      color: '#888', 
-      desc: '升级 Pro 版，解锁 302 直链 (虚拟库)。<a href="https://t.me/+jd5Y1Loi4bs4MzA1" target="_blank" style="color: #1890ff; text-decoration: none;">进群免费领取体验码</a>' 
-    };
-  }
-  
-  const key = configModel.value.pro_license_key || '';
-  // 定义 Pro 用户的加群链接
-  const proLink = ' <a href="https://t.me/+jd5Y1Loi4bs4MzA1" target="_blank" style="color: #1890ff; text-decoration: none;">加群交流使用心得</a>';
-  
-  if (key.includes('-L-')) {
-    return { icon: '💎', text: 'Pro 终身高级版', color: '#d48806', desc: '尊贵的终身 Pro 用户，您已永久解锁全部功能！' + proLink };
-  } else if (key.includes('-Y-')) {
-    return { icon: '☀️', text: 'Pro 年费高级版', color: '#d48806', desc: '尊贵的年费 Pro 用户，您已解锁全部功能！' + proLink };
-  } else if (key.includes('-Q-')) {
-    return { icon: '⭐', text: 'Pro 季费高级版', color: '#d48806', desc: '尊贵的季费 Pro 用户，您已解锁全部功能！' + proLink };
-  } else if (key.includes('-M-')) {
-    return { icon: '🌙', text: 'Pro 月费高级版', color: '#d48806', desc: '尊贵的月费 Pro 用户，您已解锁全部功能！' + proLink };
-  } else if (key.includes('-C-')) {
-    return { icon: '🎁', text: 'Pro 体验版', color: '#d48806', desc: '您正在使用 Pro 体验版，已解锁全部功能！' + proLink };
-  } else {
-    return { icon: '💎', text: 'Pro 高级版', color: '#d48806', desc: '尊贵的 Pro 用户，您已解锁全部功能！' + proLink };
-  }
-});
 
 const embyServiceAuthorized = computed(() => {
   const model = configModel.value || {};
@@ -3963,21 +3727,6 @@ onUnmounted(() => {
   color: #888;
   margin-top: 6px;
   line-height: 1.6;
-}
-.pro-card {
-  background: linear-gradient(135deg, #fffcf8 0%, #fff 100%);
-  border: 1px solid #ffe5c4;
-}
-.pro-expire-time {
-  color: #d48806;
-  font-weight: bold;
-  margin-top: 4px;
-  display: inline-block;
-}
-.pro-active-tag {
-  font-weight: bold;
-  font-size: 14px;
-  padding: 0 15px;
 }
 .quick-deploy-card {
   height: 100%;

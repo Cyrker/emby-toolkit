@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import os
 import time
 from collections.abc import Callable, Mapping
-from typing import Any, Protocol
+from typing import Any
 
 import httpx
 
@@ -11,17 +10,10 @@ from etk.platform import Settings
 
 from .integrations import ExternalResult
 
-_PRO_AUTH_WORKER_URL = "https://auth.55565576.xyz"
-
-
-class _SettingsReader(Protocol):
-    def load(self, key: str) -> Any: ...
-
 
 class HttpxSystemIntegrationGateway:
-    def __init__(self, settings: Callable[[], Settings], repository: _SettingsReader) -> None:
+    def __init__(self, settings: Callable[[], Settings]) -> None:
         self._settings = settings
-        self._repository = repository
 
     def test_ai(self, config: Mapping[str, Any]) -> ExternalResult:
         from ai_translator import AITranslator
@@ -170,28 +162,6 @@ class HttpxSystemIntegrationGateway:
         except (httpx.HTTPError, ValueError, TypeError):
             releases = []
         return constants.APP_VERSION, releases
-
-    def pricing(self) -> Mapping[str, Any] | None:
-        url = os.getenv("ETK_PRO_AUTH_WORKER_URL", _PRO_AUTH_WORKER_URL).strip() or _PRO_AUTH_WORKER_URL
-        with self._client(timeout=5) as client:
-            response = client.post(url, json={"action": "pricing"})
-        if not response.is_success:
-            return None
-        payload = response.json()
-        return payload if isinstance(payload, Mapping) else None
-
-    def server_id(self) -> str | None:
-        value = str(self._repository.load("emby_server_id_cache") or "").strip()
-        return value or None
-
-    def pro_action(self, action: str, license_key: str, server_id: str) -> Mapping[str, Any]:
-        with self._client(timeout=10) as client:
-            response = client.post(
-                _PRO_AUTH_WORKER_URL,
-                json={"action": action, "license_key": license_key, "server_id": server_id},
-            )
-        payload = response.json()
-        return payload if isinstance(payload, Mapping) else {}
 
     def _client(self, *, timeout: float) -> httpx.Client:
         settings = self._settings()

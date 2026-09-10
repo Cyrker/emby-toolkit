@@ -5057,23 +5057,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/system/activate_pro": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Activate Pro */
-        post: operations["activate_pro_api_system_activate_pro_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/system/menu_config": {
         parameters: {
             query?: never;
@@ -5109,23 +5092,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/system/pro_pricing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Pro Pricing */
-        get: operations["pro_pricing_api_system_pro_pricing_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/system/restart": {
         parameters: {
             query?: never;
@@ -5137,23 +5103,6 @@ export interface paths {
         put?: never;
         /** Restart System */
         post: operations["restart_system_api_system_restart_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/system/transfer_pro": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Transfer Pro */
-        post: operations["transfer_pro_api_system_transfer_pro_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22893,33 +22842,6 @@ export interface operations {
             };
         };
     };
-    activate_pro_api_system_activate_pro_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** License Key */
-                    license_key?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExternalObjectResponse"];
-                };
-            };
-        };
-    };
     get_menu_config_api_system_menu_config_get: {
         parameters: {
             query?: never;
@@ -22986,26 +22908,6 @@ export interface operations {
             };
         };
     };
-    pro_pricing_api_system_pro_pricing_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExternalObjectResponse"];
-                };
-            };
-        };
-    };
     restart_system_api_system_restart_post: {
         parameters: {
             query?: never;
@@ -23024,33 +22926,6 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
-                };
-            };
-        };
-    };
-    transfer_pro_api_system_transfer_pro_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** License Key */
-                    license_key?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExternalObjectResponse"];
                 };
             };
         };

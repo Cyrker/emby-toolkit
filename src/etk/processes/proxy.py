@@ -605,7 +605,6 @@ def create_proxy_app(
     catalog: VirtualLibraryCatalog | None = None,
     leases: PlaybackLeaseStore | None = None,
     upstream: ProxyUpstreamPort | None = None,
-    license_active: bool | Callable[[], bool] = True,
     max_streams: int | Callable[[str], int] = 0,
     server_id: str = "fixture-server",
     allow_transcoding: bool = False,
@@ -620,9 +619,6 @@ def create_proxy_app(
     app.state.leases = selected_leases
     app.state.upstream = upstream
     app.state.server_id = server_id
-
-    def active() -> bool:
-        return bool(license_active() if callable(license_active) else license_active)
 
     def limit_for(user_id: str) -> int:
         value = max_streams(user_id) if callable(max_streams) else max_streams
@@ -640,8 +636,6 @@ def create_proxy_app(
     @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"])
     async def proxy(request: Request, path: str) -> Response:
         normalized_path = "/" + path.lstrip("/")
-        if not active():
-            return JSONResponse({"status": "error", "message": "Proxy license is inactive."}, status_code=403)
         if normalized_path.lower().endswith("/views") and "/users/" in normalized_path.lower():
             return _views_response(request, selected_catalog, server_id)
         if normalized_path.lower().endswith("/items") and "/users/" in normalized_path.lower():
@@ -674,9 +668,6 @@ def create_proxy_app(
         return JSONResponse({"status": "error", "message": "Proxy route not found."}, status_code=404)
 
     async def websocket_proxy(websocket: WebSocket) -> None:
-        if not active():
-            await websocket.close(code=4403)
-            return
         if upstream is not None:
             await upstream.websocket(websocket, websocket.url.path)
             return

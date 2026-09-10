@@ -22,9 +22,6 @@ ADMIN_ROUTES = (
     ("POST", "/api/ai/test", {}),
     ("POST", "/api/ai/models", {}),
     ("POST", "/api/telegram/test", {}),
-    ("GET", "/api/system/pro_pricing", None),
-    ("POST", "/api/system/activate_pro", {}),
-    ("POST", "/api/system/transfer_pro", {}),
 )
 
 
@@ -39,14 +36,6 @@ class Permissions:
         return user_id in self.admins
 
 
-class Repository:
-    def __init__(self) -> None:
-        self.saved: list[dict[str, Any]] = []
-
-    def save_many(self, values: Mapping[str, Any]) -> None:
-        self.saved.append(deepcopy(dict(values)))
-
-
 class Gateway:
     def __init__(self) -> None:
         self.ai_configs: list[dict[str, Any]] = []
@@ -57,24 +46,6 @@ class Gateway:
         self.models_result = ExternalResult({"success": True, "models": ["fixture-model"], "count": 1})
         self.proxy_result = ExternalResult({"success": True, "message": "fixture proxy ok"})
         self.telegram_result = ExternalResult({"success": True, "message": "测试消息发送成功！请检查您的 Telegram。"})
-        self.pricing_result: Mapping[str, Any] | None = {
-            "tiers": [
-                {
-                    "key": "year",
-                    "tier": "Y",
-                    "label": "Fixture Year",
-                    "amount_cents": 6800,
-                    "note": "fixture",
-                }
-            ]
-        }
-        self.pro_result: Mapping[str, Any] = {
-            "success": True,
-            "is_pro": True,
-            "msg": "fixture activated",
-            "expire_time": "2099-12-31T23:59:59Z",
-        }
-        self.server: str | None = "fixture-server"
 
     def test_ai(self, config: Mapping[str, Any]) -> ExternalResult:
         self.ai_configs.append(deepcopy(dict(config)))
@@ -95,18 +66,6 @@ class Gateway:
     def about_info(self) -> tuple[str, list[dict[str, Any]]]:
         return "10.8.65", [{"version": "fixture-release"}]
 
-    def pricing(self) -> Mapping[str, Any] | None:
-        return self.pricing_result
-
-    def server_id(self) -> str | None:
-        return self.server
-
-    def pro_action(self, action: str, license_key: str, server_id: str) -> Mapping[str, Any]:
-        assert action in {"activate", "transfer"}
-        assert license_key == "fixture-license"
-        assert server_id == "fixture-server"
-        return self.pro_result
-
 
 def _build_app(tmp_path: Path, *, auth_enabled: bool = True):
     settings = Settings(
@@ -116,11 +75,9 @@ def _build_app(tmp_path: Path, *, auth_enabled: bool = True):
         tmdb_api_key=SecretStr("fixture-tmdb-key"),
     )
     permissions = Permissions()
-    repository = Repository()
     gateway = Gateway()
     service = SystemIntegrationService(
         settings=lambda: settings,
-        repository=repository,
         gateway=gateway,
     )
     container = AppContainer(
@@ -135,7 +92,7 @@ def _build_app(tmp_path: Path, *, auth_enabled: bool = True):
         supervisor=RuntimeSupervisor(),
         container=container,
     )
-    return app, permissions, repository, gateway
+    return app, permissions, gateway
 
 
 def _set_user(client: TestClient, user_id: str, *, session_admin: bool = False) -> None:
@@ -145,7 +102,7 @@ def _set_user(client: TestClient, user_id: str, *, session_admin: bool = False) 
     )
 
 
-def test_fixture_covers_all_eight_integration_routes_and_keeps_live_pending() -> None:
+def test_fixture_covers_all_five_integration_routes_and_keeps_live_pending() -> None:
     fixture = json.loads(ROUTE_FIXTURE.read_text(encoding="utf-8"))
     assert {(item["method"], item["path"]) for item in fixture["routes"]} == {
         ("POST", "/api/ai/test"),
@@ -153,15 +110,22 @@ def test_fixture_covers_all_eight_integration_routes_and_keeps_live_pending() ->
         ("POST", "/api/proxy/test"),
         ("POST", "/api/telegram/test"),
         ("GET", "/api/system/about_info"),
-        ("GET", "/api/system/pro_pricing"),
-        ("POST", "/api/system/activate_pro"),
-        ("POST", "/api/system/transfer_pro"),
     }
     assert set(fixture["live_acceptance"].values()) == {"pending"}
 
 
+def test_pro_endpoints_are_not_registered(tmp_path: Path) -> None:
+    app, _, _ = _build_app(tmp_path)
+    route_paths = {getattr(route, "path", "") for route in app.routes}
+    assert {
+        "/api/system/pro_pricing",
+        "/api/system/activate_pro",
+        "/api/system/transfer_pro",
+    }.isdisjoint(route_paths)
+
+
 def test_public_proxy_and_about_contracts_use_injected_gateway(tmp_path: Path) -> None:
-    app, _, _, gateway = _build_app(tmp_path)
+    app, _, gateway = _build_app(tmp_path)
     with TestClient(app) as client:
         proxy = client.post("/api/proxy/test", json={"url": "http://proxy.example.invalid"})
         about = client.get("/api/system/about_info")
@@ -175,7 +139,7 @@ def test_public_proxy_and_about_contracts_use_injected_gateway(tmp_path: Path) -
 
 
 def test_admin_routes_recheck_database_permission_and_ignore_cookie_flag(tmp_path: Path) -> None:
-    app, permissions, _, _ = _build_app(tmp_path)
+    app, permissions, _ = _build_app(tmp_path)
     with TestClient(app) as client:
         _set_user(client, "fixture-user", session_admin=True)
         for method, path, payload in ADMIN_ROUTES:
@@ -187,11 +151,12 @@ def test_admin_routes_recheck_database_permission_and_ignore_cookie_flag(tmp_pat
             }
         permissions.admins.add("fixture-admin")
         _set_user(client, "fixture-admin")
-        assert client.get("/api/system/pro_pricing").status_code == 200
+        response = client.post("/api/telegram/test", json={"token": "********", "chat_id": "fixture-chat"})
+        assert response.status_code == 200
 
 
-def test_ai_telegram_pricing_and_pro_success_contracts(tmp_path: Path) -> None:
-    app, permissions, repository, gateway = _build_app(tmp_path)
+def test_ai_and_telegram_success_contracts(tmp_path: Path) -> None:
+    app, permissions, gateway = _build_app(tmp_path)
     permissions.admins.add("fixture-admin")
     with TestClient(app) as client:
         _set_user(client, "fixture-admin")
@@ -207,74 +172,25 @@ def test_ai_telegram_pricing_and_pro_success_contracts(tmp_path: Path) -> None:
             "/api/telegram/test",
             json={"token": "********", "chat_id": "fixture-chat"},
         ).json() == {"success": True, "message": "测试消息发送成功！请检查您的 Telegram。"}
-        pricing = client.get("/api/system/pro_pricing")
-        activate = client.post(
-            "/api/system/activate_pro",
-            json={"license_key": "fixture-license"},
-        )
-        transfer = client.post(
-            "/api/system/transfer_pro",
-            json={"license_key": "fixture-license"},
-        )
 
     assert gateway.ai_configs[-1]["ai_api_key"] == "fixture-ai-key"
     assert gateway.model_configs[-1]["ai_api_key"] == "fixture-ai-key"
     assert gateway.telegram_calls == [("fixture-telegram-token", "fixture-chat")]
-    assert pricing.json() == {
-        "success": True,
-        "source": "worker",
-        "currency": "CNY",
-        "tiers": [
-            {
-                "key": "year",
-                "tier": "Y",
-                "label": "Fixture Year",
-                "amount": "68.00",
-                "amount_cents": 6800,
-                "currency": "CNY",
-                "note": "fixture",
-            }
-        ],
-        "fallback": False,
-    }
-    assert activate.json() == {"success": True, "message": "fixture activated"}
-    assert transfer.json() == {"success": True, "message": "fixture activated"}
-    assert repository.saved == [
-        {
-            "pro_license_key": "fixture-license",
-            "pro_expire_time": "2099-12-31T23:59:59Z",
-        },
-        {
-            "pro_license_key": "fixture-license",
-            "pro_expire_time": "2099-12-31T23:59:59Z",
-        },
-    ]
 
 
 def test_validation_fallback_and_gateway_failure_envelopes(tmp_path: Path) -> None:
-    app, permissions, _, gateway = _build_app(tmp_path)
+    app, permissions, _ = _build_app(tmp_path)
     permissions.admins.add("fixture-admin")
     with TestClient(app) as client:
         _set_user(client, "fixture-admin")
         assert client.post("/api/ai/test", json={}).status_code == 400
         assert client.post("/api/ai/models", json={}).status_code == 400
         assert client.post("/api/telegram/test", json={}).status_code == 400
-        assert client.post("/api/system/activate_pro", json={}).status_code == 400
-        gateway.pricing_result = None
-        fallback = client.get("/api/system/pro_pricing")
-        gateway.server = None
-        no_server = client.post(
-            "/api/system/transfer_pro",
-            json={"license_key": "fixture-license"},
-        )
-    assert fallback.status_code == 200
-    assert fallback.json()["fallback"] is True
-    assert no_server.status_code == 500
 
 
 def test_auth_disabled_admin_routes_do_not_query_permission_repository(tmp_path: Path) -> None:
-    app, permissions, _, _ = _build_app(tmp_path, auth_enabled=False)
+    app, permissions, _ = _build_app(tmp_path, auth_enabled=False)
     permissions.raise_if_called = True
     with TestClient(app) as client:
-        response = client.get("/api/system/pro_pricing")
+        response = client.post("/api/telegram/test", json={"token": "********", "chat_id": "fixture-chat"})
     assert response.status_code == 200

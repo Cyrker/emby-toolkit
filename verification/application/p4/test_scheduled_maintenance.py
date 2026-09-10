@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -11,11 +10,9 @@ from pydantic import SecretStr
 
 from etk.domains.operations import scheduled_maintenance as scheduled_maintenance_module
 from etk.domains.operations.scheduled_maintenance import (
-    HttpxProStatusGateway,
     HttpxScheduledPluginUpdateGateway,
     NativeP115TempCleanupOperation,
     NativePluginUpdateCheckOperation,
-    NativeProStatusCheckOperation,
     ScheduledWriteResult,
     ScheduledWriteStatus,
 )
@@ -38,19 +35,6 @@ class _Progress:
 
     def record_committed_effect(self, label: str) -> None:
         self.events.append(("committed", label))
-
-
-class _SettingsRepository:
-    def __init__(self, values: dict[str, Any]) -> None:
-        self.values = dict(values)
-        self.saves: list[dict[str, Any]] = []
-
-    def load(self, key: str) -> Any:
-        return self.values.get(key)
-
-    def save_many(self, values: Mapping[str, Any]) -> None:
-        self.saves.append(dict(values))
-        self.values.update(values)
 
 
 def test_native_p115_temp_cleanup_uses_lease_guarded_playback_owner() -> None:
@@ -149,61 +133,6 @@ def test_native_plugin_update_does_not_replay_an_unreadable_trigger() -> None:
 
     with pytest.raises(PersistentEffectIndeterminate, match="trigger outcome is unknown"):
         NativePluginUpdateCheckOperation(cast(Any, gateway)).execute({}, _Progress())
-
-
-def test_native_pro_status_persists_authoritative_expiry() -> None:
-    repository = _SettingsRepository(
-        {
-            "emby_server_id_cache": "fixture-server",
-            "pro_license_key": "fixture-license",
-            "pro_expire_time": "2026-09-30T00:00:00Z",
-        }
-    )
-    gateway = SimpleNamespace(
-        check=lambda server_id: {
-            "success": True,
-            "is_pro": True,
-            "expire_time": "2027-01-01T00:00:00Z",
-            "server_id": server_id,
-        }
-    )
-
-    result = NativeProStatusCheckOperation(repository, cast(Any, gateway)).execute({}, _Progress())
-
-    assert result == {
-        "ok": True,
-        "checked": True,
-        "active": True,
-        "pro_expire_time": "2027-01-01T00:00:00Z",
-    }
-    assert repository.saves == [{"pro_expire_time": "2027-01-01T00:00:00Z"}]
-
-
-def test_native_pro_status_retains_only_an_unexpired_local_license_on_transport_failure() -> None:
-    repository = _SettingsRepository(
-        {
-            "emby_server_id_cache": "fixture-server",
-            "pro_license_key": "fixture-license",
-            "pro_expire_time": "2026-09-30T00:00:00Z",
-        }
-    )
-    gateway = SimpleNamespace(check=lambda _server_id: (_ for _ in ()).throw(RuntimeError("fixture unavailable")))
-    operation = NativeProStatusCheckOperation(
-        repository,
-        cast(Any, gateway),
-        now=lambda: datetime(2026, 9, 8, tzinfo=UTC),
-    )
-
-    result = operation.execute({}, _Progress())
-
-    assert result == {
-        "ok": True,
-        "checked": False,
-        "active": True,
-        "reason": "request_failed",
-        "message": "fixture unavailable",
-    }
-    assert repository.saves == []
 
 
 @pytest.mark.parametrize(
@@ -374,44 +303,6 @@ def test_native_plugin_update_reports_failed_timeout_and_restart_outcomes() -> N
             assert operation.execute({}, _Progress())["reason"] == expected
 
 
-def test_native_pro_status_covers_missing_inactive_failed_and_naive_expiry_paths() -> None:
-    missing = _SettingsRepository({})
-    operation = NativeProStatusCheckOperation(missing, cast(Any, SimpleNamespace(check=lambda _id: {})))
-    assert operation.execute({}, _Progress())["reason"] == "server_id_unavailable"
-    with pytest.raises(ValueError, match="does not accept parameters"):
-        operation.execute({"unexpected": True}, _Progress())
-
-    inactive = _SettingsRepository({"emby_server_id_cache": "server"})
-    inactive_gateway = SimpleNamespace(check=lambda _id: {"success": True, "is_pro": False, "msg": "inactive"})
-    inactive_result = NativeProStatusCheckOperation(inactive, cast(Any, inactive_gateway)).execute({}, _Progress())
-    assert inactive_result["active"] is False
-    assert inactive.saves == [{"pro_expire_time": ""}]
-
-    failed = _SettingsRepository(
-        {
-            "emby_server_id_cache": "server",
-            "pro_license_key": "license",
-            "pro_expire_time": "2099-01-01 00:00:00",
-        }
-    )
-    failed_gateway = SimpleNamespace(check=lambda _id: {"success": False, "msg": "denied"})
-    failed_result = NativeProStatusCheckOperation(
-        failed,
-        cast(Any, failed_gateway),
-        now=lambda: datetime(2026, 9, 8),
-    ).execute({}, _Progress())
-    assert failed_result == {"ok": True, "checked": True, "active": True, "message": "denied"}
-
-    expired = _SettingsRepository(
-        {"emby_server_id_cache": "server", "pro_license_key": "", "pro_expire_time": "invalid"}
-    )
-    expired_result = NativeProStatusCheckOperation(
-        expired,
-        cast(Any, SimpleNamespace(check=lambda _id: (_ for _ in ()).throw(RuntimeError("down")))),
-    ).execute({}, _Progress())
-    assert expired_result["ok"] is False
-
-
 def _http_gateway(handler: Any, *, settings: Settings | None = None) -> HttpxScheduledPluginUpdateGateway:
     return HttpxScheduledPluginUpdateGateway(
         lambda: (
@@ -527,39 +418,8 @@ def test_httpx_scheduled_plugin_gateway_validates_inventories_and_write_certaint
         assert client.follow_redirects is True
 
 
-def test_httpx_pro_status_gateway_validates_payload_and_helpers() -> None:
-    payload: Any = {"success": True, "is_pro": False}
-
-    def transport(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=payload)
-
-    gateway = HttpxProStatusGateway(
-        lambda: Settings(),
-        client_factory=lambda: httpx.Client(transport=httpx.MockTransport(transport)),
-    )
-    assert gateway.check("server-1") == {"success": True, "is_pro": False}
-    payload = []
-    with pytest.raises(RuntimeError, match="invalid payload"):
-        gateway.check("server-1")
-    with gateway._default_client() as client:
-        assert client.timeout.connect == 5
-
+def test_scheduled_maintenance_helpers() -> None:
     assert scheduled_maintenance_module._task_end_time(None) == ""
     assert scheduled_maintenance_module._task_end_time({"LastExecutionResult": "invalid"}) == ""
     assert scheduled_maintenance_module._version_tuple("v1.2") == (1, 2, 0, 0)
     assert scheduled_maintenance_module._version_tuple("") is None
-    assert scheduled_maintenance_module._parse_datetime("") is None
-    assert scheduled_maintenance_module._parse_datetime("2026-09-08T12:00:00Z") == datetime(
-        2026,
-        9,
-        8,
-        12,
-        tzinfo=UTC,
-    )
-    assert scheduled_maintenance_module._parse_datetime("2026-09-08T12:00:00.bad") == datetime(
-        2026,
-        9,
-        8,
-        12,
-    )
-    assert scheduled_maintenance_module._parse_datetime("invalid") is None

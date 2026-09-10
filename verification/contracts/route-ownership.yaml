@@ -7210,18 +7210,18 @@
       "fixture": "verification/fixtures/http/system-integration-routes.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": "etk.domains.system.integration_router",
-      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+      "new_owner": null,
+      "notes": "The native Pro activation route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
       "path": "/api/system/activate_pro",
-      "retirement_approval": null,
+      "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
       "source": "routes/system.py:898",
-      "status": "new",
+      "status": "retired-approved",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "pytest-contract-and-openapi",
+      "validation_method": "pytest-native-route-absence-and-openapi",
       "validation_owner": "system/integrations"
     },
     {
@@ -7298,18 +7298,18 @@
       "fixture": "verification/fixtures/http/system-integration-routes.json",
       "fixture_exception": null,
       "method": "GET",
-      "new_owner": "etk.domains.system.integration_router",
-      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+      "new_owner": null,
+      "notes": "The native Pro pricing route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
       "path": "/api/system/pro_pricing",
-      "retirement_approval": null,
+      "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
       "source": "routes/system.py:874",
-      "status": "new",
+      "status": "retired-approved",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "pytest-contract-and-openapi",
+      "validation_method": "pytest-native-route-absence-and-openapi",
       "validation_owner": "system/integrations"
     },
     {
@@ -7342,18 +7342,18 @@
       "fixture": "verification/fixtures/http/system-integration-routes.json",
       "fixture_exception": null,
       "method": "POST",
-      "new_owner": "etk.domains.system.integration_router",
-      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+      "new_owner": null,
+      "notes": "The native Pro device-transfer route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
       "path": "/api/system/transfer_pro",
-      "retirement_approval": null,
+      "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
       "source": "routes/system.py:946",
-      "status": "new",
+      "status": "retired-approved",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "pytest-contract-and-openapi",
+      "validation_method": "pytest-native-route-absence-and-openapi",
       "validation_owner": "system/integrations"
     },
     {
@@ -15710,18 +15710,18 @@
       "methods": [
         "POST"
       ],
-      "new_owner": "etk.domains.system.integration_router",
-      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+      "new_owner": null,
+      "notes": "The native Pro activation route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
       "path": "/api/system/activate_pro",
-      "retirement_approval": null,
+      "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
       "source": "routes/system.py:898",
-      "status": "new",
+      "status": "retired-approved",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "pytest-contract-and-openapi",
+      "validation_method": "pytest-native-route-absence-and-openapi",
       "validation_owner": "system/integrations"
     },
     {
@@ -15810,18 +15810,18 @@
       "methods": [
         "GET"
       ],
-      "new_owner": "etk.domains.system.integration_router",
-      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+      "new_owner": null,
+      "notes": "The native Pro pricing route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
       "path": "/api/system/pro_pricing",
-      "retirement_approval": null,
+      "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
       "source": "routes/system.py:874",
-      "status": "new",
+      "status": "retired-approved",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "pytest-contract-and-openapi",
+      "validation_method": "pytest-native-route-absence-and-openapi",
       "validation_owner": "system/integrations"
     },
     {
@@ -15860,18 +15860,18 @@
       "methods": [
         "POST"
       ],
-      "new_owner": "etk.domains.system.integration_router",
-      "notes": "P3 native FastAPI route precedes the compatibility mount; legacy implementation remains until P11.",
+      "new_owner": null,
+      "notes": "The native Pro device-transfer route was removed by the explicit full-feature unlock; the retained legacy source is excluded from the refactor runtime.",
       "path": "/api/system/transfer_pro",
-      "retirement_approval": null,
+      "retirement_approval": "2026-09-10 explicit removal of the ETK Pro pricing and activation system",
       "source": "routes/system.py:946",
-      "status": "new",
+      "status": "retired-approved",
       "target_domains": [
         "system",
         "operations"
       ],
       "target_stage": "P3/P4",
-      "validation_method": "pytest-contract-and-openapi",
+      "validation_method": "pytest-native-route-absence-and-openapi",
       "validation_owner": "system/integrations"
     },
     {

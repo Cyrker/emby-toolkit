@@ -407,6 +407,87 @@ def test_runtime_configuration_writer_validates_persists_and_refreshes_snapshot(
     assert writer.save({"emby_api_timeout": 50}).emby_api_timeout == 50
 
 
+def test_runtime_configuration_writer_persists_native_updates_before_refresh() -> None:
+    container = SimpleNamespace(settings=Settings(emby_api_timeout=30))
+
+    class Persistence:
+        def __init__(self) -> None:
+            self.saved: list[tuple[Settings, dict[str, Any]]] = []
+
+        def merge_and_save(self, settings: Settings, updates: Mapping[str, Any]) -> Settings:
+            self.saved.append((settings, dict(updates)))
+            return settings.with_updates({"persisted_revision": "fixture-revision"})
+
+    class Supervisor:
+        def __init__(self) -> None:
+            self.config: dict[str, Any] = {}
+            self.saved: list[dict[str, Any]] = []
+
+        def save_config_and_reload(self, updates: dict[str, Any]) -> None:
+            self.saved.append(updates)
+            self.config = dict(updates)
+
+    persistence = Persistence()
+    supervisor = Supervisor()
+    writer = RuntimeConfigurationWriter(
+        cast(Any, container),
+        cast(Any, supervisor),
+        persistence=cast(Any, persistence),
+    )
+
+    refreshed = writer.save({"emby_api_timeout": 40})
+
+    persisted_base, persisted_updates = persistence.saved[0]
+    assert persisted_base.emby_api_timeout == 40
+    assert persisted_updates == {"emby_api_timeout": 40}
+    assert supervisor.saved[0]["emby_api_timeout"] == 40
+    assert supervisor.saved[0]["persisted_revision"] == "fixture-revision"
+    assert refreshed.emby_api_timeout == 40
+    assert refreshed.get("persisted_revision") == "fixture-revision"
+    assert container.settings is refreshed
+
+
+def test_runtime_configuration_writer_keeps_committed_snapshot_when_reload_fails() -> None:
+    container = SimpleNamespace(settings=Settings(emby_api_timeout=30))
+
+    class Persistence:
+        def merge_and_save(self, settings: Settings, updates: Mapping[str, Any]) -> Settings:
+            return settings.with_updates({**dict(updates), "persisted_revision": "fixture-revision"})
+
+    class Supervisor:
+        config: dict[str, Any] = {}
+
+        def save_config_and_reload(self, _updates: dict[str, Any]) -> None:
+            raise RuntimeError("fixture reload failed")
+
+    writer = RuntimeConfigurationWriter(
+        cast(Any, container),
+        cast(Any, Supervisor()),
+        persistence=cast(Any, Persistence()),
+    )
+
+    refreshed = writer.save({"emby_api_timeout": 40})
+
+    assert refreshed.emby_api_timeout == 40
+    assert refreshed.get("persisted_revision") == "fixture-revision"
+    assert container.settings is refreshed
+
+
+def test_runtime_configuration_writer_rejects_nonpersistent_bootstrap_updates() -> None:
+    container = SimpleNamespace(settings=Settings())
+
+    class Supervisor:
+        config: dict[str, Any] = {}
+
+        def save_config_and_reload(self, _updates: dict[str, Any]) -> None:
+            raise AssertionError("bootstrap updates must fail before runtime reload")
+
+    writer = RuntimeConfigurationWriter(cast(Any, container), cast(Any, Supervisor()))
+
+    with pytest.raises(ValueError, match="db_host"):
+        writer.save({"db_host": "fixture-db"})
+
+
 def test_identity_default_client_uses_runtime_timeout() -> None:
     gateway = HttpxEmbyIdentityGateway(lambda: Settings(emby_api_timeout=2))
     with gateway._default_client() as client:

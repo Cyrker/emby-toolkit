@@ -57,6 +57,8 @@ def test_proxy_cli_uses_native_asgi_runtime_without_legacy_imports() -> None:
     source = inspect.getsource(_run_proxy)
     assert "gevent" not in source
     assert "reverse_proxy" not in source
+    assert "is_pro_active" not in source
+    assert "license_active" not in source
     assert "create_proxy_app" in source
     assert "uvicorn.run" in source
 
