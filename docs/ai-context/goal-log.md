@@ -6316,3 +6316,71 @@ Pending / Blocker / Next:
   mounted config volume or `dynamic_app_config`, so it cannot be reconstructed; the local page is
   restored to `/setup` and requires one human re-authorization. Live remains `HUMAN_PENDING`. No
   push, deployment, release or real external write was performed.
+
+### DIRECT-REQ-002-Retired-External-Resources-And-Web-Quick-Tasks-20260911
+
+TASK / HEAD:
+
+- Retire TG UserBot channel listening, HDHive and the Shared Resource Center; expose the configured
+  Telegram quick tasks in the Web task center and document their behavior. Pre-checkpoint HEAD
+  `cbb4ed6a`; the earlier native full-access checkpoint remains unchanged.
+
+Implemented:
+
+- Removed the retired provider-control and sharing routers from the native app, their UI routes,
+  settings cards, cloud-search controls and generated client endpoints. Coordinator no longer starts
+  a UserBot listener, consumes channel commands, schedules P9 sharing tasks or coordinates sharing
+  operations. MoviePilot is the only selectable subscription source; historical HDHive washing rows
+  are skipped without provider access.
+- Kept the frozen 50-key compatibility registry and historical tables/configuration, while exposing
+  only 46 active tasks. New submissions for the four retired P9 keys are rejected before Job creation;
+  historical Jobs finish as `SKIPPED / feature_retired`, task chains filter the keys, old shared-intro
+  effects skip, and cleanup retains historical shared-source records without invoking their lifecycle.
+- Kept Telegram Bot notifications, Chat ID binding and administrator quick-task control. `/search`,
+  `/find`, `/hdhive` and old resource callbacks now return a retirement notice; task commands and
+  `/all_tasks` are limited to the configured menu and exclude retired tasks and `scan-organize-115`.
+- Added an always-visible “网页与 Telegram 快捷任务” card to the task center. Its configured tasks
+  reuse the existing `POST /api/tasks/run`, global busy state and four existing incremental/full-mode
+  choices. Empty menu configuration follows the existing six-task Telegram fallback. Added one mocked
+  E2E submission assertion, without contacting the local backend or executing a real task.
+- Added `docs/zh/guide/quick-tasks.md` and updated public navigation and affected documentation. The
+  guide records administrator permissions, `202`, Job states, Web `409`, Telegram queueing, the four
+  dual-mode tasks, the six defaults, `system-auto-update=SKIPPED`, MoviePilot ownership and the retained
+  local 115 `302`/STRM/virtual-library boundary.
+
+Gate:
+
+- Full application -> `2572 passed, 1 warning`; architecture -> `108 passed`; focused PostgreSQL 18
+  integration -> `114 passed`. Changed Python Ruff, `handler/telegram.py` compile, Pyright (`0 errors,
+  0 warnings, 0 informations`), OpenAPI and manifest currentness, and `git diff --check` passed.
+- OpenAPI is `260 paths / 309 operations`; retired Shared Resource Center, HDHive, TG UserBot and cloud
+  prefixes are absent, while both documented `302` responses and `/api/p115/play/*` remain.
+- Frontend API generation, typecheck, `15` unit tests, API-boundary check, production build and `8` E2E
+  tests passed. The final E2E includes a mocked Web quick-task click and exact incremental payload;
+  no task or external provider was invoked. Docs build passed; builds retain only the existing large
+  chunk warning.
+- Read-only browser evidence showed six Web quick-task buttons on desktop and no horizontal overflow
+  at `390px`; no “立即执行” button was clicked against the real local service. The already configured
+  Emby endpoint also answered read-only `GET /emby/System/Info` with HTTP `200` and version `4.9.3.0`;
+  no URL, token or credential was recorded.
+
+Review / retained boundary:
+
+- Low-level P9 provider/delivery classes, the frozen task definitions and historical operation rows
+  remain for decoding, audit and data preservation. No public route, schedule, available-task entry,
+  accepted new Job or Worker dispatch reaches their external mutation methods; the retained sharing
+  operation Celery entry only acknowledges the retired work and never starts the provider runtime.
+  Deleting the historical graph, tables, configuration or migrations is intentionally outside this
+  request.
+- The existing `/api/tasks/run` guard order remains administrator -> global busy -> readiness -> body;
+  therefore a globally busy server may return `409` before the task-specific retired `410`, but it
+  cannot create a retired Job. Custom Telegram menu entries keep their existing task parameter
+  semantics; Web mirrors that configured list and the server remains the validation authority rather
+  than adding a second hard-coded task taxonomy.
+
+Pending / Blocker / Next:
+
+- No Local P0/P1/P2 blocker remains under the requested retirement boundary. `DIRECT-REQ-002` is
+  `DONE`; P11 and P12 Local remain `DONE`; Live remains `HUMAN_PENDING`. Create the isolated local
+  checkpoint `refactor: retire external resource features`. No push, deployment, release or real
+  external write was performed.

@@ -93,7 +93,6 @@ _SETTINGS_BODY = _request_body(
     {
         "douban_count_correction": {},
         "revival_check_days": {},
-        "tg_channel_tracking": {},
         "intro_detection_trigger_mode": {
             "type": "string",
             "enum": ["off", "import", "favorite", "playback"],

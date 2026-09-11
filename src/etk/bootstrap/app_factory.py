@@ -17,8 +17,6 @@ from etk.compatibility.persistent_runtime_state import (
     PostgresRuntimeStateBackend,
 )
 from etk.compatibility.response_contract import fastapi_json_response
-from etk.compatibility.tg_control_bridge import TelegramControlBridge
-from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
 from etk.domains.collection import (
     CollectionActivationService,
     CollectionService,
@@ -223,18 +221,6 @@ from etk.domains.p115.playback_router import router as p115_playback_router
 from etk.domains.p115.router import router as p115_router
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
-from etk.domains.sharing import (
-    AtomicVirtualImportProjector,
-    PostgresContributionLedger,
-    PostgresSharingOperationRepository,
-    SharingService,
-    SqlAlchemySharingProjectionRepository,
-    SqlAlchemyVirtualImportRepository,
-    VirtualImportService,
-    VirtualImportSourceResolver,
-)
-from etk.domains.sharing.configuration import SharingConfigurationService, SharingServerIdentity
-from etk.domains.sharing.router import router as sharing_router
 from etk.domains.subscription.actor import ActorSubscriptionService, SqlAlchemyActorSubscriptionRepository
 from etk.domains.subscription.actor_operations import ActorCancellationOperationStager
 from etk.domains.subscription.actor_router import router as actor_subscription_router
@@ -283,11 +269,6 @@ from etk.domains.subscription.portal import (
     PortalSubscriptionService,
 )
 from etk.domains.subscription.portal_adapter import HttpxPortalTmdbAdapter
-from etk.domains.subscription.provider_control import (
-    PROVIDER_CONTROL_USE_CASE,
-    ProviderControlService,
-)
-from etk.domains.subscription.provider_control_router import router as provider_control_router
 from etk.domains.subscription.resubscribe import (
     PostgresResubscribeOperationStager,
     ResubscribeService,
@@ -310,12 +291,7 @@ from etk.domains.system.standalone import (
 )
 from etk.domains.system.standalone_router import router as standalone_settings_router
 from etk.domains.translation import ConfiguredBatchTranslation, SqlAlchemyTranslationCache
-from etk.integrations import (
-    DurableTelegramUserBotAdapter,
-    HttpxHDHiveAdapter,
-    HttpxSharedCenterAdapter,
-    HttpxTelegramBotAdapter,
-)
+from etk.integrations import HttpxTelegramBotAdapter
 from etk.platform import AppContainer, LegacyConfigAdapter, PostgresLegacyConfigStore, Settings
 from etk.platform.jobs import PostgresExecutionGuard, PostgresJobStore
 from etk.platform.observability import MetricsMiddleware, TraceIdMiddleware, get_metrics, metrics_response
@@ -365,8 +341,8 @@ def create_app(
         _register_system_providers(app_container, configuration_writer)
         _register_collection_providers(app_container)
         _register_users_providers(app_container)
+        _register_telegram_notification_provider(app_container)
         _register_p115_providers(app_container)
-        _register_sharing_providers(app_container)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -467,8 +443,6 @@ def create_app(
     app.include_router(moviepilot_config_router)
     app.include_router(moviepilot_webhook_router)
     app.include_router(subscription_core_router)
-    app.include_router(provider_control_router)
-    app.include_router(sharing_router)
 
     @app.get("/api/health", include_in_schema=False)
     def health() -> Any:
@@ -891,92 +865,10 @@ def _register_users_providers(container: AppContainer) -> None:
     )
 
 
-def _register_sharing_providers(container: AppContainer) -> None:
-    container.register_repository(
-        "sharing.operations",
-        lambda current: PostgresSharingOperationRepository(current.database.unit_of_work),
-    )
-    container.register_repository(
-        "sharing.ledger",
-        lambda current: PostgresContributionLedger(current.database.unit_of_work),
-    )
-    container.register_repository(
-        "sharing.projection",
-        lambda current: SqlAlchemySharingProjectionRepository(
-            current.database.unit_of_work,
-            account_id=lambda: current.repository("p115.credentials").load().account_id,
-        ),
-    )
-    container.register_client(
-        "sharing.server-identity",
-        lambda current: SharingServerIdentity(
-            lambda: current.settings,
-            current.repository("app-settings"),
-        ),
-    )
-    container.register_client(
-        "sharing.shared-center",
-        lambda current: HttpxSharedCenterAdapter(
-            lambda: current.settings,
-            configuration=lambda: current.repository("app-settings").load("shared_resource_config"),
-            server_id_hash=current.client("sharing.server-identity").server_id_hash,
-        ),
-    )
+def _register_telegram_notification_provider(container: AppContainer) -> None:
     container.register_client(
         "sharing.telegram-bot",
         lambda current: HttpxTelegramBotAdapter(lambda: current.settings),
-    )
-    container.register_client(
-        "sharing.telegram-userbot",
-        lambda current: DurableTelegramUserBotAdapter(
-            TelegramControlBridge(
-                connection_factory=current.database.raw_pool.connection,
-                resource_secrets=TelegramResourceSecretStore(
-                    PostgresRuntimeStateBackend(current.database.raw_pool.connection)
-                ),
-            )
-        ),
-    )
-    container.register_client(
-        "sharing.hdhive",
-        lambda current: HttpxHDHiveAdapter(
-            lambda: current.settings,
-            configuration=lambda: current.repository("app-settings").load("hdhive_config"),
-        ),
-    )
-    container.register_repository(
-        "sharing.virtual-imports",
-        lambda current: SqlAlchemyVirtualImportRepository(current.database.unit_of_work),
-    )
-    container.register_client(
-        "sharing.virtual-import-projector",
-        lambda current: AtomicVirtualImportProjector(
-            settings=lambda: current.settings,
-            libraries=current.client("p115.local-strm-library"),
-        ),
-    )
-    container.register_use_case(
-        "sharing.virtual-imports",
-        lambda current: VirtualImportService(
-            resolver=VirtualImportSourceResolver(current.client("sharing.shared-center")),
-            repository=current.repository("sharing.virtual-imports"),
-            projector=current.client("sharing.virtual-import-projector"),
-            configuration=lambda: current.repository("app-settings").load("shared_resource_config"),
-        ),
-    )
-    container.register_use_case(
-        "sharing",
-        lambda current: SharingService(
-            current.repository("sharing.ledger"),
-            current.client("sharing.shared-center"),
-            current.repository("sharing.operations"),
-            unit_of_work=current.database.unit_of_work,
-            configuration=SharingConfigurationService(current.repository("app-settings")),
-            identity=current.client("sharing.server-identity"),
-            projection=current.repository("sharing.projection"),
-            tmdb=current.client("media.discover-provider"),
-            virtual_imports=current.use_case("sharing.virtual-imports"),
-        ),
     )
 
 
@@ -1802,16 +1694,6 @@ def _register_subscription_providers(container: AppContainer) -> None:
             current.repository("subscription.core"),
             current.client("subscription.availability"),
             current.repository("identity"),
-        ),
-    )
-    container.register_use_case(
-        PROVIDER_CONTROL_USE_CASE,
-        lambda current: ProviderControlService(
-            settings=current.repository("app-settings"),
-            hdhive=current.client("sharing.hdhive"),
-            center=current.client("sharing.shared-center"),
-            telegram=current.client("sharing.telegram-userbot"),
-            sharing=current.use_case("sharing"),
         ),
     )
     container.register_use_case(

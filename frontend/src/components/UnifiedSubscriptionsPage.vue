@@ -187,15 +187,6 @@
                     <n-tooltip><template #trigger><n-button @click="() => updateItemStatus(item, 'WANTED', true)" type="primary" ghost circle size="small"><template #icon><n-icon :component="WantedIcon" /></template></n-button></template>取消忽略</n-tooltip>
                   </template>
 
-                  <n-tooltip>
-                    <template #trigger>
-                      <n-button @click="() => openHDHiveModal(item)" type="warning" ghost circle size="small">
-                        <template #icon><n-icon :component="CloudDownloadIcon" /></template>
-                      </n-button>
-                    </template>
-                    云搜索
-                  </n-tooltip>
-
                   <n-tooltip><template #trigger><n-button text tag="a" :href="getTMDbLink(item)" target="_blank"><template #icon><n-icon :component="TMDbIcon" size="18" /></template></n-button></template>TMDb</n-tooltip>
               </div>
                 </div>
@@ -289,7 +280,6 @@
           <template #feedback>
             <b>拖动调整优先级，勾选启用。</b><br/>
             系统会按列表顺序依次尝试当前可用订阅源。<br/>
-            <span style="color: var(--n-warning-color);">* 注：云资源搜索存在模糊匹配限制，剧集订阅仍需依赖本地季号过滤。</span>
           </template>
         </n-form-item>
       </n-form>
@@ -301,12 +291,6 @@
         </n-space>
       </template>
     </n-modal>
-  <!-- ★★★ 影巢资源列表模态框 (独立组件) ★★★ -->
-    <HDHiveResourceModal
-      v-model:show="showHDHiveModal"
-      :media="currentHDHiveMedia"
-      @download-success="handleHDHiveDownloadSuccess"
-    />
   </n-layout>
 </template>
 
@@ -315,9 +299,8 @@
 import { ref, onMounted, onBeforeUnmount, h, computed, watch } from 'vue';
 import apiClient, { apiPath } from '@/api/client'
 import { NLayout, NPageHeader, NDivider, NEmpty, NTag, NButton, NSpace, NIcon, useMessage, useDialog, NTooltip, NCard, NImage, NEllipsis, NSpin, NAlert, NRadioGroup, NRadioButton, NCheckbox, NDropdown, NInput, NSelect, NButtonGroup, NCheckboxGroup, NRadio, NForm, NFormItem, NInputNumber, NModal, NPopconfirm } from 'naive-ui';
-import { FilmOutline as FilmIcon, TvOutline as TvIcon, CalendarOutline as CalendarIcon, TimeOutline as TimeIcon, ArrowUpOutline as ArrowUpIcon, ArrowDownOutline as ArrowDownIcon, CaretDownOutline as CaretDownIcon, CheckmarkCircleOutline as WantedIcon, HourglassOutline as PendingIcon, BanOutline as IgnoredIcon, DownloadOutline as SubscribedIcon, PersonCircleOutline as SourceIcon, TrashOutline as TrashIcon, SettingsOutline as SettingsIcon, PauseCircleOutline as PausedIcon, ReaderOutline as AuditIcon, CloseOutline as CloseIcon, CloudDownloadOutline as CloudDownloadIcon, MenuOutline as MenuIcon } from '@vicons/ionicons5';
+import { FilmOutline as FilmIcon, TvOutline as TvIcon, CalendarOutline as CalendarIcon, TimeOutline as TimeIcon, ArrowUpOutline as ArrowUpIcon, ArrowDownOutline as ArrowDownIcon, CaretDownOutline as CaretDownIcon, CheckmarkCircleOutline as WantedIcon, HourglassOutline as PendingIcon, BanOutline as IgnoredIcon, DownloadOutline as SubscribedIcon, PersonCircleOutline as SourceIcon, TrashOutline as TrashIcon, SettingsOutline as SettingsIcon, PauseCircleOutline as PausedIcon, ReaderOutline as AuditIcon, CloseOutline as CloseIcon, MenuOutline as MenuIcon } from '@vicons/ionicons5';
 import { format } from 'date-fns'
-import HDHiveResourceModal from './HDHiveResourceModal.vue';
 const TMDbIcon = () => h('svg', { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 512 512", width: "18", height: "18" }, [
   h('path', { d: "M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM133.2 176.6a22.4 22.4 0 1 1 0-44.8 22.4 22.4 0 1 1 0 44.8zm63.3-22.4a22.4 22.4 0 1 1 44.8 0 22.4 22.4 0 1 1 -44.8 0zm74.8 108.2c-27.5-3.3-50.2-26-53.5-53.5a8 8 0 0 1 16-.6c2.3 19.3 18.8 34 38.1 31.7a8 8 0 0 1 7.4 8c-2.3.3-4.5.4-6.8.4zm-74.8-108.2a22.4 22.4 0 1 1 44.8 0 22.4 22.4 0 1 1 -44.8 0zm149.7 22.4a22.4 22.4 0 1 1 0-44.8 22.4 22.4 0 1 1 0 44.8zM133.2 262.6a22.4 22.4 0 1 1 0-44.8 22.4 22.4 0 1 1 0 44.8zm63.3-22.4a22.4 22.4 0 1 1 44.8 0 22.4 22.4 0 1 1 -44.8 0zm74.8 108.2c-27.5-3.3-50.2-26-53.5-53.5a8 8 0 0 1 16-.6c2.3 19.3 18.8 34 38.1 31.7a8 8 0 0 1 7.4 8c-2.3.3-4.5.4-6.8.4zm-74.8-108.2a22.4 22.4 0 1 1 44.8 0 22.4 22.4 0 1 1 -44.8 0zm149.7 22.4a22.4 22.4 0 1 1 0-44.8 22.4 22.4 0 1 1 0 44.8z", fill: "#01b4e4" })
 ]);
@@ -346,13 +329,10 @@ const sortOrder = ref('desc');
 const showStrategyModal = ref(false);
 const savingStrategy = ref(false);
 const strategyConfig = ref({
-  subscription_sources: ['shared_pool', 'hdhive', 'tg_channel', 'mp'],
+  subscription_sources: ['mp'],
 });
 
 const allSubscriptionSources = [
-  { label: '共享池', value: 'shared_pool', enabled: true },
-  { label: '影巢', value: 'hdhive', enabled: true },
-  { label: 'TG频道', value: 'tg_channel', enabled: true },
   { label: 'MoviePilot', value: 'mp', enabled: true },
 ];
 const sourceList = ref([...allSubscriptionSources]);
@@ -361,9 +341,6 @@ const loadAvailableSubscriptionSources = async () => {
   const { data } = await apiClient.get(apiPath('api_subscription_status_d65bf9d0'));
   if (!data?.success) return allSubscriptionSources.map(o => o.value);
   const available = [];
-  if (data.shared_pool_configured) available.push('shared_pool');
-  if (data.hdhive_configured) available.push('hdhive');
-  if (data.tg_userbot_configured) available.push('tg_channel');
   if (data.mp_configured) available.push('mp');
   return available;
 };
@@ -378,25 +355,6 @@ const onDrop = (index) => {
     sourceList.value.splice(index, 0, item);
   }
   draggedIndex = null;
-};
-
-// ★★★ 影巢搜索相关状态与方法 ★★★
-const showHDHiveModal = ref(false);
-const currentHDHiveMedia = ref(null);
-
-const openHDHiveModal = (item) => {
-  currentHDHiveMedia.value = item;
-  showHDHiveModal.value = true;
-};
-
-const handleHDHiveDownloadSuccess = () => {
-  if (currentHDHiveMedia.value) {
-    // ★ 核心逻辑：将状态置为 NONE
-    // 1. 后端收到 NONE 状态，会自动去 MoviePilot 取消对应的订阅（如果有的话）。
-    // 2. 前端卡片会从当前列表中移除，保持列表清爽。
-    // 3. 115 后台默默下载整理，完成后 Emby 扫描自动入库。
-    updateItemStatus(currentHDHiveMedia.value, 'NONE');
-  }
 };
 
 const loadStrategyConfig = async () => {

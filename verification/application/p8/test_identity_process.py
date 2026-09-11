@@ -268,7 +268,6 @@ def test_coordinator_runtime_fails_closed_on_identity_dispatch_degradation(monke
         )(),
     )
     monkeypatch.setattr(runtime, "_refresh_settings", lambda: None)
-    monkeypatch.setattr(runtime, "_process_native_telegram_search_commands", lambda: None)
 
     with pytest.raises(RuntimeError, match="Identity operation Outbox dispatch is degraded"):
         runtime._tick()

@@ -24,7 +24,6 @@ _INTRO_DETECTION_TRIGGER_MODES = frozenset({"off", "import", "favorite", "playba
 _DEFAULT_CONFIG: dict[str, Any] = {
     "douban_count_correction": False,
     "revival_check_days": 365,
-    "tg_channel_tracking": False,
     "intro_detection_trigger_mode": "off",
     "intro_detection_credits_enabled": False,
     "intro_detection_library_ids": [],

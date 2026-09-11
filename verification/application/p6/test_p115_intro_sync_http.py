@@ -273,7 +273,7 @@ def test_fixture_freezes_two_auth_none_bodyless_intro_sync_routes() -> None:
         assert route["query"] == [{"name": "emby_item_id", "required": False}]
 
 
-def test_native_intro_feature_reads_the_canonical_shared_resource_snapshot() -> None:
+def test_native_intro_feature_stays_disabled_after_shared_center_retirement() -> None:
     enabled = ConfiguredP115IntroSyncFeature(
         FakeSettings(
             {
@@ -291,11 +291,11 @@ def test_native_intro_feature_reads_the_canonical_shared_resource_snapshot() -> 
         )
     )
 
-    assert enabled.enabled() is True
+    assert enabled.enabled() is False
     assert disabled.enabled() is False
 
 
-def test_native_intro_exporter_stages_one_stable_p9_media_effect() -> None:
+def test_native_intro_exporter_does_not_stage_retired_p9_media_effect() -> None:
     ledger = FakeEffectLedger()
     exporter = PersistentP115IntroSnapshotExporter(ledger)  # type: ignore[arg-type]
 
@@ -314,17 +314,7 @@ def test_native_intro_exporter_stages_one_stable_p9_media_effect() -> None:
         cache_revision=6,
     )
 
-    assert len(ledger.calls) == 2
-    assert ledger.calls[0]["effect_key"] == ledger.calls[1]["effect_key"]
-    assert ledger.calls[0]["effect_type"] == "sharing.intro.export"
-    assert ledger.calls[0]["aggregate_type"] == "media_asset"
-    assert ledger.calls[0]["aggregate_id"] == SHA_A
-    assert ledger.calls[0]["payload"] == {
-        "sha1": SHA_A,
-        "chapters": INTRO_CHAPTERS,
-        "file_name": "Fixture.mkv",
-        "reason": "emby_item_updated",
-    }
+    assert ledger.calls == []
 
 
 @pytest.mark.parametrize("case", FIXTURE_CASES, ids=[str(case["case_id"]) for case in FIXTURE_CASES])

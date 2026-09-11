@@ -336,7 +336,7 @@ def test_disabled_rule_cannot_reach_any_resubscribe_effect(
     assert outcome.details["requested"] == 0
 
 
-def test_hdhive_confirmation_commits_quota_marks_index_and_replays_without_resend(
+def test_historical_hdhive_item_is_skipped_without_provider_or_quota_access(
     p7_runtime: DatabaseRuntime,
 ) -> None:
     rule_id, suffix = _ids()
@@ -356,27 +356,25 @@ def test_hdhive_confirmation_commits_quota_marks_index_and_replays_without_resen
     first = service.execute("resubscribe-library", _Progress(), {})
     replay = service.execute("resubscribe-library", _Progress(), {})
 
-    assert first.status is TaskOutcomeStatus.SUCCEEDED
+    assert first.status is TaskOutcomeStatus.SKIPPED
+    assert first.details["retired_source_skipped"] == 1
     assert replay.status is TaskOutcomeStatus.SKIPPED
-    assert hdhive.calls == 1
+    assert hdhive.calls == 0
     with p7_runtime.engine.connect() as connection:
         status = connection.scalar(
             text("SELECT status FROM resubscribe_index WHERE tmdb_id = :tmdb_id"),
             {"tmdb_id": tmdb_id},
         )
-        quota = connection.scalar(
+        quota_count = connection.scalar(
             text(
                 """
-                SELECT status
+                SELECT COUNT(*)
                 FROM subscription_quota_reservations
-                WHERE reservation_key IS NOT NULL
-                ORDER BY created_at DESC
-                LIMIT 1
                 """
             )
         )
-    assert status == "subscribed"
-    assert quota == "committed"
+    assert status == "needed"
+    assert int(quota_count or 0) == 0
 
 
 def test_delete_rule_uses_disposable_cleanup_owner_for_files_database_and_index(

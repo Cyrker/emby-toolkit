@@ -910,7 +910,6 @@ def _api_smoke(config: HarnessConfig, *, session_cookie: str) -> dict[str, Any]:
         review_items = client.get("/api/review_items")
         subscriptions = client.get("/api/subscriptions/all")
         actor_subscriptions = client.get("/api/actor-subscriptions")
-        sharing_summary = client.get("/api/shared/resources/summary")
         organize_records = client.get("/api/p115/records")
         openapi = client.get("/openapi.json")
     for name, response in {
@@ -923,7 +922,6 @@ def _api_smoke(config: HarnessConfig, *, session_cookie: str) -> dict[str, Any]:
         "review_items": review_items,
         "subscriptions": subscriptions,
         "actor_subscriptions": actor_subscriptions,
-        "sharing_summary": sharing_summary,
         "organize_records": organize_records,
         "openapi": openapi,
     }.items():
@@ -937,15 +935,14 @@ def _api_smoke(config: HarnessConfig, *, session_cookie: str) -> dict[str, Any]:
     review_payload = review_items.json()
     subscription_payload = subscriptions.json()
     actor_subscription_payload = actor_subscriptions.json()
-    sharing_payload = sharing_summary.json()
     organize_payload = organize_records.json()
     openapi_payload = openapi.json()
     if health_payload != {"status": "ok"}:
         raise GreenfieldHarnessError("API health payload is invalid")
     if auth_payload.get("status") != "setup_required":
         raise GreenfieldHarnessError("fresh config does not report setup_required")
-    if not isinstance(task_payload, list) or len(task_payload) != 50:
-        raise GreenfieldHarnessError("task catalog does not contain the frozen 50 keys")
+    if not isinstance(task_payload, list) or len(task_payload) != 46:
+        raise GreenfieldHarnessError("active task catalog does not contain the expected 46 keys")
     required_keys = {
         "subscribe-assistant-maintenance",
         "add-all-series-to-watchlist",
@@ -965,12 +962,6 @@ def _api_smoke(config: HarnessConfig, *, session_cookie: str) -> dict[str, Any]:
         raise GreenfieldHarnessError("review smoke did not return an authoritative empty result")
     if subscription_payload != [] or actor_subscription_payload != []:
         raise GreenfieldHarnessError("subscription smoke did not return authoritative empty lists")
-    if (
-        sharing_payload.get("success") is not True
-        or sharing_payload.get("data", {}).get("shares", {}).get("total") != 0
-        or sharing_payload.get("data", {}).get("credit", {}).get("credit") != 0
-    ):
-        raise GreenfieldHarnessError("sharing smoke did not return an authoritative empty projection")
     if (
         organize_payload.get("success") is not True
         or organize_payload.get("items") != []
@@ -994,7 +985,6 @@ def _api_smoke(config: HarnessConfig, *, session_cookie: str) -> dict[str, Any]:
             "review_item_count": len(review_payload["items"]),
             "subscription_count": len(subscription_payload),
             "actor_subscription_count": len(actor_subscription_payload),
-            "sharing_count": sharing_payload["data"]["shares"]["total"],
             "organize_record_count": len(organize_payload["items"]),
         },
         "openapi_sha256": openapi_sha256,

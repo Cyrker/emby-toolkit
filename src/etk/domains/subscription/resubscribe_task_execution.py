@@ -164,11 +164,11 @@ class NativeResubscribeTaskService:
                 self._details(requested=0),
             )
 
-        policy = self._policy.snapshot()
         moviepilot_staged = 0
         cleanup_staged = 0
         cleanup_reused = 0
         hdhive_confirmed = 0
+        retired_source_skipped = 0
         business_skipped = 0
         quota_exhausted = False
         failures: list[dict[str, Any]] = []
@@ -210,26 +210,8 @@ class NativeResubscribeTaskService:
                         failures.append(self._failure(item, "moviepilot_resubscribe_not_staged"))
                 continue
             if item.source == "hdhive":
-                outcome, exhausted = self._execute_hdhive(item, progress, policy)
-                quota_exhausted = quota_exhausted or exhausted
-                if outcome is None:
-                    if exhausted:
-                        break
-                    continue
-                if outcome.disposition is ResubscribeHDHiveDisposition.CONFIRMED:
-                    hdhive_confirmed += 1
-                elif outcome.disposition is ResubscribeHDHiveDisposition.SKIPPED:
-                    business_skipped += 1
-                else:
-                    failures.append(
-                        self._failure(
-                            item,
-                            str((outcome.error or {}).get("type") or f"hdhive_{outcome.disposition.value}"),
-                            retryable=outcome.disposition is ResubscribeHDHiveDisposition.RETRYABLE,
-                            indeterminate=outcome.disposition is ResubscribeHDHiveDisposition.INDETERMINATE,
-                            operation_id=outcome.operation_id,
-                        )
-                    )
+                retired_source_skipped += 1
+                business_skipped += 1
                 continue
             failures.append(self._failure(item, "unsupported_resubscribe_source"))
 
@@ -239,6 +221,7 @@ class NativeResubscribeTaskService:
             cleanup_staged=cleanup_staged,
             cleanup_reused=cleanup_reused,
             hdhive_confirmed=hdhive_confirmed,
+            retired_source_skipped=retired_source_skipped,
             business_skipped=business_skipped,
             quota_exhausted=quota_exhausted,
             failures=failures,
@@ -251,8 +234,11 @@ class NativeResubscribeTaskService:
             message = "媒体洗版任务部分提交，订阅配额已用尽。" if accepted else "订阅配额已用尽。"
             return TaskOutcome.partial(message, details) if accepted else TaskOutcome.skipped(message, details)
         if accepted == 0:
-            progress.update(100, "没有可提交的媒体洗版操作。")
-            return TaskOutcome.skipped("没有可提交的媒体洗版操作。", details)
+            message = (
+                "历史影巢洗版项已跳过；影巢功能已下线。" if retired_source_skipped else "没有可提交的媒体洗版操作。"
+            )
+            progress.update(100, message)
+            return TaskOutcome.skipped(message, details)
         progress.update(100, "媒体洗版任务已提交。")
         return TaskOutcome.succeeded("媒体洗版任务已提交。", details)
 
@@ -389,6 +375,7 @@ class NativeResubscribeTaskService:
         cleanup_staged: int = 0,
         cleanup_reused: int = 0,
         hdhive_confirmed: int = 0,
+        retired_source_skipped: int = 0,
         business_skipped: int = 0,
         quota_exhausted: bool = False,
         failures: Sequence[Mapping[str, Any]] = (),
@@ -400,6 +387,7 @@ class NativeResubscribeTaskService:
             "cleanup_staged": cleanup_staged,
             "cleanup_reused": cleanup_reused,
             "hdhive_confirmed": hdhive_confirmed,
+            "retired_source_skipped": retired_source_skipped,
             "business_skipped": business_skipped,
             "quota_exhausted": quota_exhausted,
             "provider_failures": normalized_failures[:50],

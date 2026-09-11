@@ -266,7 +266,7 @@ def test_movie_provider_rejection_is_non_retryable_failed_outcome() -> None:
     assert repository.statuses == []
 
 
-def test_season_parent_resolution_tg_tracking_skips_provider_but_updates_local() -> None:
+def test_season_parent_resolution_ignores_retired_tg_tracking_and_uses_moviepilot() -> None:
     repository = _Repository()
     repository.media_rows[("season-id", "Season")] = {
         "tmdb_id": "season-id",
@@ -291,7 +291,7 @@ def test_season_parent_resolution_tg_tracking_skips_provider_but_updates_local()
     )
 
     assert result.processed == 1
-    assert effects.create_calls == []
+    assert len(effects.create_calls) == 1
     assert repository.statuses[0][0]["tmdb_id"] == "season-id"
     assert repository.statuses[0][0]["parent_series_tmdb_id"] == "101"
     assert repository.statuses[0][1] == "SUBSCRIBED"

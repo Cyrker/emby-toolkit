@@ -12,6 +12,7 @@ from etk.bootstrap.runtime_supervisor import RuntimeSupervisor
 from etk.compatibility.session_codec import LegacySessionCodec
 from etk.domains.operations.runtime import ManifestTaskCatalog
 from etk.platform import AppContainer, Settings
+from etk.platform.tasks import RETIRED_EXTERNAL_RESOURCE_TASK_KEYS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TASK_MANIFEST = REPO_ROOT / "verification" / "contracts" / "task-ownership.yaml"
@@ -75,10 +76,16 @@ def test_runtime_fixture_and_manifest_catalog_cover_query_contracts() -> None:
     chain_tasks = catalog.available("chain")
     manual_tasks = catalog.available("manual")
     ordered_fixture = json.loads(ORDERED_TASK_FIXTURE.read_text(encoding="utf-8"))
-    assert len(all_tasks) == 50
-    assert [task["key"] for task in all_tasks] == ordered_fixture["contexts"]["all"]
-    assert [task["key"] for task in chain_tasks] == ordered_fixture["contexts"]["chain"]
-    assert [task["key"] for task in manual_tasks] == ordered_fixture["contexts"]["manual"]
+    assert len(ordered_fixture["contexts"]["all"]) == 50
+    assert len(all_tasks) == 46
+    assert len(chain_tasks) == 25
+    assert len(manual_tasks) == 25
+    for context, tasks in (("all", all_tasks), ("chain", chain_tasks), ("manual", manual_tasks)):
+        expected = [
+            key for key in ordered_fixture["contexts"][context] if key not in RETIRED_EXTERNAL_RESOURCE_TASK_KEYS
+        ]
+        assert [task["key"] for task in tasks] == expected
+        assert {task["key"] for task in tasks}.isdisjoint(RETIRED_EXTERNAL_RESOURCE_TASK_KEYS)
     assert catalog.available("invalid") == chain_tasks
     assert all("processor_type" in task for task in all_tasks)
     assert all("processor_type" not in task for task in chain_tasks + manual_tasks)

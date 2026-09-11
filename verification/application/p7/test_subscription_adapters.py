@@ -142,38 +142,34 @@ def test_httpx_emby_delete_uses_configured_token_and_treats_missing_item_as_done
     }
 
 
-def test_subscription_availability_uses_injected_probes_and_degrades_probe_failures() -> None:
+def test_subscription_availability_reports_only_moviepilot_without_retired_provider_probes() -> None:
     repository = DictSettingsRepository(
         {
             "mp_config": {"moviepilot_url": "https://mp.invalid"},
             "tg_userbot_config": {"enabled": True, "channels": ["fixture"]},
         }
     )
+    calls: list[str] = []
+
+    def retired_probe() -> bool:
+        calls.append("called")
+        raise AssertionError("retired provider probe must not run")
+
     gateway = ConfiguredSubscriptionAvailabilityGateway(
         repository,
-        hdhive_probe=lambda: True,
-        shared_pool_probe=lambda: False,
+        hdhive_probe=retired_probe,
+        shared_pool_probe=retired_probe,
     )
 
     assert gateway.status() == {
         "mp_configured": True,
-        "hdhive_configured": True,
-        "tg_userbot_configured": True,
+        "hdhive_configured": False,
+        "tg_userbot_configured": False,
         "shared_pool_configured": False,
-        "cloud_search_configured": True,
+        "cloud_search_configured": False,
     }
-    assert gateway.available_sources() == ("mp", "hdhive", "tg_channel")
-
-    def failed_probe() -> bool:
-        raise RuntimeError("fixture probe failure")
-
-    degraded = ConfiguredSubscriptionAvailabilityGateway(
-        repository,
-        hdhive_probe=failed_probe,
-        shared_pool_probe=failed_probe,
-    )
-    assert degraded.status()["hdhive_configured"] is False
-    assert degraded.status()["shared_pool_configured"] is False
+    assert gateway.available_sources() == ("mp",)
+    assert calls == []
 
 
 def test_assistant_defaults_adapter_returns_isolated_native_defaults() -> None:

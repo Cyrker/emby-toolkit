@@ -243,7 +243,6 @@ def test_coordinator_runtime_fails_closed_on_playback_dispatch_degradation(
         )(),
     )
     monkeypatch.setattr(runtime, "_refresh_settings", lambda: None)
-    monkeypatch.setattr(runtime, "_process_native_telegram_search_commands", lambda: None)
 
     with pytest.raises(RuntimeError, match="P115 playback Outbox dispatch is degraded"):
         runtime._tick()
@@ -272,6 +271,5 @@ def test_coordinator_runtime_accepts_clean_playback_dispatch(monkeypatch) -> Non
         )(),
     )
     monkeypatch.setattr(runtime, "_refresh_settings", lambda: None)
-    monkeypatch.setattr(runtime, "_process_native_telegram_search_commands", lambda: None)
 
     runtime._tick()

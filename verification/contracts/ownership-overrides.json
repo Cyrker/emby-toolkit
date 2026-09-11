@@ -1309,13 +1309,6 @@
         "validation_method": "frontend-router-typecheck-build-and-route-guard",
         "validation_owner": "frontend/router"
       },
-      "frontend-route-ad048adfa5a6": {
-        "new_owner": "frontend/src/router/index.ts",
-        "notes": "P10 TypeScript router owns the shared resources page route.",
-        "status": "new",
-        "validation_method": "frontend-router-typecheck-build-and-route-guard",
-        "validation_owner": "frontend/router"
-      },
       "frontend-route-c6ce8dd5028b": {
         "new_owner": "frontend/src/router/index.ts",
         "notes": "P10 TypeScript router owns the scheduler settings route.",

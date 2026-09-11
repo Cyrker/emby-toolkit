@@ -167,14 +167,14 @@
       </n-card>
 
       <!-- ======================================================================= -->
-      <!-- ★★★ 卡片 3: Telegram 菜单配置 ★★★ -->
+      <!-- ★★★ 卡片 3: Web 与 Telegram 快捷任务 ★★★ -->
       <!-- ======================================================================= -->
-      <n-card v-if="!isMobile" :bordered="false" class="dashboard-card">
+      <n-card :bordered="false" class="dashboard-card">
         <template #header>
-          <span class="card-title">Telegram 快捷菜单</span>
+          <span class="card-title">网页与 Telegram 快捷任务</span>
         </template>
         <template #header-extra>
-          <n-text depth="3">配置显示在 TG 机器人输入框左侧 Menu 按钮中的快捷任务 (保存后需重启应用生效)</n-text>
+          <n-text v-if="!isMobile" depth="3">同一组任务可在网页立即执行，也可显示在 Telegram Bot 菜单中</n-text>
         </template>
         
         <n-grid cols="1 l:3" :x-gap="24" :y-gap="16" responsive="screen">
@@ -188,13 +188,24 @@
           </n-gi>
 
           <n-gi span="2">
-            <n-text strong>当前 TG 菜单列表</n-text>
+            <n-text strong>当前快捷任务</n-text>
             <div class="flowchart-wrapper">
-              <div v-if="enabledTgMenuTasks.length > 0" class="flowchart-container">
+              <div v-if="enabledTgMenuTasks.length > 0" class="tg-quick-task-list">
                 <n-tooltip v-for="task in enabledTgMenuTasks" :key="task.key" trigger="hover" placement="top">
                   <template #trigger>
-                    <div class="flowchart-node" style="background-color: var(--n-action-color);">
-                      {{ task.name }}
+                    <div class="tg-quick-task-item">
+                      <n-text>{{ task.name }}</n-text>
+                      <n-button
+                        size="small"
+                        type="primary"
+                        ghost
+                        :loading="isTriggeringTask === task.key"
+                        :disabled="isBackgroundTaskRunning"
+                        @click="triggerTaskNow(task.key)"
+                      >
+                        <template #icon><n-icon :component="Play24Regular" /></template>
+                        立即执行
+                      </n-button>
                     </div>
                   </template>
                   <div class="task-tooltip-content">
@@ -204,7 +215,7 @@
                 </n-tooltip>
               </div>
               <div v-else class="flowchart-container empty">
-                <n-text depth="3">暂未配置任何 TG 菜单任务...</n-text>
+                <n-text depth="3">暂未配置任何快捷任务...</n-text>
               </div>
             </div>
           </n-gi>
@@ -212,7 +223,7 @@
       </n-card>
 
       <!-- 保存按钮（通用） -->
-       <n-button v-if="!isMobile" type="primary" @click="savePageConfig" :loading="savingConfig" size="large" style="width: 100%;">
+       <n-button type="primary" @click="savePageConfig" :loading="savingConfig" size="large" style="width: 100%;">
           <template #icon><n-icon :component="Save24Regular" /></template>
           保存所有配置
         </n-button>
@@ -625,7 +636,10 @@ watch([configModel, availableTasksForChain, availableTasksForTgMenu], ([newConfi
     }
     if (tgMenuTasks.length > 0) {
       // TG 菜单使用完整任务池，临时任务列表则使用 manual 任务池，避免任务链入口在临时任务里重复出现。
-      initializeSequence(newConfig.tg_menu_tasks || DEFAULT_TG_TASKS, configuredTgMenuSequence, tgMenuTasks);
+      const menuTaskKeys = Array.isArray(newConfig.tg_menu_tasks) && newConfig.tg_menu_tasks.length > 0
+        ? newConfig.tg_menu_tasks
+        : DEFAULT_TG_TASKS;
+      initializeSequence(menuTaskKeys, configuredTgMenuSequence, tgMenuTasks);
     }
   }
 }, { immediate: true, deep: true });
@@ -650,6 +664,29 @@ watch([configModel, availableTasksForChain, availableTasksForTgMenu], ([newConfi
   border: 1px solid var(--n-border-color);
   border-radius: 4px;
   cursor: help;
+}
+.tg-quick-task-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+.tg-quick-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--n-border-color);
+  border-radius: 8px;
+  background-color: var(--n-action-color);
+}
+.tg-quick-task-item :deep(.n-text) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tg-quick-task-item :deep(.n-button) {
+  flex: 0 0 auto;
 }
 .task-chain-list {
   display: flex;

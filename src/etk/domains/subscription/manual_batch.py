@@ -361,14 +361,13 @@ class ManualSubscriptionBatchService:
             "season": season_number,
         }
         _apply_wash_flags(payload, watchlist_config, mp_config, force_full=completed)
-        if not (bool(watchlist_config.get("tg_channel_tracking")) and not completed):
-            progress.checkpoint()
-            if not self._effects.create_subscription(
-                payload,
-                consume_quota=True,
-                apply_local_continuation=False,
-            ):
-                return False, False
+        progress.checkpoint()
+        if not self._effects.create_subscription(
+            payload,
+            consume_quota=True,
+            apply_local_continuation=False,
+        ):
+            return False, False
         season_key = self._repository.season_key(provider_id, season_number)
         local_id = season_key.tmdb_id if season_key is not None else f"{provider_id}_S{season_number}"
         record = dict(existing or {})
@@ -481,30 +480,28 @@ class ManualSubscriptionBatchService:
             }
             if not pending:
                 _apply_wash_flags(payload, watchlist_config, mp_config, force_full=completed)
-            tg_owned = bool(watchlist_config.get("tg_channel_tracking")) and not completed
-            if not tg_owned:
+            progress.checkpoint()
+            try:
+                created = self._effects.create_subscription(
+                    payload,
+                    consume_quota=True,
+                    apply_local_continuation=False,
+                )
+            except SubscriptionQuotaExhaustedError as exc:
+                raise _QuotaDepleted(any_success) from exc
+            if not created:
+                provider_failures.append(_provider_failure("create", tmdb_id, "Season", season_number))
+                continue
+            if pending:
                 progress.checkpoint()
-                try:
-                    created = self._effects.create_subscription(
-                        payload,
-                        consume_quota=True,
-                        apply_local_continuation=False,
-                    )
-                except SubscriptionQuotaExhaustedError as exc:
-                    raise _QuotaDepleted(any_success) from exc
-                if not created:
-                    provider_failures.append(_provider_failure("create", tmdb_id, "Season", season_number))
+                if not self._effects.update_subscription_status(
+                    tmdb_id,
+                    season=season_number,
+                    status="P",
+                    total_episodes=fake_total,
+                ):
+                    provider_failures.append(_provider_failure("update_status", tmdb_id, "Season", season_number))
                     continue
-                if pending:
-                    progress.checkpoint()
-                    if not self._effects.update_subscription_status(
-                        tmdb_id,
-                        season=season_number,
-                        status="P",
-                        total_episodes=fake_total,
-                    ):
-                        provider_failures.append(_provider_failure("update_status", tmdb_id, "Season", season_number))
-                        continue
             self._repository.set_status(record, "SUBSCRIBED", source)
             any_success = True
         return any_success

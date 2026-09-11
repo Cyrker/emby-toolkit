@@ -238,15 +238,12 @@ from etk.domains.sharing import (
     LogicalSeasonShareTransferOperationDelivery,
     NativeP115LogicalSeasonShareGateway,
     NativeP115RapidTransferGateway,
-    PostgresContributionLedger,
     PostgresSharingOperationRepository,
     RapidTransferOperationDelivery,
     SharedIntroExportEffectDelivery,
     SharingOperation,
     SharingOperationExecutor,
     SharingProviderOperationDelivery,
-    SharingService,
-    SqlAlchemySharingProjectionRepository,
     SqlAlchemyVirtualImportRepository,
     VirtualImportOperationDelivery,
     VirtualImportService,
@@ -329,7 +326,6 @@ from etk.domains.subscription.watchlist_task_execution import (
     HttpxWatchlistMetadataAdapter,
     NativeWatchlistMoviePilotGateway,
     NativeWatchlistP115ReclassificationGateway,
-    NativeWatchlistSharedMetadataGateway,
     NativeWatchlistTaskEffects,
     NativeWatchlistTaskService,
     SqlAlchemyWatchlistTaskRepository,
@@ -368,6 +364,7 @@ from etk.platform.tasks.catalog import (
     P7_NATIVE_TASK_KEYS,
     P8_NATIVE_TASK_KEYS,
     P9_NATIVE_TASK_KEYS,
+    RETIRED_EXTERNAL_RESOURCE_TASK_KEYS,
 )
 
 from .native_operations import NativeOperationRouter
@@ -602,8 +599,6 @@ def _native_watchlist_task_service(
     moviepilot_gateway: ConfiguredMoviePilotGateway,
     moviepilot_effects: PersistentMoviePilotEffectGateway,
     credentials: SqlAlchemyP115CredentialRepository,
-    sharing_operations: PostgresSharingOperationRepository,
-    sharing_identity: SharingServerIdentity,
     intro: Any,
 ) -> NativeWatchlistTaskService:
     organize_plans = SqlAlchemyP115OrganizePlanRepository(database.unit_of_work)
@@ -649,12 +644,6 @@ def _native_watchlist_task_service(
                 plan_service,
                 execution_service,
                 organize_executions,
-            ),
-            sharing=NativeWatchlistSharedMetadataGateway(
-                database.unit_of_work,
-                app_settings,
-                sharing_operations,
-                sharing_identity.server_id_hash,
             ),
             intro=intro,
         ),
@@ -1377,20 +1366,10 @@ class WorkerRuntime:
                 executor=playback_executor,
             )
             sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
-            cleanup_source_lifecycle = SharingService(
-                PostgresContributionLedger(database.unit_of_work),
-                shared_center,
-                sharing_operations,
-                unit_of_work=database.unit_of_work,
-                projection=SqlAlchemySharingProjectionRepository(database.unit_of_work),
-            )
             cleanup_executor = CleanupExecutionService(
                 cleanup_repository,
                 local=SafeLocalCleanupGateway(),
-                media=SqlAlchemyCleanupMediaGateway(
-                    database.unit_of_work,
-                    cleanup_source_lifecycle,
-                ),
+                media=SqlAlchemyCleanupMediaGateway(database.unit_of_work),
                 p115=NativeCleanupP115Gateway(
                     P115PrimaryOperationsGateway(
                         credentials=p115_credentials,
@@ -1690,10 +1669,7 @@ class WorkerRuntime:
                             lambda: app_settings.load("p115_upload_monitor_config"),
                         ),
                         media=NativeP115MediaCleanupReceiptGateway(
-                            SqlAlchemyCleanupMediaGateway(
-                                database.unit_of_work,
-                                cleanup_source_lifecycle,
-                            )
+                            SqlAlchemyCleanupMediaGateway(database.unit_of_work)
                         ),
                         shared=NativeP115SharedCleanupGateway(),
                     )
@@ -1810,8 +1786,6 @@ class WorkerRuntime:
                     moviepilot_gateway=moviepilot_gateway,
                     moviepilot_effects=moviepilot_effects,
                     credentials=p115_credentials,
-                    sharing_operations=sharing_operations,
-                    sharing_identity=sharing_identity,
                     intro=_DeferredWatchlistIntroGateway(lambda: self._intro_detection_gateway),
                 ),
                 resubscribe_tasks=_native_resubscribe_task_service(
@@ -2344,42 +2318,11 @@ class WorkerRuntime:
         if self._shutdown_requested.is_set() or worker_shutdown_requested():
             raise WorkerShutdownRequested("Worker shutdown is in progress")
         try:
-            parsed_operation_id = UUID(str(operation_id))
+            UUID(str(operation_id))
         except ValueError as exc:
             raise ValueError("sharing operation id must be a UUID") from exc
-        self.start()
-        if self._shutdown_requested.is_set() or worker_shutdown_requested():
-            raise WorkerShutdownRequested("Worker shutdown started during runtime initialization")
-        with self._lock:
-            executor = self._sharing_operation_executor
-            if executor is None:
-                raise RuntimeError("Worker sharing operation executor is not initialized")
-            self._active_sharing_operation_executions = getattr(self, "_active_sharing_operation_executions", 0) + 1
-            self._idle.clear()
-        try:
-            execution = executor.execute(
-                parsed_operation_id,
-                worker_id=f"{self._worker_id}:sharing",
-                lease_seconds=SHARING_OPERATION_CLAIM_LEASE_SECONDS,
-            )
-            return execution.operation if execution is not None else None
-        finally:
-            with self._lock:
-                self._active_sharing_operation_executions -= 1
-                if (
-                    not self._active_executions
-                    and self._active_ingestion_executions == 0
-                    and self._active_p115_upload_executions == 0
-                    and self._active_p115_playback_executions == 0
-                    and self._active_p115_intro_executions == 0
-                    and self._active_subscription_executions == 0
-                    and self._active_collection_operation_executions == 0
-                    and self._active_identity_executions == 0
-                    and self._active_database_maintenance_executions == 0
-                    and getattr(self, "_active_sharing_operation_executions", 0) == 0
-                    and self._active_media_effect_executions == 0
-                ):
-                    self._idle.set()
+        logger.info("Skipping sharing operation because the Shared Resource Center is retired")
+        return None
 
     def execute(self, *, event_id: str, job_id: str, attempt_id: str) -> None:
         del event_id
@@ -2646,25 +2589,10 @@ class WorkerRuntime:
                 if not isinstance(result, TaskOutcome):
                     raise TypeError(f"P8 native task {definition.key!r} did not return TaskOutcome")
             elif definition is not None and definition.key in P9_NATIVE_TASK_KEYS:
-                metadata = {
-                    "job_id": str(job.id),
-                    "attempt_id": str(attempt.id),
-                    "worker_id": self._worker_id,
-                }
-                requested_by_user_id = str(getattr(job, "requested_by_user_id", None) or "").strip()
-                if requested_by_user_id:
-                    metadata["requested_by_user_id"] = requested_by_user_id
-                message = registry.create_message(
-                    definition.key,
-                    envelope["parameters"],
-                    payload_version=int(envelope["payload_version"]),
-                    metadata=metadata,
+                result = TaskOutcome.skipped(
+                    "影巢、TG 频道监听和共享资源中心功能已下线。",
+                    {"task_key": definition.key, "reason": "feature_retired"},
                 )
-                if self._p9_sharing_tasks is None:
-                    raise RuntimeError("P9 sharing task router is unavailable")
-                result = self._p9_sharing_tasks.execute(message, None, progress)
-                if not isinstance(result, TaskOutcome):
-                    raise TypeError(f"P9 native task {definition.key!r} did not return TaskOutcome")
             elif job.task_key in P8_REVIEW_TASK_KEYS:
                 if self._p8_effect_tasks is None:
                     raise RuntimeError("P8 effect task router is unavailable")
@@ -2955,6 +2883,7 @@ class WorkerRuntime:
             raise LookupError(f"unknown native chain task {parent.job.task_key!r}")
         if not isinstance(sequence, list):
             raise TypeError("task chain sequence must be a list")
+        sequence = [task_key for task_key in sequence if str(task_key) not in RETIRED_EXTERNAL_RESOURCE_TASK_KEYS]
         deadline = time.monotonic() + max_minutes * 60 if max_minutes > 0 else None
         outcomes: list[dict[str, Any]] = []
         for step, raw_key in enumerate(sequence, 1):

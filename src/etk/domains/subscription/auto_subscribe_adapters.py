@@ -142,8 +142,6 @@ class AutoSubscriptionMoviePilotGateway:
         }
         if not pending:
             _apply_wash_flags(payload, watchlist, mp_config, force_full=completed)
-        if bool(watchlist.get("tg_channel_tracking")) and not completed:
-            return AutoSubscriptionItemResult(True, action_type="TG频道追更")
         progress.checkpoint()
         created = self._create(
             payload,

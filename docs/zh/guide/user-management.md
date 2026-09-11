@@ -1,6 +1,6 @@
 # 用户与权限
 
-ETKvNext 以 Emby 用户身份作为登录和权限来源，ServerID 仍是 Pro 与共享池认证的唯一设备锚点。
+ETKvNext 以 Emby 用户身份作为登录和权限来源；系统管理员权限决定配置、任务和用户管理能力。
 
 ## 管理员
 
@@ -8,7 +8,7 @@ ETKvNext 以 Emby 用户身份作为登录和权限来源，ServerID 仍是 Pro 
 
 ## 普通用户
 
-普通用户只访问个人中心，可以维护自己的 Telegram ID、Cookie/OpenAPI 播放账号和个人偏好；不能访问系统配置、用户管理或 Pro 虚拟库配置。
+普通用户只访问个人中心，可以维护自己的 Telegram ID、Cookie/OpenAPI 播放账号和个人偏好；不能访问系统配置、用户管理或系统级虚拟库配置。
 
 ## 邀请链接
 

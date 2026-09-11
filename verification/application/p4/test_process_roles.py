@@ -796,7 +796,7 @@ def test_worker_shutdown_clears_native_p115_playback_executor() -> None:
     assert cast(Any, runtime)._started is False
 
 
-def test_coordinator_leader_starts_only_native_schedules_and_listener(monkeypatch) -> None:
+def test_coordinator_leader_starts_only_native_schedules(monkeypatch) -> None:
     events: list[str] = []
 
     class Schedules:
@@ -809,14 +809,9 @@ def test_coordinator_leader_starts_only_native_schedules_and_listener(monkeypatc
         def stop(self) -> None:
             events.append("schedules.stop")
 
-    manager = SimpleNamespace(
-        apply_listener_state=lambda: events.append("listener.apply"),
-        stop_listener=lambda: events.append("listener.stop"),
-    )
     runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
     runtime._service = cast(Any, object())
     runtime._schedules = None
-    cast(Any, runtime)._native_telegram_search_manager = manager
     runtime._refresh_settings = lambda *, force=False: events.append(f"refresh:{force}")  # type: ignore[method-assign]
 
     monkeypatch.setattr(coordinator, "PersistentScheduleManager", Schedules)
@@ -827,8 +822,6 @@ def test_coordinator_leader_starts_only_native_schedules_and_listener(monkeypatc
     assert events == [
         "schedules.start",
         "refresh:True",
-        "listener.apply",
-        "listener.stop",
         "schedules.stop",
     ]
 
@@ -905,18 +898,12 @@ def test_coordinator_runtime_context_reads_only_native_settings_owners(
 
     context = runtime._load_runtime_context()
 
-    assert context["_shared_resource_enabled"] is True
-    assert context["_emby_server_id"] == "fixture-server"
     assert context["_p115_temp_cleanup_cron"] == "15 */2 * * *"
-    assert context["_tg_userbot_config"] == {"enabled": True}
     assert len(context["_p115_upload_monitor_revision"]) == 64
     assert loads == [
         (
-            "shared_resource_config",
             "p115_temp_dir_config",
-            "tg_userbot_config",
             "p115_upload_monitor_config",
-            "emby_server_id_cache",
         )
     ]
 
@@ -979,7 +966,6 @@ def test_coordinator_schedules_one_processor_free_plan() -> None:
         "high_freq_task_chain_job",
         "low_freq_task_chain_job",
         "daily_theme_job",
-        "shared_share_status_sync_job",
         "play_pool_daily_speedtest_job",
         "p115_temp_dir_cleanup_job",
         "etk_plugin_update_startup_job",
@@ -989,7 +975,6 @@ def test_coordinator_schedules_one_processor_free_plan() -> None:
         "task-chain-high-freq",
         "task-chain-low-freq",
         "update-daily-theme",
-        "shared-share-status-sync",
         "play-pool-daily-speedtest",
     }
     operation_keys = {job["kwargs"]["operation_key"] for job in scheduler.jobs if "operation_key" in job["kwargs"]}
@@ -1147,7 +1132,6 @@ def test_coordinator_tick_filters_recovery_and_publish_to_job_dispatch_topic(mon
     runtime._publisher = cast(Any, object())
     runtime._publisher_id = "fixture-coordinator"
     monkeypatch.setattr(runtime, "_refresh_settings", lambda: None)
-    monkeypatch.setattr(runtime, "_process_native_telegram_search_commands", lambda: None)
 
     runtime._tick()
 
@@ -1168,7 +1152,7 @@ def test_coordinator_tick_filters_recovery_and_publish_to_job_dispatch_topic(mon
     assert store.publisher is runtime._publisher
 
 
-def test_native_coordinator_tick_consumes_telegram_search_commands(monkeypatch) -> None:
+def test_native_coordinator_has_no_telegram_userbot_command_consumer(monkeypatch) -> None:
     store = RecordingCoordinatorStore()
     runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
     runtime.config = TaskRuntimeConfig(
@@ -1180,16 +1164,10 @@ def test_native_coordinator_tick_consumes_telegram_search_commands(monkeypatch) 
     runtime._publisher = cast(Any, object())
     runtime._publisher_id = "fixture-native-coordinator"
     runtime._config_adapter = cast(Any, SimpleNamespace(load=lambda: SimpleNamespace()))
-    events: list[str] = []
     monkeypatch.setattr(runtime, "_refresh_settings", lambda: None)
-    monkeypatch.setattr(
-        runtime,
-        "_process_native_telegram_search_commands",
-        lambda: events.append("telegram-search"),
-    )
 
     runtime._tick()
 
-    assert events == ["telegram-search"]
+    assert not hasattr(runtime, "_process_native_telegram_search_commands")
     assert store.publish_options is not None
     assert store.publish_options["topics"] == ("job.dispatch.requested",)

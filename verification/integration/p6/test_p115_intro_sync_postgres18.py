@@ -199,7 +199,7 @@ def test_postgres18_intro_sync_updates_cache_without_staging_bridge_effect_or_ou
     assert row["mediainfo_json"][0]["Chapters"] == INTRO_CHAPTERS
 
 
-def test_postgres18_native_intro_exporter_stages_one_durable_p9_effect_and_outbox(
+def test_postgres18_native_intro_exporter_does_not_stage_retired_p9_effect_or_outbox(
     p6_runtime: DatabaseRuntime,
 ) -> None:
     _insert_cache(p6_runtime, chapters=[])
@@ -217,46 +217,8 @@ def test_postgres18_native_intro_exporter_stages_one_durable_p9_effect_and_outbo
 
     assert result == {"ok": True, "updated": True, "chapter_count": 2}
     with p6_runtime.engine.connect() as connection:
-        effect = (
-            connection.execute(
-                text(
-                    """
-                    SELECT effect_type, aggregate_type, aggregate_id, payload_json, status
-                    FROM media_effects
-                    """
-                )
-            )
-            .mappings()
-            .one()
-        )
-        outbox = (
-            connection.execute(
-                text(
-                    """
-                    SELECT topic, aggregate_type, aggregate_id, status
-                    FROM outbox_events
-                    """
-                )
-            )
-            .mappings()
-            .one()
-        )
-    assert dict(effect) == {
-        "effect_type": "sharing.intro.export",
-        "aggregate_type": "media_asset",
-        "aggregate_id": SHA_A,
-        "payload_json": {
-            "sha1": SHA_A,
-            "chapters": INTRO_CHAPTERS,
-            "file_name": "Fixture.mkv",
-            "reason": "emby_item_updated",
-        },
-        "status": "pending",
-    }
-    assert outbox["topic"] == "media.effect.requested"
-    assert outbox["aggregate_type"] == "media_effect"
-    assert outbox["aggregate_id"]
-    assert outbox["status"] == "pending"
+        assert connection.scalar(text("SELECT count(*) FROM media_effects")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM outbox_events")) == 0
 
 
 def test_postgres18_formatted_cache_cas_returns_none_for_missing_row(

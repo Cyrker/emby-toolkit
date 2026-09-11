@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import task_manager
 from handler import telegram
 
@@ -29,6 +31,11 @@ def test_telegram_task_menu_submits_through_task_manager_without_local_execution
         "send_telegram_message",
         lambda chat_id, text, **_kwargs: messages.append((chat_id, text)),
     )
+    monkeypatch.setitem(
+        telegram.APP_CONFIG,
+        telegram.constants.CONFIG_OPTION_TELEGRAM_MENU_TASKS,
+        ["fixture-task"],
+    )
 
     telegram._execute_task_from_tg("fixture-chat", "fixture-task")
 
@@ -52,6 +59,11 @@ def test_telegram_force_flag_is_serialized_with_the_job_submission(monkeypatch) 
         lambda *args, **kwargs: captured.update({"args": args, "kwargs": kwargs}) or True,
     )
     monkeypatch.setattr(telegram, "send_telegram_message", lambda *_args, **_kwargs: None)
+    monkeypatch.setitem(
+        telegram.APP_CONFIG,
+        telegram.constants.CONFIG_OPTION_TELEGRAM_MENU_TASKS,
+        ["role-translation"],
+    )
 
     telegram._execute_task_from_tg("fixture-chat", "role-translation")
 
@@ -73,6 +85,62 @@ def test_telegram_rejects_stale_organize_command_without_approved_plan(monkeypat
     assert calls == []
     assert messages[-1][0] == "fixture-chat"
     assert "immutable Plan" in messages[-1][1]
+
+
+def test_telegram_rejects_retired_or_unconfigured_tasks_before_submission(monkeypatch) -> None:
+    calls = []
+    messages = []
+    registry = {
+        "populate-metadata": (lambda *_args, **_kwargs: None, "同步媒体数据", "media"),
+        "hdhive-auto-checkin": (lambda *_args, **_kwargs: None, "影巢签到", "media"),
+    }
+    monkeypatch.setattr("tasks.core.get_task_registry", lambda **_kwargs: registry)
+    monkeypatch.setattr("task_manager.submit_task", lambda *_args, **_kwargs: calls.append(True))
+    monkeypatch.setattr(
+        telegram,
+        "send_telegram_message",
+        lambda chat_id, text, **_kwargs: messages.append((chat_id, text)),
+    )
+    monkeypatch.setitem(
+        telegram.APP_CONFIG,
+        telegram.constants.CONFIG_OPTION_TELEGRAM_MENU_TASKS,
+        ["hdhive-auto-checkin"],
+    )
+
+    telegram._execute_task_from_tg("fixture-chat", "hdhive-auto-checkin")
+    telegram._execute_task_from_tg("fixture-chat", "populate-metadata")
+
+    assert calls == []
+    assert "已下线" in messages[0][1]
+    assert "未在 Telegram 快捷任务中启用" in messages[1][1]
+
+
+def test_telegram_command_registration_excludes_retired_resource_search(monkeypatch) -> None:
+    requests = []
+    registry = {
+        "populate-metadata": (lambda *_args, **_kwargs: None, "同步媒体数据", "media"),
+        "hdhive-auto-checkin": (lambda *_args, **_kwargs: None, "影巢签到", "media"),
+    }
+    monkeypatch.setattr("tasks.core.get_task_registry", lambda **_kwargs: registry)
+    monkeypatch.setitem(
+        telegram.APP_CONFIG,
+        telegram.constants.CONFIG_OPTION_TELEGRAM_MENU_TASKS,
+        ["populate-metadata", "hdhive-auto-checkin"],
+    )
+    monkeypatch.setattr(
+        telegram.requests,
+        "post",
+        lambda *args, **kwargs: requests.append((args, kwargs)) or SimpleNamespace(status_code=200),
+    )
+    monkeypatch.setattr(telegram, "get_proxies_for_requests", lambda: {})
+
+    telegram._setup_bot_commands("fixture-token")
+
+    commands = requests[0][1]["json"]["commands"]
+    assert commands == [
+        {"command": "populate_metadata", "description": "🚀 同步媒体数据"},
+        {"command": "all_tasks", "description": "📋 查看 Telegram 快捷任务"},
+    ]
 
 
 def test_legacy_task_manager_rejects_organize_callable_before_any_queue_or_gateway(monkeypatch) -> None:

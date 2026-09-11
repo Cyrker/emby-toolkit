@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import builtins
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -35,7 +33,6 @@ from etk.platform.db import DatabaseRuntime
 from etk.platform.jobs import InvalidJsonPayloadError, PostgresJobStore
 from etk.platform.tasks import TaskRegistry
 from etk.processes.coordinator import CoordinatorRuntime
-from etk.processes.runtime_config import TaskRuntimeConfig
 
 SETTING_KEY = "tg_userbot_control_bridge"
 TASK_FIXTURE = Path(__file__).resolve().parents[3] / "verification" / "fixtures" / "tasks" / "ordered-task-catalog.json"
@@ -187,9 +184,8 @@ def test_native_search_consumer_claims_only_search_commands_without_mutating_con
     assert login["status"] == "pending"
 
 
-def test_native_coordinator_consumes_search_without_importing_legacy_userbot(
+def test_retired_native_coordinator_does_not_consume_historical_search_commands(
     p4_runtime: DatabaseRuntime,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bridge = _bridge(p4_runtime)
     owner_key = "b" * 64
@@ -200,42 +196,14 @@ def test_native_coordinator_consumes_search_without_importing_legacy_userbot(
         result_owner_key=owner_key,
     )
 
-    class Manager:
-        def get_status(self) -> dict[str, Any]:
-            return {"status": "ready"}
-
-        def search_channel_resources(self, **payload: Any) -> dict[str, Any]:
-            assert payload["query"] == "Fixture"
-            return {
-                "ok": True,
-                "results": [{"tmdb_id": "42", "target_link": "https://115.com/s/private"}],
-            }
-
-    runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
-    runtime._container = SimpleNamespace(database=p4_runtime)
-    runtime._native_telegram_search_manager = Manager()  # type: ignore[assignment]
-    runtime._publisher_id = "fixture-native-coordinator"
-    runtime.config = TaskRuntimeConfig()
-    original_import = builtins.__import__
-
-    def guarded_import(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name == "handler.tg_userbot" or name.startswith("handler.tg_userbot."):
-            raise AssertionError("native Coordinator imported legacy Telegram UserBot")
-        return original_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", guarded_import)
-    runtime._process_native_telegram_search_commands()
-
-    completed = bridge.get_command(command_id)
-    assert completed is not None
-    assert completed["status"] == "succeeded"
-    receipt = completed["result"]
-    assert bridge.consume_resource_secret(receipt["search_result_ref"], owner_key)["ok"] is True
+    assert not hasattr(CoordinatorRuntime, "_process_native_telegram_search_commands")
+    pending = bridge.get_command(command_id)
+    assert pending is not None
+    assert pending["status"] == "pending"
 
 
-def test_native_coordinator_consumes_control_command_without_importing_legacy_userbot(
+def test_retired_native_coordinator_does_not_consume_historical_control_commands(
     p4_runtime: DatabaseRuntime,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     bridge = _bridge(p4_runtime)
     command_id = bridge.enqueue_once(
@@ -244,40 +212,13 @@ def test_native_coordinator_consumes_control_command_without_importing_legacy_us
         idempotency_key="native-coordinator-logout",
     )
 
-    class Manager:
-        def __init__(self) -> None:
-            self.logout_calls = 0
-
-        def get_status(self) -> dict[str, Any]:
-            return {"status": "unauthorized"}
-
-        def logout(self) -> dict[str, Any]:
-            self.logout_calls += 1
-            return {"success": True}
-
-    manager = Manager()
-    runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
-    runtime._container = SimpleNamespace(database=p4_runtime)
-    runtime._native_telegram_search_manager = manager  # type: ignore[assignment]
-    runtime._publisher_id = "fixture-native-coordinator"
-    runtime.config = TaskRuntimeConfig()
-    original_import = builtins.__import__
-
-    def guarded_import(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name == "handler.tg_userbot" or name.startswith("handler.tg_userbot."):
-            raise AssertionError("native Coordinator imported legacy Telegram UserBot")
-        return original_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", guarded_import)
-    runtime._process_native_telegram_search_commands()
-
-    completed = bridge.get_command(command_id)
-    assert completed is not None
-    assert completed["status"] == "succeeded"
-    assert manager.logout_calls == 1
+    assert not hasattr(CoordinatorRuntime, "_process_native_telegram_search_commands")
+    pending = bridge.get_command(command_id)
+    assert pending is not None
+    assert pending["status"] == "pending"
 
 
-def test_native_listener_ingress_externalizes_candidate_and_coordinator_stages_it_once(
+def test_historical_listener_candidate_is_retained_without_active_coordinator_consumer(
     p4_runtime: DatabaseRuntime,
 ) -> None:
     assert p4_runtime.raw_pool is not None
@@ -308,38 +249,15 @@ def test_native_listener_ingress_externalizes_candidate_and_coordinator_stages_i
         )
     assert int(secret_count or 0) == 1
 
-    class Manager:
-        def __init__(self) -> None:
-            self.calls = 0
-
-        def get_status(self) -> dict[str, Any]:
-            return {"status": "authorized"}
-
-        def stage_listener_action(self, candidate: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
-            assert candidate["target_link"] == raw_url
-            assert kwargs["occurrence"] == occurrence
-            self.calls += 1
-            return {"success": True, "staged": True}
-
-    manager = Manager()
-    runtime = CoordinatorRuntime.__new__(CoordinatorRuntime)
-    runtime._container = SimpleNamespace(database=p4_runtime)
-    runtime._native_telegram_search_manager = manager  # type: ignore[assignment]
-    runtime._publisher_id = "fixture-native-listener"
-    runtime.config = TaskRuntimeConfig()
-
-    runtime._process_native_telegram_search_commands()
-
-    completed = bridge.get_command(command_id)
-    assert completed is not None
-    assert completed["status"] == "succeeded"
-    assert completed["result"] == {"success": True, "staged": True}
-    assert manager.calls == 1
+    assert not hasattr(CoordinatorRuntime, "_process_native_telegram_search_commands")
+    pending = bridge.get_command(command_id)
+    assert pending is not None
+    assert pending["status"] == "pending"
     with p4_runtime.engine.connect() as connection:
         secret_count = connection.scalar(
             text("SELECT COUNT(*) FROM app_settings WHERE setting_key LIKE 'runtime.secret.telegram-resource.%'")
         )
-    assert int(secret_count or 0) == 0
+    assert int(secret_count or 0) == 1
 
 
 def test_listener_action_retry_is_delayed_bounded_and_cleans_candidate_secret(

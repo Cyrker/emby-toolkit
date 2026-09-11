@@ -10,7 +10,6 @@ from etk.domains.media.effect_execution import (
 )
 from etk.domains.media.effects import MediaEffectProjection
 from etk.integrations import ProviderDisposition, ProviderResponse
-from etk.integrations.http_policy import ExternalAdapterError
 
 SHARED_INTRO_EXPORT_EFFECT = "sharing.intro.export"
 
@@ -40,47 +39,12 @@ class SharedIntroExportEffectDelivery:
     def deliver(self, effect: MediaEffectProjection) -> Mapping[str, Any]:
         if effect.effect_type != SHARED_INTRO_EXPORT_EFFECT:
             raise ValueError(f"unsupported shared intro effect type: {effect.effect_type}")
-        payload = effect.payload
-        sha1 = _sha1(payload.get("sha1"))
-        chapters = _chapters(payload.get("chapters"))
-        config = self._settings.load("shared_resource_config")
-        if not isinstance(config, Mapping) or not (
-            _enabled(config.get("p115_shared_resource_enabled")) and _enabled(config.get("p115_shared_intro_enabled"))
-        ):
-            return {
-                "operation": "shared-intro-export",
-                "sha1": sha1,
-                "skipped": True,
-                "reason": "shared_intro_disabled",
-            }
-        try:
-            response = self._center.upload_intro_chapters(
-                sha1,
-                chapters,
-                file_name=str(payload.get("file_name") or "").strip(),
-                reason=str(payload.get("reason") or "etk_intro_detection").strip(),
-            )
-        except ExternalAdapterError as exc:
-            _raise_disposition(exc.disposition, exc, retry_after_seconds=30)
-        if response.disposition is ProviderDisposition.CONFIRMED:
-            if not isinstance(response.payload, Mapping):
-                raise MediaEffectDeliveryIndeterminate(
-                    "Shared Center intro export returned an invalid confirmation",
-                    error={"operation": "shared-intro-export", "status_code": response.status_code},
-                )
-            return {
-                "operation": "shared-intro-export",
-                "sha1": sha1,
-                "status_code": response.status_code,
-                "chapter_count": len(chapters),
-            }
-        _raise_disposition(
-            response.disposition,
-            RuntimeError("Shared Center did not confirm intro export"),
-            retry_after_seconds=response.retry_after_seconds or 30,
-            status_code=response.status_code,
-        )
-        raise AssertionError("unreachable")
+        return {
+            "operation": "shared-intro-export",
+            "sha1": str(effect.payload.get("sha1") or "").strip().upper(),
+            "skipped": True,
+            "reason": "feature_retired",
+        }
 
 
 def _raise_disposition(

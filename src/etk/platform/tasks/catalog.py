@@ -129,6 +129,11 @@ P9_NATIVE_TASK_KEYS = frozenset(
     }
 )
 
+# These keys remain in the frozen compatibility registry so historical Jobs can
+# still be decoded, but the corresponding external-resource features are no
+# longer exposed or accepted for new execution.
+RETIRED_EXTERNAL_RESOURCE_TASK_KEYS = P9_NATIVE_TASK_KEYS
+
 NATIVE_TASK_KEYS = (
     P4_NATIVE_TASK_KEYS
     | P5_NATIVE_TASK_KEYS

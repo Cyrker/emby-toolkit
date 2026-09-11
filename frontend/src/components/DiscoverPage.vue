@@ -298,18 +298,6 @@
                 </div>
 
                 <div class="actions-container">
-                  <!-- ★ 云资源下载按钮：管理员始终可见，弹窗内自动合并影巢与频道资源 -->
-                  <div
-                    v-if="authStore.isAdmin"
-                    class="action-btn"
-                    @click.stop="openHDHiveResourceModal(media)"
-                    title="云资源搜索/一键转存"
-                  >
-                    <n-icon size="18" color="#f0a020" class="shadow-icon">
-                      <CloudDownloadIcon />
-                    </n-icon>
-                  </div>
-
                   <!-- ★ 常规订阅/想看按钮：即使未配置 MP，也允许标记 WANTED -->
                   <div
                     v-if="canShowSubscribeAction(media)"
@@ -382,13 +370,6 @@
       </n-spin>
     </n-modal>
 
-    <!-- 云资源搜索模态框 -->
-    <HDHiveResourceModal
-      v-model:show="showHDHiveResourceModal"
-      :media="currentHDHiveMedia"
-      :season-number="currentHDHiveSeason"
-    />
-
   </div>
   </n-layout>
 </template>
@@ -399,13 +380,12 @@ import { ref, reactive, watch, onMounted, onUnmounted, computed, h } from 'vue';
 import { useRouter } from 'vue-router';
 import apiClient, { apiPath } from '@/api/client'
 import { useAuthStore } from '../stores/auth';
-import HDHiveResourceModal from './HDHiveResourceModal.vue';
 import {
   NPageHeader, NCard, NSpace, NRadioGroup, NRadioButton, NSelect,
   NInputNumber, NSpin, NGrid, NGi, NButton, NThing, useMessage, NIcon,
   NInput, NInputGroup, NSkeleton, NEllipsis, NEmpty, NDivider, NH4, NH3, NTooltip, NModal, NTag, NSwitch, NAvatar
 } from 'naive-ui';
-import { Heart, HeartOutline, HourglassOutline, Star as StarIcon, FlashOutline as LightningIcon, DiceOutline as DiceIcon, ListOutline as ListIcon, CloudDownloadOutline as CloudDownloadIcon, PersonOutline as PersonIcon, TicketOutline as TicketIcon, CalendarOutline as CalendarIcon } from '@vicons/ionicons5';
+import { Heart, HeartOutline, HourglassOutline, Star as StarIcon, FlashOutline as LightningIcon, DiceOutline as DiceIcon, ListOutline as ListIcon, PersonOutline as PersonIcon, TicketOutline as TicketIcon, CalendarOutline as CalendarIcon } from '@vicons/ionicons5';
 const authStore = useAuthStore();
 const message = useMessage();
 const router = useRouter();
@@ -437,14 +417,12 @@ const personSearchLoading = reactive({ actors: false, directors: false });
 const personSearchTimers = { actors: null, directors: null };
 // ★ 新增：订阅源状态
 const isMpConfigured = ref(false);
-const isHdhiveConfigured = ref(false);
 
 const fetchSubscriptionStatus = async () => {
   try {
     const res = await apiClient.get(apiPath('api_subscription_status_d65bf9d0'));
     if (res.data.success) {
       isMpConfigured.value = res.data.mp_configured;
-      isHdhiveConfigured.value = res.data.hdhive_configured;
     }
   } catch (e) {
     console.error("获取订阅源状态失败", e);
@@ -785,17 +763,6 @@ const updateMediaStatus = (mediaId, newStatus) => {
       subscription_status: newStatus
     };
   }
-};
-
-
-const showHDHiveResourceModal = ref(false);
-const currentHDHiveMedia = ref(null);
-const currentHDHiveSeason = ref(null);
-
-const openHDHiveResourceModal = async (media, seasonNumber = null) => {
-  currentHDHiveMedia.value = media;
-  currentHDHiveSeason.value = seasonNumber;
-  showHDHiveResourceModal.value = true;
 };
 
 // MoviePilot 已配置：电影直接提交、剧集弹出选季；未配置：直接标记 WANTED。

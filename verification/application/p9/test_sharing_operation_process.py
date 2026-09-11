@@ -30,7 +30,6 @@ from etk.platform.jobs import OutboxClaim, OutboxEventRecord, OutboxStatus, Publ
 from etk.processes.celery_app import EXECUTE_SHARING_OPERATION_TASK, create_celery_app
 from etk.processes.coordinator import CoordinatorRuntime
 from etk.processes.p9_sharing_operations import (
-    SHARING_OPERATION_CLAIM_LEASE_SECONDS,
     CelerySharingOperationPublisher,
     SharingOperationCoordinator,
     SharingOperationCoordinatorResult,
@@ -311,7 +310,7 @@ def test_sharing_coordinator_recovers_disjoint_claims_and_dead_dispatches() -> N
     assert store.publisher is publisher
 
 
-def test_native_coordinator_tick_dispatches_without_legacy_runtime_hooks() -> None:
+def test_native_coordinator_tick_does_not_dispatch_retired_external_resource_work() -> None:
     calls: list[str] = []
 
     class Store:
@@ -346,7 +345,7 @@ def test_native_coordinator_tick_dispatches_without_legacy_runtime_hooks() -> No
     runtime._publisher_id = "fixture-native-coordinator"
     runtime._config_adapter = SimpleNamespace(load=lambda: calls.append("settings") or settings)
     runtime._cleanup_execution_repository = None
-    runtime._sharing_operation_coordinator = cast(Any, Sharing())
+    cast(Any, runtime)._sharing_operation_coordinator = Sharing()
 
     def refresh_settings(**_options: Any) -> None:
         calls.append("settings")
@@ -362,12 +361,10 @@ def test_native_coordinator_tick_dispatches_without_legacy_runtime_hooks() -> No
     assert runtime._last_settings is settings
     assert calls == [
         "settings",
-        "telegram-search",
         "enqueue",
         "recover",
         "requeue",
         "publish",
-        "sharing",
     ]
 
 
@@ -1204,16 +1201,13 @@ def test_celery_sharing_operation_requeues_when_worker_shutdown_has_started(monk
     assert raised.value.requeue is True
 
 
-@pytest.mark.parametrize("raises", [False, True])
-def test_worker_sharing_execution_maintains_active_counter_and_idle(monkeypatch, raises: bool) -> None:
+def test_worker_sharing_execution_skips_retired_operations(monkeypatch) -> None:
     calls: list[tuple[UUID, str, float, bool]] = []
 
     class Executor:
         def execute(self, operation_id: UUID, *, worker_id: str, lease_seconds: float) -> Any:
             calls.append((operation_id, worker_id, lease_seconds, runtime._idle.is_set()))
-            if raises:
-                raise RuntimeError("fixture execution failed")
-            return SimpleNamespace(operation="projection")
+            raise AssertionError("retired sharing operations must not reach the provider executor")
 
     runtime = WorkerRuntime.__new__(WorkerRuntime)
     runtime._shutdown_requested = threading.Event()
@@ -1236,19 +1230,8 @@ def test_worker_sharing_execution_maintains_active_counter_and_idle(monkeypatch,
     monkeypatch.setattr(runtime, "start", lambda: None)
     monkeypatch.setattr("etk.processes.worker.worker_shutdown_requested", lambda: False)
 
-    if raises:
-        with pytest.raises(RuntimeError, match="fixture execution failed"):
-            runtime.execute_sharing_operation(operation_id=str(_OPERATION_ID))
-    else:
-        assert runtime.execute_sharing_operation(operation_id=str(_OPERATION_ID)) == "projection"
+    assert runtime.execute_sharing_operation(operation_id=str(_OPERATION_ID)) is None
 
-    assert calls == [
-        (
-            _OPERATION_ID,
-            "fixture-worker:sharing",
-            SHARING_OPERATION_CLAIM_LEASE_SECONDS,
-            False,
-        )
-    ]
+    assert calls == []
     assert runtime._active_sharing_operation_executions == 0
     assert runtime._idle.is_set()

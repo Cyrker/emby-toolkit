@@ -390,7 +390,7 @@ def test_chapter_cache_effect_and_operation_progress_stage_in_one_uow(
         progress={"intro_projected": 1},
     )
 
-    assert len(effect_ids) == 2
+    assert len(effect_ids) == 1
     assert replay_ids == effect_ids
     with p6_runtime.engine.connect() as connection:
         chapters = connection.scalar(
@@ -419,12 +419,7 @@ def test_chapter_cache_effect_and_operation_progress_stage_in_one_uow(
     assert [chapter["MarkerType"] for chapter in chapters] == ["IntroStart", "IntroEnd"]
     assert [(effect["effect_type"], effect["status"]) for effect in effects] == [
         ("emby.chapters.update", "pending"),
-        ("sharing.intro.export", "pending"),
     ]
-    export = effects[1]
-    assert export["aggregate_type"] == "media_asset"
-    assert export["aggregate_id"] == projection.episode.sha1
-    assert set(export["payload_json"]) == {"sha1", "chapters", "file_name", "reason"}
     assert progress["intro_projected"] == 1
     assert progress["effect_ids"] == sorted(map(str, effect_ids))
 

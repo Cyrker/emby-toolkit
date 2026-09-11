@@ -6,7 +6,7 @@
     "route_decorators": 343,
     "tables": 39,
     "task_keys": 50,
-    "vue_files": 55
+    "vue_files": 50
   },
   "generator": "scripts/refactor/export_manifests.py",
   "legacy_python_files": [
@@ -137,7 +137,7 @@
     "watchlist_processor.py",
     "web_app.py"
   ],
-  "legacy_source_sha256": "b56746c417dd22c37e1421f7245f0ac6e0fbeb645212d40cfafb56e520065caf",
+  "legacy_source_sha256": "8d7fb20196a46d00f6eb19f0c4d48f9a90d22672dc6054b43b8188a4aa672eae",
   "metrics": {
     "blueprints": 22,
     "legacy_python_files": 126,
@@ -145,7 +145,7 @@
     "route_decorators": 343,
     "tables": 39,
     "task_keys": 50,
-    "vue_files": 55
+    "vue_files": 50
   },
   "mismatches": {},
   "schema_version": 1,
@@ -161,7 +161,6 @@
     "frontend/src/components/DatabaseStats.vue",
     "frontend/src/components/DiscoverPage.vue",
     "frontend/src/components/EmbyStatsPage.vue",
-    "frontend/src/components/HDHiveResourceModal.vue",
     "frontend/src/components/InvitationList.vue",
     "frontend/src/components/LogViewer.vue",
     "frontend/src/components/Login.vue",
@@ -173,8 +172,6 @@
     "frontend/src/components/ResubscribePage.vue",
     "frontend/src/components/ReviewList.vue",
     "frontend/src/components/Setup.vue",
-    "frontend/src/components/ShareRequestCreateModal.vue",
-    "frontend/src/components/SharedResourceManagerPage.vue",
     "frontend/src/components/ThemeEditor.vue",
     "frontend/src/components/TmdbCollectionsPage.vue",
     "frontend/src/components/UnifiedSubscriptionsPage.vue",
@@ -193,7 +190,6 @@
     "frontend/src/components/settings/DefaultStreamConfigModal.vue",
     "frontend/src/components/settings/EpisodeRegexConfigModal.vue",
     "frontend/src/components/settings/GeneralSettingsPage.vue",
-    "frontend/src/components/settings/HDHiveConfigModal.vue",
     "frontend/src/components/settings/MediaCleanupSettingsPage.vue",
     "frontend/src/components/settings/MoviePilotConfigModal.vue",
     "frontend/src/components/settings/PlayPoolConfigModal.vue",
@@ -201,7 +197,6 @@
     "frontend/src/components/settings/ResubscribeSettingsPage.vue",
     "frontend/src/components/settings/RuleManagerModal.vue",
     "frontend/src/components/settings/SchedulerSettingsPage.vue",
-    "frontend/src/components/settings/TGMonitorModal.vue",
     "frontend/src/components/settings/TelegramTemplateModal.vue",
     "frontend/src/components/settings/UploadMonitorConfigModal.vue",
     "frontend/src/components/settings/WashingPriorityModal.vue"

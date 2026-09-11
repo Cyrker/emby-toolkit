@@ -21,7 +21,8 @@ export default defineConfig({
       { text: '快速开始', link: '/zh/guide/quick-start' },
       { text: '部署', link: '/zh/guide/docker' },
       { text: '配置', link: '/zh/guide/config' },
-      { text: '共享资源', link: '/zh/guide/shared-resource' },
+      { text: '快捷任务', link: '/zh/guide/quick-tasks' },
+      { text: '共享资源（已退役）', link: '/zh/guide/shared-resource' },
       { text: '洗版', link: '/zh/guide/washing' },
       { text: 'FAQ', link: '/zh/faq/troubleshooting' }
     ],
@@ -48,8 +49,9 @@ export default defineConfig({
           text: '使用指南',
           items: [
             { text: 'Web 控制台', link: '/zh/guide/web-ui' },
+            { text: '快捷任务', link: '/zh/guide/quick-tasks' },
             { text: '115 网盘', link: '/zh/guide/p115' },
-            { text: '共享资源中心', link: '/zh/guide/shared-resource' },
+            { text: '共享资源（已退役）', link: '/zh/guide/shared-resource' },
             { text: '洗版功能', link: '/zh/guide/washing' },
             { text: '任务与调度', link: '/zh/guide/scheduler' },
             { text: '实时监控', link: '/zh/guide/monitor' },

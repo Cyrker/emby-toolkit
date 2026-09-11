@@ -800,7 +800,7 @@ def _mapping(value: object) -> dict[str, Any]:
 def _source_order(value: object) -> tuple[str, ...]:
     if not isinstance(value, Sequence) or isinstance(value, str | bytes):
         return ()
-    return tuple(str(item).strip() for item in value if str(item).strip())
+    return ("mp",) if any(str(item).strip() == "mp" for item in value) else ()
 
 
 def _movie_subscribable(details: Mapping[str, Any], config: Mapping[str, Any], today: date) -> bool:

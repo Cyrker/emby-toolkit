@@ -218,7 +218,7 @@ def test_strategy_filters_unavailable_sources_and_disables_assistant_atomically(
             json={"subscription_sources": ["mp", "shared_pool", "hdhive"], "keep": "opaque"},
         )
 
-    assert default.json() == {"subscription_sources": ["shared_pool", "hdhive", "tg_channel", "mp"]}
+    assert default.json() == {"subscription_sources": ["mp"]}
     assert saved.json() == {"message": "策略配置已保存"}
     assert settings.save_many_calls == [
         {
@@ -227,7 +227,7 @@ def test_strategy_filters_unavailable_sources_and_disables_assistant_atomically(
                 "subscribe_assistant": {"enabled": False, "guard_mode": "strict"},
             },
             "subscription_strategy_config": {
-                "subscription_sources": ["shared_pool"],
+                "subscription_sources": [],
                 "keep": "opaque",
             },
         }
@@ -283,7 +283,7 @@ def test_strategy_without_existing_enabled_assistant_does_not_create_moviepilot_
         )
 
     assert response.status_code == 200
-    assert settings.save_many_calls == [{"subscription_strategy_config": {"subscription_sources": ["shared_pool"]}}]
+    assert settings.save_many_calls == [{"subscription_strategy_config": {"subscription_sources": []}}]
     assert "mp_config" not in settings.values
 
 

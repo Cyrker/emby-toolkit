@@ -175,7 +175,7 @@ def test_moviepilot_adapter_pending_season_requires_confirmed_status_update() ->
     )
 
 
-def test_moviepilot_adapter_completed_wash_flags_and_tg_owned_season() -> None:
+def test_moviepilot_adapter_completed_wash_flags_and_ignores_retired_tg_tracking() -> None:
     gateway, effects, _tmdb = _gateway(
         settings={"mp_config": {"subscribe_assistant": {"best_version_type": "completed_full"}}},
         details={"status": "Ended", "seasons": [{"season_number": 1, "episode_count": 8}]},
@@ -199,7 +199,7 @@ def test_moviepilot_adapter_completed_wash_flags_and_tg_owned_season() -> None:
         settings={"watchlist_config": {"tg_channel_tracking": True}},
         details={"status": "Returning Series", "seasons": [{"season_number": 3}]},
     )
-    tg_owned = gateway.subscribe_item(
+    historical_tg = gateway.subscribe_item(
         {
             "tmdb_id": "season-row",
             "parent_series_tmdb_id": "201",
@@ -210,9 +210,9 @@ def test_moviepilot_adapter_completed_wash_flags_and_tg_owned_season() -> None:
         },
         _Progress(),
     )
-    assert tg_owned.processed is True
-    assert tg_owned.action_type == "TG频道追更"
-    assert effects.creates == []
+    assert historical_tg.processed is True
+    assert historical_tg.action_type == "MP"
+    assert len(effects.creates) == 1
 
 
 def test_callable_sources_normalize_results_and_fail_closed() -> None:

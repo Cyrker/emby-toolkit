@@ -21,6 +21,7 @@ from etk.platform.tasks.catalog import (
     P7_NATIVE_TASK_KEYS,
     P8_NATIVE_TASK_KEYS,
     P9_NATIVE_TASK_KEYS,
+    RETIRED_EXTERNAL_RESOURCE_TASK_KEYS,
 )
 from etk.processes import worker as worker_module
 from etk.processes.native_operations import NativeOperationProgress, NativeOperationRouter
@@ -538,7 +539,6 @@ def test_worker_routes_scan_monitor_to_ingestion_router_only() -> None:
         ("scan_old_seasons_backfill", "_p7_subscription_tasks"),
         ("subscribe-assistant-maintenance", "_p7_subscription_tasks"),
         ("sync-all-user-data", "_p8_effect_tasks"),
-        ("hdhive-auto-checkin", "_p9_sharing_tasks"),
         ("update-resubscribe-cache", "_p7_subscription_tasks"),
     ],
 )
@@ -571,6 +571,25 @@ def test_native_processor_free_tasks_do_not_import_task_manager(
     assert [status for status, _values in store.terminals] == ["succeeded"]
     assert len(router.calls) == 1
     assert router.calls[0][1] is None
+
+
+@pytest.mark.parametrize("task_key", sorted(RETIRED_EXTERNAL_RESOURCE_TASK_KEYS))
+def test_historical_external_resource_jobs_are_skipped_without_provider_execution(task_key: str) -> None:
+    projection = _catalog_projection(task_key, parameters={})
+    runtime, store = _native_catalog_runtime(projection)
+    router = StubProcessorFreeRouter()
+    cast(Any, runtime)._p9_sharing_tasks = router
+
+    runtime._execute_claimed(SimpleNamespace(projection=projection))  # type: ignore[arg-type]
+
+    assert router.calls == []
+    assert [status for status, _values in store.terminals] == ["succeeded"]
+    assert store.terminals[0][1]["result"] == {
+        "ok": True,
+        "status": "skipped",
+        "message": "影巢、TG 频道监听和共享资源中心功能已下线。",
+        "details": {"task_key": task_key, "reason": "feature_retired"},
+    }
 
 
 def test_native_worker_routes_manual_subscription_without_legacy_runtime(
@@ -736,6 +755,22 @@ def test_native_chain_rejects_unknown_and_dedicated_children() -> None:
     cast(Any, runtime)._last_settings = {"task_chain_sequence": ["scan-organize-115"]}
     with pytest.raises(ValueError, match="dedicated entrypoint"):
         runtime._execute_chain_at_depth(parent)  # type: ignore[arg-type]
+
+
+def test_native_chain_filters_historical_retired_external_resource_tasks() -> None:
+    parent = _catalog_projection("task-chain-high-freq", parameters={})
+    runtime, _store = _native_catalog_runtime(parent)
+
+    class Service:
+        def submit_task(self, *_args: object, **_kwargs: object) -> object:
+            raise AssertionError("retired task-chain entries must not be submitted")
+
+    cast(Any, runtime)._service = Service()
+    cast(Any, runtime)._last_settings = {
+        "task_chain_sequence": sorted(RETIRED_EXTERNAL_RESOURCE_TASK_KEYS),
+    }
+
+    assert runtime._execute_chain_at_depth(parent) == {"status": "completed", "children": []}  # type: ignore[arg-type]
 
 
 def test_task_chain_does_not_report_completed_after_a_failed_child() -> None:

@@ -18,6 +18,7 @@ from etk.platform.web import PermissionPolicy, get_request_session
 from .jobs import (
     ApprovedExecutionRequiredError,
     JobSubmissionService,
+    RetiredTaskError,
     TaskBusyError,
     UnknownTaskError,
     serialize_projection,
@@ -108,6 +109,11 @@ async def run_task(request: Request) -> Any:
         )
     except UnknownTaskError:
         return fastapi_json_response({"error": f"未知的任务名称: {task_name}"}, status_code=404)
+    except RetiredTaskError:
+        return fastapi_json_response(
+            {"error": "该任务所属的影巢、TG 频道监听或共享资源中心功能已下线。"},
+            status_code=410,
+        )
     except IdempotencyConflictError:
         return fastapi_json_response({"error": "幂等键已用于不同的任务请求。"}, status_code=409)
     except ApprovedExecutionRequiredError:

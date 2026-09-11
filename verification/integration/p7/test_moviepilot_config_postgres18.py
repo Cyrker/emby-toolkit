@@ -64,8 +64,8 @@ def test_strategy_and_assistant_disable_commit_together(p7_runtime: DatabaseRunt
 
     saved = service.save({"subscription_sources": ["mp", "shared_pool", "hdhive"]})
 
-    assert saved == {"subscription_sources": ["shared_pool"]}
-    assert settings.load("subscription_strategy_config") == {"subscription_sources": ["shared_pool"]}
+    assert saved == {"subscription_sources": []}
+    assert settings.load("subscription_strategy_config") == {"subscription_sources": []}
     assert settings.load("mp_config") == {
         "moviepilot_url": "https://mp.invalid",
         "subscribe_assistant": {"enabled": False},
@@ -78,7 +78,7 @@ def test_strategy_without_moviepilot_config_does_not_create_one(p7_runtime: Data
 
     service.save({"subscription_sources": ["shared_pool"]})
 
-    assert settings.load("subscription_strategy_config") == {"subscription_sources": ["shared_pool"]}
+    assert settings.load("subscription_strategy_config") == {"subscription_sources": []}
     assert settings.load("mp_config") is None
 
 

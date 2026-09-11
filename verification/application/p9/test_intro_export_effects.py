@@ -7,10 +7,6 @@ from uuid import uuid4
 
 import pytest
 
-from etk.domains.media.effect_execution import (
-    MediaEffectDeliveryIndeterminate,
-    MediaEffectDeliveryRetryable,
-)
 from etk.domains.media.effects import MediaEffectProjection, MediaEffectStatus
 from etk.domains.sharing.intro_effects import (
     SHARED_INTRO_EXPORT_EFFECT,
@@ -107,11 +103,11 @@ def test_disabled_shared_intro_confirms_a_local_skip_without_provider_write() ->
     result = delivery.deliver(_effect())
 
     assert result["skipped"] is True
-    assert result["reason"] == "shared_intro_disabled"
+    assert result["reason"] == "feature_retired"
     assert center.calls == []
 
 
-def test_confirmed_intro_export_uses_stable_sha1_and_chapter_payload() -> None:
+def test_enabled_historical_config_cannot_reactivate_intro_export() -> None:
     center = _Center(ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"ok": True}))
     delivery = SharedIntroExportEffectDelivery(_Settings(), center)
 
@@ -120,39 +116,40 @@ def test_confirmed_intro_export_uses_stable_sha1_and_chapter_payload() -> None:
     assert result == {
         "operation": "shared-intro-export",
         "sha1": "A" * 40,
-        "status_code": 200,
-        "chapter_count": 2,
+        "skipped": True,
+        "reason": "feature_retired",
     }
-    assert center.calls[0]["reason"] == "etk_intro_detection"
+    assert center.calls == []
 
 
-def test_retryable_and_malformed_confirmations_do_not_confirm_the_effect() -> None:
+def test_provider_response_is_never_observed_after_retirement() -> None:
+    retryable_center = _Center(ProviderResponse(ProviderDisposition.RETRYABLE, 503, None, 7))
+    malformed_center = _Center(ProviderResponse(ProviderDisposition.CONFIRMED, 200, None))
     retryable = SharedIntroExportEffectDelivery(
         _Settings(),
-        _Center(ProviderResponse(ProviderDisposition.RETRYABLE, 503, None, 7)),
+        retryable_center,
     )
     malformed = SharedIntroExportEffectDelivery(
         _Settings(),
-        _Center(ProviderResponse(ProviderDisposition.CONFIRMED, 200, None)),
+        malformed_center,
     )
 
-    with pytest.raises(MediaEffectDeliveryRetryable) as retry:
-        retryable.deliver(_effect())
-    assert retry.value.retry_after_seconds == 7
-    with pytest.raises(MediaEffectDeliveryIndeterminate):
-        malformed.deliver(_effect())
+    assert retryable.deliver(_effect())["reason"] == "feature_retired"
+    assert malformed.deliver(_effect())["reason"] == "feature_retired"
+    assert retryable_center.calls == []
+    assert malformed_center.calls == []
 
 
 @pytest.mark.parametrize(("start_ticks", "end_ticks"), [(0, 0), (20, 10)])
-def test_invalid_intro_chapter_order_is_rejected_before_provider_write(
+def test_historical_intro_payload_is_skipped_without_validation_or_provider_write(
     start_ticks: int,
     end_ticks: int,
 ) -> None:
     center = _Center(ProviderResponse(ProviderDisposition.CONFIRMED, 200, {"ok": True}))
 
-    with pytest.raises(ValueError, match="range"):
-        SharedIntroExportEffectDelivery(_Settings(), center).deliver(
-            _effect(start_ticks=start_ticks, end_ticks=end_ticks)
-        )
+    result = SharedIntroExportEffectDelivery(_Settings(), center).deliver(
+        _effect(start_ticks=start_ticks, end_ticks=end_ticks)
+    )
 
+    assert result["reason"] == "feature_retired"
     assert center.calls == []

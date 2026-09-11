@@ -9,7 +9,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from etk.platform.observability.redaction import redact_sensitive
-from etk.platform.tasks.catalog import LEGACY_TASK_KEY_ORDER
+from etk.platform.tasks.catalog import LEGACY_TASK_KEY_ORDER, RETIRED_EXTERNAL_RESOURCE_TASK_KEYS
 
 
 class RuntimeStatusResponse(BaseModel):
@@ -64,6 +64,8 @@ class ManifestTaskCatalog:
             normalized = "chain"
         result: list[dict[str, Any]] = []
         for task in self._load_tasks():
+            if task["task_key"] in RETIRED_EXTERNAL_RESOURCE_TASK_KEYS:
+                continue
             if normalized not in task.get("visible_in", []):
                 continue
             item = {

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -348,6 +349,28 @@ def test_run_task_rejects_organize_without_immutable_plan_execution() -> None:
 
     assert response.status_code == 409
     assert response.json() == {"error": "115 网盘整理必须先创建并批准 immutable Plan，再从 Plan 执行入口提交。"}
+    assert store.create_calls == []
+
+
+@pytest.mark.parametrize(
+    "task_key",
+    (
+        "hdhive-auto-checkin",
+        "shared-resource-maintenance",
+        "share-all-library",
+        "shared-share-status-sync",
+    ),
+)
+def test_run_task_rejects_retired_external_resource_tasks(task_key: str) -> None:
+    app, permissions, _, store, codec = _build_app()
+    permissions.admins.add("fixture-admin")
+
+    with TestClient(app) as client:
+        _set_user(client, codec, "fixture-admin")
+        response = client.post("/api/tasks/run", json={"task_name": task_key})
+
+    assert response.status_code == 410
+    assert response.json() == {"error": "该任务所属的影巢、TG 频道监听或共享资源中心功能已下线。"}
     assert store.create_calls == []
 
 

@@ -603,7 +603,6 @@ def test_settings_defaults_legacy_migration_and_pure_normalized_persistence() ->
     assert migrated.json() == {
         "douban_count_correction": False,
         "revival_check_days": 365,
-        "tg_channel_tracking": False,
         "intro_detection_trigger_mode": "import",
         "intro_detection_credits_enabled": False,
         "intro_detection_library_ids": [],
@@ -614,7 +613,6 @@ def test_settings_defaults_legacy_migration_and_pure_normalized_persistence() ->
         "intro_detection_trigger_mode": "off",
         "douban_count_correction": True,
         "revival_check_days": 365,
-        "tg_channel_tracking": False,
         "intro_detection_credits_enabled": True,
         "intro_detection_library_ids": ["library-a", "42"],
     }

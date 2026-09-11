@@ -2,7 +2,6 @@
 import hashlib
 import json
 import threading
-import extensions
 import requests
 import logging
 import re
@@ -16,6 +15,7 @@ from handler.tg_media_candidate import build_channel_task_payload
 from etk.compatibility.background import spawn
 from etk.compatibility import persistent_runtime_state
 from etk.compatibility.tg_control_bridge import submit_telegram_resource_action
+from etk.platform.tasks import RETIRED_EXTERNAL_RESOURCE_TASK_KEYS
 
 logger = logging.getLogger(__name__)
 
@@ -2523,6 +2523,23 @@ def _tg_try_handle_resource_session_input(chat_id: str, text: str, update_id=Non
     return False
 
 
+def _tg_allowed_task_keys(registry):
+    configured = APP_CONFIG.get(
+        constants.CONFIG_OPTION_TELEGRAM_MENU_TASKS,
+        constants.DEFAULT_TELEGRAM_MENU_TASKS,
+    )
+    if not isinstance(configured, (list, tuple)) or not configured:
+        configured = constants.DEFAULT_TELEGRAM_MENU_TASKS
+    return tuple(
+        key
+        for key in configured
+        if isinstance(key, str)
+        and key in registry
+        and key != 'scan-organize-115'
+        and key not in RETIRED_EXTERNAL_RESOURCE_TASK_KEYS
+    )
+
+
 def _execute_task_from_tg(chat_id: str, task_key: str):
     """Submit a Telegram task command through the shared task boundary."""
     import task_manager
@@ -2534,12 +2551,21 @@ def _execute_task_from_tg(chat_id: str, task_key: str):
             escape_markdown("❌ 115 网盘整理必须先创建并批准 immutable Plan，不能从 TG 直接触发。"),
         )
         return
+    if task_key in RETIRED_EXTERNAL_RESOURCE_TASK_KEYS:
+        send_telegram_message(
+            chat_id,
+            escape_markdown("❌ 该任务所属的影巢、TG 频道监听或共享资源中心功能已下线。"),
+        )
+        return
 
     registry = get_task_registry(context='all')
     task_info = registry.get(task_key)
 
     if not task_info:
         send_telegram_message(chat_id, escape_markdown("❌ 任务不存在或已失效。"))
+        return
+    if task_key not in _tg_allowed_task_keys(registry):
+        send_telegram_message(chat_id, escape_markdown("❌ 该任务未在 Telegram 快捷任务中启用。"))
         return
 
     task_function, task_description, processor_type = task_info[:3]
@@ -2598,31 +2624,9 @@ def _handle_callback_query(callback_query: dict, update_id=None):
         _tg_send_plain(chat_id, "✅ 已取消本次资源搜索。")
         return
 
-    if data.startswith('tg_tmdb:'):
-        try:
-            _tg_query_hdhive_resources(chat_id, int(data.split(':', 1)[1]))
-        except Exception as e:
-            logger.error(f"  ➜ [TG资源搜索] 处理 TMDb 选择按钮失败: {e}", exc_info=True)
-            _tg_send_plain(chat_id, "❌ 选择失败，请重新输入片名搜索。")
-        return
-
-    if data.startswith('tg_res_page:'):
-        page_value = data.split(':', 1)[1]
-        if page_value == 'noop':
-            return
-        try:
-            _tg_show_resource_page(chat_id, int(page_value))
-        except Exception as e:
-            logger.error(f"  ➜ [TG资源搜索] 处理资源翻页按钮失败: {e}", exc_info=True)
-            _tg_send_plain(chat_id, "❌ 翻页失败，请重新输入片名搜索。")
-        return
-
-    if data.startswith('tg_hdhive:'):
-        try:
-            _tg_start_hdhive_transfer(chat_id, int(data.split(':', 1)[1]), update_id=update_id or query_id)
-        except Exception as e:
-            logger.error(f"  ➜ [TG资源搜索] 处理资源选择按钮失败: {e}", exc_info=True)
-            _tg_send_plain(chat_id, "❌ 选择失败，请重新输入片名搜索。")
+    if data.startswith(('tg_tmdb:', 'tg_res_page:', 'tg_hdhive:')):
+        _tg_clear_session(chat_id)
+        _tg_send_plain(chat_id, "❌ 影巢云资源搜索与转存功能已下线。")
         return
 
     # 处理订阅按钮点击 
@@ -2648,19 +2652,13 @@ def _handle_incoming_message(message: dict, update_id=None):
         f"message:{chat_id}:{message.get('message_id') or _tg_hashed_source_identity('text', text)}",
     )
 
-    # 1. 权限校验：只允许管理员发送指令 (或者来自全局频道)
+    # 1. 权限校验：Bot 只接受管理员主动发送的指令；通知频道保持只写。
     admin_ids = [str(aid) for aid in user_db.get_admin_telegram_chat_ids()]
     from_user_id = str((message.get('from') or {}).get('id', ''))
-    global_channel = str(APP_CONFIG.get(constants.CONFIG_OPTION_TELEGRAM_CHANNEL_ID, ''))
     is_admin = chat_id in admin_ids or from_user_id in admin_ids
     
-    if not is_admin and chat_id != global_channel:
+    if not is_admin:
         logger.warning(f"  ➜ [TG交互] 收到未授权用户/聊天 ({from_user_id or chat_id}) 的消息，已忽略。")
-        return
-
-
-    # 会话中的“回复序号/取消”优先处理
-    if is_admin and _tg_try_handle_resource_session_input(chat_id, text, update_id=action_update_id):
         return
 
     # ★★★ 处理 M 菜单发来的命令 ★★★
@@ -2668,7 +2666,6 @@ def _handle_incoming_message(message: dict, update_id=None):
         cmd_body = text[1:].strip()
         cmd_token = cmd_body.split()[0].lower() if cmd_body else ''
         cmd = cmd_token.split('@', 1)[0]
-        cmd_args = cmd_body[len(cmd_token):].strip() if cmd_token else ''
 
         if cmd in ['cancel', '取消']:
             _tg_clear_session(chat_id)
@@ -2676,13 +2673,8 @@ def _handle_incoming_message(message: dict, update_id=None):
             return
 
         if cmd in ['search', 'find', 'hdhive']:
-            if not is_admin:
-                _tg_send_plain(chat_id, "❌ 只有管理员可以使用资源搜索。")
-                return
-            if not cmd_args:
-                _tg_send_plain(chat_id, "请输入要搜索的片名，例如：/search 阿凡达")
-                return
-            _tg_start_tmdb_search(chat_id, cmd_args)
+            _tg_clear_session(chat_id)
+            _tg_send_plain(chat_id, "❌ 影巢云资源搜索与转存功能已下线。")
             return
 
         from tasks.core import get_task_registry
@@ -2691,20 +2683,24 @@ def _handle_incoming_message(message: dict, update_id=None):
         if cmd in ['all_tasks', 'tasks', 'menu']:
             keyboard = []
             row = []
-            for key, info in registry.items():
-                if key == 'scan-organize-115':
-                    continue
+            for key in _tg_allowed_task_keys(registry):
+                info = registry[key]
                 desc = info[1]
                 row.append({"text": desc, "callback_data": f"run_task_{key}"})
                 if len(row) == 2:
                     keyboard.append(row)
                     row = []
-            if row: keyboard.append(row)
+            if row:
+                keyboard.append(row)
             reply_markup = {"inline_keyboard": keyboard}
-            send_telegram_message(chat_id, escape_markdown("📋 *所有可用任务列表*\n请点击下方按钮执行对应任务："), reply_markup=reply_markup)
+            send_telegram_message(
+                chat_id,
+                escape_markdown("📋 *Telegram 快捷任务列表*\n请点击下方按钮提交后台任务："),
+                reply_markup=reply_markup,
+            )
             return
 
-        for key in registry.keys():
+        for key in _tg_allowed_task_keys(registry):
             expected_cmd = key.replace('-', '_').lower()
             if cmd == expected_cmd:
                 _execute_task_from_tg(chat_id, key)
@@ -2716,10 +2712,6 @@ def _handle_incoming_message(message: dict, update_id=None):
     is_115_share = re.search(r'115(?:cdn)?\.com/s/', text, re.IGNORECASE) is not None
 
     if not (is_magnet or is_ed2k or is_115_share):
-        # 管理员私聊/群聊中输入普通片名，进入 TMDb -> 影巢 -> 115 转存流程。
-        # 全局频道普通文本不触发搜索，避免频道公告被误当作片名。
-        if is_admin:
-            _tg_start_tmdb_search(chat_id, text)
         return
 
     # =================================================================
@@ -2766,32 +2758,14 @@ def _setup_bot_commands(bot_token: str):
     from tasks.core import get_task_registry
     registry = get_task_registry(context='all')
 
-    # ==========================================
-    # ★★★ 修改：使用常量读取 TG 菜单任务列表 ★★★
-    # ==========================================
-    # 从 APP_CONFIG 中获取前端保存的配置，如果没有则使用 constants 中的默认值
-    allowed_tasks = APP_CONFIG.get(
-        constants.CONFIG_OPTION_TELEGRAM_MENU_TASKS, 
-        constants.DEFAULT_TELEGRAM_MENU_TASKS
-    )
-    
-    # 如果前端传过来的是空列表（用户清空了菜单），为了防止菜单为空报错，回退到默认值
-    if not allowed_tasks:
-        allowed_tasks = constants.DEFAULT_TELEGRAM_MENU_TASKS
-
     commands = []
-    for key in allowed_tasks:
-        if key == 'scan-organize-115':
-            continue
-        if key in registry:
-            desc = registry[key][1]
-            # Telegram 命令只允许小写字母、数字和下划线，所以把横杠替换为下划线
-            cmd_name = key.replace('-', '_').lower()
-            commands.append({"command": cmd_name, "description": f"🚀 {desc}"})
+    for key in _tg_allowed_task_keys(registry):
+        desc = registry[key][1]
+        # Telegram 命令只允许小写字母、数字和下划线，所以把横杠替换为下划线
+        cmd_name = key.replace('-', '_').lower()
+        commands.append({"command": cmd_name, "description": f"🚀 {desc}"})
 
-    # 在菜单最下方追加资源搜索和“查看所有任务”的备选命令
-    commands.append({"command": "search", "description": "🔎 搜索云资源并转存/秒传"})
-    commands.append({"command": "all_tasks", "description": "📋 查看所有可用任务"})
+    commands.append({"command": "all_tasks", "description": "📋 查看 Telegram 快捷任务"})
 
     api_url = f"https://api.telegram.org/bot{bot_token}/setMyCommands"
     payload = {"commands": commands}

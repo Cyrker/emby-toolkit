@@ -369,7 +369,7 @@ def test_zero_or_negative_maintenance_config_disables_revive_and_pause(
     assert moviepilot.status_calls == []
 
 
-def test_source_order_release_guard_nonwanted_mp_fence_and_notifications() -> None:
+def test_retired_source_order_is_filtered_and_moviepilot_remains_active() -> None:
     repository = _Repository()
     repository.items = [
         {
@@ -420,18 +420,16 @@ def test_source_order_release_guard_nonwanted_mp_fence_and_notifications() -> No
 
     assert result.status == "succeeded"
     assert result.requested == 3
-    assert result.processed == 2
+    assert result.processed == 1
     assert result.business_skipped == 1
-    assert moviepilot.item_calls == []
-    assert [call[0] for call in sources.calls] == ["shared_pool", "shared_pool", "hdhive"]
-    assert sources.calls[-1][1]["title"] == "Series"
-    assert sources.calls[-1][1]["missing_episode_numbers"] == [1, 3]
+    assert [call["tmdb_id"] for call in moviepilot.item_calls] == ["11"]
+    assert sources.calls == []
     assert [item["tmdb_id"] for item in repository.subscribed] == ["11"]
     assert notifications.rejections == [("u1", ["Unreleased(原因: 不满足发行日期延迟订阅)"])]
     assert notifications.successes == [("u1", ["Shared"])]
 
 
-def test_quota_exhaustion_skips_entire_wanted_item_but_keeps_later_recheck() -> None:
+def test_quota_exhaustion_skips_wanted_item_without_retired_source_fallback() -> None:
     repository = _Repository()
     repository.items = [
         {
@@ -461,15 +459,15 @@ def test_quota_exhaustion_skips_entire_wanted_item_but_keeps_later_recheck() -> 
     result = service.execute(_Progress(), _execution())
 
     assert result.status == "succeeded"
-    assert result.processed == 1
+    assert result.processed == 0
     assert result.quota_exhausted is True
     assert len(quota.calls) == 1
-    assert [call[1]["tmdb_id"] for call in sources.calls] == ["32"]
+    assert sources.calls == []
     assert moviepilot.item_calls == []
     assert notifications.summaries[0][1] is True
 
 
-def test_indeterminate_source_stops_fallback_and_is_reported() -> None:
+def test_retired_indeterminate_source_is_not_called() -> None:
     repository = _Repository()
     repository.items = [
         {
@@ -501,13 +499,14 @@ def test_indeterminate_source_stops_fallback_and_is_reported() -> None:
 
     result = service.execute(_Progress(), _execution())
 
-    assert result.status == "failed"
-    assert result.processed == 0
-    assert result.provider_failures == ({"action": "hdhive", "tmdb_id": "41", "indeterminate": True},)
-    assert moviepilot.item_calls == []
+    assert result.status == "succeeded"
+    assert result.processed == 1
+    assert result.provider_failures == ()
+    assert [call["tmdb_id"] for call in moviepilot.item_calls] == ["41"]
+    assert sources.calls == []
 
 
-def test_pending_source_stops_fallback_releases_parent_and_reports_retryable() -> None:
+def test_retired_pending_source_is_not_called() -> None:
     repository = _Repository()
     repository.items = [
         {
@@ -539,15 +538,15 @@ def test_pending_source_stops_fallback_releases_parent_and_reports_retryable() -
 
     result = service.execute(_Progress(), _execution())
 
-    assert result.status == "failed"
-    assert result.details()["retryable"] is True
-    assert [call[0] for call in sources.calls] == ["hdhive"]
-    assert moviepilot.item_calls == []
-    assert repository.source_finishes == [AutoSourceDisposition.PENDING]
-    assert len(repository.releases) == 1
+    assert result.status == "succeeded"
+    assert result.details()["retryable"] is False
+    assert sources.calls == []
+    assert [call["tmdb_id"] for call in moviepilot.item_calls] == ["411"]
+    assert repository.source_finishes == []
+    assert repository.releases == []
 
 
-def test_unknown_source_exception_is_indeterminate_and_stops_fallback() -> None:
+def test_retired_source_exception_is_not_observed() -> None:
     repository = _Repository()
     repository.items = [
         {
@@ -569,13 +568,13 @@ def test_unknown_source_exception_is_indeterminate_and_stops_fallback() -> None:
 
     result = service.execute(_Progress(), _execution())
 
-    assert result.status == "failed"
-    assert result.provider_failures[0]["error_type"] == "RuntimeError"
-    assert result.provider_failures[0]["indeterminate"] is True
-    assert moviepilot.item_calls == []
+    assert result.status == "succeeded"
+    assert result.provider_failures == ()
+    assert [call["tmdb_id"] for call in moviepilot.item_calls] == ["42"]
+    assert sources.calls == []
 
 
-def test_persistent_source_interruption_is_not_converted_to_indeterminate() -> None:
+def test_retired_source_interruption_is_not_reached() -> None:
     from etk.platform.jobs import PersistentExecutionCancelled
 
     repository = _Repository()
@@ -590,20 +589,22 @@ def test_persistent_source_interruption_is_not_converted_to_indeterminate() -> N
     tmdb = _Tmdb()
     tmdb.movies[421] = _released_movie()
     sources = _Sources({"hdhive": [PersistentExecutionCancelled("cancelled fixture")]})
-    service, *_rest = _service(
+    service, _repository, _tmdb, _quota, moviepilot, sources, _notifications = _service(
         repository=repository,
         settings={"subscription_strategy_config": {"subscription_sources": ["hdhive", "mp"]}},
         tmdb=tmdb,
         sources=sources,
     )
 
-    with pytest.raises(PersistentExecutionCancelled):
-        service.execute(_Progress(), _execution())
+    result = service.execute(_Progress(), _execution())
 
+    assert result.status == "succeeded"
+    assert [call["tmdb_id"] for call in moviepilot.item_calls] == ["421"]
+    assert sources.calls == []
     assert repository.indeterminates == []
 
 
-def test_moviepilot_rejection_falls_through_and_is_discarded_after_later_success() -> None:
+def test_moviepilot_rejection_does_not_fall_through_to_retired_sources() -> None:
     repository = _Repository()
     repository.items = [
         {
@@ -633,11 +634,11 @@ def test_moviepilot_rejection_falls_through_and_is_discarded_after_later_success
 
     result = service.execute(_Progress(), _execution())
 
-    assert result.status == "succeeded"
-    assert result.processed == 1
-    assert result.provider_failures == ()
-    assert [call[0] for call in sources.calls] == ["shared_pool"]
-    assert [item["tmdb_id"] for item in repository.subscribed] == ["43"]
+    assert result.status == "failed"
+    assert result.processed == 0
+    assert result.provider_failures == ({"action": "create", "tmdb_id": "43", "item_type": "Movie", "season": None},)
+    assert sources.calls == []
+    assert repository.subscribed == []
 
 
 def test_moviepilot_partial_counts_item_and_cancellation_stops_before_source() -> None:

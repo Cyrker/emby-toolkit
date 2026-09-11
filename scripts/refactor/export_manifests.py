@@ -22,7 +22,7 @@ from manifest_common import (
 
 EXPECTED = {
     "legacy_python_files": 126,
-    "vue_files": 55,
+    "vue_files": 50,
     "blueprints": 22,
     "route_decorators": 343,
     "method_bindings": 367,

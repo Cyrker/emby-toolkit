@@ -580,6 +580,23 @@ def test_native_cleanup_media_waits_for_same_shared_source_operation() -> None:
     ]
 
 
+def test_native_cleanup_retains_historical_shared_sources_without_external_lifecycle() -> None:
+    gateway = SqlAlchemyCleanupMediaGateway(cast(Any, lambda: None))
+
+    result = gateway._finish_shared_sources(
+        [7, 7, 8],
+        "fixture-cleanup",
+        {"operation_id": "fixture-cleanup"},
+    )
+
+    assert result.status.value == "confirmed"
+    assert result.evidence == {
+        "operation_id": "fixture-cleanup",
+        "shared_source_count": 2,
+        "historical_shared_sources_retained": True,
+    }
+
+
 def test_cleanup_rejects_missing_p115_account_identity_before_delete(tmp_path: Any) -> None:
     media = tmp_path / "Movie.mkv"
     media.write_bytes(b"fixture")

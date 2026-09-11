@@ -2,7 +2,7 @@
 
 ## TMDb
 
-用于标题、简介、日期、分级、人物、图片、合集和影视探索。TMDb、GitHub、Telegram 和影巢请求可统一走网络代理。
+用于标题、简介、日期、分级、人物、图片、合集和影视探索。TMDb、GitHub、Telegram 和 MoviePilot 请求可统一走网络代理。
 
 ## AI
 
@@ -10,7 +10,7 @@
 
 ## Telegram
 
-用于入库、更新、洗版、转存、任务失败和播放通知。Bot Token 由服务端安全保存，接收目标可以是全局 Chat ID 和管理员个人 Chat ID。
+用于入库、更新、洗版、转存、任务失败和播放通知，也可作为管理员快捷任务入口。Bot Token 由服务端安全保存，接收目标可以是全局 Chat ID 和管理员个人 Chat ID；不提供 UserBot 频道监听。
 
 ## MoviePilot
 

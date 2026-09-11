@@ -448,9 +448,12 @@ class SqlAlchemyCleanupMediaGateway:
         if not normalized_ids:
             return CleanupEffectResult.confirmed(dict(evidence))
         if self._shared_sources is None:
-            return CleanupEffectResult.indeterminate(
-                {"type": "cleanup_shared_source_lifecycle_unavailable"},
-                {**dict(evidence), "shared_source_count": len(normalized_ids)},
+            return CleanupEffectResult.confirmed(
+                {
+                    **dict(evidence),
+                    "shared_source_count": len(normalized_ids),
+                    "historical_shared_sources_retained": True,
+                }
             )
 
         pending: list[dict[str, Any]] = []

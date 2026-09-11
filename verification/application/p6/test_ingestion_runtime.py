@@ -683,10 +683,6 @@ def test_coordinator_leader_starts_and_stops_native_schedules(
     runtime = coordinator_module.CoordinatorRuntime.__new__(coordinator_module.CoordinatorRuntime)
     state = cast(Any, runtime)
     state._service = object()
-    state._native_telegram_search_manager = SimpleNamespace(
-        apply_listener_state=lambda: events.append("telegram.apply"),
-        stop_listener=lambda: events.append("telegram.stop"),
-    )
     state._schedules = None
     state._refresh_settings = lambda **_options: events.append("settings.refresh")
 
@@ -697,7 +693,5 @@ def test_coordinator_leader_starts_and_stops_native_schedules(
         "schedules.init",
         "schedules.start",
         "settings.refresh",
-        "telegram.apply",
-        "telegram.stop",
         "schedules.stop",
     ]

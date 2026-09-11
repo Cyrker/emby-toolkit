@@ -548,6 +548,8 @@ class ResubscribeService:
         name = data.get("name")
         if not name:
             return ResubscribeResult({"error": "规则名称不能为空"}, 400)
+        if not _moviepilot_source_only(data):
+            return ResubscribeResult({"error": "影巢洗版已下线，洗版来源仅支持 MoviePilot"}, 400)
         try:
             rule_id = self._repository.create_rule(data)
             return ResubscribeResult({"message": "洗版规则已成功创建！", "id": rule_id}, 201)
@@ -560,6 +562,8 @@ class ResubscribeService:
     def update_rule(self, rule_id: int, data: Mapping[str, Any]) -> ResubscribeResult:
         if not data:
             return ResubscribeResult({"error": "请求体不能为空"}, 400)
+        if not _moviepilot_source_only(data):
+            return ResubscribeResult({"error": "影巢洗版已下线，洗版来源仅支持 MoviePilot"}, 400)
         try:
             if self._repository.update_rule(rule_id, data):
                 return ResubscribeResult({"message": "洗版规则已成功更新！"})
@@ -670,6 +674,12 @@ class ResubscribeService:
             return ResubscribeResult({"message": message}, 202)
         except Exception as error:
             return ResubscribeResult({"error": f"提交任务失败: {error}"}, 500)
+
+
+def _moviepilot_source_only(data: Mapping[str, Any]) -> bool:
+    if "resubscribe_source" not in data:
+        return True
+    return str(data.get("resubscribe_source") or "").strip().casefold() == "moviepilot"
 
 
 class WashingPriorityPolicy:

@@ -1178,38 +1178,6 @@
                       </n-alert>
                     </n-card>
 
-                    <!-- 卡片 2：影巢 (HDHive) -->
-                    <n-card :bordered="false" class="dashboard-card">
-                      <template #header>
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                          <span class="card-title">影巢 (HDHive)</span>
-                          <n-button secondary type="warning" @click="hdhiveModalRef?.open()">
-                            <template #icon><n-icon :component="CloudDownloadIcon" /></template>
-                            配置
-                          </n-button>
-                        </div>
-                      </template>
-                      <n-alert type="success" :show-icon="true">
-                        配置影巢 API，解锁 115 网盘极速秒传，海量资源一键入库。
-                      </n-alert>
-                    </n-card>
-
-                    <!-- 卡片 3：TG 频道监听 -->
-                    <n-card :bordered="false" class="dashboard-card">
-                      <template #header>
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                          <span class="card-title">TG 频道监听</span>
-                          <n-button secondary type="info" @click="tgMonitorModalRef?.open()">
-                            <template #icon><n-icon :component="PaperPlaneIcon" /></template>
-                            配置
-                          </n-button>
-                        </div>
-                      </template>
-                      <n-alert type="warning" :show-icon="true">
-                        自动监听 Telegram 频道消息，根据订阅规则选择性转存 115 资源。
-                      </n-alert>
-                    </n-card>
-
                   </n-space>
                 </n-gi>
               </n-grid>
@@ -1369,7 +1337,6 @@
                           <n-checkbox value="transfer_success" label="转存通知" />
                           <n-checkbox value="playback" label="播放通知" />
                           <n-checkbox value="recognize_fail" label="识别失败" />
-                          <n-checkbox value="hdhive_checkin" label="影巢签到通知" />
                         </n-space>
                       </n-checkbox-group>
                     </n-form-item-grid-item>
@@ -1734,7 +1701,6 @@
     </n-modal>
     <!-- 订阅源配置模态框 -->
     <MoviePilotConfigModal ref="mpModalRef" />
-    <HDHiveConfigModal ref="hdhiveModalRef" />
   </n-layout>
   
   <!-- 导出选项模态框 -->
@@ -2002,16 +1968,14 @@
       </n-space>
     </template>
   </n-modal>
-    <!-- ★ 引入频道监听模态框 -->
+    <!-- Telegram 通知模板模态框 -->
     <TelegramTemplateModal ref="telegramTemplateModalRef" />
-    <TGMonitorModal ref="tgMonitorModalRef" />
     <PlayPoolConfigModal ref="playPoolModalRef" @updated="handlePlayPoolUpdated" />
 </template>
 
 <script setup lang="ts">
 // @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
-import { ref, watch, computed, onMounted, onUnmounted, nextTick, isShallow } from 'vue'; 
-import TGMonitorModal from './TGMonitorModal.vue';
+import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import TelegramTemplateModal from './TelegramTemplateModal.vue';
 import PlayPoolConfigModal from './PlayPoolConfigModal.vue';
 import { 
@@ -2041,8 +2005,6 @@ import {
   SearchOutline as SearchIcon,
   ArrowUpOutline as ArrowUpIcon,
   RefreshOutline as RefreshIcon,
-  PaperPlaneOutline as PaperPlaneIcon,
-  CloudDownloadOutline as CloudDownloadIcon,
   LayersOutline as LayersIcon,
   OptionsOutline as OptionsIcon,
   SparklesOutline as SparklesIcon
@@ -2060,14 +2022,11 @@ import WashingPriorityModal from './WashingPriorityModal.vue';
 import MappingManager from '../modals/MappingManager.vue';
 import apiClient, { apiPath } from '@/api/client'
 import MoviePilotConfigModal from './MoviePilotConfigModal.vue';
-import HDHiveConfigModal from './HDHiveConfigModal.vue';
 import DefaultStreamConfigModal from './DefaultStreamConfigModal.vue';
 import UploadMonitorConfigModal from './UploadMonitorConfigModal.vue';
 
 const mpModalRef = ref(null);
 const washingPriorityModalRef = ref(null);
-const hdhiveModalRef = ref(null);
-const tgMonitorModalRef = ref(null);
 const telegramTemplateModalRef = ref(null);
 const playPoolModalRef = ref(null);
 const renameModalRef = ref(null);
@@ -2569,21 +2528,6 @@ watch(() => configModel.value?.proxy_enabled, (enabled) => {
     configModel.value.proxy_lock_discovery_address = false;
   }
 });
-watch(
-  () => [configModel.value?.p115_shared_resource_enabled, configModel.value?.p115_shared_resource_mode],
-  ([enabled, mode]) => {
-    if (!configModel.value || !enabled) return;
-    if (!['permanent', 'virtual'].includes(mode)) {
-      configModel.value.p115_shared_resource_mode = 'permanent';
-    }
-    if (!configModel.value.p115_shared_cache_retention_days || Number(configModel.value.p115_shared_cache_retention_days) < 1) {
-      configModel.value.p115_shared_cache_retention_days = 7;
-    }
-    if (configModel.value.p115_shared_max_active_shares === undefined || configModel.value.p115_shared_max_active_shares === null || Number(configModel.value.p115_shared_max_active_shares) < 0) {
-      configModel.value.p115_shared_max_active_shares = 0;
-    }
-  }
-);
 watch(() => [configModel.value?.proxy_enabled, configModel.value?.proxy_merge_native_libraries, configModel.value?.emby_auth_mode, configModel.value?.emby_server_url, configModel.value?.emby_user_id], ([proxyEnabled, mergeNative]) => {
   if (proxyEnabled && mergeNative && embyServiceAuthorized.value) {
     fetchNativeViewsSimple();
@@ -3288,13 +3232,8 @@ const confirmFolderSelection = () => {
   } else if (selectorContext.value === 'media_root') {
     configModel.value.p115_media_root_cid = cid;
     configModel.value.p115_media_root_name = name;
-  } else if (selectorContext.value === 'shared_cache_path') {
-    configModel.value.p115_shared_cache_cid = cid;
-    configModel.value.p115_shared_cache_name = name;
   } else if (selectorContext.value === 'rule') {
     ruleManagerRef.value?.updateFolder(cid, name);
-  } else if (selectorContext.value === 'share_transfer') {
-    shareMountModalRef.value?.updateTransferFolder(cid, name);
   } else if (selectorContext.value.startsWith('upload_monitor_remote:')) {
     uploadMonitorModalRef.value?.updateTarget(selectorContext.value.split(':', 2)[1], cid, name);
   }
@@ -3323,25 +3262,6 @@ const save = async () => {
     if (configModel.value) {
         configModel.value.monitor_scan_max_tasks = cleanConfigPayload.monitor_scan_max_tasks;
         configModel.value.monitor_scan_batch_size = cleanConfigPayload.monitor_scan_batch_size;
-    }
-    if (cleanConfigPayload.p115_shared_resource_enabled) {
-        if (!['permanent', 'virtual'].includes(cleanConfigPayload.p115_shared_resource_mode)) {
-            cleanConfigPayload.p115_shared_resource_mode = 'permanent';
-            if (configModel.value) configModel.value.p115_shared_resource_mode = 'permanent';
-        }
-        if (cleanConfigPayload.p115_shared_max_active_shares === undefined || cleanConfigPayload.p115_shared_max_active_shares === null || Number(cleanConfigPayload.p115_shared_max_active_shares) < 0) {
-            cleanConfigPayload.p115_shared_max_active_shares = 0;
-            if (configModel.value) configModel.value.p115_shared_max_active_shares = 0;
-        } else {
-            cleanConfigPayload.p115_shared_max_active_shares = Math.floor(Number(cleanConfigPayload.p115_shared_max_active_shares));
-            if (configModel.value) configModel.value.p115_shared_max_active_shares = cleanConfigPayload.p115_shared_max_active_shares;
-        }
-        if (cleanConfigPayload.p115_shared_resource_mode === 'virtual') {
-            if (!cleanConfigPayload.p115_shared_cache_retention_days || Number(cleanConfigPayload.p115_shared_cache_retention_days) < 1) {
-                cleanConfigPayload.p115_shared_cache_retention_days = 7;
-                if (configModel.value) configModel.value.p115_shared_cache_retention_days = 7;
-            }
-        }
     }
     const restartNeeded = initialRestartableConfig.value && (cleanConfigPayload.proxy_port !== initialRestartableConfig.value.proxy_port || cleanConfigPayload.log_rotation_size_mb !== initialRestartableConfig.value.log_rotation_size_mb || cleanConfigPayload.log_rotation_backup_count !== initialRestartableConfig.value.log_rotation_backup_count || cleanConfigPayload.emby_server_url !== initialRestartableConfig.value.emby_server_url);
     const performSaveAndUpdateState = async () => {
@@ -3612,9 +3532,6 @@ onMounted(async () => {
       check115Status();
       loadPlayPoolConfig();
       if (!configModel.value.p115_auth_method) configModel.value.p115_auth_method = 'web';
-      if (!['permanent', 'virtual'].includes(configModel.value.p115_shared_resource_mode)) configModel.value.p115_shared_resource_mode = 'permanent';
-      if (!configModel.value.p115_shared_cache_retention_days || Number(configModel.value.p115_shared_cache_retention_days) < 1) configModel.value.p115_shared_cache_retention_days = 7;
-      if (configModel.value.p115_shared_max_active_shares === undefined || configModel.value.p115_shared_max_active_shares === null || Number(configModel.value.p115_shared_max_active_shares) < 0) configModel.value.p115_shared_max_active_shares = 0;
       if (embyServiceAuthorized.value) {
         fetchEmbyLibrariesInternal();
       }
@@ -3634,7 +3551,6 @@ onMounted(async () => {
       }
     }
   });
-  checkUserBotStatus();
 });
 onUnmounted(() => {
   window.removeEventListener('etk-emby-authorization-updated', handleEmbyAuthorizationUpdated);

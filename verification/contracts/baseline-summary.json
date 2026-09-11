@@ -45,7 +45,7 @@
       "plan_page_route_count": 23,
       "resolution": "Preserve every source route; no route is retired without explicit approval.",
       "router_guard_requires_admin": "declared but not enforced",
-      "source_page_route_count": 24
+      "source_page_route_count": 23
     },
     "task_help": {
       "help_keys_without_registered_task": [
@@ -68,7 +68,7 @@
     "route_decorators": 343,
     "tables": 39,
     "task_keys": 50,
-    "vue_files": 55
+    "vue_files": 50
   },
   "expected_counts": {
     "blueprints": 22,
@@ -77,9 +77,9 @@
     "route_decorators": 343,
     "tables": 39,
     "task_keys": 50,
-    "vue_files": 55
+    "vue_files": 50
   },
   "generated_by": "scripts/refactor/export_manifests.py",
-  "legacy_source_sha256": "b56746c417dd22c37e1421f7245f0ac6e0fbeb645212d40cfafb56e520065caf",
+  "legacy_source_sha256": "8d7fb20196a46d00f6eb19f0c4d48f9a90d22672dc6054b43b8188a4aa672eae",
   "schema_version": 1
 }

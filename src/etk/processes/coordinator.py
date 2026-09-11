@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
@@ -20,7 +19,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 
-from etk.bootstrap.app_factory import _create_default_container, _resolve_data_dir
+from etk.bootstrap.app_factory import _create_default_container
 from etk.domains.collection.operation_repository import PostgresCollectionOperationRepository
 from etk.domains.identity.operation_repository import PostgresIdentityOperationRepository
 from etk.domains.ingestion import PostgresIngestionMonitorLedger
@@ -37,23 +36,11 @@ from etk.domains.p115.upload_monitor import (
     upload_monitor_config_revision,
 )
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
-from etk.domains.sharing.configuration import SharingServerIdentity
-from etk.domains.sharing.ledger import PostgresContributionLedger
-from etk.domains.sharing.repository import PostgresSharingOperationRepository
-from etk.domains.sharing.service import SharingService
 from etk.domains.subscription.cleanup_runtime_repository import SqlAlchemyCleanupExecutionRepository
 from etk.domains.subscription.moviepilot_webhook import MOVIEPILOT_ASSISTANT_EVENT_TYPE
 from etk.domains.subscription.operation_repository import PostgresSubscriptionOperationRepository
-from etk.domains.subscription.provider_control import ProviderControlService
 from etk.domains.subscription.runtime_repository import PostgresSubscriptionRuntimeRepository
-from etk.domains.subscription.telegram_listener import (
-    DurableTelegramRealtimeIngress,
-    NativeTelegramRealtimeActionGateway,
-    SqlAlchemyTelegramSubscriptionInterest,
-)
 from etk.domains.system import SqlAlchemyAppSettingsRepository
-from etk.integrations import DurableTelegramUserBotAdapter, HttpxHDHiveAdapter, HttpxSharedCenterAdapter
-from etk.integrations.telegram_userbot import NativeTelegramUserBotManager
 from etk.platform.jobs import OutboxClaim, PostgresJobStore
 from etk.platform.tasks import TaskRegistry
 
@@ -76,7 +63,6 @@ from .p8_database_maintenance import (
     DatabaseMaintenanceCoordinator,
 )
 from .p8_identity import CeleryIdentityOperationPublisher, IdentityOperationCoordinator
-from .p9_sharing_operations import CelerySharingOperationPublisher, SharingOperationCoordinator
 from .runtime_config import TaskRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -86,7 +72,6 @@ _COORDINATOR_LOCK_KEY = 4
 _HIGH_JOB = "high_freq_task_chain_job"
 _LOW_JOB = "low_freq_task_chain_job"
 _DAILY_THEME_JOB = "daily_theme_job"
-_SHARED_SYNC_JOB = "shared_share_status_sync_job"
 _PLAY_POOL_JOB = "play_pool_daily_speedtest_job"
 _P115_TEMP_CLEANUP_JOB = "p115_temp_dir_cleanup_job"
 _PLUGIN_UPDATE_JOB = "etk_plugin_update_startup_job"
@@ -97,7 +82,6 @@ _MANAGED_SCHEDULE_IDS = frozenset(
         _HIGH_JOB,
         _LOW_JOB,
         _DAILY_THEME_JOB,
-        _SHARED_SYNC_JOB,
         _PLAY_POOL_JOB,
         _P115_TEMP_CLEANUP_JOB,
         _PLUGIN_UPDATE_JOB,
@@ -250,8 +234,6 @@ class PersistentScheduleManager:
                 "task_chain_low_freq_enabled",
                 "task_chain_low_freq_cron",
                 "task_chain_low_freq_sequence",
-                "_shared_resource_enabled",
-                "_emby_server_id",
                 "_p115_temp_cleanup_cron",
             )
         }
@@ -311,16 +293,6 @@ class PersistentScheduleManager:
 
         add_task(_DAILY_THEME_JOB, "update-daily-theme", "5 0 * * *")
         add_task(_PLAY_POOL_JOB, "play-pool-daily-speedtest", "45 12 * * *")
-
-        if _boolish(values.get("_shared_resource_enabled", False)):
-            server_id = str(values.get("_emby_server_id") or "").strip()
-            base_minute = int(hashlib.md5(server_id.encode()).hexdigest(), 16) % 10 if server_id else 0
-            plan[_SHARED_SYNC_JOB] = (
-                self._submit,
-                CronTrigger(minute=f"{base_minute}/10", timezone="Asia/Shanghai", jitter=90),
-                "共享分享状态同步",
-                {"task_key": "shared-share-status-sync", "schedule_id": _SHARED_SYNC_JOB},
-            )
 
         cleanup_cron = str(values.get("_p115_temp_cleanup_cron") or "").strip()
         if cleanup_cron:
@@ -453,10 +425,7 @@ class CoordinatorRuntime:
         self._identity_coordinator: IdentityOperationCoordinator | None = None
         self._database_maintenance_publisher = CeleryDatabaseMaintenancePublisher(self.config)
         self._database_maintenance_coordinator: DatabaseMaintenanceCoordinator | None = None
-        self._sharing_operation_publisher = CelerySharingOperationPublisher(self.config)
-        self._sharing_operation_coordinator: SharingOperationCoordinator | None = None
         self._cleanup_execution_repository: SqlAlchemyCleanupExecutionRepository | None = None
-        self._native_telegram_search_manager: NativeTelegramUserBotManager | None = None
         self._publisher_id = f"{socket.gethostname()}:{os.getpid()}"
         self._last_settings_refresh = 0.0
         self._last_settings: Any = None
@@ -471,10 +440,6 @@ class CoordinatorRuntime:
 
     def _run_native(self) -> None:
         """Dispatch native Job and operation Outboxes without legacy daemons."""
-
-        from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
-        from etk.compatibility.tg_control_bridge import TelegramControlBridge
-        from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
 
         container, config_adapter = _create_default_container(None)
         leadership: CoordinatorLeadership | None = None
@@ -493,52 +458,6 @@ class CoordinatorRuntime:
             self._store = store
             self._service = service
             self._cleanup_execution_repository = cleanup_execution_repository
-            app_settings = SqlAlchemyAppSettingsRepository(database.unit_of_work)
-            if database.raw_pool is None:
-                raise RuntimeError("Native Coordinator Telegram secret runtime is unavailable")
-            runtime_state = PostgresRuntimeStateBackend(database.raw_pool.connection)
-            telegram_challenges = TelegramResourceSecretStore(runtime_state)
-            telegram_bridge = TelegramControlBridge(
-                connection_factory=database.raw_pool.connection,
-                resource_secrets=telegram_challenges,
-            )
-            telegram = DurableTelegramUserBotAdapter(telegram_bridge)
-            sharing_identity = SharingServerIdentity(config_adapter.load, app_settings)
-            shared_center = HttpxSharedCenterAdapter(
-                config_adapter.load,
-                configuration=lambda: app_settings.load("shared_resource_config"),
-                server_id_hash=sharing_identity.server_id_hash,
-            )
-            sharing_operations = PostgresSharingOperationRepository(database.unit_of_work)
-            provider_control = ProviderControlService(
-                settings=app_settings,
-                hdhive=HttpxHDHiveAdapter(
-                    config_adapter.load,
-                    configuration=lambda: app_settings.load("hdhive_config"),
-                ),
-                center=shared_center,
-                telegram=telegram,
-                sharing=SharingService(
-                    PostgresContributionLedger(database.unit_of_work),
-                    shared_center,
-                    sharing_operations,
-                    unit_of_work=database.unit_of_work,
-                ),
-            )
-            realtime_actions = NativeTelegramRealtimeActionGateway(
-                provider_control,
-                SqlAlchemyTelegramSubscriptionInterest(database.unit_of_work),
-            )
-            realtime_ingress = DurableTelegramRealtimeIngress(telegram_bridge)
-            self._native_telegram_search_manager = NativeTelegramUserBotManager(
-                lambda: app_settings.load("tg_userbot_config"),
-                config_adapter.load,
-                _resolve_data_dir(None) / "tg_userbot.session",
-                shared_center,
-                telegram_challenges,
-                realtime_actions=realtime_ingress,
-                realtime_executor=realtime_actions,
-            )
             self._media_effect_dispatcher = MediaEffectOutboxDispatcher(
                 store,
                 PostgresMediaEffectLedger(database.unit_of_work),
@@ -618,13 +537,6 @@ class CoordinatorRuntime:
                 config=self.config,
                 publisher_id=f"{self._publisher_id}:database-maintenance",
             )
-            self._sharing_operation_coordinator = SharingOperationCoordinator(
-                store=store,
-                repository=PostgresSharingOperationRepository(database.unit_of_work),
-                publisher=self._sharing_operation_publisher,
-                config=self.config,
-                publisher_id=f"{self._publisher_id}:sharing-operation",
-            )
             self._leadership = leadership
             self._write_health("standby")
             while not self._stop.is_set():
@@ -672,14 +584,8 @@ class CoordinatorRuntime:
         self._schedules = schedules
         schedules.start()
         self._refresh_settings(force=True)
-        manager = self._native_telegram_search_manager
-        if manager is not None:
-            manager.apply_listener_state()
 
     def _shutdown_native_leader(self) -> None:
-        manager = getattr(self, "_native_telegram_search_manager", None)
-        if manager is not None:
-            manager.stop_listener()
         schedules = getattr(self, "_schedules", None)
         self._schedules = None
         if schedules is not None:
@@ -690,10 +596,6 @@ class CoordinatorRuntime:
         if store is None:
             raise RuntimeError("Coordinator store is not initialized")
         self._refresh_settings()
-        manager = getattr(self, "_native_telegram_search_manager", None)
-        if manager is not None:
-            manager.apply_listener_state()
-        self._process_native_telegram_search_commands()
         cleanup = getattr(self, "_cleanup_execution_repository", None)
         if cleanup is not None:
             cleanup.protect_stale_post_effect_cancellations()
@@ -872,48 +774,6 @@ class CoordinatorRuntime:
             if maintenance_result.publish.failed or maintenance_result.publish.dead:
                 raise RuntimeError("Database maintenance Outbox dispatch is degraded")
 
-        sharing = getattr(self, "_sharing_operation_coordinator", None)
-        if sharing is not None:
-            sharing_result = sharing.tick()
-            if sharing_result.expired_claims:
-                logger.warning(
-                    "Expired pre-write sharing operation claims were recovered",
-                    extra={"expired_operations": sharing_result.expired_claims},
-                )
-            if sharing_result.expired_readbacks:
-                logger.warning(
-                    "Expired sharing operation readback claims were recovered",
-                    extra={"expired_operations": sharing_result.expired_readbacks},
-                )
-            if sharing_result.rejected_dead:
-                logger.error(
-                    "Sharing operation dispatch exhausted without Worker execution",
-                    extra={"rejected_operations": sharing_result.rejected_dead},
-                )
-            if sharing_result.publish.failed or sharing_result.publish.dead:
-                raise RuntimeError("Sharing operation Outbox dispatch is degraded")
-
-    def _process_native_telegram_search_commands(self) -> None:
-        from etk.compatibility.persistent_runtime_state import PostgresRuntimeStateBackend
-        from etk.compatibility.tg_control_bridge import TelegramCommandExecutor, TelegramControlBridge
-        from etk.compatibility.tg_resource_effects import TelegramResourceSecretStore
-
-        container = self._container
-        manager = self._native_telegram_search_manager
-        if container is None or container.database.raw_pool is None or manager is None:
-            raise RuntimeError("Native Coordinator Telegram search runtime is unavailable")
-        connection_factory = container.database.raw_pool.connection
-        executor = TelegramCommandExecutor(
-            TelegramControlBridge(
-                connection_factory=connection_factory,
-                resource_secrets=TelegramResourceSecretStore(PostgresRuntimeStateBackend(connection_factory)),
-            ),
-            owner_id=f"{self._publisher_id}:telegram-search",
-            lease_seconds=max(60, int(self.config.coordinator_interval_seconds * 3)),
-            command_types=("send_code", "login", "logout", "clear_session", "search", "listener_action"),
-        )
-        executor.process_pending(manager, limit=8)
-
     def _refresh_settings(self, *, force: bool = False) -> None:
         now = time.monotonic()
         if not force and now - self._last_settings_refresh < 5:
@@ -943,27 +803,18 @@ class CoordinatorRuntime:
         settings = adapter.load()
         values = repository.load_many(
             (
-                "shared_resource_config",
                 "p115_temp_dir_config",
-                "tg_userbot_config",
                 "p115_upload_monitor_config",
-                "emby_server_id_cache",
             )
         )
-        shared_value = values.get("shared_resource_config")
         temp_value = values.get("p115_temp_dir_config")
-        tg_userbot = values.get("tg_userbot_config")
-        shared = dict(shared_value) if isinstance(shared_value, Mapping) else {}
         temp = dict(temp_value) if isinstance(temp_value, Mapping) else {}
         upload_config = normalize_upload_monitor_config(
             values.get("p115_upload_monitor_config") or {},
             default_extensions=settings.monitor_extensions,
         )
         return {
-            "_shared_resource_enabled": shared.get("p115_shared_resource_enabled", False),
-            "_emby_server_id": str(values.get("emby_server_id_cache") or "").strip(),
             "_p115_temp_cleanup_cron": str(temp.get("cleanup_cron") or "").strip(),
-            "_tg_userbot_config": dict(tg_userbot) if isinstance(tg_userbot, Mapping) else {},
             "_p115_upload_monitor_revision": upload_monitor_config_revision(upload_config),
         }
 

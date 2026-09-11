@@ -16,7 +16,12 @@ from etk.platform.jobs import (
     ResumeJobResult,
     normalize_json_object,
 )
-from etk.platform.tasks import ProcessorIdentity, TaskDefinition, TaskRegistry
+from etk.platform.tasks import (
+    RETIRED_EXTERNAL_RESOURCE_TASK_KEYS,
+    ProcessorIdentity,
+    TaskDefinition,
+    TaskRegistry,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +44,10 @@ class UnsupportedLegacyOperationError(ValueError):
 
 
 class ApprovedExecutionRequiredError(ValueError):
+    pass
+
+
+class RetiredTaskError(ValueError):
     pass
 
 
@@ -80,6 +89,8 @@ class JobSubmissionService:
         dispatch: bool = True,
         queue_name: str = "legacy.serial",
     ) -> SubmittedJob:
+        if task_key in RETIRED_EXTERNAL_RESOURCE_TASK_KEYS:
+            raise RetiredTaskError(f"task {task_key!r} belongs to a retired external-resource feature")
         try:
             definition = self._registry.require(task_key)
         except (KeyError, LookupError) as exc:

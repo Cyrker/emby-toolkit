@@ -205,6 +205,26 @@ def test_rule_create_order_delete_and_transport_errors_remain_legacy_shaped() ->
     assert unsupported.status_code == 415 and unsupported.headers["content-type"].startswith("text/html")
 
 
+def test_new_or_updated_hdhive_rules_are_rejected_without_repository_write() -> None:
+    app, _permissions, repository, *_ = _build_app()
+
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/resubscribe/rules",
+            json={"name": "旧影巢规则", "resubscribe_source": "hdhive"},
+        )
+        updated = client.put(
+            "/api/resubscribe/rules/11",
+            json={"resubscribe_source": "hdhive"},
+        )
+
+    assert created.status_code == 400
+    assert updated.status_code == 400
+    assert created.json() == updated.json() == {"error": "影巢洗版已下线，洗版来源仅支持 MoviePilot"}
+    assert repository.created == []
+    assert repository.updated == []
+
+
 def test_task_and_library_routes_keep_busy_readiness_and_filter_contracts() -> None:
     app, _permissions, _repository, tasks, libraries = _build_app()
     libraries.items = [

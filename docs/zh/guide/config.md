@@ -13,7 +13,7 @@
 - **Emby**：管理员登录授权、插件安装/更新、媒体库和虚拟库反代地址。
 - **115**：OpenAPI 登录授权、Cookie 扫码、双接口切换、分类、目录、重命名、洗版、映射、词表和请求间隔。
 - **TMDb**：API Key、语言和元数据偏好。
-- **网络代理**：TMDb、GitHub、Telegram、影巢等外部请求统一使用。
+- **网络代理**：TMDb、GitHub、Telegram、MoviePilot 等外部请求统一使用。
 
 ## 核心处理
 
@@ -22,9 +22,9 @@
 - 媒体信息格式化、默认音轨/字幕、字幕下载和截图补图。
 - 洗版覆盖模式、版本槽位、优先级和分类绑定。
 
-## 资源中心
+## 资源与 Telegram
 
-共享池、影巢、频道监听、MoviePilot 分开配置。频道监听的 Telethon 会话保存在 `/config/telegram/channel_listener.session`，不随容器重启丢失。
+MoviePilot 是唯一的外部资源获取和订阅协作来源。Telegram 配置只用于 Bot 通知和快捷任务入口；当前不配置 UserBot、频道监听或 Telethon 会话。
 
 ## 订阅中心
 

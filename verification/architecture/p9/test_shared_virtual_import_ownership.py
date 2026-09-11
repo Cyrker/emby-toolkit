@@ -9,7 +9,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def test_shared_virtual_import_routes_and_runtime_wiring_are_native_owned() -> None:
+def test_shared_virtual_import_history_is_preserved_without_active_api_wiring() -> None:
     manifest = json.loads((REPO_ROOT / "verification/contracts/route-ownership.yaml").read_text(encoding="utf-8"))
     expected = {
         ("POST", "/api/shared/resources/center/import"),
@@ -26,11 +26,8 @@ def test_shared_virtual_import_routes_and_runtime_wiring_are_native_owned() -> N
     assert observed == expected
 
     app_factory = (REPO_ROOT / "src/etk/bootstrap/app_factory.py").read_text(encoding="utf-8")
-    worker = (REPO_ROOT / "src/etk/processes/worker.py").read_text(encoding="utf-8")
-    assert 'register_use_case(\n        "sharing.virtual-imports"' in app_factory
-    assert 'virtual_imports=current.use_case("sharing.virtual-imports")' in app_factory
-    assert worker.count("rapid_transfers=RapidTransferOperationDelivery(") == 1
-    assert worker.count("virtual_imports=VirtualImportOperationDelivery(") == 1
+    assert 'register_use_case(\n        "sharing.virtual-imports"' not in app_factory
+    assert 'virtual_imports=current.use_case("sharing.virtual-imports")' not in app_factory
 
 
 def test_shared_virtual_import_native_imports_do_not_load_legacy_modules() -> None:

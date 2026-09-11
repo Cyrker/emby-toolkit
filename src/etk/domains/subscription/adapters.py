@@ -94,37 +94,17 @@ class ConfiguredSubscriptionAvailabilityGateway:
 
     def available_sources(self) -> Sequence[str]:
         status = self.status()
-        names = (
-            ("mp", "mp_configured"),
-            ("hdhive", "hdhive_configured"),
-            ("tg_channel", "tg_userbot_configured"),
-            ("shared_pool", "shared_pool_configured"),
-        )
-        return tuple(source for source, key in names if status[key])
+        return ("mp",) if status["mp_configured"] else ()
 
     def status(self) -> Mapping[str, bool]:
         mp_config = self._settings.load(MOVIEPILOT_CONFIG_SETTING)
         mp_configured = isinstance(mp_config, Mapping) and bool(mp_config.get("moviepilot_url"))
-        hdhive_configured = False
-        try:
-            hdhive_configured = bool(self._hdhive_probe())
-        except Exception:
-            logger.warning("HDHive availability probe failed", exc_info=True)
-        tg_config = self._settings.load("tg_userbot_config")
-        tg_userbot_configured = (
-            isinstance(tg_config, Mapping) and bool(tg_config.get("enabled")) and bool(tg_config.get("channels"))
-        )
-        shared_pool_configured = False
-        try:
-            shared_pool_configured = bool(self._shared_pool_probe())
-        except Exception:
-            logger.warning("shared pool availability probe failed", exc_info=True)
         return {
             "mp_configured": mp_configured,
-            "hdhive_configured": hdhive_configured,
-            "tg_userbot_configured": tg_userbot_configured,
-            "shared_pool_configured": shared_pool_configured,
-            "cloud_search_configured": bool(hdhive_configured or tg_userbot_configured or shared_pool_configured),
+            "hdhive_configured": False,
+            "tg_userbot_configured": False,
+            "shared_pool_configured": False,
+            "cloud_search_configured": False,
         }
 
     @staticmethod

@@ -398,15 +398,9 @@
                   <n-form-item label="洗版源">
                     <n-radio-group v-model:value="currentRule.resubscribe_source" size="small">
                       <n-radio-button value="moviepilot">MoviePilot</n-radio-button>
-                      <n-radio-button value="hdhive">影巢</n-radio-button>
                     </n-radio-group>
                     <template #feedback>
-                      <span v-if="currentRule.resubscribe_source === 'moviepilot'">
-                        使用 MoviePilot 订阅洗版。
-                      </span>
-                      <span v-else>
-                        手动整理时弹出影巢资源搜索；一键整理时自动调用影巢下载/转存。
-                      </span>
+                      使用 MoviePilot 订阅洗版。
                     </template>
                   </n-form-item>
                   <n-divider style="margin: 0" />
@@ -624,9 +618,7 @@ const openRuleModal = async (rule = null) => {
   if (rule) {
     currentRule.value = JSON.parse(JSON.stringify(rule));
     if (!currentRule.value.scope_rules) currentRule.value.scope_rules = [];
-    if (!currentRule.value.resubscribe_source) {
-          currentRule.value.resubscribe_source = 'moviepilot';
-        }
+    currentRule.value.resubscribe_source = 'moviepilot';
   } else {
     currentRule.value = {
       name: '', enabled: true, rule_type: 'resubscribe',

@@ -224,7 +224,7 @@ def _service(
     )
 
 
-def test_native_resubscribe_dispatches_moviepilot_cleanup_and_hdhive_without_processor() -> None:
+def test_native_resubscribe_dispatches_local_sources_and_skips_retired_hdhive() -> None:
     hdhive_operation = uuid5(NAMESPACE_URL, "fixture:hdhive")
     items = (
         _item("101"),
@@ -244,8 +244,9 @@ def test_native_resubscribe_dispatches_moviepilot_cleanup_and_hdhive_without_pro
         "moviepilot_staged": 1,
         "cleanup_staged": 2,
         "cleanup_reused": 1,
-        "hdhive_confirmed": 1,
-        "business_skipped": 0,
+        "hdhive_confirmed": 0,
+        "retired_source_skipped": 1,
+        "business_skipped": 1,
         "quota_exhausted": False,
         "provider_failures": [],
         "failed": 0,
@@ -253,12 +254,12 @@ def test_native_resubscribe_dispatches_moviepilot_cleanup_and_hdhive_without_pro
     }
     assert moviepilot.calls == [(items[0].key,)]
     assert cleanup.calls == ["emby-old", "emby-replayed"]
-    assert len(hdhive.calls) == 1 and hdhive.calls[0][0] == "103-Movie"
-    assert repository.statuses[items[2].key] == "subscribed"
-    assert len(quota.commits) == 1 and quota.releases == []
+    assert hdhive.calls == []
+    assert repository.statuses[items[2].key] == "needed"
+    assert quota.commits == [] and quota.releases == []
 
 
-def test_hdhive_indeterminate_consumes_quota_and_is_not_resent() -> None:
+def test_historical_hdhive_item_is_skipped_without_provider_or_quota_access() -> None:
     item = _item("201", source="hdhive")
     service, repository, _moviepilot, _cleanup, hdhive, quota = _service(
         (item,),
@@ -274,15 +275,15 @@ def test_hdhive_indeterminate_consumes_quota_and_is_not_resent() -> None:
     first = service.execute("resubscribe-library", _Progress(), {})
     replay = service.execute("resubscribe-library", _Progress(), {})
 
-    assert first.status is TaskOutcomeStatus.FAILED
-    assert first.details["provider_failures"][0]["indeterminate"] is True
+    assert first.status is TaskOutcomeStatus.SKIPPED
+    assert first.details["retired_source_skipped"] == 1
     assert replay.status is TaskOutcomeStatus.SKIPPED
-    assert repository.statuses[item.key] == "indeterminate"
-    assert len(hdhive.calls) == 1
-    assert len(quota.commits) == 1
+    assert repository.statuses[item.key] == "needed"
+    assert hdhive.calls == []
+    assert quota.commits == [] and quota.releases == []
 
 
-def test_hdhive_business_miss_releases_quota_without_false_failure() -> None:
+def test_historical_hdhive_business_miss_does_not_touch_quota() -> None:
     item = _item("301", source="hdhive")
     service, repository, _moviepilot, _cleanup, _hdhive, quota = _service(
         (item,),
@@ -293,13 +294,14 @@ def test_hdhive_business_miss_releases_quota_without_false_failure() -> None:
 
     assert outcome.status is TaskOutcomeStatus.SKIPPED
     assert outcome.details["business_skipped"] == 1
+    assert outcome.details["retired_source_skipped"] == 1
     assert repository.statuses[item.key] == "needed"
-    assert len(quota.releases) == 1 and quota.commits == []
+    assert quota.releases == [] and quota.commits == []
 
 
-def test_quota_exhaustion_stops_before_hdhive_provider_read() -> None:
+def test_historical_hdhive_skip_does_not_read_quota_or_provider() -> None:
     item = _item("401", source="hdhive")
-    service, _repository, _moviepilot, _cleanup, hdhive, _quota = _service(
+    service, _repository, _moviepilot, _cleanup, hdhive, quota = _service(
         (item,),
         hdhive_results=(ResubscribeHDHiveResult(ResubscribeHDHiveDisposition.CONFIRMED),),
         exhausted=True,
@@ -308,8 +310,10 @@ def test_quota_exhaustion_stops_before_hdhive_provider_read() -> None:
     outcome = service.execute("resubscribe-library", _Progress(), {})
 
     assert outcome.status is TaskOutcomeStatus.SKIPPED
-    assert outcome.details["quota_exhausted"] is True
+    assert outcome.details["quota_exhausted"] is False
+    assert outcome.details["retired_source_skipped"] == 1
     assert hdhive.calls == []
+    assert quota.reservations == {}
 
 
 def test_cancellation_before_cleanup_effect_does_not_stage_a_child() -> None:

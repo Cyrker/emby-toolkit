@@ -388,19 +388,6 @@
               </div>
               <n-divider style="margin: 0" />
               <div class="setting-item">
-                <div class="setting-icon"><n-icon :component="PaperPlaneIcon" /></div>
-                <div class="setting-content">
-                  <div class="setting-header">
-                    <div>
-                      <div class="setting-label">TG 追更</div>
-                      <div class="setting-desc">开启后，TG 频道资源会参与追剧；已完结且本地文件不一致时，可等待 TG 完结包替换。</div>
-                    </div>
-                    <n-switch v-model:value="watchlistConfig.tg_channel_tracking" size="small" />
-                  </div>
-                </div>
-              </div>
-              <n-divider style="margin: 0" />
-              <div class="setting-item">
                 <div class="setting-icon"><n-icon :component="TimeIcon" /></div>
                 <div class="setting-content">
                   <div class="setting-header">
@@ -493,7 +480,7 @@
 import { ref, shallowRef, triggerRef, onMounted, onBeforeUnmount, h, computed, watch } from 'vue';
 import apiClient, { apiPath } from '@/api/client'
 import { NLayout, NPageHeader, NDivider, NEmpty, NTag, NButton, NSpace, NIcon, useMessage, useDialog, NPopconfirm, NTooltip, NCard, NImage, NEllipsis, NSpin, NAlert, NRadioGroup, NRadioButton, NModal, NTabs, NTabPane, NList, NListItem, NCheckbox, NDropdown, NInput, NSelect, NButtonGroup, NProgress, useThemeVars, NPopover, NInputNumber, NSwitch } from 'naive-ui';
-import { SyncOutline, TvOutline as TvIcon, TrashOutline as TrashIcon, EyeOutline as EyeIcon, CalendarOutline as CalendarIcon, TimeOutline as TimeIcon, PlayCircleOutline as WatchingIcon, PauseCircleOutline as PausedIcon, CheckmarkCircleOutline as CompletedIcon, ScanCircleOutline as ScanIcon, CaretDownOutline as CaretDownIcon, FlashOffOutline as ForceEndIcon, ArrowUpOutline as ArrowUpIcon, ArrowDownOutline as ArrowDownIcon, DownloadOutline as DownloadIcon, AlbumsOutline as CollectionsIcon, SettingsOutline as SettingsIcon, HourglassOutline as PendingIcon, TimerOutline as TimerIcon, RefreshCircleOutline as RefreshIcon, GitNetworkOutline as GapIcon, CloudDownloadOutline as BackfillIcon, EarthOutline as DoubanIcon, PaperPlaneOutline as PaperPlaneIcon } from '@vicons/ionicons5';
+import { SyncOutline, TvOutline as TvIcon, TrashOutline as TrashIcon, EyeOutline as EyeIcon, CalendarOutline as CalendarIcon, TimeOutline as TimeIcon, PlayCircleOutline as WatchingIcon, PauseCircleOutline as PausedIcon, CheckmarkCircleOutline as CompletedIcon, ScanCircleOutline as ScanIcon, CaretDownOutline as CaretDownIcon, FlashOffOutline as ForceEndIcon, ArrowUpOutline as ArrowUpIcon, ArrowDownOutline as ArrowDownIcon, DownloadOutline as DownloadIcon, AlbumsOutline as CollectionsIcon, SettingsOutline as SettingsIcon, HourglassOutline as PendingIcon, TimerOutline as TimerIcon, RefreshCircleOutline as RefreshIcon, GitNetworkOutline as GapIcon, CloudDownloadOutline as BackfillIcon, EarthOutline as DoubanIcon } from '@vicons/ionicons5';
 import { format, parseISO } from 'date-fns';
 import { useConfig } from '../composables/useConfig.ts';
 
@@ -547,7 +534,6 @@ const buildWatchlistConfig = (data = {}) => {
   return {
     douban_count_correction: data.douban_count_correction ?? false,
     revival_check_days: data.revival_check_days ?? 365,
-    tg_channel_tracking: data.tg_channel_tracking ?? false,
     intro_detection_trigger_mode: introDetectionTriggerMode,
     intro_detection_credits_enabled: data.intro_detection_credits_enabled ?? false,
     intro_detection_library_ids: Array.isArray(data.intro_detection_library_ids)
