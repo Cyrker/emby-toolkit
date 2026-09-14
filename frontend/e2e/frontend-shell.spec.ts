@@ -87,6 +87,30 @@ test('web quick task submits through the existing task endpoint', async ({ page 
   ])
 })
 
+test('native task logs render in realtime and historical views', async ({ page }) => {
+  await installApiStubs(page)
+  await page.route('**/api/status', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      is_running: true, current_action: '同步媒体数据', progress: 85,
+      logs: [{ timestamp: '2026-09-12T04:00:00+00:00', level: 'info', message: '正在同步媒体元数据 (85/100)' }],
+    }),
+  }))
+  await page.route('**/api/logs/list', (route) => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify(['app.log.task-00000000-0000-0000-0000-000000000001']),
+  }))
+  await page.route('**/api/logs/view?*', (route) => route.fulfill({
+    contentType: 'text/html', body: '<html><body><div class="log-block">同步媒体数据：状态=succeeded</div></body></html>',
+  }))
+  await page.goto('/settings/scheduler')
+  await page.getByRole('button', { name: '实时日志', exact: true }).click()
+  await expect(page.locator('.log-panel')).toContainText('[INFO] 正在同步媒体元数据 (85/100)')
+  await expect(page.locator('.log-panel')).not.toContainText('[object Object]')
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '历史日志', exact: true }).click()
+  await expect(page.frameLocator('iframe').getByText('同步媒体数据：状态=succeeded')).toBeVisible()
+})
+
 async function installApiStubs(page: Page, authenticated = true) {
   await page.route('**/api/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname

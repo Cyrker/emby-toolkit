@@ -39,6 +39,10 @@ class UserPolicyProvider(Protocol):
     def get_user(self, user_id: str) -> Mapping[str, Any] | None: ...
 
 
+class UserEventEffectsPort(Protocol):
+    def execute(self, kind: str, snapshot: Mapping[str, Any]) -> Mapping[str, Any]: ...
+
+
 @dataclass(frozen=True, slots=True)
 class TemplatePropagationTemplate:
     template_id: int
@@ -307,7 +311,7 @@ class P8UserEventEffectDelivery:
     def __init__(
         self,
         policy: UserPolicyEffectService,
-        compatibility: LegacyUserEventEffectsAdapter,
+        compatibility: UserEventEffectsPort,
     ) -> None:
         self._policy = policy
         self._compatibility = compatibility
@@ -343,7 +347,15 @@ class P8UserEventEffectDelivery:
         snapshot = effect.payload.get("event_snapshot")
         if not isinstance(snapshot, Mapping):
             raise ValueError("P8 user event effect snapshot is invalid")
-        return self._compatibility.execute(kind, snapshot)
+        try:
+            return self._compatibility.execute(kind, snapshot)
+        except MediaEffectDeliveryRetryable as exc:
+            if effect.attempts >= self._policy_attempt_limit:
+                raise MediaEffectDeliveryIndeterminate(
+                    "用户事件处理重试次数已耗尽，停止自动重放",
+                    error={"kind": kind, "attempts": effect.attempts},
+                ) from exc
+            raise
 
 
 def _legacy_event(snapshot: Mapping[str, Any]) -> dict[str, Any]:

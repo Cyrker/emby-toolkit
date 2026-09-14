@@ -56,19 +56,25 @@
             确定要清空所有 {{ totalItems }} 条待复核记录吗？此操作不可恢复。
         </n-popconfirm>
 
-        <n-popconfirm
-            @positive-click="reprocessAllReviewItems"
-        >
+        <n-space align="center">
+          <n-switch v-model:value="onlyMissing" aria-label="补齐缺失元数据" />
+          <n-text>补齐缺失元数据</n-text>
+        </n-space>
+        <n-popconfirm @positive-click="reprocessAllReviewItems">
             <template #trigger>
                 <n-button type="warning" ghost :disabled="tableData.length === 0 || loading || props.taskStatus?.is_running || isShowingSearchResults">
                     <template #icon><n-icon :component="ReprocessIcon" /></template>
                     <!-- ★ 动态按钮文字 -->
-                    {{ selectedReason ? `重新处理筛选出的 ${totalItems} 项` : '重新处理所有' }}
+                    {{ `${actionLabel}${selectedReason ? `筛选出的 ${totalItems} 项` : '所有'}` }}
                 </n-button>
             </template>
-            确定要重新处理 {{ selectedReason ? '当前筛选出的' : '所有' }} {{ totalItems }} 条记录吗？
+            确定要{{ actionLabel }}{{ selectedReason ? '当前筛选出的' : '所有' }} {{ totalItems }} 条记录吗？整剧包含其全部季集，单季包含该季分集。
         </n-popconfirm>
       </n-space>
+      <n-text depth="3" tag="p">
+        {{ onlyMissing ? '优先复用完整缓存，Emby 元数据已齐全的项目跳过；缺失项才补刮或回填。' : '重新获取所选范围的元数据并回填；已有图片保持不变。' }}
+        选择整剧会检查全部季集；此开关不改变处理范围，也不解锁明确锁定的字段。
+      </n-text>
 
       <n-spin :show="loading">
         <div v-if="error" class="error-message">
@@ -106,7 +112,7 @@ import { useRouter } from 'vue-router';
 import { ref, onMounted, computed, h } from 'vue';
 import apiClient, { apiPath } from '@/api/client'
 import {
-    NCard, NSpin, NAlert, NText, NDataTable, NButton, NSpace, NPopconfirm, NEmpty, NInput, NIcon, NSelect,
+    NCard, NSpin, NAlert, NText, NDataTable, NButton, NSpace, NPopconfirm, NEmpty, NInput, NIcon, NSelect, NSwitch,
     useMessage
 } from 'naive-ui';
 import { HeartOutline as AddToWatchlistIcon } from '@vicons/ionicons5';
@@ -297,9 +303,9 @@ const columns = computed(() => [
                 disabled: loadingAction.value[row.item_id] || props.taskStatus?.is_running
             }, {
                 icon: () => h(NIcon, { component: ReprocessIcon }),
-                default: () => '重新处理'
+                default: () => actionLabel.value
             }),
-            default: () => `确定要重新处理 "${row.item_name}" 吗？`
+            default: () => `确定要${actionLabel.value} "${row.item_name}" 吗？整剧包含全部季集，单季包含该季分集，单集仅处理自身。`
         })
       );
 
@@ -407,12 +413,16 @@ const searchEmbyLibrary = async () => {
   }
 };
 
+const onlyMissing = ref(false);
+const actionLabel = computed(() => onlyMissing.value ? '补齐缺失元数据' : '重新处理');
+
 const handleReprocessItem = async (row) => {
   currentRowId.value = row.item_id;
   loadingAction.value[row.item_id] = true;
   try {
     const response = await apiClient.post(apiPath('api_actions_reprocess_item_param_1d7580a7', [row.item_id]), {
-        reason: row.reason 
+        reason: row.reason,
+        only_missing: onlyMissing.value
     });
     message.success(response.data.message || `项目 "${row.item_name}" 的重新处理任务已提交。`);
     if (!isShowingSearchResults.value) {
@@ -431,7 +441,8 @@ const reprocessAllReviewItems = async () => {
   try {
     // ★ 提交时带上当前选中的原因
     const response = await apiClient.post(apiPath('api_actions_reprocess_all_review_items_c2f53e23'), {
-      reason: selectedReason.value || ''
+      reason: selectedReason.value || '',
+      only_missing: onlyMissing.value
     });
     message.success(response.data.message || '重新处理任务已成功提交！');
   } catch (err) {

@@ -2,11 +2,10 @@
 import logging
 import re
 
-import requests
-
 from handler.p115_service import (
     P115CacheManager,
     P115Client,
+    P115_DIRECT_REQUESTS,
     get_115_api_priority,
     get_115_ua,
     _p115_extract_down_url,
@@ -19,6 +18,7 @@ from handler.p115_service import (
 )
 
 logger = logging.getLogger(__name__)
+requests = P115_DIRECT_REQUESTS
 
 
 class P115PlayPoolOpenAPIClient:

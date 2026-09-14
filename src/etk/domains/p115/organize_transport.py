@@ -176,7 +176,11 @@ class _HttpxP115OrganizeMutationClient:
     def _post(self, path: str, form: Mapping[str, str]) -> Mapping[str, Any]:
         self._assert_identity(before_request=True)
         try:
-            context = self._client_factory(timeout=self._timeout_seconds, follow_redirects=False)
+            context = self._client_factory(
+                timeout=self._timeout_seconds,
+                follow_redirects=False,
+                trust_env=False,
+            )
         except Exception as exc:
             raise P115ProviderNoEffectError("115 整理 HTTP client 未创建，请求未发出") from exc
 

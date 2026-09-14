@@ -355,7 +355,11 @@ class _HttpxP115DirectoryTreeClient:
         def invoke() -> dict[str, Any]:
             self._assert_account()
             try:
-                with self._client_factory(timeout=self._timeout_seconds, follow_redirects=True) as client:
+                with self._client_factory(
+                    timeout=self._timeout_seconds,
+                    follow_redirects=True,
+                    trust_env=False,
+                ) as client:
                     response = client.get(url, params=params, headers=self._headers)
                     response.raise_for_status()
                     try:
@@ -403,20 +407,17 @@ class _HttpxP115DirectoryTreeClient:
         headers = {"User-Agent": resolved.user_agent}
         if self._backend == "cookie":
             headers["Cookie"] = self._credential_value
-        proxy = None
         timeout = self._timeout_seconds
         if self._settings is not None:
             settings = self._settings()
-            if bool(getattr(settings, "network_proxy_enabled", False)):
-                proxy = str(getattr(settings, "network_http_proxy_url", "") or "").strip() or None
             timeout = max(timeout, float(getattr(settings, "p115_request_interval", 0) or 0) + 15.0)
         content = bytearray()
         self._assert_account()
         try:
             with self._client_factory(
-                proxy=proxy,
                 timeout=timeout,
                 follow_redirects=True,
+                trust_env=False,
             ) as client:
                 with client.stream("GET", resolved.url, headers=headers) as response:
                     response.raise_for_status()

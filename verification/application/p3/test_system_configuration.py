@@ -12,6 +12,7 @@ from pydantic import SecretStr
 from etk.bootstrap.app_factory import create_app
 from etk.bootstrap.runtime_supervisor import RuntimeSupervisor
 from etk.compatibility.session_codec import LegacySessionCodec
+from etk.domains.system import configuration_router
 from etk.domains.system.configuration import ConfigurationService
 from etk.platform import AppContainer, Settings
 
@@ -62,6 +63,7 @@ class Writer:
 
 class Gateway:
     def __init__(self) -> None:
+        self.library_reads = 0
         self.origin_syncs: list[str] = []
         self.discovery_syncs: list[str] = []
 
@@ -80,6 +82,7 @@ class Gateway:
 
     def valid_library_ids(self, config: Mapping[str, Any]) -> set[str] | None:
         assert config["emby_api_key"] == "fixture-token"
+        self.library_reads += 1
         return {"fixture-library-valid", "fixture-native-valid"}
 
     def server_id(self) -> str | None:
@@ -247,8 +250,63 @@ def test_save_restores_masks_filters_libraries_and_uses_partial_update(tmp_path:
     assert "new_unknown_key" not in updates
     assert "future_dynamic_key" not in updates
     assert holder.value.get("future_dynamic_key") == "preserved"
+    assert gateway.library_reads == 1
     assert gateway.origin_syncs == [EMBY_URL]
     assert gateway.discovery_syncs == ["http://proxy.example.invalid"]
+
+
+def test_tmdb_and_network_proxy_updates_do_not_call_emby(tmp_path: Path) -> None:
+    app, _, writer, gateway = _build_app(tmp_path, admins={"fixture-admin"})
+
+    with TestClient(app) as client:
+        client.cookies.set("session", _cookie({"emby_user_id": "fixture-admin"}))
+        response = client.post(
+            "/api/config",
+            json={
+                "tmdb_api_key": "fixture-tmdb-key",
+                "tmdb_api_base_url": "https://tmdb.fixture.invalid/3",
+                "network_proxy_enabled": True,
+                "network_http_proxy_url": "http://proxy.fixture.invalid:8080",
+            },
+        )
+
+    assert response.status_code == 200
+    assert len(writer.updates) == 1
+    assert gateway.library_reads == 0
+    assert gateway.origin_syncs == []
+    assert gateway.discovery_syncs == []
+
+
+def test_plugin_configuration_sync_is_scoped_to_related_fields(tmp_path: Path) -> None:
+    app, _, _, gateway = _build_app(tmp_path, admins={"fixture-admin"})
+
+    with TestClient(app) as client:
+        client.cookies.set("session", _cookie({"emby_user_id": "fixture-admin"}))
+        origin_response = client.post("/api/config", json={"etk_server_url_manual": EMBY_URL + "/"})
+        discovery_response = client.post("/api/config", json={"proxy_port": 8197})
+
+    assert origin_response.status_code == 200
+    assert discovery_response.status_code == 200
+    assert gateway.library_reads == 0
+    assert gateway.origin_syncs == [EMBY_URL]
+    assert gateway.discovery_syncs == [""]
+
+
+def test_save_route_offloads_synchronous_configuration_work(tmp_path: Path, monkeypatch) -> None:
+    app, _, _, _ = _build_app(tmp_path, admins={"fixture-admin"})
+    offloaded: list[str] = []
+
+    async def record_offload(function, *args, **kwargs):
+        offloaded.append(function.__name__)
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(configuration_router, "run_in_threadpool", record_offload)
+    with TestClient(app) as client:
+        client.cookies.set("session", _cookie({"emby_user_id": "fixture-admin"}))
+        response = client.post("/api/config", json={"tmdb_api_key": "fixture-tmdb-key"})
+
+    assert response.status_code == 200
+    assert offloaded == ["_config_denial", "save"]
 
 
 def test_save_validation_and_compensated_writer_failure_return_legacy_errors(tmp_path: Path) -> None:

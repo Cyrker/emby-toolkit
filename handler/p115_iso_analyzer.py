@@ -5,9 +5,10 @@ import re
 import struct
 import time
 
-import requests
+from handler.p115_service import P115_DIRECT_REQUESTS
 
 logger = logging.getLogger(__name__)
+requests = P115_DIRECT_REQUESTS
 
 
 _ALIPAY_MINI_UA = (

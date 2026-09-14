@@ -222,9 +222,7 @@ class HttpxAutoTaggingAdapter:
         return settings, base_url, token, user_id
 
     def _default_client(self) -> httpx.Client:
-        settings = self._settings()
-        proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
-        return httpx.Client(proxy=proxy or None, timeout=httpx.Timeout(20.0, connect=5.0), trust_env=False)
+        return httpx.Client(timeout=httpx.Timeout(20.0, connect=5.0), trust_env=False)
 
 
 class PersistentAutoTaggingEffects:

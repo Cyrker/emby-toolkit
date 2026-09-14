@@ -3145,7 +3145,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/media.py:2083"
+          "source": "tasks/media.py:2085"
         }
       ],
       "contract_id": "setting-e051fdb1e272",
@@ -3167,7 +3167,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6499"
+          "source": "handler/p115_service.py:6542"
         },
         {
           "operation": "get_setting",
@@ -3391,7 +3391,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:7989"
+          "source": "handler/p115_service.py:8032"
         },
         {
           "operation": "get_setting",
@@ -3431,7 +3431,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6496"
+          "source": "handler/p115_service.py:6539"
         },
         {
           "operation": "get_setting",
@@ -3491,11 +3491,11 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_play_pool.py:1281"
+          "source": "handler/p115_play_pool.py:1280"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6500"
+          "source": "handler/p115_service.py:6543"
         },
         {
           "operation": "get_setting",
@@ -3691,71 +3691,67 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:103"
+          "source": "handler/moviepilot.py:1183"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1146"
+          "source": "handler/moviepilot.py:1256"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1219"
+          "source": "handler/moviepilot.py:1343"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:123"
+          "source": "handler/moviepilot.py:140"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1306"
+          "source": "handler/moviepilot.py:1411"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1374"
+          "source": "handler/moviepilot.py:1480"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1443"
+          "source": "handler/moviepilot.py:1561"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1524"
+          "source": "handler/moviepilot.py:160"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1613"
+          "source": "handler/moviepilot.py:1650"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1652"
+          "source": "handler/moviepilot.py:1689"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1674"
+          "source": "handler/moviepilot.py:1711"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1704"
+          "source": "handler/moviepilot.py:1741"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1735"
+          "source": "handler/moviepilot.py:1772"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1757"
+          "source": "handler/moviepilot.py:1794"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1776"
+          "source": "handler/moviepilot.py:1813"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:1861"
-        },
-        {
-          "operation": "get_setting",
-          "source": "handler/moviepilot.py:394"
+          "source": "handler/moviepilot.py:1898"
         },
         {
           "operation": "get_setting",
@@ -3763,15 +3759,19 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:507"
+          "source": "handler/moviepilot.py:468"
         },
         {
           "operation": "get_setting",
-          "source": "handler/moviepilot.py:639"
+          "source": "handler/moviepilot.py:544"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:11137"
+          "source": "handler/moviepilot.py:676"
+        },
+        {
+          "operation": "get_setting",
+          "source": "handler/p115_service.py:11178"
         },
         {
           "operation": "get_setting",
@@ -3911,23 +3911,23 @@
         },
         {
           "operation": "save_setting",
-          "source": "handler/p115_service.py:1022"
+          "source": "handler/p115_service.py:1065"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:1040"
+          "source": "handler/p115_service.py:1083"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:825"
+          "source": "handler/p115_service.py:868"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:856"
+          "source": "handler/p115_service.py:899"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:929"
+          "source": "handler/p115_service.py:972"
         }
       ],
       "contract_id": "setting-70ed8338395f",
@@ -4027,7 +4027,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:7356"
+          "source": "handler/p115_service.py:7399"
         },
         {
           "operation": "get_setting",
@@ -4059,11 +4059,11 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_play_pool.py:417"
+          "source": "handler/p115_play_pool.py:416"
         },
         {
           "operation": "save_setting",
-          "source": "handler/p115_play_pool.py:467"
+          "source": "handler/p115_play_pool.py:466"
         }
       ],
       "contract_id": "setting-90de55ebcf99",
@@ -4131,7 +4131,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6518"
+          "source": "handler/p115_service.py:6561"
         },
         {
           "operation": "get_setting",
@@ -4183,19 +4183,19 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:237"
+          "source": "handler/p115_service.py:280"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6262"
+          "source": "handler/p115_service.py:6305"
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6532"
+          "source": "handler/p115_service.py:6575"
         },
         {
           "operation": "save_setting",
-          "source": "handler/p115_service.py:7878"
+          "source": "handler/p115_service.py:7921"
         },
         {
           "operation": "get_setting",
@@ -4491,7 +4491,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6497"
+          "source": "handler/p115_service.py:6540"
         },
         {
           "operation": "get_setting",
@@ -4543,7 +4543,7 @@
       "accesses": [
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6498"
+          "source": "handler/p115_service.py:6541"
         },
         {
           "operation": "get_setting",
@@ -4923,7 +4923,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "handler/p115_service.py:6495"
+          "source": "handler/p115_service.py:6538"
         },
         {
           "operation": "get_setting",
@@ -4947,7 +4947,7 @@
         },
         {
           "operation": "get_setting",
-          "source": "tasks/media.py:3109"
+          "source": "tasks/media.py:3111"
         }
       ],
       "contract_id": "setting-6bc8ebb39e01",

@@ -1,7 +1,6 @@
 # reverse_proxy.py (最终完美版 V5 - 实时架构适配)
 
 import logging
-import requests
 import re
 import os
 import json
@@ -721,7 +720,7 @@ def _resolve_request_user_id(base_url, api_key, full_path="", play_session_id=""
     token = _extract_emby_token_from_request()
     if token and token != api_key:
         try:
-            resp = requests.get(
+            resp = emby.emby_client.get(
                 f"{base_url.rstrip('/')}/emby/Users/Me",
                 headers={"X-Emby-Token": token, "Accept": "application/json"},
                 timeout=5,
@@ -736,7 +735,7 @@ def _resolve_request_user_id(base_url, api_key, full_path="", play_session_id=""
 
     if play_session_id:
         try:
-            resp = requests.get(f"{base_url.rstrip('/')}/emby/Sessions", params={"api_key": api_key}, timeout=5)
+            resp = emby.emby_client.get(f"{base_url.rstrip('/')}/emby/Sessions", params={"api_key": api_key}, timeout=5)
             if resp.status_code == 200:
                 for item in resp.json() or []:
                     item_play_state = item.get('PlayState') or {}
@@ -994,7 +993,7 @@ def _fetch_items_in_chunks(base_url, api_key, user_id, item_ids, fields):
     def fetch_chunk(chunk):
         params = {'api_key': api_key, 'Ids': ",".join(chunk), 'Fields': fields}
         try:
-            resp = requests.get(target_url, params=params, timeout=20)
+            resp = emby.emby_client.get(target_url, params=params, timeout=20)
             resp.raise_for_status()
             return resp.json().get("Items", [])
         except Exception as e:
@@ -1033,7 +1032,7 @@ def _fetch_sorted_items_via_emby_proxy(user_id, item_ids, sort_by, sort_order, l
                 'SortBy': sort_by, 'SortOrder': sort_order,
                 'StartIndex': offset, 'Limit': limit,
             }
-            resp = requests.get(target_url, params=emby_params, timeout=25)
+            resp = emby.emby_client.get(target_url, params=emby_params, timeout=25)
             resp.raise_for_status()
             emby_data = resp.json()
             # 注意：Emby 返回的 TotalRecordCount 是经过权限过滤后的数量
@@ -1112,7 +1111,7 @@ def handle_get_views():
             headers['Host'] = urlparse(base_url).netloc
             params = request.args.copy()
             params['api_key'] = api_key
-            resp = requests.get(
+            resp = emby.emby_client.get(
                 target_url,
                 headers=headers,
                 params=params,
@@ -1260,7 +1259,7 @@ def handle_get_mimicked_library_image(path):
         params.pop('tag', None)
         params.pop('Tag', None)
         params['api_key'] = api_key
-        resp = requests.get(image_url, headers=headers, stream=True, params=params)
+        resp = emby.emby_client.get(image_url, headers=headers, stream=True, params=params)
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
         response_headers = [(name, value) for name, value in resp.raw.headers.items() if name.lower() not in excluded_headers]
         return Response(resp.iter_content(chunk_size=8192), resp.status_code, response_headers)
@@ -1303,7 +1302,7 @@ def handle_mimicked_library_metadata_endpoint(path, mimicked_id, params):
         new_params['ParentId'] = real_emby_collection_id
         new_params['api_key'] = api_key
         
-        resp = requests.get(target_url, headers=headers, params=new_params, timeout=15)
+        resp = emby.emby_client.get(target_url, headers=headers, params=new_params, timeout=15)
         resp.raise_for_status()
         
         return Response(resp.content, resp.status_code, content_type=resp.headers.get('Content-Type'))
@@ -1735,7 +1734,7 @@ def handle_get_latest_items(user_id, params):
             forward_headers['Host'] = urlparse(base_url).netloc
             forward_params = request.args.copy()
             forward_params['api_key'] = api_key
-            resp = requests.request(method=request.method, url=target_url, headers=forward_headers, params=forward_params, data=request.get_data(), stream=True, timeout=30.0)
+            resp = emby.emby_client.request(method=request.method, url=target_url, headers=forward_headers, params=forward_params, data=request.get_data(), stream=True, timeout=30.0)
             excluded_resp_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
             response_headers = [(name, value) for name, value in resp.raw.headers.items() if name.lower() not in excluded_resp_headers]
             return Response(resp.iter_content(chunk_size=8192), resp.status_code, response_headers)
@@ -1848,7 +1847,7 @@ def proxy_all(path):
             forward_params = request.args.copy()
             forward_params['api_key'] = api_key
 
-            resp = requests.request(
+            resp = emby.emby_client.request(
                 method=request.method,
                 url=target_url,
                 headers=forward_headers,
@@ -1934,7 +1933,7 @@ def proxy_all(path):
                         forward_headers = {k: v for k, v in request.headers if k.lower() not in ['host', 'accept-encoding']}
                         forward_headers['Host'] = urlparse(base_url).netloc
                         
-                        resp = requests.get(playback_info_url, params=params, headers=forward_headers, timeout=10)
+                        resp = emby.emby_client.get(playback_info_url, params=params, headers=forward_headers, timeout=10)
                         data = resp.json() if resp.status_code == 200 else {}
                         if data:
                             _cache_playback_info(current_user_id, item_id, data, play_session_id or str(data.get('PlaySessionId') or '').strip())
@@ -2099,7 +2098,7 @@ def proxy_all(path):
             forward_params = request.args.copy()
             forward_params['api_key'] = api_key
 
-            resp = requests.request(
+            resp = emby.emby_client.request(
                 method=request.method,
                 url=target_url,
                 headers=forward_headers,
@@ -2189,7 +2188,7 @@ def proxy_all(path):
         forward_params = request.args.copy()
         forward_params['api_key'] = api_key
         
-        resp = requests.request(
+        resp = emby.emby_client.request(
             method=request.method,
             url=target_url,
             headers=forward_headers,

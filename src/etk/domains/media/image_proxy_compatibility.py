@@ -61,9 +61,8 @@ class LegacyMediaImageProxyGateway:
         return _upstream_image(response)
 
     def fetch_emby(self, image_path: str, raw_query: bytes) -> UpstreamImage:
-        import requests
-
         import extensions
+        from handler.emby import emby_client
 
         processor = extensions.media_processor_instance
         if processor is None:
@@ -75,7 +74,7 @@ class LegacyMediaImageProxyGateway:
         separator = "&" if "?" in target_url else "?"
         target_url = f"{target_url}{separator}api_key={processor.emby_api_key}"
 
-        request_get = self._request_get or requests.get
+        request_get = self._request_get or emby_client.get
         response: Any | None = None
         try:
             response = request_get(target_url, stream=True, timeout=20)

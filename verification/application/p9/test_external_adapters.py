@@ -504,6 +504,49 @@ def test_telegram_mutations_are_not_retried_and_token_is_redacted() -> None:
     assert len(invalid_client.calls) == 1
 
 
+def test_telegram_default_client_uses_only_the_configured_proxy(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+
+    def client_factory(**kwargs: Any) -> FakeClient:
+        captured.append(kwargs)
+        return FakeClient([])
+
+    monkeypatch.setattr("etk.integrations.telegram.httpx.Client", client_factory)
+
+    proxied = HttpxTelegramBotAdapter(
+        {
+            "telegram_bot_token": "fixture-token",
+            "network_proxy_enabled": True,
+            "network_http_proxy_url": "http://proxy.fixture.invalid:8080",
+        }
+    )
+    direct = HttpxTelegramBotAdapter(
+        {
+            "telegram_bot_token": "fixture-token",
+            "network_proxy_enabled": False,
+            "network_http_proxy_url": "http://ignored.fixture.invalid:8080",
+        }
+    )
+
+    proxied._default_client()
+    direct._default_client()
+
+    assert captured == [
+        {
+            "proxy": "http://proxy.fixture.invalid:8080",
+            "timeout": 20.0,
+            "follow_redirects": False,
+            "trust_env": False,
+        },
+        {
+            "proxy": None,
+            "timeout": 20.0,
+            "follow_redirects": False,
+            "trust_env": False,
+        },
+    ]
+
+
 @pytest.mark.parametrize("status", [408, 429, 500, 503])
 def test_hdhive_unlock_indeterminate_status_is_single_shot(status: int) -> None:
     client = FakeClient([_response(status, {"success": False})])

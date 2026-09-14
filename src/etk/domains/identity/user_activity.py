@@ -443,7 +443,6 @@ def _activity_intents(
     if event_name == "playback.stop":
         for kind in (
             "playback-cleanup",
-            "virtual-import-promotion",
             "proxy-concurrency-release",
             "telegram-playback-notification",
         ):

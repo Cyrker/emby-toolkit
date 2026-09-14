@@ -74,7 +74,7 @@ class HttpxEmbyUserSyncAdapter:
             raise RuntimeError("Emby user sync query is unavailable") from exc
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout), trust_env=False)
 
 
 __all__ = ["HttpxEmbyUserSyncAdapter"]

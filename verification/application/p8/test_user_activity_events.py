@@ -215,7 +215,6 @@ def test_playback_stop_and_halfway_freeze_threshold_state_and_intents() -> None:
     assert stop_call["mutation"].playback_position_ticks == 0
     assert [intent.kind for intent in stop_call["intents"]] == [
         "playback-cleanup",
-        "virtual-import-promotion",
         "proxy-concurrency-release",
         "telegram-playback-notification",
     ]

@@ -30,6 +30,26 @@ def _factory(handler: Callable[[httpx.Request], httpx.Response]):
     return create
 
 
+def test_refresh_is_direct_and_does_not_retry_ambiguous_transport_failure():
+    calls = []
+    options = []
+
+    def respond(request):
+        calls.append(request)
+        assert request.url.host == "passportapi.115.com" and request.url.path == "/open/refreshToken"
+        assert parse_qs(request.content.decode()) == {"refresh_token": ["fixture-refresh"]}
+        raise httpx.ReadTimeout("fixture timeout")
+
+    def client_factory(**kwargs):
+        options.append(kwargs)
+        return httpx.Client(transport=httpx.MockTransport(respond), **kwargs)
+
+    gateway = HttpxP115AuthorizationGateway(client_factory=client_factory)
+    with pytest.raises(httpx.ReadTimeout):
+        gateway.refresh_openapi("fixture-refresh")
+    assert len(calls) == 1 and options[0]["trust_env"] is False
+
+
 def test_openapi_qrcode_exchange_uses_pkce_and_never_exposes_tokens_in_repr() -> None:
     requests: list[httpx.Request] = []
 

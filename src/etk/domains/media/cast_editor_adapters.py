@@ -313,8 +313,7 @@ class HttpxMediaCastEditorGateway:
 
     def _default_client(self) -> httpx.Client:
         settings = self._settings()
-        proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
-        return httpx.Client(proxy=proxy or None, timeout=max(1.0, float(settings.emby_api_timeout)))
+        return httpx.Client(timeout=max(1.0, float(settings.emby_api_timeout)), trust_env=False)
 
 
 class NativeCastUpdateOperation:
@@ -398,8 +397,7 @@ class NativeCastUpdateOperation:
 
     def _default_client(self) -> httpx.Client:
         settings = self._settings()
-        proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
-        return httpx.Client(proxy=proxy or None, timeout=max(1.0, float(settings.emby_api_timeout)))
+        return httpx.Client(timeout=max(1.0, float(settings.emby_api_timeout)), trust_env=False)
 
 
 def _read_item(

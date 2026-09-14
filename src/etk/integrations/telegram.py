@@ -314,12 +314,18 @@ class HttpxTelegramBotAdapter:
         return base
 
     def _default_client(self) -> httpx.Client:
-        value = _setting(self._settings(), "telegram_timeout", "external_http_timeout", default=20)
+        settings = self._settings()
+        value = _setting(settings, "telegram_timeout", "external_http_timeout", default=20)
         try:
             timeout = max(1.0, min(float(value), 120.0))
         except (TypeError, ValueError):
             timeout = 20.0
-        return httpx.Client(timeout=timeout, follow_redirects=False)
+        proxy = (
+            str(_setting(settings, "network_http_proxy_url", default="") or "").strip()
+            if bool(_setting(settings, "network_proxy_enabled", default=False))
+            else ""
+        )
+        return httpx.Client(proxy=proxy or None, timeout=timeout, follow_redirects=False, trust_env=False)
 
 
 class DurableTelegramUserBotAdapter:

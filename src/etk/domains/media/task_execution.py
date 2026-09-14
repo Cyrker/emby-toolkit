@@ -27,6 +27,10 @@ from sqlalchemy import text
 from etk.platform import Settings
 from etk.platform.db import SqlAlchemyUnitOfWork
 from etk.platform.tasks import TaskOutcome
+from etk.policy_defaults import GENRE_TRANSLATION_PATCH
+
+from .policies import normalize_media_path
+from .reprocess_metadata import ReprocessMetadataProvider, identify_root, prepare_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +62,8 @@ class MediaTranslationPort(Protocol):
 
 
 class MediaMetadataTaskRepository(Protocol):
+    def reprocess_cache(self, item: Mapping[str, Any], root: Mapping[str, Any]) -> Mapping[str, Any] | None: ...
+
     def list_backfill_candidates(self) -> Sequence[Mapping[str, Any]]: ...
 
     def upsert_metadata(
@@ -156,7 +162,7 @@ class HttpxEmbyScreenshotUploadAdapter:
         return bool(payload.get("PrimaryImageTag"))
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout), trust_env=False)
 
 
 class HttpxMediaCatalogAdapter:
@@ -200,7 +206,7 @@ class HttpxMediaCatalogAdapter:
                         "IncludeItemTypes": "Movie,Series,Season,Episode",
                         "Fields": (
                             "ProviderIds,Type,Name,OriginalTitle,PremiereDate,CommunityRating,Genres,Studios,"
-                            "OfficialRating,ProductionYear,Path,Overview,SeriesId,ParentIndexNumber,IndexNumber,Id"
+                            "OfficialRating,ProductionYear,Path,Overview,SeriesId,SeasonId,ParentIndexNumber,IndexNumber,Id,LockedFields,LockData,People,ImageTags"
                         ),
                         "StartIndex": start,
                         "Limit": self._page_size,
@@ -209,7 +215,7 @@ class HttpxMediaCatalogAdapter:
                 items = payload.get("Items")
                 if not isinstance(items, list):
                     raise RuntimeError("Emby inventory returned an invalid item list")
-                result.extend(dict(item) for item in items if isinstance(item, Mapping))
+                result.extend({**item, "_source_library_id": library_id} for item in items if isinstance(item, Mapping))
                 total = int(payload.get("TotalRecordCount") or len(items))
                 start += len(items)
                 if not items or start >= total:
@@ -233,7 +239,7 @@ class HttpxMediaCatalogAdapter:
                     params={
                         "Fields": (
                             "ProviderIds,Type,Name,OriginalTitle,PremiereDate,CommunityRating,Genres,Studios,"
-                            "OfficialRating,ProductionYear,Path,Overview,SeriesId,ParentIndexNumber,IndexNumber,Id"
+                            "OfficialRating,ProductionYear,Path,Overview,SeriesId,SeasonId,ParentIndexNumber,IndexNumber,Id,LockedFields,LockData,People,ImageTags"
                         )
                     },
                     headers={"Accept": "application/json", "X-Emby-Token": token},
@@ -247,6 +253,12 @@ class HttpxMediaCatalogAdapter:
         if not isinstance(payload, Mapping):
             raise RuntimeError("Emby item query returned an invalid object")
         return dict(payload)
+
+    def descendants(self, item_id: str) -> Sequence[Mapping[str, Any]]:
+        return tuple(
+            {key: value for key, value in item.items() if key != "_source_library_id"}
+            for item in self.list_items((item_id,))
+        )
 
     def _get(
         self,
@@ -271,7 +283,7 @@ class HttpxMediaCatalogAdapter:
         return dict(payload)
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout), trust_env=False)
 
 
 class HttpxTmdbMetadataAdapter:
@@ -291,16 +303,35 @@ class HttpxTmdbMetadataAdapter:
         kind = str(media_type or "").strip().lower()
         if not normalized_id or not normalized_id.isdigit() or kind not in {"movie", "tv"}:
             raise ValueError("TMDb metadata identity is invalid")
+        return self._query(
+            f"/{kind}/{normalized_id}",
+            {
+                "append_to_response": "credits,release_dates,external_ids,keywords"
+                if kind == "movie"
+                else "credits,aggregate_credits,external_ids,content_ratings,keywords",
+            },
+        )
+
+    def season_details(self, tmdb_id: str, season_number: int) -> Mapping[str, Any]:
+        if not str(tmdb_id).isdigit() or isinstance(season_number, bool) or season_number < 0:
+            raise ValueError("TMDb season identity is invalid")
+        return self._query(f"/tv/{tmdb_id}/season/{season_number}", {"append_to_response": "credits"})
+
+    def search(self, name: str, media_type: str) -> Mapping[str, Any]:
+        if media_type not in {"movie", "tv"} or not name.strip():
+            raise ValueError("TMDb search identity is invalid")
+        return self._query(f"/search/{media_type}", {"query": name})
+
+    def _query(self, path: str, parameters: Mapping[str, Any]) -> Mapping[str, Any]:
         settings = self._settings()
         base_url = settings.tmdb_api_base_url.strip().rstrip("/")
         api_key = settings.tmdb_api_key.get_secret_value().strip()
         if not base_url or not api_key:
             raise RuntimeError("TMDb is not configured")
-        path = f"/{kind}/{normalized_id}"
         params = {
             "api_key": api_key,
             "language": "zh-CN",
-            "append_to_response": "credits,release_dates" if kind == "movie" else "credits",
+            **parameters,
         }
         try:
             with self._client_factory() as client:
@@ -320,7 +351,7 @@ class HttpxTmdbMetadataAdapter:
     def _default_client(self) -> httpx.Client:
         settings = self._settings()
         proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
-        return httpx.Client(proxy=proxy or None, timeout=20)
+        return httpx.Client(proxy=proxy or None, timeout=20, trust_env=False)
 
 
 class EmptyMediaTranslation:
@@ -335,6 +366,52 @@ class SqlAlchemyMediaMetadataTaskRepository:
 
     def __init__(self, unit_of_work: Callable[[], SqlAlchemyUnitOfWork]) -> None:
         self._unit_of_work = unit_of_work
+
+    def reprocess_cache(self, item: Mapping[str, Any], root: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        with self._unit_of_work() as uow:
+            rows = (
+                uow.session.execute(
+                    text("""
+                    SELECT * FROM media_metadata
+                    WHERE item_type = :kind
+                      AND emby_item_ids_json @> CAST(:ids AS jsonb)
+                """),
+                    {"kind": item.get("Type"), "ids": json.dumps([str(item.get("Id"))])},
+                )
+                .mappings()
+                .all()
+            )
+        if len(rows) != 1:
+            return None
+        row = dict(rows[0])
+        root_id = str((root.get("ProviderIds") or {}).get("Tmdb") or (root.get("ProviderIds") or {}).get("tmdb") or "")
+        kind = item.get("Type")
+        if kind in {"Movie", "Series"}:
+            if str(row["tmdb_id"]) != root_id or not row.get("genres_json"):
+                return None
+        elif (
+            str(row.get("parent_series_tmdb_id")) != root_id
+            or row.get("season_number")
+            != (item.get("IndexNumber") if kind == "Season" else item.get("ParentIndexNumber"))
+            or (kind == "Episode" and row.get("episode_number") != item.get("IndexNumber"))
+        ):
+            return None
+        current_id = str((item.get("ProviderIds") or {}).get("Tmdb") or "")
+        if current_id and current_id != str(row["tmdb_id"]):
+            return None
+        if (
+            (row.get("metadata_schema_version") or 0) < 1
+            or not str(row.get("title") or "").strip()
+            or not str(row.get("overview") or "").strip()
+            or not row.get("release_year")
+            or not row.get("actors_ready")
+            or not any(
+                normalize_media_path(asset.get("path")) == normalize_media_path(item.get("Path"))
+                for asset in row.get("asset_details_json") or []
+            )
+        ):
+            return None
+        return row
 
     def list_backfill_candidates(self) -> Sequence[Mapping[str, Any]]:
         with self._unit_of_work() as uow:
@@ -372,15 +449,43 @@ class SqlAlchemyMediaMetadataTaskRepository:
     ) -> bool:
         tmdb_id = _tmdb_id(item, details)
         item_type = _root_item_type(item)
-        if not tmdb_id or item_type not in {"Movie", "Series"}:
+        parent_id = str(item.get("_series_tmdb_id") or "")
+        season_number = item.get("_season_number")
+        episode_number = item.get("_episode_number")
+        if item_type in {"Season", "Episode"}:
+            tmdb_id = str(details.get("id") or "")
+            if not parent_id.isdigit() or season_number is None:
+                return False
+            if item_type == "Episode" and episode_number is None:
+                return False
+        if not tmdb_id.isdigit() or item_type not in {"Movie", "Series", "Season", "Episode"}:
             return False
         emby_id = str(item.get("Id") or "").strip()
         with self._unit_of_work() as uow:
+            if item_type in {"Season", "Episode"}:
+                conflict = uow.session.execute(
+                    text("""
+                    SELECT tmdb_id FROM media_metadata
+                    WHERE parent_series_tmdb_id = :parent AND item_type = :kind
+                      AND season_number = :season AND episode_number IS NOT DISTINCT FROM :episode
+                      AND tmdb_id <> :tmdb_id LIMIT 1
+                """),
+                    {
+                        "parent": parent_id,
+                        "kind": item_type,
+                        "season": season_number,
+                        "episode": episode_number,
+                        "tmdb_id": tmdb_id,
+                    },
+                ).first()
+                if conflict is not None:
+                    raise ValueError("现有季集记录使用不同的 TMDb 身份，请核对后再处理，未覆盖旧记录。")
             existing = (
                 uow.session.execute(
                     text(
                         """
-                        SELECT emby_item_ids_json, file_sha1_json, file_pickcode_json, actors_json
+                        SELECT emby_item_ids_json, file_sha1_json, file_pickcode_json, actors_json, asset_details_json,
+                               official_rating_json
                         FROM media_metadata
                         WHERE tmdb_id = :tmdb_id AND item_type = :item_type
                         FOR UPDATE
@@ -398,17 +503,53 @@ class SqlAlchemyMediaMetadataTaskRepository:
             if emby_id and emby_id not in emby_ids:
                 emby_ids.append(emby_id)
             values = _metadata_values(item, details, tmdb_id, item_type, emby_ids)
+            previous_ratings = (current or {}).get("official_rating_json")
+            values["official_rating_json"] = json.dumps(
+                {
+                    **(dict(previous_ratings) if isinstance(previous_ratings, Mapping) else {}),
+                    **_official_ratings(details),
+                },
+                ensure_ascii=False,
+            )
+            for field in ("imdb_id", "original_language", "tagline", "runtime_minutes"):
+                if values.get(field) is None:
+                    values.pop(field, None)
+            if item_type in {"Season", "Episode"}:
+                values.update(
+                    parent_series_tmdb_id=parent_id, season_number=season_number, episode_number=episode_number
+                )
+                if details.get("air_date"):
+                    values["release_date"] = details["air_date"]
+                    values["release_year"] = _year(details["air_date"])
+                if item_type == "Episode":
+                    values["thumb_path"] = details.get("still_path")
+                    values["poster_path"] = details.get("still_path")
+                    values["runtime_minutes"] = _integer(details.get("runtime"))
             # Existing people data is authoritative for a metadata backfill;
             # ordinary sync may replace it only when the provider sent data.
-            people = None if preserve_people else details.get("credits")
+            people = None if preserve_people else details.get("aggregate_credits") or details.get("credits")
             if people is None and existing is not None:
                 people = existing.get("actors_json")
             actors = _stored_actors(people) if preserve_people else _actors_json(people)
             values["actors_json"] = json.dumps(actors, ensure_ascii=False)
-            values["actors_ready"] = bool(actors)
+            values["actors_ready"] = bool(actors) or bool(_directors_json(details))
             values["file_sha1_json"] = json.dumps(file_sha1s, ensure_ascii=False)
             values["file_pickcode_json"] = json.dumps(file_pickcodes, ensure_ascii=False)
             values["directors_json"] = json.dumps(_directors_json(details), ensure_ascii=False)
+            path = normalize_media_path(item.get("Path"))
+            if path:
+                assets = [dict(asset) for asset in (current or {}).get("asset_details_json") or []]
+                existing_asset = next(
+                    (asset for asset in assets if normalize_media_path(asset.get("path")) == path), None
+                )
+                if existing_asset is None:
+                    existing_asset = {"path": path}
+                    assets.append(existing_asset)
+                if emby_id:
+                    existing_asset["emby_item_id"] = emby_id
+                if item.get("_source_library_id"):
+                    existing_asset["source_library_id"] = str(item["_source_library_id"])
+                values["asset_details_json"] = json.dumps(assets, ensure_ascii=False)
             columns = ", ".join(values)
             placeholders = ", ".join(f":{column}" for column in values)
             update = ", ".join(
@@ -529,7 +670,7 @@ class SqlAlchemyMediaMetadataTaskRepository:
                 uow.session.execute(
                     text(
                         """
-                        SELECT last_synced_at, last_updated_at
+                        SELECT last_synced_at, last_updated_at, asset_details_json
                         FROM media_metadata
                         WHERE item_type = :item_type
                           AND (
@@ -546,6 +687,11 @@ class SqlAlchemyMediaMetadataTaskRepository:
                 .first()
             )
         if row is None:
+            return True
+        path = normalize_media_path(item.get("Path"))
+        if path and not any(
+            normalize_media_path(asset.get("path")) == path for asset in row.get("asset_details_json") or []
+        ):
             return True
         modified = _parse_datetime(item.get("DateModified"))
         synced = _parse_datetime(row.get("last_synced_at"))
@@ -628,6 +774,115 @@ class NativeMediaMetadataTaskService:
         if failures:
             return TaskOutcome.partial("媒体元数据同步部分完成。", details)
         return TaskOutcome.succeeded("媒体元数据同步完成。", details)
+
+    def reprocess_item_metadata(self, item: Mapping[str, Any], progress: MediaTaskProgress) -> TaskOutcome:
+        """保留已核实的 Emby 身份与路径；普通按 TMDb ID 补齐任务没有这些信息。"""
+        tmdb_id = _tmdb_id(item, {})
+        item_type = _root_item_type(item)
+        if not tmdb_id or item_type not in {"Movie", "Series"} or not normalize_media_path(item.get("Path")):
+            return TaskOutcome.failed("媒体项缺少 TMDb ID、受支持类型或媒体路径。")
+        progress.checkpoint()
+        details = self._metadata.details(tmdb_id, "movie" if item_type == "Movie" else "tv")
+        updated = self._repository.upsert_metadata(item, details, preserve_people=False)
+        if not updated:
+            return TaskOutcome.failed("媒体元数据及路径关联保存失败。")
+        return TaskOutcome.succeeded("媒体元数据及路径关联已保存。", {"updated": 1})
+
+    def identify_reprocess_root(self, item: Mapping[str, Any]) -> Mapping[str, Any]:
+        return identify_root(item, cast(ReprocessMetadataProvider, self._metadata))
+
+    def cached_reprocess_metadata(self, item: Mapping[str, Any], root: Mapping[str, Any]) -> Mapping[str, Any] | None:
+        row = self._repository.reprocess_cache(item, root)
+        if row is None:
+            return None
+        expected: dict[str, Any] = {
+            "Name": row["title"],
+            "Overview": row["overview"],
+            "_tmdb_id": str(row["tmdb_id"]),
+            "ProductionYear": row["release_year"],
+        }
+        if item.get("Type") in {"Movie", "Series"}:
+            expected["Genres"] = row["genres_json"]
+        if row.get("imdb_id"):
+            expected["_imdb_id"] = row["imdb_id"]
+        if (row.get("official_rating_json") or {}).get("US"):
+            expected["OfficialRating"] = row["official_rating_json"]["US"]
+        settings = self._settings() if self._settings is not None else Settings()
+        limit = settings.max_actors_to_process if settings.max_actors_to_process > 0 else 50
+        if item.get("Type") == "Episode" and settings.max_episode_actors_to_process > 0:
+            limit = settings.max_episode_actors_to_process
+        actors = sorted(row.get("actors_json") or [], key=lambda actor: actor.get("order", 999))[: max(1, limit)]
+        directors = row.get("directors_json") or []
+        expected.update(
+            _actor_count=len(actors),
+            _director_count=len(directors),
+            _actor_images=sum(bool(actor.get("profile_path")) for actor in actors),
+            _director_images=sum(bool(actor.get("profile_path")) for actor in directors),
+        )
+        if item.get("Type") == "Episode" and (row.get("poster_path") or row.get("thumb_path")):
+            expected["_primary_image"] = True
+        return expected
+
+    def prepare_reprocess_metadata(
+        self,
+        item: Mapping[str, Any],
+        root: Mapping[str, Any],
+        cache: dict[tuple[str, int], Mapping[str, Any]],
+    ) -> Mapping[str, Any]:
+        if not normalize_media_path(item.get("Path")):
+            raise ValueError("媒体路径缺失。")
+        # 兼容旧 ETK：整项锁（包括父级继承）不阻断插件回填，也不修改锁定状态。
+        if set(item.get("LockedFields") or []) & {"Name", "Overview"}:
+            raise ValueError("名称或简介字段已明确锁定，请先确认是否解锁该字段。")
+        target, details = prepare_metadata(item, root, cast(ReprocessMetadataProvider, self._metadata), cache)
+        if not self._repository.upsert_metadata(target, details, preserve_people=False):
+            raise ValueError("季集元数据及路径关联保存失败。")
+        expected: dict[str, Any] = {
+            "Name": str(details.get("name") or details.get("title")).strip(),
+            "_tmdb_id": str(details["id"]),
+        }
+        if details.get("overview"):
+            expected["Overview"] = str(details["overview"]).strip()
+        ratings = _official_ratings(details)
+        if ratings.get("US"):
+            expected["OfficialRating"] = ratings["US"]
+        imdb = (details.get("external_ids") or {}).get("imdb_id") or details.get("imdb_id")
+        if imdb:
+            expected["_imdb_id"] = imdb
+        settings = self._settings() if self._settings is not None else Settings()
+        limit = settings.max_actors_to_process if settings.max_actors_to_process > 0 else 50
+        if item.get("Type") == "Episode" and settings.max_episode_actors_to_process > 0:
+            limit = settings.max_episode_actors_to_process
+        actors = sorted(
+            _actors_json(details.get("aggregate_credits") or details.get("credits")),
+            key=lambda actor: actor.get("order", 999),
+        )[: max(1, limit)]
+        expected["_actor_count"] = len(actors)
+        directors = _directors_json(details)
+        expected["_director_count"] = len(directors)
+        expected["_actor_images"] = sum(bool(actor.get("profile_path")) for actor in actors)
+        expected["_director_images"] = sum(bool(director.get("profile_path")) for director in directors)
+        if item.get("Type") == "Episode" and details.get("still_path"):
+            expected["_primary_image"] = True
+        expected["_log_messages"] = [
+            f"已获取 TMDb 元数据（ID={details['id']}）：标题、简介、首播日期等；已保存到缓存",
+            f"已获取演职人员：演员 {len(actors)} 人、导演 {len(directors)} 人，"
+            f"可用头像 {expected['_actor_images'] + expected['_director_images']} 张",
+            f"已获取图片地址：主图 {'有' if details.get('poster_path') or details.get('still_path') else '无'}，"
+            f"背景图 {'有' if details.get('backdrop_path') else '无'}，"
+            f"分集缩略图 {'有' if details.get('still_path') else '无'}"
+            "；地址就绪不代表 Emby 已下载，后续回读确认",
+        ]
+        for label, source in (
+            ("主图", details.get("poster_path") or details.get("still_path")),
+            ("背景图", details.get("backdrop_path")),
+            ("分集缩略图", details.get("still_path")),
+        ):
+            if source:
+                expected["_log_messages"].append(
+                    f"{label}下载源文件：{str(source).rsplit('/', 1)[-1]}；由 Emby 按缺图策略获取"
+                )
+        return expected
 
     def _backfill(self, progress: MediaTaskProgress, parameters: Mapping[str, Any]) -> TaskOutcome:
         raw_targets = parameters.get("targets")
@@ -900,6 +1155,9 @@ def _metadata_values(
     genres = details.get("genres") or item.get("Genres") or []
     if isinstance(genres, list):
         genres_json = [dict(value) if isinstance(value, Mapping) else {"name": str(value)} for value in genres]
+        for genre in genres_json:
+            name = str(genre.get("name") or "")
+            genre["name"] = GENRE_TRANSLATION_PATCH.get(name, name)
     else:
         genres_json = []
     return {
@@ -913,6 +1171,10 @@ def _metadata_values(
         "original_title": str(
             details.get("original_title") or details.get("original_name") or item.get("OriginalTitle") or ""
         ),
+        "original_language": details.get("original_language"),
+        "imdb_id": (details.get("external_ids") or {}).get("imdb_id") or details.get("imdb_id"),
+        "tagline": details.get("tagline"),
+        "runtime_minutes": _integer(details.get("runtime") or next(iter(details.get("episode_run_time") or []), None)),
         "overview": str(details.get("overview") or item.get("Overview") or ""),
         "release_date": release_date if isinstance(release_date, (date, str)) else None,
         "release_year": release_year,
@@ -923,8 +1185,8 @@ def _metadata_values(
         "production_companies_json": json.dumps(details.get("production_companies") or [], ensure_ascii=False),
         "networks_json": json.dumps(details.get("networks") or [], ensure_ascii=False),
         "countries_json": json.dumps(details.get("production_countries") or [], ensure_ascii=False),
-        "keywords_json": json.dumps(details.get("keywords") or [], ensure_ascii=False),
-        "official_rating_json": json.dumps({}, ensure_ascii=False),
+        "keywords_json": json.dumps(_keywords(details), ensure_ascii=False),
+        "official_rating_json": json.dumps(_official_ratings(details), ensure_ascii=False),
         "metadata_ready": True,
         "actors_ready": False,
         "metadata_schema_version": 1,
@@ -944,7 +1206,11 @@ def _actors_json(value: Any) -> list[dict[str, Any]]:
         actor = {
             "tmdb_id": entry.get("id") or entry.get("tmdb_id"),
             "name": entry.get("name"),
-            "character": entry.get("character") or "",
+            "character": entry.get("character")
+            or " / ".join(
+                dict.fromkeys(str(role["character"]) for role in entry.get("roles") or [] if role.get("character"))
+            ),
+            "profile_path": entry.get("profile_path"),
             "order": entry.get("order", 999),
         }
         if actor["tmdb_id"] is not None and actor["name"]:
@@ -964,15 +1230,45 @@ def _stored_actors(value: Any) -> list[dict[str, Any]]:
 
 
 def _directors_json(details: Mapping[str, Any]) -> list[dict[str, Any]]:
-    credits = details.get("credits")
+    credits = details.get("aggregate_credits") or details.get("credits")
     crew = credits.get("crew") if isinstance(credits, Mapping) else []
     if not isinstance(crew, list):
         return []
-    return [
-        {"tmdb_id": entry.get("id"), "name": entry.get("name")}
-        for entry in crew
-        if isinstance(entry, Mapping) and entry.get("job") == "Director" and entry.get("name")
-    ]
+    return list(
+        {
+            str(entry.get("id") or entry["name"]): {
+                "tmdb_id": entry.get("id"),
+                "name": entry.get("name"),
+                "profile_path": entry.get("profile_path"),
+            }
+            for entry in crew
+            if isinstance(entry, Mapping)
+            and entry.get("name")
+            and (entry.get("job") == "Director" or any(job.get("job") == "Director" for job in entry.get("jobs") or []))
+        }.values()
+    )
+
+
+def _keywords(details: Mapping[str, Any]) -> list[Any]:
+    value = details.get("keywords") or []
+    if isinstance(value, Mapping):
+        value = value.get("keywords") or value.get("results") or []
+    return value if isinstance(value, list) else []
+
+
+def _official_ratings(details: Mapping[str, Any]) -> dict[str, str]:
+    ratings = {
+        str(row["iso_3166_1"]): str(row["rating"])
+        for row in (details.get("content_ratings") or {}).get("results", [])
+        if row.get("iso_3166_1") and row.get("rating")
+    }
+    for row in (details.get("release_dates") or {}).get("results", []):
+        certification = next(
+            (d.get("certification") for d in row.get("release_dates", []) if d.get("certification")), None
+        )
+        if row.get("iso_3166_1") and certification:
+            ratings[str(row["iso_3166_1"])] = str(certification)
+    return ratings
 
 
 def _json_objects(value: Any) -> list[dict[str, Any]]:

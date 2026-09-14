@@ -272,9 +272,8 @@ class HttpxEmbyBridgeClient:
 
     def _default_client(self) -> httpx.Client:
         settings = self._settings()
-        proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
         timeout = max(1.0, float(settings.emby_api_timeout))
-        return httpx.Client(proxy=proxy or None, timeout=timeout)
+        return httpx.Client(timeout=timeout, trust_env=False)
 
 
 class PluginUpdateError(RuntimeError):

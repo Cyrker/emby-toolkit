@@ -48,6 +48,18 @@ class FakeCompatibility:
         return {"completed": True, "kind": kind}
 
 
+def test_native_event_retry_budget_does_not_repeat_forever():
+    from unittest.mock import Mock
+
+    compatibility = Mock()
+    compatibility.execute.side_effect = MediaEffectDeliveryRetryable("temporary failure")
+    delivery = P8UserEventEffectDelivery(cast(Any, FakePolicy()), compatibility)
+    with pytest.raises(MediaEffectDeliveryRetryable):
+        delivery.deliver(_effect("emby.event.user.halfway-intro-detection", {"event_snapshot": {}}, attempts=1))
+    with pytest.raises(MediaEffectDeliveryIndeterminate, match="重试次数已耗尽"):
+        delivery.deliver(_effect("emby.event.user.halfway-intro-detection", {"event_snapshot": {}}, attempts=12))
+
+
 def _effect(
     effect_type: str,
     payload: Mapping[str, Any],

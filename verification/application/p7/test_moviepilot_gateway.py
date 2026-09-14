@@ -656,6 +656,23 @@ def test_configuration_and_status_values_fail_before_provider_io() -> None:
     assert provider_calls == 0
 
 
+def test_native_and_legacy_moviepilot_clients_do_not_inherit_environment_proxies() -> None:
+    native = HttpxMoviePilotGateway(_BASE_URL, "user", "password")
+    client = native._default_client()
+    try:
+        assert client._trust_env is False
+    finally:
+        client.close()
+
+    from handler import moviepilot as legacy_moviepilot
+
+    session = legacy_moviepilot.requests.Session()
+    try:
+        assert session.trust_env is False
+    finally:
+        session.close()
+
+
 def test_system_setting_write_uses_scalar_json_and_confirms_readback() -> None:
     requests: list[httpx.Request] = []
 

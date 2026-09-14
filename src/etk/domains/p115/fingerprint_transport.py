@@ -178,7 +178,11 @@ class _HttpxP115FingerprintRemoteClient:
                 credential_app_type=credential_app_type,
             )
             try:
-                with self._client_factory(timeout=self._timeout_seconds, follow_redirects=True) as client:
+                with self._client_factory(
+                    timeout=self._timeout_seconds,
+                    follow_redirects=True,
+                    trust_env=False,
+                ) as client:
                     response = client.get(
                         url,
                         params={"file_id": file_id},

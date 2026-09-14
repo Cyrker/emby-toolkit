@@ -684,7 +684,7 @@ class LegacyP115PlaybackProvider(P115PlaybackProvider):
         if not refresh_token:
             return {"ok": False, "message": "小号缺少 refresh_token"}
         try:
-            with self._http_client_factory(timeout=10, follow_redirects=True) as client:
+            with self._http_client_factory(timeout=10, follow_redirects=True, trust_env=False) as client:
                 response = client.post(
                     "https://passportapi.115.com/open/refreshToken",
                     data={"refresh_token": refresh_token},
@@ -743,7 +743,7 @@ class LegacyP115PlaybackProvider(P115PlaybackProvider):
         started = time.monotonic()
         total = 0
         timeout = httpx.Timeout(connect=8, read=max_seconds + 4, write=10, pool=10)
-        with self._http_client_factory(timeout=timeout, follow_redirects=True) as client:
+        with self._http_client_factory(timeout=timeout, follow_redirects=True, trust_env=False) as client:
             with client.stream("GET", url, headers=headers) as response:
                 response.raise_for_status()
                 for chunk in response.iter_bytes(chunk_size=256 * 1024):
@@ -847,7 +847,7 @@ class LegacyP115DirectLinkGateway(P115DirectLinkGateway):
         }
         if range_header:
             headers["Range"] = range_header
-        client = self._client_factory(timeout=10, follow_redirects=True)
+        client = self._client_factory(timeout=10, follow_redirects=True, trust_env=False)
         response: httpx.Response | None = None
         try:
             request = client.build_request("GET", url, headers=headers)

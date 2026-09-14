@@ -80,6 +80,6 @@
     "vue_files": 50
   },
   "generated_by": "scripts/refactor/export_manifests.py",
-  "legacy_source_sha256": "8d7fb20196a46d00f6eb19f0c4d48f9a90d22672dc6054b43b8188a4aa672eae",
+  "legacy_source_sha256": "de64f0bd54fa64818e081ca9055c1510d8b2750820aa2a7d27335729b9b73323",
   "schema_version": 1
 }

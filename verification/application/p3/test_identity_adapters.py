@@ -14,6 +14,19 @@ from etk.domains.identity.adapters import HttpxEmbyIdentityGateway, RuntimeConfi
 from etk.platform import Settings
 
 
+def test_identity_default_client_bypasses_configured_and_environment_proxies() -> None:
+    settings = Settings(
+        emby_api_timeout=5,
+        network_proxy_enabled=True,
+        network_http_proxy_url="http://proxy.fixture.invalid:8080",
+    )
+    gateway = HttpxEmbyIdentityGateway(lambda: settings)
+
+    with gateway._default_client() as client:
+        assert client._trust_env is False
+        assert client._mounts == {}
+
+
 def test_httpx_identity_gateway_owns_authorization_plugin_and_library_readback() -> None:
     posted_options: dict[str, object] = {}
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Mapping
 from typing import Any
+from urllib.parse import quote, urlsplit
 
 import httpx
 
@@ -16,15 +17,76 @@ class HttpxSystemIntegrationGateway:
         self._settings = settings
 
     def test_ai(self, config: Mapping[str, Any]) -> ExternalResult:
-        from ai_translator import AITranslator
-
+        provider = str(config.get("ai_provider") or "openai").strip().lower()
+        api_key = str(config.get("ai_api_key") or "").strip()
+        model = str(config.get("ai_model_name") or "").strip()
+        base = str(config.get("ai_base_url") or "").strip().rstrip("/")
+        if not api_key or not model:
+            return ExternalResult({"success": False, "message": "请先填写 API Key 和模型名称。"}, 400)
         test_text = "Bald Qiang"
-        result = AITranslator(dict(config)).translate(test_text)
+        prompt = f"请将人物名称 {test_text} 翻译成中文，只返回译名。"
+        headers = {"Accept": "application/json"}
+        if provider == "gemini":
+            base = base or "https://generativelanguage.googleapis.com/v1beta"
+            url = f"{base}/models/{quote(model.removeprefix('models/'), safe='')}:generateContent"
+            headers["x-goog-api-key"] = api_key
+            body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}]}
+        else:
+            url = f"{_normalize_openai_base_url(base, provider)}/chat/completions"
+            headers["Authorization"] = f"Bearer {api_key}"
+            body = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False}
+        try:
+            with self._ai_client(url, config) as client:
+                response = client.post(url, headers=headers, json=body)
+            if response.status_code in {401, 403}:
+                return ExternalResult({"success": False, "message": "认证失败，请检查 API Key 和模型权限。"}, 400)
+            if response.is_error:
+                return ExternalResult(
+                    {
+                        "success": False,
+                        "message": f"AI 接口返回 HTTP {response.status_code}，请检查服务地址、模型名称或服务额度。",
+                    },
+                    502,
+                )
+            payload = response.json()
+            if provider == "gemini":
+                parts = payload["candidates"][0]["content"]["parts"]
+                result = "".join(str(part.get("text") or "") for part in parts).strip()
+            else:
+                result = payload["choices"][0]["message"]["content"]
+                result = result.strip() if isinstance(result, str) else ""
+        except httpx.TimeoutException:
+            return ExternalResult(
+                {"success": False, "message": "AI 请求超时，请检查服务地址、网络及模型响应速度。"}, 504
+            )
+        except httpx.HTTPError:
+            return ExternalResult({"success": False, "message": "无法连接 AI 服务，请检查服务地址和网络配置。"}, 502)
+        except (ValueError, KeyError, IndexError, TypeError):
+            return ExternalResult(
+                {"success": False, "message": "AI 接口返回格式无效或没有文本结果，请检查 API 协议和模型。"}, 502
+            )
         if result and result != test_text:
             return ExternalResult({"success": True, "message": f"连接成功！测试翻译结果: '{test_text}' ➜ '{result}'"})
         if result == test_text:
             return ExternalResult({"success": True, "message": "连接成功，但 AI 返回了原词（可能模型认为无需翻译）。"})
         return ExternalResult({"success": False, "message": "AI 未返回有效结果。"}, 500)
+
+    def _ai_client(self, url: str, config: Mapping[str, Any]) -> httpx.Client:
+        # 只有已知受限服务使用代理；局域网、国内和自定义兼容服务默认直连。
+        host = (urlsplit(url).hostname or "").lower()
+        restricted = any(
+            host == domain or host.endswith(f".{domain}")
+            for domain in (
+                "openai.com",
+                "googleapis.com",
+                "anthropic.com",
+                "openrouter.ai",
+            )
+        )
+        settings = self._settings()
+        enabled = config.get("network_proxy_enabled", settings.network_proxy_enabled)
+        proxy = str(config.get("network_http_proxy_url", settings.network_http_proxy_url) or "").strip()
+        return httpx.Client(proxy=proxy if restricted and enabled and proxy else None, timeout=30, trust_env=False)
 
     def list_ai_models(self, config: Mapping[str, Any]) -> ExternalResult:
         provider = str(config.get("ai_provider") or "openai").strip()
@@ -40,7 +102,7 @@ class HttpxSystemIntegrationGateway:
             url = f"{_normalize_openai_base_url(base_url, provider)}/models"
             headers["Authorization"] = f"Bearer {api_key}"
         try:
-            with self._client(timeout=20) as client:
+            with self._ai_client(url, config) as client:
                 response = client.get(url, headers=headers, params=params)
             if response.status_code in {401, 403}:
                 return ExternalResult(

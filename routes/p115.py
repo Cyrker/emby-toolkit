@@ -12,12 +12,11 @@ import time
 import random
 import secrets
 from urllib.parse import unquote, urlparse
-import requests
 from flask import Blueprint, jsonify, request, redirect, Response, stream_with_context, current_app, session
 from extensions import admin_required, emby_login_required
 from database import settings_db
 from handler import moviepilot, emby
-from handler.p115_service import P115Service, P115CacheManager, get_115_account_id, get_config
+from handler.p115_service import P115Service, P115CacheManager, P115_DIRECT_REQUESTS, get_115_account_id, get_config
 from handler.etk_plugin_update import is_etk_plugin_installed
 from handler.p115_rename import P115RenameRenderer
 from handler import p115_play_pool
@@ -44,6 +43,7 @@ _qrcode_data = {
 }
 p115_bp = Blueprint('115_bp', __name__, url_prefix='/api/p115')
 logger = logging.getLogger(__name__)
+requests = P115_DIRECT_REQUESTS
 
 _DEEP_DELETE_TTL_SECONDS = 300
 _DEEP_DELETE_SETTING_PREFIX = 'runtime.deep_delete_snapshot.'

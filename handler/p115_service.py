@@ -1,6 +1,6 @@
 # handler/p115_service.py
 import logging
-import requests
+import requests as _requests
 import os
 import hashlib
 import base64
@@ -38,6 +38,49 @@ except ImportError:
 logger = logging.getLogger(__name__)
 FORCE_CACHE_MEDIAINFO = True
 _P115_EXPECTED_ACCOUNT_CONTEXT = threading.local()
+
+
+class _P115DirectRequestsSession(_requests.Session):
+    """Requests session for 115 endpoints that must not inherit proxy env vars."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.trust_env = False
+
+    def request(self, method, url, **kwargs):
+        kwargs.pop("proxies", None)
+        return super().request(method, url, **kwargs)
+
+
+class _P115DirectRequestsFacade:
+    """Preserve the legacy requests surface while enforcing direct 115 transport."""
+
+    Session = _P115DirectRequestsSession
+    adapters = _requests.adapters
+    exceptions = _requests.exceptions
+    Response = _requests.Response
+
+    def request(self, method, url, **kwargs):
+        kwargs.pop("proxies", None)
+        with self.Session() as session:
+            return session.request(method, url, **kwargs)
+
+    def get(self, url, **kwargs):
+        return self.request("GET", url, **kwargs)
+
+    def post(self, url, **kwargs):
+        return self.request("POST", url, **kwargs)
+
+    def put(self, url, **kwargs):
+        return self.request("PUT", url, **kwargs)
+
+    def delete(self, url, **kwargs):
+        return self.request("DELETE", url, **kwargs)
+
+
+P115_DIRECT_REQUESTS = _P115DirectRequestsFacade()
+# Keep legacy module-level monkeypatch targets while forcing direct 115 traffic.
+requests = P115_DIRECT_REQUESTS
 
 
 @contextmanager
@@ -10137,7 +10180,6 @@ class SmartOrganizer(P115MediaAnalyzerMixin):
                                         try:
                                             url_obj = self.client.resolve_download_url(pick_code, user_agent="Mozilla/5.0")
                                             if url_obj:
-                                                import requests
                                                 headers = {"User-Agent": "Mozilla/5.0", "Cookie": P115Service.get_cookies()}
                                                 resp = requests.get(str(url_obj), stream=True, timeout=30, headers=headers)
                                                 resp.raise_for_status()
@@ -10428,7 +10470,6 @@ class SmartOrganizer(P115MediaAnalyzerMixin):
                     if not os.path.exists(sub_filepath):
                         url_obj = self.client.resolve_download_url(pick_code, user_agent="Mozilla/5.0")
                         if url_obj:
-                            import requests
                             headers = {"User-Agent": "Mozilla/5.0", "Cookie": P115Service.get_cookies()}
                             resp = requests.get(str(url_obj), stream=True, timeout=30, headers=headers)
                             resp.raise_for_status()

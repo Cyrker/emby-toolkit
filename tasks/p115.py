@@ -20,6 +20,7 @@ import handler.tmdb as tmdb
 from handler.p115_service import (
     P115Service,
     P115CacheManager,
+    P115_DIRECT_REQUESTS,
     P115RecordManager,
     P115DeleteBuffer,
     SmartOrganizer,
@@ -38,6 +39,7 @@ from handler.home_video_nfo import build_missing_emby_metadata, match_nfo_to_str
 logger = logging.getLogger(__name__)
 FORCE_CACHE_MEDIAINFO = True
 _UNRECOGNIZED_DELETE_BATCH_SIZE = 500
+requests = P115_DIRECT_REQUESTS
 
 
 def _list_unrecognized_remote_fids(client, unrecognized_cid):
@@ -241,8 +243,6 @@ def task_backfill_organize_record_tmdb_ids(processor=None):
 
 
 def _download_p115_small_file(client, pick_code, max_bytes=2 * 1024 * 1024):
-    import requests
-
     url = client.resolve_download_url(pick_code, user_agent='Mozilla/5.0')
     if not url:
         raise RuntimeError('无法取得 115 下载地址')
@@ -2301,7 +2301,6 @@ def task_full_sync_strm_and_subs(processor=None, *, home_video_only=False):
                     sub_path = os.path.join(current_local_path, name)
                     if not os.path.exists(sub_path):
                         try:
-                            import requests
                             url_obj = client.resolve_download_url(pc, user_agent="Mozilla/5.0")
                             if url_obj:
                                 headers = {"User-Agent": "Mozilla/5.0", "Cookie": P115Service.get_cookies()}

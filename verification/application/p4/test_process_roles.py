@@ -484,12 +484,22 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
         "emby.event.metadata.update",
         "emby.image.manual_update",
         "emby.mediainfo.apply",
+        "emby.metadata.final_refresh",
+        "emby.event.user.refresh-user-policy",
+        "emby.event.user.sync-template-policy",
+        "emby.event.user.favorite-intro-detection",
+        "emby.event.user.halfway-intro-detection",
+        "emby.event.user.playback-cleanup",
+        "emby.event.user.virtual-import-promotion",
+        "emby.event.user.proxy-concurrency-release",
+        "emby.event.user.telegram-playback-notification",
         "emby.studio-image.reconcile",
         "emby.tags.apply",
         "daily-theme.replenishment",
         "sharing.intro.export",
         "moviepilot.webhook.assistant",
         "moviepilot.webhook.transfer",
+        "telegram.library.result",
     }
     assert type(state._p5_media_tasks).__name__ == "P5MediaTaskRouter"
     assert state._p5_media_tasks._compatibility is None

@@ -24,6 +24,16 @@ _EMBY_AUTHORIZATION_KEYS = (
     "emby_auth_mode",
 )
 _RESPONSE_ONLY_KEYS = {"custom_theme", "emby_server_id", "pro_license_key"}
+_LIBRARY_SELECTION_KEYS = frozenset({"libraries_to_process", "proxy_native_view_selection"})
+_PLUGIN_ORIGIN_KEYS = frozenset({"etk_server_url", "etk_server_url_manual"})
+_PLUGIN_DISCOVERY_KEYS = frozenset(
+    {
+        "proxy_enabled",
+        "proxy_port",
+        "proxy_lock_discovery_address",
+        "proxy_discovery_url_manual",
+    }
+)
 
 
 class ConfigurationUpdateRequest(RootModel[dict[str, Any]]):
@@ -106,6 +116,7 @@ class ConfigurationService:
         for key in tuple(updates):
             if key.endswith(_DERIVED_SUFFIXES) or key in _RESPONSE_ONLY_KEYS:
                 updates.pop(key, None)
+        requested_keys = frozenset(updates)
         for key in _EMBY_AUTHORIZATION_KEYS:
             updates[key] = current.get(key, "")
         update_keys = set(updates)
@@ -129,7 +140,9 @@ class ConfigurationService:
             prefix = "手动 ETK 地址无效" if manual_etk_url else "无法自动获取 ETK 内网地址"
             return SystemResult({"error": f"{prefix}：{exc}"}, 400)
 
-        valid_library_ids = self._gateway.valid_library_ids(prepared)
+        valid_library_ids = (
+            self._gateway.valid_library_ids(prepared) if requested_keys & _LIBRARY_SELECTION_KEYS else None
+        )
         if valid_library_ids is not None:
             for key in ("libraries_to_process", "proxy_native_view_selection"):
                 value = prepared.get(key)
@@ -159,19 +172,21 @@ class ConfigurationService:
             logger.exception("Saving system configuration failed")
             return SystemResult({"error": f"保存配置时发生服务器内部错误: {exc}"}, 500)
 
-        try:
-            if not self._gateway.sync_plugin_origin(
-                prepared,
-                str(prepared.get("etk_server_url") or ""),
-            ):
-                logger.warning("Configuration saved but ETK plugin origin synchronization failed")
-        except Exception:
-            logger.warning("Configuration saved but ETK plugin origin synchronization failed", exc_info=True)
-        try:
-            if not self._gateway.sync_plugin_discovery(prepared, discovery_url):
-                logger.warning("Configuration saved but proxy discovery synchronization failed")
-        except Exception:
-            logger.warning("Configuration saved but proxy discovery synchronization failed", exc_info=True)
+        if requested_keys & _PLUGIN_ORIGIN_KEYS:
+            try:
+                if not self._gateway.sync_plugin_origin(
+                    prepared,
+                    str(prepared.get("etk_server_url") or ""),
+                ):
+                    logger.warning("Configuration saved but ETK plugin origin synchronization failed")
+            except Exception:
+                logger.warning("Configuration saved but ETK plugin origin synchronization failed", exc_info=True)
+        if requested_keys & _PLUGIN_DISCOVERY_KEYS:
+            try:
+                if not self._gateway.sync_plugin_discovery(prepared, discovery_url):
+                    logger.warning("Configuration saved but proxy discovery synchronization failed")
+            except Exception:
+                logger.warning("Configuration saved but proxy discovery synchronization failed", exc_info=True)
         return SystemResult({"message": "配置已成功保存并自动净化！"})
 
     def _add_discovery_previews(self, payload: dict[str, Any]) -> None:

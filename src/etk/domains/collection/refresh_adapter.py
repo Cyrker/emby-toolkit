@@ -22,15 +22,17 @@ class HttpxNativeCollectionRefreshAdapter:
         settings: Callable[[], Settings],
         *,
         client_factory: Callable[[], httpx.Client] | None = None,
+        emby_client_factory: Callable[[], httpx.Client] | None = None,
     ) -> None:
         self._settings = settings
         self._client_factory = client_factory or self._default_client
+        self._emby_client_factory = emby_client_factory or client_factory or self._default_emby_client
 
     def list_collections(self) -> Sequence[NativeCollectionReference]:
         settings = self._settings()
         base_url, token, user_id = _emby_identity(settings)
         selected_libraries = {str(value).strip() for value in settings.libraries_to_process if str(value).strip()}
-        with self._client_factory() as client:
+        with self._emby_client_factory() as client:
             libraries_payload = self._get_json(
                 client,
                 f"{base_url}/Library/VirtualFolders",
@@ -149,6 +151,10 @@ class HttpxNativeCollectionRefreshAdapter:
         settings = self._settings()
         proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
         return httpx.Client(proxy=proxy or None, timeout=httpx.Timeout(20.0, connect=5.0), trust_env=False)
+
+    @staticmethod
+    def _default_emby_client() -> httpx.Client:
+        return httpx.Client(timeout=httpx.Timeout(20.0, connect=5.0), trust_env=False)
 
 
 def _emby_identity(settings: Settings) -> tuple[str, str, str]:

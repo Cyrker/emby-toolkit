@@ -112,19 +112,20 @@ def _run_api(args: argparse.Namespace) -> int:
 def _run_proxy(args: argparse.Namespace) -> int:
     import os
 
+    os.environ["ETK_PROCESS_ROLE"] = "proxy"
     import uvicorn
 
-    from etk.platform.config import LegacyConfigAdapter
-    from etk.processes.proxy import create_proxy_app
+    from etk.platform.observability import configure_logging
+    from etk.processes.proxy_runtime import create_production_proxy_app
 
-    configured = os.environ.get("APP_DATA_DIR") or os.environ.get("CONFIG_DIR")
-    config_path = Path(configured) / "config.ini" if configured else None
-    settings = LegacyConfigAdapter(config_path, environ=os.environ).load()
-    app = create_proxy_app(
-        allow_transcoding=settings.proxy_allow_transcoding,
-        static_dir=os.environ.get("ETK_STATIC_DIR"),
+    configure_logging(json_output=os.environ.get("ETK_LOG_FORMAT", "console").casefold() == "json", level="info")
+    uvicorn.run(
+        create_production_proxy_app(),
+        host=args.host,
+        port=args.port,
+        log_level="info",
+        log_config=None,
     )
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info", log_config=None)
     return 0
 
 
@@ -181,10 +182,13 @@ def _run_control_plane(args: argparse.Namespace) -> int:
 
 
 def _run_coordinator(args: argparse.Namespace) -> int:
+    import os
     import signal
 
+    from etk.platform.observability import configure_logging
     from etk.processes.coordinator import CoordinatorRuntime
 
+    configure_logging(json_output=os.environ.get("ETK_LOG_FORMAT", "console").casefold() == "json", level="info")
     runtime = CoordinatorRuntime(health_file=args.health_file)
     received_signal: int | None = None
 

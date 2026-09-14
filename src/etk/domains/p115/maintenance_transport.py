@@ -134,6 +134,7 @@ class HttpxP115BoundedDownloadGateway:
         return httpx.Client(
             follow_redirects=True,
             timeout=httpx.Timeout(connect=8.0, read=35.0, write=8.0, pool=8.0),
+            trust_env=False,
         )
 
 

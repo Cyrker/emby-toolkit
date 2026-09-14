@@ -515,6 +515,44 @@ def test_tmdb_poster_fallback_precedes_an_empty_emby_collection() -> None:
     assert [request.url.path for request in requests] == ["/t/p/w500/poster.jpg"]
 
 
+def test_cover_adapter_routes_emby_inventory_and_tmdb_posters_to_separate_clients() -> None:
+    routed: list[tuple[str, str]] = []
+
+    def direct(request: httpx.Request) -> httpx.Response:
+        routed.append(("direct", request.url.host))
+        return httpx.Response(200, json=[])
+
+    def external(request: httpx.Request) -> httpx.Response:
+        routed.append(("external", request.url.host))
+        return httpx.Response(200, content=b"tmdb-cover", headers={"Content-Type": "image/jpeg"})
+
+    adapter = HttpxCoverRemoteAdapter(
+        _settings,
+        client_factory=lambda: httpx.Client(transport=httpx.MockTransport(direct)),
+        external_client_factory=lambda: httpx.Client(transport=httpx.MockTransport(external)),
+    )
+
+    assert adapter.list_libraries() == ()
+    snapshot = adapter.source_images(
+        {
+            "id": 7,
+            "emby_collection_id": "emby-custom",
+            "name": "Custom",
+            "type": "list",
+            "generated_media_info_json": [{"tmdb_id": "7"}],
+            "tmdb_poster_paths": ["/poster.jpg"],
+        },
+        1,
+        config={"sort_by": "Latest"},
+    )
+
+    assert snapshot == CoverSourceSnapshot((b"tmdb-cover",), None)
+    assert routed == [
+        ("direct", "emby.test"),
+        ("external", "image.tmdb.org"),
+    ]
+
+
 def test_cover_sources_apply_country_specific_safe_rating_limits() -> None:
     requests: list[httpx.Request] = []
 

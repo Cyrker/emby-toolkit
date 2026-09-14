@@ -313,7 +313,9 @@ def format_metadata_payload(
         "_screenshot_hash": screenshot_hash,
         "_emby_item_ids": [str(value) for value in _json_list(row.get("emby_item_ids_json")) if value],
         "images": {
-            "primary": _tmdb_image_url(row.get("poster_path"), "original") or screenshot_url,
+            "primary": _tmdb_image_url(row.get("poster_path") or (
+                row.get("thumb_path") if requested_type is MediaItemType.EPISODE else None
+            ), "original") or screenshot_url,
             "backdrop": _tmdb_image_url(row.get("backdrop_path"), "original") or screenshot_url,
             "logo": _tmdb_image_url(row.get("logo_path"), "original"),
             "thumb": _tmdb_image_url(row.get("thumb_path"), "original") or screenshot_url,

@@ -55,6 +55,7 @@ class EmbyAPIClient:
 
     def _init_session(self):
         self.session = requests.Session()
+        self.session.trust_env = False
         
         # --- 配置重试策略 ---
         # total=5: 最多重试5次
@@ -2271,8 +2272,7 @@ def update_collection_overview(collection_id: str, overview: str, base_url: str,
         # 4. POST 提交回 Emby
         url = f"{base_url}/emby/Items/{collection_id}?api_key={api_key}"
         headers = {"Content-Type": "application/json"}
-        import requests
-        resp = requests.post(url, json=item_details, headers=headers, timeout=10)
+        resp = emby_client.post(url, json=item_details, headers=headers, timeout=10)
         
         if resp.status_code in [200, 204]:
             logger.debug(f"  ➜ [Emby API] 成功更新并锁定合集 (ID: {collection_id}) 的简介。")

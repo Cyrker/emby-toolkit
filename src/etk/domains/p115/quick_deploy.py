@@ -710,7 +710,7 @@ class HttpxEmbyQuickDeployGateway:
             raise RuntimeError("quick-deploy Emby endpoint or credential changed during provider execution")
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout), trust_env=False)
 
 
 def quick_deploy_desired_state_hash(settings: Settings, account_id: str) -> str:

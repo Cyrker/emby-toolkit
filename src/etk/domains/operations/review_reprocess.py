@@ -38,6 +38,7 @@ class ReviewItemReprocess(Protocol):
         *,
         operation_key: str,
         media_info_only: bool = False,
+        only_missing: bool = False,
     ) -> TaskOutcome: ...
 
 
@@ -48,6 +49,7 @@ class ReviewJobPort(Protocol):
         item_id: str,
         item_name: str,
         reason: str | None,
+        only_missing: bool = False,
         requested_by_user_id: str | None,
         trace_id: str | None,
         idempotency_key: str | None,
@@ -57,6 +59,7 @@ class ReviewJobPort(Protocol):
         self,
         *,
         reason_filter: str | None,
+        only_missing: bool = False,
         requested_by_user_id: str | None,
         trace_id: str | None,
         idempotency_key: str | None,
@@ -129,6 +132,7 @@ class NativeReviewReprocessExecutor:
                 progress,
                 operation_key=f"{operation_key}:{item_id}",
                 media_info_only=media_info_only,
+                **({"only_missing": True} if parameters.get("only_missing") is True else {}),
             )
         if task_key != REVIEW_REPROCESS_ALL_TASK_KEY:
             raise LookupError(f"unknown P8 review task key: {task_key}")
@@ -151,6 +155,7 @@ class NativeReviewReprocessExecutor:
                     progress,
                     operation_key=f"{operation_key}:{item_id}",
                     media_info_only="缺失媒体信息" in str(row.get("reason") or ""),
+                    **({"only_missing": True} if parameters.get("only_missing") is True else {}),
                 )
             )
         failed = sum(outcome.status is TaskOutcomeStatus.FAILED for outcome in outcomes)
@@ -174,6 +179,7 @@ class PersistentReviewJobGateway:
         item_id: str,
         item_name: str,
         reason: str | None,
+        only_missing: bool = False,
         requested_by_user_id: str | None,
         trace_id: str | None,
         idempotency_key: str | None,
@@ -184,8 +190,9 @@ class PersistentReviewJobGateway:
                 "item_id": item_id,
                 "item_name_for_ui": item_name,
                 "failure_reason": reason,
+                "only_missing": only_missing,
             },
-            display_name=f"重新处理: {item_name}",
+            display_name=f"{'补齐缺失元数据' if only_missing else '重新处理'}: {item_name}",
             requested_by_user_id=requested_by_user_id,
             trace_id=trace_id,
             idempotency_key=idempotency_key,
@@ -197,6 +204,7 @@ class PersistentReviewJobGateway:
         self,
         *,
         reason_filter: str | None,
+        only_missing: bool = False,
         requested_by_user_id: str | None,
         trace_id: str | None,
         idempotency_key: str | None,
@@ -204,8 +212,8 @@ class PersistentReviewJobGateway:
         label = reason_filter or "全部"
         return self._submit(
             REVIEW_REPROCESS_ALL_TASK_KEY,
-            {"reason_filter": reason_filter},
-            display_name=f"批量重新处理 ({label})",
+            {"reason_filter": reason_filter, "only_missing": only_missing},
+            display_name=f"批量{'补齐缺失元数据' if only_missing else '重新处理'} ({label})",
             requested_by_user_id=requested_by_user_id,
             trace_id=trace_id,
             idempotency_key=idempotency_key,
@@ -255,9 +263,12 @@ class ReviewReprocessService:
         self,
         repository: ReviewReprocessRepository,
         jobs: ReviewJobPort,
+        *,
+        emby_item: Callable[[str], Mapping[str, Any] | None] | None = None,
     ) -> None:
         self._repository = repository
         self._jobs = jobs
+        self._emby_item = emby_item
 
     def submit_one(
         self,
@@ -272,13 +283,29 @@ class ReviewReprocessService:
         if not normalized_item_id or len(normalized_item_id) > 200:
             return ReviewReprocessHttpResult({"error": "无效的项目 ID"}, 400)
         try:
-            values = _payload(payload, allowed={"reason"})
+            values = _payload(payload, allowed={"reason", "only_missing"})
+            only_missing = _only_missing(values)
             requested_reason = _optional_text(values.get("reason"), field="reason", limit=1000)
         except (TypeError, ValueError) as exc:
             return ReviewReprocessHttpResult({"error": str(exc)}, 400)
         item = self._repository.item(normalized_item_id)
+        if item is None and self._emby_item is not None:
+            try:
+                source = self._emby_item(normalized_item_id)
+            except Exception:
+                return ReviewReprocessHttpResult({"error": "无法核实 Emby 媒体项，请稍后重试"}, 502)
+            if source is not None:
+                if str(source.get("Id") or "") != normalized_item_id or source.get("Type") not in {
+                    "Movie",
+                    "Series",
+                    "Season",
+                    "Episode",
+                }:
+                    return ReviewReprocessHttpResult({"error": "不支持重新处理该 Emby 项目"}, 400)
+                item = {"item_name": source.get("Name"), "reason": None}
+                requested_reason = None
         if item is None:
-            return ReviewReprocessHttpResult({"error": "待复核项目不存在"}, 404)
+            return ReviewReprocessHttpResult({"error": "待复核记录或 Emby 媒体项不存在"}, 404)
         item_name = str(item.get("item_name") or f"ItemID: {normalized_item_id}").strip()
         reason = requested_reason or _optional_text(item.get("reason"), field="reason", limit=1000)
         try:
@@ -286,6 +313,7 @@ class ReviewReprocessService:
                 item_id=normalized_item_id,
                 item_name=item_name,
                 reason=reason,
+                **({"only_missing": True} if only_missing else {}),
                 requested_by_user_id=requested_by_user_id,
                 trace_id=trace_id,
                 idempotency_key=idempotency_key,
@@ -308,13 +336,15 @@ class ReviewReprocessService:
         idempotency_key: str | None,
     ) -> ReviewReprocessHttpResult:
         try:
-            values = _payload(payload, allowed={"reason"})
+            values = _payload(payload, allowed={"reason", "only_missing"})
+            only_missing = _only_missing(values)
             reason_filter = _optional_text(values.get("reason"), field="reason", limit=1000)
         except (TypeError, ValueError) as exc:
             return ReviewReprocessHttpResult({"error": str(exc)}, 400)
         try:
             submitted = self._jobs.submit_all(
                 reason_filter=reason_filter,
+                **({"only_missing": True} if only_missing else {}),
                 requested_by_user_id=requested_by_user_id,
                 trace_id=trace_id,
                 idempotency_key=idempotency_key,
@@ -325,6 +355,13 @@ class ReviewReprocessService:
             return ReviewReprocessHttpResult({"error": "任务提交失败"}, 500)
         label = reason_filter or "全部"
         return _submitted_result(submitted, f"任务 '批量重新处理 ({label})' 已成功提交！")
+
+
+def _only_missing(values: Mapping[str, Any]) -> bool:
+    value = values.get("only_missing", False)
+    if not isinstance(value, bool):
+        raise TypeError("only_missing 必须是布尔值")
+    return value
 
 
 def _payload(value: Any, *, allowed: set[str]) -> dict[str, Any]:

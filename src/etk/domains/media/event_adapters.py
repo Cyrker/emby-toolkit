@@ -146,11 +146,10 @@ class HttpxP5MediaEventProvider:
 
     def _default_client(self) -> httpx.Client:
         settings = self._settings()
-        proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
         return httpx.Client(
-            proxy=proxy or None,
             timeout=max(1.0, float(settings.emby_api_timeout)),
             follow_redirects=True,
+            trust_env=False,
         )
 
 

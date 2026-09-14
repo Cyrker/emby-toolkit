@@ -197,7 +197,7 @@ class SharingServerIdentity:
             bounded = max(1.0, min(float(timeout), 120.0))
         except (TypeError, ValueError):
             bounded = 60.0
-        return httpx.Client(timeout=bounded, follow_redirects=False)
+        return httpx.Client(timeout=bounded, follow_redirects=False, trust_env=False)
 
 
 def _normalize_config(value: Mapping[str, Any]) -> dict[str, Any]:

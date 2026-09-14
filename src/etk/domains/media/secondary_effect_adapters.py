@@ -67,7 +67,7 @@ class HttpxSecondaryEmbyAdapter:
         return dict(payload)
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout), trust_env=False)
 
 
 __all__ = ["HttpxSecondaryEmbyAdapter"]

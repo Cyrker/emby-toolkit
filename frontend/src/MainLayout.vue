@@ -83,7 +83,7 @@
             <n-button-group v-if="authStore.isAdmin" size="small">
               <n-tooltip>
                 <template #trigger>
-                  <n-button @click="isRealtimeLogVisible = true" circle>
+                  <n-button @click="isRealtimeLogVisible = true" circle aria-label="实时日志">
                     <template #icon><n-icon :component="ReaderOutline" /></template>
                   </n-button>
                 </template>
@@ -91,7 +91,7 @@
               </n-tooltip>
               <n-tooltip>
                 <template #trigger>
-                  <n-button @click="isHistoryLogVisible = true" circle>
+                  <n-button @click="isHistoryLogVisible = true" circle aria-label="历史日志">
                     <template #icon><n-icon :component="ArchiveOutline" /></template>
                   </n-button>
                 </template>
@@ -298,6 +298,7 @@ import {
 import { useAuthStore } from './stores/auth';
 import { themes } from './theme.ts';
 import LogViewer from './components/LogViewer.vue';
+import { formatTaskLogs } from './utils/taskLogs';
 import {
   AnalyticsOutline as StatsIcon,
   ListOutline as ReviewListIcon,
@@ -409,7 +410,7 @@ const themeOptions = [
 
 const renderIcon = (iconComponent) => () => h(NIcon, null, { default: () => h(iconComponent) });
 
-const logContent = computed(() => props.taskStatus?.logs?.join('\n') || '等待任务日志...');
+const logContent = computed(() => formatTaskLogs(props.taskStatus?.logs) || '等待任务日志...');
 
 watch([() => props.taskStatus?.logs, isRealtimeLogVisible], async ([, isVisible]) => {
   if (isVisible) {

@@ -270,7 +270,7 @@ class HttpxCollectionRemoteEffectsAdapter:
         return base_url, user_id, token
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=max(1.0, float(self._settings().emby_api_timeout)))
+        return httpx.Client(timeout=max(1.0, float(self._settings().emby_api_timeout)), trust_env=False)
 
 
 class LegacyCollectionAssetEffectsAdapter:

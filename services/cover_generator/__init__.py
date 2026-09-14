@@ -405,7 +405,7 @@ class CoverGeneratorService:
         }
         
         try:
-            resp = requests.get(url, params=params, headers=headers, timeout=30)
+            resp = emby.emby_client.get(url, params=params, headers=headers, timeout=30)
             resp.raise_for_status()
             data = resp.json()
             items_from_emby = data.get('Items', [])
@@ -533,7 +533,7 @@ class CoverGeneratorService:
                 def _clear_flag():
                     UPDATING_IMAGES.discard(library_id)
                 spawn_later(30, _clear_flag)
-            response = requests.post(upload_url, data=image_data, headers=headers, timeout=30)
+            response = emby.emby_client.post(upload_url, data=image_data, headers=headers, timeout=30)
             response.raise_for_status()
             logger.debug(f"  ➜ 成功上传封面到媒体库 '{library['Name']}'。")
             return True

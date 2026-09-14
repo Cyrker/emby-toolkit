@@ -229,6 +229,14 @@ class HttpxP115AuthorizationGateway:
         )
         return payload
 
+    def refresh_openapi(self, refresh_token: str) -> Mapping[str, Any]:
+        payload, _cookies = self._request_json(
+            "POST",
+            "https://passportapi.115.com/open/refreshToken",
+            data={"refresh_token": refresh_token},
+        )
+        return payload
+
     def check_cookie(self, cookie: str, app_type: str) -> Mapping[str, Any]:
         payload, _cookies = self._request_json(
             "GET",
@@ -249,7 +257,7 @@ class HttpxP115AuthorizationGateway:
         **kwargs: Any,
     ) -> tuple[dict[str, Any], dict[str, str]]:
         def invoke() -> tuple[dict[str, Any], dict[str, str]]:
-            with self._client_factory(timeout=timeout, follow_redirects=True) as client:
+            with self._client_factory(timeout=timeout, follow_redirects=True, trust_env=False) as client:
                 response = client.request(method, url, **kwargs)
                 response.raise_for_status()
                 payload = response.json()

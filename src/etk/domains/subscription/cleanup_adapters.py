@@ -218,7 +218,7 @@ class HttpxCleanupEmbyInventoryGateway:
             raise CleanupEmbyInventoryCredentialChanged("Emby authorization changed during cleanup inventory read")
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout), trust_env=False)
 
 
 class SafeLocalCleanupGateway:
@@ -870,7 +870,7 @@ class ConfiguredCleanupEmbyGateway:
         return error
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout), trust_env=False)
 
 
 class CleanupLocalIdentityChanged(RuntimeError):

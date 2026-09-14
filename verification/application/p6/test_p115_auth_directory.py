@@ -33,6 +33,98 @@ FIXTURE = json.loads((REPO_ROOT / "verification/fixtures/http/p6-p115-auth-direc
 GOLDEN_CASES = tuple(FIXTURE["golden_cases"])
 
 
+def test_expired_status_refreshes_once_and_returns_capacity(monkeypatch):
+    client, auth, credentials, *_ = _build_native(
+        credentials=P115CredentialSnapshot(access_token="old", refresh_token="refresh-old", account_id="115001")
+    )
+    refreshed = []
+
+    def refresh(token):
+        refreshed.append(token)
+        return {"state": True, "data": {"access_token": "new", "refresh_token": "refresh-new"}}
+
+    def check(token):
+        return (
+            {"state": False, "code": 40140125}
+            if token == "old"
+            else {
+                "state": True,
+                "data": {"user_id": "115001", "rt_space_info": {"all_remain": {"size": 1024, "size_format": "1 KB"}}},
+            }
+        )
+
+    monkeypatch.setattr(auth, "refresh_openapi", refresh)
+    monkeypatch.setattr(auth, "check_openapi", check)
+    response = client.get("/api/p115/status")
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["valid"] and data["user_info"]["rt_space_info"]["all_remain"]["size_format"] == "1 KB"
+    assert credentials.value.access_token == "new" and credentials.value.refresh_token == "refresh-new"
+    assert refreshed == ["refresh-old"]
+    client.get("/api/p115/status")
+    assert refreshed == ["refresh-old"]
+
+
+@pytest.mark.parametrize("wrong_account", [False, True])
+def test_failed_or_wrong_account_refresh_preserves_tokens_and_reports_cookie_separately(monkeypatch, wrong_account):
+    original = P115CredentialSnapshot(
+        access_token="old", refresh_token="refresh-old", account_id="115001", cookie="cookie"
+    )
+    client, auth, credentials, *_ = _build_native(credentials=original)
+    auth.cookie_check = {"state": True}
+    monkeypatch.setattr(
+        auth,
+        "check_openapi",
+        lambda token: (
+            {"state": False, "code": 40140125} if token == "old" else {"state": True, "data": {"user_id": "999999"}}
+        ),
+    )
+    monkeypatch.setattr(
+        auth,
+        "refresh_openapi",
+        lambda _: {"state": wrong_account, "data": {"access_token": "new", "refresh_token": "refresh-new"}},
+    )
+    data = client.get("/api/p115/status").json()["data"]
+    assert not data["valid"] and data["cookie_valid"] is True
+    assert "容量" in data["msg"] and "Cookie" in data["msg"]
+    assert credentials.value == original and not credentials.openapi_saves
+
+
+def test_status_never_refreshes_on_transient_or_unrelated_failure(monkeypatch):
+    client, auth, *_ = _build_native(
+        credentials=P115CredentialSnapshot(access_token="old", refresh_token="refresh-old", account_id="115001")
+    )
+    auth.openapi_check = {"state": False, "code": 500, "message": "provider error"}
+
+    def unexpected(_):
+        raise AssertionError("must not refresh on unrelated failures")
+
+    monkeypatch.setattr(auth, "refresh_openapi", unexpected)
+    assert not client.get("/api/p115/status").json()["data"]["valid"]
+
+
+def test_concurrent_authorization_is_not_overwritten_during_refresh(monkeypatch):
+    client, auth, credentials, *_ = _build_native(
+        credentials=P115CredentialSnapshot(access_token="old", refresh_token="refresh-old", account_id="115001")
+    )
+    monkeypatch.setattr(
+        auth,
+        "check_openapi",
+        lambda token: (
+            {"state": False, "code": 40140125} if token == "old" else {"state": True, "data": {"user_id": "115001"}}
+        ),
+    )
+    newer = P115CredentialSnapshot(access_token="newer-login", refresh_token="newer-refresh", account_id="115001")
+
+    def refresh(_):
+        credentials.value = newer
+        return {"state": True, "data": {"access_token": "stale-result", "refresh_token": "stale-refresh"}}
+
+    monkeypatch.setattr(auth, "refresh_openapi", refresh)
+    client.get("/api/p115/status")
+    assert credentials.value == newer
+
+
 class FakePermissions:
     def __init__(self) -> None:
         self.calls: list[str] = []
@@ -95,6 +187,10 @@ class FakeAuthorization:
         self.calls.append(("check_cookie", (cookie, app_type)))
         return self.cookie_check
 
+    def refresh_openapi(self, refresh_token: str) -> Mapping[str, Any]:
+        self.calls.append(("refresh_openapi", refresh_token))
+        return {"state": False}
+
 
 class FakeCredentials:
     def __init__(self, value: P115CredentialSnapshot | None = None) -> None:
@@ -115,6 +211,8 @@ class FakeCredentials:
     ) -> None:
         if not account_id:
             raise ValueError("无法确认 115 OpenAPI Token 的稳定账号身份")
+        if expected_access_token is not None and expected_access_token != self.value.access_token:
+            raise RuntimeError("凭据已发生变化")
         self.openapi_saves.append((access_token, refresh_token, account_id, expected_access_token))
         self.value = P115CredentialSnapshot(
             access_token=access_token or self.value.access_token,
@@ -337,10 +435,11 @@ def test_cookie_qrcode_success_and_app_mismatch_fail_closed() -> None:
     assert credentials.cookie_saves == [("UID=115001_fixture; CID=fixture", "alipaymini")]
 
 
-def test_callback_decodes_tokens_but_never_echoes_them() -> None:
-    client, _authorization, credentials, _directories, _sessions, _permissions = _build_native()
+def test_callback_resolves_account_identity_from_token_and_never_echoes_tokens() -> None:
+    client, authorization, credentials, _directories, _sessions, _permissions = _build_native()
+    authorization.openapi_check = {"state": True, "data": {"user_id": "115001", "user_name": "Fixture"}}
     encoded = base64.b64encode(
-        json.dumps({"access_token": "fixture-access", "refresh_token": "fixture-refresh", "user_id": "115001"}).encode()
+        json.dumps({"access_token": "fixture-access", "refresh_token": "fixture-refresh"}).encode()
     ).decode()
     with client:
         response = client.get("/api/p115/auto_save_auth", params={"data": encoded})
@@ -348,7 +447,30 @@ def test_callback_decodes_tokens_but_never_echoes_them() -> None:
     assert response.headers["content-type"] == "text/html; charset=utf-8"
     assert "授权成功" in response.text
     assert "fixture-access" not in response.text
+    assert authorization.calls == [("check_openapi", "fixture-access")]
     assert credentials.openapi_saves == [("fixture-access", "fixture-refresh", "115001", None)]
+
+
+def test_callback_rejects_claimed_identity_that_disagrees_with_token() -> None:
+    client, authorization, credentials, _directories, _sessions, _permissions = _build_native()
+    authorization.openapi_check = {"state": True, "data": {"user_id": "115001", "user_name": "Fixture"}}
+    encoded = base64.b64encode(
+        json.dumps(
+            {
+                "access_token": "fixture-secret-access",
+                "refresh_token": "fixture-secret-refresh",
+                "user_id": "115999",
+            }
+        ).encode()
+    ).decode()
+    with client:
+        response = client.get("/api/p115/auto_save_auth", params={"data": encoded})
+
+    assert response.status_code == 400
+    assert response.text == "解析授权码失败: 授权数据中的账号身份与 Token 不一致"
+    assert "fixture-secret" not in response.text
+    assert authorization.calls == [("check_openapi", "fixture-secret-access")]
+    assert credentials.openapi_saves == []
 
 
 def test_status_checks_one_immutable_credential_snapshot_and_binds_identity_conditionally() -> None:

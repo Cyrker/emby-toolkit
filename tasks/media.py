@@ -913,8 +913,10 @@ def task_populate_metadata_cache(
         lib_id_to_guid_map = {}
         
         try:
-            import requests
-            lib_resp = requests.get(f"{processor.emby_url}/Library/VirtualFolders", params={"api_key": processor.emby_api_key})
+            lib_resp = emby.emby_client.get(
+                f"{processor.emby_url}/Library/VirtualFolders",
+                params={"api_key": processor.emby_api_key},
+            )
             if lib_resp.status_code == 200:
                 for lib in lib_resp.json():
                     l_id = str(lib.get('ItemId'))

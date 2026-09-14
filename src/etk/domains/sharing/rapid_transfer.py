@@ -76,7 +76,9 @@ class NativeP115RapidTransferGateway:
         self._credentials = credentials
         self._priority = priority
         self._target_cid = target_cid
-        self._client_factory = client_factory or (lambda: httpx.Client(timeout=max(1.0, timeout_seconds)))
+        self._client_factory = client_factory or (
+            lambda: httpx.Client(timeout=max(1.0, timeout_seconds), trust_env=False)
+        )
         self._cookie_client_factory = cookie_client_factory or _default_cookie_client
         self._directory = directory or HttpxP115DirectoryTreeGateway(
             credentials=credentials,

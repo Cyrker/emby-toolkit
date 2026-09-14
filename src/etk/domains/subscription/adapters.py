@@ -281,7 +281,7 @@ class ConfiguredEmbyLibraryGateway:
         return tuple(dict(item) for item in payload["Items"] if isinstance(item, Mapping))
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout), trust_env=False)
 
 
 class HttpxEmbyItemDeletionGateway:
@@ -317,7 +317,7 @@ class HttpxEmbyItemDeletionGateway:
         return response.status_code in {200, 204, 404}
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout), trust_env=False)
 
 
 class NativeWatchlistExternalDeleteGateway:

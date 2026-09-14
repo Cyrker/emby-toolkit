@@ -161,7 +161,7 @@ class HttpxEmbyPathChangeGateway:
 
     @staticmethod
     def _default_client() -> httpx.Client:
-        return httpx.Client(timeout=_TIMEOUT_SECONDS)
+        return httpx.Client(timeout=_TIMEOUT_SECONDS, trust_env=False)
 
 
 def _response_is_confirmed(response: httpx.Response) -> bool:

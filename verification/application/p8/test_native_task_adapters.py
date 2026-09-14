@@ -13,6 +13,7 @@ from etk.domains.collection.activation import (
     CollectionActivationProviderRejectedError,
     CollectionActivationProviderUnavailableError,
 )
+from etk.domains.collection.query_adapters import HttpxCollectionQueryAdapter
 from etk.domains.collection.refresh_adapter import HttpxNativeCollectionRefreshAdapter
 from etk.domains.media.auto_tagging_adapter import HttpxAutoTaggingAdapter
 from etk.domains.media.effect_execution import (
@@ -217,6 +218,62 @@ def test_collection_refresh_adapter_projects_identity_and_tmdb_details() -> None
     assert references[0].tmdb_collection_id == "999"
     assert references[0].library_id == "library-1"
     assert details == {"id": 999, "parts": []}
+
+
+def test_collection_refresh_adapter_routes_emby_and_tmdb_to_separate_clients() -> None:
+    routed: list[tuple[str, str]] = []
+
+    def direct(request: httpx.Request) -> httpx.Response:
+        routed.append(("direct", request.url.host))
+        if request.url.path == "/Library/VirtualFolders":
+            return httpx.Response(200, json=[{"Id": "library-1", "CollectionType": "movies"}])
+        return httpx.Response(
+            200,
+            json={"Items": [{"Id": "box-1", "Name": "Fixture", "ProviderIds": {"Tmdb": "999"}}]},
+        )
+
+    def external(request: httpx.Request) -> httpx.Response:
+        routed.append(("external", request.url.host))
+        return httpx.Response(200, json={"id": 999, "parts": []})
+
+    adapter = HttpxNativeCollectionRefreshAdapter(
+        _settings,
+        client_factory=_client_factory(external),
+        emby_client_factory=_client_factory(direct),
+    )
+
+    assert len(adapter.list_collections()) == 1
+    assert adapter.collection_details("999") == {"id": 999, "parts": []}
+    assert routed == [
+        ("direct", "emby.example"),
+        ("direct", "emby.example"),
+        ("external", "tmdb.example"),
+    ]
+
+
+def test_collection_query_adapter_routes_emby_and_tmdb_to_separate_clients() -> None:
+    routed: list[tuple[str, str]] = []
+
+    def direct(request: httpx.Request) -> httpx.Response:
+        routed.append(("direct", request.url.host))
+        return httpx.Response(200, json={"Items": []})
+
+    def external(request: httpx.Request) -> httpx.Response:
+        routed.append(("external", request.url.host))
+        return httpx.Response(200, json={"id": 999, "parts": []})
+
+    adapter = HttpxCollectionQueryAdapter(
+        _settings,
+        client_factory=_client_factory(external),
+        emby_client_factory=_client_factory(direct),
+    )
+
+    assert adapter.emby_libraries() == ()
+    assert adapter.collection_details(999) == {"id": 999, "parts": []}
+    assert routed == [
+        ("direct", "emby.example"),
+        ("external", "tmdb.example"),
+    ]
 
 
 @pytest.mark.parametrize(

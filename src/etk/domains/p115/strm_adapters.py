@@ -157,10 +157,9 @@ class _LegacyP115StrmSyncClient:
             if cookie:
                 headers["Cookie"] = cookie
         settings = self._settings()
-        proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
         timeout = httpx.Timeout(max(1.0, float(settings.p115_request_interval) + 15.0))
         content = bytearray()
-        with self._client_factory(proxy=proxy or None, timeout=timeout, follow_redirects=True) as http:
+        with self._client_factory(timeout=timeout, follow_redirects=True, trust_env=False) as http:
             with http.stream("GET", str(direct_url), headers=headers) as response:
                 response.raise_for_status()
                 content_length = response.headers.get("content-length")

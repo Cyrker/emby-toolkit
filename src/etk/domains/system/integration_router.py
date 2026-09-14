@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, RootModel
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 
 from etk.compatibility.response_contract import fastapi_json_response
@@ -94,7 +95,7 @@ async def test_ai(request: Request) -> JSONResponse:
     if denied is not None:
         return denied
     payload = AIConfigurationRequest.model_validate(await _json_object(request)).model_dump(exclude_none=True)
-    return _response(_service(request).test_ai(payload))
+    return _response(await run_in_threadpool(_service(request).test_ai, payload))
 
 
 @router.post(
@@ -107,7 +108,7 @@ async def list_ai_models(request: Request) -> JSONResponse:
     if denied is not None:
         return denied
     payload = AIConfigurationRequest.model_validate(await _json_object(request)).model_dump(exclude_none=True)
-    return _response(_service(request).list_ai_models(payload))
+    return _response(await run_in_threadpool(_service(request).list_ai_models, payload))
 
 
 @router.post(

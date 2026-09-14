@@ -266,7 +266,7 @@ def proxy_emby_image(image_path):
         logger.trace(f"代理图片请求 (最终URL): {_mask_url_query_secret(target_url_with_key)}")
 
         # 3. 发送请求
-        emby_response = requests.get(target_url_with_key, stream=True, timeout=20)
+        emby_response = emby.emby_client.get(target_url_with_key, stream=True, timeout=20)
         emby_response.raise_for_status()
 
         # 4. 将 Emby 的响应流式传输回浏览器
@@ -431,7 +431,7 @@ def api_get_emby_user_views(user_id):
         params = request.args.to_dict()
         params['api_key'] = user_token  # 兼容api_key参数
         
-        resp = requests.get(real_views_url, headers=headers, params=params, timeout=15)
+        resp = emby.emby_client.get(real_views_url, headers=headers, params=params, timeout=15)
         resp.raise_for_status()
         
         views_data = resp.json()

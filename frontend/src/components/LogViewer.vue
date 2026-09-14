@@ -20,7 +20,7 @@
           <n-input-group>
             <n-input
               v-model:value="searchQuery"
-              placeholder="在所有日志文件中搜索..."
+              placeholder="搜索统一应用日志、任务记录和 MoviePilot 通知..."
               clearable
               @keyup.enter="executeSearch"
               :disabled="isLoading"
@@ -32,10 +32,10 @@
 
           <n-radio-group v-model:value="searchMode" name="search-mode-radio">
             <n-radio-button value="filter" :disabled="isLoading">
-              筛选模式 (JSON列表)
+              匹配记录
             </n-radio-button>
             <n-radio-button value="context" :disabled="isLoading">
-              定位模式 (沉浸视图)
+              记录及上下文
             </n-radio-button>
           </n-radio-group>
         </n-space>
@@ -51,11 +51,11 @@
                  <template #icon><n-icon :component="ArrowBackOutline" /></template>
                  返回文件浏览
                </n-button>
-               <span class="tip">已隐藏日期与模块名，仅显示核心流</span>
+               <span class="tip">显示匹配记录及相邻上下文，任务名称和 ID 用于区分并发流程</span>
              </div>
 
             <div v-if="htmlContent" class="iframe-wrapper">
-              <iframe :srcdoc="htmlContent" frameborder="0" width="100%" height="100%"></iframe>
+              <iframe title="日志搜索上下文" :srcdoc="htmlContent" frameborder="0" width="100%" height="100%"></iframe>
             </div>
             <n-empty v-else description="未找到匹配的完整处理流程。" style="margin-top: 50px;" />
           </div>
@@ -78,6 +78,7 @@
                   <span class="timestamp">{{ line.timestamp }}</span>
                   <span class="level">{{ line.level }}</span>
                   <span class="message">{{ line.message }}</span>
+                  <span class="source">{{ line.source }}</span>
                 </template>
                 <template v-else>{{ line.content }}</template>
               </div>
@@ -90,19 +91,20 @@
             <div class="toolbar">
               <n-select
                 v-model:value="selectedFile"
-                placeholder="请选择日志文件"
+                placeholder="请选择统一应用日志或轮转归档"
                 :options="fileOptions"
                 :loading="isLoadingFiles"
                 @update:value="fetchLogContent"
                 size="small"
-                style="width: 200px;"
+                style="width: 100%; max-width: 560px;"
               />
-              <span class="tip">最新日志在顶部</span>
+              <n-button size="small" secondary :disabled="!selectedFile" @click="fetchLogContent(selectedFile)">刷新日志</n-button>
+              <span class="tip">按完整记录倒序，异常堆栈可展开。app.log 合并运行日志与有限任务快照；10 MiB 轮转，保留 1 份归档。</span>
             </div>
 
             <!-- 这里复用 iframe-wrapper -->
             <div v-if="logContent" class="iframe-wrapper">
-              <iframe :srcdoc="logContent" frameborder="0" width="100%" height="100%"></iframe>
+              <iframe title="统一应用日志" :srcdoc="logContent" frameborder="0" width="100%" height="100%"></iframe>
             </div>
             <n-empty v-else description="无数据" style="margin-top: 50px;" />
           </div>
@@ -153,9 +155,9 @@ const loadingText = computed(() => {
 
 // 仅用于筛选模式的简单解析
 const parseLogLine = (line) => {
-  const match = line.match(/^(\d{4}-\d{2}-\d{2}\s(\d{2}:\d{2}:\d{2})),\d+\s-\s.+?\s-\s(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s-\s(.*)$/);
+  const match = line.match(/^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})(?:[,.]\d+)?\s-\s(.+?)\s-\s(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s-\s([\s\S]*)$/);
   if (match) {
-    return { type: 'log', timestamp: match[2], level: match[3], message: match[4].trim() };
+    return { type: 'log', timestamp: match[1], source: match[2], level: match[3], message: match[4].trim() };
   }
   return { type: 'raw', content: line };
 };
@@ -269,7 +271,6 @@ watch(() => props.show, (newVal) => {
 </script>
 
 <style scoped>
-/* 保持之前的 CSS 样式不变，这里是完美的 */
 .drawer-inner-wrapper {
   height: 100%;
   display: flex;
@@ -308,6 +309,8 @@ watch(() => props.show, (newVal) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .tip { font-size: 12px; color: #999; }
@@ -344,4 +347,5 @@ iframe { flex: 1; display: block; }
 .log-line.raw { color: #95a5a6; font-style: italic; }
 .timestamp { color: #61afef; margin-right: 1em; }
 .level { font-weight: bold; margin-right: 1em; text-transform: uppercase; }
+.source { display: block; color: #999; font-size: 11px; }
 </style>

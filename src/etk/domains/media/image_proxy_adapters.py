@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Iterator
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
@@ -10,6 +11,8 @@ from etk.platform import Settings
 from .image_proxy import CachedImage, ImageProxyUpstreamError, UpstreamImage
 from .image_store import SqlAlchemyMediaImageStore
 
+logger = logging.getLogger(__name__)
+
 
 class HttpxMediaImageProxyGateway:
     def __init__(
@@ -18,10 +21,12 @@ class HttpxMediaImageProxyGateway:
         store: SqlAlchemyMediaImageStore,
         *,
         client_factory: Callable[[], httpx.Client] | None = None,
+        external_client_factory: Callable[[], httpx.Client] | None = None,
     ) -> None:
         self._settings = settings
         self._store = store
         self._client_factory = client_factory or self._default_client
+        self._external_client_factory = external_client_factory or client_factory or self._default_external_client
 
     def processor_ready(self) -> bool:
         settings = self._settings()
@@ -43,8 +48,10 @@ class HttpxMediaImageProxyGateway:
             "Referer": f"{parsed.scheme}://{parsed.netloc}/",
         }
         try:
-            return self._stream(external_url, headers=headers)
+            logger.info("开始下载远端图片：来源=%s，图片=%s", parsed.hostname, parsed.path.rsplit("/", 1)[-1])
+            return self._stream(external_url, headers=headers, client_factory=self._external_client_factory)
         except (httpx.HTTPError, ValueError) as exc:
+            logger.warning("远端图片请求失败：来源=%s，错误类型=%s", parsed.hostname, type(exc).__name__)
             raise ImageProxyUpstreamError("external_image_fetch_failed") from exc
 
     def fetch_emby(self, image_path: str, raw_query: bytes) -> UpstreamImage:
@@ -64,10 +71,16 @@ class HttpxMediaImageProxyGateway:
         ]
         query.append(("api_key", token))
         target = f"{base_url}/{'/'.join(parts)}?{urlencode(query)}"
-        return self._stream(target)
+        return self._stream(target, client_factory=self._client_factory)
 
-    def _stream(self, url: str, *, headers: dict[str, str] | None = None) -> UpstreamImage:
-        client = self._client_factory()
+    def _stream(
+        self,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        client_factory: Callable[[], httpx.Client],
+    ) -> UpstreamImage:
+        client = client_factory()
         response: httpx.Response | None = None
         try:
             request = client.build_request("GET", url, headers=headers)
@@ -80,11 +93,24 @@ class HttpxMediaImageProxyGateway:
             raise
 
         def chunks() -> Iterator[bytes]:
+            size = 0
+            complete = False
             try:
-                yield from response.iter_bytes(chunk_size=8192)
+                for chunk in response.iter_bytes(chunk_size=8192):
+                    size += len(chunk)
+                    yield chunk
+                complete = True
             finally:
                 response.close()
                 client.close()
+                parsed = urlsplit(url)
+                if parsed.hostname != urlsplit(self._settings().emby_server_url).hostname:
+                    logger.info(
+                        "远端图片传输%s：图片=%s，已传输=%s 字节",
+                        "完成" if complete else "中断",
+                        parsed.path.rsplit("/", 1)[-1],
+                        size,
+                    )
 
         return UpstreamImage(
             chunks=chunks(),
@@ -93,12 +119,20 @@ class HttpxMediaImageProxyGateway:
         )
 
     def _default_client(self) -> httpx.Client:
+        return httpx.Client(
+            timeout=httpx.Timeout(20.0, connect=15.0),
+            follow_redirects=True,
+            trust_env=False,
+        )
+
+    def _default_external_client(self) -> httpx.Client:
         settings = self._settings()
         proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
         return httpx.Client(
             proxy=proxy or None,
             timeout=httpx.Timeout(20.0, connect=15.0),
             follow_redirects=True,
+            trust_env=False,
         )
 
 

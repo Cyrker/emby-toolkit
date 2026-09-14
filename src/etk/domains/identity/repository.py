@@ -143,6 +143,22 @@ class SqlAlchemyIdentityRepository:
             )
         return bool(value)
 
+    def active_admin_telegram_chat_ids(self) -> tuple[str, ...]:
+        with self._unit_of_work() as uow:
+            rows = uow.session.execute(
+                text("""
+                SELECT extended.telegram_chat_id
+                FROM emby_users AS users
+                JOIN emby_users_extended AS extended ON extended.emby_user_id = users.id
+                WHERE users.is_administrator IS TRUE
+                  AND COALESCE(extended.status, 'active') = 'active'
+                  AND lower(COALESCE(users.policy_json ->> 'IsDisabled', 'false'))
+                      NOT IN ('true', '1', 'yes', 'on')
+                  AND NULLIF(BTRIM(extended.telegram_chat_id), '') IS NOT NULL
+            """)
+            )
+            return tuple(str(row[0]).strip() for row in rows)
+
     def is_active(self, user_id: str) -> bool:
         if not user_id:
             return False

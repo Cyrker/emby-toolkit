@@ -7,8 +7,6 @@ import time
 import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
-
-import requests
 import pytz
 
 import constants
@@ -17,9 +15,10 @@ from database.connection import get_db_connection
 from handler.p115_temp_dir import cleanup_old_temp_videos_for_client, find_temp_video, get_temp_dir_name
 from handler.p115_play_pool_client import P115PlayPoolClient
 from handler.p115_media_analyzer import P115MediaAnalyzerMixin
-from handler.p115_service import P115CacheManager, P115Service
+from handler.p115_service import P115CacheManager, P115_DIRECT_REQUESTS, P115Service
 
 logger = logging.getLogger(__name__)
+requests = P115_DIRECT_REQUESTS
 
 PLAY_POOL_CONFIG_KEY = "p115_play_pool_config"
 PLAY_POOL_SESSIONS_KEY = "p115_play_pool_sessions"

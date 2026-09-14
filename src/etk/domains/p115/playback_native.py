@@ -864,7 +864,7 @@ class NativeP115PoolPlaybackClientFactory:
             priority=priority,
             target_cid=lambda: target_cid,
             directory=directory,
-            client_factory=lambda: self._http_client_factory(timeout=30, follow_redirects=True),
+            client_factory=lambda: self._http_client_factory(timeout=30, follow_redirects=True, trust_env=False),
         )
         direct_urls = P115SdkDirectUrlGateway(
             credentials=store,

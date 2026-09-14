@@ -88,7 +88,10 @@ def _build_app() -> tuple[FastAPI, FakePermissions, FakeEmby, FakeJobs]:
     emby = FakeEmby()
     jobs = FakeJobs()
     container = AppContainer(
-        Settings(auth_enabled=True),
+        Settings(
+            auth_enabled=True,
+            emby_api_key=SecretStr("configured-service-token"),
+        ),
         repository_providers={"identity": lambda _: permissions},
     )
     app = FastAPI()
@@ -170,13 +173,15 @@ def test_user_views_require_self_or_current_admin_and_filter_transport_inputs() 
             headers={"X-Emby-Token": "header-token"},
         )
 
-    assert missing_token.status_code == 400
-    assert placeholder.status_code == 400
+    assert missing_token.status_code == 200
+    assert placeholder.status_code == 200
     assert other_denied.status_code == 403
     assert own.status_code == 200
     assert admin.status_code == 200
     assert upstream_failure.status_code == 502
     assert emby.view_calls == [
+        ("fixture-user", "configured-service-token", {}),
+        ("fixture-user", "configured-service-token", {}),
         ("fixture-user", "query-token", {"PresetViews": "movies"}),
         ("other-user", "header-token", {"IncludeExternalContent": "true"}),
         ("other-user", "header-token", {}),

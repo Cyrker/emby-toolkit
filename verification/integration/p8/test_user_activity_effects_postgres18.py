@@ -18,6 +18,50 @@ from etk.domains.media.effects import MediaEffectStatus, PostgresMediaEffectLedg
 from etk.platform.db import DatabaseRuntime
 
 
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "telegram-playback-notification",
+        "virtual-import-promotion",
+        "halfway-intro-detection",
+        "playback-cleanup",
+        "proxy-concurrency-release",
+    ],
+)
+def test_pending_native_playback_effect_is_terminal_and_not_replayed(p8_runtime, kind):
+    from unittest.mock import Mock
+
+    from etk.domains.identity.native_user_events import NativeUserEventEffectsAdapter
+    from etk.platform import Settings
+
+    action = Mock(return_value=1)
+    intro = Mock(return_value={"ok": True, "queued": True})
+    side_effects = NativeUserEventEffectsAdapter(
+        settings=lambda: Settings(),
+        favorite=intro,
+        halfway=intro,
+        cleanup=action,
+        release_proxy=action,
+        telegram=Mock(),
+        admin_chat_ids=lambda: (),
+    )
+    ledger = PostgresMediaEffectLedger(p8_runtime.unit_of_work)
+    reserved = ledger.reserve(
+        effect_key=f"pending-native:{kind}",
+        effect_type=f"emby.event.user.{kind}",
+        aggregate_type="emby_user_event_effect",
+        aggregate_id="fixture",
+        payload={
+            "event_snapshot": {"Event": "playback.stop", "UserId": "user", "ItemId": "item", "PlaySessionId": "session"}
+        },
+    )
+    executor = PersistentMediaEffectExecutor(ledger, P8UserEventEffectDelivery(Mock(), side_effects))
+    assert executor.execute(reserved.effect.id).status is MediaEffectStatus.CONFIRMED
+    assert executor.execute(reserved.effect.id).status is MediaEffectStatus.CONFIRMED
+    assert action.call_count <= 1
+    assert intro.call_count <= 1
+
+
 class FixtureProvider:
     def __init__(self, users: Mapping[str, Mapping[str, Any]]) -> None:
         self.users = {user_id: dict(value) for user_id, value in users.items()}

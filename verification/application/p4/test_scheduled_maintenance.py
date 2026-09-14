@@ -317,6 +317,45 @@ def _http_gateway(handler: Any, *, settings: Settings | None = None) -> HttpxSch
     )
 
 
+def test_scheduled_plugin_gateway_routes_emby_direct_and_github_through_external_client() -> None:
+    routed: list[tuple[str, str]] = []
+
+    def direct_handler(request: httpx.Request) -> httpx.Response:
+        routed.append(("direct", request.url.host))
+        assert request.url.host == "emby.fixture.invalid"
+        return httpx.Response(200, json=[{"Name": "ETK MediaInfo Bridge", "Version": "1.2.3"}])
+
+    def external_handler(request: httpx.Request) -> httpx.Response:
+        routed.append(("external", request.url.host))
+        assert request.url.host == "api.github.com"
+        return httpx.Response(200, json={"tag_name": "v1.2.4"})
+
+    settings = Settings(
+        emby_server_url="https://emby.fixture.invalid",
+        emby_api_key=SecretStr("token"),
+        network_proxy_enabled=True,
+        network_http_proxy_url="http://proxy.fixture.invalid:8080",
+    )
+    gateway = HttpxScheduledPluginUpdateGateway(
+        lambda: settings,
+        client_factory=lambda: httpx.Client(transport=httpx.MockTransport(direct_handler)),
+        external_client_factory=lambda: httpx.Client(transport=httpx.MockTransport(external_handler)),
+    )
+
+    assert gateway.installed_version() == "1.2.3"
+    assert gateway.latest_version() == "v1.2.4"
+    assert routed == [
+        ("direct", "emby.fixture.invalid"),
+        ("external", "api.github.com"),
+    ]
+    with gateway._default_client() as direct_client:
+        assert direct_client._trust_env is False
+        assert direct_client._mounts == {}
+    with gateway._default_external_client() as external_client:
+        assert external_client._trust_env is False
+        assert external_client._mounts
+
+
 def test_httpx_scheduled_plugin_gateway_reads_inventory_release_task_and_restart_state() -> None:
     requests: list[httpx.Request] = []
 

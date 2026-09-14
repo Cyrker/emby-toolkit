@@ -4,20 +4,157 @@ import html
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
+from uuid import UUID
 
 from fastapi import FastAPI
 from flask import Flask
 from starlette.testclient import TestClient
 
 from etk.compatibility.session_codec import LegacySessionCodec, configure_legacy_session
+from etk.domains.operations.job_logs import JOB_LOG_PREFIX, PersistentJobLogStorage
 from etk.domains.operations.log_router import router
-from etk.domains.operations.logs import LocalLogStorage, LogReadFailure, LogService, LogStorage
+from etk.domains.operations.logs import (
+    LocalLogStorage,
+    LogContextBlock,
+    LogReadFailure,
+    LogService,
+    LogStorage,
+    render_log_html,
+)
 from etk.platform import AppContainer, Settings
 from etk.platform.web import CookieSessionMiddleware
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 LOG_FIXTURE = REPO_ROOT / "verification" / "fixtures" / "http" / "log-routes.json"
 SECRET_KEY = b"p3-log-session-contract-key"
+
+
+def _native_storage(tmp_path: Path, rows: list[dict[str, Any]]) -> PersistentJobLogStorage:
+    uow = MagicMock()
+    uow.__enter__.return_value = uow
+    uow.session.execute.return_value.mappings.return_value.all.return_value = rows
+    return PersistentJobLogStorage(lambda: uow, LocalLogStorage(tmp_path / "absent-logs"))
+
+
+def test_native_history_hides_internal_rotation_lock(tmp_path: Path) -> None:
+    storage = _native_storage(tmp_path, [])
+    directory = tmp_path / "absent-logs"
+    directory.mkdir()
+    (directory / ".app-log.lock").touch()
+    (directory / "app.log").write_text("runtime log")
+    assert storage.list_names() == ["app.log"]
+
+
+def test_history_reverses_records_without_reversing_traceback(tmp_path: Path) -> None:
+    log = (
+        "2026-09-12 12:00:01,001 - fixture.worker - ERROR - 执行失败\n"
+        "Traceback (most recent call last):\n"
+        '  File "worker.py", line 12\n'
+        "ValueError: invalid <script>alert(1)</script>\n"
+        "2026-09-12 12:00:02,001 - fixture.monitor - INFO - 文件监控已启动\n"
+    )
+    (tmp_path / "app.log").write_text(log)
+    _, records = LogService(LocalLogStorage(tmp_path)).view_log_file("app.log")
+    assert len(records) == 2
+    assert "文件监控已启动" in records[0]
+    assert records[1].index("执行失败") < records[1].index("Traceback") < records[1].index("ValueError")
+    rendered = render_log_html([LogContextBlock("app.log", "", records)], "")
+    assert "2026-09-12 12:00:01" in rendered
+    assert '<span class="level">ERROR</span>' in rendered
+    assert '<span class="source">fixture.worker</span>' in rendered
+    assert "<details><summary>异常堆栈" in rendered
+    assert "<script>alert(1)</script>" not in rendered
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in rendered
+
+
+def test_history_health_filter_only_marks_successful_polling():
+    lines = (
+        '2026-09-12 12:00:01,001 - uvicorn.access - INFO - 127.0.0.1 - "GET /api/health HTTP/1.1" 200\n',
+        '2026-09-12 12:00:02,001 - uvicorn.access - INFO - 127.0.0.1 - "GET /api/health HTTP/1.1" 503\n',
+        "普通说明，不应被渲染为错误\n",
+    )
+    rendered = render_log_html([LogContextBlock("app.log", "", lines)], "")
+    assert rendered.count('data-health="1"') == 1
+    assert 'class="line lvl-RAW"' in rendered
+    assert 'id="hide-health"' in rendered
+
+
+def test_native_task_history_without_legacy_log_directory(tmp_path: Path) -> None:
+    job_id = UUID("00000000-0000-0000-0000-000000000001")
+    storage = _native_storage(
+        tmp_path,
+        [
+            {
+                "id": job_id,
+                "task_key": "populate-metadata",
+                "display_name": "同步媒体数据",
+                "status": "succeeded",
+                "progress": 100,
+                "progress_message": "同步完成",
+                "created_at": "2026-09-12T04:00:00+00:00",
+                "finished_at": "2026-09-12T04:01:00+00:00",
+                "logs_json": [
+                    {"timestamp": "2026-09-12T04:00:30+00:00", "level": "info", "message": "正在同步 <test>"}
+                ],
+            }
+        ],
+    )
+    app, _ = _build_app(tmp_path, storage=storage)
+    filename = "app.log"
+    with TestClient(app) as client:
+        assert client.get("/api/logs/list").json() == [filename]
+        response = client.get("/api/logs/view", params={"filename": filename, "format": "html"})
+        assert response.status_code == 200
+        assert "同步媒体数据" in response.text
+        assert "正在同步 &lt;test&gt;" in response.text
+        assert "状态=succeeded" in response.text
+        assert "[object Object]" not in response.text
+        assert "不是完整进程日志" in response.text
+        found = client.get("/api/logs/search", params={"q": "正在同步"}).json()
+        assert len(found) == 1
+        context = client.get("/api/logs/search_context", params={"q": "正在同步", "format": "html"})
+        assert 'class="log-block"' in context.text
+        assert "同步完成" in context.text
+        assert client.get("/api/logs/search_context", params={"q": "不匹配"}).json() == []
+
+
+def test_native_task_history_validates_names_and_permissions(tmp_path: Path) -> None:
+    storage = _native_storage(tmp_path, [])
+    app, _ = _build_app(tmp_path, storage=storage)
+    with TestClient(app) as client:
+        assert client.get("/api/logs/list").json() == []
+        assert client.get("/api/logs/view", params={"filename": f"{JOB_LOG_PREFIX}invalid"}).status_code == 403
+        missing = f"{JOB_LOG_PREFIX}00000000-0000-0000-0000-000000000002"
+        assert client.get("/api/logs/view", params={"filename": missing}).status_code == 404
+    protected, _ = _build_app(tmp_path, storage=storage, auth_enabled=True)
+    with TestClient(protected) as client:
+        assert client.get("/api/logs/list").status_code in {401, 403}
+        assert client.get("/api/logs/view", params={"filename": missing}).status_code in {401, 403}
+
+
+def test_native_history_keeps_terminal_failure_visible(tmp_path: Path) -> None:
+    job_id = UUID("00000000-0000-0000-0000-000000000001")
+    storage = _native_storage(
+        tmp_path,
+        [
+            {
+                "id": job_id,
+                "task_key": "populate-metadata",
+                "display_name": "同步媒体数据",
+                "status": "failed",
+                "progress": 100,
+                "progress_message": "媒体元数据同步完成。",
+                "created_at": "2026-09-12T04:00:00+00:00",
+                "finished_at": "2026-09-12T04:01:00+00:00",
+                "logs_json": [],
+                "error_summary_json": {"message": "媒体元数据同步部分完成。"},
+            }
+        ],
+    )
+    lines = storage.read_lines(f"{JOB_LOG_PREFIX}{job_id}")
+    assert any("ERROR" in line and "部分完成" in line for line in lines)
+    assert "状态=failed" in lines[-1]
 
 
 class FakePermissionReader:

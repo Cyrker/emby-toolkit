@@ -10,13 +10,19 @@ import httpx
 
 from etk.platform import Settings
 from etk.platform.jobs.json_payload import canonical_json
+from etk.platform.tasks import TaskOutcome
 
 from .bridge_client import emby_authorization_revision
-from .effect_execution import MediaEffectDeliveryIndeterminate, MediaEffectDeliveryRejected
+from .effect_execution import (
+    MediaEffectDeliveryIndeterminate,
+    MediaEffectDeliveryRejected,
+    PersistentMediaEffectExecutor,
+)
 from .effects import (
     MediaEffectDbApiCursor,
     MediaEffectIntentReservation,
     MediaEffectProjection,
+    MediaEffectStatus,
     reserve_media_effect_dbapi,
 )
 
@@ -84,6 +90,37 @@ def stage_final_metadata_refresh(
     )
 
 
+class PersistentReprocessMetadataRefresh:
+    def __init__(self, executor: PersistentMediaEffectExecutor, settings: Callable[[], Settings]) -> None:
+        self._executor = executor
+        self._settings = settings
+
+    def __call__(self, item: Mapping[str, Any], operation_key: str) -> TaskOutcome:
+        item_id = str(item.get("Id") or "").strip()
+        revision = emby_authorization_revision(self._settings())
+        effect = self._executor.reserve_and_execute(
+            effect_key=f"p5:reprocess-refresh:{operation_key}:{item_id}:{revision}",
+            effect_type=FINAL_METADATA_REFRESH_EFFECT,
+            aggregate_type="media_item",
+            aggregate_id=item_id,
+            payload={
+                "item_id": item_id,
+                "item_type": str(item.get("Type") or ""),
+                "emby_authorization_revision": revision,
+                "replace_all_metadata": True,
+                "replace_all_images": False,
+                "metadata_only": not (
+                    item.get("Type") == "Episode" and not (item.get("ImageTags") or {}).get("Primary")
+                ),
+                "recursive": False,
+            },
+        )
+        details = {"effect_id": str(effect.id), "effect_status": effect.status.value}
+        if effect.status is MediaEffectStatus.CONFIRMED:
+            return TaskOutcome.succeeded("Emby 元数据刷新请求已接受。", details)
+        return TaskOutcome.failed("Emby 元数据刷新请求未确认。", details)
+
+
 class EmbyMetadataRefreshEffectDelivery:
     """Single-attempt native Emby final-refresh delivery without durable secrets."""
 
@@ -124,7 +161,7 @@ class EmbyMetadataRefreshEffectDelivery:
             )
         params = {
             "api_key": api_key,
-            "Recursive": str(item_type == "Series").lower(),
+            "Recursive": str(bool(payload.get("recursive", item_type == "Series"))).lower(),
             "MetadataRefreshMode": "FullRefresh",
             "ImageRefreshMode": "ValidationOnly" if bool(payload.get("metadata_only")) else "FullRefresh",
             "ReplaceAllMetadata": str(bool(payload.get("replace_all_metadata"))).lower(),
@@ -165,10 +202,9 @@ class EmbyMetadataRefreshEffectDelivery:
 
     def _default_client(self) -> httpx.Client:
         settings = self._settings()
-        proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
         return httpx.Client(
-            proxy=proxy or None,
             timeout=max(1.0, float(settings.emby_api_timeout)),
+            trust_env=False,
         )
 
 

@@ -22,6 +22,7 @@ from apscheduler.triggers.date import DateTrigger
 from etk.bootstrap.app_factory import _create_default_container
 from etk.domains.collection.operation_repository import PostgresCollectionOperationRepository
 from etk.domains.identity.operation_repository import PostgresIdentityOperationRepository
+from etk.domains.identity.repository import SqlAlchemyIdentityRepository
 from etk.domains.ingestion import PostgresIngestionMonitorLedger
 from etk.domains.media.daily_theme import DAILY_THEME_REPLENISHMENT_EFFECT_TYPE
 from etk.domains.media.effects import PostgresMediaEffectLedger
@@ -45,10 +46,12 @@ from etk.platform.jobs import OutboxClaim, PostgresJobStore
 from etk.platform.tasks import TaskRegistry
 
 from .celery_app import EXECUTE_JOB_TASK, create_celery_app
+from .filesystem_monitor import NativeFilesystemMonitor
 from .p5_media_effects import CeleryMediaEffectPublisher, MediaEffectOutboxDispatcher
 from .p6_ingestion import (
     CeleryIngestionMonitorPublisher,
     IngestionMonitorCoordinator,
+    PersistentIngestionIngressGateway,
 )
 from .p6_intro_detection import CeleryP115IntroDetectionPublisher, P115IntroDetectionCoordinator
 from .p6_playback import CeleryP115PlaybackPublisher, P115PlaybackCoordinator
@@ -64,6 +67,7 @@ from .p8_database_maintenance import (
 )
 from .p8_identity import CeleryIdentityOperationPublisher, IdentityOperationCoordinator
 from .runtime_config import TaskRuntimeConfig
+from .telegram_bot import NativeTelegramBot
 
 logger = logging.getLogger(__name__)
 
@@ -411,6 +415,7 @@ class CoordinatorRuntime:
         self._media_effect_dispatcher: MediaEffectOutboxDispatcher | None = None
         self._ingestion_publisher = CeleryIngestionMonitorPublisher(self.config)
         self._ingestion_coordinator: IngestionMonitorCoordinator | None = None
+        self._filesystem_monitor: NativeFilesystemMonitor | None = None
         self._p115_upload_publisher = CeleryP115UploadPublisher(self.config)
         self._p115_upload_coordinator: P115UploadMonitorCoordinator | None = None
         self._p115_playback_publisher = CeleryP115PlaybackPublisher(self.config)
@@ -457,6 +462,12 @@ class CoordinatorRuntime:
             self._config_adapter = config_adapter
             self._store = store
             self._service = service
+            self._telegram_bot = NativeTelegramBot(
+                settings=lambda: self._last_settings or config_adapter.load(),
+                jobs=service,
+                state=SqlAlchemyAppSettingsRepository(database.unit_of_work),
+                admin_chat_ids=SqlAlchemyIdentityRepository(database.unit_of_work).active_admin_telegram_chat_ids,
+            )
             self._cleanup_execution_repository = cleanup_execution_repository
             self._media_effect_dispatcher = MediaEffectOutboxDispatcher(
                 store,
@@ -470,6 +481,12 @@ class CoordinatorRuntime:
                 ),
             )
             ingestion_ledger = PostgresIngestionMonitorLedger(database.unit_of_work)
+            self._filesystem_monitor = NativeFilesystemMonitor(
+                PersistentIngestionIngressGateway(
+                    settings=lambda: self._last_settings or config_adapter.load(),
+                    ledger=ingestion_ledger,
+                )
+            )
             self._ingestion_coordinator = IngestionMonitorCoordinator(
                 store=store,
                 ledger=ingestion_ledger,
@@ -586,10 +603,18 @@ class CoordinatorRuntime:
         self._refresh_settings(force=True)
 
     def _shutdown_native_leader(self) -> None:
+        bot = getattr(self, "_telegram_bot", None)
+        if bot is not None:
+            bot.stop()
+        monitor = getattr(self, "_filesystem_monitor", None)
         schedules = getattr(self, "_schedules", None)
         self._schedules = None
-        if schedules is not None:
-            schedules.stop()
+        try:
+            if monitor is not None:
+                monitor.stop()
+        finally:
+            if schedules is not None:
+                schedules.stop()
 
     def _tick(self) -> None:
         store = self._store
@@ -786,6 +811,12 @@ class CoordinatorRuntime:
         runtime_context = self._load_runtime_context()
         self._last_settings = settings
         self._last_runtime_context = runtime_context
+        bot = getattr(self, "_telegram_bot", None)
+        if bot is not None:
+            bot.sync(settings)
+        monitor = getattr(self, "_filesystem_monitor", None)
+        if monitor is not None:
+            monitor.sync(settings)
         if self._schedules is not None:
             schedule_values = settings.to_runtime_dict()
             schedule_values.update(runtime_context)

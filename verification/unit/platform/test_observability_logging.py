@@ -87,6 +87,51 @@ def test_readable_logging_and_reconfiguration_do_not_duplicate_managed_handlers(
     assert len(managed) == 1
 
 
+def test_runtime_events_share_readable_application_file_without_duplicate_handlers(tmp_path, monkeypatch):
+    monkeypatch.setenv("APP_DATA_DIR", str(tmp_path))
+    configure_logging(json_output=True, stream=io.StringIO())
+    configure_logging(json_output=True, stream=io.StringIO())
+    logging.getLogger("fixture.download").info("开始下载主图")
+    get_logger("fixture.mp").info("收到 MoviePilot 通知", password="fixture-secret")
+    content = (tmp_path / "logs" / "app.log").read_text()
+    assert content.count("开始下载主图") == 1
+    assert content.count("收到 MoviePilot 通知") == 1
+    assert "fixture-secret" not in content
+    assert len(list((tmp_path / "logs").glob("app.log*"))) == 1
+
+
+def test_worker_logging_signal_writes_shared_file(tmp_path, monkeypatch):
+    from celery.signals import setup_logging
+
+    from etk.processes import celery_app
+
+    monkeypatch.setenv("APP_DATA_DIR", str(tmp_path))
+    responses = setup_logging.send(sender=None, loglevel=logging.INFO)
+    assert any(receiver is celery_app._configure_worker_logging for receiver, _ in responses)
+    assert not any(isinstance(result, Exception) for _, result in responses)
+    logging.getLogger("etk.processes.p6_ingestion").info("文件稳定后开始探测")
+    assert "文件稳定后开始探测" in (tmp_path / "logs" / "app.log").read_text()
+
+
+def test_coordinator_entrypoint_configures_shared_file(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from etk.bootstrap.cli import main
+    from etk.processes import coordinator
+
+    monkeypatch.setenv("APP_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        coordinator,
+        "CoordinatorRuntime",
+        lambda **kwargs: SimpleNamespace(
+            run=lambda: logging.getLogger("etk.processes.filesystem_monitor").info("文件监控已启动"),
+            request_stop=lambda: None,
+        ),
+    )
+    assert main(["coordinator"]) == 0
+    assert "文件监控已启动" in (tmp_path / "logs" / "app.log").read_text()
+
+
 def test_exception_and_stdlib_messages_redact_embedded_credentials() -> None:
     stream = io.StringIO()
     configure_logging(json_output=True, stream=stream)

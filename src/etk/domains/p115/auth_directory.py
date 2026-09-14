@@ -31,6 +31,8 @@ class P115AuthorizationGateway(Protocol):
 
     def check_openapi(self, access_token: str) -> Mapping[str, Any]: ...
 
+    def refresh_openapi(self, refresh_token: str) -> Mapping[str, Any]: ...
+
     def check_cookie(self, cookie: str, app_type: str) -> Mapping[str, Any]: ...
 
 
@@ -104,6 +106,7 @@ class P115AuthDirectoryService:
         self._credentials = credentials
         self._directories = directories
         self._sessions = sessions or P115AuthorizationSessionStore()
+        self._status_lock = threading.Lock()
 
     def create_openapi_qrcode(self) -> P115Result:
         client_id = str(self._settings().p115_app_id or "").strip()
@@ -243,13 +246,24 @@ class P115AuthDirectoryService:
                 raise ValueError("授权数据必须是对象")
             access_token = str(token_data.get("access_token") or "").strip()
             refresh_token = str(token_data.get("refresh_token") or "").strip()
-            account_id = str(token_data.get("user_id") or "").strip()
+            claimed_account_id = _account_id(token_data)
             if not access_token or not refresh_token:
                 return P115Result("无效的授权码格式：缺少 token", 400, "text/html")
+            identity_response = self._authorization.check_openapi(access_token)
+            identity_data = identity_response.get("data")
+            verified_account_id = (
+                _account_id(identity_data)
+                if identity_response.get("state") and isinstance(identity_data, Mapping)
+                else ""
+            )
+            if not verified_account_id:
+                raise ValueError("无法通过 115 OpenAPI Token 确认稳定账号身份")
+            if claimed_account_id and claimed_account_id != verified_account_id:
+                raise ValueError("授权数据中的账号身份与 Token 不一致")
             self._credentials.save_openapi(
                 access_token,
                 refresh_token,
-                account_id=account_id,
+                account_id=verified_account_id,
             )
         except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
             return P115Result(f"解析授权码失败: {exc}", 400, "text/html")
@@ -274,7 +288,8 @@ class P115AuthDirectoryService:
             }
             if credentials.has_openapi:
                 try:
-                    response = self._authorization.check_openapi(credentials.access_token)
+                    with self._status_lock:
+                        credentials, response = self._check_status_openapi()
                     if response.get("state"):
                         raw_user_info = response.get("data")
                         user_info = (
@@ -303,16 +318,19 @@ class P115AuthDirectoryService:
                             except Exception:
                                 data["msg"] = "Token 有效，Cookie 状态未知"
                         return P115Result({"status": "success", "data": data})
-                    data["msg"] = f"Token 无效: {response.get('message', '未知错误')}"
-                except Exception as exc:
-                    data["msg"] = f"Token 检查异常: {exc}"
+                    data["msg"] = "OpenAPI 授权无效或续期失败，请重新授权；无法获取容量。"
+                except Exception:
+                    data["msg"] = "OpenAPI 状态查询或续期失败，无法获取容量，请稍后重试或重新授权。"
             if credentials.has_cookie and data["user_info"] is None:
                 try:
                     response = self._authorization.check_cookie(credentials.cookie, app_type)
                     if response.get("state"):
                         data.update(
-                            valid=True,
-                            msg="仅配置 Cookie (播放专用)",
+                            valid=not credentials.has_openapi,
+                            cookie_valid=True,
+                            msg=(data["msg"] + " Cookie 播放授权仍有效。")
+                            if credentials.has_openapi
+                            else "仅配置 Cookie (播放专用)",
                             user_info={"user_name": "Cookie用户(正常)"},
                         )
                         return P115Result({"status": "success", "data": data})
@@ -324,6 +342,47 @@ class P115AuthDirectoryService:
             return P115Result({"status": "success", "data": data})
         except Exception as exc:
             return P115Result({"status": "error", "message": str(exc)}, 500)
+
+    def _check_status_openapi(self) -> tuple[P115CredentialSnapshot, Mapping[str, Any]]:
+        credentials = self._credentials.load()
+        response = self._authorization.check_openapi(credentials.access_token)
+        if (
+            response.get("state")
+            or str(response.get("code"))
+            not in {
+                "40140123",
+                "40140124",
+                "40140125",
+                "40140126",
+            }
+            or not credentials.refresh_token
+            or not credentials.account_id.isdigit()
+        ):
+            return credentials, response
+        # 续期不可盲重试；先重读并在保存时比较旧 Token，避免覆盖并发重新授权。
+        latest = self._credentials.load()
+        if latest != credentials:
+            return latest, self._authorization.check_openapi(latest.access_token)
+        renewed = self._authorization.refresh_openapi(credentials.refresh_token)
+        tokens = renewed.get("data")
+        if not renewed.get("state") or not isinstance(tokens, Mapping):
+            return credentials, response
+        access = str(tokens.get("access_token") or "").strip()
+        refresh = str(tokens.get("refresh_token") or "").strip()
+        if not access or not refresh:
+            return credentials, response
+        verified = self._authorization.check_openapi(access)
+        info = verified.get("data")
+        account = _account_id(info) if isinstance(info, Mapping) else ""
+        if not verified.get("state") or not account or account != credentials.account_id:
+            raise ValueError("续期结果无法确认原账号身份")
+        self._credentials.save_openapi(
+            access, refresh, account_id=account, expected_access_token=credentials.access_token
+        )
+        latest = self._credentials.load()
+        if latest.access_token != access:
+            return latest, self._authorization.check_openapi(latest.access_token)
+        return latest, verified
 
     def list_directories(self, *, cid_value: object, search: str) -> P115Result:
         try:

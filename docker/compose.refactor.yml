@@ -198,6 +198,50 @@ services:
     networks:
       - etk-greenfield
 
+  proxy:
+    <<: *app-image
+    command: ["python", "/app/main.py", "proxy", "--host", "0.0.0.0", "--port", "7758"]
+    environment:
+      <<: *app-environment
+      ETK_PROCESS_ROLE: proxy
+    volumes:
+      - app_config:/config
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:7758/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    stop_grace_period: 30s
+    restart: unless-stopped
+    networks:
+      - etk-greenfield
+
+  gateway:
+    <<: *app-image
+    command: ["nginx", "-g", "daemon off;"]
+    ports:
+      - "${ETK_PROXY_PORT:-18097}:8097"
+    depends_on:
+      api:
+        condition: service_healthy
+      proxy:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8097/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - etk-greenfield
+
 networks:
   etk-greenfield:
     driver: bridge

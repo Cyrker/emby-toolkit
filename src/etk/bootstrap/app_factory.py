@@ -7,8 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
-from starlette.concurrency import run_in_threadpool
-from starlette.requests import Request
 from starlette.responses import FileResponse, Response
 from starlette.staticfiles import StaticFiles
 
@@ -116,6 +114,7 @@ from etk.domains.media.secondary_router import effects_router as secondary_media
 from etk.domains.media.secondary_router import router as secondary_media_router
 from etk.domains.media.service import MediaService
 from etk.domains.media.subscription_projection import SqlAlchemySubscriptionMediaProjection
+from etk.domains.media.task_execution import HttpxMediaCatalogAdapter
 from etk.domains.media.user_projection import SqlAlchemyUserMediaProjection
 from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
 from etk.domains.operations.database import DatabaseReadService, SqlAlchemyDatabaseReadRepository
@@ -126,6 +125,7 @@ from etk.domains.operations.database_maintenance import (
 from etk.domains.operations.database_router import effects_router as database_effects_router
 from etk.domains.operations.database_router import maintenance_router as database_maintenance_router
 from etk.domains.operations.database_router import router as database_read_router
+from etk.domains.operations.job_logs import PersistentJobLogStorage
 from etk.domains.operations.job_router import router as job_router
 from etk.domains.operations.jobs import (
     JobSubmissionService,
@@ -386,22 +386,12 @@ def create_app(
     app.state.settings = app_container.settings
     app.state.configuration_synchronizer = configuration_synchronizer
 
-    @app.middleware("http")
-    async def synchronize_runtime_configuration(request: Request, call_next: Any) -> Any:
-        if (
-            configuration_synchronizer is not None
-            and request.url.path.startswith("/api/")
-            and request.url.path != "/api/health"
-        ):
-            try:
-                await run_in_threadpool(configuration_synchronizer.synchronize)
-            except Exception:
-                logger.exception("API runtime configuration synchronization failed")
-                return fastapi_json_response(
-                    {"status": "error", "message": "运行配置同步失败，请稍后重试"},
-                    status_code=503,
-                )
-        return await call_next(request)
+    from .config_sync import RuntimeConfigMiddleware
+
+    app.add_middleware(
+        RuntimeConfigMiddleware,
+        synchronize=configuration_synchronizer.synchronize if configuration_synchronizer is not None else None,
+    )
 
     platform_metrics = get_metrics()
     app.add_middleware(MetricsMiddleware, metrics=platform_metrics)
@@ -563,7 +553,9 @@ def _register_log_providers(container: AppContainer, data_dir: Path | None) -> N
     log_directory = _resolve_data_dir(data_dir) / "logs"
     container.register_use_case(
         "operations.logs",
-        lambda _: LogService(LocalLogStorage(log_directory)),
+        lambda current: LogService(
+            PersistentJobLogStorage(current.database.unit_of_work, LocalLogStorage(log_directory))
+        ),
     )
 
 
@@ -608,6 +600,7 @@ def _register_database_read_providers(container: AppContainer) -> None:
         lambda current: ReviewReprocessService(
             current.repository("operations.review-reprocess"),
             PersistentReviewJobGateway(current.use_case("operations.jobs")),
+            emby_item=HttpxMediaCatalogAdapter(lambda: current.settings).item,
         ),
     )
 

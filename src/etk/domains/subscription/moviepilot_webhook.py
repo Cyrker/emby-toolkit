@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
@@ -43,6 +44,7 @@ from .operations import (
 )
 
 MOVIEPILOT_ASSISTANT_EVENT_TYPE = "moviepilot.webhook.assistant"
+logger = logging.getLogger(__name__)
 MOVIEPILOT_TRANSFER_EVENT_TYPE = "moviepilot.webhook.transfer"
 MOVIEPILOT_WEBHOOK_EFFECT_TYPES = frozenset({MOVIEPILOT_ASSISTANT_EVENT_TYPE, MOVIEPILOT_TRANSFER_EVENT_TYPE})
 
@@ -151,10 +153,19 @@ class MoviePilotWebhookService:
             return ServiceResult({"status": "emby_webhook_removed"})
 
         event_type = str(normalized.get("type") or "").strip()
+        data = _mapping(normalized.get("data"))
+        media = _mapping(data.get("mediainfo"))
+        logger.info(
+            "收到 MoviePilot 通知：事件=%s，媒体=%s",
+            event_type or "未提供事件类型",
+            media.get("title") or data.get("title") or "未提供标题",
+        )
         if event_type in _ASSISTANT_EVENTS:
             if not _assistant_enabled(self._settings):
+                logger.info("MoviePilot 通知已跳过：订阅助手未启用，事件=%s", event_type)
                 return ServiceResult({"status": "subscribe_assistant_ignored"})
             if not _assistant_event_is_actionable(event_type, normalized):
+                logger.info("MoviePilot 通知已跳过：缺少可处理的订阅或下载身份，事件=%s", event_type)
                 return ServiceResult({"status": "subscribe_assistant_ignored"})
             try:
                 self._reserve(
@@ -171,6 +182,7 @@ class MoviePilotWebhookService:
         if event_type in _TRANSFER_EVENTS:
             transfer = _transfer_file(normalized)
             if transfer is None:
+                logger.info("MoviePilot 整理通知未进入 115 整理队列：缺少所需文件数据；本地媒体由文件监控处理")
                 return ServiceResult({"status": "ignored_missing_data"})
             if transfer["file_type"] != "file":
                 return ServiceResult({"status": "ignored_not_file"})
@@ -199,6 +211,7 @@ class MoviePilotWebhookService:
                 {"status": ("processing_single_file_passthrough" if passthrough else "processing_single_file")}
             )
 
+        logger.info("MoviePilot 通知已记录但不触发任务：事件 %s 不在当前触发列表", event_type)
         return ServiceResult({"status": "event_ignored_not_in_trigger_list"})
 
     def _reserve(
@@ -218,13 +231,19 @@ class MoviePilotWebhookService:
             "payload_digest": _payload_digest(identity),
             "payload": dict(payload),
         }
-        return self._ledger.reserve(
+        effect = self._ledger.reserve(
             effect_key=f"p11:moviepilot-webhook:{event_key}",
             effect_type=effect_type,
             aggregate_type="moviepilot_webhook",
             aggregate_id=aggregate_id,
             payload=effect_payload,
         ).effect
+        logger.info(
+            "MoviePilot 通知已持久化，等待后台处理：事件=%s，记录=%s",
+            event_type,
+            effect.id,
+        )
+        return effect
 
 
 class SqlAlchemyMoviePilotAssistantEventRepository:

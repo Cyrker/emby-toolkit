@@ -1,6 +1,6 @@
 # handler/moviepilot.py
 
-import requests
+import requests as _requests
 import json
 import re
 import logging
@@ -15,6 +15,43 @@ from database import settings_db
 from handler.tg_media_candidate import candidate_to_recognition_hints, is_recognition_hint_eligible
 
 logger = logging.getLogger(__name__)
+
+
+class _DirectRequestsSession(_requests.Session):
+    """Requests session for LAN-bound MoviePilot and downloader calls."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.trust_env = False
+
+
+class _DirectRequestsFacade:
+    """Keep the legacy ``requests.*`` surface while forcing direct transport."""
+
+    Session = _DirectRequestsSession
+    adapters = _requests.adapters
+    exceptions = _requests.exceptions
+
+    def request(self, method, url, **kwargs):
+        kwargs.pop("proxies", None)
+        with self.Session() as session:
+            return session.request(method, url, **kwargs)
+
+    def get(self, url, **kwargs):
+        return self.request("GET", url, **kwargs)
+
+    def post(self, url, **kwargs):
+        return self.request("POST", url, **kwargs)
+
+    def put(self, url, **kwargs):
+        return self.request("PUT", url, **kwargs)
+
+    def delete(self, url, **kwargs):
+        return self.request("DELETE", url, **kwargs)
+
+
+# Preserve the module-level monkeypatch surface used by legacy callers/tests.
+requests = _DirectRequestsFacade()
 
 _persistent_effect_lock = RLock()
 _persistent_effect_gateway = None

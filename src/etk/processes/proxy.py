@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ from typing import Any, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fastapi import FastAPI
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.staticfiles import StaticFiles
@@ -86,8 +88,22 @@ class PlaybackTarget:
     content_type: str | None = None
 
 
+class ProxyCatalogError(RuntimeError):
+    """Return a bounded client-facing error from a production catalog adapter."""
+
+    def __init__(self, message: str, *, status_code: int = 502) -> None:
+        super().__init__(message)
+        self.status_code = max(400, min(int(status_code), 599))
+
+
 class VirtualLibraryCatalog(Protocol):
-    def views(self, user_id: str, *, client_signature: str = "") -> Sequence[VirtualLibrary]: ...
+    def views(
+        self,
+        user_id: str,
+        *,
+        client_signature: str = "",
+        access_token: str = "",
+    ) -> Sequence[VirtualLibrary]: ...
 
     def items(
         self,
@@ -98,11 +114,20 @@ class VirtualLibraryCatalog(Protocol):
         descending: bool = True,
         limit: int = 100,
         offset: int = 0,
+        access_token: str = "",
     ) -> VirtualPage: ...
 
-    def item(self, item_id: str, user_id: str) -> VirtualItem | None: ...
+    def item(self, item_id: str, user_id: str, *, access_token: str = "") -> VirtualItem | None: ...
 
-    def playback(self, item_id: str, user_id: str, *, play_session_id: str = "") -> PlaybackTarget | None: ...
+    def playback(
+        self,
+        item_id: str,
+        user_id: str,
+        *,
+        play_session_id: str = "",
+        access_token: str = "",
+        user_agent: str = "",
+    ) -> PlaybackTarget | None: ...
 
 
 class PlaybackLeaseStore(Protocol):
@@ -210,8 +235,14 @@ class InMemoryVirtualLibrary:
             self._items[item.id] = item
         return item
 
-    def views(self, user_id: str, *, client_signature: str = "") -> Sequence[VirtualLibrary]:
-        del client_signature
+    def views(
+        self,
+        user_id: str,
+        *,
+        client_signature: str = "",
+        access_token: str = "",
+    ) -> Sequence[VirtualLibrary]:
+        del client_signature, access_token
         user = str(user_id or "").strip()
         with self._lock:
             return tuple(
@@ -229,7 +260,9 @@ class InMemoryVirtualLibrary:
         descending: bool = True,
         limit: int = 100,
         offset: int = 0,
+        access_token: str = "",
     ) -> VirtualPage:
+        del access_token
         library_key = from_virtual_library_id(library_id) if is_virtual_library_id(library_id) else str(library_id)
         visible_libraries = {library.id for library in self.views(user_id)}
         if library_key not in visible_libraries:
@@ -244,7 +277,8 @@ class InMemoryVirtualLibrary:
         start = max(offset, 0)
         return VirtualPage(tuple(values[start : start + max(limit, 0)]), len(values))
 
-    def item(self, item_id: str, user_id: str) -> VirtualItem | None:
+    def item(self, item_id: str, user_id: str, *, access_token: str = "") -> VirtualItem | None:
+        del access_token
         identifier = str(item_id or "").strip()
         with self._lock:
             value = self._items.get(identifier)
@@ -254,9 +288,17 @@ class InMemoryVirtualLibrary:
                     return None
             return value
 
-    def playback(self, item_id: str, user_id: str, *, play_session_id: str = "") -> PlaybackTarget | None:
-        del play_session_id
-        item = self.item(item_id, user_id)
+    def playback(
+        self,
+        item_id: str,
+        user_id: str,
+        *,
+        play_session_id: str = "",
+        access_token: str = "",
+        user_agent: str = "",
+    ) -> PlaybackTarget | None:
+        del play_session_id, user_agent
+        item = self.item(item_id, user_id, access_token=access_token)
         if item is None or not item.direct_url:
             return None
         return PlaybackTarget(item.direct_url, virtual=True)
@@ -595,7 +637,7 @@ class PostgresPlaybackLeaseStore:
 
 
 class ProxyUpstreamPort(Protocol):
-    def request(self, request: Request, path: str) -> Response: ...
+    async def request(self, request: Request, path: str) -> Response: ...
 
     async def websocket(self, websocket: WebSocket, path: str) -> None: ...
 
@@ -606,13 +648,15 @@ def create_proxy_app(
     leases: PlaybackLeaseStore | None = None,
     upstream: ProxyUpstreamPort | None = None,
     max_streams: int | Callable[[str], int] = 0,
-    server_id: str = "fixture-server",
-    allow_transcoding: bool = False,
+    server_id: str | Callable[[], str] = "fixture-server",
+    allow_transcoding: bool | Callable[[], bool] = False,
+    enabled: bool | Callable[[], bool] = True,
     static_dir: str | None = None,
 ) -> FastAPI:
     """Build the standalone proxy ASGI application without starting a listener."""
 
-    selected_catalog = catalog or InMemoryVirtualLibrary(server_id=server_id)
+    initial_server_id = "fixture-server" if catalog is not None else server_id() if callable(server_id) else server_id
+    selected_catalog = catalog or InMemoryVirtualLibrary(server_id=initial_server_id)
     selected_leases = leases or InMemoryPlaybackLeaseStore()
     app = FastAPI(title="ETK Proxy", docs_url=None, redoc_url=None)
     app.state.catalog = selected_catalog
@@ -629,6 +673,18 @@ def create_proxy_app(
         except (TypeError, ValueError):
             return 0
 
+    def current_server_id() -> str:
+        value = server_id() if callable(server_id) else server_id
+        return str(value or "etk-proxy")
+
+    def transcoding_allowed() -> bool:
+        value = allow_transcoding() if callable(allow_transcoding) else allow_transcoding
+        return bool(value)
+
+    def proxy_enabled() -> bool:
+        value = enabled() if callable(enabled) else enabled
+        return bool(value)
+
     @app.get("/api/health")
     async def health() -> JSONResponse:
         return JSONResponse({"status": "ok"})
@@ -636,34 +692,87 @@ def create_proxy_app(
     @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"])
     async def proxy(request: Request, path: str) -> Response:
         normalized_path = "/" + path.lstrip("/")
+        if not proxy_enabled():
+            return JSONResponse({"status": "error", "message": "Proxy is disabled."}, status_code=503)
         if normalized_path.lower().endswith("/views") and "/users/" in normalized_path.lower():
-            return _views_response(request, selected_catalog, server_id)
-        if normalized_path.lower().endswith("/items") and "/users/" in normalized_path.lower():
-            return _items_response(request, selected_catalog, server_id)
+            return await run_in_threadpool(_views_response, request, selected_catalog, current_server_id())
+        parent_id = (
+            request.query_params.get("ParentId")
+            or request.query_params.get("parentId")
+            or request.query_params.get("customViewId")
+            or ""
+        )
+        if (
+            normalized_path.lower().endswith("/items")
+            and "/users/" in normalized_path.lower()
+            and is_virtual_library_id(parent_id)
+        ):
+            return await run_in_threadpool(_items_response, request, selected_catalog, current_server_id())
+        if is_virtual_library_id(parent_id) and normalized_path.lower().endswith("/items/latest"):
+            response = await run_in_threadpool(_items_response, request, selected_catalog, current_server_id())
+            if response.status_code != 200:
+                return response
+            payload = json.loads(bytes(response.body))
+            return JSONResponse(payload.get("Items", []))
+        if is_virtual_library_id(parent_id) and normalized_path.lower().endswith(
+            ("/items/prefixes", "/genres", "/studios", "/tags", "/officialratings", "/years")
+        ):
+            return JSONResponse({"Items": [], "TotalRecordCount": 0})
+        if _is_emby_transcode_request(request, normalized_path) and not transcoding_allowed():
+            return Response("Emby transcoding fallback is disabled for 115 direct playback.", status_code=409)
         item_id = _path_item_id(normalized_path)
         if item_id and normalized_path.lower().endswith(("/stream", "/original")):
-            return _playback_response(
-                request,
-                item_id,
-                selected_catalog,
-                selected_leases,
-                max_streams=limit_for,
-                allow_transcoding=allow_transcoding,
-            )
-        if item_id and "/items/" in normalized_path.lower() and request.method == "GET":
+            try:
+                playback = await run_in_threadpool(
+                    _playback_response,
+                    request,
+                    item_id,
+                    selected_catalog,
+                    selected_leases,
+                    limit_for,
+                )
+            except ProxyCatalogError as exc:
+                return Response(str(exc), status_code=exc.status_code)
+            if playback is not None:
+                return playback
+            if upstream is not None:
+                return await upstream.request(request, normalized_path)
+            if not transcoding_allowed():
+                return Response("Only ETK virtual playback is supported.", status_code=409)
+            return Response("Playback source unavailable.", status_code=503)
+        if (
+            item_id
+            and is_virtual_library_id(item_id)
+            and "/items/" in normalized_path.lower()
+            and "/images/" not in normalized_path.lower()
+            and request.method == "GET"
+            and normalized_path.rstrip("/").endswith(f"/{item_id}")
+        ):
             user_id = _user_from_path(normalized_path) or request.query_params.get("UserId", "")
-            item = selected_catalog.item(item_id, user_id)
+            try:
+                item = await run_in_threadpool(
+                    selected_catalog.item,
+                    item_id,
+                    user_id,
+                    access_token=_request_access_token(request),
+                )
+            except ProxyCatalogError as exc:
+                return JSONResponse({"status": "error", "message": str(exc)}, status_code=exc.status_code)
             return JSONResponse(
-                item.as_emby(server_id=server_id) if item else {"status": "error"},
+                item.as_emby(server_id=current_server_id()) if item else {"status": "error"},
                 status_code=200 if item else 404,
             )
         if normalized_path.lower().endswith("/playing/stopped"):
-            return await _playback_stopped_response(request, selected_leases)
+            local_response = await _playback_stopped_response(request, selected_leases)
+            return await upstream.request(request, normalized_path) if upstream is not None else local_response
         if normalized_path.lower().endswith("/playing/progress") or normalized_path.lower().endswith("/playing"):
-            return await _playback_event_response(request, selected_leases, limit_for)
+            local_response = await _playback_event_response(request, selected_leases, limit_for)
+            if local_response.status_code == 429 or upstream is None:
+                return local_response
+            return await upstream.request(request, normalized_path)
         if upstream is not None:
-            return upstream.request(request, normalized_path)
-        if "/videos/" in normalized_path.lower() and "/stream" in normalized_path.lower() and not allow_transcoding:
+            return await upstream.request(request, normalized_path)
+        if "/videos/" in normalized_path.lower() and "/stream" in normalized_path.lower() and not transcoding_allowed():
             return Response("Only ETK virtual playback is supported.", status_code=409)
         return JSONResponse({"status": "error", "message": "Proxy route not found."}, status_code=404)
 
@@ -695,7 +804,15 @@ def _views_response(request: Request, catalog: VirtualLibraryCatalog, server_id:
     user_id = _user_from_path(request.url.path) or request.query_params.get("UserId", "")
     signature = request.headers.get("X-Emby-Client", "")
     items = []
-    for library in catalog.views(user_id, client_signature=signature):
+    try:
+        libraries = catalog.views(
+            user_id,
+            client_signature=signature,
+            access_token=_request_access_token(request),
+        )
+    except ProxyCatalogError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=exc.status_code)
+    for library in libraries:
         item = {
             "Name": library.name,
             "ServerId": server_id,
@@ -715,14 +832,30 @@ def _views_response(request: Request, catalog: VirtualLibraryCatalog, server_id:
 
 def _items_response(request: Request, catalog: VirtualLibraryCatalog, server_id: str) -> JSONResponse:
     user_id = _user_from_path(request.url.path) or request.query_params.get("UserId", "")
-    parent = request.query_params.get("ParentId") or request.query_params.get("parentId") or ""
+    parent = (
+        request.query_params.get("ParentId")
+        or request.query_params.get("parentId")
+        or request.query_params.get("customViewId")
+        or ""
+    )
     if not parent:
         return JSONResponse({"Items": [], "TotalRecordCount": 0})
     sort_by = request.query_params.get("SortBy", "DateCreated")
     descending = request.query_params.get("SortOrder", "Descending").casefold() != "ascending"
     limit = _query_int(request, "Limit", 100, 0, 1000)
     offset = _query_int(request, "StartIndex", 0, 0, 10_000_000)
-    page = catalog.items(parent, user_id, sort_by=sort_by, descending=descending, limit=limit, offset=offset)
+    try:
+        page = catalog.items(
+            parent,
+            user_id,
+            sort_by=sort_by,
+            descending=descending,
+            limit=limit,
+            offset=offset,
+            access_token=_request_access_token(request),
+        )
+    except ProxyCatalogError as exc:
+        return JSONResponse({"status": "error", "message": str(exc)}, status_code=exc.status_code)
     return JSONResponse(
         {
             "Items": [item.as_emby(server_id=server_id) for item in page.items],
@@ -736,19 +869,19 @@ def _playback_response(
     item_id: str,
     catalog: VirtualLibraryCatalog,
     leases: PlaybackLeaseStore,
-    *,
     max_streams: Callable[[str], int],
-    allow_transcoding: bool,
-) -> Response:
+) -> Response | None:
     user_id = _user_from_path(request.url.path) or request.query_params.get("UserId", "")
     play_session_id = request.query_params.get("PlaySessionId", "")
-    target = catalog.playback(item_id, user_id, play_session_id=play_session_id)
+    target = catalog.playback(
+        item_id,
+        user_id,
+        play_session_id=play_session_id,
+        access_token=_request_access_token(request),
+        user_agent=request.headers.get("User-Agent", ""),
+    )
     if target is None:
-        if not allow_transcoding:
-            return Response("Only ETK standard 115 STRM playback is supported.", status_code=409)
-        if request.app.state.upstream is None:
-            return Response("Playback source unavailable.", status_code=503)
-        return request.app.state.upstream.request(request, request.url.path)
+        return None
     lease = leases.acquire(
         user_id,
         item_id,
@@ -845,6 +978,40 @@ def _query_int(request: Request, key: str, default: int, minimum: int, maximum: 
     except (TypeError, ValueError):
         value = default
     return max(minimum, min(value, maximum))
+
+
+def _request_access_token(request: Request) -> str:
+    for key in ("api_key", "AccessToken", "X-Emby-Token", "X-MediaBrowser-Token"):
+        value = str(request.query_params.get(key) or "").strip()
+        if value:
+            return value
+    for key in ("X-Emby-Token", "X-MediaBrowser-Token"):
+        value = str(request.headers.get(key) or "").strip()
+        if value:
+            return value
+    for key in ("Authorization", "X-Emby-Authorization", "X-MediaBrowser-Authorization"):
+        value = str(request.headers.get(key) or "").strip()
+        if not value:
+            continue
+        match = re.search(r'(?:Token|token)\s*=\s*"?([^",\s]+)', value)
+        if match:
+            return match.group(1).strip()
+        match = re.search(r"Bearer\s+([^,\s]+)", value, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _is_emby_transcode_request(request: Request, path: str) -> bool:
+    normalized = str(path or "").casefold()
+    if "/videos/" not in normalized:
+        return False
+    if any(value in normalized for value in ("master.m3u8", "main.m3u8", ".m3u8", "/hls", "transcode")):
+        return True
+    return bool(
+        request.query_params.get("TranscodeReasons")
+        or request.query_params.get("TranscodingMaxAudioChannels")
+    )
 
 
 def _collection_type(item_types: Sequence[str], client_signature: str) -> str | None:
@@ -974,6 +1141,7 @@ __all__ = [
     "PlaybackLeaseStore",
     "PlaybackTarget",
     "PostgresPlaybackLeaseStore",
+    "ProxyCatalogError",
     "ProxyUpstreamPort",
     "VirtualItem",
     "VirtualLibrary",

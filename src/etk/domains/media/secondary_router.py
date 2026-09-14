@@ -219,6 +219,9 @@ def get_emby_user_views(request: Request, user_id: str) -> Response:
     if denied is not None:
         return denied
     token = str(request.headers.get("x-emby-token") or request.query_params.get("api_key") or "").strip()
+    # 配置页只能拿到脱敏值，此处必须回退到服务端保存的 Token。
+    if not token or set(token) == {"*"}:
+        token = request.app.state.container.settings.emby_api_key.get_secret_value().strip()
     query = {name: request.query_params[name] for name in _USER_VIEWS_QUERY_ALLOWLIST if name in request.query_params}
     return _effects_response(_effects_service(request).user_views(user_id, token, query))
 

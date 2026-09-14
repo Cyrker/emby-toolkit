@@ -555,9 +555,11 @@ class HttpxCoverRemoteAdapter:
         settings: Callable[[], Settings],
         *,
         client_factory: Callable[[], httpx.Client] | None = None,
+        external_client_factory: Callable[[], httpx.Client] | None = None,
     ) -> None:
         self._settings = settings
         self._client_factory = client_factory or self._default_client
+        self._external_client_factory = external_client_factory or client_factory or self._default_external_client
 
     def list_libraries(self) -> Sequence[Mapping[str, Any]]:
         base_url, _user_id, token = _emby(self._settings())
@@ -602,8 +604,8 @@ class HttpxCoverRemoteAdapter:
             return CoverSourceSnapshot(local_sources, total)
 
         try:
-            with self._client_factory() as client:
-                if _prefer_tmdb_posters(target):
+            if _prefer_tmdb_posters(target):
+                with self._external_client_factory() as client:
                     tmdb_sources = _download_tmdb_posters(
                         client,
                         target,
@@ -613,6 +615,7 @@ class HttpxCoverRemoteAdapter:
                     if tmdb_sources:
                         return CoverSourceSnapshot(tmdb_sources)
 
+            with self._client_factory() as client:
                 items, total = _query_cover_items(
                     client,
                     base_url=base_url,
@@ -744,6 +747,14 @@ class HttpxCoverRemoteAdapter:
         return hashlib.sha256(content).hexdigest()
 
     def _default_client(self) -> httpx.Client:
+        settings = self._settings()
+        timeout = max(float(settings.emby_api_timeout), 1.0)
+        return httpx.Client(
+            timeout=httpx.Timeout(timeout, connect=min(5.0, timeout)),
+            trust_env=False,
+        )
+
+    def _default_external_client(self) -> httpx.Client:
         settings = self._settings()
         proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
         timeout = max(float(settings.emby_api_timeout), 1.0)

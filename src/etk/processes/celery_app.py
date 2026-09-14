@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from celery import Celery
 from celery.exceptions import Reject
-from celery.signals import worker_process_shutdown, worker_shutdown, worker_shutting_down
+from celery.signals import setup_logging, worker_process_shutdown, worker_shutdown, worker_shutting_down
 from kombu import Queue
 
 from .runtime_config import TaskRuntimeConfig
@@ -18,6 +18,19 @@ EXECUTE_P115_UPLOAD_OPERATION_TASK = "etk.p115.upload.execute"
 EXECUTE_SUBSCRIPTION_OPERATION_TASK = "etk.subscription.operation.execute"
 EXECUTE_DATABASE_MAINTENANCE_TASK = "etk.database.maintenance.execute"
 EXECUTE_SHARING_OPERATION_TASK = "etk.sharing.operation.execute"
+
+
+@setup_logging.connect
+def _configure_worker_logging(loglevel=None, **_kwargs) -> None:
+    import logging
+    import os
+
+    from etk.platform.observability import configure_logging
+
+    configure_logging(
+        json_output=os.environ.get("ETK_LOG_FORMAT", "console").casefold() == "json",
+        level=loglevel if loglevel is not None else logging.INFO,
+    )
 
 
 def create_celery_app(config: TaskRuntimeConfig | None = None) -> Celery:

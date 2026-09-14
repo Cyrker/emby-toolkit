@@ -32,6 +32,9 @@ class Catalog:
         self.calls.append(item_id)
         return self.items.get(item_id)
 
+    def descendants(self, item_id):
+        return []
+
 
 class Metadata:
     def __init__(self, outcome: TaskOutcome | None = None) -> None:
@@ -42,6 +45,21 @@ class Metadata:
         del progress
         self.calls.append((task_key, parameters))
         return self.outcome
+
+    def reprocess_item_metadata(self, item: Mapping[str, Any], progress: Any) -> TaskOutcome:
+        self.calls.append(("item", dict(item)))
+        return self.outcome
+
+    def identify_reprocess_root(self, item):
+        if item.get("Type") not in {"Movie", "Series"}:
+            raise ValueError("缺少根身份")
+        return item
+
+    def prepare_reprocess_metadata(self, item, root, cache):
+        self.calls.append(("item", dict(item)))
+        if self.outcome.status is TaskOutcomeStatus.FAILED:
+            raise RuntimeError(self.outcome.message)
+        return {}
 
 
 class MediaInfo:
@@ -106,7 +124,7 @@ def test_media_reprocess_episode_requires_series_and_uses_root_tmdb_identity() -
     )
     metadata = Metadata()
     mediainfo = MediaInfo()
-    service = NativeMediaItemReprocessService(catalog, metadata, mediainfo)
+    service = NativeMediaItemReprocessService(catalog, metadata, mediainfo, refresh=lambda *_: TaskOutcome.succeeded())
 
     missing = service.execute("episode-missing", Progress(), operation_key="op")
     assert missing.status is TaskOutcomeStatus.FAILED
@@ -114,10 +132,10 @@ def test_media_reprocess_episode_requires_series_and_uses_root_tmdb_identity() -
 
     completed = service.execute("episode-1", Progress(), operation_key="op")
     assert completed.status is TaskOutcomeStatus.SUCCEEDED
-    assert catalog.calls[-2:] == ["episode-1", "series-1"]
+    assert catalog.calls[-3:] == ["episode-1", "series-1", "episode-1"]
     assert metadata.calls[-1] == (
-        "backfill-media-metadata",
-        {"targets": [{"tmdb_id": "200", "media_type": "tv"}]},
+        "item",
+        {"Id": "episode-1", "Type": "Episode", "SeriesId": "series-1"},
     )
     assert mediainfo.calls[-1]["emby_item_ids"] == ("episode-1",)
 
@@ -130,22 +148,25 @@ def test_media_reprocess_reports_missing_root_identity_and_movie_identity() -> N
         }
     )
     metadata = Metadata()
-    service = NativeMediaItemReprocessService(catalog, metadata, MediaInfo())
+    service = NativeMediaItemReprocessService(
+        catalog, metadata, MediaInfo(), refresh=lambda *_: TaskOutcome.succeeded()
+    )
 
     unknown = service.execute("unknown", Progress(), operation_key="op")
-    assert unknown.status is TaskOutcomeStatus.PARTIAL
-    assert unknown.details["metadata_status"] == "failed"
+    assert unknown.status is TaskOutcomeStatus.FAILED
+    assert unknown.details["needs_identification"] is True
 
     movie = service.execute("movie-1", Progress(), operation_key="op")
     assert movie.status is TaskOutcomeStatus.SUCCEEDED
-    assert metadata.calls[-1][1] == {"targets": [{"tmdb_id": "100", "media_type": "movie"}]}
+    assert metadata.calls[-1][1] == catalog.items["movie-1"]
 
 
 def test_media_reprocess_operation_validates_schema_and_returns_serialized_outcome() -> None:
     service = NativeMediaItemReprocessService(
-        Catalog({"movie-1": {"Type": "Movie", "ProviderIds": {"Tmdb": "100"}}}),
+        Catalog({"movie-1": {"Id": "movie-1", "Type": "Movie", "ProviderIds": {"Tmdb": "100"}}}),
         Metadata(),
         MediaInfo(),
+        refresh=lambda *_: TaskOutcome.succeeded(),
     )
     operation = NativeMediaItemReprocessOperation(service)
     progress = Progress()
@@ -196,3 +217,24 @@ def test_media_reprocess_with_details_preserves_original_status() -> None:
         "metadata_status": "failed",
         "mediainfo": {"one": 1},
     }
+
+
+def test_root_reprocess_retains_path_and_only_refreshes_after_metadata_saved() -> None:
+    item = {"Id": "s1", "Type": "Series", "Path": "/media/series", "ProviderIds": {"Tmdb": "200"}}
+    metadata = Metadata()
+    mediainfo = MediaInfo()
+    calls = []
+
+    def refresh(root, key):
+        assert metadata.calls[-1] == ("item", item)
+        calls.append((root, key))
+        return TaskOutcome.failed("refresh unavailable", {"effect_status": "indeterminate"})
+
+    service = NativeMediaItemReprocessService(Catalog({"s1": item}), metadata, mediainfo, refresh=refresh)
+    result = service.execute("s1", Progress(), operation_key="op")
+    assert result.status is TaskOutcomeStatus.PARTIAL
+    assert len(calls) == 1
+    assert not mediainfo.calls
+    metadata.outcome = TaskOutcome.failed("provider failed")
+    service.execute("s1", Progress(), operation_key="op2")
+    assert len(calls) == 1

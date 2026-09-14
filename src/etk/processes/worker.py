@@ -94,9 +94,17 @@ from etk.domains.media.event_adapters import (
     NativeP5MediaEventGateway,
 )
 from etk.domains.media.event_effects import P5MediaEventEffectDelivery
+from etk.domains.media.final_refresh_effects import (
+    EmbyMetadataRefreshEffectDelivery,
+    PersistentReprocessMetadataRefresh,
+)
 from etk.domains.media.image_editing_adapters import HttpxMediaImageEditingGateway
 from etk.domains.media.image_editing_effects import ManualImageEffectDelivery
 from etk.domains.media.image_store import SqlAlchemyMediaImageStore
+from etk.domains.media.library_notifications import (
+    PersistentLibraryResultNotification,
+    TelegramLibraryNotificationDelivery,
+)
 from etk.domains.media.repository import SqlAlchemyMediaRepository
 from etk.domains.media.reprocess import NativeMediaItemReprocessOperation, NativeMediaItemReprocessService
 from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
@@ -521,6 +529,7 @@ def _p115_native_operation_router(
     playback: P115PlaybackService,
     media_reprocess: NativeMediaItemReprocessService | None = None,
     deep_delete: NativeP115DeepDeleteOperation | None = None,
+    library_notification: PersistentLibraryResultNotification | None = None,
 ) -> NativeOperationRouter:
     provider = P115PrimaryOperationsGateway(
         credentials=credentials,
@@ -566,7 +575,9 @@ def _p115_native_operation_router(
         ),
     }
     if media_reprocess is not None:
-        handlers["media.reprocess-item"] = NativeMediaItemReprocessOperation(media_reprocess)
+        handlers["media.reprocess-item"] = NativeMediaItemReprocessOperation(
+            media_reprocess, notify=library_notification
+        )
     if deep_delete is not None:
         handlers["p115.deep-delete.execute"] = deep_delete
     return NativeOperationRouter(handlers)
@@ -1543,11 +1554,54 @@ class WorkerRuntime:
                     image_store,
                 )
             )
+            from etk.domains.identity.native_user_events import NativeUserEventEffectsAdapter
+            from etk.domains.identity.repository import SqlAlchemyIdentityRepository
+            from etk.domains.identity.user_activity_effects import (
+                P8UserEventEffectDelivery,
+                SqlAlchemyTemplatePropagationRepository,
+                UserPolicyEffectService,
+            )
+
+            from .proxy import PostgresPlaybackLeaseStore
+
+            intro_repository = PostgresP115IntroDetectionRepository(database.unit_of_work)
+            intro_source = PostgresP115IntroRuntimeSource(
+                database.unit_of_work,
+                intro_repository,
+                app_settings,
+                HttpxEmbyIntroFavoriteGateway(settings_provider),
+            )
+            intro_detection_gateway = NativeP115IntroDetectionGateway(
+                submission=IntroDetectionSubmissionService(intro_repository),
+                source=intro_source,
+                account_id=lambda: p115_credentials.load().account_id,
+                provider_identity=lambda: select_intro_provider_identity(
+                    p115_credentials,
+                    lambda: settings_provider().p115_api_priority,
+                ),
+            )
+            user_event_delivery = P8UserEventEffectDelivery(
+                UserPolicyEffectService(
+                    HttpxEmbyUserSyncAdapter(settings_provider),
+                    SqlAlchemyIdentityRepository(database.unit_of_work),
+                    SqlAlchemyTemplatePropagationRepository(database.unit_of_work),
+                ),
+                NativeUserEventEffectsAdapter(
+                    settings=settings_provider,
+                    favorite=intro_detection_gateway.enqueue_favorite_item,
+                    halfway=intro_detection_gateway.enqueue_playback_halfway,
+                    cleanup=playback_service.release_for_stop,
+                    release_proxy=PostgresPlaybackLeaseStore(database.unit_of_work).release,
+                    telegram=telegram,
+                    admin_chat_ids=SqlAlchemyP115PlaybackRewardRepository(database.unit_of_work).admin_chat_ids,
+                ),
+            )
             media_effects = PersistentMediaEffectExecutor(
                 PostgresMediaEffectLedger(database.unit_of_work),
                 RoutedMediaEffectDelivery(
                     [
                         BridgeMediaEffectDelivery(bridge_client),
+                        EmbyMetadataRefreshEffectDelivery(settings_provider),
                         EmbyPathChangeEffectDelivery(settings_provider, HttpxEmbyPathChangeGateway()),
                         SharedIntroExportEffectDelivery(app_settings, shared_center),
                         DailyThemeReplenishmentEffectDelivery(daily_theme),
@@ -1556,6 +1610,12 @@ class WorkerRuntime:
                         cover_remote,
                         manual_image_delivery,
                         p5_event_delivery,
+                        user_event_delivery,
+                        TelegramLibraryNotificationDelivery(
+                            settings=settings_provider,
+                            telegram=telegram,
+                            admin_chat_ids=SqlAlchemyP115PlaybackRewardRepository(database.unit_of_work).admin_chat_ids,
+                        ),
                         MoviePilotWebhookEffectDelivery(
                             SqlAlchemyMoviePilotAssistantEventRepository(
                                 database.unit_of_work,
@@ -1588,22 +1648,6 @@ class WorkerRuntime:
                 ),
                 worker_id=f"{self._worker_id}:media-effect",
                 lease_seconds=lambda: studio_image_claim_lease_seconds(config_adapter.load().emby_api_timeout),
-            )
-            intro_repository = PostgresP115IntroDetectionRepository(database.unit_of_work)
-            intro_source = PostgresP115IntroRuntimeSource(
-                database.unit_of_work,
-                intro_repository,
-                app_settings,
-                HttpxEmbyIntroFavoriteGateway(settings_provider),
-            )
-            intro_detection_gateway = NativeP115IntroDetectionGateway(
-                submission=IntroDetectionSubmissionService(intro_repository),
-                source=intro_source,
-                account_id=lambda: p115_credentials.load().account_id,
-                provider_identity=lambda: select_intro_provider_identity(
-                    p115_credentials,
-                    lambda: settings_provider().p115_api_priority,
-                ),
             )
             intro_fingerprints = P115IntroFingerprintAdapter(
                 NativeP115IntroDirectUrlGateway(
@@ -1648,6 +1692,7 @@ class WorkerRuntime:
                 HttpxMediaCatalogAdapter(settings_provider),
                 media_task_service,
                 media_info_restore,
+                refresh=PersistentReprocessMetadataRefresh(media_effects, settings_provider),
             )
             native_operations = _p115_native_operation_router(
                 database,
@@ -1673,6 +1718,9 @@ class WorkerRuntime:
                         ),
                         shared=NativeP115SharedCleanupGateway(),
                     )
+                ),
+                library_notification=PersistentLibraryResultNotification(
+                    media_effects, HttpxMediaCatalogAdapter(settings_provider).item
                 ),
             )
             ingestion_binding = PersistentPendingBindingGateway(

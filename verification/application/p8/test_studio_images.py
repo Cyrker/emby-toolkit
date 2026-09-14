@@ -404,6 +404,31 @@ def test_studio_image_adapter_resolves_network_before_company_fallback() -> None
     assert paths == ["/3/network/1", "/3/company/2"]
 
 
+def test_studio_image_adapter_routes_emby_inventory_and_tmdb_lookup_to_separate_clients() -> None:
+    routed: list[tuple[str, str]] = []
+
+    def direct(request: httpx.Request) -> httpx.Response:
+        routed.append(("direct", request.url.host))
+        return httpx.Response(200, json={"Items": []})
+
+    def external(request: httpx.Request) -> httpx.Response:
+        routed.append(("external", request.url.host))
+        return httpx.Response(200, json={"logo_path": "/network.png"})
+
+    adapter = HttpxStudioImageAdapter(
+        _settings,
+        client_factory=lambda: httpx.Client(transport=httpx.MockTransport(direct)),
+        external_client_factory=lambda: httpx.Client(transport=httpx.MockTransport(external)),
+    )
+
+    assert adapter.list_studios() == ()
+    assert adapter.resolve_logo({"network_ids": [1]}) == ("/network.png", "network:1")
+    assert routed == [
+        ("direct", "emby.example"),
+        ("external", "tmdb.example"),
+    ]
+
+
 def test_studio_image_adapter_rejects_svg_and_oversized_raster_before_decode_expansion() -> None:
     with pytest.raises(MediaEffectDeliveryRejected, match="SVG"):
         studio_images_adapter._studio_thumb(b"<svg/>", "image/svg+xml")

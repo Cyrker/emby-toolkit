@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import re
 import socket
@@ -191,6 +192,9 @@ class PersistentIngestionIngressGateway(PersistentIngestionIngress):
         return self._ledger.record(intents) if intents else ()
 
 
+logger = logging.getLogger(__name__)
+
+
 class IngestionBindingRejected(RuntimeError):
     pass
 
@@ -317,10 +321,17 @@ class NativeIngestionBindingDelivery(IngestionBindingDeliveryPort):
             {
                 "item_id": staged_item_id,
                 "restore_media_info": False,
+                "notify_library": True,
             },
             display_name=f"主动入库: {staged_item_name}",
             idempotency_scope=idempotency_scope,
             idempotency_key=idempotency_key,
+        )
+        logger.info(
+            "主动入库已提交自动刮削：媒体=%s，Emby ID=%s，任务=%s",
+            staged_item_name,
+            staged_item_id,
+            submitted.projection.job.id,
         )
         return {
             "mediainfo_effect_id": str(effect.id),
@@ -602,6 +613,7 @@ class NativeIngestionPreparationGateway(IngestionPreparationPort):
             self._pending_bindings.enqueue_binding(item.path)
             return True
         if item.classification is MonitorClassification.PHYSICAL:
+            logger.info("新文件已稳定，正在获取媒体流信息：%s", item.path)
             outcome = self._processes.run(
                 ControlledProcessProfile.FFPROBE,
                 (
@@ -623,6 +635,7 @@ class NativeIngestionPreparationGateway(IngestionPreparationPort):
             )
             raw = outcome.parsed_output
             if not outcome.succeeded or not isinstance(raw, Mapping):
+                logger.warning("媒体流探测失败：%s", item.path)
                 return False
             formatted = format_raw_ffprobe_mediainfo(
                 raw,
@@ -633,6 +646,7 @@ class NativeIngestionPreparationGateway(IngestionPreparationPort):
             if not formatted:
                 return False
             self._pending_bindings.enqueue_binding(item.path, mediainfo=dict(formatted[0]))
+            logger.info("媒体流信息已准备，等待 Emby 路径绑定：%s", item.path)
             return True
         raise ValueError(f"unsupported ingestion preparation classification: {item.classification.value}")
 
@@ -697,7 +711,7 @@ class NativeIngestionPreparationGateway(IngestionPreparationPort):
         return None
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=max(1.0, float(self._settings().emby_api_timeout)))
+        return httpx.Client(timeout=max(1.0, float(self._settings().emby_api_timeout)), trust_env=False)
 
 
 class CeleryIngestionMonitorPublisher:
@@ -1107,6 +1121,7 @@ class IngestionMonitorExecutor:
         assert claimed.claim_token is not None
         error = _safe_error(error_type, exc) if exc is not None else {"type": error_type}
         if claimed.attempts >= INGESTION_MAX_ATTEMPTS:
+            logger.error("自动入库重试已耗尽：%s；原因=%s", claimed.path, error_type)
             return self._ledger.mark_rejected(claimed.id, claimed.claim_token, error=error).item
         return self._retry(claimed, error_type, error=error)
 
@@ -1118,6 +1133,7 @@ class IngestionMonitorExecutor:
         error: Mapping[str, Any] | None = None,
     ) -> MonitorItemProjection:
         assert claimed.claim_token is not None
+        logger.warning("自动入库等待重试：%s；原因=%s，已尝试=%s", claimed.path, error_type, claimed.attempts)
         return self._ledger.mark_retryable(
             claimed.id,
             claimed.claim_token,
@@ -1146,6 +1162,7 @@ class IngestionMonitorExecutor:
         details: Mapping[str, Any] | None = None,
     ) -> MonitorItemProjection:
         assert claimed.claim_token is not None
+        logger.error("自动入库已拒绝：%s；原因=%s", claimed.path, error_type)
         error: dict[str, Any] = {"type": error_type}
         if details:
             safe = redact_sensitive(dict(details))

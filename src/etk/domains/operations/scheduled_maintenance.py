@@ -201,9 +201,11 @@ class HttpxScheduledPluginUpdateGateway:
         settings: Callable[[], Settings],
         *,
         client_factory: Callable[[], httpx.Client] | None = None,
+        external_client_factory: Callable[[], httpx.Client] | None = None,
     ) -> None:
         self._settings = settings
         self._client_factory = client_factory or self._default_client
+        self._external_client_factory = external_client_factory or client_factory or self._default_external_client
 
     def installed_version(self) -> str | None:
         payload = self._emby_get("/Plugins")
@@ -229,7 +231,7 @@ class HttpxScheduledPluginUpdateGateway:
         token = settings.github_token.get_secret_value().strip()
         if token:
             headers["Authorization"] = f"Bearer {token}"
-        with self._client_factory() as client:
+        with self._external_client_factory() as client:
             response = client.get(_LATEST_PLUGIN_RELEASE_API, headers=headers)
         response.raise_for_status()
         payload: Any = response.json()
@@ -296,11 +298,20 @@ class HttpxScheduledPluginUpdateGateway:
 
     def _default_client(self) -> httpx.Client:
         settings = self._settings()
+        return httpx.Client(
+            timeout=httpx.Timeout(max(float(settings.emby_api_timeout), 20.0), connect=10.0),
+            follow_redirects=True,
+            trust_env=False,
+        )
+
+    def _default_external_client(self) -> httpx.Client:
+        settings = self._settings()
         proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
         return httpx.Client(
             proxy=proxy or None,
             timeout=httpx.Timeout(max(float(settings.emby_api_timeout), 20.0), connect=10.0),
             follow_redirects=True,
+            trust_env=False,
         )
 
 

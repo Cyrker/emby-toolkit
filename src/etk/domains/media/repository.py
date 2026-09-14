@@ -1502,7 +1502,7 @@ class SqlAlchemyMediaRepository:
         row: Mapping[str, Any],
     ) -> tuple[Mapping[str, Any], ...]:
         links = [dict(value) for value in _json_list(row.get("actors_json")) if isinstance(value, Mapping)]
-        actor_ids = [value.get("tmdb_id") for value in links if value.get("tmdb_id") is not None]
+        actor_ids = [int(value["tmdb_id"]) for value in links if str(value.get("tmdb_id") or "").isdigit()]
         if not actor_ids:
             return ()
         people = (
@@ -1519,16 +1519,17 @@ class SqlAlchemyMediaRepository:
             .mappings()
             .all()
         )
-        by_id = {value.get("tmdb_person_id"): value for value in people}
+        by_id = {str(value.get("tmdb_person_id")): value for value in people}
         result: list[Mapping[str, Any]] = []
         for link in links:
-            person = by_id.get(link.get("tmdb_id"))
-            if person is not None:
+            person = by_id.get(str(link.get("tmdb_id"))) or {}
+            name = person.get("primary_name") or link.get("name")
+            if name:
                 result.append(
                     {
-                        "tmdb_id": person.get("tmdb_person_id"),
-                        "name": person.get("primary_name"),
-                        "profile_path": person.get("profile_path"),
+                        "tmdb_id": person.get("tmdb_person_id") or link.get("tmdb_id"),
+                        "name": name,
+                        "profile_path": person.get("profile_path") or link.get("profile_path"),
                         "character": link.get("character"),
                         "order": link.get("order", 999),
                     }

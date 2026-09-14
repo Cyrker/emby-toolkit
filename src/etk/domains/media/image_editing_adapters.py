@@ -66,11 +66,13 @@ class HttpxMediaImageEditingGateway:
         store: SqlAlchemyMediaImageStore,
         *,
         client_factory: Callable[[], httpx.Client] | None = None,
+        external_client_factory: Callable[[], httpx.Client] | None = None,
     ) -> None:
         self._settings = settings
         self._repository = repository
         self._store = store
         self._client_factory = client_factory or self._default_client
+        self._external_client_factory = external_client_factory or client_factory or self._default_external_client
 
     def processor_ready(self) -> bool:
         settings = self._settings()
@@ -100,7 +102,7 @@ class HttpxMediaImageEditingGateway:
         if not api_key:
             raise RuntimeError("TMDb API Key 未配置")
         try:
-            with self._client_factory() as client:
+            with self._external_client_factory() as client:
                 response = client.get(
                     f"{settings.tmdb_api_base_url.strip().rstrip('/')}/{media_type}/{quote(tmdb_id, safe='')}",
                     params={
@@ -223,7 +225,7 @@ class HttpxMediaImageEditingGateway:
         parsed = urlsplit(source_url)
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             raise ValueError("图片 URL 无效")
-        with self._client_factory() as client:
+        with self._external_client_factory() as client:
             with client.stream(
                 "GET",
                 source_url,
@@ -317,12 +319,20 @@ class HttpxMediaImageEditingGateway:
         self._repository.replace_image_policy(key, rules, images)
 
     def _default_client(self) -> httpx.Client:
+        return httpx.Client(
+            timeout=httpx.Timeout(90.0, connect=15.0),
+            follow_redirects=True,
+            trust_env=False,
+        )
+
+    def _default_external_client(self) -> httpx.Client:
         settings = self._settings()
         proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
         return httpx.Client(
             proxy=proxy or None,
             timeout=httpx.Timeout(90.0, connect=15.0),
             follow_redirects=True,
+            trust_env=False,
         )
 
 

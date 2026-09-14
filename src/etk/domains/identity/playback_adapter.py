@@ -94,9 +94,7 @@ class HttpxPlaybackReportingAdapter:
         return base_url, {"X-Emby-Token": api_key, "Accept": "application/json"}
 
     def _default_client(self) -> httpx.Client:
-        settings = self._settings()
-        proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
-        return httpx.Client(proxy=proxy or None, timeout=30)
+        return httpx.Client(timeout=30, trust_env=False)
 
 
 __all__ = ["HttpxPlaybackReportingAdapter"]

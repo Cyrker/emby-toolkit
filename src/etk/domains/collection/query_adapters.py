@@ -23,9 +23,11 @@ class HttpxCollectionQueryAdapter:
         settings: Callable[[], Settings],
         *,
         client_factory: Callable[[], httpx.Client] | None = None,
+        emby_client_factory: Callable[[], httpx.Client] | None = None,
     ) -> None:
         self._settings = settings
         self._client_factory = client_factory or self._default_client
+        self._emby_client_factory = emby_client_factory or client_factory or self._default_emby_client
 
     def collection_details(self, tmdb_collection_id: int) -> Mapping[str, Any] | None:
         return self._tmdb_mapping(
@@ -68,7 +70,7 @@ class HttpxCollectionQueryAdapter:
         if not base_url or not user_id or not token:
             raise CollectionGatewayConfigurationError("Emby 服务器配置不完整")
         try:
-            with self._client_factory() as client:
+            with self._emby_client_factory() as client:
                 response = client.get(
                     f"{base_url}/Users/{quote(user_id, safe='')}/Views",
                     headers={"Accept": "application/json", "X-Emby-Token": token},
@@ -171,7 +173,11 @@ class HttpxCollectionQueryAdapter:
     def _default_client(self) -> httpx.Client:
         settings = self._settings()
         proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
-        return httpx.Client(proxy=proxy or None, timeout=20)
+        return httpx.Client(proxy=proxy or None, timeout=20, trust_env=False)
+
+    @staticmethod
+    def _default_emby_client() -> httpx.Client:
+        return httpx.Client(timeout=20, trust_env=False)
 
 
 def _mapping_items(payload: Mapping[str, Any], key: str) -> tuple[dict[str, Any], ...]:

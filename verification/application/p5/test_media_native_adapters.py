@@ -208,6 +208,63 @@ def test_native_image_proxy_streams_and_replaces_caller_emby_api_key(tmp_path: P
     }
 
 
+def test_native_image_proxy_routes_external_images_and_emby_to_separate_clients(tmp_path: Path) -> None:
+    routed: list[tuple[str, str]] = []
+
+    def factory(label: str) -> Any:
+        def respond(request: httpx.Request) -> httpx.Response:
+            routed.append((label, request.url.host))
+            return httpx.Response(200, headers={"Content-Type": "image/jpeg"}, content=b"fixture-image")
+
+        return _client_factory(respond)
+
+    gateway = HttpxMediaImageProxyGateway(
+        lambda: _settings(),
+        cast(Any, FakeImageStore(tmp_path)),
+        client_factory=factory("direct"),
+        external_client_factory=factory("external"),
+    )
+
+    external = gateway.fetch_external("https://images.fixture.invalid/poster.jpg")
+    emby = gateway.fetch_emby("Items/movie-1/Images/Primary", b"")
+    assert b"".join(external.chunks) == b"fixture-image"
+    assert b"".join(emby.chunks) == b"fixture-image"
+    assert routed == [
+        ("external", "images.fixture.invalid"),
+        ("direct", "emby.fixture.invalid"),
+    ]
+
+
+def test_native_image_editing_routes_emby_identity_and_tmdb_catalog_to_separate_clients() -> None:
+    routed: list[tuple[str, str]] = []
+
+    def direct(request: httpx.Request) -> httpx.Response:
+        routed.append(("direct", request.url.host))
+        return httpx.Response(
+            200,
+            json={"Id": "movie-1", "Type": "Movie", "ProviderIds": {"Tmdb": "100"}},
+        )
+
+    def external(request: httpx.Request) -> httpx.Response:
+        routed.append(("external", request.url.host))
+        return httpx.Response(200, json={"images": {"posters": [], "backdrops": [], "logos": []}})
+
+    gateway = HttpxMediaImageEditingGateway(
+        lambda: _settings(),
+        FakeMediaRepository(),
+        cast(Any, FakeImageStore()),
+        client_factory=_client_factory(direct),
+        external_client_factory=_client_factory(external),
+    )
+
+    catalog = gateway.tmdb_images("movie-1")
+    assert catalog.posters == ()
+    assert routed == [
+        ("direct", "emby.fixture.invalid"),
+        ("external", "tmdb.fixture.invalid"),
+    ]
+
+
 @pytest.mark.parametrize(
     ("write_result", "readback", "expected_status"),
     [

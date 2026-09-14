@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from collections.abc import Mapping, MutableMapping
+from pathlib import Path
 from typing import Any, TextIO
 
 import structlog
@@ -78,6 +80,15 @@ def configure_logging(
         if getattr(current, _MANAGED_HANDLER_ATTRIBUTE, False):
             current.close()
     root.addHandler(handler)
+    data_dir = os.environ.get("APP_DATA_DIR") or os.environ.get("CONFIG_DIR")
+    if data_dir:
+        from .file_log import SharedApplicationLog
+
+        file_handler = SharedApplicationLog(Path(data_dir) / "logs")
+        setattr(file_handler, _MANAGED_HANDLER_ATTRIBUTE, True)
+        file_handler.addFilter(SensitiveDataFilter())
+        file_handler.setLevel(resolved_level)
+        root.addHandler(file_handler)
     root.setLevel(resolved_level)
 
     structlog.configure(

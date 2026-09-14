@@ -586,7 +586,7 @@ def get_dashboard_stats():
     }
     
     try:
-        response = requests.get(api_url, params=params, timeout=30)
+        response = emby.emby_client.get(api_url, params=params, timeout=30)
         response.raise_for_status()
         raw_data = response.json()
     except Exception as e:

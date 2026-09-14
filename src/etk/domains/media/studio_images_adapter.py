@@ -60,9 +60,11 @@ class HttpxStudioImageAdapter:
         settings: Callable[[], Settings],
         *,
         client_factory: Callable[[], httpx.Client] | None = None,
+        external_client_factory: Callable[[], httpx.Client] | None = None,
     ) -> None:
         self._settings = settings
         self._client_factory = client_factory or self._default_client
+        self._external_client_factory = external_client_factory or client_factory or self._default_external_client
 
     def list_studios(self) -> Sequence[Mapping[str, Any]]:
         _settings, base_url, token, user_id = self._identity()
@@ -209,7 +211,7 @@ class HttpxStudioImageAdapter:
 
     def _download_logo(self, logo_path: str) -> tuple[bytes, str]:
         try:
-            with self._client_factory() as client:
+            with self._external_client_factory() as client:
                 with client.stream(
                     "GET",
                     f"https://image.tmdb.org/t/p/original{logo_path}",
@@ -271,7 +273,8 @@ class HttpxStudioImageAdapter:
         if token:
             headers["X-Emby-Token"] = token
         try:
-            with self._client_factory() as client:
+            factory = self._client_factory if token else self._external_client_factory
+            with factory() as client:
                 response = client.get(url, headers=headers, params=dict(params or {}))
         except httpx.HTTPError as exc:
             raise _ProviderQueryRetryable("Studio image provider query is unavailable") from exc
@@ -296,6 +299,14 @@ class HttpxStudioImageAdapter:
         return settings, base_url, token, user_id
 
     def _default_client(self) -> httpx.Client:
+        settings = self._settings()
+        timeout = max(float(settings.emby_api_timeout), 1.0)
+        return httpx.Client(
+            timeout=httpx.Timeout(timeout, connect=min(5.0, timeout)),
+            trust_env=False,
+        )
+
+    def _default_external_client(self) -> httpx.Client:
         settings = self._settings()
         proxy = settings.network_http_proxy_url.strip() if settings.network_proxy_enabled else ""
         timeout = max(float(settings.emby_api_timeout), 1.0)

@@ -134,7 +134,7 @@ class HttpxEmbyIntroFavoriteGateway:
             raise RuntimeError("Emby favorite read is unavailable") from exc
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=max(1.0, float(self._settings().emby_api_timeout)))
+        return httpx.Client(timeout=max(1.0, float(self._settings().emby_api_timeout)), trust_env=False)
 
 
 class PostgresP115IntroRuntimeSource:

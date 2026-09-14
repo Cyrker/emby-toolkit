@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 from pydantic import ValidationError
+from starlette.concurrency import run_in_threadpool
 
 from etk.compatibility.response_contract import fastapi_json_response
 from etk.platform.web import PermissionPolicy, get_request_session
@@ -82,8 +83,10 @@ def read_config(request: Request) -> Any:
     openapi_extra=_request_body(),
 )
 async def save_config(request: Request) -> Any:
-    denied = _config_denial(request, operation="保存")
+    denied = await run_in_threadpool(_config_denial, request, operation="保存")
     if denied is not None:
         return denied
-    result = _service(request).save(await _configuration_body(request))
+    service = _service(request)
+    payload = await _configuration_body(request)
+    result = await run_in_threadpool(service.save, payload)
     return fastapi_json_response(result.payload, status_code=result.status_code)

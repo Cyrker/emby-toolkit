@@ -266,7 +266,7 @@
                               <n-checkbox v-for="lib in nativeAvailableLibraries" :key="lib.Id" :value="lib.Id" :label="lib.Name"/>
                             </n-space>
                           </n-checkbox-group>
-                          <n-text depth="3" v-if="!loadingNativeLibraries && nativeAvailableLibraries.length === 0 && embyServiceAuthorized">
+                          <n-text depth="3" v-if="!loadingNativeLibraries && nativeAvailableLibraries.length === 0 && embyServiceAuthorized && !nativeLibraryError">
                             未找到原生媒体库。请检查 Emby 服务授权。
                           </n-text>
                           <div v-if="nativeLibraryError" style="color: red; margin-top: 5px;">{{ nativeLibraryError }}</div>
@@ -599,7 +599,7 @@
                           <n-tag size="tiny" type="warning" :bordered="false">{{ p115Info.user_info.vip_info?.level_name || '普通用户' }}</n-tag>
                         </div>
                         <div style="font-size: 12px; color: var(--n-text-color-3); margin-top: 4px;">
-                          剩余空间: {{ p115Info.user_info.rt_space_info?.all_remain?.size_format || '未知' }}
+                          剩余空间: {{ p115RemainingSpace(p115Info.user_info) }}
                         </div>
                       </div>
                     </div>
@@ -1977,6 +1977,7 @@
 // @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import TelegramTemplateModal from './TelegramTemplateModal.vue';
+import { p115RemainingSpace } from '../../utils/p115Space';
 import PlayPoolConfigModal from './PlayPoolConfigModal.vue';
 import { 
   NCard, NForm, NFormItem, NInputNumber, NSwitch, NButton, NGrid, NGi, 

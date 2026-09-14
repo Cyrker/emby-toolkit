@@ -1069,7 +1069,7 @@ class HttpxMoviePilotGateway:
         return value
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=self._timeout_seconds)
+        return httpx.Client(timeout=self._timeout_seconds, trust_env=False)
 
 
 def _download_task_list(value: Any) -> list[Any] | None:

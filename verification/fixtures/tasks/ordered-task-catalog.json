@@ -200,7 +200,7 @@
       "payload_version": 1,
       "legacy_function": "task_backfill_media_metadata",
       "legacy_signature": "task_backfill_media_metadata(processor)",
-      "legacy_definition": "tasks/media.py:1923",
+      "legacy_definition": "tasks/media.py:1925",
       "registry_source": "tasks/core.py:295",
       "target_stage": "P5",
       "handler_kind": "native"
@@ -473,7 +473,7 @@
       "payload_version": 1,
       "legacy_function": "task_scan_monitor_folders",
       "legacy_signature": "task_scan_monitor_folders(processor)",
-      "legacy_definition": "tasks/media.py:2252",
+      "legacy_definition": "tasks/media.py:2254",
       "registry_source": "tasks/core.py:308",
       "target_stage": "P6",
       "handler_kind": "native"
@@ -534,7 +534,7 @@
       "payload_version": 1,
       "legacy_function": "task_backfill_organize_record_tmdb_ids",
       "legacy_signature": "task_backfill_organize_record_tmdb_ids(processor=None)",
-      "legacy_definition": "tasks/p115.py:175",
+      "legacy_definition": "tasks/p115.py:177",
       "registry_source": "tasks/core.py:311",
       "target_stage": "P6",
       "handler_kind": "native"
@@ -555,7 +555,7 @@
       "payload_version": 1,
       "legacy_function": "task_sync_home_video_strm",
       "legacy_signature": "task_sync_home_video_strm(processor=None)",
-      "legacy_definition": "tasks/p115.py:2743",
+      "legacy_definition": "tasks/p115.py:2742",
       "registry_source": "tasks/core.py:313",
       "target_stage": "P6",
       "handler_kind": "native"
@@ -576,7 +576,7 @@
       "payload_version": 1,
       "legacy_function": "task_repair_p115_fingerprints",
       "legacy_signature": "task_repair_p115_fingerprints(processor)",
-      "legacy_definition": "tasks/media.py:2449",
+      "legacy_definition": "tasks/media.py:2451",
       "registry_source": "tasks/core.py:314",
       "target_stage": "P6",
       "handler_kind": "native"
@@ -597,7 +597,7 @@
       "payload_version": 1,
       "legacy_function": "task_restore_mediainfo",
       "legacy_signature": "task_restore_mediainfo(processor, force_full_update: bool=False)",
-      "legacy_definition": "tasks/media.py:2698",
+      "legacy_definition": "tasks/media.py:2700",
       "registry_source": "tasks/core.py:315",
       "target_stage": "P5",
       "handler_kind": "native"
@@ -639,7 +639,7 @@
       "payload_version": 1,
       "legacy_function": "task_fill_missing_video_screenshots",
       "legacy_signature": "task_fill_missing_video_screenshots(processor)",
-      "legacy_definition": "tasks/media.py:2907",
+      "legacy_definition": "tasks/media.py:2909",
       "registry_source": "tasks/core.py:318",
       "target_stage": "P5",
       "handler_kind": "native"
@@ -991,7 +991,7 @@
       "payload_version": 1,
       "legacy_function": "task_execute_auto_tagging_rules",
       "legacy_signature": "task_execute_auto_tagging_rules(processor)",
-      "legacy_definition": "tasks/media.py:2079",
+      "legacy_definition": "tasks/media.py:2081",
       "registry_source": "tasks/core.py:338",
       "target_stage": "P8",
       "handler_kind": "native"
@@ -1010,7 +1010,7 @@
       "payload_version": 1,
       "legacy_function": "task_fill_studio_images",
       "legacy_signature": "task_fill_studio_images(processor)",
-      "legacy_definition": "tasks/media.py:3307",
+      "legacy_definition": "tasks/media.py:3309",
       "registry_source": "tasks/core.py:339",
       "target_stage": "P8",
       "handler_kind": "native"
@@ -1067,7 +1067,7 @@
       "payload_version": 1,
       "legacy_function": "task_recalculate_library_washing_priorities",
       "legacy_signature": "task_recalculate_library_washing_priorities(processor=None, item_type='all', limit=None, affected_scope=None, scope_revision=None)",
-      "legacy_definition": "tasks/p115.py:3535",
+      "legacy_definition": "tasks/p115.py:3534",
       "registry_source": "tasks/core.py:342",
       "target_stage": "P7",
       "handler_kind": "native"

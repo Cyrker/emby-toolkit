@@ -1574,7 +1574,7 @@ def _find_emby_item_by_path(path: str) -> Dict[str, Any]:
     if not path or not base_url or not api_key:
         return {}
     try:
-        resp = requests.get(
+        resp = emby.emby_client.get(
             f"{base_url}/Items",
             params={
                 "api_key": api_key,

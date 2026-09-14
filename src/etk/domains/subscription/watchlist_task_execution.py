@@ -2205,7 +2205,7 @@ class HttpxWatchlistLibraryAdapter:
         return tuple(result)
 
     def _default_client(self) -> httpx.Client:
-        return httpx.Client(timeout=float(self._settings().emby_api_timeout))
+        return httpx.Client(timeout=float(self._settings().emby_api_timeout), trust_env=False)
 
 
 def _refresh_series(

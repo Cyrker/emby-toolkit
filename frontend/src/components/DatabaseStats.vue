@@ -53,7 +53,7 @@
                 <div class="section-title">媒体库概览</div>
                 <n-grid :cols="2" :x-gap="24" class="media-overview-grid" style="margin-top: 12px; align-items: center;">
                   <n-gi>
-                    <v-chart class="chart" :option="resolutionChartOptions" autoresize style="height: 150px;" />
+                    <v-chart class="chart" :option="mediaTypeChartOptions" autoresize style="height: 150px;" />
                   </n-gi>
                   <n-gi>
                     <n-space vertical justify="center" style="height: 100%;">
@@ -502,8 +502,12 @@ const fetchRankings = async () => {
 };
 
 // --- 计算属性 ---
-const resolutionChartOptions = computed(() => {
-  const chartData = stats.media_library.resolution_stats || [];
+const mediaTypeChartOptions = computed(() => {
+  const chartData = [
+    { name: '电影', value: stats.media_library.movies_in_library },
+    { name: '剧集', value: stats.media_library.series_in_library },
+    { name: '分集', value: stats.media_library.episodes_in_library }
+  ].filter(item => item.value > 0);
   if (!chartData.length) {
     return { series: [{ type: 'pie', data: [{ value: 1, name: '无数据' }] }] };
   }
@@ -516,11 +520,11 @@ const resolutionChartOptions = computed(() => {
       left: 'left',
       top: 'center',
       textStyle: { color: '#ccc' },
-      data: chartData.map(item => item.resolution || '未知')
+      data: chartData.map(item => item.name)
     },
     series: [
       {
-        name: '分辨率',
+        name: '媒体类型',
         type: 'pie',
         radius: isMobile.value ? ['40%', '60%'] : ['50%', '70%'],
         center: isMobile.value ? ['50%', '50%'] : ['70%', '50%'],
@@ -528,7 +532,7 @@ const resolutionChartOptions = computed(() => {
         itemStyle: { borderRadius: 8, borderColor: '#18181c', borderWidth: 2 },
         label: { show: false },
         labelLine: { show: false },
-        data: chartData.map(item => ({ value: item.count, name: item.resolution || '未知' }))
+        data: chartData
       }
     ]
   };

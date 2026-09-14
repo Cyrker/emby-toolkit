@@ -80,13 +80,14 @@ class FakeJobs:
         )
 
 
-def _build_app() -> tuple[FastAPI, FakePermissions, FakeRepository, FakeJobs]:
+def _build_app(emby_item=None) -> tuple[FastAPI, FakePermissions, FakeRepository, FakeJobs]:
     permissions = FakePermissions()
     repository = FakeRepository()
     jobs = FakeJobs()
     service = ReviewReprocessService(
         cast(ReviewReprocessRepository, repository),
         cast(ReviewJobPort, jobs),
+        emby_item=emby_item,
     )
     container = AppContainer(
         Settings(auth_enabled=True),
@@ -105,6 +106,48 @@ def _build_app() -> tuple[FastAPI, FakePermissions, FakeRepository, FakeJobs]:
 def _set_user(client: TestClient, user_id: str) -> None:
     codec = LegacySessionCodec.from_secret_key(SECRET_KEY)
     client.cookies.set("session", codec.dumps({"emby_user_id": user_id}))
+
+
+@pytest.mark.parametrize("route", ["/api/actions/reprocess_item/item-1", "/api/actions/reprocess_all_review_items"])
+def test_only_missing_is_validated_and_forwarded(route):
+    app, permissions, _, jobs = _build_app()
+    permissions.active.add("fixture-admin")
+    permissions.admins.add("fixture-admin")
+    with TestClient(app) as client:
+        _set_user(client, "fixture-admin")
+        for invalid in ("true", 1, None, []):
+            assert client.post(route, json={"only_missing": invalid}).status_code == 400
+        assert not jobs.calls
+        assert client.post(route, json={"only_missing": True}).status_code == 202
+    assert jobs.calls[0][1]["only_missing"] is True
+
+
+def test_search_result_can_reprocess_without_creating_review_record() -> None:
+    app, permissions, repository, jobs = _build_app(
+        lambda item_id: {"Id": item_id, "Name": "Emby Search Result", "Type": "Series"}
+    )
+    permissions.active.add("fixture-admin")
+    permissions.admins.add("fixture-admin")
+    with TestClient(app) as client:
+        _set_user(client, "fixture-admin")
+        response = client.post("/api/actions/reprocess_item/123", json={"reason": "N/A"})
+    assert response.status_code == 202
+    assert jobs.calls[0][1]["item_name"] == "Emby Search Result"
+    assert jobs.calls[0][1]["reason"] is None
+    assert "123" not in repository.items
+
+
+@pytest.mark.parametrize(
+    "source,code", [(None, 404), ({"Id": "123", "Type": "User"}, 400), ({"Id": "456", "Type": "Series"}, 400)]
+)
+def test_search_reprocess_rejects_missing_or_wrong_emby_item(source, code) -> None:
+    app, permissions, _, jobs = _build_app(lambda _: source)
+    permissions.active.add("fixture-admin")
+    permissions.admins.add("fixture-admin")
+    with TestClient(app) as client:
+        _set_user(client, "fixture-admin")
+        assert client.post("/api/actions/reprocess_item/123", json={}).status_code == code
+    assert not jobs.calls
 
 
 def test_review_reprocess_routes_require_current_admin_and_ready_processor() -> None:

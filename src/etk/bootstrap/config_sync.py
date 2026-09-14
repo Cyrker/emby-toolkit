@@ -1,13 +1,43 @@
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
 from sqlalchemy import text
+from starlette.concurrency import run_in_threadpool
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from etk.platform import Settings
 from etk.platform.jobs import UnitOfWorkFactory
+
+
+class RuntimeConfigMiddleware:
+    """配置同步不消费或重建响应流，保留断连、取消及 Content-Length 语义。"""
+
+    def __init__(self, app: ASGIApp, *, synchronize: Callable[[], Any] | None = None) -> None:
+        self.app = app
+        self.synchronize = synchronize
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path = scope.get("path", "")
+        if (
+            scope["type"] == "http"
+            and self.synchronize is not None
+            and path.startswith("/api/")
+            and path != "/api/health"
+        ):
+            try:
+                await run_in_threadpool(self.synchronize)
+            except Exception:
+                logging.getLogger(__name__).exception("API runtime configuration synchronization failed")
+                await JSONResponse({"status": "error", "message": "运行配置同步失败，请稍后重试"}, status_code=503)(
+                    scope, receive, send
+                )
+                return
+        await self.app(scope, receive, send)
 
 
 class RuntimeSnapshotApplier(Protocol):
