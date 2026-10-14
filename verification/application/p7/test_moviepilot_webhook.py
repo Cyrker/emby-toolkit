@@ -18,7 +18,10 @@ from etk.domains.media.effect_execution import (
     MediaEffectDeliveryRetryable,
 )
 from etk.domains.p115.models import P115CredentialSnapshot
-from etk.domains.subscription.moviepilot_transfer import freeze_moviepilot_credential_binding
+from etk.domains.subscription.moviepilot_transfer import (
+    MoviePilotTransferPreparationError,
+    moviepilot_credential_context,
+)
 from etk.domains.subscription.moviepilot_webhook import (
     MOVIEPILOT_ASSISTANT_EVENT_TYPE,
     MOVIEPILOT_TRANSFER_EVENT_TYPE,
@@ -38,6 +41,30 @@ _CREDENTIAL = P115CredentialSnapshot(
     access_token="fixture-openapi-token",
 )
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+@pytest.mark.parametrize("attempts", [1, 5])
+@pytest.mark.parametrize("wrapped", [True, False])
+def test_transfer_failure_keeps_stage_and_provider_code_without_secret_values(attempts, wrapped, caplog):
+    from unittest.mock import Mock
+
+    transfer = Mock()
+    cause = RuntimeError({
+        "code": 40140126, "message": "access_token 校验失败", "access_token": "fixture-do-not-log",
+    })
+    transfer.process.side_effect = MoviePilotTransferPreparationError("file_info", cause) if wrapped else cause
+    delivery = MoviePilotWebhookEffectDelivery(Mock(), transfer)
+    effect = SimpleNamespace(effect_type=MOVIEPILOT_TRANSFER_EVENT_TYPE, attempts=attempts, payload={
+        "event_key": "a" * 64, "event_type": "transfer.complete", "payload_digest": "b" * 64,
+        "payload": {"file": {"file_id": "video"}, "passthrough": True},
+    })
+    expected = MediaEffectDeliveryRetryable if attempts < 5 else MediaEffectDeliveryIndeterminate
+    with pytest.raises(expected) as caught:
+        delivery.deliver(effect)
+    assert caught.value.error["stage"] == ("file_info" if wrapped else "preparation")
+    assert caught.value.error["provider_code"] == "40140126"
+    assert "校验失败" in caught.value.error["cause_message"]
+    assert "fixture-do-not-log" not in str(caught.value.error) + caplog.text
 
 
 class _Credentials:
@@ -368,7 +395,7 @@ def test_transfer_event_preserves_legacy_envelopes_and_freezes_normalized_file()
         "season_number": 1,
         "episode_number": 2,
         "path": "/Fixture/Fixture.S01E02.mkv",
-        **freeze_moviepilot_credential_binding(_CREDENTIAL, "openapi"),
+        **moviepilot_credential_context(_CREDENTIAL, "openapi"),
     }
     assert passthrough_ledger.calls[0]["payload"]["payload"]["passthrough"] is True
 

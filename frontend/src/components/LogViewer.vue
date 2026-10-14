@@ -55,7 +55,7 @@
              </div>
 
             <div v-if="htmlContent" class="iframe-wrapper">
-              <iframe title="日志搜索上下文" :srcdoc="htmlContent" frameborder="0" width="100%" height="100%"></iframe>
+              <LogTimeline :logs="htmlContent" height="calc(100vh - 300px)" />
             </div>
             <n-empty v-else description="未找到匹配的完整处理流程。" style="margin-top: 50px;" />
           </div>
@@ -67,22 +67,7 @@
               返回文件浏览
             </n-button>
 
-            <div v-if="hasSearchResults" class="log-text-area">
-              <div
-                v-for="(line, index) in parsedLogResults"
-                :key="index"
-                class="log-line"
-                :class="line.type === 'log' ? line.level.toLowerCase() : 'raw'"
-              >
-                <template v-if="line.type === 'log'">
-                  <span class="timestamp">{{ line.timestamp }}</span>
-                  <span class="level">{{ line.level }}</span>
-                  <span class="message">{{ line.message }}</span>
-                  <span class="source">{{ line.source }}</span>
-                </template>
-                <template v-else>{{ line.content }}</template>
-              </div>
-            </div>
+            <LogTimeline v-if="hasSearchResults" :logs="searchResults.map(result => result.content)" height="calc(100vh - 300px)" />
             <n-empty v-else description="未找到匹配的日志记录。" style="margin-top: 50px;" />
           </div>
 
@@ -99,12 +84,12 @@
                 style="width: 100%; max-width: 560px;"
               />
               <n-button size="small" secondary :disabled="!selectedFile" @click="fetchLogContent(selectedFile)">刷新日志</n-button>
-              <span class="tip">按完整记录倒序，异常堆栈可展开。app.log 合并运行日志与有限任务快照；10 MiB 轮转，保留 1 份归档。</span>
+              <span class="tip">按完整记录倒序，每页 50 条；HTTP 明细按需展开，长错误原文分段查看。</span>
             </div>
 
             <!-- 这里复用 iframe-wrapper -->
             <div v-if="logContent" class="iframe-wrapper">
-              <iframe title="统一应用日志" :srcdoc="logContent" frameborder="0" width="100%" height="100%"></iframe>
+              <LogTimeline :logs="logContent" height="calc(100vh - 320px)" />
             </div>
             <n-empty v-else description="无数据" style="margin-top: 50px;" />
           </div>
@@ -120,6 +105,7 @@
 // @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, watch, computed } from 'vue';
 import apiClient, { apiPath } from '@/api/client'
+import LogTimeline from './LogTimeline.vue'
 import {
   useMessage, NDrawer, NDrawerContent, NSelect, NSpace, NSpin,
   NInput, NInputGroup, NButton, NDivider, NEmpty, NIcon,
@@ -136,10 +122,10 @@ const isLoadingContent = ref(false);
 const isSearching = ref(false);
 const logFiles = ref([]);
 const selectedFile = ref(null);
-const logContent = ref(''); // 现在这里存储的是 HTML 字符串
+const logContent = ref('');
 const searchQuery = ref('');
 const searchResults = ref([]);
-const htmlContent = ref(''); // 搜索结果的 HTML
+const htmlContent = ref(''); // 上下文原始记录，由 LogTimeline 统一渲染
 const isSearchMode = ref(false);
 const searchMode = ref('context');
 
@@ -151,31 +137,6 @@ const loadingText = computed(() => {
   if (isLoadingContent.value) return '正在渲染日志视图...';
   if (isSearching.value) return '正在搜索...';
   return '';
-});
-
-// 仅用于筛选模式的简单解析
-const parseLogLine = (line) => {
-  const match = line.match(/^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})(?:[,.]\d+)?\s-\s(.+?)\s-\s(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s-\s([\s\S]*)$/);
-  if (match) {
-    return { type: 'log', timestamp: match[1], source: match[2], level: match[3], message: match[4].trim() };
-  }
-  return { type: 'raw', content: line };
-};
-
-const parsedLogResults = computed(() => {
-  if (!hasSearchResults.value || searchMode.value === 'context') return [];
-  const finalLines = [];
-  finalLines.push(`以“筛选”模式找到 ${searchResults.value.length} 条结果:`);
-  let lastFile = '';
-  searchResults.value.forEach(result => {
-    if (result.file !== lastFile) {
-      if (finalLines.length > 1) finalLines.push('');
-      finalLines.push(`--- [ 文件: ${result.file} ] ---`);
-      lastFile = result.file;
-    }
-    finalLines.push(result.content);
-  });
-  return finalLines.map(parseLogLine);
 });
 
 const fetchLogFiles = async () => {
@@ -194,7 +155,6 @@ const fetchLogFiles = async () => {
   }
 };
 
-// ★★★ 修改：请求 HTML 格式 ★★★
 const fetchLogContent = async (filename) => {
   if (!filename) return;
   isLoadingContent.value = true;
@@ -203,7 +163,7 @@ const fetchLogContent = async (filename) => {
     const response = await apiClient.get(apiPath('api_logs_view_109de3a6'), {
       params: {
         filename,
-        format: 'html' // 告诉后端我要 HTML
+        format: 'text'
       },
       responseType: 'text'
     });
@@ -228,11 +188,10 @@ const executeSearch = async () => {
   try {
     if (searchMode.value === 'context') {
       const response = await apiClient.get(apiPath('api_logs_search_context_321408d5'), {
-        params: { q: searchQuery.value, format: 'html' },
-        responseType: 'text'
+        params: { q: searchQuery.value, format: 'json' },
       });
-      if (response.data && response.data.includes('class="log-block"')) {
-        htmlContent.value = response.data;
+      if (Array.isArray(response.data) && response.data.length) {
+        htmlContent.value = response.data.map(block => block.lines.join('\n')).join('\n');
       } else {
         htmlContent.value = '';
       }
@@ -320,9 +279,9 @@ watch(() => props.show, (newVal) => {
   border: 1px solid #333;
   border-radius: 4px;
   overflow: hidden;
-  background-color: #1e1e1e;
+  padding: 12px;
   height: 100%;
-  display: flex;
+  display: block;
 }
 
 iframe { flex: 1; display: block; }

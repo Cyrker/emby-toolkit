@@ -3,9 +3,12 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import PurePosixPath
 from typing import Any, Protocol
 
+from etk.domains.media.effect_execution import MediaEffectDeliveryIndeterminate
+from etk.domains.p115.auth_directory import OPENAPI_AUTH_ERROR_CODES
 from etk.domains.p115.fingerprints import canonical_sha1
 from etk.domains.p115.maintenance_transport import P115PrimaryOperationsGateway
 from etk.domains.p115.media_probe import (
@@ -16,6 +19,36 @@ from etk.domains.p115.models import P115CredentialSnapshot, P115Result
 from etk.domains.p115.organize_plan import (
     P115SourceNode,
 )
+from etk.platform.observability.redaction import redact_sensitive
+
+
+class MoviePilotTransferPreparationError(RuntimeError):
+    def __init__(self, stage: str, cause: Exception) -> None:
+        self.details = {
+            "stage": stage,
+            "cause_type": type(cause).__name__,
+            "cause_message": str(redact_sensitive(cause.args))[:2000],
+            "provider_code": _provider_code(cause),
+        }
+        super().__init__(f"MoviePilot {stage}: {self.details['cause_message']}")
+
+
+def _provider_code(value: object) -> str:
+    if isinstance(value, Mapping):
+        return str(value.get("code") or value.get("errno") or "")
+    if isinstance(value, Exception):
+        return next((_provider_code(arg) for arg in value.args if isinstance(arg, Mapping)), "")
+    return ""
+
+
+@contextmanager
+def _transfer_stage(stage: str):
+    try:
+        yield
+    except (ValueError, MoviePilotTransferPreparationError, MediaEffectDeliveryIndeterminate):
+        raise
+    except Exception as exc:
+        raise MoviePilotTransferPreparationError(stage, exc) from exc
 
 _VIDEO_EXTENSIONS = frozenset({"avi", "flv", "iso", "m2ts", "mkv", "mov", "mp4", "mpg", "rmvb", "ts", "wmv"})
 _SIDECAR_EXTENSIONS = frozenset({"ass", "idx", "nfo", "srt", "ssa", "sub", "sup", "vtt"})
@@ -87,6 +120,12 @@ class MoviePilotExecutionRepositoryPort(Protocol):
     def find_by_intent(self, approved_intent_id: str) -> Any: ...
 
 
+class MoviePilotStrmProjection(Protocol):
+    def project(
+        self, *, file: Mapping[str, Any], event_key: str, assert_current: Callable[[], None]
+    ) -> Mapping[str, Any]: ...
+
+
 class ExplicitMoviePilotRecognitionGateway:
     """Recognition boundary for MP events whose TMDb identity is already authoritative."""
 
@@ -139,7 +178,7 @@ class MoviePilotOriginalNameGateway:
 
 
 class NativeMoviePilotTransferProcessor:
-    """Prepare an immutable native organize execution or a passthrough STRM reconcile Job."""
+    """Prepare native organization or project only the file from an MP passthrough event."""
 
     def __init__(
         self,
@@ -151,6 +190,8 @@ class NativeMoviePilotTransferProcessor:
         executions: MoviePilotOrganizeExecutionPort,
         execution_repository: MoviePilotExecutionRepositoryPort,
         jobs: Callable[[], Any],
+        passthrough_projection: MoviePilotStrmProjection | None = None,
+        check_openapi: Callable[[], tuple[P115CredentialSnapshot, Mapping[str, Any]]] | None = None,
     ) -> None:
         self._credentials = credentials
         self._remote = remote
@@ -159,6 +200,8 @@ class NativeMoviePilotTransferProcessor:
         self._executions = executions
         self._execution_repository = execution_repository
         self._jobs = jobs
+        self._passthrough_projection = passthrough_projection
+        self._check_openapi = check_openapi
 
     def process(
         self,
@@ -171,50 +214,65 @@ class NativeMoviePilotTransferProcessor:
         event_identity = _digest(event_key)
         file_id = _required_text(file.get("file_id"), "file_id")
         tmdb_id = _required_text(file.get("tmdb_id"), "tmdb_id")
+        approved_intent = f"moviepilot-transfer:{event_identity}"
+        existing = self._execution_repository.find_by_intent(approved_intent) if not passthrough else None
+        if existing is not None:
+            return _execution_result(existing, event_type=event_type, file_id=file_id, tmdb_id=tmdb_id, reused=True)
+
+        client, account_id, backend, credential_fingerprint = self._open_current(file)
         if passthrough:
-            submitted = self._jobs().submit_task(
-                "full-sync-strm",
-                {"home_video_only": False},
-                trigger_type="system",
-                idempotency_scope="moviepilot-transfer-passthrough",
-                idempotency_key=event_identity,
-                max_attempts=2,
-                queue_name="native.serial",
-            )
+            if self._passthrough_projection is None:
+                raise RuntimeError("MoviePilot passthrough projection is unavailable")
+            with _transfer_stage("file_info"):
+                for attempt in range(2):
+                    try:
+                        response = client.file_info(file_id)
+                    except Exception as exc:
+                        if attempt or backend != "openapi" or _provider_code(exc) not in OPENAPI_AUTH_ERROR_CODES:
+                            raise
+                    else:
+                        if response.get("state") is not False:
+                            break
+                        if attempt or backend != "openapi" or _provider_code(response) not in OPENAPI_AUTH_ERROR_CODES:
+                            raise RuntimeError("MoviePilot passthrough provider file readback failed", dict(response))
+                    # 只重试只读查询；不会在这里重放投影、移动或删除。
+                    client, account_id, backend, credential_fingerprint = self._open_current(file)
+            target = _payload_mapping(response)
+            if _item_id(target) != file_id or _item_name(target) != file.get("file_name"):
+                raise ValueError("MoviePilot passthrough file identity changed after the event")
+            parent = str(target.get("parent_id") or target.get("pid") or target.get("cid") or "")
+            paths = target.get("paths")
+            if isinstance(paths, list) and paths:
+                nodes = [node for node in paths if isinstance(node, Mapping) and _item_id(node) != "0"]
+                actual_path = "/" + "/".join([*(_item_name(node) for node in nodes), _item_name(target)])
+                if actual_path != file.get("path"):
+                    raise ValueError("MoviePilot passthrough path changed after the event")
+                parent = _item_id(nodes[-1]) if nodes else parent
+            projected = {
+                **file,
+                "account_id": account_id,
+                "parent_id": parent or file.get("parent_id"),
+                "sha1": canonical_sha1(_sha1(target)),
+                "pick_code": _required_text(_pick_code(target), "pick_code"),
+                "size": _size(target),
+            }
+            with _transfer_stage("media_info"):
+                if _extension(target) in _VIDEO_EXTENSIONS:
+                    self._ensure_media_info(account_id=account_id, event_key=event_identity, item=target, hint=file)
+            with _transfer_stage("projection"):
+                result = self._passthrough_projection.project(
+                    file=projected,
+                    event_key=event_identity,
+                    assert_current=lambda: self._assert_credential_binding(account_id, backend, credential_fingerprint),
+                )
             return {
+                **result,
                 "event_type": event_type,
                 "file_id": file_id,
                 "tmdb_id": tmdb_id,
                 "passthrough": True,
-                "job_id": str(submitted.projection.job.id),
-                "job_reused": submitted.reused,
-                "reconciliation": "full-sync-strm",
+                "reconciliation": "single-file-strm",
             }
-
-        approved_intent = f"moviepilot-transfer:{event_identity}"
-        existing = self._execution_repository.find_by_intent(approved_intent)
-        if existing is not None:
-            return _execution_result(existing, event_type=event_type, file_id=file_id, tmdb_id=tmdb_id, reused=True)
-
-        account_id = _required_text(file.get("account_id"), "account_id")
-        backend = _required_text(file.get("provider_backend"), "provider_backend").casefold()
-        credential_fingerprint = _digest(file.get("credential_fingerprint"))
-        snapshot = self._credentials.load()
-        current_backend, current_fingerprint = _credential_binding(snapshot, backend)
-        if (
-            not account_id.isdigit()
-            or str(snapshot.account_id or "").strip() != account_id
-            or current_backend != backend
-            or current_fingerprint != credential_fingerprint
-        ):
-            raise RuntimeError("MoviePilot transfer 115 credential changed before preparation")
-        client = self._remote.open(
-            expected_account_id=account_id,
-            expected_backend=backend,
-            expected_credential_fingerprint=credential_fingerprint,
-        )
-        if client is None:
-            raise RuntimeError("MoviePilot transfer 115 client is unavailable")
         parent_id = _required_text(file.get("parent_id"), "parent_id")
         children = tuple(dict(item) for item in client.list_children(parent_id))
         target = next((item for item in children if _item_id(item) == file_id), None)
@@ -278,6 +336,25 @@ class NativeMoviePilotTransferProcessor:
             tmdb_id=tmdb_id,
             reused=not reservation.created,
         )
+
+    def _open_current(self, file: Mapping[str, Any]) -> tuple[Any, str, str, str]:
+        with _transfer_stage("authorization"):
+            snapshot = self._credentials.load()
+            backend, fingerprint = _credential_binding(snapshot, str(file.get("provider_backend") or "openapi"))
+            if backend == "openapi" and self._check_openapi is not None:
+                snapshot, response = self._check_openapi()
+                if not response.get("state"):
+                    raise RuntimeError("115 OpenAPI authorization failed", dict(response))
+                backend, fingerprint = _credential_binding(snapshot, "openapi")
+            account_id = _required_text(snapshot.account_id, "account_id")
+            client = self._remote.open(
+                expected_account_id=account_id,
+                expected_backend=backend,
+                expected_credential_fingerprint=fingerprint,
+            )
+            if client is None:
+                raise RuntimeError("MoviePilot transfer 115 client is unavailable")
+            return client, account_id, backend, fingerprint
 
     def _ensure_media_info(
         self,
@@ -425,7 +502,7 @@ def _pick_code(value: Mapping[str, Any]) -> str:
 
 
 def _size(value: Mapping[str, Any]) -> int:
-    raw = value.get("fs") or value.get("size") or value.get("file_size") or 0
+    raw = value.get("size_byte") or value.get("fs") or value.get("file_size") or value.get("size") or 0
     if isinstance(raw, bool):
         return 0
     try:
@@ -471,18 +548,17 @@ def _stems_related(left: str, right: str) -> bool:
     return bool(left and right and left == right)
 
 
-def freeze_moviepilot_credential_binding(
+def moviepilot_credential_context(
     snapshot: P115CredentialSnapshot,
     priority: str,
 ) -> dict[str, str]:
     account_id = str(snapshot.account_id or "").strip()
     if not account_id.isdigit():
         raise RuntimeError("MoviePilot transfer requires a stable 115 account identity")
-    backend, fingerprint = _credential_binding(snapshot, priority)
+    backend, _ = _credential_binding(snapshot, priority)
     return {
         "account_id": account_id,
         "provider_backend": backend,
-        "credential_fingerprint": fingerprint,
     }
 
 
@@ -534,7 +610,7 @@ def _digest(value: object) -> str:
 
 __all__ = [
     "ExplicitMoviePilotRecognitionGateway",
-    "freeze_moviepilot_credential_binding",
+    "moviepilot_credential_context",
     "MoviePilotCredentialStore",
     "MoviePilotOriginalNameGateway",
     "MoviePilotTransferRemoteClient",

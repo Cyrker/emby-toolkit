@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
+from unittest.mock import Mock
 from uuid import UUID
 
 import pytest
@@ -11,6 +13,8 @@ from etk.domains.identity.user_sync import UserSyncService
 from etk.domains.operations.review_reprocess import (
     REVIEW_REPROCESS_ALL_TASK_KEY,
     REVIEW_REPROCESS_ONE_TASK_KEY,
+    NativeReviewReprocessExecutor,
+    PersistentReviewJobGateway,
 )
 from etk.platform.tasks import ProcessorIdentity, TaskMessage, TaskOutcome, TaskOutcomeStatus, TaskRegistry
 from etk.platform.tasks.catalog import P8_NATIVE_TASK_KEYS
@@ -523,3 +527,55 @@ def test_review_reprocess_internal_jobs_use_fixed_worker_allowlist() -> None:
             object(),
             FakeProgress(),
         )
+
+
+@pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize("mode", [None, False, True])
+def test_review_submission_passes_real_worker_router_and_native_executor(batch, mode):
+    store = Mock()
+    store.create_job.return_value = SimpleNamespace(projection=object(), reused=False)
+    gateway = PersistentReviewJobGateway(SimpleNamespace(store=store))
+    common = {"requested_by_user_id": None, "trace_id": None, "idempotency_key": None}
+    if batch:
+        gateway.submit_all(reason_filter=None, only_missing=bool(mode), **common)
+    else:
+        gateway.submit_one(item_id="item-1", item_name="Fixture", reason=None, only_missing=bool(mode), **common)
+    submitted = store.create_job.call_args.kwargs
+    parameters = submitted["payload"]["parameters"]
+    if mode is None:
+        parameters.pop("only_missing")  # 升级前的持久任务仍可执行。
+    repository = Mock()
+    repository.items.return_value = [{"item_id": "item-1", "item_name": "Fixture", "reason": None}]
+    reprocess = Mock()
+    reprocess.execute.return_value = TaskOutcome.succeeded("done")
+    router = P8EffectTaskRouter(None, None, review_reprocess=NativeReviewReprocessExecutor(repository, reprocess))
+    result = router.execute_review(submitted["task_key"], parameters, None, FakeProgress())
+    assert result.status is TaskOutcomeStatus.SUCCEEDED
+    assert reprocess.execute.call_count == 1
+    assert reprocess.execute.call_args.args[0] == "item-1"
+    assert reprocess.execute.call_args.kwargs.get("only_missing", False) is bool(mode)
+
+
+@pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize("invalid", [None, "true", "false", 0, 1, [], {}])
+def test_review_worker_rejects_non_boolean_mode_before_execution(batch, invalid):
+    executor = Mock()
+    router = P8EffectTaskRouter(None, None, review_reprocess=executor)
+    parameters = (
+        {"reason_filter": None}
+        if batch
+        else {
+            "item_id": "item-1",
+            "item_name_for_ui": "Fixture",
+            "failure_reason": None,
+        }
+    )
+    parameters["only_missing"] = invalid
+    with pytest.raises(TypeError, match="only_missing must be boolean"):
+        router.execute_review(
+            REVIEW_REPROCESS_ALL_TASK_KEY if batch else REVIEW_REPROCESS_ONE_TASK_KEY,
+            parameters,
+            None,
+            FakeProgress(),
+        )
+    executor.execute.assert_not_called()

@@ -1,10 +1,20 @@
 # ETK 全项目重构执行方案
 
 > 文档编号：`ETK-RF-001`
-> 状态：实施中；阶段状态以 `goal-tasks.md` 为准
+> 状态：历史重构方案；Local 阶段已收口，完整 Live 仍待验收，实时状态以 `goal-tasks.md` 为准
 > 编制日期：2026-08-22
 > 代码基线：`main@00786dcd`，应用版本 `10.8.65`
-> 适用范围：当前仓库中的旧版 Emby ToolKit，不代表上游 ETKvNext 仓库的实现计划
+> 适用范围：本仓库重构前的旧版 Emby ToolKit 基线，不代表当前运行拓扑或上游 ETKvNext 的实现计划
+
+## 当前适用范围说明（2026-09-12）
+
+- 日常开发先读 [短期上下文](./short-term-context.md) 和 [长期知识库](./long-term-knowledge-base.md)。本文保留重构前规模、迁移步骤、设计决策和历史检查表，不能将下文“当前”“尚未迁移”直接解释为今天的状态。
+- P0–P8、P10–P12 Local 已 `DONE`，P9 为 `LOCAL_DONE`；完整 LIVE 仍 `HUMAN_PENDING`。旧检查表不充当第二份 tracker，也不在文档更新时批量补勾。
+- 现役入口已为 FastAPI `main.py`，PostgreSQL 18、Celery/Redis、独立 Worker/Coordinator/Control Plane/Proxy/Gateway；Flask fallback 是迁移期方案，不是当前生产宿主。
+- 2026-09-10/11 的后续产品指令已移除 ETK Pro 门槛并退役共享资源中心、HDHive、TG UserBot 监听；旧功能保留条款只用于追溯，不能据此恢复已退役入口。冻结 50 个 key 不等于 50 个活动任务。
+- 原 Greenfield 空状态要求用于首次迁移和可丢弃 P12 验证。当前 Debian 已有持久数据，后续授权升级需备份并保留配置与数据卷，不得套用本文的销毁重建步骤清空线上状态。
+- 前端已提供 TypeScript/typecheck、生成客户端和 `frontend/e2e/`；下文旧版本的“未提供 typecheck”及 `verification/e2e/api` 示例不作为当前执行命令。
+- 本节只纠正文档适用范围，不改写历史业务合同和测试结果，也不授权新的生产操作。
 
 ## 1. 决策摘要
 
@@ -83,7 +93,7 @@
 - 启用新环境前，不允许任何旧实例继续处理相同媒体、Webhook、任务或共享中心事件。
 - 不把单体拆成远程微服务；进程角色可以分离，但代码和发布单元保持一个仓库、一个版本。
 
-## 3. 当前状态基线
+## 3. 重构前状态基线
 
 ### 3.1 已核实规模
 
@@ -146,7 +156,7 @@
 
 历史明文提交 `f94afbc4426f9997780ff838a6aa3d032ba9474d` 只用于理解启动职责，不作为当前 PyArmor 载荷逐字等价的证据。任何启动行为都必须通过当前隔离运行环境重新验证。
 
-### 3.4 当前启动拓扑
+### 3.4 重构前启动拓扑
 
 ```text
 docker/entrypoint.sh

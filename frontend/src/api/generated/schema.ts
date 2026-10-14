@@ -2208,6 +2208,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/emby/scrape-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scrape Records */
+        get: operations["scrape_records_api_emby_scrape_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/emby/search": {
         parameters: {
             query?: never;
@@ -11317,6 +11334,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExternalObjectResponse"];
+                };
+            };
+        };
+    };
+    scrape_records_api_emby_scrape_records_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+                search?: string;
+                status?: "" | "running" | "cancelled" | "failed" | "incomplete" | "skipped" | "completed";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

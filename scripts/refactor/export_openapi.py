@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 260
-EXPECTED_OPERATIONS = 309
+EXPECTED_PATHS = 261
+EXPECTED_OPERATIONS = 310
 RETIRED_EXTERNAL_RESOURCE_PATH_PREFIXES = (
     "/api/shared/resources",
     "/api/subscription/hdhive",
@@ -253,6 +253,8 @@ def _validate_schema(schema: dict[str, Any]) -> None:
     operations = sum(len(methods) for methods in paths.values())
     if len(paths) != EXPECTED_PATHS or operations != EXPECTED_OPERATIONS:
         raise RuntimeError(f"unexpected P11 OpenAPI surface: paths={len(paths)} operations={operations}")
+    if set(paths.get('/api/emby/scrape-records', {})) != {'get'}:
+        raise RuntimeError('scrape record history must remain read-only')
     retired_paths = sorted(
         path for path in paths if any(path.startswith(prefix) for prefix in RETIRED_EXTERNAL_RESOURCE_PATH_PREFIXES)
     )

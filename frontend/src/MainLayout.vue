@@ -205,7 +205,7 @@
     
     <!-- 实时日志模态框 -->
     <n-modal v-model:show="isRealtimeLogVisible" preset="card" style="width: 95%; max-width: 900px;" title="实时任务日志" class="modal-card-lite">
-       <n-log ref="logRef" :log="logContent" trim class="log-panel" style="height: 60vh; font-size: 13px; line-height: 1.6;"/>
+       <LogTimeline :logs="props.taskStatus?.logs" />
     </n-modal>
 
     <!-- 历史日志模态框 -->
@@ -292,13 +292,13 @@ import { useRouter, useRoute } from 'vue-router';
 import {
   NLayout, NLayoutHeader, NLayoutSider, NLayoutContent,
   NMenu, NSwitch, NIcon, NModal, NDropdown, NButton,
-  NSelect, NTooltip, NCard, NText, NProgress, NButtonGroup, NLog,
+  NSelect, NTooltip, NCard, NText, NProgress, NButtonGroup,
   useMessage, useDialog, NInput, NSpace, NPopconfirm
 } from 'naive-ui';
 import { useAuthStore } from './stores/auth';
 import { themes } from './theme.ts';
 import LogViewer from './components/LogViewer.vue';
-import { formatTaskLogs } from './utils/taskLogs';
+import LogTimeline from './components/LogTimeline.vue';
 import {
   AnalyticsOutline as StatsIcon,
   ListOutline as ReviewListIcon,
@@ -391,7 +391,6 @@ const appVersion = ref(__APP_VERSION__);
 
 const isRealtimeLogVisible = ref(false);
 const isHistoryLogVisible = ref(false);
-const logRef = ref(null);
 
 watch(() => route.path, () => {
   if (isMobile.value) {
@@ -410,14 +409,6 @@ const themeOptions = [
 
 const renderIcon = (iconComponent) => () => h(NIcon, null, { default: () => h(iconComponent) });
 
-const logContent = computed(() => formatTaskLogs(props.taskStatus?.logs) || '等待任务日志...');
-
-watch([() => props.taskStatus?.logs, isRealtimeLogVisible], async ([, isVisible]) => {
-  if (isVisible) {
-    await nextTick();
-    logRef.value?.scrollTo({ position: 'bottom', slient: true });
-  }
-}, { deep: true });
 
 const userOptions = computed(() => {
   const options = [];
@@ -528,7 +519,7 @@ const baseMenuOptions = computed(() => {
           { label: '媒体去重', defaultLabel: '媒体去重', key: 'MediaCleanupPage', icon: renderIcon(CleanupIcon) },
           { label: '媒体整理', defaultLabel: '媒体整理', key: 'ResubscribePage', icon: renderIcon(ResubscribeIcon) },
           { label: '自动标签', defaultLabel: '自动标签', key: 'AutoTaggingPage', icon: renderIcon(TagIcon) },
-          { label: '整理记录', defaultLabel: '整理记录', key: 'OrganizeRecords', icon: renderIcon(RecordsIcon) },  
+          { label: '整理 / 刮削记录', defaultLabel: '整理 / 刮削记录', key: 'OrganizeRecords', icon: renderIcon(RecordsIcon) },
           { label: '手动处理', defaultLabel: '手动处理', key: 'ReviewList', icon: renderIcon(ReviewListIcon) }, 
         ] 
       },

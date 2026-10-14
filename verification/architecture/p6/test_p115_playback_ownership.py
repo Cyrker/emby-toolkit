@@ -148,7 +148,7 @@ def test_playback_migration_is_single_head_and_owns_exactly_four_native_tables()
     repository = _source("src/etk/domains/p115/playback_repository.py")
     assert all(table in repository for table in PLAYBACK_TABLES)
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0027_p11_watchlist_display"]
+    assert scripts.get_heads() == ["0028_media_notice_batches"]
 
 
 def test_native_playback_config_and_approved_state_replacements_are_claimed() -> None:

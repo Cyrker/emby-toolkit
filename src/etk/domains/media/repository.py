@@ -45,6 +45,8 @@ class MediaInfoCacheNotFoundError(RuntimeError):
 
 
 class MediaRepository(Protocol):
+    def list_scrape_records(self, *, page: int, per_page: int, search: str, status: str) -> dict[str, Any]: ...
+
     def resolve_by_path(
         self,
         path: str,
@@ -152,6 +154,12 @@ class SqlAlchemyMediaRepository:
 
     def __init__(self, unit_of_work: Callable[[], SqlAlchemyUnitOfWork]) -> None:
         self._unit_of_work = unit_of_work
+
+    def list_scrape_records(self, *, page: int, per_page: int, search: str, status: str) -> dict[str, Any]:
+        from .scrape_records import list_scrape_records
+
+        with self._unit_of_work() as uow:
+            return list_scrape_records(uow, page=page, per_page=per_page, search=search, status=status)
 
     def resolve_by_path(
         self,
@@ -1524,6 +1532,8 @@ class SqlAlchemyMediaRepository:
         for link in links:
             person = by_id.get(str(link.get("tmdb_id"))) or {}
             name = person.get("primary_name") or link.get("name")
+            if name == link.get("original_name") and link.get("name"):
+                name = link["name"]
             if name:
                 result.append(
                     {

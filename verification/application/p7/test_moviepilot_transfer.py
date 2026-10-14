@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import Mock
 from uuid import UUID
 
 import pytest
@@ -12,7 +13,7 @@ from etk.domains.p115.media_probe import P115MediaProbeResult, P115MediaProbeSta
 from etk.domains.p115.models import P115CredentialSnapshot, P115Result
 from etk.domains.subscription.moviepilot_transfer import (
     NativeMoviePilotTransferProcessor,
-    freeze_moviepilot_credential_binding,
+    moviepilot_credential_context,
 )
 
 _EVENT_KEY = "a" * 64
@@ -174,7 +175,7 @@ def _event_file(
         "media_type": "tv",
         "season_number": 1,
         "episode_number": 2,
-        **freeze_moviepilot_credential_binding(credential, "openapi"),
+        **moviepilot_credential_context(credential, "openapi"),
     }
 
 
@@ -185,6 +186,8 @@ def _processor(
     plans: FakePlans | None = None,
     existing_execution: Any = None,
     file_info_item: Mapping[str, Any] | None = None,
+    passthrough_projection: Any = None,
+    check_openapi: Any = None,
 ) -> tuple[
     NativeMoviePilotTransferProcessor,
     FakeRemote,
@@ -208,35 +211,162 @@ def _processor(
         executions=executions,
         execution_repository=repository,
         jobs=lambda: jobs,
+        passthrough_projection=passthrough_projection,
+        check_openapi=check_openapi,
     )
     return processor, remote, media_info, plan_service, executions, repository, jobs
 
 
-def test_passthrough_submits_one_stable_full_sync_job() -> None:
-    processor, remote, _media_info, plans, executions, _repository, jobs = _processor()
+def test_queued_transfer_uses_current_token_instead_of_old_event_fingerprint() -> None:
+    current = P115CredentialSnapshot(account_id="115001", access_token="renewed-token")
+    processor, remote, *_ = _processor(
+        credentials=FakeCredentials((current,)),
+        file_info_item=_file("video", "Fixture.S01E02.mkv", sha1="A" * 40, pick_code="pc-video"),
+        passthrough_projection=SimpleNamespace(project=lambda **kw: {}),
+    )
+    processor.process(event_key=_EVENT_KEY, event_type="transfer.complete", passthrough=True,
+        file={**_event_file(), "credential_fingerprint": "b" * 64, "file_name": "Fixture.S01E02.mkv"})
+    assert remote.open_calls[0]["expected_credential_fingerprint"] not in {"b" * 64, ""}
+    assert "credential_fingerprint" not in moviepilot_credential_context(current, "openapi")
+
+
+@pytest.mark.parametrize("as_exception", [False, True])
+def test_file_read_auth_failure_reopens_current_client_once_before_projection(as_exception) -> None:
+    old = _DEFAULT_CREDENTIAL
+    current = P115CredentialSnapshot(account_id="115001", access_token="renewed-token")
+    check = Mock(side_effect=[(old, {"state": True}), (current, {"state": True})])
+    projection = Mock(return_value={})
+    processor, remote, *_ = _processor(
+        credentials=FakeCredentials((old, current)), check_openapi=check,
+        passthrough_projection=SimpleNamespace(project=projection),
+    )
+    failure = {"state": False, "code": 40140126, "message": "access_token 校验失败"}
+    remote.client.file_info = Mock(side_effect=[
+        RuntimeError(failure) if as_exception else failure,
+        _file("video", "Fixture.S01E02.mkv", sha1="A" * 40, pick_code="pc-video"),
+    ])
+    processor.process(event_key=_EVENT_KEY, event_type="transfer.complete", passthrough=True,
+        file={**_event_file(), "file_name": "Fixture.S01E02.mkv"})
+    assert check.call_count == 2
+    assert len(remote.open_calls) == 2
+    fingerprints = [call["expected_credential_fingerprint"] for call in remote.open_calls]
+    assert fingerprints[0] != fingerprints[1]
+    projection.assert_called_once()
+
+
+def test_authorization_failure_stops_before_read_or_projection_and_keeps_code() -> None:
+    from etk.domains.subscription.moviepilot_transfer import MoviePilotTransferPreparationError
+
+    check = Mock(return_value=(_DEFAULT_CREDENTIAL, {"state": False, "code": 40140126}))
+    processor, remote, *_ = _processor(check_openapi=check)
+    with pytest.raises(MoviePilotTransferPreparationError) as caught:
+        processor.process(event_key=_EVENT_KEY, event_type="transfer.complete", file=_event_file(), passthrough=True)
+    assert caught.value.details["stage"] == "authorization"
+    assert caught.value.details["provider_code"] == "40140126"
+    assert remote.open_calls == []
+
+
+def test_expired_openapi_is_refreshed_and_saved_before_first_file_read() -> None:
+    from etk.domains.p115.auth_directory import check_openapi_credentials
+
+    old = P115CredentialSnapshot(account_id="115001", access_token="old", refresh_token="refresh-old")
+    current = P115CredentialSnapshot(account_id="115001", access_token="new", refresh_token="refresh-new")
+    credentials = FakeCredentials((old,))
+    store = Mock()
+    store.load.side_effect = credentials.load
+
+    def save(access, refresh, **kwargs):
+        assert (access, refresh, kwargs["expected_access_token"]) == ("new", "refresh-new", "old")
+        credentials.snapshots = (current,)
+
+    store.save_openapi.side_effect = save
+    auth = Mock()
+    auth.check_openapi.side_effect = lambda token: (
+        {"state": False, "code": 40140126} if token == "old"
+        else {"state": True, "data": {"user_id": "115001"}}
+    )
+    auth.refresh_openapi.return_value = {"state": True, "data": {
+        "access_token": "new", "refresh_token": "refresh-new",
+    }}
+    processor, remote, *_ = _processor(
+        credentials=credentials, check_openapi=lambda: check_openapi_credentials(store, auth),
+        file_info_item=_file("video", "Fixture.S01E02.mkv", sha1="A" * 40, pick_code="pc-video"),
+        passthrough_projection=SimpleNamespace(project=lambda **kwargs: {}),
+    )
+    processor.process(event_key=_EVENT_KEY, event_type="transfer.complete", passthrough=True,
+        file={**_event_file(old), "file_name": "Fixture.S01E02.mkv"})
+    auth.refresh_openapi.assert_called_once_with("refresh-old")
+    store.save_openapi.assert_called_once()
+    assert remote.client.info_calls == ["video"]
+
+
+def test_unrelated_file_error_does_not_refresh_or_repeat_read() -> None:
+    check = Mock(return_value=(_DEFAULT_CREDENTIAL, {"state": True}))
+    processor, remote, *_ = _processor(check_openapi=check,
+        file_info_item={"state": False, "code": 500},
+        passthrough_projection=SimpleNamespace(project=lambda **kwargs: pytest.fail("must not project")))
+    with pytest.raises(RuntimeError, match="file readback failed"):
+        processor.process(event_key=_EVENT_KEY, event_type="transfer.complete", file=_event_file(), passthrough=True)
+    assert check.call_count == 1
+    assert remote.client.info_calls == ["video"]
+
+
+def test_projection_unknown_outcome_is_not_converted_to_retryable_preparation_error() -> None:
+    from etk.domains.media.effect_execution import MediaEffectDeliveryIndeterminate
+
+    failure = MediaEffectDeliveryIndeterminate("projection outcome unknown")
+    processor, *_ = _processor(
+        file_info_item=_file("video", "Fixture.S01E02.mkv", sha1="A" * 40, pick_code="pc-video"),
+        passthrough_projection=SimpleNamespace(project=Mock(side_effect=failure)),
+    )
+    with pytest.raises(MediaEffectDeliveryIndeterminate) as caught:
+        processor.process(event_key=_EVENT_KEY, event_type="transfer.complete", passthrough=True,
+            file={**_event_file(), "file_name": "Fixture.S01E02.mkv"})
+    assert caught.value is failure
+
+
+def test_repeated_file_read_auth_failure_has_a_bounded_retry() -> None:
+    from etk.domains.subscription.moviepilot_transfer import MoviePilotTransferPreparationError
+
+    check = Mock(return_value=(_DEFAULT_CREDENTIAL, {"state": True}))
+    projection = Mock()
+    processor, remote, *_ = _processor(check_openapi=check, passthrough_projection=SimpleNamespace(project=projection))
+    remote.client.file_info = Mock(return_value={"state": False, "code": 40140126})
+    with pytest.raises(MoviePilotTransferPreparationError) as caught:
+        processor.process(event_key=_EVENT_KEY, event_type="transfer.complete", file=_event_file(), passthrough=True)
+    assert remote.client.file_info.call_count == 2
+    assert caught.value.details["stage"] == "file_info"
+    assert caught.value.details["provider_code"] == "40140126"
+    projection.assert_not_called()
+
+
+def test_passthrough_projects_only_event_file_without_full_sync() -> None:
+    calls = []
+
+    def project(**kwargs: Any) -> dict[str, Any]:
+        kwargs["assert_current"]()
+        calls.append(kwargs)
+        return {"changed": True, "ingestion_submitted": True}
+
+    processor, remote, media_info, plans, executions, _repository, jobs = _processor(
+        file_info_item=_file("video", "Fixture.S01E02.mkv", sha1="A" * 40, pick_code="pc-video"),
+        passthrough_projection=SimpleNamespace(project=project),
+    )
 
     first = processor.process(
         event_key=_EVENT_KEY,
         event_type="transfer.complete",
-        file=_event_file(),
+        file={**_event_file(), "file_name": "Fixture.S01E02.mkv"},
         passthrough=True,
     )
 
-    assert first["reconciliation"] == "full-sync-strm"
-    assert jobs.calls == [
-        (
-            "full-sync-strm",
-            {"home_video_only": False},
-            {
-                "trigger_type": "system",
-                "idempotency_scope": "moviepilot-transfer-passthrough",
-                "idempotency_key": _EVENT_KEY,
-                "max_attempts": 2,
-                "queue_name": "native.serial",
-            },
-        )
-    ]
-    assert remote.open_calls == []
+    assert first["reconciliation"] == "single-file-strm"
+    assert jobs.calls == []
+    assert remote.client.list_calls == []
+    assert remote.client.info_calls == ["video"]
+    assert len(media_info.calls) == 1
+    assert len(calls) == 1
+    assert calls[0]["file"]["sha1"] == "A" * 40
     assert plans.calls == []
     assert executions.calls == []
 
@@ -266,6 +396,67 @@ def test_episode_transfer_freezes_video_and_sidecar_but_not_another_episode() ->
     assert plans.calls[0]["recognition_hints"]["subtitle"]["sidecar"] is True
     assert executions.calls[0][0] == str(_PLAN_ID)
     assert executions.calls[0][1] == f"moviepilot-transfer:{_EVENT_KEY}"
+
+
+@pytest.mark.parametrize(
+    "changed", [{"fn": "Other.mkv"}, {"fid": "other"}, {"paths": [{"fid": "other", "fn": "Other"}]}]
+)
+def test_passthrough_rejects_changed_remote_identity(changed: dict[str, Any]) -> None:
+    projection = SimpleNamespace(project=lambda **kwargs: pytest.fail("must not project"))
+    processor, _, media_info, _, _, _, jobs = _processor(
+        file_info_item={**_file("video", "Fixture.S01E02.mkv", sha1="A" * 40, pick_code="pc"), **changed},
+        passthrough_projection=projection,
+    )
+    with pytest.raises(ValueError, match="changed"):
+        processor.process(
+            event_key=_EVENT_KEY,
+            event_type="transfer.complete",
+            file={**_event_file(), "file_name": "Fixture.S01E02.mkv"},
+            passthrough=True,
+        )
+    assert media_info.calls == [] and jobs.calls == []
+
+
+def test_passthrough_provider_error_is_retryable_not_identity_rejection() -> None:
+    processor, _, _, _, _, _, jobs = _processor(
+        file_info_item={"state": False, "code": 40140125, "data": []},
+        passthrough_projection=SimpleNamespace(project=lambda **kwargs: pytest.fail("must not project")),
+    )
+    with pytest.raises(RuntimeError, match="readback failed"):
+        processor.process(event_key=_EVENT_KEY, event_type="transfer.complete", file=_event_file(), passthrough=True)
+    assert jobs.calls == []
+
+
+def test_passthrough_openapi_readback_uses_real_season_parent_and_byte_size() -> None:
+    calls = []
+    target = {
+        "state": True,
+        "data": {
+            "file_id": "video",
+            "file_name": "Fixture.S01E02.mkv",
+            "sha1": "A" * 40,
+            "pick_code": "pc-video",
+            "size": "1GB",
+            "size_byte": 1024,
+            "paths": [
+                {"file_id": "0", "file_name": "根目录"},
+                {"file_id": "source-root", "file_name": "媒体库"},
+                {"file_id": "season", "file_name": "Season 01"},
+            ],
+        },
+    }
+    processor, _, _, _, _, _, _ = _processor(
+        file_info_item=target,
+        passthrough_projection=SimpleNamespace(project=lambda **kw: calls.append(kw) or {}),
+    )
+    processor.process(
+        event_key=_EVENT_KEY,
+        event_type="transfer.complete",
+        file={**_event_file(), "file_name": "Fixture.S01E02.mkv", "path": "/媒体库/Season 01/Fixture.S01E02.mkv"},
+        passthrough=True,
+    )
+    assert calls[0]["file"]["parent_id"] == "season"
+    assert calls[0]["file"]["size"] == 1024
 
 
 def test_file_info_fallback_keeps_target_video_in_the_selected_batch() -> None:

@@ -5,6 +5,7 @@
  * symbolic keys through apiPath so transport paths cannot drift across pages.
  */
 export const ENDPOINTS = {
+  api_emby_scrape_records: '/api/emby/scrape-records',
   api_p115_play_example: '/api/p115/play/__ETK_PARAM_0__',
   api_p115_auto_save_auth: '/api/p115/auto_save_auth',
   api_actions_cleanup_offline_media_ae9a6959: '/api/actions/cleanup-offline-media',

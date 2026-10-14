@@ -101,12 +101,15 @@ from etk.domains.media.final_refresh_effects import (
 from etk.domains.media.image_editing_adapters import HttpxMediaImageEditingGateway
 from etk.domains.media.image_editing_effects import ManualImageEffectDelivery
 from etk.domains.media.image_store import SqlAlchemyMediaImageStore
+from etk.domains.media.library_notification_repository import SqlAlchemyLibraryNotificationRepository
 from etk.domains.media.library_notifications import (
     PersistentLibraryResultNotification,
     TelegramLibraryNotificationDelivery,
 )
+from etk.domains.media.metadata_retry import MetadataRetryDelivery, MetadataRetryScheduler
 from etk.domains.media.repository import SqlAlchemyMediaRepository
 from etk.domains.media.reprocess import NativeMediaItemReprocessOperation, NativeMediaItemReprocessService
+from etk.domains.media.reprocess_images import NativeReprocessImagePreparation
 from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
 from etk.domains.media.studio_images import StudioImageService
 from etk.domains.media.studio_images_adapter import (
@@ -211,6 +214,8 @@ from etk.domains.p115 import (
     SqlAlchemyP115WashingRecalculationRepository,
     select_intro_provider_identity,
 )
+from etk.domains.p115.adapters import HttpxP115AuthorizationGateway
+from etk.domains.p115.auth_directory import check_openapi_credentials
 from etk.domains.p115.deep_delete import P115DeepDeleteExecutionService
 from etk.domains.p115.iso_probe import NativeP115IsoProbeGateway
 from etk.domains.p115.media_info_adapters import (
@@ -220,6 +225,7 @@ from etk.domains.p115.media_info_adapters import (
 )
 from etk.domains.p115.media_info_restore import HttpxEmbyMediaInfoQueryGateway, P115MediaInfoRestoreService
 from etk.domains.p115.media_probe import P115MediaProbeService
+from etk.domains.p115.moviepilot_projection import NativeMoviePilotStrmProjection
 from etk.domains.p115.playback import PlaybackOperation
 from etk.domains.p115.playback_native import (
     NativeP115DirectLinkGateway,
@@ -576,7 +582,8 @@ def _p115_native_operation_router(
     }
     if media_reprocess is not None:
         handlers["media.reprocess-item"] = NativeMediaItemReprocessOperation(
-            media_reprocess, notify=library_notification
+            media_reprocess, notify=library_notification,
+            schedule_retry=MetadataRetryScheduler(PostgresMediaEffectLedger(database.unit_of_work)),
         )
     if deep_delete is not None:
         handlers["p115.deep-delete.execute"] = deep_delete
@@ -730,12 +737,14 @@ def _moviepilot_transfer_processor(
     plan_repository: SqlAlchemyP115OrganizePlanRepository,
     execution_repository: SqlAlchemyP115OrganizeExecutionRepository,
     jobs: Callable[[], JobSubmissionService],
+    ingestion: PersistentIngestionIngressGateway,
 ) -> NativeMoviePilotTransferProcessor:
     def priority() -> str:
         return str(settings_provider().p115_api_priority)
 
     return NativeMoviePilotTransferProcessor(
         credentials=credentials,
+        check_openapi=lambda: check_openapi_credentials(credentials, HttpxP115AuthorizationGateway()),
         remote=P115PrimaryOperationsGateway(
             credentials=credentials,
             priority=priority,
@@ -765,6 +774,16 @@ def _moviepilot_transfer_processor(
         ),
         execution_repository=execution_repository,
         jobs=jobs,
+        passthrough_projection=NativeMoviePilotStrmProjection(
+            settings=settings_provider,
+            repository=SqlAlchemyP115UploadProjectionRepository(database.unit_of_work),
+            records=SqlAlchemyP115OrganizeRecordsRepository(database.unit_of_work),
+            sorting_rules=SqlAlchemyP115SortingRulesRepository(database.unit_of_work),
+            libraries=AtomicP115LocalStrmLibraryGateway(),
+            ingestion=ingestion,
+            remote=HttpxP115StrmSyncGateway(credentials=credentials, priority=priority, settings=settings_provider),
+            coordinator=PostgresP115StrmSyncCoordinator(database.engine),
+        ),
     )
 
 
@@ -1600,6 +1619,7 @@ class WorkerRuntime:
                 PostgresMediaEffectLedger(database.unit_of_work),
                 RoutedMediaEffectDelivery(
                     [
+                        MetadataRetryDelivery(service),
                         BridgeMediaEffectDelivery(bridge_client),
                         EmbyMetadataRefreshEffectDelivery(settings_provider),
                         EmbyPathChangeEffectDelivery(settings_provider, HttpxEmbyPathChangeGateway()),
@@ -1615,6 +1635,7 @@ class WorkerRuntime:
                             settings=settings_provider,
                             telegram=telegram,
                             admin_chat_ids=SqlAlchemyP115PlaybackRewardRepository(database.unit_of_work).admin_chat_ids,
+                            batches=SqlAlchemyLibraryNotificationRepository(database.unit_of_work),
                         ),
                         MoviePilotWebhookEffectDelivery(
                             SqlAlchemyMoviePilotAssistantEventRepository(
@@ -1633,6 +1654,7 @@ class WorkerRuntime:
                                 plan_repository=organize_plans,
                                 execution_repository=organize_executions,
                                 jobs=lambda: service,
+                                ingestion=ingestion_ingress,
                             ),
                             MoviePilotFullWashingOperations(subscription_operations),
                             full_washing_timeout_hours=partial(
@@ -1693,6 +1715,10 @@ class WorkerRuntime:
                 media_task_service,
                 media_info_restore,
                 refresh=PersistentReprocessMetadataRefresh(media_effects, settings_provider),
+                images=NativeReprocessImagePreparation(
+                    settings=settings_provider, unit_of_work=database.unit_of_work,
+                    tmdb=HttpxTmdbMetadataAdapter(settings_provider),
+                ),
             )
             native_operations = _p115_native_operation_router(
                 database,
@@ -1720,7 +1746,8 @@ class WorkerRuntime:
                     )
                 ),
                 library_notification=PersistentLibraryResultNotification(
-                    media_effects, HttpxMediaCatalogAdapter(settings_provider).item
+                    media_effects, HttpxMediaCatalogAdapter(settings_provider).item,
+                    batches=SqlAlchemyLibraryNotificationRepository(database.unit_of_work),
                 ),
             )
             ingestion_binding = PersistentPendingBindingGateway(
@@ -2845,6 +2872,8 @@ class WorkerRuntime:
                 safe_error = _error_summary(failure)
                 if isinstance(result, TaskOutcome):
                     safe_error["task_outcome"] = result.to_result()
+                elif native_operation_key == "media.reprocess-item" and isinstance(result, Mapping):
+                    safe_error["task_outcome"] = _result_object(result)
                 store.fail_attempt(
                     job_id=job.id,
                     attempt_id=attempt.id,

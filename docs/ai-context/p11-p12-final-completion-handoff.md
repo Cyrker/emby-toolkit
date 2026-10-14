@@ -1,8 +1,14 @@
 # P11-P12 最终完成交接
 
-> 用途：从当前 Mac 工作树继续完成 P11 与 P12 Local Code Complete。本文只记录当前增量事实和执行顺序；架构、完整 DoD 与验证矩阵仍以 `full-project-refactoring-execution-plan.md` 和 `p7-p12-mac-goal-repair-handoff.md` 为准。
-> 当前日期：2026-08-31。
-> 当前状态：P8 `DONE`、P9 `LOCAL_DONE`、P10 `DONE`、P11 `DOING`、P12 `TODO`、Live Acceptance `HUMAN_PENDING`。
+> 当前用途：历史交接，仅追溯 2026-08-31 的设计、批次与验收要求，不再是默认执行入口。
+> 历史日期：2026-08-31。
+> 当时状态：P8 `DONE`、P9 `LOCAL_DONE`、P10 `DONE`、P11 `DOING`、P12 `TODO`、Live Acceptance `HUMAN_PENDING`。
+
+## 状态更正（2026-09-12）
+
+P11/P12 Local 已 `DONE`，完整 Live 仍 `HUMAN_PENDING`。以 [goal-tasks.md](./goal-tasks.md)、[短期上下文](./short-term-context.md) 和 [长期知识库](./long-term-knowledge-base.md) 接手；本文后续的读取顺序、HEAD、dirty 清单、待办与停止条件只属于上述历史批次，不作为当前工作树的预期。
+
+本文曾由 [2026-09-08 剩余执行计划](./p11-p12-remaining-execution-plan-20260908.md) 接替，该计划的本地执行任务现也已收口。共享资源中心随后按用户指令退役，下面 source-registration 内容仅保留历史合同，不能用来恢复活动入口。已有修改应按当前 Git 和用户任务归属判断，不能因不符合旧 dirty 数量而自动停止或清理。
 
 ## 1. 强制读取顺序
 

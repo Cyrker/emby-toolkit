@@ -16,6 +16,7 @@ import logging
 import subprocess
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
+from copy import deepcopy
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Protocol, cast
@@ -29,6 +30,7 @@ from etk.platform.db import SqlAlchemyUnitOfWork
 from etk.platform.tasks import TaskOutcome
 from etk.policy_defaults import GENRE_TRANSLATION_PATCH
 
+from .metadata_quality import metadata_gaps, placeholder_episode_title
 from .policies import normalize_media_path
 from .reprocess_metadata import ReprocessMetadataProvider, identify_root, prepare_metadata
 
@@ -317,6 +319,28 @@ class HttpxTmdbMetadataAdapter:
             raise ValueError("TMDb season identity is invalid")
         return self._query(f"/tv/{tmdb_id}/season/{season_number}", {"append_to_response": "credits"})
 
+    def episode_details(self, tmdb_id: str, season_number: int, episode_number: int) -> Mapping[str, Any]:
+        if not str(tmdb_id).isdigit() or type(season_number) is not int or season_number < 0:
+            raise ValueError("TMDb season identity is invalid")
+        if type(episode_number) is not int or episode_number < 0:
+            raise ValueError("TMDb episode identity is invalid")
+        return self._query(f"/tv/{tmdb_id}/season/{season_number}/episode/{episode_number}", {})
+
+    def images(self, tmdb_id: str, kind: str, *, season: int | None, episode: int | None) -> Mapping[str, Any]:
+        if not str(tmdb_id).isdigit() or kind not in {"Movie", "Series", "Season", "Episode"}:
+            raise ValueError("TMDb image identity is invalid")
+        endpoint = f"/{'movie' if kind == 'Movie' else 'tv'}/{tmdb_id}"
+        if kind in {"Season", "Episode"}:
+            if type(season) is not int or season < 0:
+                raise ValueError("TMDb image season is invalid")
+            endpoint += f"/season/{season}"
+        if kind == "Episode":
+            if type(episode) is not int or episode < 0:
+                raise ValueError("TMDb image episode is invalid")
+            endpoint += f"/episode/{episode}"
+        # 图片端点不按文字语言过滤，交由既有图片语言优先级选择。
+        return self._query(endpoint + "/images", {"language": None})
+
     def search(self, name: str, media_type: str) -> Mapping[str, Any]:
         if media_type not in {"movie", "tv"} or not name.strip():
             raise ValueError("TMDb search identity is invalid")
@@ -333,6 +357,7 @@ class HttpxTmdbMetadataAdapter:
             "language": "zh-CN",
             **parameters,
         }
+        params = {key: value for key, value in params.items() if value is not None}
         try:
             with self._client_factory() as client:
                 response = client.get(
@@ -484,8 +509,9 @@ class SqlAlchemyMediaMetadataTaskRepository:
                 uow.session.execute(
                     text(
                         """
-                        SELECT emby_item_ids_json, file_sha1_json, file_pickcode_json, actors_json, asset_details_json,
-                               official_rating_json
+                        SELECT emby_item_ids_json, file_sha1_json, file_pickcode_json,
+                               actors_json, directors_json, asset_details_json,
+                               official_rating_json, poster_path, backdrop_path, logo_path, thumb_path, title, overview
                         FROM media_metadata
                         WHERE tmdb_id = :tmdb_id AND item_type = :item_type
                         FOR UPDATE
@@ -503,6 +529,12 @@ class SqlAlchemyMediaMetadataTaskRepository:
             if emby_id and emby_id not in emby_ids:
                 emby_ids.append(emby_id)
             values = _metadata_values(item, details, tmdb_id, item_type, emby_ids)
+            if item.get("_preserve_cached_images") and current:
+                if not str(details.get("overview") or "").strip() and current.get("overview"):
+                    values["overview"] = current["overview"]
+                if item_type == "Episode" and placeholder_episode_title(values.get("title")):
+                    if not placeholder_episode_title(current.get("title")):
+                        values["title"] = current["title"]
             previous_ratings = (current or {}).get("official_rating_json")
             values["official_rating_json"] = json.dumps(
                 {
@@ -525,17 +557,30 @@ class SqlAlchemyMediaMetadataTaskRepository:
                     values["thumb_path"] = details.get("still_path")
                     values["poster_path"] = details.get("still_path")
                     values["runtime_minutes"] = _integer(details.get("runtime"))
+            if item.get("_preserve_cached_images"):
+                for column in ("poster_path", "backdrop_path", "logo_path", "thumb_path"):
+                    cached_image = (current or {}).get(column)
+                    if cached_image:
+                        values[column] = cached_image
             # Existing people data is authoritative for a metadata backfill;
             # ordinary sync may replace it only when the provider sent data.
             people = None if preserve_people else details.get("aggregate_credits") or details.get("credits")
             if people is None and existing is not None:
                 people = existing.get("actors_json")
             actors = _stored_actors(people) if preserve_people else _actors_json(people)
+            previous_actors = _stored_actors((current or {}).get("actors_json"))
+            # 手工编辑器只存人物关联，不存 name；保留其名单、顺序和角色。
+            if previous_actors and all(not actor.get("name") for actor in previous_actors):
+                actors = previous_actors
+            else:
+                _preserve_chinese_people(actors, previous_actors)
             values["actors_json"] = json.dumps(actors, ensure_ascii=False)
             values["actors_ready"] = bool(actors) or bool(_directors_json(details))
             values["file_sha1_json"] = json.dumps(file_sha1s, ensure_ascii=False)
             values["file_pickcode_json"] = json.dumps(file_pickcodes, ensure_ascii=False)
-            values["directors_json"] = json.dumps(_directors_json(details), ensure_ascii=False)
+            directors = _directors_json(details)
+            _preserve_chinese_people(directors, _stored_actors((current or {}).get("directors_json")))
+            values["directors_json"] = json.dumps(directors, ensure_ascii=False)
             path = normalize_media_path(item.get("Path"))
             if path:
                 assets = [dict(asset) for asset in (current or {}).get("asset_details_json") or []]
@@ -760,6 +805,7 @@ class NativeMediaMetadataTaskService:
                 continue
             try:
                 details = self._metadata.details(tmdb_id, "movie" if _root_item_type(item) == "Movie" else "tv")
+                details = self._translate_people(item, details)
                 if self._repository.upsert_metadata(item, details, preserve_people=False):
                     updated += 1
             except Exception:
@@ -783,6 +829,7 @@ class NativeMediaMetadataTaskService:
             return TaskOutcome.failed("媒体项缺少 TMDb ID、受支持类型或媒体路径。")
         progress.checkpoint()
         details = self._metadata.details(tmdb_id, "movie" if item_type == "Movie" else "tv")
+        details = self._translate_people(item, details)
         updated = self._repository.upsert_metadata(item, details, preserve_people=False)
         if not updated:
             return TaskOutcome.failed("媒体元数据及路径关联保存失败。")
@@ -794,6 +841,8 @@ class NativeMediaMetadataTaskService:
     def cached_reprocess_metadata(self, item: Mapping[str, Any], root: Mapping[str, Any]) -> Mapping[str, Any] | None:
         row = self._repository.reprocess_cache(item, root)
         if row is None:
+            return None
+        if metadata_gaps(str(item.get("Type")), row.get("title"), row.get("overview")):
             return None
         expected: dict[str, Any] = {
             "Name": row["title"],
@@ -813,12 +862,24 @@ class NativeMediaMetadataTaskService:
             limit = settings.max_episode_actors_to_process
         actors = sorted(row.get("actors_json") or [], key=lambda actor: actor.get("order", 999))[: max(1, limit)]
         directors = row.get("directors_json") or []
+        if settings.ai_translate_actor_role and any(
+            _needs_people_translation(person.get(field))
+            for person in [*actors, *directors]
+            for field in ("name", "character")
+        ):
+            return None
         expected.update(
             _actor_count=len(actors),
             _director_count=len(directors),
             _actor_images=sum(bool(actor.get("profile_path")) for actor in actors),
             _director_images=sum(bool(actor.get("profile_path")) for actor in directors),
         )
+        if settings.ai_translate_actor_role:
+            expected["_people_name_translations"] = {
+                str(person["original_name"]): str(person["name"])
+                for person in [*actors, *directors]
+                if person.get("original_name") and person.get("name") != person["original_name"]
+            }
         if item.get("Type") == "Episode" and (row.get("poster_path") or row.get("thumb_path")):
             expected["_primary_image"] = True
         return expected
@@ -835,7 +896,13 @@ class NativeMediaMetadataTaskService:
         if set(item.get("LockedFields") or []) & {"Name", "Overview"}:
             raise ValueError("名称或简介字段已明确锁定，请先确认是否解锁该字段。")
         target, details = prepare_metadata(item, root, cast(ReprocessMetadataProvider, self._metadata), cache)
-        if not self._repository.upsert_metadata(target, details, preserve_people=False):
+        details = dict(self._translate_people(target, details))
+        gaps = metadata_gaps(
+            str(item.get("Type")), details.get("name") or details.get("title"), details.get("overview"),
+        )
+        if not self._repository.upsert_metadata(
+            {**target, "_preserve_cached_images": True}, details, preserve_people=False
+        ):
             raise ValueError("季集元数据及路径关联保存失败。")
         expected: dict[str, Any] = {
             "Name": str(details.get("name") or details.get("title")).strip(),
@@ -843,6 +910,11 @@ class NativeMediaMetadataTaskService:
         }
         if details.get("overview"):
             expected["Overview"] = str(details["overview"]).strip()
+        if "分集标题" in gaps:
+            expected.pop("Name", None)
+        expected["_metadata_gaps"] = gaps
+        if details.get("_people_name_translations"):
+            expected["_people_name_translations"] = details["_people_name_translations"]
         ratings = _official_ratings(details)
         if ratings.get("US"):
             expected["OfficialRating"] = ratings["US"]
@@ -865,7 +937,9 @@ class NativeMediaMetadataTaskService:
         if item.get("Type") == "Episode" and details.get("still_path"):
             expected["_primary_image"] = True
         expected["_log_messages"] = [
-            f"已获取 TMDb 元数据（ID={details['id']}）：标题、简介、首播日期等；已保存到缓存",
+            f"已获取 TMDb 元数据（ID={details['id']}）；"
+            + (f"资料待补齐：{'、'.join(gaps)}" if gaps else "标题、简介已就绪")
+            + "；已保存到缓存",
             f"已获取演职人员：演员 {len(actors)} 人、导演 {len(directors)} 人，"
             f"可用头像 {expected['_actor_images'] + expected['_director_images']} 张",
             f"已获取图片地址：主图 {'有' if details.get('poster_path') or details.get('still_path') else '无'}，"
@@ -873,6 +947,8 @@ class NativeMediaMetadataTaskService:
             f"分集缩略图 {'有' if details.get('still_path') else '无'}"
             "；地址就绪不代表 Emby 已下载，后续回读确认",
         ]
+        if details.get("_cast_source") == "series_fallback":
+            expected["_log_messages"].append("特别篇演员资料为空，已回退整剧主演；导演等工作人员仍使用本项资料")
         for label, source in (
             ("主图", details.get("poster_path") or details.get("still_path")),
             ("背景图", details.get("backdrop_path")),
@@ -922,6 +998,47 @@ class NativeMediaMetadataTaskService:
         if failures:
             return TaskOutcome.partial("媒体元数据补齐部分完成。", details)
         return TaskOutcome.succeeded("媒体元数据补齐完成。", details)
+
+    def _translate_people(self, item: Mapping[str, Any], details: Mapping[str, Any]) -> Mapping[str, Any]:
+        settings = self._settings() if self._settings is not None else Settings()
+        if not settings.ai_translate_actor_role:
+            return details
+        result = deepcopy(dict(details))
+        credits = result.get("aggregate_credits") or result.get("credits") or {}
+        limit = settings.max_actors_to_process if settings.max_actors_to_process > 0 else 50
+        if item.get("Type") == "Episode" and settings.max_episode_actors_to_process > 0:
+            limit = settings.max_episode_actors_to_process
+        actors = sorted(credits.get("cast") or [], key=lambda actor: int(actor.get("order", 999)))[:limit]
+        directors = [
+            person for person in credits.get("crew") or []
+            if person.get("job") == "Director"
+            or any(job.get("job") == "Director" for job in person.get("jobs") or [])
+        ]
+        fields = [(person, "name") for person in [*actors, *directors]]
+        for actor in actors:
+            fields.append((actor, "character"))
+            fields.extend((role, "character") for role in actor.get("roles") or [])
+        pending = [(value, key) for value, key in fields if _needs_people_translation(value.get(key))]
+        if not pending:
+            return details
+        names = tuple(dict.fromkeys(str(value[key]).strip() for value, key in pending))
+        translated = self._translation.translate(names)
+        missing = [name for name in names if not translated.get(name) or _needs_people_translation(translated[name])]
+        if missing:
+            raise RuntimeError(f"演职人员翻译不完整：{len(missing)}/{len(names)} 项未得到中文译文，未覆盖元数据。")
+        for value, key in pending:
+            original = str(value[key]).strip()
+            if key == "name":
+                value["original_name"] = original
+            value[key] = translated[original]
+        result["_people_name_translations"] = {
+            str(value["original_name"]): str(value["name"]) for value, key in pending if key == "name"
+        }
+        logger.info(
+            "演职人员中文化完成：%s 个名称/角色（含缓存），演员范围 %s 人、导演 %s 人",
+            len(names), len(actors), len(directors),
+        )
+        return result
 
     def _translate_roles(self, progress: MediaTaskProgress) -> TaskOutcome:
         if self._settings is not None and not bool(self._settings().ai_translate_actor_role):
@@ -1213,6 +1330,8 @@ def _actors_json(value: Any) -> list[dict[str, Any]]:
             "profile_path": entry.get("profile_path"),
             "order": entry.get("order", 999),
         }
+        if entry.get("original_name"):
+            actor["original_name"] = entry["original_name"]
         if actor["tmdb_id"] is not None and actor["name"]:
             actors.append(actor)
     return actors
@@ -1229,6 +1348,22 @@ def _stored_actors(value: Any) -> list[dict[str, Any]]:
     return [dict(entry) for entry in value if isinstance(entry, Mapping)]
 
 
+def _needs_people_translation(value: object) -> bool:
+    name = str(value or "").strip()
+    return bool(name) and not any("\u3400" <= char <= "\u9fff" for char in name)
+
+
+def _preserve_chinese_people(people: list[dict[str, Any]], previous: list[dict[str, Any]]) -> None:
+    by_id = {str(person["tmdb_id"]): person for person in previous if person.get("tmdb_id") is not None}
+    for person in people:
+        old = by_id.get(str(person.get("tmdb_id")), {})
+        for field in ("name", "character"):
+            if old.get(field) and not _needs_people_translation(old[field]):
+                person[field] = old[field]
+                if field == "name" and old.get("original_name"):
+                    person["original_name"] = old["original_name"]
+
+
 def _directors_json(details: Mapping[str, Any]) -> list[dict[str, Any]]:
     credits = details.get("aggregate_credits") or details.get("credits")
     crew = credits.get("crew") if isinstance(credits, Mapping) else []
@@ -1240,6 +1375,7 @@ def _directors_json(details: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "tmdb_id": entry.get("id"),
                 "name": entry.get("name"),
                 "profile_path": entry.get("profile_path"),
+                **({"original_name": entry["original_name"]} if entry.get("original_name") else {}),
             }
             for entry in crew
             if isinstance(entry, Mapping)

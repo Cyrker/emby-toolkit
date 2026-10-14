@@ -83,15 +83,15 @@ class SqlAlchemyCastEditorRepository:
             result.append(
                 {
                     "tmdb_id": person_id,
-                    "name": person.get("primary_name") or person.get("original_name"),
+                    "name": person.get("primary_name") or link.get("name") or person.get("original_name"),
                     "character": link.get("character"),
                     "order": link.get("order"),
-                    "profile_path": person.get("profile_path"),
+                    "profile_path": person.get("profile_path") or link.get("profile_path"),
                     "imdb_id": person.get("imdb_id"),
                     "douban_id": person.get("douban_celebrity_id"),
                 }
             )
-        result.sort(key=lambda item: int(item.get("order") or 999))
+        result.sort(key=lambda item: int(item["order"]) if item.get("order") is not None else 999)
         return tuple(result)
 
     def review(self, item_id: str) -> Mapping[str, Any]:

@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+import pytest
+
 from etk.domains.translation import ConfiguredBatchTranslation
 from etk.platform import Settings
 
@@ -88,3 +90,18 @@ def test_empty_input_remains_side_effect_free() -> None:
 
     assert translation.translate([]) == {}
     assert cache.loads == []
+
+
+def test_successful_chunks_remain_cached_when_a_later_batch_fails() -> None:
+    cache = MemoryTranslationCache()
+
+    class PartialTranslation(FixtureTranslation):
+        def _translate_chunk(self, settings, api_key, values):
+            if "third" in values:
+                raise RuntimeError("provider unavailable")
+            return super()._translate_chunk(settings, api_key, values)
+
+    translation = PartialTranslation(cache)
+    with pytest.raises(RuntimeError, match="provider unavailable"):
+        translation.translate(["first", "second", "third"])
+    assert cache.values == {"first": "中文-first", "second": "中文-second"}

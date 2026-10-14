@@ -33,7 +33,8 @@ from etk.platform.jobs.json_payload import canonical_json
 from .moviepilot import MoviePilotActiveDownload
 from .moviepilot_transfer import (
     MoviePilotCredentialStore,
-    freeze_moviepilot_credential_binding,
+    MoviePilotTransferPreparationError,
+    moviepilot_credential_context,
 )
 from .operation_repository import PostgresSubscriptionOperationRepository
 from .operations import (
@@ -188,7 +189,7 @@ class MoviePilotWebhookService:
                 return ServiceResult({"status": "ignored_not_file"})
             runtime = self._runtime_settings()
             passthrough = bool(runtime.p115_mp_classify)
-            binding = freeze_moviepilot_credential_binding(
+            binding = moviepilot_credential_context(
                 self._credentials.load(),
                 str(runtime.p115_api_priority),
             )
@@ -1719,14 +1720,24 @@ class MoviePilotWebhookEffectDelivery:
         except MediaEffectDeliveryIndeterminate:
             raise
         except Exception as exc:
+            failure = (
+                exc if isinstance(exc, MoviePilotTransferPreparationError)
+                else MoviePilotTransferPreparationError("preparation", exc)
+            )
+            details = {
+                "event_key": event_key,
+                "event_type": event_type,
+                **failure.details,
+            }
+            logger.warning("MoviePilot 处理失败：事件=%s，尝试=%s，详情=%s", event_type, effect.attempts, details)
             if effect.attempts >= 5:
                 raise MediaEffectDeliveryIndeterminate(
                     "MoviePilot transfer preparation retry budget was exhausted",
-                    error={"event_key": event_key, "event_type": event_type},
+                    error=details,
                 ) from exc
             raise MediaEffectDeliveryRetryable(
                 "MoviePilot transfer could not be prepared before provider mutation",
-                error={"event_key": event_key, "event_type": event_type},
+                error=details,
                 retry_after_seconds=10,
             ) from exc
 

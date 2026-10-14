@@ -6,6 +6,8 @@ from typing import Any, Protocol
 
 from etk.platform.tasks import TaskOutcome, TaskOutcomeStatus
 
+from .reprocess_images import IMAGE_CHECKS, NativeReprocessImagePreparation, image_present
+
 
 class MediaReprocessProgress(Protocol):
     def checkpoint(self) -> None: ...
@@ -61,11 +63,13 @@ class NativeMediaItemReprocessService:
         mediainfo: MediaInfoReprocess,
         *,
         refresh: Callable[[Mapping[str, Any], str], TaskOutcome] | None = None,
+        images: NativeReprocessImagePreparation | None = None,
     ) -> None:
         self._catalog = catalog
         self._metadata = metadata
         self._mediainfo = mediainfo
         self._refresh = refresh
+        self._images = images
 
     def execute(
         self,
@@ -76,6 +80,7 @@ class NativeMediaItemReprocessService:
         media_info_only: bool = False,
         restore_media_info: bool = True,
         only_missing: bool = False,
+        include_descendants: bool = True,
     ) -> TaskOutcome:
         normalized_id = str(item_id or "").strip()
         if not normalized_id:
@@ -123,7 +128,9 @@ class NativeMediaItemReprocessService:
         except (ValueError, RuntimeError) as exc:
             progress.update(100, str(exc))
             return TaskOutcome.failed(str(exc), {"item_id": normalized_id, "needs_identification": True})
-        metadata = self._process_scope(item, root, progress, operation_key, only_missing=only_missing)
+        metadata = self._process_scope(
+            item, root, progress, operation_key, only_missing=only_missing, include_descendants=include_descendants,
+        )
         return _combine(normalized_id, mediainfo, metadata)
 
     def _process_scope(
@@ -134,23 +141,31 @@ class NativeMediaItemReprocessService:
         operation_key: str,
         *,
         only_missing: bool = False,
+        include_descendants: bool = True,
     ) -> TaskOutcome:
         if self._refresh is None:
             return TaskOutcome.failed("Emby 元数据回填器未配置，未执行刮削。")
         targets = [selected]
         if selected.get("Type") in {"Episode", "Season"} and root.get("_newly_identified"):
             targets.insert(0, root)
-            if selected.get("Type") == "Episode" and selected.get("SeasonId"):
-                season = self._catalog.item(str(selected["SeasonId"]))
-                if season is not None and str(season.get("SeriesId")) == str(root.get("Id")):
-                    targets.insert(1, season)
-        if selected.get("Type") in {"Series", "Season"}:
+        # 父剧已识别不代表后续入库的季已刮削；独立补齐所属季，不扩展到兄弟集。
+        if selected.get("Type") == "Episode" and selected.get("SeasonId"):
+            season = self._catalog.item(str(selected["SeasonId"]))
+            if (
+                season is not None and season.get("Type") == "Season"
+                and str(season.get("SeriesId")) == str(root.get("Id"))
+                and season.get("IndexNumber") == selected.get("ParentIndexNumber")
+            ):
+                targets.insert(len(targets) - 1, season)
+        if include_descendants and selected.get("Type") in {"Series", "Season"}:
             targets.extend(self._catalog.descendants(str(selected["Id"])))
         targets = list({str(target.get("Id")): target for target in targets}.values())
         cache: dict[tuple[str, int], Mapping[str, Any]] = {}
+        image_cache: dict[str, Any] = {}
         prepared: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
         pending: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
         failures: list[dict[str, str]] = []
+        incomplete: list[dict[str, Any]] = []
         skipped = 0
         reused = 0
         counts = {kind: {"selected": 0, "verified": 0} for kind in ("Movie", "Series", "Season", "Episode")}
@@ -180,20 +195,48 @@ class NativeMediaItemReprocessService:
                 5 + int(index * 45 / len(targets)), f"{_label(target)}：正在刮削并保存元数据 ({index}/{len(targets)})"
             )
             try:
-                expected = self._metadata.cached_reprocess_metadata(target, root) if only_missing else None
-                if expected is not None:
+                fill_missing = only_missing or (kind == "Season" and selected.get("Type") == "Episode")
+                expected = self._metadata.cached_reprocess_metadata(target, root) if fill_missing else None
+                cached = expected is not None
+                if cached:
                     reused += 1
                     actual = self._catalog.item(str(target["Id"])) or {}
+                    target = {**target, **actual}
+                else:
+                    expected = self._metadata.prepare_reprocess_metadata(target, root, cache)
+                expected = dict(expected or {})
+                gaps = expected.pop("_metadata_gaps", [])
+                if gaps:
+                    incomplete.append({
+                        "item_id": str(target["Id"]), "name": str(target.get("Name") or ""), "missing": gaps,
+                    })
+                if self._images is not None:
+                    for check in IMAGE_CHECKS:
+                        expected.pop(check, None)
+                    expected.update(self._images.prepare(target, root, image_cache))
+                if cached:
                     if _metadata_present(actual, expected):
                         skipped += 1
                         progress.update(50, f"{_label(target)}：缓存完整，Emby 元数据已齐全，跳过")
                         continue
-                    if set(actual.get("LockedFields") or []) & {"Name", "Overview"}:
+                    images_only = _metadata_present(
+                        actual, {k: v for k, v in expected.items() if k not in IMAGE_CHECKS}
+                    )
+                    if images_only:
+                        target = {**target, "_images_only": True}
+                        expected = {k: v for k, v in expected.items() if k in IMAGE_CHECKS}
+                    elif set(actual.get("LockedFields") or []) & {"Name", "Overview"}:
                         raise ValueError("名称或简介字段已明确锁定，请先确认是否解锁该字段。")
-                    progress.update(50, f"{_label(target)}：复用完整缓存，补充 Emby 缺失元数据")
-                else:
-                    expected = self._metadata.prepare_reprocess_metadata(target, root, cache)
-                expected = dict(expected)
+                    progress.update(
+                        50, f"{_label(target)}：复用缓存，{'仅补缺失图片' if images_only else '补充缺失元数据和图片'}"
+                    )
+                target = {
+                    **target,
+                    "_people_name_translations": expected.get("_people_name_translations", {}),
+                    "_missing_image_types": [
+                        t for k, t in IMAGE_CHECKS.items() if expected.get(k) and not image_present(target, t)
+                    ],
+                }
                 for message in expected.pop("_log_messages", []):
                     progress.update(5 + int(index * 45 / len(targets)), f"{_label(target)}：{message}")
                 prepared.append((target, expected))
@@ -207,8 +250,8 @@ class NativeMediaItemReprocessService:
                     55,
                     f"{_label(target)}：正在请求 Emby 刷新元数据；"
                     + (
-                        "主图缺失，允许补充主图和缩略图，不替换已有图片"
-                        if target.get("Type") == "Episode" and not (target.get("ImageTags") or {}).get("Primary")
+                        "补充缺失图片：" + ", ".join(target["_missing_image_types"]) + "；不替换已有图片"
+                        if target.get("_missing_image_types")
                         else "保留已有图片"
                     ),
                 )
@@ -223,19 +266,26 @@ class NativeMediaItemReprocessService:
             progress.checkpoint()
             matched = False
             read_error = ""
-            for attempt in range(10):
+            missing_images: list[str] = []
+            readback_attempts = 60 if target.get("_missing_image_types") else 10
+            total_attempts = readback_attempts * 2 if target.get("_missing_image_types") else readback_attempts
+            for attempt in range(total_attempts):
                 progress.checkpoint()
                 try:
                     actual = self._catalog.item(str(target["Id"])) or {}
                 except (ValueError, RuntimeError) as exc:
                     read_error = str(exc)
                     break
+                missing_images = [
+                    t for k, t in IMAGE_CHECKS.items() if expected.get(k) and not image_present(actual, t)
+                ]
                 people = actual.get("People") or []
                 values = {
                     **actual,
                     "_tmdb_id": (actual.get("ProviderIds") or {}).get("Tmdb"),
                     "_imdb_id": (actual.get("ProviderIds") or {}).get("Imdb"),
                     "_primary_image": bool((actual.get("ImageTags") or {}).get("Primary")),
+                    **{key: image_present(actual, kind) for key, kind in IMAGE_CHECKS.items()},
                     "_actor_count": sum(p.get("Type") == "Actor" for p in people),
                     "_director_count": sum(p.get("Type") == "Director" for p in people),
                     "_actor_images": sum(p.get("Type") == "Actor" and bool(p.get("PrimaryImageTag")) for p in people),
@@ -244,7 +294,9 @@ class NativeMediaItemReprocessService:
                     ),
                 }
                 if all(
-                    values.get(key, 0) >= value
+                    _people_names_match(actual, value)
+                    if key == "_people_name_translations"
+                    else values.get(key, 0) >= value
                     if key in {"_actor_count", "_director_count", "_actor_images", "_director_images"}
                     else set(value).issubset(set(values.get(key) or []))
                     if key == "Genres"
@@ -253,11 +305,31 @@ class NativeMediaItemReprocessService:
                 ):
                     matched = True
                     break
-                if attempt < 9:
+                if attempt == readback_attempts - 1:
+                    if not missing_images or total_attempts == readback_attempts:
+                        break
+                    # 首次入库回调可能先于图片缓存就绪；只补偿一次缺图，不重放文字刮削。
+                    progress.update(
+                        90, f"{_label(target)}：Emby 仍缺少 {', '.join(missing_images)}，执行一次仅补缺图刷新"
+                    )
+                    try:
+                        result = self._refresh(
+                            {**target, "_images_only": True, "_missing_image_types": missing_images},
+                            f"{operation_key}:missing-images",
+                        )
+                        if result.status is not TaskOutcomeStatus.SUCCEEDED:
+                            read_error = f"补图请求未确认：{result.message}"
+                            break
+                    except Exception as exc:
+                        read_error = f"补图请求失败：{exc}"
+                        break
+                if attempt < total_attempts - 1:
                     time.sleep(0.5)
             if matched:
                 counts[str(target["Type"])]["verified"] += 1
-                progress.update(95, f"{_label(target)}：Emby 回读已确认，标题：{expected.get('Name', '')}")
+                progress.update(
+                    95, f"{_label(target)}：Emby 回读已确认，标题：{expected.get('Name', target.get('Name', ''))}"
+                )
                 if "_actor_count" in expected:
                     progress.update(
                         95,
@@ -267,7 +339,14 @@ class NativeMediaItemReprocessService:
                     )
             else:
                 failed(
-                    target, "回读校验", read_error or "Emby 元数据、演职人员或分集主图未与刮削结果一致，不能标记成功"
+                    target,
+                    "回读校验",
+                    read_error
+                    or (
+                        "Emby 仍缺少图片：" + ", ".join(missing_images)
+                        if missing_images
+                        else "Emby 元数据、演职人员或图片未与刮削结果一致，不能标记成功"
+                    ),
                 )
         verified = sum(count["verified"] for count in counts.values())
         details = {
@@ -278,8 +357,10 @@ class NativeMediaItemReprocessService:
             "skipped": skipped,
             "cache_reused": reused,
             "only_missing": only_missing,
+            "include_descendants": include_descendants,
             "by_type": counts,
             "failures": failures,
+            "incomplete": incomplete,
         }
         message = (
             f"媒体元数据处理结束：选择 {len(targets)} 项，回填确认 {verified} 项，"
@@ -290,6 +371,8 @@ class NativeMediaItemReprocessService:
             return (
                 TaskOutcome.partial(message, details) if verified or skipped else TaskOutcome.failed(message, details)
             )
+        if incomplete:
+            return TaskOutcome.partial(f"已有元数据已回填，{len(incomplete)} 项中文资料待补齐。", details)
         return TaskOutcome.succeeded(message, details)
 
 
@@ -299,17 +382,26 @@ class NativeMediaItemReprocessOperation:
         service: NativeMediaItemReprocessService,
         *,
         notify: Callable[[str, TaskOutcome, str], Mapping[str, Any]] | None = None,
+        schedule_retry: Callable[[TaskOutcome, str, int], Mapping[str, Any]] | None = None,
     ) -> None:
         self._service = service
         self._notify = notify
+        self._schedule_retry = schedule_retry
 
     def execute(self, parameters: Mapping[str, Any], progress: MediaReprocessProgress) -> Mapping[str, Any]:
-        allowed = {"item_id", "media_info_only", "restore_media_info", "only_missing", "notify_library"}
+        allowed = {
+            "item_id", "media_info_only", "restore_media_info", "only_missing", "notify_library",
+            "metadata_retry_count",
+            "include_descendants",
+        }
         extras = set(parameters) - allowed
         if extras:
             raise ValueError(f"media reprocess operation contains unsupported fields: {sorted(extras)!r}")
         item_id = str(parameters.get("item_id") or "").strip()
-        for field in ("media_info_only", "restore_media_info", "only_missing", "notify_library"):
+        retry_count = parameters.get("metadata_retry_count", 0)
+        if type(retry_count) is not int or not 0 <= retry_count <= 3:
+            raise ValueError("元数据补抓次数无效")
+        for field in ("media_info_only", "restore_media_info", "only_missing", "notify_library", "include_descendants"):
             if field in parameters and not isinstance(parameters[field], bool):
                 raise TypeError(f"media reprocess operation field {field!r} must be boolean")
         outcome = self._service.execute(
@@ -319,8 +411,18 @@ class NativeMediaItemReprocessOperation:
             media_info_only=bool(parameters.get("media_info_only", False)),
             restore_media_info=bool(parameters.get("restore_media_info", True)),
             only_missing=bool(parameters.get("only_missing", False)),
+            include_descendants=bool(parameters.get("include_descendants", True)),
         )
         details = dict(outcome.details)
+        if self._schedule_retry is not None and details.get("metadata", {}).get("incomplete"):
+            progress.checkpoint()
+            details["metadata_retry"] = dict(self._schedule_retry(
+                outcome, f"media.reprocess-item:{getattr(progress, 'job_id', item_id)}", retry_count,
+            ))
+            progress.update(100, "中文资料待补齐；" + (
+                "已安排延迟补抓，不占用当前任务队列" if details["metadata_retry"]["status"] == "scheduled"
+                else details["metadata_retry"].get("message", "请手动重新刮削")
+            ))
         if parameters.get("notify_library") and self._notify is not None:
             progress.checkpoint()
             try:
@@ -344,13 +446,16 @@ def _metadata_present(item: Mapping[str, Any], expected: Mapping[str, Any]) -> b
         "_tmdb_id": (item.get("ProviderIds") or {}).get("Tmdb"),
         "_imdb_id": (item.get("ProviderIds") or {}).get("Imdb"),
         "_primary_image": bool((item.get("ImageTags") or {}).get("Primary")),
+        **{key: image_present(item, kind) for key, kind in IMAGE_CHECKS.items()},
         "_actor_count": sum(p.get("Type") == "Actor" for p in people),
         "_director_count": sum(p.get("Type") == "Director" for p in people),
         "_actor_images": sum(p.get("Type") == "Actor" and bool(p.get("PrimaryImageTag")) for p in people),
         "_director_images": sum(p.get("Type") == "Director" and bool(p.get("PrimaryImageTag")) for p in people),
     }
     return all(
-        values.get(key, 0) >= value
+        _people_names_match(item, value)
+        if key == "_people_name_translations"
+        else values.get(key, 0) >= value
         if key in {"_actor_count", "_director_count", "_actor_images", "_director_images"}
         else bool(values.get(key))
         if key == "Genres"
@@ -358,6 +463,13 @@ def _metadata_present(item: Mapping[str, Any], expected: Mapping[str, Any]) -> b
         if key == "_tmdb_id"
         else bool(str(values.get(key) or "").strip())
         for key, value in expected.items()
+    )
+
+
+def _people_names_match(item: Mapping[str, Any], translations: Mapping[str, str]) -> bool:
+    return not any(
+        person.get("Type") in {"Actor", "Director"} and person.get("Name") in translations
+        for person in item.get("People") or []
     )
 
 
@@ -373,7 +485,10 @@ def _combine(item_id: str, mediainfo: TaskOutcome, metadata: TaskOutcome) -> Tas
     if failures == 2:
         return TaskOutcome.failed("媒体信息与元数据重新处理均失败。", details)
     if failures or any(outcome.status is TaskOutcomeStatus.PARTIAL for outcome in (mediainfo, metadata)):
-        return TaskOutcome.partial("媒体项重新处理部分完成。", details)
+        message = "媒体项重新处理部分完成。"
+        if metadata.details.get("incomplete") and not metadata.details.get("failures"):
+            message = "已有元数据已回填，中文资料待补齐。"
+        return TaskOutcome.partial(message, details)
     if all(outcome.status is TaskOutcomeStatus.SKIPPED for outcome in (mediainfo, metadata)):
         return TaskOutcome.skipped("媒体项无需重新处理。", details)
     return TaskOutcome.succeeded("媒体项重新处理完成。", details)

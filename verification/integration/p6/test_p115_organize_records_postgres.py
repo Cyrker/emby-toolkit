@@ -1,9 +1,61 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from etk.domains.p115 import SqlAlchemyP115OrganizeRecordsRepository
 from etk.platform.db import DatabaseRuntime
+
+
+def _mp_record() -> dict:
+    return {
+        "file_id": "mp-file", "pick_code": "mp-pc", "original_name": "剧集.S01E01.mkv",
+        "tmdb_id": "123", "media_type": "tv", "season_number": 1,
+        "target_cid": "200", "category_name": "MP直出/电视剧",
+    }
+
+
+def test_mp_record_is_visible_through_existing_query_and_repeat_does_not_change_timestamp(p6_runtime):
+    repository = SqlAlchemyP115OrganizeRecordsRepository(p6_runtime.unit_of_work)
+    assert repository.add_missing_record(_mp_record()) is True
+    query = dict(page=1, per_page=15, search="剧集", status="success", cid="200", fail_reason="")
+    first = repository.list_records(**query)
+    assert repository.add_missing_record(_mp_record()) is False
+    second = repository.list_records(**query)
+    assert second == first
+    assert first.total == first.stats["success"] == first.stats["thisWeek"] == 1
+    assert first.items[0]["original_name"] == first.items[0]["renamed_name"] == "剧集.S01E01.mkv"
+    assert first.items[0]["category_name"] == "MP直出/电视剧"
+
+
+@pytest.mark.parametrize("identity_change", [{}, {"pick_code": "new-pc"}, {"file_id": "new-file"}])
+def test_late_mp_record_preserves_existing_manual_correction_for_both_unique_keys(p6_runtime, identity_change):
+    repository = SqlAlchemyP115OrganizeRecordsRepository(p6_runtime.unit_of_work)
+    repository.add_missing_record(_mp_record())
+    with p6_runtime.engine.begin() as connection:
+        connection.execute(text("""
+            UPDATE p115_organize_records SET tmdb_id='456', category_name='人工分类', target_cid='300',
+                renamed_name='人工纠错.mkv', season_number=2, processed_at='2026-01-01T00:00:00Z'
+            WHERE file_id='mp-file'
+        """))
+        expected = dict(connection.execute(text("SELECT * FROM p115_organize_records")).mappings().one())
+    assert repository.add_missing_record({**_mp_record(), **identity_change}) is False
+    with p6_runtime.engine.connect() as connection:
+        actual = dict(connection.execute(text("SELECT * FROM p115_organize_records")).mappings().one())
+    assert actual == expected
+
+
+def test_mp_record_without_category_is_visible_and_invalid_write_is_not_swallowed(p6_runtime):
+    repository = SqlAlchemyP115OrganizeRecordsRepository(p6_runtime.unit_of_work)
+    with pytest.raises(IntegrityError):
+        repository.add_missing_record({**_mp_record(), "original_name": None})
+    assert repository.add_missing_record({
+        **_mp_record(), "target_cid": None, "category_name": "MP直出/未匹配分类",
+    }) is True
+    page = repository.list_records(page=1, per_page=15, search="", status="all", cid="", fail_reason="")
+    assert page.total == 1
+    assert page.items[0]["target_cid"] is None
 
 
 def _seed_records(runtime: DatabaseRuntime) -> None:

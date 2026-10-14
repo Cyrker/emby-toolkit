@@ -21,6 +21,7 @@ from etk.domains.ingestion import (
     MonitorSource,
     PendingBindingProjection,
 )
+from etk.domains.operations.jobs import TaskBusyError
 from etk.domains.p115.media_info_adapters import ControlledProcessOutput, ControlledProcessProfile
 from etk.domains.p115.media_info_formatter import P115MediaInfoPolicySnapshot
 from etk.platform import Settings
@@ -439,6 +440,39 @@ def test_pending_binding_completion_is_single_use_and_replays_without_delivery()
 
     assert accepted == {"ok": True, "accepted": True, "item_id": "101"}
     assert replay == preverified_replay == {"ok": True, "skipped": True, "reason": "already_completed"}
+    assert len(delivery.calls) == 1
+
+
+def test_busy_serial_queue_waits_beyond_failure_budget_then_completes() -> None:
+    class WaitingLedger(BindingLedger):
+        def mark_binding_retryable(self, _id, _token, **values):
+            self.current = replace(
+                self.current,
+                status=BindingStatus.RETRYABLE,
+                claimed_by=None,
+                claim_token=None,
+                claimed_at=None,
+                lease_expires_at=None,
+                error=values["error"],
+            )
+
+    class BusyDelivery(BindingDelivery):
+        def deliver(self, binding, item):
+            if binding.attempts <= 5:
+                raise TaskBusyError("another job is active")
+            return super().deliver(binding, item)
+
+    ledger = WaitingLedger()
+    delivery = BusyDelivery()
+    gateway = PersistentPendingBindingGateway(ledger=ledger, delivery=delivery, claimant_id="fixture-binding")
+    item = {"Id": "101", "Type": "Movie", "Path": "/fixture/library/Movie.strm"}
+    for _ in range(5):
+        outcome = gateway.accept_pending_binding(item, sha1="A" * 40)
+        assert outcome["retryable"] is True
+        assert outcome["reason"] == "binding_in_progress"
+        assert ledger.current.status is BindingStatus.RETRYABLE
+    assert gateway.accept_pending_binding(item, sha1="A" * 40)["ok"] is True
+    assert ledger.current.status is BindingStatus.CONFIRMED
     assert len(delivery.calls) == 1
 
 

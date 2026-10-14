@@ -44,10 +44,17 @@ class TelegramBotPort(Protocol):
         *,
         disable_notification: bool = False,
         reply_markup: Mapping[str, Any] | None = None,
+        parse_mode: str | None = None,
     ) -> ProviderResponse[dict[str, Any]]: ...
 
     def send_photo(
-        self, chat_id: str, photo: str, caption: str, *, disable_notification: bool = False
+        self,
+        chat_id: str,
+        photo: str,
+        caption: str,
+        *,
+        disable_notification: bool = False,
+        parse_mode: str | None = None,
     ) -> ProviderResponse[dict[str, Any]]: ...
 
     def get_updates(
@@ -151,6 +158,7 @@ class HttpxTelegramBotAdapter:
         *,
         disable_notification: bool = False,
         reply_markup: Mapping[str, Any] | None = None,
+        parse_mode: str | None = None,
     ) -> ProviderResponse[dict[str, Any]]:
         normalized_chat = _text(chat_id, "chat_id", 128)
         normalized_text = _text(text, "text", 4096)
@@ -163,6 +171,8 @@ class HttpxTelegramBotAdapter:
         }
         if reply_markup is not None:
             body["reply_markup"] = _object(reply_markup, "reply_markup")
+        if parse_mode is not None:
+            body["parse_mode"] = _parse_mode(parse_mode)
         return self._request("POST", "sendMessage", operation="send_message", json=body)
 
     def send_photo(
@@ -172,6 +182,7 @@ class HttpxTelegramBotAdapter:
         caption: str,
         *,
         disable_notification: bool = False,
+        parse_mode: str | None = None,
     ) -> ProviderResponse[dict[str, Any]]:
         body = {
             "chat_id": _text(chat_id, "chat_id", 128),
@@ -181,6 +192,8 @@ class HttpxTelegramBotAdapter:
         }
         if not body["chat_id"] or not body["photo"]:
             raise ValueError("chat_id and photo must not be empty")
+        if parse_mode is not None:
+            body["parse_mode"] = _parse_mode(parse_mode)
         return self._request("POST", "sendPhoto", operation="send_photo", json=body)
 
     def answer_callback_query(
@@ -460,6 +473,12 @@ def _text(value: Any, field: str, limit: int) -> str:
     if len(normalized) > limit:
         raise ValueError(f"{field} is too long")
     return normalized
+
+
+def _parse_mode(value: str) -> str:
+    if value not in {"HTML", "MarkdownV2"}:
+        raise ValueError("unsupported Telegram parse mode")
+    return value
 
 
 def _object(value: Mapping[str, Any], field: str) -> dict[str, Any]:

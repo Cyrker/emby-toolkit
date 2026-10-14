@@ -507,6 +507,8 @@ class _TestP115Gateway(NativeWatchlistP115ReclassificationGateway):
         del tmdb_id
         return (
             {"file_id": "direct", "parent_id": "10", "category_name": "MP直出", "season_number": 1},
+            {"file_id": "direct-category", "parent_id": "10", "category_name": "MP直出/电视剧"},
+            {"file_id": "direct-unmatched", "parent_id": "10", "category_name": " MP直出/未匹配分类 "},
             {
                 "file_id": "move",
                 "parent_id": "10",
@@ -529,7 +531,7 @@ def test_p115_reclassification_excludes_moviepilot_direct_records() -> None:
         lambda: None,
     )
 
-    assert result["mp_direct_skipped"] == 1
+    assert result["mp_direct_skipped"] == 3
     assert plans.calls[0]["source_file_ids"] == ["move"]
     assert plans.calls[0]["recognition_hints"]["move"]["episode_number"] == 3
     assert executions.calls[0][0] == "p1"

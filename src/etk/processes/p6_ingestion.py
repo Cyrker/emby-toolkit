@@ -44,7 +44,7 @@ from etk.domains.media.effects import (
     MediaEffectStatus,
     PostgresMediaEffectLedger,
 )
-from etk.domains.operations.jobs import JobSubmissionService
+from etk.domains.operations.jobs import JobSubmissionService, TaskBusyError
 from etk.domains.p115.bridge_compatibility import p115_item_matches
 from etk.domains.p115.media_info_adapters import (
     ControlledProcessOutput,
@@ -484,7 +484,8 @@ class PersistentPendingBindingGateway(PersistentIngestionBinding):
             error = _safe_error("binding_delivery_indeterminate", exc)
             self._ledger.mark_binding_indeterminate(claimed.id, claimed.claim_token, error=error)
             return {"ok": False, "skipped": False, "retryable": False, "reason": "binding_indeterminate"}
-        except IngestionBindingInProgress as exc:
+        except (IngestionBindingInProgress, TaskBusyError) as exc:
+            # 串行队列忙是等待条件，不能耗尽业务失败次数后丢弃同批其他分集。
             error = _safe_error("binding_delivery_in_progress", exc)
             self._ledger.mark_binding_retryable(
                 claimed.id,

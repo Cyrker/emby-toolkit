@@ -141,6 +141,99 @@ def test_role_translation_reports_updates_and_checkpoints() -> None:
     assert progress.checkpoints == 1
 
 
+@pytest.mark.parametrize("entrypoint", ["populate", "reprocess", "prepare"])
+def test_scraping_translates_people_before_persisting_without_mutating_provider(entrypoint):
+    from copy import deepcopy
+
+    settings = Settings(ai_translate_actor_role=True, libraries_to_process=["library-1"], max_actors_to_process=2)
+    item = {"Id": "1", "Type": "Series", "ProviderIds": {"Tmdb": "1"}, "Path": "/fixture/show"}
+    details = {
+        "id": 1, "name": "剧名", "overview": "简介",
+        "aggregate_credits": {
+            "cast": [
+                {"id": 1, "name": "Actor", "order": 0, "roles": [{"character": "Doctor"}]},
+                {"id": 2, "name": "已有中文", "order": 1, "roles": [{"character": "已有角色"}]},
+                {"id": 3, "name": "Outside limit", "order": 2},
+            ],
+            "crew": [
+                {"id": 4, "name": "Mike Listo", "jobs": [{"job": "Director"}]},
+                {"id": 5, "name": "Writer", "jobs": [{"job": "Writer"}]},
+            ],
+        },
+    }
+    original = deepcopy(details)
+    calls = []
+
+    class Provider:
+        def details(self, *_):
+            return details
+
+    class Translator:
+        def translate(self, values):
+            calls.append(tuple(values))
+            return {v: f"译文-{v}" for v in values}
+
+    repository = MetadataRepository()
+    service = NativeMediaMetadataTaskService(
+        repository, Catalog([item]), Provider(), Translator(), settings=lambda: settings,
+    )
+    if entrypoint == "populate":
+        service.execute("populate-metadata", Progress(), {})
+    elif entrypoint == "reprocess":
+        service.reprocess_item_metadata(item, Progress())
+    else:
+        service.prepare_reprocess_metadata(item, item, {})
+    saved = repository.upserts[0][1]["aggregate_credits"]
+    assert saved["cast"][0]["name"] == "译文-Actor"
+    assert saved["cast"][0]["roles"][0]["character"] == "译文-Doctor"
+    assert saved["crew"][0]["name"] == "译文-Mike Listo"
+    assert saved["cast"][1]["name"] == "已有中文"
+    assert saved["cast"][2]["name"] == "Outside limit"
+    assert saved["crew"][1]["name"] == "Writer"
+    assert set(calls[0]) == {"Actor", "Doctor", "Mike Listo"}
+    assert details == original
+
+
+def test_people_translation_disabled_and_incomplete_response_do_not_write_wrong_names():
+    item = {"Id": "1", "Type": "Movie", "ProviderIds": {"Tmdb": "1"}, "Path": "/fixture/movie.mkv"}
+    repo = MetadataRepository()
+    settings = Settings(ai_translate_actor_role=False)
+
+    class Incomplete:
+        def translate(self, _):
+            return {"Actor": "Actor"}
+
+    service = NativeMediaMetadataTaskService(repo, Catalog(()), Metadata(), Incomplete(), settings=lambda: settings)
+    service.reprocess_item_metadata(item, Progress())
+    assert repo.upserts[0][1]["credits"]["cast"][0]["name"] == "Actor"
+    repo.upserts.clear()
+    settings = Settings(ai_translate_actor_role=True)
+    with pytest.raises(RuntimeError, match="翻译不完整"):
+        service.reprocess_item_metadata(item, Progress())
+    assert not repo.upserts
+
+
+def test_episode_limit_and_cached_english_people_are_not_treated_as_complete():
+    from types import SimpleNamespace
+
+    calls = []
+    settings = Settings(ai_translate_actor_role=True, max_actors_to_process=2, max_episode_actors_to_process=1)
+    cached = {
+        "tmdb_id": "3", "title": "第三集", "overview": "剧情", "release_year": 2026,
+        "actors_json": [{"name": "Actor", "character": "Doctor"}],
+    }
+    repo = SimpleNamespace(reprocess_cache=lambda *_: cached)
+    translator = SimpleNamespace(translate=lambda values: calls.append(values) or {v: "中文" for v in values})
+    service = NativeMediaMetadataTaskService(repo, None, None, translator, settings=lambda: settings)
+    item = {"Type": "Episode"}
+    assert service.cached_reprocess_metadata(item, {}) is None
+    result = service._translate_people(item, {"credits": {"cast": [
+        {"name": "Second", "order": 1}, {"name": "First", "order": 0},
+    ]}})
+    assert calls == [("First",)]
+    assert result["credits"]["cast"][0]["name"] == "Second"
+
+
 class ScreenshotRepository:
     def __init__(self) -> None:
         self.items = ({"tmdb_id": "10", "item_type": "Episode", "emby_item_id": "emby-10", "path": "/video.strm"},)

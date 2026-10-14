@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, ConfigDict, RootModel
 from starlette.responses import JSONResponse, StreamingResponse
 
 from etk.compatibility.response_contract import fastapi_json_response
+from etk.platform.web import PermissionPolicy, get_request_session
 
 from .bridge_client import HttpxPluginUpdateGateway, PluginUpdateError
 from .models import MediaItemType, ServiceResult
@@ -109,6 +110,22 @@ def _response(result: ServiceResult) -> JSONResponse:
         status_code=result.status_code,
         headers=result.headers,
     )
+
+
+@router.get("/scrape-records", response_model=dict[str, Any])
+def scrape_records(
+    request: Request,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=100),
+    search: str = Query("", max_length=200),
+    status: Literal["", "running", "cancelled", "failed", "incomplete", "skipped", "completed"] = "",
+) -> JSONResponse:
+    container = request.app.state.container
+    policy = PermissionPolicy(container.repository("identity"), auth_enabled=container.settings.auth_enabled)
+    decision = policy.require_admin(get_request_session(request))
+    if not decision.allowed:
+        return fastapi_json_response({"error": decision.message}, status_code=decision.status_code)
+    return _response(_service(request).scrape_records(page=page, per_page=per_page, search=search, status=status))
 
 
 async def _json_object(request: Request) -> dict[str, Any]:

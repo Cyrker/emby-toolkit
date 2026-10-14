@@ -78,7 +78,7 @@ def test_intro_detection_migration_declares_durable_state_and_revision_chain_has
     assert "uq_p115_intro_active_season" in migration
     assert "p115.intro-detection.requested" in migration
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0027_p11_watchlist_display"]
+    assert scripts.get_heads() == ["0028_media_notice_batches"]
 
 
 def test_intro_detection_runtime_is_wired_through_worker_coordinator_celery_and_gateway() -> None:

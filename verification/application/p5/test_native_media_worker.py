@@ -131,6 +131,24 @@ def test_worker_converts_failed_native_outcome_to_failed_attempt() -> None:
     assert store.terminals[0][1]["error_message"] == "metadata failed"
 
 
+def test_native_reprocess_partial_persists_completion_and_retry_details() -> None:
+    from etk.processes.native_operations import NativeOperationRouter
+
+    projection = _projection("native-operation:media.reprocess-item", {"item_id": "3"})
+    projection.job.request_payload.update(call_style="direct", native_operation="media.reprocess-item")
+    result = {"status": "partial", "message": "资料待补齐", "details": {
+        "metadata": {"incomplete": [{"item_id": "3", "missing": ["中文简介"]}]},
+        "metadata_retry": {"status": "scheduled"},
+    }}
+    runtime, store = _runtime(FakeNativeRouter(TaskOutcome.succeeded()), projection)
+    runtime._native_operations = NativeOperationRouter(
+        {"media.reprocess-item": SimpleNamespace(execute=lambda *_: result)}
+    )
+    runtime._execute_claimed(SimpleNamespace(projection=projection))
+    assert store.terminals[0][0] == "failed"
+    assert store.terminals[0][1]["error_details"]["task_outcome"] == result
+
+
 def test_worker_ignores_removed_legacy_thread_status_when_native_outcome_succeeds() -> None:
     projection = _projection("restore-nfo-and-images", {})
     router = FakeNativeRouter(

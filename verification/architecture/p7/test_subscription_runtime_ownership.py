@@ -36,7 +36,7 @@ def test_subscription_runtime_migration_is_current_single_head_and_adds_only_nat
         "subscription_runtime_states",
     }
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
-    assert scripts.get_heads() == ["0027_p11_watchlist_display"]
+    assert scripts.get_heads() == ["0028_media_notice_batches"]
 
 
 def test_subscription_runtime_repository_owns_quota_lock_and_state_cas_without_legacy_business_imports() -> None:

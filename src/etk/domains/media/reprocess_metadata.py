@@ -5,6 +5,8 @@ import unicodedata
 from collections.abc import Mapping, MutableMapping
 from typing import Any, Protocol
 
+from .metadata_quality import metadata_gaps
+
 
 class ReprocessMetadataProvider(Protocol):
     def details(self, tmdb_id: str, media_type: str) -> Mapping[str, Any]: ...
@@ -96,6 +98,22 @@ def prepare_metadata(
             data = dict(matches[0])
             if data.get("season_number") != season:
                 raise ValueError("TMDb 返回的分集季号不匹配。")
+            episode_details = getattr(provider, "episode_details", None)
+            if metadata_gaps(kind, data.get("name"), data.get("overview")) and callable(episode_details):
+                detail = episode_details(root_id, season, episode)
+                if not isinstance(detail, Mapping):
+                    raise ValueError("TMDb 返回的分集资料格式无效。")
+                if (
+                    str(detail.get("id")) != str(data["id"])
+                    or detail.get("season_number") != season
+                    or detail.get("episode_number") != episode
+                ):
+                    raise ValueError("TMDb 返回的分集身份不匹配。")
+                # 分集详情可能比季列表先更新，只补缺项，不以空值覆盖季列表资料。
+                if "分集标题" in metadata_gaps(kind, data.get("name"), data.get("overview")) and detail.get("name"):
+                    data["name"] = detail["name"]
+                if not str(data.get("overview") or "").strip() and detail.get("overview"):
+                    data["overview"] = detail["overview"]
             cast = {str(actor["id"]): dict(actor) for actor in season_cast if actor.get("id")}
             for actor in data.get("guest_stars") or []:
                 if actor.get("id"):
@@ -104,6 +122,18 @@ def prepare_metadata(
             target["_episode_number"] = episode
         elif kind != "Season":
             raise ValueError("不支持的媒体类型。")
+        if season == 0 and not (data.get("credits") or {}).get("cast"):
+            # -1 仅用于本次任务内缓存整剧主演，不与有效季号混用。
+            series_key = (root_id, -1)
+            if series_key not in cache:
+                series_data = provider.details(root_id, "tv")
+                if str(series_data.get("id")) != root_id:
+                    raise ValueError("TMDb 返回的作品身份不匹配。")
+                cache[series_key] = series_data
+            series_cast = (cache[series_key].get("credits") or {}).get("cast") or []
+            if series_cast:
+                data["credits"] = {**(data.get("credits") or {}), "cast": series_cast}
+                data["_cast_source"] = "series_fallback"
     if not str(data.get("id") or "").isdigit() or not (data.get("name") or data.get("title")):
         raise ValueError("TMDb 没有提供有效身份和标题，不能将文件名当作刮削成功。")
     return target, data

@@ -370,6 +370,43 @@ def test_unchanged_image_policy_reuses_archive_without_tmdb_lookup() -> None:
     assert result.payload["images"][0]["url"] == "http://fixture.invalid/cache/manual"
 
 
+@pytest.mark.parametrize("manual", [False, True])
+@pytest.mark.parametrize("has_logo", [False, True])
+def test_unchanged_incomplete_image_policy_fills_missing_type_without_reselecting(
+    manual: bool,
+    has_logo: bool,
+) -> None:
+    service, repository, _jobs, images, _events = _service()
+    rules = [{"type": "Primary", "limit": 1, "min_width": 0}, {"type": "Logo", "limit": 1, "min_width": 0}]
+    previous = {"type": "Primary", "source_url": "chosen-primary", "manual": manual, "index": 0}
+    repository.policy = ImagePolicyRecord(
+        ImagePolicyKey.create(MediaItemType.MOVIE, "100"),
+        rules=tuple(rules),
+        images=(previous,),
+    )
+    images.candidates = [{"type": "Primary", "source_url": "different-primary", "width": 1000}]
+    if has_logo:
+        images.candidates.append({"type": "Logo", "source_url": "new-logo", "width": 1000})
+
+    result = service.sync_image_policy(
+        MediaItemType.MOVIE,
+        path="/fixture/movie.mkv",
+        tmdb_id="",
+        season_number=None,
+        episode_number=None,
+        rules=rules,
+        force=False,
+        base_url="http://fixture.invalid/",
+    )
+
+    assert result.status_code == 200
+    assert images.live_calls == 1
+    stored = repository.replaced[0][2]
+    assert stored[0] == previous
+    assert [value["source_url"] for value in stored] == ["chosen-primary"] + (["new-logo"] if has_logo else [])
+    assert images.discarded == []
+
+
 def test_changed_image_policy_preserves_manual_and_discards_only_removed_sources() -> None:
     service, repository, _jobs, images, _events = _service()
     key = ImagePolicyKey.create(MediaItemType.MOVIE, "100")

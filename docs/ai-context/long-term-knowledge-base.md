@@ -1,434 +1,231 @@
 ﻿# ETK 长期知识库
 
-> 用途：作为后续 AI 协作、代码维护、问题定位和功能扩展的长期背景资料。内容以项目源码和现有文档为依据，保持可维护、可增量更新。
+> 核对日期：2026-09-12。描述当前原生主线，不再把重构前 Flask/PyArmor 架构作为运行指南。
+> 优先级：当前用户授权与适用 AGENTS.md → 当前源码/锁文件/实际部署 → 本文。阶段状态见 [goal-tasks.md](./goal-tasks.md)，历史证据见 [goal-log.md](./goal-log.md)。
 
-## 1. 项目定位
+## 1. 项目定位与活动范围
 
-Emby ToolKit（ETK）是围绕 Emby 媒体服务器的增强管理平台。它不是 Emby 替代品，而是补齐个人媒体库长期维护中的自动化能力：
+Emby ToolKit 是媒体管理与入库增强工具，不是 Emby 服务端替代品。当前保留 115 授权、整理、上传、STRM、媒体信息与播放；元数据、图片、演员、追剧、订阅、合集、清理、用户管理和 Telegram Bot 快捷任务。
 
-- 115 网盘文件识别、整理、转存、播放直链和 STRM 生成。
-- Emby 元数据补全、中文化、演员/角色信息维护和图片回写。
-- 智能追剧、缺季缺集补全、演员订阅和统一订阅。
-- TMDb 合集、自建合集、虚拟库和反向代理展示。
-- 共享资源中心、资源求共享、贡献点和影巢/中心端联动。
-- 封面生成、媒体清理、自动标签、播放统计、用户管理和任务调度。
+2026-09-10 移除了 ETK 自身 Pro 商业门槛，没有移除登录、管理员权限、功能开关或第三方授权。
 
-项目整体是“Web 管理后台 + 后台任务链 + 实时监控 + 外部服务集成 + 数据库持久化”的混合系统。
+2026-09-11 已退役共享资源中心、HDHive、TG UserBot 频道监听及相应云端搜索。MoviePilot 是当前可选订阅源；Telegram Bot 通知、Chat ID 绑定、管理员快捷任务保留。历史共享表、配置键、迁移和底层类保留不等于功能仍开放，不能根据旧 P9 合同重新启用它们。
 
-## 2. 技术栈
+## 2. 当前技术栈
 
-### 后端
+| 层 | 实际技术/入口 |
+|---|---|
+| Python | 3.12，约束 `>=3.12,<3.13`，`pyproject.toml` + `uv.lock` |
+| HTTP | FastAPI、Starlette、Uvicorn；`main.py` → `src/etk/bootstrap/cli.py` |
+| 配置/装配 | Pydantic Settings、AppContainer、`src/etk/platform/config/` |
+| 数据 | PostgreSQL 18、SQLAlchemy 2、psycopg 3 / psycopg_pool、Alembic |
+| 后台 | Celery、Redis 7、PostgreSQL Job/operation/Outbox、独立 Coordinator |
+| 代理 | ASGI Proxy + Nginx Gateway，HTTP/WebSocket 直连 Emby |
+| 前端 | Vue 3、Vite、TypeScript 工具链、Naive UI、Pinia、TanStack Vue Query、openapi-fetch |
+| 验证 | pytest、Ruff、Pyright、Vitest、Playwright E2E、契约与架构检查 |
+| 构建 | `Dockerfile.refactor`；Node 20 构建前端，Python 3.12 运行镜像 |
+| 文档 | 根 package 的 VitePress，不等于 frontend package |
 
-- Python 3.12，生产镜像基于 `python:3.12-slim`。
-- Flask 提供 Web API 和静态资源入口。
-- gevent / gevent-websocket 提供异步网络与 WebSocket 支持。
-- PostgreSQL 16 作为主要数据库，依赖 `psycopg2-binary`。
-- APScheduler / croniter / pytz 负责定时任务。
-- watchdog 负责目录实时监控。
-- requests、BeautifulSoup、lxml 用于 HTTP 和网页解析。
-- openai、zhipuai、google-genai 用于 AI 翻译/兼容接口。
-- Pillow、numpy、PyYAML 用于封面生成。
-- p115client 用于 115 网盘能力。
-- telethon / python-socks 用于 Telegram 用户机器人/通知相关能力。
+应用版本从 `constants.py:APP_VERSION` 读取，前端版本在 `frontend/package.json`；发版时核对两者，不以文档快照判断升级。
 
-### 前端
+Flask、gevent、psycopg2、requests 在 pyproject 的 dev 组中用于旧基线验证，不是原生运行宿主。`handler/` 与部分兼容工具仍打包，具体活动依赖以调用链与镜像检查为准，不能理解成“仓库已删除全部旧代码”。
 
-- Vue 3 + Vite。
-- vue-router 管理页面路由。
-- Pinia 管理前端状态。
-- Naive UI、Ant Design Vue、@vicons、ECharts 组成主要 UI/图表能力。
-- `frontend/package.json` 版本当前为 `10.7.89`。
+## 3. 运行拓扑与职责
 
-### 文档与部署
+```text
+管理端 → api:5257 → Use Case / Repository → PostgreSQL 18
+                                      → Job / Outbox → Coordinator → Redis → Worker
 
-- 根目录 `package.json` 是 VitePress 文档站工程。
-- Dockerfile 两阶段构建：先用 Node 20 Alpine 构建前端，再复制到 Python 运行镜像 `/app/static/`。
-- `docker-compose.yml` 包含 `emby-toolkit` 和 `db` 两个服务，默认端口包括 5257、8096、5432。
+Emby 客户端 → gateway:8097 → proxy:7758 → 真实 Emby
+                          └ /api/p115/ → api:5257
 
-## 3. 架构总览
-
-### 主要组件
-
-- Web 应用层：`web_app.py`
-- 核心处理器：`core_processor.py` 中的 MediaProcessor 相关逻辑
-- 任务系统：`task_manager.py` + `scheduler_manager.py` + `tasks/`
-- 实时监控：`monitor_service.py`
-- 反向代理/虚拟库：`reverse_proxy.py`
-- 数据库层：`database/connection.py` 和各业务 DB 模块
-- 外部服务层：`handler/`
-- 前端 UI：`frontend/`
-
-### 简化运行链路
-
-1. 容器入口脚本生成运行配置并启动服务。
-2. `web_app.py` 加载配置、数据库和处理器实例。
-3. Web API、Webhook、前端操作或调度器触发任务。
-4. 任务进入 `task_manager.py` 管理的执行体系。
-5. 具体任务调用 `core_processor.py`、`watchlist_processor.py`、`actor_subscription_processor.py`、`handler/` 或 `services/` 完成业务。
-6. 结果写入数据库、回写 Emby、刷新视图、更新状态或推送通知。
-7. 前端通过 `/api/...` 查询状态和结果。
-
-## 4. 顶层文件职责
-
-- `web_app.py`：Web 服务入口，负责初始化、蓝图注册、静态资源和运行时装配。
-- `core_processor.py`：项目最大核心文件，承载媒体元数据识别、处理、翻译、补全和回写等主流程。
-- `watchlist_processor.py`：追剧状态、季集跟踪、缺失内容补全。
-- `actor_subscription_processor.py`：演员订阅、演员作品追踪和订阅提交。
-- `actor_utils.py`：演员相关工具函数。
-- `ai_translator.py`：AI 翻译能力封装。
-- `config_manager.py`：配置文件和配置项管理。
-- `constants.py`：常量定义。
-- `extensions.py`：共享扩展对象和运行时依赖注入点。
-- `logger_setup.py`：日志配置。
-- `monitor_service.py`：文件系统监控服务。
-- `reverse_proxy.py`：反向代理服务与虚拟库输出。
-- `scheduler_manager.py`：定时任务配置和调度。
-- `task_manager.py`：任务队列、状态和互斥管理。
-- `utils.py`：通用工具函数。
-
-## 5. 目录职责
-
-### `routes/`
-
-按功能域拆分 Flask 蓝图。新增 API 时应优先放在对应业务路由文件中，不要把无关接口塞进大文件。
-
-- `actions.py`：批量动作、复处理入口。
-- `actor_subscriptions.py`：演员订阅 API。
-- `cover_generator_config.py`：封面生成配置和预览。
-- `custom_collections.py`：自建合集管理、规则、映射配置。
-- `database_admin.py`：数据库统计、导入导出、维护动作、复核条目。
-- `discover.py`：发现页、TMDb 搜索/筛选/推荐。
-- `logs.py`：日志列表、查看、搜索、上下文。
-- `media.py`：媒体查询、编辑、图片代理、订阅状态、自动标签、媒体信息编辑。
-- `media_cleanup.py`：重复版本扫描、清理策略、删除/忽略。
-- `p115.py`：115 登录、目录、播放、整理、命名、播放池、STRM 和系统目录等。
-- `resubscribe.py`：补订阅规则和批量操作。
-- `shared_resource.py`：共享资源中心、本地分享、中心资源、转存、求共享、贡献点、虚拟播放等。
-- `subscription.py`：订阅相关接口。
-- `system.py`：系统状态、配置、测试、任务控制等。
-- `tasks.py`：任务触发和任务链控制。
-- `tmdb_collections.py`：TMDb 合集处理。
-- `unified_auth.py`：统一认证。
-- `user_management.py`：用户同步、权限、邀请等管理能力。
-- `user_portal.py`：普通用户门户。
-- `watchlist.py`：智能追剧管理。
-- `webhook.py`：Webhook 接入。
-
-### `database/`
-
-数据库层，按业务拆分 CRUD 和查询封装。`connection.py` 是连接、初始化、表结构和索引的重要入口。常见模块：
-
-- `media_db.py`：媒体数据。
-- `watchlist_db.py`：追剧数据。
-- `actor_db.py`：演员订阅和演员数据。
-- `custom_collection_db.py`：自建合集。
-- `tmdb_collection_db.py`：TMDb 合集。
-- `shared_share_db.py`、`shared_virtual_db.py`、`shared_credit_db.py`：共享资源中心相关数据。
-- `resubscribe_db.py`：补订阅规则和状态。
-- `request_db.py`：请求/求共享相关数据。
-- `user_db.py`：用户、权限、邀请等。
-- `cleanup_db.py`：媒体清理记录。
-- `settings_db.py`：配置持久化。
-- `log_db.py`：日志数据。
-- `queries_db.py`：查询封装。
-- `maintenance_db.py`：维护类操作。
-
-### `handler/`
-
-外部服务、数据源和复杂业务边界封装。常见模块：
-
-- `emby.py`：Emby API。
-- `tmdb.py`、`tmdb_collections.py`：TMDb API 和合集。
-- `douban.py`：豆瓣数据。
-- `moviepilot.py`：MoviePilot 集成。
-- `telegram.py`、`tg_userbot.py`、`tg_media_candidate.py`、`tg_media_candidate_flow.py`：Telegram 通知/用户机器人/候选资源流程。
-- `p115_service.py`：115 API 和整理主服务。
-- `p115_media_recognition.py`、`p115_media_analyzer.py`、`p115_iso_analyzer.py`：115 媒体识别/分析。
-- `p115_rename.py`：命名规则。
-- `p115_upload_monitor.py`：本地目录到 115 的增量分片上传监控，保存续传任务状态并支持上传成功后删除源文件；视频上传后只生成 STRM，取得 Emby ItemID 后按截图开关将临时截图上传 `Primary` 缓存，不在媒体目录生成图片。
-- `p115_play_pool.py`、`p115_play_pool_client.py`、`p115_copy_play.py`、`p115_temp_dir.py`：115 播放池、复制播放、临时目录。
-- `shared_center_client.py`、`shared_subscription_service.py`、`shared_intro_service.py`：共享中心相关客户端和服务。
-- `hdhive_client.py`：影巢相关客户端。
-- `custom_collection.py`：自建合集业务处理。
-- `poster_generator.py`：封面/海报相关封装。
-- `github.py`：GitHub/更新相关能力。
-- `maoyan_fetcher.py`：猫眼数据抓取。
-
-### `tasks/`
-
-任务系统按领域拆分，任务注册和任务链通常从 `tasks/core.py` 进入。
-
-- `core.py`：任务注册和任务链定义。
-- `media.py`：媒体处理任务。
-- `watchlist.py`：追剧任务。
-- `actors.py`：演员任务。
-- `subscriptions.py`：订阅任务。
-- `resubscribe.py`：补订阅任务。
-- `custom_collections.py`：自建合集任务。
-- `tmdb_collections.py`：TMDb 合集任务。
-- `covers.py`：封面生成任务。
-- `cleanup.py`：媒体清理任务。
-- `discover.py`：发现/推荐任务。
-- `hdhive.py`：影巢相关任务。
-- `maintenance.py`：维护任务。
-- `p115.py`、`p115_fingerprint_helpers.py`：115 任务和指纹辅助。
-- `shared_resource_tasks.py`：共享资源任务。
-- `users.py`：用户任务。
-- `vector_tasks.py`：向量/检索相关任务。
-- `system_update.py`：系统更新任务。
-- `helpers.py`：任务辅助函数。
-
-### `services/`
-
-- `services/cover_generator/`：封面生成服务与样式，样式文件包括 `style_single_1.py`、`style_single_2.py`、`style_multi_1.py` 和 `badge_drawer.py`。
-- `services/subscribe_assistant/`：订阅助手，包含 `config.py`、`engine.py`、`manager.py`、`store.py`。
-
-### `frontend/`
-
-- `frontend/src/router/index.js`：前端路由与登录守卫。
-- `frontend/src/stores/auth.js`：认证状态。
-- `frontend/src/stores/app.js`：应用状态。
-- `frontend/src/components/`：主要页面组件。
-- `frontend/src/components/settings/`：配置页组件。
-- `frontend/src/components/modals/`：弹窗组件。
-- `frontend/src/assets/`：样式、Logo、封面样式资源。
-- `frontend/public/`：静态图标、默认图、PWA 图标等。
-
-## 6. 主要前端路由
-
-- `/login`：登录。
-- `/setup`：首次配置。
-- `/register/invite/:token`：邀请注册。
-- `/DatabaseStats`：数据库统计首页，根路径 `/` 会重定向到这里。
-- `/organize-records`：115 整理记录。
-- `/review`：待复核。
-- `/settings/scheduler`：调度设置。
-- `/settings/general`：通用设置。
-- `/auto-tagging`：自动标签。
-- `/watchlist`：智能追剧。
-- `/collections`：TMDb 合集。
-- `/custom-collections`：自建合集。
-- `/edit-media/:itemId`：媒体编辑。
-- `/actor-subscriptions`：演员订阅。
-- `/releases`：发布/版本相关页面。
-- `/settings/cover-generator`：封面生成配置。
-- `/resubscribe`：补订阅。
-- `/shared-resources`：共享资源中心，要求管理员权限。
-- `/media-cleanup`：媒体清理。
-- `/user-management`：用户管理。
-- `/unified-subscriptions`：统一订阅。
-- `/user-center`：用户中心。
-- `/stats`：Emby 统计，要求管理员权限。
-- `/discover`：探索/发现。
-
-## 7. 核心业务流
-
-### 主动入库流
-
-1. 实时监控识别新增 STRM 或实体媒体，在通知 Emby 前把除人物表外的完整 TMDb 元数据写入 `media_metadata`，并保存海报、背景、Logo、横版缩略图和季海报路径。实体文件的 ffprobe 结果保留在内存，STRM 的格式化媒体流来自 `p115_mediainfo_cache`。
-2. ETK 主动通知 Emby 扫描。桥接插件的 Movie/Series/Season/Episode Provider 根据 STRM pick code/SHA1 或实体媒体持久化路径请求 ETK 元数据接口，首次扫描直接返回确定的 TMDb 身份，不依赖目录 TMDb 尾巴或侧车元数据。Season 元数据响应不得携带集号，Episode 才同时返回季号和集号；插件按项目类型分别设置 `IndexNumber`/`ParentIndexNumber`，避免目录中任意 STRM 的集号污染季索引。插件从 `ItemAdded/ItemUpdated` 事件取得 ItemID，媒体信息注入成功后调用 ETK `item-ready` 接口；ETK 校验 pick code/SHA1 与 Item 归属后进入后续处理。对于 Emby 删库重建等不在 ETK 待入库队列中的回调，ETK 按资产路径优先、pick code/SHA1 兜底，只更新对应 Movie/Episode 资产位置的 ItemID；若同步任务已清空旧资产和指纹，则仅在回调 Item 通过 STRM 指纹校验且当前 TMDb ID 唯一命中同类型 ETK 记录时重建最小资产、SHA1 和 PickCode 数组。Episode 同时修正父 Series/Season ID，不运行完整媒体处理。剧集 ItemID 按 SeriesId 等待 3 秒聚合后一次提交，同一 ItemID 在插件回调与路径兜底之间只允许分派一次，待提交队列也会合并同剧的 `new_episode_ids`。
-3. ETK 为 STRM 插件上报保留 8 秒优先窗口，超时后才按媒体路径轮询 Item ID 兜底；物理媒体仍直接轮询。ETK 通过独立的 [ETK MediaInfo Bridge](https://github.com/hbq0405/etk-mediainfo-bridge) 插件将格式化媒体流直接持久化到对应 Emby Item；不再生成或读取媒体信息 JSON 侧车和 NFO。
-4. 注入成功的 Item ID 进入核心处理器，完成人物翻译和处理后先提交完整 `media_metadata`，再替换刷新 Emby 元数据和图片；`poster_path/backdrop_path/logo_path/thumb_path` 继续作为元数据源路径，但不再直接驱动图片仓库。插件图片 Provider 与刷新收尾恢复把媒体项所属库的 `TypeOptions.ImageOptions` 提交给 `/api/emby/metadata/images/sync`；ETK 用独立的 `media_image_policy_cache` 按 Movie/Series/Season/Episode/BoxSet 身份保存规范化策略与最终图片清单，支持 Primary、Art、Backdrop、Banner、Logo、Thumb、Disc、背景图数量和最小宽度。相同策略直接返回缓存，策略变化才查询 TMDb；普通同步保留手动选图，`ReplaceAllImages=true` 时 Harmony 前置钩子强制重选。开启“持久化元数据图片”后，ETK 只把策略清单引用的源图写入现有 `media_image_cache` SHA256 内容仓库，同一源图或相同内容复用物理文件；关闭类型、降低背景图数量或改变策略时删除无引用的源记录及物理文件，首次同步也会清理旧四字段曾提前归档但新策略未使用的图片。TMDb 没有独立 Art/Banner/Disc 分类，ETK 分别复用背景图、背景图和海报候选。`/api/emby/metadata/images/search` 仍为手动搜索实时返回 TMDb 全量候选、语言、分辨率、评分和票数，不修改策略缓存。元数据接口不再提前归档四字段，只转换已有缓存 token 和处理 Episode 截图迁移。截图始终只在 ETK 临时目录生成并上传 Emby，不在媒体目录落地；Episode 无正式剧照时用独立 `screenshot_hash` 保存当前兜底截图，没有正式剧照就无限期保留，一旦正式剧照成功接管就删除截图索引和物理文件，重截时只保留最新版。家庭视频没有稳定 TMDb 身份，暂不纳入图片仓库。“补齐视频截图”任务沿用旧 `restore-nfo-and-images` key，扫描 Emby 缺少主图的 Movie/Episode/Video STRM 并补图，不再还原 NFO 或媒体目录图片。
-5. 必要时刷新追剧、合集、封面、TMDb 合集订阅和 Telegram 通知。
-
-实体媒体也由插件管理元数据和图片。实体文件在增强识别获得 TMDb ID 后、通知 Emby 扫描前，先持久化初始 TMDb 快照，并在根 Movie/Series 的 `asset_details_json` 写入仅含 `path`、`season_number`、`episode_number` 的占位资产；后续完整处理会用同一路径的完整资产数据替换或补齐。插件通过 `/api/emby/metadata` 按文件、季目录或剧集目录解析根 TMDb 身份，恢复 Movie/Series/Season/Episode 元数据、图片与合集；实体媒体流保持 Emby 原生探测，不走 STRM 格式化媒体流注入。ETK 在实体入库前通过 `/ETKMediaInfo/Origin` 自动注册服务地址，插件把地址持久化到配置目录，Emby 重启或纯实体媒体库均无需手工配置。ETK 不会自动删除用户已有的侧车文件。
-
-Emby 事件由 ETK MediaInfo Bridge 直接监听并通过 `/api/emby/events` 上报，用户无需配置 Emby Webhook；`/webhook/emby` 只接收 MoviePilot 事件，不再保留旧 Emby Webhook 兼容。插件覆盖播放开始/暂停/停止、用户数据、用户权限、合集成员移除以及手动元数据和图片编辑；元数据通过 Harmony 拦截 `ItemUpdateService.Post(UpdateItem)` 打短时手动标记，图片通过 Emby 图片 API 入口打短时手动标记，普通 `MetadataEdit`、Provider 刷新、ETK 图片下载和插件自身回填不会上报。手动下载远程 TMDb 图片时，插件随 `ImageUpdate` 上报图片类型、URL 和季集号，ETK 解出 TMDb 图片路径后只更新 `media_metadata` 对应图片字段，确保后续刷新仍使用用户选择且不清空其他图片。用户主动删除通过 Harmony 拦截 `DeleteItem(..., DeleteOptions, ...)`，仅在 `DeleteFileLocation=true` 时触发：删除前由 ETK 校验锚点 Item 并保存一次性快照，Emby 删除成功后提交；ETK 按 Movie/Episode/Season/Series 从 `media_metadata` 展开全部 PickCode，网盘删除还必须通过“联动删除网盘文件”总开关，并在进入缓冲队列和实际调用 115 API 前再次校验。电影、整季和整剧删除优先向中心发送范围下架，即使本机共享源记录已不存在也会执行；中心返回 `404 source not found` 视为幂等成功。MoviePilot 仍使用 `/webhook/emby`。
-
-插件更新不再由 Emby 直连 GitHub。计划任务从持久化的 ETK 服务地址请求固定端点 `/api/emby/plugin-update`；ETK 使用全局 `network_http_proxy` 配置访问官方 Release，并以流式响应转发 `ETKMediaInfoBridge.dll`。该端点不是通用 URL 代理，插件仍会在本地校验程序集名称和版本后才替换 DLL；无法确定 ETK 地址时直接失败，不回退 GitHub 直连。ETK 调度器首次启动后延迟 30 秒执行一次联动检查：比较 `/Plugins` 中的已装版本与 GitHub Latest，仅落后时触发 Key 为 `ETKMediaInfoBridgeUpdate` 的 Emby 计划任务；轮询到 `LastExecutionResult.Status=Completed` 后还必须确认 `/System/Info.HasPendingRestart=true`，才调用 `/System/Restart` 自动重启 Emby。最新版、下载失败、任务失败或未出现待重启标志时均不重启。
-
-115 整理阶段负责媒体信息完整性门槛。进入主动入库流程的媒体不再由核心处理器二次检查视频流，也不再按演员中文化评分写入待复核；待复核列表继续记录真实处理异常和其他显式失败。
-
-`media_metadata.metadata_schema_version` 用于追踪字段集合迭代。新入库或成功完成 TMDb 聚合的 Movie/Series/Season/Episode 写当前版本；旧记录和未来新增字段后的落后记录由“补齐媒体元数据”任务选择性重新处理。批量补齐保留第一版已有的人物表，不再扫描、翻译或重写人物和角色。合法缺失的 Logo、简介等字段在成功尝试后同样升级版本，避免每轮重复请求。ETK 任务中心可直接运行，桥接插件也会注册 Emby 计划任务，通过有效 STRM 的 pick code/SHA1 接口触发同一后端任务。Emby 手动刷新单项时，元数据 Provider 的 GET 请求会检测根 Movie/Series 的结构版本；版本落后时只提交对应 Emby ItemID 的单项完整处理，延迟 5 秒等待当前刷新收尾，写库后再按既有流程刷新该 Item，不扫描全库。
-
-演员角色名的持久化值不包含“饰 / 配”展示前缀。核心处理器写入 `actors_json.character` 前会清理旧前缀，Emby 元数据接口按当前 `actor_role_add_prefix` 和动画/纪录片判定动态生成最终 `PersonInfo.Role`；切换开关后刷新 Emby 即可生效，无需重新翻译或运行核心处理器。启动迁移 `migration_clean_actor_role_prefix_v1` 通过 `app_settings` 标记只执行一次，用于清洗历史 `actors_json`。
-
-插件元数据接口必须复用 ETK 的关键词和工作室映射配置：对应中文化开关开启时只返回命中 ID/英文名映射的中文标签，未映射原始值直接丢弃。中文分级标签仅供 ETK 分类和筛选；Emby 家长控制不读取 ETK `emby_value`，因此 `OfficialRating` 必须返回 `official_rating_json.US` 中的美国分级代码。
-
-TMDb 合集不再受 ETK 独立开关控制。电影处理可把所属合集元数据写入 `collections_info`，但默认保持未激活，仅供 ETK Movie 元数据接口和插件读取；插件只在电影所属 Emby 媒体库开启 `LibraryOptions.ImportCollections` 且满足 `MinCollectionItems` 时按 TMDb 合集 ID 创建或加入 BoxSet。插件创建 BoxSet 成功后主动调用 ETK 激活接口绑定 Emby ID，主入库流程不延迟、不反查 Emby；合集页面、统计和缺失订阅只读取激活记录，Emby 删除 BoxSet 时记录退回未激活而不删除元数据缓存。Emby 单项刷新在元数据无变化时可能既不调用 Provider 也不触发 `ItemUpdated`，因此插件通过 Harmony 拦截 `Emby.Api.ItemRefreshService.Post(RefreshItem)`，取得 ItemID 后沿用 3 秒延迟回补流程恢复媒体流、缺图和合集关系。
-
-合集图片允许按现有策略进入 ETK 图片仓库。TMDb 合集详情明确返回 404 时，ETK 返回 410 并异步清理；删除 Emby 对象前必须确认其类型为 `BoxSet` 且 TMDb ID 完全匹配，同时删除 `collections_info`、该合集图片策略及无引用图片缓存。电影、剧集详情 404 或仅图片接口失败不能触发媒体项删除。
-
-媒体信息桥接插件的接口是 `POST /Items/{Id}/ETKMediaInfo`。每个实际版本必须使用自己的 Emby Item ID；插件注入前清空旧媒体流，新入库时删除抢占格式化流索引的外挂流，最终刷新重新识别外挂流后，刷新回补会把冲突外挂流移动到未占用索引并安全保留。插件同时同步章节、时长、大小、封装、码率和分辨率，并监听 Emby Item 刷新事件；刷新稳定后根据 STRM 中的 pick code 或虚拟播放 SHA1 调用 `/api/p115/mediainfo/...` 重新注入，事件按 Item 合并并限制为 4 路并发。
-
-共享片头使用中心端独立片头索引，不进入共享 RAW。桥接插件在启动及神医 `Extract Intro Fingerprint` 任务完成后全库扫描完整片头，调用 ETK `intro-sync` 接口；ETK 通过 Emby ItemId 校验 pick code/SHA1 归属，只在章节新增或变化时更新 `p115_mediainfo_cache.mediainfo_json.Chapters` 并异步上传中心。插件保留本地片头快照，本地无片头时才注入 ETK 从中心合并的共享片头；首次入库和秒传预检会合并中心已有片头。
-
-媒体信息维护只保留“重建媒体信息”任务。“同步媒体信息”已从任务注册表移除，指纹补齐由独立的“补齐缓存指纹”负责。重建任务的增量模式会批量检查 Emby 实际版本，只对缺少带宽高信息的 Video 流的 Item 从 ETK 缓存恢复；Emby API 未返回的 Item 不按缺失处理。全量模式才遍历全部在库版本并强制重建缓存。
-
-智能追剧递归刷新 Series 后，由于 Emby 可能只发送父级更新事件却清空子 Episode 的媒体流，追剧收尾会从媒体数据库取得该 Series 的实际 Episode 版本 ID，并统一从格式化缓存回补；父 Series ID 不进入注入列表。
-
-### 任务链流
-
-1. 调度器或前端调用 `/api/tasks/run` 触发任务。
-2. `task_manager.py` 管理任务互斥、状态、进度和日志。
-3. `tasks/core.py` 中注册的任务链按顺序执行具体任务。
-4. 任务模块调用处理器、数据库和 handler 完成业务。
-
-### 115 整理/播放流
-
-1. 前端或任务触发 115 扫描、识别、整理。
-2. `routes/p115.py` 接收 API 请求。
-3. `handler/p115_service.py` 和识别/分析/命名模块处理目录、文件、媒体信息和规则。
-4. 生成 STRM、记录整理结果，必要时提供 `/api/p115/play/...` 或虚拟播放接口。
-
-115 上传监控配置使用独立 `app_settings` 键 `p115_upload_monitor_config`，不进入 `dynamic_app_config` / `APP_CONFIG`；每个目录映射独立保存监控扩展名，旧映射缺失该字段时才继承全局实时监控扩展名；上传任务、OSS `upload_id` 续传参数和完成记录按行保存在 `p115_upload_records`，不再把状态整包写入配置表。
-
-### 共享资源流
-
-1. 本地资源登记或从中心资源浏览。
-2. 共享资源中心按 TMDb、SHA1、季集、标签和一致性规则聚合。
-3. 用户可转存、秒传、求共享、贡献点消费或奖励。
-4. 本地任务维护分享状态、资源可用性和中心端同步。
-
-### 反向代理/虚拟库流
-
-1. `reverse_proxy.py` 汇总原生库、自建合集和虚拟库项目。
-2. 对虚拟项目做 ID、排序、分页和代理响应。
-3. 通过 Nginx/代理入口把增强展示提供给 Emby 客户端。
-
-## 8. 配置和运行数据
-
-- 本地默认数据目录：`local_data/`。
-- Docker/生产默认配置目录：`/config`，由 `APP_DATA_DIR=/config` 指定。
-- 本地配置文件常见位置：`local_data/config.ini`。
-- Emby 后台连接使用管理员首次授权得到的长期 AccessToken；内部继续沿用 `emby_api_key` 配置键以兼容既有调用，但前端不再要求手填 API Key、用户 ID 或长期保存管理员密码。`emby_auth_mode=user_token` 表示服务授权完整，缺失时登录后必须完成强制授权，一键部署也必须拒绝执行。
-- 不要把 `local_data/`、真实 `.env`、数据库、token/state、venv 或构建缓存写入长期文档或提交。
-
-## 9. 本地开发与验证
-
-### 后端
-
-```powershell
-pip install -r requirements.txt
-python web_app.py
+Worker → control-plane:5260 → 被 allowlist 授权的 Docker 操作
 ```
 
-针对具体 Python 改动，优先编译检查改动文件：
+- API 提供认证、HTTP 路由、配置和静态资源，不使用旧 `web_app.py` 启动。
+- Worker 执行持久任务与副作用；当前 CLI 强制 `legacy.serial` concurrency=1、solo pool。这是队列契约，不是未迁移 Flask 的证据。
+- Coordinator 协调 Outbox、计划任务和后台工作。Compose 默认 `ETK_COORDINATOR_SCHEDULES_ENABLED=false`，容器运行不表示所有调度已启用。
+- Control Plane 通过 Token、命令账本和 allowlist 控制 Docker 操作；普通服务重启权限与 Emby 插件安装名单不同。
+- Proxy 使用 PostgreSQL 配置、Catalog、用户并发限制和播放租约，转发 Emby HTTP/WebSocket。
+- Gateway 使用 `docker/nginx.refactor.conf`，不是管理前端的替代入口。
+- migrate 一次性执行 `alembic upgrade head`；必须成功退出。迁移可能改变 schema，恢复旧镜像不代表数据库自动回退。
 
-```powershell
-python -m py_compile path\to\changed_file.py
-```
+Base Compose 共九个 service：上述七个加 db、redis。不是旧版“一个 ETK 容器 + 一个数据库”。
 
-### 前端
+## 4. 当前代码地图
 
-```powershell
-Push-Location frontend
-npm install
-npm run dev
-npm run build
-Pop-Location
-```
+以下路径均相对当前仓库根目录。
 
-### 文档站
+| 对象 | 优先入口 |
+|---|---|
+| 进程命令 | `main.py`、`src/etk/bootstrap/cli.py` |
+| API 注册/装配 | `src/etk/bootstrap/app_factory.py`、`src/etk/platform/container.py` |
+| 设置 | `src/etk/platform/config/`、`src/etk/domains/system/configuration.py` |
+| 登录、授权、用户 | `src/etk/domains/identity/` |
+| 媒体、图片、Bridge、事件 | `src/etk/domains/media/` |
+| 115 | `src/etk/domains/p115/` |
+| 入库 | `src/etk/domains/ingestion/`、`src/etk/processes/p6_ingestion.py` |
+| 订阅/追剧/洗版/MoviePilot | `src/etk/domains/subscription/` |
+| 合集/封面 | `src/etk/domains/collection/` |
+| 人物后台工作 | `src/etk/domains/people/` |
+| Job 与任务控制 | `src/etk/domains/operations/`、`src/etk/platform/jobs/`、`src/etk/platform/tasks/` |
+| Worker/Coordinator/Control Plane | `src/etk/processes/worker.py`、`coordinator.py`、`control_plane.py` |
+| Proxy | `src/etk/processes/proxy.py`、`proxy_runtime.py` |
+| schema | `alembic.ini`、`migrations/`、`src/etk/platform/db/` |
+| 前端 | `frontend/src/router/index.ts`、`frontend/src/api/`、`frontend/src/stores/`、`frontend/src/components/` |
+| 契约/归属/冻结基线 | `verification/contracts/`、`scripts/refactor/` |
 
-```powershell
-npm run docs:dev
+顶层 `core_processor.py`、`watchlist_processor.py`、`task_manager.py`、`scheduler_manager.py`、`reverse_proxy.py`、`routes/`、`database/` 等是旧实现/验证参考，不是新功能的默认修改入口。新 Dockerfile 不复制旧 routes/database/tasks 目录及 PyArmor 主程序。遇到保留的 Legacy 类或旧配置键，先查原生装配的实际使用，不按命名清理。
+
+## 5. 配置、身份与网络
+
+### 配置持久化
+
+- `APP_DATA_DIR` / `CONFIG_DIR` 指定运行配置目录，容器使用 `/config`。
+- `LegacyConfigAdapter` 不导入旧全局配置模块，保持 INI/bootstrap 与数据库动态键兼容。
+- bootstrap 先取默认/INI，再应用显式支持的环境别名；动态配置读 `app_settings.dynamic_app_config`，独立 setting 由各领域维护。
+- `Settings` 不直接使用 Pydantic 的环境或 dotenv source；不能假设任意同名环境变量可覆盖数据库设置。DB URL、Redis、角色参数还有各自 runtime 入口。
+- 配置更新采用校验和合并，不能用前端脱敏响应覆盖真实秘密。API 与 Proxy 会同步动态配置。
+- 115 凭据、上传监控、播放状态不全在 dynamic_app_config；备份配置目录不能替代 PostgreSQL 备份。
+
+### Emby 身份
+
+服务授权使用管理员身份换取长期 Token，字段名为 `emby_api_key`，`emby_auth_mode=user_token` 表示服务授权完整；用户名/密码不作为长期服务凭据保存。授权成功、插件安装成功、媒体库 Provider 启用是三个不同结果。
+
+配置响应中的 Token 为 `********`。用户 Views 路由在 `secondary_router.py` 中先验证 ETK 自身权限，再将空/全星号 Token 回退到服务端 Token；不无条件覆盖显式客户端 Token。
+
+### 出站策略
+
+Emby、MoviePilot、115 API/播放直接连接，不使用环境代理。TMDb、GitHub、Telegram 等受限服务由各自适配器按 `network_proxy_enabled` / `network_http_proxy_url` 使用代理；不能简化成“只有局域网直连”或“纯外网全部代理”。
+
+检查具体调用时看原生 adapters、`handler/emby.py`、`handler/moviepilot.py`、115 direct-client 与 `proxy_runtime.py`。定向验证在 `verification/architecture/p11/test_legacy_lan_direct_http.py`、`test_p115_direct_http.py`。不要为一个 Emby 请求关闭 TMDb 的代理配置。
+
+## 6. 媒体与 Bridge 的保留合同
+
+以下描述后端与独立插件的集成合同，**不等于完整业务验收**；当前安装状态见下方“插件安装、更新与兼容”。
+
+- `p115_mediainfo_cache.mediainfo_json` 为规范化媒体流来源，`media_metadata` 为元数据来源；新入库不生成或依赖 NFO、媒体信息 JSON 侧车。
+- 整理准备媒体身份、元数据和资产路径后通知 Emby 扫描。插件回传 Item ID 再继续后续处理；按原生 media/p115/ingestion 域及 p6 进程定位。
+- Bridge 的 Movie/Series/Season/Episode Provider 依据 STRM pick code/SHA1 或实体路径恢复元数据；Season 与 Episode 索引分别处理，不能用集号覆盖季号。
+- 旧媒体的普通同步会合并 Emby 路径到 `asset_details_json`，保留已有资产记录；缺少路径关联时增量任务也会重新同步。手动重新处理按电影/整剧/单季/单集限定范围，先抓取并保存所选季集，再逐项持久刷新与回读。季集分别保存自己的 TMDb ID、父剧 ID、季号和集号，不把整部剧 ID 写作分集 ID；季详情在一次任务内复用，缺失编号或已有身份冲突要求人工核对，不猜测映射。
+- 缺少根 TMDb ID 时，`reprocess_metadata.py` 按明确片名和年份查询，只有唯一同名同年结果才自动识别；歧义、年份冲突和缺少年份时停止并提示人工确认。此能力接在手动重新处理，不表示普通同步会自动完整刮削全库。名称/简介锁定时不强制改写，不自动重命名文件或调整季集编号。
+- 逐项刷新使用非递归、仅元数据模式，不请求替换现有图片。任务区分选中、保存、回填确认和失败数量；只有 Emby 身份、标题、非空简介回读一致才计入确认。部分完成保持部分结果，不因父剧成功就宣称整剧补刮成功；插件 `refresh.request` 自动事件处理仍是独立缺口。
+- 2026-09-12 后续修复已随 `10.8.65-local.20260912-monitor-logs.1` 部署，扩展上述规则：演员名单保留头像地址，人物表缺失不丢掉演员，有人物缓存时优先使用缓存姓名；分集合并该季常驻演员与客串。分集剧照同时提供 `Primary`，只对缺主图的分集执行非替换图片刷新；原有主图和元数据锁定条目保留。回读增加演员/导演及其可用头像数量、IMDb、分级和分集主图检查；不把镜像上线当作已完成线上回填。
+- 实体媒体流仍由 Emby 原生探测；STRM 流通过 `POST /Items/{Id}/ETKMediaInfo` 注入。刷新恢复与 Item ID 重绑不等同于重跑完整整理链。
+- 图片策略读取 Emby `TypeOptions.ImageOptions`；`media_image_policy_cache` 记录按项策略，`media_image_cache` 内容仓库仅保存实际引用图片。普通同步保留手动选图，“替换现有图像”才强制重选。
+- 四个源图片路径不等于仓库文件清单。Episode 正式剧照缺失时用 `screenshot_hash` 保存兜底截图，正式图片接管后清理无引用缓存。
+- 演员角色持久化不保存“饰 / 配”前缀，响应按配置添加。关键词/工作室中文化遵循映射，Emby `OfficialRating` 使用美国分级映射。
+- TMDb 合集使用媒体库 `ImportCollections`、最小数量规则和 `collections_info` 激活状态。明确 404 才进入匹配类型/ID 的清理，不能把图片请求失败当删除依据。
+- Emby 事件通过 Bridge 的 `/api/emby/events` 回传；MoviePilot Webhook 有独立原生入口。播放、手动编辑、图片与删除是不同合同，普通刷新不能当用户编辑。
+- 主动删除使用 prepare/commit 与持久状态；115 删除还需联动开关、身份、取消及副作用确认。本文不构成删除授权。
+- 共享资源中心退役后，旧共享片头上传、中心登记/转存等外部写入不能因旧文档而恢复。本地媒体信息/片头按当前 native owner 执行。
+
+### 插件安装、更新与兼容
+
+名称 `ETK MediaInfo Bridge`，DLL `ETKMediaInfoBridge.dll`，计划任务 Key `ETKMediaInfoBridgeUpdate`。源码是独立仓库，本项目保留安装器、下载代理和 Bridge API。
+
+- 安装器 `handler/etk_plugin_update.py` 经 Control Plane 执行，要求容器 label `com.embytoolkit.control-plane.plugin-install=true` 或 `ETK_CONTROL_PLANE_EMBY_ALLOWED_SERVICES`，并核对已授权 Server ID。
+- 当前 URL 枚举依赖 Docker 容器独立 IP，host 网络存在识别缺口。编排已写 label 不表示运行容器已应用，更不表示插件已安装。
+- 原生下载代理在 `src/etk/domains/media/bridge_client.py`，仍指向上游；fork 不会自动切换下载源。
+- 插件抓取器名称为 `ETK Metadata`、`ETK Images`，安装后需按媒体库确认启用。
+- 上游 v1.3.63 声明支持 4.9.x。本轮对话以真实 4.10.0.40 程序集完成离线构建、153 个类型加载、8,073 次 IL 引用解析及 8 组 Harmony 挂接检查，未发现该层兼容问题；构建有 6 组依赖冲突警告，没有生产业务/其他插件共存验收。
+- 2026-09-12 后续经用户授权，已手工安装验证过的上游 DLL；目标 Emby 回读 `1.3.63.0`，更新任务已注册，ETK Origin 配置成功，真实启动日志确认 8 组 Harmony hook 激活。通过一次原镜像容器重建应用插件与 label，镜像 ID、host 网络和全部挂载保持不变；未修复自动安装器的 host 网络识别缺口。
+- 刚安装后的只读核查曾发现 4 个媒体库没有配置 ETK Provider；后续用户已配置电视剧、动漫库，真实回填验证使用动漫库。其他库以实时配置为准。不得为了启用插件而重新授权并调用 `_apply_library_defaults`，该流程还会更改实时监控、NFO 等策略，需另行确认范围。
+- 插件加载与 hook 启动已有真实服务证据；深层元数据、图片、事件、删除及其他插件共存的完整业务验收仍未完成。8097 和标准 115 302 可独立于 Bridge 工作。
+
+## 7. 任务、前端与 Proxy
+
+2026-09-12 最新补充已部署：`processes/filesystem_monitor.py` 将真实 Watchdog 事件接入既有持久入库链；Observer 只由 Coordinator Leader 启停，跟随配置更新，不依赖 cron 总开关，不在启动时扫描全部旧文件。已有漏项仍需查漏或定向处理。新分集识别出原先无 TMDb ID 的父剧时，同时准备必要父级元数据，不处理兄弟集。现场确认监听启动，完整新增文件刮削仍待用户实际整理验证。
+
+同批日志修复将历史页整合为 `app.log`（兼容旧任务日志链接但不再逐任务列文件）。运行日志通过跨进程文件锁合并，10 MiB 轮转、保留一份归档；任务部分仍为最近 100 个根任务的有限快照。Coordinator CLI 和 Celery `setup_logging` 信号均接入统一日志初始化，避免只在 API 留下日志。图片源地址就绪、真正下载及 Emby 回读是不同阶段；MoviePilot 通知的接收、忽略原因和持久入队均记录，但不能凭“没有持久记录”断言 MP 从未发送过请求。现场还发现部分 `emby.event.user.*` 播放副作用缺少 Worker 处理器；本次记录为独立缺口，不等同于 MP 通知或文件监听失败。
+
+Job/operation/Outbox 以 PostgreSQL 为持久事实源，Redis 为任务消息基础设施。外部写入前需要 checkpoint；未知结果需要 authoritative readback，不能凭超时重复发送或把取消视作无副作用。
+
+后续修复已随 `10.8.65-local.20260912-playback-events` 部署：Worker 注册用户事件执行器，使用原生片头检测、115 播放清理、持久代理租约释放及 Telegram 文字通知，不导入旧 routes/database/reverse_proxy。通知遵循 playback 开关、Bot 和接收目标配置；部分发送后结果不明不自动重放，暂时失败设重试上限。已退役虚拟导入停止生产新事件，既有事件以 feature_retired 结束。API 配置同步使用透传式 ASGI 中间件，避免 BaseHTTPMiddleware 在断连时将未传完的流误标为完整结束；不删除 Content-Length 或 Content-Range。历史日志按完整记录而非逐行倒序，堆栈保持原序并折叠；成功健康检查/状态轮询只在视图默认隐藏，不删除原始日志。现场积压播放事件已收敛，不等于全部外部功能逐项验收。
+
+实时日志是结构化对象，前端不能直接 `join()`。历史页面经 `PersistentJobLogStorage` 使用现有日志 API 读取最近 100 个根任务及其明确关联的子任务，展示每任务当前保留的日志、最终状态与错误摘要；旧 `app.log*` 文件仍兼容。当前日志快照最多 200 条/任务，不是完整进程日志，也不能恢复已截断内容。
+
+`src/etk/platform/tasks/catalog.py` 保留 50 个冻结 key，四个 P9 key 已退役，活动列表 46 个。新提交在 Job 创建前被拒绝，历史任务按 `SKIPPED / feature_retired` 跳过，任务链过滤退役 key。清单与实际接线共同证明状态。
+
+前端路由以 `frontend/src/router/index.ts` 为准，`/shared-resources` 已移除；不维护第二份完整 URL 清单。API 使用生成客户端和现有 transport，Pinia 管 auth/UI、Vue Query 管服务端状态；兼容模块仍有 `@ts-nocheck`，最终权限以服务端为准。
+
+任务中心“网页与 Telegram 快捷任务”复用 `/api/tasks/run` 及现有菜单；空配置使用六项默认值。`system-auto-update` 按当前原生策略可能跳过，不等于自动 DockerHub 更新。细节见 [快捷任务说明](../zh/guide/quick-tasks.md)。
+
+Proxy 装配在 `proxy_runtime.py`，普通 HTTP/图片/Range/WebSocket 回源 Emby，虚拟 ParentId/详情与 Views 由 Catalog 按权限处理。标准 115 STRM 解析直链返回 302；已识别 115 但解析失败返回 503，不静默转码。共享虚拟播放路径仍明确失败，不能把保留协议误写成完整支持。转码是否回源由 `proxy_allow_transcoding` 决定。
+
+## 8. 构建、部署和回滚
+
+### 编排与端口
+
+- 采用 `Dockerfile.refactor` + `docker/compose.refactor.yml`；`docker/compose.debian-lan.yml` 只是 overlay，不能单独运行。
+- 前端产物位于镜像 `/app/static`，镜像包含 Nginx、ffmpeg 和原生 Python 入口。
+- Base 宿主机 API 默认 15257、Gateway 默认 18097，容器内为 5257、8097。Debian 配置为 `ETK_API_PORT=5257`、`ETK_PROXY_PORT=8097`。
+- Compose 首文件在 docker 子目录时不能依赖工作目录猜测 .env；显式使用 `--env-file`、project 与完整文件路径。校验用 `config --quiet` 或结构化提取，避免输出秘密。
+- UI 的 proxy_enabled/proxy_port 不会创建 Docker 服务或改端口映射，Proxy/Gateway 必须实际存在。
+
+### 数据与权限
+
+Debian 的配置和四个媒体盘 bind mounts 以 overlay 为唯一映射清单，本文不复制私有盘路径。API、Worker、Coordinator、Proxy 有媒体映射；Control Plane 使用配置、runtime Token 和 Docker Socket。
+
+PostgreSQL 18 使用 `pg18_data:/var/lib/postgresql`，Redis 使用 `redis7_data:/data`，控制面凭据使用 `control_plane_runtime`。固定 project `etk-refactor-greenfield`，更名会改变默认 volume 名。不能把当前库改挂旧 PostgreSQL 目录。
+
+named 配置卷切换 bind mount 前需比对/迁移已有内容并保留旧卷。旧 P12“从空库重建”只适用于明确可丢弃的测试环境，不适用于已经接收真实数据的 Debian 服务。
+
+Docker Socket 的 `:ro` 挂载不等于 Docker API 只读权限；边界在 Control Plane 的认证、allowlist 与动作校验。未设置 Watchtower enable label 也不保证禁更，需看 Watchtower 是否启用 label-only；当前本地镜像流程不依赖 Watchtower。
+
+### 临时开发操作与正式交付方向
+
+目标使用 SSH 别名 `debian-lan`。**当前调试阶段临时采用** Mac 构建 linux/amd64、导出并核对传输前后 SHA-256，再传 Debian docker load 的方式，不在 Debian 构建；这不是长期交付规范。
+
+**功能正常、版本稳定后的正式交付方式是发布到 DockerHub，由 Debian 拉取发布镜像部署**，不再要求手工传镜像文件。当前本地镜像版本不能当作已经发布的 DockerHub 版本；具体发布仍在后续发版任务中执行。
+
+获准升级时：
+
+1. 本地验证变更及目标架构镜像，核对 Compose 端口、挂载、project、镜像。
+2. 备份编排、环境文件、配置、PostgreSQL，保留旧镜像并记录 DB/Redis 容器身份。
+3. 临时开发时导入镜像，正式交付时从 DockerHub 拉取已发布镜像；migrate 必须 exit 0，按 `--no-deps --no-build` 更新获授权的应用角色，不无关重建 DB/Redis。
+4. API/Proxy 就绪后启动 Gateway，验证登录、媒体库、播放等业务，不只看 health。
+5. 核对数据卷未变化；失败按备份与 schema 兼容性回退，不执行 prune、down -v 或删除旧归档。
+
+日常部署只保留上一份可回滚备份及上一版镜像；新版本验证成功后，定向清理更早的部署备份、无容器引用的旧开发镜像和已导入的临时镜像包，不使用全局 prune。初始旧项目归档包含独立旧数据库，2026-09-12 用户明确要求单独保留；其他服务备份不在此规则的清理范围内。
+
+旧 unraid + 单容器 docker cp 流程只适用于被明确点名的旧实例，不是当前更新入口。静态资源错误仍需检查权限与路由，但不能为排查自动覆盖生产 /app。
+
+## 9. 验证入口
+
+仓库根目录使用 Python 3.12 和锁文件，首次准备依赖为 `uv sync --frozen`。前端按 Dockerfile 使用 `npm ci --legacy-peer-deps`。普通文档修改不需要重新安装依赖。
+
+```bash
+uv run python main.py --help
+uv run ruff check <本次修改的Python路径>
+uv run pyright <受影响路径>
+uv run pytest -q <verification下的定向测试路径>
+uv run python scripts/refactor/check_manifests.py
+npm --prefix frontend run typecheck
+npm --prefix frontend run check:api-boundary
+npm --prefix frontend run test:unit
+npm --prefix frontend run build
+npm --prefix frontend run test:e2e
 npm run docs:build
 ```
 
-## 10. Docker 与生产部署知识
+- 后端分层验证在 `verification/unit/`、`application/`、`architecture/`、`integration/`，永久测试不放临时 tests。
+- 前端 E2E 为 `frontend/e2e/`，旧计划中的 verification/e2e/api 不存在。
+- DB/Redis 集成测试必须选择隔离连接和对应测试开关，不能带入生产连接。`scripts/refactor/run_p12_greenfield.py` 是可丢弃环境工具，不是线上更新脚本。
+- 文档按链接、源码路径、命令与 VitePress 构建验证，不为改文档重跑全部业务测试。
+- 两个 refactor workflow 接受 PR/手动触发，push 分支过滤仍为 codex/refactor-mainline；提交 main 不等于这两个门禁自动运行。发版前单独核对，不在文档任务中改 CI。
 
-### 镜像构建逻辑
+## 10. 文档与证据维护
 
-- 第一阶段：`node:20-alpine` 构建 `frontend/dist`。
-- 第二阶段：`python:3.12-slim` 安装系统依赖、Python 依赖、复制后端代码、复制前端静态文件到 `/app/static/`。
-- 运行时入口：`/entrypoint.sh`。
-- 健康检查：`http://localhost:5257/api/health`。
+| 文档 | 当前性质 |
+|---|---|
+| short-term-context.md | 快速接手、当前入口和范围 |
+| long-term-knowledge-base.md | 当前实现地图、保留合同和维护边界 |
+| goal-tasks.md | 阶段状态事实源；Local 与 Live 分开 |
+| goal-log.md | 按日期保留证据，旧失败/通过不代表当前状态 |
+| full-project-refactoring-execution-plan.md | 重构前基线、设计与门禁，不是现役部署手册 |
+| 三份 P7/P11/P12 handoff/remaining plan | 历史执行起点，不重做旧待办或恢复已退役功能 |
 
-### Compose 服务
+文档必须区分“源码有实现”“本地测试通过”“镜像已部署”“业务验收通过”。8097 有限 canary 不代表所有 Bridge、115 外部写入、故障恢复及长期观察完成；LIVE 仍为 HUMAN_PENDING。
 
-- 应用服务：`emby-toolkit`
-- 数据库服务：`emby-toolkit-db` / Postgres 16 Alpine
-- 应用端口：5257，Emby 代理相关端口在 compose 中映射 8096，Dockerfile 暴露 8097。
-- 数据库端口：5432。
-
-### 热更新原则
-
-生产容器宿主机使用 SSH 别名 `unraid`，容器名固定 `emby-toolkit`。生产 `/app` 不是宿主机源码挂载，因此热更新必须：
-
-1. 本地验证。
-2. 打只包含本次改动文件和必要前端构建产物的临时包。
-3. 上传到 `unraid:/tmp/`。
-4. 备份容器内旧文件。
-5. 用 `docker cp` 覆盖对应文件。
-6. 修复 `/app/static` 权限。
-7. 后端改动重启容器并检查健康状态。
-
-详细命令见根目录 `AGENTS.md`，不要凭记忆改生产。
-
-## 11. 外部服务和敏感信息
-
-项目会接触 Emby、115、TMDb、MoviePilot、Telegram、共享中心、影巢中转服务器、SSH 生产宿主机等外部系统。连接参数和凭据类信息集中在 `AGENTS.md` 或本地配置中。
-
-长期知识库只记录“去哪里找”和“如何使用”，不要复制明文密码、API Key、cookie、token 或真实 `.env` 内容。
-
-## 12. 修改建议
-
-### 新增后端 API
-
-1. 找到对应业务域的 `routes/*.py`。
-2. 复用已有配置、数据库和 handler，不新增跨域依赖。
-3. 若需要后台处理，新增或复用 `tasks/` 任务。
-4. 若需要持久化，优先在对应 `database/*_db.py` 中封装访问。
-5. 做最小 py_compile 或接口级验证。
-
-### 新增前端页面/功能
-
-1. 找对应页面组件或设置页组件。
-2. 复用现有 Naive UI/Ant Design Vue 风格。
-3. API 请求通过现有 axios 用法。
-4. 路由放在 `frontend/src/router/index.js`。
-5. 跑 `npm run build` 验证。
-
-### 修复业务 Bug
-
-1. 先定位入口：前端页面、API 路由、任务、handler、数据库。
-2. 尽量写出复现命令、日志定位或最小验证步骤。
-3. 改动只触及根因文件。
-4. 验证不要只看无报错，最好检查目标行为或返回值。
-
-## 13. 已知注意事项
-
-- 部分旧 Markdown 或源码注释存在中文乱码显示，实际业务逻辑仍需以代码和上下文为准。
-- `core_processor.py`、`watchlist_processor.py`、`shared_resource.py`、`p115.py`、`reverse_proxy.py` 等文件较大，修改前必须先局部搜索相关函数和调用点。
-- 前端路由守卫依赖 `authStore.checkAuthStatus()`，首次配置会使用 `SETUP_REQUIRED` 跳转到 `/setup`。
-- 共享资源、115 播放、虚拟库、反向代理都是高耦合功能，改动时需要同时检查路由、handler、database、tasks 和前端调用。
-- 静态资源热更新后若浏览器报 JS MIME type 为 `text/html`，优先检查 `/app/static/assets` 权限。
-
-## 14. 文档维护规则
-
-- 短期上下文只放“快速接手需要知道什么”。
-- 长期知识库放稳定事实、架构、流程和维护约定。
-- 如果后续新增重要模块、路由、任务链或部署流程，应同步更新本文件。
-- 凭据和实时状态不进知识库，统一引用安全位置。
-
-## 15. 对话沉淀与长期记忆
-
-本节记录从项目协作对话中沉淀下来的长期有效规则。它不是聊天流水账，只保留后续任务会反复用到的结论、约定和维护方式。
-
-### 本轮已形成的长期约定
-
-- 项目 AI 上下文统一放在 `docs/ai-context/`。
-- 短期交接文档是 `docs/ai-context/short-term-context.md`，用于每次任务开始时快速恢复项目背景。
-- 长期知识库是 `docs/ai-context/long-term-knowledge-base.md`，用于记录稳定架构、模块边界、业务流程、部署方式和协作规则。
-- `AGENTS.md` 已加入自动读取规则：每次处理本项目任务前先读短期上下文；涉及架构、跨模块、部署、长期维护或新功能设计时再读长期知识库。
-- 自动读取知识库不等于跳过需求确认；目标、边界或关键假设不清楚时仍必须先问。
-- 长期知识库不保存明文密码、API Key、cookie、token、真实 `.env`、数据库内容或其他敏感运行状态。
-- 需要使用外部连接、生产热更新、SSH、MoviePilot MCP、Emby 等细节时，回到 `AGENTS.md` 或本地配置查阅，不在知识库中重复敏感值。
-
-### 对话整理原则
-
-- 只沉淀“以后还会用”的信息：项目结构、稳定规则、排障路径、部署流程、模块职责、已确认的协作偏好。
-- 不沉淀一次性状态：临时命令输出、当前未提交状态、某次扫描结果、一次性调试日志。
-- 不沉淀敏感明文：账号密码、API Key、token、cookie、内网服务密钥、真实 `.env`。
-- 不把用户的一次性表达改写成永久需求；只有明确可复用、可验证、对后续任务有帮助的内容才进入长期知识库。
-- 如果对话中产生了代码改动、部署经验或排障结论，优先写成“触发条件 + 处理方式 + 验证命令/检查点”的形式。
-
-### 推荐更新流程
-
-1. 开始任务前读取短期上下文；必要时读取长期知识库。
-2. 完成任务后判断是否产生可复用经验。
-3. 若只是一次性执行结果，不写入长期知识库。
-4. 若是稳定规则、模块认知、部署流程或排障经验，追加到本文件对应章节。
-5. 更新后检查是否误写敏感明文。
-6. 用 `git status --short` 确认只修改了预期文件。
+不要复制真实凭据、内网 URL、私有媒体路径、数据库或完整环境文件到公开文档。运维值使用别名与私密配置。历史日志不抹掉，不因状态变化批量勾选旧方案检查表。

@@ -2,8 +2,14 @@
 
 > 文档用途：在 Mac 上恢复 `13c6d32e` 之后的全项目重构 Goal，先修复已确认的 P7 缺陷，再以压缩批次完成 P7-P12。
 > 审查基线：`origin/main@13c6d32ee546c103838130a0869a4b613f593b4f`
-> 当前阶段：P0-P6 `DONE`，P7 `DOING`，P8-P12 `TODO`，Live Acceptance `HUMAN_PENDING`
+> 当时阶段：P0-P6 `DONE`，P7 `DOING`，P8-P12 `TODO`，Live Acceptance `HUMAN_PENDING`
 > 风险等级：高。涉及订阅额度、远端副作用、删除、持久任务恢复、贡献点和 Greenfield 销毁重建。
+
+## 状态更正（2026-09-12）
+
+本文已作为历史交接保留，不再是当前执行入口。P0–P8、P10–P12 Local 为 `DONE`，P9 为 `LOCAL_DONE`，完整 LIVE 仍 `HUMAN_PENDING`。当前状态见 [goal-tasks.md](./goal-tasks.md)，入口与部署见 [短期上下文](./short-term-context.md) / [长期知识库](./long-term-knowledge-base.md)。
+
+下文“必须修复”“当前 checkpoint”“当前剩余任务”和 Windows 环境测试结果都限定在 `13c6d32e` 的历史基线，不能重复执行为新任务。共享资源中心、HDHive、TG UserBot 监听已后续退役。P12 空状态销毁只属于隔离测试，不适用于已经部署的 Debian 持久卷；新的部署/外部写入仍须当前任务点名授权。
 
 ## 1. 交接结论
 

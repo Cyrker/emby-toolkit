@@ -3,6 +3,8 @@
 Source: `full-project-refactoring-execution-plan.md`
 Task status truth: `goal-tasks.md`
 
+> Reading note (2026-09-12): this is a chronological evidence ledger. Earlier “current”, “pending”, “next” and “no deployment” statements describe their dated runs, not today's global state or permissions. Use the tracker and the current short/long context to resume; do not erase old failures, reinterpret old passing counts as fresh runs, or execute historical destructive Greenfield steps on the deployed environment. The latest context reconciliation is at [Current context reconciliation](#current-context-reconciliation-20260912).
+
 ## 2026-08-23 Run
 
 Request:
@@ -6384,3 +6386,183 @@ Pending / Blocker / Next:
   `DONE`; P11 and P12 Local remain `DONE`; Live remains `HUMAN_PENDING`. Create the isolated local
   checkpoint `refactor: retire external resource features`. No push, deployment, release or real
   external write was performed.
+
+### Current-Context-Reconciliation-20260912
+
+Request / scope:
+
+- Reconcile `docs/ai-context/` with the actual native mainline. Documentation only; no application,
+  Compose, credential, database or plugin changes in this documentation pass.
+- Git baseline is `main@2e09b04f2ac7` with pre-existing uncommitted deployment/auth/direct-network
+  changes. Those changes and the existing node_modules platform differences were preserved.
+
+Corrected:
+
+- Replaced the old Flask/PyArmor/PG16 entrypoint and single-container hot-update instructions in
+  the short/long contexts with native FastAPI, PG18, Celery/Redis and split-role entrypoints.
+- Documented current frontend tooling, 50 frozen versus 46 active task keys, approved Pro-gate
+  removal, retired Shared Resource Center/HDHive/UserBot listening, and retained Telegram Bot/MP.
+- Recorded service-specific direct/proxy routing, masked Emby Token fallback, Proxy/Gateway
+  deployment, standard 115 302 scope, current Bridge installation limits and offline-vs-live evidence.
+- Marked the original plan and three old handoffs as historical contracts; their stale HEAD,
+  dirty lists, remaining-task counts and destructive Greenfield commands are not today's runbook.
+  Historical results/checklists are preserved; no Local or LIVE stage was silently advanced.
+
+Deployment evidence from this conversation (not a new deployment in this pass):
+
+- Mac-built linux/amd64 image `10.8.65-local.20260912-proxy8097` was loaded on the authorized Debian
+  target. A fresh read-only check in this pass confirmed API, Worker, Coordinator, Control Plane,
+  Proxy and Gateway were all healthy on that version.
+- Earlier in this conversation, 5257 session/configured-user Views and 8097 Emby home, four Views,
+  standard 115 HTTPS 302, Range and WebSocket were checked. This documentation pass did not replay
+  those business probes or claim a complete external-system acceptance run.
+- The earlier deployment preserved PostgreSQL/Redis container identities and existing volumes,
+  config contents, old image and directory archives. Future updates continue via Mac build/export
+  and Debian load; DockerHub release, automatic updater adoption and data cleanup remain separate.
+- A fresh read-only check found Emby 4.10.0.40 in host networking, without the Bridge loaded and
+  without the opt-in label on the running container. The earlier Compose-only label edit was not
+  a container recreation. The installer still requires host-network target discovery adaptation.
+- Separate plugin-fork verification in this conversation: upstream v1.3.63 and fork source were
+  equivalent; build against the actual 4.10.0.40 assemblies had 0 errors and 6 dependency-conflict
+  warning groups. Published DLL loaded 153 types, resolved 8,073 IL references without failure,
+  and installed/uninstalled all 8 Harmony hook groups in an isolated linux/amd64 process. No
+  production plugin installation, business mutation or plugin-coexistence acceptance was performed.
+
+Validation / remaining boundary:
+
+- Current-context source-path check: 49 path references resolved; added local Markdown links and
+  code-fence pairing checked; referenced frontend scripts exist. `git diff --check` passed for this
+  directory. VitePress docs build passed with the existing large-chunk warning.
+- No full backend/frontend business test suite was rerun for a documentation-only edit. Earlier
+  stage counts remain dated evidence, not fresh results. No commit, push, release or deployment.
+- P11/P12 Local remain `DONE`; P9 remains `LOCAL_DONE`; complete LIVE remains `HUMAN_PENDING`.
+
+### Bridge-Install-And-Delivery-Policy-20260912
+
+用户纠正与授权：
+
+- Mac 构建 linux/amd64 镜像、导出并传 Debian 加载，仅为临时开发验证操作；此前日志中
+  “Future updates continue via Mac build/export and Debian load”不应理解为长期交付规则。
+  功能正常、版本稳定后发布到 DockerHub，由 Debian 拉取部署；本轮没有发布镜像。
+- 用户明确要求现在安装插件。本次仅安装已验证的 Bridge、注册 ETK Origin，并重建一次
+  已确认的 Emby 容器应用插件和已有 opt-in label；没有升级 Emby 镜像。
+
+安装与回读证据：
+
+- 安装前 Bridge 不存在，无活动播放 session。已备份原编排、存在的插件配置和 Emby
+  配置目录，并记录旧镜像 ID、挂载和插件缺席状态；这不是完整媒体数据库备份。
+- 安装上游 v1.3.63 的已验证 DLL，传输后 SHA-256 与验证制品一致：
+  `a080d965cb32eaef283c6d0e27668eccf97a052b4bef8d4f4d6cd2b1a8f2f9a7`。
+- 原镜像 `--pull never --no-deps --no-build --force-recreate` 重建后，Emby 为
+  `running`、restart count 为 0，镜像 ID 未变、host 网络保留，全部挂载与备份逐项一致。
+  运行容器 `com.embytoolkit.control-plane.plugin-install=true` 已生效。
+- Emby `/Plugins` 回读 `ETK MediaInfo Bridge 1.3.63.0`，更新计划任务
+  `ETKMediaInfoBridgeUpdate` 为 Idle；未手动执行更新或修改其计划。
+- `/ETKMediaInfo/Origin` 返回 `Configured=true`；真实启动日志确认 8 组 Harmony hook
+  激活、事件 relay 启动和中文索引重建完成。Emby 容器可直连 ETK health，管理端 health
+  正常，8097 Web 入口 HTTP 200。
+- 安装后的 4 个媒体库相关类型配置列表均未包含 `ETK Metadata` / `ETK Images`。
+  保留原有 Provider、NFO、实时监控设置；没有重新授权或调用广泛改写库策略的默认配置流程。
+
+边界与回退：
+
+- host 网络自动安装器识别缺口仍存在；本次为明确目标的授权手工安装，不代表修复安装器。
+- 回退依据为本次远端安装备份：原先没有 DLL，可将新 DLL 移到插件加载目录之外的备份
+  位置，再重启 Emby；配置恢复需核对安装后变化，不能无条件覆盖后续用户配置。
+  具体私有备份路径保留在本轮运维回执，不复制到项目文档。
+- 完整元数据、图片、事件、删除、播放和其他插件共存业务未验收，LIVE 保持
+  `HUMAN_PENDING`。没有 commit、push、GitHub Release 或 DockerHub 发布。
+- 本轮文档 `git diff --check -- docs/ai-context` 与 `npm run docs:build` 通过；
+  VitePress 仅有现存 large-chunk warning，没有为文档更正重跑全部业务测试。
+
+### Manual-Reprocess-And-Logs-Deployment-20260912
+
+- 用户授权修复旧媒体重新处理问题并部署到 Debian；同时交付此前未部署的实时/历史日志修复。
+- 根因：搜索结果来自 Emby，但重新处理只允许 `failed_log` 中已有条目；同步保存了 TMDb/Emby
+  ID，却未保存插件取元数据所需的路径关联。实时日志错误地把对象 join 成字符串，历史页面仍读旧文件。
+- 修复：单项提交在待复核记录缺席时核实真实 Emby ID/类型；不新增伪造的待复核记录。
+  同步及手动重新处理合并路径资产而不覆盖已有资产，手动处理完成后使用持久效果提交根条目刷新。
+  刷新不递归、不请求替换图片；普通同步仍不等于全库自动回填，也未增加无 TMDb ID 的自动识别。
+- 日志修复保留原接口和管理员权限，历史按根任务及其后代读取数据库快照，显示失败摘要；
+  最近 100 个根任务、每任务最多保留 200 条的限制已在界面注明，不宣称完整日志归档。
+- 本地验证：P5、复核 HTTP 与日志定向测试 263 项通过；隔离 PostgreSQL 18 集成测试 7 项通过，
+  包含路径恢复、资产保留和同操作刷新不重复提交；前端单元测试 17 项及日志浏览器回归 1 项通过。
+  类型检查、Ruff 和差异检查通过，linux/amd64 镜像导入烟测通过；前端构建保留既有 large-chunk warning。
+- Mac 构建镜像 `etk-refactor:10.8.65-local.20260912-reprocess-logs`，镜像归档传输前后 SHA-256 为
+  `85515f09f085b1e1c36992ddaaa67c88cba8878f36d9354fd921729c9754dfe7`。
+  Debian 保留唯一镜像标签，同时更新 Compose 使用的本地标签；旧镜像另存回滚标签。
+- 更新前确认无活动任务，备份编排、环境文件、配置、PostgreSQL 自定义格式 dump 和目标 Emby 条目。
+  只重建六个 ETK 应用角色；数据库/Redis 容器身份未变，挂载路径、卷及读写权限未变，无 schema 迁移。
+- 真实单项 canary：搜索结果提交返回 202，任务 succeeded；目标路径元数据 API 从 404 变为 200，
+  Emby 回读到 237 字简介、年份及类型。历史列表包含该任务，HTML 显示任务名称与成功状态。
+  API health 正常、8097 Web 返回 200，六个应用角色 healthy。
+- 没有重建 Emby、全库处理、移动媒体文件、推送代码、GitHub 发版或 DockerHub 发布。
+  季集详细补刮、无 ID 自动识别、`refresh.request` 事件接线与全套播放/长期稳定性验收仍未完成；
+  LIVE 保持 HUMAN_PENDING。私有备份位置见本轮运维回执。
+
+### Season-Episode-Reprocess-Deployment-20260912
+
+- 用户指出根条目回填不等于季集补刮，授权继续修复并部署。此前根条目 canary 的验收范围过窄，
+  本轮不沿用其 succeeded 作为分集成功证据。
+- 重新处理按所选整剧/季/集范围取真实 Emby 子项，先保存匹配的季集身份和元数据，再逐项持久刷新；
+  名称、非空简介及 TMDb ID 回读一致才记为确认。逐项进度和失败原因写入任务日志，partial 不再合并成成功。
+- 无根 TMDb ID 时，仅采用唯一的同名同年候选；无明确年份、歧义或身份冲突要求人工确认，不猜搜索第一项。
+  此自动识别由本地回归和隔离 PostgreSQL 流程验证，未移除真实媒体现有 ID 来制造线上测试。
+- 本地验证：279 项定向测试通过；19 项隔离 PostgreSQL 集成测试通过，新增身份冲突保护后定向 5 项复跑通过；
+  Pyright、Ruff、差异检查和 linux/amd64 镜像导入烟测通过。未修改前端业务代码，镜像内前端构建通过。
+- Mac 构建并传输 `etk-refactor:10.8.65-local.20260912-season-episode`，归档 SHA-256：
+  `4fba94dd5aa130d9f5b79f3d5c37f8191a71fabdc955ee352c27133653a6519d`。
+  Debian 六个应用角色健康；数据库/Redis 身份、应用挂载路径和读写权限未变，无 schema 迁移。
+- 真实剧集 canary：选择 39 项，确认 38 项（1 个 Series、2 个 Season、35 个 Episode）；
+  唯一失败为 S02E00 在 TMDb 中无对应季集编号，未改写或自动映射到特别篇，整体报告 partial。
+  S02E01 的 Emby 显示标题、114 字简介、2023 年和独立分集 TMDb ID 已回读确认；Bridge 分集接口返回 200。
+- 仅保留上一份日常部署备份及上一版镜像；更早备份、无运行容器引用的旧镜像和本轮传输包清理，
+  已退出成功且仅引用更早镜像的一次性 migrate 容器移除，不删除卷。初始旧项目归档按用户要求保留。
+- 没有重建 Emby、移动/重命名媒体文件、全库处理、Git 推送、GitHub Release 或 DockerHub 发布。
+  特别篇编号需人工确认，插件 refresh.request 自动处理与全套长期 Live 验收仍未完成。
+
+### Metadata-P115-AI-Local-Fixes-20260912
+
+- 用户授权修复刮削、115 容量未知及 AI 测试导入失败；本轮仅本地实现验证，没有部署、重刮真实媒体或修改凭据。
+- 演员保存头像及聚合角色，Bridge 查询在人物详情缓存缺失时使用媒体演员名单，已有缓存姓名仍优先；季集导演保留头像，分集合并常驻及客串。分级、IMDb、关键词和类型中文映射接通，已有分级不被空结果抹掉。
+- 分集剧照同时输出 Primary，旧仅 thumb_path 的缓存也可回退为 Primary；仅对缺主图的 Episode 启用非替换图片刷新。任务回读校验补充人物、头像、分级、IMDb 与主图，失败不冒充全成功。
+- 115 状态仅对明确失效码执行一次续期，先核对原账号身份再按旧 Token 比较保存，拒绝覆盖并发新授权；续期请求不盲重试、115 直连。Cookie 有效不再掩盖 OpenAPI 失败，前端区分缺容量与真实零空间。
+- AI 测试移除对 ai_translator/database 的依赖，直接使用现有 HTTP 客户端支持 OpenAI 兼容、智谱及 Gemini；错误分类且不回显上游错误正文。AI 测试/模型列表进入线程池，局域网、国内及自定义服务默认直连，仅已知受限域名使用已配置代理。
+- 本地验证：346 项后端定向测试、21 项隔离 PostgreSQL 18 测试通过；后续分级合并调整后相关 7 项再次通过。前端 19 项单测、typecheck、build 通过；Ruff、Pyright 通过。复用已有 linux/amd64 镜像并只读挂载新 src、禁网验证 AI 原生调用，确认镜像不存在 database 包时测试仍成功。
+- 用户填写的是 TMDb ID，无需改为 TVDB ID。没有扩展插件 TVDB/其他职务协议，也没有发版、推送或部署；线上演员、主图、115 续期和真实 AI 服务调用仍待部署后验收。
+
+### Detailed-Logs-And-Filesystem-Monitor-Local-20260912
+
+- 用户明确要求不部署，修复日志详细度、历史日志逐任务拆分以及 MP 本地下载后的自动刮削。
+- 只读现场证据：指定资源已硬链接到实际 Emby/监控共同配置的 MoviePilot 库路径，并非源目录和目标目录不同导致；Emby 已有剧集及 E01，E02 当时尚未入库。监控持久事件为 0，MP 持久通知为 0，ETK 的 MP 连接配置未设置。以当前剧名及 2026 年只读查询 TMDb 可唯一匹配 294636；已有 E01 的 Emby 按路径查询返回精确 1 项。
+- 根因：原生 Coordinator 有消费/稳定性/派发链，但没有启动真实文件 Observer。新增 Leader-owned Watchdog 入口，随开关/目录变化更新，关闭或丢失 Leader 时停止，与 cron 总开关独立；不启动全库补扫。新分集首次识别父剧时准备必要父剧/季元数据，不处理兄弟集。
+- 历史页改为 app.log 合并入口；原 app.log.task-* 是虚拟任务快照，不再在列表逐项显示，旧链接保留。增加跨进程加锁的运行日志文件，10 MiB 轮转、1 份归档；任务快照仍保留最近 100 个根任务，每任务最多 200 条，不能宣称无限或完整任务归档。
+- 日志区分元数据/演职人员获取、图片地址准备、实际图片传输/中断、Emby 回读；记录 MP 通知接收、忽略原因及持久入队，文件监控事件、稳定后探测、绑定、自动刮削提交与重试/拒绝。未收到的历史通知不补造。
+- 验证：352 项定向回归通过；额外运行日志接线及重新处理检查 21 项通过（与前述有重叠）；22 项隔离 PostgreSQL 集成通过，统一历史查询字段调整后 1 项复跑通过。多进程日志合并、单归档轮转和脱敏有测试；Linux/amd64 镜像禁网真实 Observer 创建文件事件检查通过，前端 build/typecheck、Ruff、Pyright、diff check 通过。
+- 不部署、不变更线上目录/媒体库/MP 配置，不重刮真实资源。现有漏项仍需部署后查漏或定向处理；完整自动入库及 MP 通知送达的线上验收未完成。上一批刮削/115/AI 修复继续保留于工作树。
+
+### Monitor-Logs-Debian-Deployment-20260912
+
+- 用户随后明确授权部署，保留由用户重新整理资源进行业务验收。Mac 构建并传输 `etk-refactor:10.8.65-local.20260912-monitor-logs.1`，传输两端归档 SHA-256 一致：`627f49ba22cb897d15baf3562ab5a709b3bb0430e9c3234912cf880ce491a5c6`；运行镜像 ID：`sha256:4195e7f99af4565264c9b9a0823f3e7c8afb910e894f297f237b613a6af49f29`。没有 Git 推送、DockerHub 或 GitHub 发布。
+- 首次上线检查暴露进程日志接线遗漏：Coordinator CLI 未初始化日志、Celery 未接入共享文件 handler。补齐 Coordinator 初始化及 Celery setup_logging 信号；任务日志存储列表隐藏内部轮转锁文件。60 项定向回归、Ruff、Pyright、diff check 通过后重新在 Mac 构建传输更新，没有容器内热补丁。
+- 六个应用角色均为目标镜像且 healthy；迁移成功退出，schema 保持 `0027_p11_watchlist_display`。DB/Redis 容器 ID/卷保持不变；应用挂载结构比较一致（初次文本比较仅因顺序不同失败）。API health、页面、JS 均 HTTP 200，JS MIME 正确；Gateway 根路径正常返回 302。
+- 现场共享日志确认三个配置根目录的 Watchdog 启动；统一历史列表仅 `app.log`，实际运行日志与任务快照合并读取成功。未制造测试媒体、触发全库扫描、主动补刮或修改 MP/Emby 设置；MP 通知送达及完整新增文件刮削等待用户操作，不能标为完整 Live DONE。
+- 另外记录：部分 `emby.event.user.*` 播放事件缺少 Worker profile 处理器，包含部署前积压；未在此次日志/监听部署中扩大修复。切换期间旧 API 有一次 Response content shorter than Content-Length，最终实例页面及资源请求正常；完整播放验收未重跑。
+- 备份仅保留此次升级前的一份配置/编排/环境/PostgreSQL 回滚点及上一版 season-episode 镜像；定向删除更早普通备份、无引用旧镜像、中间构建镜像和已导入远端传输包。初始旧项目归档继续单独保留，未清理其他服务。
+
+### Playback-Events-And-Readable-Logs-Local-20260912
+
+- 用户要求修复播放事件批量报错及日志可读性；本轮未要求再次部署，保持本地改动，未改线上状态或发送真实 Telegram 通知。
+- Worker 缺少用户事件 delivery 注册；补齐原生端口接线，复用既有片头检测 gateway、115 release_for_stop、Postgres 代理租约及 Telegram Bot adapter。未启用通知、缺少 Bot/接收目标时明确跳过；清理缺少可靠会话身份时不降级为整用户清理。Telegram 部分发送后不重放已发送消息，可重试异常最多 12 次后终止自动重试。
+- 已退役虚拟导入不再生成新播放后推进任务；积压事件保留可消费处理器，明确确认 feature_retired，不恢复旧 routes/webhook 或删除历史账本。
+- 复现 BaseHTTPMiddleware 在流式客户端断连时发送空的最终 body，从而触发 Response content shorter than Content-Length；配置同步改为直接透传 ASGI receive/send。保留同步失败 503、线程池及健康接口豁免，正常 206/Content-Range/Content-Length 透传通过，不靠删除长度头掩盖异常。
+- 日志 view 原先直接 reverse 每一行，导致 traceback 倒置；改为完整记录分组倒序，合并任务日志排序也保留记录边界。HTML 展示完整时间、级别和来源，详情折叠；未知格式中性显示，不标红为错误。增加级别筛选及成功健康检查/状态轮询的可逆隐藏，原始日志继续保留；前端补刷新按钮与 iframe 标题。
+- 验证：定向应用回归通过，14 项隔离 PostgreSQL 集成通过（含 5 类积压播放事件进入 terminal 且重放不重复副作用）；Ruff、Pyright、前端 typecheck/build 通过。另有重试耗尽及完整 Range 流测试通过。CUA 浏览器使用合成日志验证默认视图、堆栈展开、ERROR 筛选和健康检查显示，桌面与 390px 窄屏检查通过；已关闭预览服务并恢复视口。没有对外发送通知、删除真实播放资源或部署。
+
+### Playback-Events-Debian-Deployment-20260912
+
+- 用户授权部署。Mac 构建 `linux/amd64` 镜像 `etk-refactor:10.8.65-local.20260912-playback-events`，禁网原生 imports 检查通过；归档两端 SHA-256 一致：`4c644a851eb2d3813afb588f0d5143a5678e792ee7e42d46f95d06a0eacfa117`。六角色均运行镜像 `sha256:09cc2423a29a2e864440e665d966c872b06459d46a5b4f501f6b2dfb164aa074`。
+- 升级前备份配置、编排、环境和 PostgreSQL，迁移成功退出且 schema 仍为 `0027_p11_watchlist_display`；DB/Redis ID 与卷、应用媒体挂载结构均不变。六角色 healthy，API/页面/JS 返回 200 且 JS MIME 正确，Gateway 根路径 302。
+- 上线后既有 93 条 pending 播放事件全部 confirmed：51 条 Telegram 为 notification_disabled，6 条片头检测为 disabled，12 条虚拟导入为 feature_retired；12 条播放清理与 12 条并发释放完成。没有人工改账本或发送测试通知；自动处理结果不能宣称真实 Telegram 已验收。
+- 格式化历史服务读取成功，包含级别筛选/健康检查过滤及堆栈详情；Coordinator 新日志确认监控已启动。新容器日志检查中 MediaEffectExecutionUnavailable、Response content shorter than Content-Length、raised unexpected、Exception in ASGI 计数均为 0；这仅代表检查时段，历史错误记录保留。
+- 仅保留升级前 monitor-logs.1 镜像及一份普通回滚备份；定向清理更早 season-episode 镜像/普通备份和远端已导入传输包。初始旧项目归档保留，没有 DockerHub/GitHub 发布，也未主动扫描或补刮真实媒体。

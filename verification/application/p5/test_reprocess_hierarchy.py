@@ -127,6 +127,9 @@ class Metadata:
     def identify_reprocess_root(self, item):
         return item
 
+    def cached_reprocess_metadata(self, item, root):
+        return None
+
     def prepare_reprocess_metadata(self, item, root, cache):
         if item["Id"] == "special":
             raise ValueError("TMDb 未找到 S02E00")
@@ -137,6 +140,57 @@ class Metadata:
 class MediaInfo:
     def execute(self, *_args, **_kwargs):
         return TaskOutcome.skipped()
+
+
+@pytest.mark.parametrize("cached,complete", [(False, False), (True, False), (True, True)])
+def test_known_series_independently_fills_parent_season_without_siblings(cached, complete):
+    catalog = Catalog()
+    catalog.items["episode"]["SeasonId"] = "season"
+    catalog.items["season"].update(Name="手动季名", ProviderIds={"Tmdb": "202"})
+    if complete:
+        catalog.items["season"]["Overview"] = "手动季简介"
+    metadata = Metadata()
+    metadata.cached_reprocess_metadata = lambda *_: (
+        {"Name": "已刮削season", "Overview": "简介", "_tmdb_id": "202"} if cached else None
+    )
+    refreshed = []
+    untouched = deepcopy({k: catalog.items[k] for k in ("root", "special")})
+
+    def refresh(item, _):
+        refreshed.append(item["Id"])
+        catalog.items[item["Id"]].update(Name="已刮削" + item["Id"], Overview="简介")
+        return TaskOutcome.succeeded()
+
+    result = NativeMediaItemReprocessService(catalog, metadata, MediaInfo(), refresh=refresh).execute(
+        "episode", Progress(), operation_key="known-series", restore_media_info=False,
+    )
+    assert result.status.value == "succeeded"
+    assert refreshed == (["episode"] if complete else ["season", "episode"])
+    assert metadata.saved == (["episode"] if cached else ["season", "episode"])
+    assert result.details["metadata"]["by_type"]["Season"]["selected"] == 1
+    assert {k: catalog.items[k] for k in untouched} == untouched
+    if complete:
+        assert catalog.items["season"]["Name"] == "手动季名"
+        assert catalog.items["season"]["Overview"] == "手动季简介"
+
+
+def test_nonrecursive_season_repair_does_not_read_or_refresh_episodes():
+    catalog = Catalog()
+    catalog.descendants = lambda _: pytest.fail("季条目补刮不得扫描分集")
+    metadata = Metadata()
+    refreshed = []
+
+    def refresh(item, _):
+        refreshed.append(item["Id"])
+        catalog.items[item["Id"]].update(Name="已刮削season", Overview="简介")
+        return TaskOutcome.succeeded()
+
+    result = NativeMediaItemReprocessService(catalog, metadata, MediaInfo(), refresh=refresh).execute(
+        "season", Progress(), operation_key="season-only", restore_media_info=False, include_descendants=False,
+    )
+    assert result.status.value == "succeeded"
+    assert metadata.saved == refreshed == ["season"]
+    assert result.details["metadata"]["selected"] == 1
 
 
 @pytest.mark.parametrize("complete", [True, False])
@@ -194,6 +248,44 @@ def test_only_missing_scrapes_only_missing_items_in_selected_season():
     assert result.status.value == "succeeded"
     assert metadata.saved == refreshed == ["episode"]
     assert result.details["metadata"]["skipped"] == 1
+
+
+@pytest.mark.parametrize("complete", [False, True])
+def test_only_missing_series_checks_artwork_and_preserves_manual_text(complete):
+    from types import SimpleNamespace
+
+    catalog = Catalog()
+    catalog.descendants = lambda _: []
+    catalog.items["root"].update(Name="手动片名", Overview="手动简介", ImageTags={"Primary": "manual-poster"})
+    if complete:
+        catalog.items["root"].update(
+            ImageTags={"Primary": "manual-poster", "Logo": "logo"}, BackdropImageTags=["backdrop"]
+        )
+    metadata = Metadata()
+    metadata.cached_reprocess_metadata = lambda *_: {"Name": "缓存片名", "Overview": "缓存简介"}
+    images = SimpleNamespace(prepare=lambda *_: {"_primary_image": True, "_backdrop_image": True, "_logo_image": True})
+    refreshed = []
+
+    def refresh(item, _):
+        refreshed.append(item)
+        assert item["_images_only"] is True
+        assert item["_missing_image_types"] == ["Backdrop", "Logo"]
+        catalog.items["root"].update(
+            ImageTags={"Primary": "manual-poster", "Logo": "logo"}, BackdropImageTags=["backdrop"]
+        )
+        return TaskOutcome.succeeded()
+
+    outcome = NativeMediaItemReprocessService(catalog, metadata, MediaInfo(), refresh=refresh, images=images).execute(
+        "root",
+        Progress(),
+        operation_key="images",
+        only_missing=True,
+    )
+    assert outcome.status.value == "succeeded"
+    assert outcome.details["metadata"]["skipped"] == int(complete)
+    assert bool(refreshed) is not complete
+    assert catalog.items["root"]["Name"] == "手动片名"
+    assert metadata.saved == []
 
 
 @pytest.mark.parametrize("kind", ["Movie", "Series", "Season", "Episode"])
@@ -300,6 +392,69 @@ def test_accepted_refresh_without_matching_readback_is_not_success(monkeypatch):
     assert result.details["metadata"]["failures"][0]["stage"] == "回读校验"
 
 
+@pytest.mark.parametrize("kind", ["Movie", "Series", "Season", "Episode"])
+@pytest.mark.parametrize("repair", ["success", "still_missing", "rejected"])
+@pytest.mark.parametrize("only_missing", [True, False])
+def test_missing_image_after_accepted_refresh_gets_one_images_only_repair(monkeypatch, kind, repair, only_missing):
+    monkeypatch.setattr("etk.domains.media.reprocess.time.sleep", lambda _: None)
+    catalog = Catalog()
+    catalog.descendants = lambda _: []
+    target = catalog.items["episode"]
+    target.update(Type=kind, Name="手动片名", Overview="手动简介", ImageTags={"Primary": "manual"})
+    metadata = Metadata()
+    metadata.cached_reprocess_metadata = lambda *_: {"Name": "缓存片名", "Overview": "缓存简介"}
+    image_type = "Logo" if kind in {"Movie", "Series"} else "Thumb"
+    check = "_logo_image" if image_type == "Logo" else "_thumb_image"
+    images = SimpleNamespace(prepare=lambda *_: {"_primary_image": True, check: True})
+    calls = []
+
+    def refresh(item, key):
+        calls.append((deepcopy(item), key))
+        if len(calls) == 1 and not only_missing:
+            target.update(Name="已刮削episode", Overview="简介")
+        if len(calls) == 2:
+            if repair == "rejected":
+                return TaskOutcome.failed("fixture refresh rejected")
+            if repair == "success":
+                target["ImageTags"][image_type] = "recovered"
+        return TaskOutcome.succeeded()
+
+    progress = Progress()
+    result = NativeMediaItemReprocessService(catalog, metadata, MediaInfo(), refresh=refresh, images=images).execute(
+        "episode", progress, operation_key="race", only_missing=only_missing
+    )
+    assert len(calls) == 2
+    assert calls[0][1] == "race" and calls[1][1] == "race:missing-images"
+    assert calls[1][0]["_images_only"] is True
+    assert calls[1][0]["_missing_image_types"] == [image_type]
+    assert result.details["metadata"]["verified"] == int(repair == "success")
+    assert (result.status.value == "succeeded") == (repair == "success")
+    assert target["Name"] == ("手动片名" if only_missing else "已刮削episode")
+    assert target["Overview"] == ("手动简介" if only_missing else "简介")
+    assert target["ImageTags"]["Primary"] == "manual"
+    assert metadata.saved == ([] if only_missing else ["episode"])
+    if repair == "still_missing":
+        assert image_type in result.details["metadata"]["failures"][0]["message"]
+
+
+def test_text_only_readback_failure_does_not_trigger_image_repair(monkeypatch):
+    monkeypatch.setattr("etk.domains.media.reprocess.time.sleep", lambda _: None)
+    calls = []
+    catalog = Catalog()
+    catalog.items["episode"]["ImageTags"] = {"Primary": "manual"}
+    images = SimpleNamespace(prepare=lambda *_: {"_primary_image": True})
+
+    def refresh(item, key):
+        calls.append(key)
+        return TaskOutcome.succeeded()
+
+    result = NativeMediaItemReprocessService(catalog, Metadata(), MediaInfo(), refresh=refresh, images=images).execute(
+        "episode", Progress(), operation_key="text"
+    )
+    assert calls == ["text"]
+    assert result.status.value != "succeeded"
+
+
 def test_new_episode_with_unidentified_series_also_prepares_parents_not_siblings(monkeypatch):
     catalog = Catalog()
     catalog.items["root"]["ProviderIds"] = {}
@@ -341,6 +496,77 @@ def test_episode_cast_combines_regulars_and_guests_without_duplicates():
     )
     assert [actor["id"] for actor in data["credits"]["cast"]] == [1, 2]
     assert data["credits"]["cast"][0]["profile_path"] == "/main.jpg"
+
+
+class SpecialCastProvider(Provider):
+    def __init__(self, *, season_cast=None, guests=None, root_id=200, root_cast=None):
+        super().__init__()
+        self.season_cast = season_cast or []
+        self.guests = guests or []
+        self.root_id = root_id
+        self.root_cast = root_cast if root_cast is not None else [
+            {"id": 1, "name": "整剧主演", "character": "角色", "profile_path": "/main.jpg", "order": 0}
+        ]
+
+    def season_details(self, tmdb_id, season):
+        data = super().season_details(tmdb_id, season)
+        data["credits"] = {"cast": self.season_cast, "crew": [{"id": 9, "job": "Director"}]}
+        data["episodes"][0].update(guest_stars=self.guests, crew=[{"id": 8, "job": "Director"}])
+        return data
+
+    def details(self, tmdb_id, media_type):
+        self.calls.append((tmdb_id, media_type))
+        return {"id": self.root_id, "name": "测试剧", "credits": {
+            "cast": self.root_cast, "crew": [{"id": 7, "job": "Director"}]
+        }}
+
+
+def test_empty_special_cast_falls_back_to_series_once_without_copying_crew():
+    provider = SpecialCastProvider()
+    root = {"ProviderIds": {"Tmdb": "200"}}
+    cache = {}
+    for item, director in [
+        ({"Type": "Season", "IndexNumber": 0}, 9),
+        ({"Type": "Episode", "ParentIndexNumber": 0, "IndexNumber": 1}, 8),
+    ]:
+        _, data = prepare_metadata(item, root, provider, cache)
+        assert data["credits"]["cast"] == provider.root_cast
+        assert data["credits"]["crew"] == [{"id": director, "job": "Director"}]
+        assert data["_cast_source"] == "series_fallback"
+    assert provider.calls == [("200", 0), ("200", "tv")]
+    assert cache[("200", 0)]["credits"]["cast"] == []
+
+
+@pytest.mark.parametrize("season,season_cast,guests", [
+    (1, [], []), (0, [{"id": 2, "name": "本季主演"}], []),
+    (0, [], [{"id": 3, "name": "本集客串"}]),
+])
+def test_cast_fallback_does_not_change_regular_seasons_or_populated_specials(season, season_cast, guests):
+    provider = SpecialCastProvider(season_cast=season_cast, guests=guests)
+    _, data = prepare_metadata(
+        {"Type": "Episode", "ParentIndexNumber": season, "IndexNumber": 1},
+        {"ProviderIds": {"Tmdb": "200"}}, provider, {},
+    )
+    assert data["credits"]["cast"] == season_cast + guests
+    assert "_cast_source" not in data
+    assert provider.calls == [("200", season)]
+
+
+def test_special_cast_fallback_rejects_wrong_series_identity():
+    with pytest.raises(ValueError, match="作品身份不匹配"):
+        prepare_metadata(
+            {"Type": "Season", "IndexNumber": 0}, {"ProviderIds": {"Tmdb": "200"}},
+            SpecialCastProvider(root_id=201), {},
+        )
+
+
+def test_special_without_series_cast_does_not_invent_people():
+    _, data = prepare_metadata(
+        {"Type": "Season", "IndexNumber": 0}, {"ProviderIds": {"Tmdb": "200"}},
+        SpecialCastProvider(root_cast=[]), {},
+    )
+    assert data["credits"]["cast"] == []
+    assert "_cast_source" not in data
 
 
 def test_aggregate_cast_keeps_roles_and_portraits_and_directors():
@@ -397,7 +623,9 @@ def test_legacy_episode_thumb_is_also_available_as_primary_without_rewriting_cac
     assert row["poster_path"] is None
 
 
-@pytest.mark.parametrize("missing", ["_actor_count", "_actor_images", "_primary_image", "OfficialRating"])
+@pytest.mark.parametrize(
+    "missing", ["_actor_count", "_actor_images", "_primary_image", "_backdrop_image", "_logo_image", "OfficialRating"]
+)
 def test_missing_cast_portraits_rating_or_primary_is_not_success(monkeypatch, missing):
     monkeypatch.setattr("etk.domains.media.reprocess.time.sleep", lambda _: None)
     catalog = Catalog()
@@ -407,7 +635,7 @@ def test_missing_cast_portraits_rating_or_primary_is_not_success(monkeypatch, mi
     def with_expected(item, root, cache):
         return {
             **prepare(item, root, cache),
-            missing: "TV-MA" if missing == "OfficialRating" else True if missing == "_primary_image" else 1,
+            missing: "TV-MA" if missing == "OfficialRating" else True if missing.endswith("_image") else 1,
         }
 
     monkeypatch.setattr(metadata, "prepare_reprocess_metadata", with_expected)

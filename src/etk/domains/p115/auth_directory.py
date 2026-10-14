@@ -18,6 +18,7 @@ from .models import (
 )
 
 _SESSION_TTL_SECONDS = 600
+OPENAPI_AUTH_ERROR_CODES = frozenset({"40140123", "40140124", "40140125", "40140126"})
 
 
 class P115AuthorizationGateway(Protocol):
@@ -344,45 +345,7 @@ class P115AuthDirectoryService:
             return P115Result({"status": "error", "message": str(exc)}, 500)
 
     def _check_status_openapi(self) -> tuple[P115CredentialSnapshot, Mapping[str, Any]]:
-        credentials = self._credentials.load()
-        response = self._authorization.check_openapi(credentials.access_token)
-        if (
-            response.get("state")
-            or str(response.get("code"))
-            not in {
-                "40140123",
-                "40140124",
-                "40140125",
-                "40140126",
-            }
-            or not credentials.refresh_token
-            or not credentials.account_id.isdigit()
-        ):
-            return credentials, response
-        # 续期不可盲重试；先重读并在保存时比较旧 Token，避免覆盖并发重新授权。
-        latest = self._credentials.load()
-        if latest != credentials:
-            return latest, self._authorization.check_openapi(latest.access_token)
-        renewed = self._authorization.refresh_openapi(credentials.refresh_token)
-        tokens = renewed.get("data")
-        if not renewed.get("state") or not isinstance(tokens, Mapping):
-            return credentials, response
-        access = str(tokens.get("access_token") or "").strip()
-        refresh = str(tokens.get("refresh_token") or "").strip()
-        if not access or not refresh:
-            return credentials, response
-        verified = self._authorization.check_openapi(access)
-        info = verified.get("data")
-        account = _account_id(info) if isinstance(info, Mapping) else ""
-        if not verified.get("state") or not account or account != credentials.account_id:
-            raise ValueError("续期结果无法确认原账号身份")
-        self._credentials.save_openapi(
-            access, refresh, account_id=account, expected_access_token=credentials.access_token
-        )
-        latest = self._credentials.load()
-        if latest.access_token != access:
-            return latest, self._authorization.check_openapi(latest.access_token)
-        return latest, verified
+        return check_openapi_credentials(self._credentials, self._authorization)
 
     def list_directories(self, *, cid_value: object, search: str) -> P115Result:
         try:
@@ -439,6 +402,46 @@ class P115AuthDirectoryService:
                 "current": {"id": str(cid), "name": current_name},
             }
         )
+
+
+def check_openapi_credentials(
+    store: P115CredentialStore, authorization: P115AuthorizationGateway
+) -> tuple[P115CredentialSnapshot, Mapping[str, Any]]:
+    """状态页和后台任务共用：仅明确授权失效才续期一次，保存时比较旧 Token。"""
+    credentials = store.load()
+    response = authorization.check_openapi(credentials.access_token)
+    if (
+        response.get("state")
+        or str(response.get("code")) not in OPENAPI_AUTH_ERROR_CODES
+        or not credentials.refresh_token
+        or not credentials.account_id.isdigit()
+    ):
+        return credentials, response
+    # 续期不可盲重试；先重读并在保存时比较旧 Token，避免覆盖并发重新授权。
+    latest = store.load()
+    if latest != credentials:
+        return latest, authorization.check_openapi(latest.access_token)
+    renewed = authorization.refresh_openapi(credentials.refresh_token)
+    tokens = renewed.get("data")
+    if not renewed.get("state") or not isinstance(tokens, Mapping):
+        return credentials, {"state": False, "code": renewed.get("code"),
+                             "message": renewed.get("message") or renewed.get("msg") or "115 Token 续期失败"}
+    access = str(tokens.get("access_token") or "").strip()
+    refresh = str(tokens.get("refresh_token") or "").strip()
+    if not access or not refresh:
+        return credentials, {"state": False, "message": "115 Token 续期响应缺少必要字段"}
+    verified = authorization.check_openapi(access)
+    info = verified.get("data")
+    account = _account_id(info) if isinstance(info, Mapping) else ""
+    if not verified.get("state") or not account or account != credentials.account_id:
+        raise ValueError("续期结果无法确认原账号身份")
+    store.save_openapi(
+        access, refresh, account_id=account, expected_access_token=credentials.access_token
+    )
+    latest = store.load()
+    if latest.access_token != access:
+        return latest, authorization.check_openapi(latest.access_token)
+    return latest, verified
 
 
 def _account_id(user_info: Mapping[str, Any]) -> str:

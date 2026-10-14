@@ -135,11 +135,12 @@ class ConfiguredBatchTranslation:
         translated: dict[str, str] = {}
         for offset in range(0, len(missing), self._batch_size):
             chunk = missing[offset : offset + self._batch_size]
-            translated.update(self._translate_chunk(settings, api_key, chunk))
-        self._save_cached(
-            translated,
-            engine_used=f"{str(settings.ai_provider or 'openai').strip().casefold()}:{settings.ai_model_name}",
-        )
+            chunk_result = self._translate_chunk(settings, api_key, chunk)
+            self._save_cached(
+                chunk_result,
+                engine_used=f"{str(settings.ai_provider or 'openai').strip().casefold()}:{settings.ai_model_name}",
+            )
+            translated.update(chunk_result)
         results.update(translated)
         return results
 
@@ -165,6 +166,7 @@ class ConfiguredBatchTranslation:
     def _translate_chunk(self, settings: Settings, api_key: str, values: tuple[str, ...]) -> dict[str, str]:
         prompt = (
             "将下列影视人物或角色名称翻译成简体中文。保留专有名词的准确性，"
+            "每个输入都必须给出含中文的译文，人名无通用译名时音译，不得遗漏或原样返回英文。"
             "不得改变 JSON key。仅返回 JSON 对象，格式为 "
             '{"translations":{"原文":"译文"}}。\n'
             f"翻译模式：{settings.ai_translation_mode}\n"

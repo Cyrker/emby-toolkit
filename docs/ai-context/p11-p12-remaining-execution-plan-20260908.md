@@ -4,6 +4,12 @@
 > 目标：持续执行到 P11、P12 Local Code Complete，或遇到有证据的真实阻塞；不在完成一个小修复后提前结束。
 > 本文是执行合同，不是实时进度表。执行时保持本文只读，更新 `goal-tasks.md` 和紧凑的 `goal-log.md`。
 
+## 状态更正（2026-09-12）
+
+本计划的 TASK-001–007 已按日志完成，P11/P12 Local 当前均为 `DONE`，完整 LIVE 仍 `HUMAN_PENDING`。本文保留 2026-09-08 的执行合同；下文“剩余七个任务”、legacy 数量、dirty 草稿和 HEAD 都是当日起点，不是当前待办或回退目标。
+
+日常接手读 [短期上下文](./short-term-context.md)、[长期知识库](./long-term-knowledge-base.md) 与 [goal-tasks.md](./goal-tasks.md)，按问题检索 [goal-log.md](./goal-log.md) 的 TASK 完成证据。共享资源中心等后续退役功能不因旧任务卡恢复；P12 销毁步骤不用于已部署的 Debian 环境。本次仅更新状态说明，不改历史验收标准。
+
 ## 1. 来源、范围与读取规则
 
 | 来源 | 用途与效力 |
@@ -22,7 +28,7 @@
 
 不得实现：业务规则变更、接口重新设计、UI 重做、无关依赖升级、微服务/全量 async 化、新通用任务框架、生产迁移或真实外部写入。
 
-## 2. 已核实起点与矛盾
+## 2. 2026-09-08 已核实起点与矛盾（历史）
 
 - 仓库：`/Users/cyrker/Desktop/project/emby-toolkit-refactor-mainline`。
 - 分支：`codex/refactor-mainline`；HEAD：`d650f0e93b65bc99264c6c4b29eb6a7eebbb4a6c`。

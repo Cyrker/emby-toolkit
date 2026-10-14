@@ -36,6 +36,10 @@ class P115OrganizeRecordTmdbBackfillRepository(Protocol):
     def backfill_missing_tmdb_ids(self) -> int: ...
 
 
+class P115OrganizeRecordWriter(Protocol):
+    def add_missing_record(self, record: Mapping[str, Any]) -> bool: ...
+
+
 class P115OrganizeRecordTmdbBackfillProgress(Protocol):
     def update(self, progress: int, message: str) -> None: ...
 
@@ -102,6 +106,7 @@ __all__ = [
     "P115OrganizeRecordsPage",
     "P115OrganizeRecordsRepository",
     "P115OrganizeRecordsService",
+    "P115OrganizeRecordWriter",
     "P115OrganizeRecordTmdbBackfillProgress",
     "P115OrganizeRecordTmdbBackfillRepository",
     "P115OrganizeRecordTmdbBackfillService",

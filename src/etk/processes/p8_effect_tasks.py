@@ -463,16 +463,22 @@ def _metadata_text(value: object, field: str) -> str:
 
 def _normalize_review_parameters(task_key: str, payload: Mapping[str, Any]) -> dict[str, Any]:
     values = dict(payload)
+    mode: dict[str, bool] = {}
+    if "only_missing" in values:
+        only_missing = values.pop("only_missing")
+        if not isinstance(only_missing, bool):
+            raise TypeError("only_missing must be boolean")
+        mode["only_missing"] = only_missing
     if task_key == REVIEW_REPROCESS_ONE_TASK_KEY:
         if set(values) != {"item_id", "item_name_for_ui", "failure_reason"}:
             raise ValueError("review item operation has an invalid parameter envelope")
         item_id = _required_text(values["item_id"], field="item_id", limit=200)
         item_name = _required_text(values["item_name_for_ui"], field="item_name_for_ui", limit=500)
         reason = _optional_text(values["failure_reason"], field="failure_reason", limit=1000)
-        return {"item_id": item_id, "item_name_for_ui": item_name, "failure_reason": reason}
+        return {"item_id": item_id, "item_name_for_ui": item_name, "failure_reason": reason, **mode}
     if set(values) != {"reason_filter"}:
         raise ValueError("review batch operation has an invalid parameter envelope")
-    return {"reason_filter": _optional_text(values["reason_filter"], field="reason_filter", limit=1000)}
+    return {"reason_filter": _optional_text(values["reason_filter"], field="reason_filter", limit=1000), **mode}
 
 
 def _required_text(value: Any, *, field: str, limit: int) -> str:

@@ -107,12 +107,15 @@ class PersistentReprocessMetadataRefresh:
                 "item_id": item_id,
                 "item_type": str(item.get("Type") or ""),
                 "emby_authorization_revision": revision,
-                "replace_all_metadata": True,
+                "replace_all_metadata": not bool(item.get("_images_only")),
+                "images_only": bool(item.get("_images_only")),
                 "replace_all_images": False,
-                "metadata_only": not (
-                    item.get("Type") == "Episode" and not (item.get("ImageTags") or {}).get("Primary")
-                ),
+                "metadata_only": not bool(item.get("_missing_image_types"))
+                if "_missing_image_types" in item
+                else bool((item.get("ImageTags") or {}).get("Primary")),
                 "recursive": False,
+                **({"people_name_translations": dict(item["_people_name_translations"])}
+                   if item.get("_people_name_translations") and not item.get("_images_only") else {}),
             },
         )
         details = {"effect_id": str(effect.id), "effect_status": effect.status.value}
@@ -162,17 +165,26 @@ class EmbyMetadataRefreshEffectDelivery:
         params = {
             "api_key": api_key,
             "Recursive": str(bool(payload.get("recursive", item_type == "Series"))).lower(),
-            "MetadataRefreshMode": "FullRefresh",
+            "MetadataRefreshMode": "ValidationOnly" if bool(payload.get("images_only")) else "FullRefresh",
             "ImageRefreshMode": "ValidationOnly" if bool(payload.get("metadata_only")) else "FullRefresh",
             "ReplaceAllMetadata": str(bool(payload.get("replace_all_metadata"))).lower(),
             "ReplaceAllImages": str(bool(payload.get("replace_all_images"))).lower(),
         }
         try:
             with self._client_factory() as client:
+                if payload.get("people_name_translations") and not payload.get("images_only"):
+                    self._sync_person_names(
+                        client, base_url, user_id, api_key, item_id, payload["people_name_translations"],
+                    )
                 response = client.post(
                     f"{base_url}/Items/{quote(item_id, safe='')}/Refresh",
                     params=params,
                 )
+        except httpx.HTTPStatusError as exc:
+            raise MediaEffectDeliveryIndeterminate(
+                "Emby 人物姓名同步未确认",
+                error={"operation": "metadata-person-names", "status_code": exc.response.status_code},
+            ) from exc
         except (httpx.TimeoutException, httpx.TransportError) as exc:
             raise MediaEffectDeliveryIndeterminate(
                 "Emby metadata refresh outcome is unknown",
@@ -199,6 +211,44 @@ class EmbyMetadataRefreshEffectDelivery:
                 "status_code": response.status_code,
             },
         )
+
+    @staticmethod
+    def _sync_person_names(
+        client: httpx.Client, base_url: str, user_id: str, api_key: str,
+        item_id: str, translations: Mapping[str, str],
+    ) -> None:
+        headers = {"X-Emby-Token": api_key}
+
+        def read(identifier: str) -> dict[str, Any]:
+            response = client.get(
+                f"{base_url}/Users/{quote(user_id, safe='')}/Items/{quote(identifier, safe='')}", headers=headers,
+            )
+            response.raise_for_status()
+            return dict(response.json())
+
+        # Emby 的 People.Name 来自共享 Person 实体，仅刷新媒体名单不会重命名已有人物。
+        for person in read(item_id).get("People") or []:
+            original = str(person.get("Name") or "")
+            replacement = str(translations.get(original) or "")
+            if person.get("Type") not in {"Actor", "Director"} or not replacement or replacement == original:
+                continue
+            if not any("\u3400" <= char <= "\u9fff" for char in replacement):
+                raise MediaEffectDeliveryRejected("人物译名不含中文，未修改 Emby 人物")
+            person_id = str(person.get("Id") or "")
+            if not person_id:
+                raise MediaEffectDeliveryRejected("Emby 人物缺少 ID，无法同步译名")
+            current = read(person_id)
+            if current.get("Type") != "Person" or current.get("Name") != original:
+                continue
+            if current.get("LockData") or "Name" in (current.get("LockedFields") or []):
+                continue
+            response = client.post(
+                f"{base_url}/Items/{quote(person_id, safe='')}", headers=headers,
+                json={**current, "Name": replacement},
+            )
+            response.raise_for_status()
+            if read(person_id).get("Name") != replacement:
+                raise MediaEffectDeliveryIndeterminate("Emby 人物译名回读不一致，未确认完成")
 
     def _default_client(self) -> httpx.Client:
         settings = self._settings()

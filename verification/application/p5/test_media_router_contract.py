@@ -632,6 +632,7 @@ def test_p5_openapi_declares_every_json_body_without_automatic_422() -> None:
         *(value["path"] for value in _CONTRACT["inbound"]),
         "/api/emby/search",
         "/api/emby/search/index",
+        "/api/emby/scrape-records",
     }
     assert set(schema["paths"]) == expected
     for path in (

@@ -1,6 +1,9 @@
 <!-- src/components/OrganizeRecordsPage.vue -->
 <template>
   <n-layout class="records-page" :content-style="layoutContentStyle">
+    <n-tabs v-model:value="recordView" type="line">
+      <n-tab-pane name="scrape" tab="刮削记录"><ScrapeRecords /></n-tab-pane>
+      <n-tab-pane name="organize" tab="115 整理记录">
     <!-- 顶部统计仪表盘 (占满整行，大气！) -->
     <n-grid class="stat-grid" :x-gap="isMobile ? 8 : 16" :y-gap="isMobile ? 8 : 16" cols="2 s:2 m:5" responsive="screen">
       <n-gi><n-card class="stat-card" size="small"><n-statistic label="总处理记录"><template #prefix><n-icon :component="LayersIcon" color="#2080f0" /></template>{{ stats.total || 0 }}</n-statistic></n-card></n-gi>
@@ -27,6 +30,10 @@
           </n-button>
         </n-space>
       </template>
+
+      <n-alert type="info" style="margin-bottom: 16px;">
+        MP 直出记录的“成功”表示文件映射完成（视频已提交入库），不代表 Emby 后续刮削、图片回填全部完成。
+      </n-alert>
 
       <!-- 搜索与过滤工具栏 -->
       <div class="records-toolbar">
@@ -149,15 +156,18 @@
         </n-space>
       </template>
     </n-modal>
+      </n-tab-pane>
+    </n-tabs>
   </n-layout>
 </template>
 
 <script setup lang="ts">
 // @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
-import { ref, onMounted, onBeforeUnmount, computed, h, reactive } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, h, reactive, watch } from 'vue';
+import ScrapeRecords from './ScrapeRecords.vue'
 import apiClient, { apiPath } from '@/api/client'
 import {
-  NTag, NButton, NSpace, NText, NIcon, NTooltip, NEllipsis, NInputNumber, useMessage, useDialog, NAlert, NRadioGroup, NRadioButton
+  NTag, NButton, NSpace, NText, NIcon, NTooltip, NEllipsis, NInputNumber, useMessage, useDialog, NAlert, NRadioGroup, NRadioButton, NTabs, NTabPane
 } from 'naive-ui';
 import {
   LayersOutline as LayersIcon,
@@ -177,6 +187,7 @@ import {
 
 const message = useMessage();
 const dialog = useDialog();
+const recordView = ref('scrape');
 
 // 状态变量
 const loading = ref(false);
@@ -589,8 +600,9 @@ const batchDelete = () => {
 onMounted(() => {
   updateViewport();
   if (typeof window !== 'undefined') window.addEventListener('resize', updateViewport);
-  fetchCategories();
-  fetchRecords();
+});
+watch(recordView, value => {
+  if (value === 'organize') { fetchCategories(); fetchRecords(); }
 });
 
 onBeforeUnmount(() => {

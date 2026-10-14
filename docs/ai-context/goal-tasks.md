@@ -4,6 +4,12 @@ Source: `full-project-refactoring-execution-plan.md`
 Status truth: this file.
 Execution log and evidence: `goal-log.md`
 
+## Current scope note — 2026-09-12
+
+P11/P12 Local are complete; the old handoff files describe historical starting points, not remaining work. Current entrypoints, retired features and deployment rules are in [short-term-context.md](./short-term-context.md) and [long-term-knowledge-base.md](./long-term-knowledge-base.md).
+
+The Debian deployment and limited API/Proxy canaries are recorded separately in `goal-log.md#current-context-reconciliation-20260912`. The subsequent authorized Bridge installation is recorded in `goal-log.md#bridge-install-and-delivery-policy-20260912`: Emby reports 1.3.63.0 and all eight hook groups started; library Provider lists did not include ETK at installation time. The user subsequently configured the TV and anime libraries. The latest season/episode reprocess deployment is recorded in `goal-log.md#season-episode-reprocess-deployment-20260912`: 38 of 39 selected items passed live readback, while S02E00 has no matching TMDb episode and remains pending manual identification. These checks do not complete the full LIVE gate; LIVE remains HUMAN_PENDING. Historical P0–P12 notes below remain scoped to their original verification runs. Mac image export and Debian load are temporary development operations; stable releases will use DockerHub delivery.
+
 Allowed status:
 
 - TODO
@@ -33,4 +39,4 @@ Allowed status:
 | P12 | Plan §10 P12 local | Destroy, rebuild, and re-verify an isolated Greenfield Compose environment twice | DONE | yes | `goal-log.md#p12-task-007-greenfield-20260910` | three empty-state rounds plus injected migration failure passed; no production or real external writes |
 | DIRECT-REQ-001 | User request 2026-09-10 | Remove the native ETK Pro commercial gate and expose the local build as fully unlocked | DONE | yes | `goal-log.md#direct-req-001-full-access-20260910` | native UI/API/Proxy gates removed; third-party entitlement, normal permissions and feature switches remain independent |
 | DIRECT-REQ-002 | User request 2026-09-11 | Retire TG UserBot channel listening, HDHive, and Shared Resource Center; add Web execution for Telegram quick tasks and document them | DONE | yes | `goal-log.md#direct-req-002-retired-external-resources-and-web-quick-tasks-20260911` | active entrypoints retired; Telegram Bot, local 115 playback and historical data retained; Live remains pending |
-| LIVE | Goal completion boundary | Run real external-system canary and stable observation | HUMAN_PENDING | no | `goal-log.md#live` | explicitly outside Local Code Complete |
+| LIVE | Goal completion boundary | Run real external-system canary and stable observation | HUMAN_PENDING | no | `goal-log.md#live`, `goal-log.md#current-context-reconciliation-20260912`, `goal-log.md#bridge-install-and-delivery-policy-20260912` | limited Debian API/Proxy canaries and Bridge startup observed; full Bridge/external-write/recovery acceptance and stable observation are not complete |

@@ -200,4 +200,4 @@ def test_dry_run_native_gateways_use_plaintext_defaults_without_legacy_provider_
 def test_p6_upload_monitor_migration_is_the_single_alembic_head() -> None:
     scripts = ScriptDirectory.from_config(Config(str(REPO_ROOT / "alembic.ini")))
 
-    assert scripts.get_heads() == ["0027_p11_watchlist_display"]
+    assert scripts.get_heads() == ["0028_media_notice_batches"]

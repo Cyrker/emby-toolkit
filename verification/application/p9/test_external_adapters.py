@@ -464,6 +464,24 @@ def test_shared_intro_upload_uses_exact_single_shot_contract() -> None:
     }
 
 
+def test_telegram_html_format_is_explicit_and_plain_text_default_is_unchanged() -> None:
+    client = FakeClient([_response(200, {"ok": True}) for _ in range(3)])
+    adapter = HttpxTelegramBotAdapter(
+        {"telegram_bot_token": "fixture", "telegram_api_base_url": "https://telegram.fixture"},
+        client_factory=_factory(client),
+        policy=_policy(),
+    )
+    adapter.send_photo("chat", "https://image.tmdb.org/t/p/w780/fixture.jpg", "<b>标题</b>", parse_mode="HTML")
+    adapter.send_message("chat", "<b>标题</b>", parse_mode="HTML")
+    adapter.send_message("chat", "plain")
+    assert client.calls[0][2]["json"]["parse_mode"] == "HTML"
+    assert client.calls[1][2]["json"]["parse_mode"] == "HTML"
+    assert "parse_mode" not in client.calls[2][2]["json"]
+    with pytest.raises(ValueError, match="parse mode"):
+        adapter.send_message("chat", "invalid", parse_mode="invalid")
+    assert len(client.calls) == 3
+
+
 def test_telegram_mutations_are_not_retried_and_token_is_redacted() -> None:
     token = "123456:fixture-secret-token"
     client = FakeClient([_response(429, {"ok": False, "description": "rate limited"})])

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from sqlalchemy import text
@@ -13,6 +13,28 @@ from .organize_records import P115OrganizeRecordsPage, normalize_record_rows
 class SqlAlchemyP115OrganizeRecordsRepository:
     def __init__(self, unit_of_work: Callable[[], SqlAlchemyUnitOfWork]) -> None:
         self._unit_of_work = unit_of_work
+
+    def add_missing_record(self, record: Mapping[str, Any]) -> bool:
+        """直出只补缺失记录；重复或晚到的事件不覆盖人工纠错及原处理时间。"""
+        with self._unit_of_work() as uow:
+            inserted = uow.session.scalar(
+                text(
+                    """
+                    INSERT INTO p115_organize_records (
+                        file_id, pick_code, original_name, renamed_name, status,
+                        tmdb_id, media_type, season_number, target_cid, category_name, processed_at
+                    ) VALUES (
+                        :file_id, :pick_code, :original_name, :original_name, 'success',
+                        :tmdb_id, :media_type, :season_number, :target_cid, :category_name, NOW()
+                    )
+                    ON CONFLICT DO NOTHING
+                    RETURNING id
+                    """
+                ),
+                dict(record),
+            )
+            uow.commit()
+        return inserted is not None
 
     def list_records(
         self,

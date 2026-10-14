@@ -1853,11 +1853,11 @@ class NativeWatchlistP115ReclassificationGateway:
             return {"skipped": True, "reason": "status_unchanged", "old": old_status, "new": new_status}
         rows = self._records(tmdb_id)
 
-        direct = sum(1 for row in rows if str(row.get("category_name") or "").strip() == "MP直出")
+        direct = sum(1 for row in rows if str(row.get("category_name") or "").strip().split("/", 1)[0] == "MP直出")
         candidates = tuple(
             row
             for row in rows
-            if str(row.get("category_name") or "").strip() != "MP直出"
+            if str(row.get("category_name") or "").strip().split("/", 1)[0] != "MP直出"
             and str(row.get("file_id") or "").strip()
             and str(row.get("parent_id") or "").strip()
         )

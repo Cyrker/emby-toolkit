@@ -124,6 +124,11 @@ class MediaService:
         )
         self._defaults = defaults or EmptyMediaMappingDefaults()
 
+    def scrape_records(self, *, page: int, per_page: int, search: str, status: str) -> ServiceResult:
+        return ServiceResult(self._repository.list_scrape_records(
+            page=page, per_page=per_page, search=search.strip(), status=status,
+        ))
+
     def resolve_media_identity(
         self,
         path: str,
@@ -284,7 +289,12 @@ class MediaService:
         normalized_rules = normalize_image_rules(rules)
         existing = self._repository.get_image_policy(key)
         previous_images = tuple(existing.images if existing is not None else ())
-        if existing is not None and [dict(value) for value in existing.rules] == normalized_rules and not force:
+        reuse_policy = (
+            existing is not None and [dict(value) for value in existing.rules] == normalized_rules and not force
+        )
+        present_types = {value.get("type") for value in previous_images if value.get("source_url")}
+        missing_rules = [rule for rule in normalized_rules if rule["type"] not in present_types]
+        if reuse_policy and not missing_rules:
             archived = self._images.archive_policy_images(previous_images, base_url)
             stored = stored_policy_images(archived)
             if stored != [dict(value) for value in previous_images]:
@@ -313,10 +323,13 @@ class MediaService:
             return ServiceResult({"error": str(exc)}, 502)
         selected = select_policy_candidates(
             candidates,
-            normalized_rules,
+            missing_rules if reuse_policy else normalized_rules,
             previous_images=previous_images,
             preserve_manual=not force,
         )
+        if reuse_policy:
+            # 规则未变时只补缺失类型，不重新挑选已经缓存的图片。
+            selected = [*[dict(value) for value in previous_images], *selected]
         archived = self._images.archive_policy_images(selected, base_url)
         stored = stored_policy_images(archived)
         previous = self._repository.replace_image_policy(

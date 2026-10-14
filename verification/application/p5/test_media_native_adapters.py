@@ -1821,6 +1821,19 @@ def test_cast_editor_repository_reads_sorted_people_and_review() -> None:
     assert missing_repository.review("movie-1") == {}
 
 
+def test_cast_editor_uses_media_cast_when_person_cache_is_missing() -> None:
+    session = FakeSqlSession([
+        FakeSqlResult(row={"actors_json": [
+            {"tmdb_id": 2, "name": "演员乙", "profile_path": "/two.jpg", "order": 1},
+            {"tmdb_id": 1, "name": "演员甲", "profile_path": "/one.jpg", "order": 0},
+        ]}),
+        FakeSqlResult(rows=[{"tmdb_person_id": 2, "original_name": "Original Two"}]),
+    ])
+    repository = SqlAlchemyCastEditorRepository(lambda: cast(Any, FakeSqlUow(session)))
+    actors = repository.actors("100", "Series")
+    assert [(a["name"], a["profile_path"]) for a in actors] == [("演员甲", "/one.jpg"), ("演员乙", "/two.jpg")]
+
+
 def test_cast_editor_repository_replaces_valid_cast_and_rejects_missing_target() -> None:
     success_session = FakeSqlSession([FakeSqlResult(), FakeSqlResult(rowcount=1), FakeSqlResult(), FakeSqlResult()])
     success_uow = FakeSqlUow(success_session)

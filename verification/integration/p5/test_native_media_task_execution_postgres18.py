@@ -176,6 +176,50 @@ def test_people_without_person_cache_and_episode_primary_reach_bridge(p5_runtime
     assert aggregate.actors[0]["profile_path"] == "/actor.jpg"
 
 
+def test_translated_people_survive_rescrape_and_manual_cast_remains_authoritative(p5_runtime):
+    from types import SimpleNamespace
+
+    from etk.domains.media.cast_editor_adapters import SqlAlchemyCastEditorRepository
+
+    repository = SqlAlchemyMediaMetadataTaskRepository(p5_runtime.unit_of_work)
+    bridge = SqlAlchemyMediaRepository(p5_runtime.unit_of_work)
+    item = {"Id": "translated", "Type": "Movie", "ProviderIds": {"Tmdb": "100"}, "Path": "/fixture/movie.mkv"}
+    details = {
+        "id": 100, "title": "电影", "overview": "简介",
+        "credits": {
+            "cast": [{"id": 1, "name": "Actor", "character": "Doctor", "profile_path": "/a.jpg"}],
+            "crew": [{"id": 2, "name": "Director", "job": "Director", "profile_path": "/d.jpg"}],
+        },
+    }
+    translations = {"Actor": "演员", "Doctor": "医生", "Director": "导演"}
+    translator = SimpleNamespace(translate=lambda values: {v: translations[v] for v in values})
+    service = NativeMediaMetadataTaskService(
+        repository, None, SimpleNamespace(details=lambda *_: details), translator,
+        settings=lambda: Settings(ai_translate_actor_role=True),
+    )
+    with p5_runtime.engine.begin() as connection:
+        connection.execute(text("INSERT INTO person_metadata(tmdb_person_id,primary_name) VALUES (1,'Actor')"))
+    service.reprocess_item_metadata(item, SimpleNamespace(checkpoint=lambda: None))
+    identity = MediaIdentity("100", "movie", MediaItemType.MOVIE)
+    aggregate = bridge.load_metadata(identity, MediaItemType.MOVIE)
+    assert aggregate.actors[0]["name"] == "演员"
+    assert aggregate.actors[0]["character"] == "医生"
+    assert aggregate.directors[0]["name"] == "导演"
+    repository.upsert_metadata(item, details, preserve_people=False)
+    aggregate = bridge.load_metadata(identity, MediaItemType.MOVIE)
+    assert aggregate.actors[0]["name"] == "演员"
+    assert aggregate.directors[0]["name"] == "导演"
+    editor = SqlAlchemyCastEditorRepository(p5_runtime.unit_of_work)
+    editor.replace_cast(
+        "100", "Movie", [{"tmdb_id": 1, "name": "Custom Name", "role": "人工角色"}],
+        item_id="translated", item_name="电影",
+    )
+    service.reprocess_item_metadata(item, SimpleNamespace(checkpoint=lambda: None))
+    aggregate = bridge.load_metadata(identity, MediaItemType.MOVIE)
+    assert aggregate.actors[0]["name"] == "Custom Name"
+    assert aggregate.actors[0]["character"] == "人工角色"
+
+
 def test_reprocess_only_fills_missing_episode_images_without_replacing_existing(p5_runtime):
     settings = Settings(
         emby_server_url="http://emby.fixture.invalid", emby_user_id="user", emby_api_key=SecretStr("fixture-token")
