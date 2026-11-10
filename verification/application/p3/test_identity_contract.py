@@ -69,7 +69,7 @@ class FakeEmbyIdentityGateway:
     def __init__(self) -> None:
         self.authenticate_calls: list[tuple[str, str, str, str]] = []
         self.test_success = True
-        self.plugin_result: dict[str, Any] = {"ok": True, "message": "ETK 插件已就绪"}
+        self.plugin_result: dict[str, Any] = {"ok": True, "message": "embytool Bridge 插件已就绪"}
         self.library_result: dict[str, Any] = {"ok": True, "message": "媒体库加速配置已应用"}
 
     def authenticate(

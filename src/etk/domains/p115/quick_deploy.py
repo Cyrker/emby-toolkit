@@ -12,6 +12,7 @@ from typing import Any, Protocol
 
 import httpx
 
+from etk.domains.media.plugin_identity import PLUGIN_NAMES as _PLUGIN_NAMES
 from etk.platform import Settings
 from etk.platform.config.locking import (
     DYNAMIC_CONFIG_LOCK_NAMESPACE,
@@ -30,7 +31,6 @@ from .maintenance_transport import (
 
 _SCHEMA_VERSION = 1
 _DYNAMIC_CONFIG_SETTING = "dynamic_app_config"
-_PLUGIN_NAME = "ETK MediaInfo Bridge"
 _ROOT_NAMES = ("ETK媒体库", "ETK待整理", "ETK未识别")
 _CATEGORY_CHILDREN = {
     "动漫": ("国漫", "日番", "美漫"),
@@ -505,9 +505,9 @@ class HttpxEmbyQuickDeployGateway:
         plugins.raise_for_status()
         payload = plugins.json()
         if not isinstance(payload, list) or not any(
-            isinstance(item, Mapping) and str(item.get("Name") or "").strip() == _PLUGIN_NAME for item in payload
+            isinstance(item, Mapping) and str(item.get("Name") or "").strip() in _PLUGIN_NAMES for item in payload
         ):
-            raise RuntimeError("一键部署前请先安装 ETK MediaInfo Bridge 插件")
+            raise RuntimeError("一键部署前请先安装 embytool Bridge 插件")
 
     def ensure_library(
         self,

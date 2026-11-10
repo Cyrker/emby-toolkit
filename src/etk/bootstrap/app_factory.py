@@ -104,6 +104,10 @@ from etk.domains.media.image_proxy_adapters import HttpxMediaImageProxyGateway
 from etk.domains.media.image_proxy_router import router as media_image_proxy_router
 from etk.domains.media.image_store import SqlAlchemyMediaImageStore
 from etk.domains.media.repository import SqlAlchemyMediaRepository
+from etk.domains.media.reprocess_identification import (
+    ReprocessIdentificationService,
+    SqlAlchemyIdentificationRepository,
+)
 from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
 from etk.domains.media.router import router as media_router
 from etk.domains.media.search_index import EmbySearchIndexService, SqlAlchemyEmbySearchRepository
@@ -114,7 +118,7 @@ from etk.domains.media.secondary_router import effects_router as secondary_media
 from etk.domains.media.secondary_router import router as secondary_media_router
 from etk.domains.media.service import MediaService
 from etk.domains.media.subscription_projection import SqlAlchemySubscriptionMediaProjection
-from etk.domains.media.task_execution import HttpxMediaCatalogAdapter
+from etk.domains.media.task_execution import HttpxMediaCatalogAdapter, HttpxTmdbMetadataAdapter
 from etk.domains.media.user_projection import SqlAlchemyUserMediaProjection
 from etk.domains.media.watchlist_projection import SqlAlchemyWatchlistMediaProjectionRepository
 from etk.domains.operations.database import DatabaseReadService, SqlAlchemyDatabaseReadRepository
@@ -213,11 +217,11 @@ from etk.domains.p115.playback_native import (
     SqlAlchemyP115PlaybackConfigBackend,
     SqlAlchemyP115PlaybackSourceGateway,
 )
-from etk.domains.p115.playback_reward_repository import (
-    SqlAlchemyP115PlaybackRewardRepository,
-    SqlAlchemyP115PlaybackUserGateway,
-)
 from etk.domains.p115.playback_router import router as p115_playback_router
+from etk.domains.p115.playback_user_repository import (
+    SqlAlchemyP115PlaybackUserGateway,
+    SqlAlchemyP115PlaybackUserRepository,
+)
 from etk.domains.p115.router import router as p115_router
 from etk.domains.p115.upload_monitor import P115UploadMonitorConfigService
 from etk.domains.p115.upload_repository import PostgresP115UploadMonitorRepository
@@ -357,7 +361,7 @@ def create_app(
             finally:
                 app_container.close()
 
-    app = FastAPI(title="Emby Toolkit", lifespan=lifespan)
+    app = FastAPI(title="embytool", lifespan=lifespan)
     configuration_synchronizer = runtime_config_synchronizer
     if configuration_synchronizer is None and start_runtime and owns_container:
         from .config_sync import ApiRuntimeConfigSynchronizer, SqlAlchemyDynamicConfigReader
@@ -601,6 +605,10 @@ def _register_database_read_providers(container: AppContainer) -> None:
             current.repository("operations.review-reprocess"),
             PersistentReviewJobGateway(current.use_case("operations.jobs")),
             emby_item=HttpxMediaCatalogAdapter(lambda: current.settings).item,
+            identification=ReprocessIdentificationService(
+                HttpxMediaCatalogAdapter(lambda: current.settings), HttpxTmdbMetadataAdapter(lambda: current.settings),
+                SqlAlchemyIdentificationRepository(current.database.unit_of_work),
+            ),
         ),
     )
 
@@ -1078,7 +1086,7 @@ def _register_p115_providers(container: AppContainer) -> None:
     container.register_client(
         "p115.playback-users",
         lambda current: SqlAlchemyP115PlaybackUserGateway(
-            SqlAlchemyP115PlaybackRewardRepository(current.database.unit_of_work),
+            SqlAlchemyP115PlaybackUserRepository(current.database.unit_of_work),
             current.client("sharing.telegram-bot"),
         ),
     )

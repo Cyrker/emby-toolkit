@@ -10,7 +10,7 @@ from email.parser import BytesParser
 from typing import Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
 from werkzeug.exceptions import BadRequest, UnsupportedMediaType
@@ -392,6 +392,21 @@ def clear_review_items(request: Request) -> Response:
     return _json_response({"message": message})
 
 
+@effects_router.get("/actions/reprocess_item/{item_id}/identification", response_model=dict[str, Any])
+def reprocess_identification(
+    item_id: str, request: Request, job_id: str | None = Query(None, max_length=36),
+    query: str | None = Query(None, max_length=200), year: int | None = Query(None, ge=1800, le=2200),
+    page: int = Query(1, ge=1, le=500), manual_id: str | None = Query(None, max_length=12),
+    context_only: bool = False,
+) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
+    return _review_reprocess_response(_review_reprocess_service(request).identification_preview(
+        item_id, job_id=job_id, query=query, year=year, page=page, manual_id=manual_id, context_only=context_only,
+    ))
+
+
 @effects_router.post("/actions/reprocess_item/{item_id}")
 async def reprocess_review_item(item_id: str, request: Request) -> Response:
     denied = _admin_denial(request)
@@ -404,7 +419,8 @@ async def reprocess_review_item(item_id: str, request: Request) -> Response:
         return error
     session = get_request_session(request)
     return _review_reprocess_response(
-        _review_reprocess_service(request).submit_one(
+        await run_in_threadpool(
+            _review_reprocess_service(request).submit_one,
             item_id,
             payload,
             requested_by_user_id=str(session.get("emby_user_id") or "").strip() or None,

@@ -125,7 +125,7 @@
           <n-card :bordered="false" class="dashboard-card">
             <template #header>
               <span class="card-title">智能订阅</span>
-              <n-spin v-if="loading.subscription || loading.rankings" size="small" style="float: right" />
+              <n-spin v-if="loading.subscription" size="small" style="float: right" />
             </template>
             <div class="subscription-center-card">
               
@@ -199,73 +199,6 @@
                   </n-gi>
                   <n-gi class="stat-block"><div class="stat-item"><div class="stat-item-label">今日已用</div><div class="stat-item-value">{{ stats.subscriptions_card.quota.mp.consumed }}</div></div></n-gi>
                   <n-gi class="stat-block"><div class="stat-item"><div class="stat-item-label">今日剩余</div><div class="stat-item-value">{{ stats.subscriptions_card.quota.mp.available }}</div></div></n-gi>
-                </n-grid>
-              </div>
-                
-              <n-divider />
-  
-              <!-- 发布组统计区 -->
-              <div class="section-container ranking-section">
-                <n-grid :cols="2" :x-gap="24">
-                  <!-- 左列：今日排行 -->
-                  <n-gi>
-                    <div class="ranking-panel">
-                    <div class="section-title">今日发布组 (Top {{ stats.release_group_ranking.length }})</div>
-                    <n-space vertical :size="12" style="width: 100%;">
-                      <div v-if="stats.release_group_ranking.length === 0">
-                        <n-empty description="今日暂无入库" />
-                      </div>
-                      <div v-else v-for="(group, index) in stats.release_group_ranking" :key="group.release_group" class="ranking-item">
-                        <span class="ranking-index">{{ index + 1 }}</span>
-                        <img 
-                          :src="getIconPath(group.release_group)" 
-                          class="site-icon"
-                          @error="handleIconError"
-                        />
-                        <span class="ranking-name pc-ranking-name">{{ group.release_group }}</span>
-                        <span class="ranking-count">{{ group.count }} 部</span>
-                        <n-progress
-                          type="line"
-                          :percentage="(group.count / (stats.release_group_ranking[0]?.count || 1)) * 100"
-                          :show-indicator="false"
-                          :height="8"
-                          style="flex-grow: 1; margin: 0 12px;"
-                          :color="themeVars.primaryColor"
-                        />
-                      </div>
-                    </n-space>
-                    </div>
-                  </n-gi>
-  
-                  <!-- 右列：历史排行 -->
-                  <n-gi>
-                    <div class="ranking-panel">
-                    <div class="section-title">历史发布组 (Top {{ stats.historical_release_group_ranking.length }})</div>
-                    <n-space vertical :size="12" style="width: 100%;">
-                      <div v-if="stats.historical_release_group_ranking.length === 0">
-                        <n-empty description="暂无历史数据" />
-                      </div>
-                      <div v-else v-for="(group, index) in stats.historical_release_group_ranking" :key="group.release_group" class="ranking-item">
-                        <span class="ranking-index">{{ index + 1 }}</span>
-                        <img 
-                          :src="getIconPath(group.release_group)" 
-                          class="site-icon"
-                          @error="handleIconError"
-                        />
-                        <span class="ranking-name pc-ranking-name">{{ group.release_group }}</span>
-                        <span class="ranking-count">{{ group.count }} 部</span>
-                        <n-progress
-                          type="line"
-                          :percentage="(group.count / (stats.historical_release_group_ranking[0]?.count || 1)) * 100"
-                          :show-indicator="false"
-                          :height="8"
-                          style="flex-grow: 1; margin: 0 12px;"
-                          :color="themeVars.primaryColor"
-                        />
-                      </div>
-                    </n-space>
-                    </div>
-                  </n-gi>
                 </n-grid>
               </div>
             </div>
@@ -393,19 +326,6 @@
         </n-space>
       </n-card>
 
-      <!-- 5. 今日发布组 -->
-      <n-card size="small" :bordered="false" title="今日发布组 Top 5" style="margin-top: 12px;">
-        <div v-if="stats.release_group_ranking.length === 0">
-          <n-empty description="今日暂无" size="small" />
-        </div>
-        <div v-else v-for="(group, index) in stats.release_group_ranking.slice(0, 5)" :key="group.release_group" class="ranking-item" style="margin-bottom: 8px;">
-          <span class="ranking-index">{{ index + 1 }}</span>
-          <img :src="getIconPath(group.release_group)" class="site-icon" @error="handleIconError" />
-          <span class="ranking-name mobile-ranking-name">{{ group.release_group }}</span>
-          <span class="ranking-count">{{ group.count }}</span>
-        </div>
-      </n-card>
-
     </div>
   </n-layout>
 </template>
@@ -416,7 +336,7 @@ import { ref, onMounted, onUnmounted, computed, reactive } from 'vue';
 import apiClient, { apiPath } from '@/api/client'
 import { 
   NPageHeader, NLayout, NGrid, NGi, NCard, NStatistic, NSpin, NIcon, NSpace, NDivider, NIconWrapper,
-  NProgress, NEmpty, useThemeVars, NTag
+  useThemeVars, NTag
 } from 'naive-ui';
 import { FilmOutline, TvOutline, LayersOutline, CheckmarkCircleOutline as CheckIcon } from '@vicons/ionicons5';
 import { use } from 'echarts/core';
@@ -435,7 +355,7 @@ const checkMobile = () => {
 
 // --- 状态与数据 (共享) ---
 const loading = reactive({
-  core: true, library: true, system: true, subscription: true, rankings: true
+  core: true, library: true, system: true, subscription: true
 });
 
 const stats = reactive({
@@ -450,9 +370,7 @@ const stats = reactive({
     quota: { 
       mp: { available: 0, consumed: 0 }
     }
-  },
-  release_group_ranking: [],
-  historical_release_group_ranking: []
+  }
 });
 
 const themeVars = useThemeVars();
@@ -491,16 +409,6 @@ const fetchSubscription = async () => {
     if (res.data.status === 'success') Object.assign(stats.subscriptions_card, res.data.data);
   } catch (e) { console.error(e); } finally { loading.subscription = false; }
 };
-const fetchRankings = async () => {
-  try {
-    const res = await apiClient.get(apiPath('api_database_stats_rankings_c51b1954'));
-    if (res.data.status === 'success') {
-      stats.release_group_ranking = res.data.data.release_group_ranking;
-      stats.historical_release_group_ranking = res.data.data.historical_release_group_ranking;
-    }
-  } catch (e) { console.error(e); } finally { loading.rankings = false; }
-};
-
 // --- 计算属性 ---
 const mediaTypeChartOptions = computed(() => {
   const chartData = [
@@ -597,27 +505,10 @@ const weeklyAddedChartOptions = computed(() => {
   };
 });
 
-const getIconPath = (groupName) => groupName ? `/icons/site/${groupName}.png` : '';
-const handleIconError = (e) => {
-  const img = e.target;
-  const currentSrc = img.src;
-  const defaultIcon = '/icons/site/pt.ico';
-  if (currentSrc.match(/\.png($|\?)/i)) {
-    img.src = currentSrc.replace(/\.png/i, '.ico');
-    return;
-  }
-  if (currentSrc.includes('pt.ico')) {
-    img.style.display = 'none';
-  } else {
-    img.src = defaultIcon;
-    img.style.display = 'inline-block';
-  }
-};
-
 onMounted(() => {
   checkMobile();
   window.addEventListener('resize', checkMobile);
-  fetchCore(); fetchLibrary(); fetchSystem(); fetchSubscription(); fetchRankings();
+  fetchCore(); fetchLibrary(); fetchSystem(); fetchSubscription();
 });
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile);
@@ -629,13 +520,8 @@ onUnmounted(() => {
 .centered-statistic { text-align: center; }
 .stat-value { font-size: 1.8em; font-weight: 600; line-height: 1.2; }
 .section-title { font-size: 16px; font-weight: 600; color: var(--n-title-text-color); margin-bottom: 16px; }
-.site-icon { width: 18px; height: 18px; margin-right: 8px; object-fit: contain; border-radius: 2px; }
-.ranking-item { display: flex; align-items: center; width: 100%; font-size: 14px; }
-.ranking-index { font-weight: bold; color: var(--n-text-color-2); width: 25px; text-align: right; padding-right: 8px; flex-shrink: 0; }
-.ranking-count { color: var(--n-text-color-3); text-align: right; padding-left: 8px; flex-shrink: 0; white-space: nowrap; }
 
 /* PC 端专用样式 */
-.pc-ranking-name { font-weight: 500; width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
 .stat-block { text-align: center; }
 .stat-block-title { font-size: 14px; color: var(--n-text-color-2); margin-bottom: 12px; }
 .stat-item-group { display: flex; justify-content: center; gap: 32px; }
@@ -650,7 +536,6 @@ onUnmounted(() => {
 .mobile-label { font-size: 12px; color: var(--n-text-color-3); }
 .mobile-value { font-size: 18px; font-weight: 600; }
 .mobile-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
-.mobile-ranking-name { font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ================= PC 数据看板：内部信息分组卡片化 ================= */
 .database-stats-page {
@@ -674,8 +559,7 @@ onUnmounted(() => {
 
 /* 左侧内部卡片 + 右侧已有 section-container 统一玻璃化 */
 .inner-section-card,
-.section-container,
-.ranking-panel {
+.section-container {
   position: relative;
   box-sizing: border-box;
   width: 100%;
@@ -765,17 +649,6 @@ onUnmounted(() => {
   width: 100%;
 }
 
-.ranking-section {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.ranking-panel {
-  height: 100%;
-  padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.026);
-}
-
 /* 分组标题：从普通标题改成小卡片标题 */
 .database-stats-page .section-title {
   margin-bottom: 16px;
@@ -825,22 +698,6 @@ onUnmounted(() => {
 .database-stats-page .quota-label-container {
   justify-content: flex-start;
   color: var(--accent-color, var(--n-primary-color)) !important;
-}
-
-/* 发布组排行行项目也轻卡片化 */
-.database-stats-page .ranking-item {
-  min-height: 30px;
-  padding: 5px 6px;
-  border-radius: 10px;
-  transition: background-color 0.2s ease;
-}
-
-.database-stats-page .ranking-item:hover {
-  background: rgba(255, 255, 255, 0.055);
-}
-
-.database-stats-page .ranking-index {
-  color: var(--accent-color, var(--n-primary-color));
 }
 
 .database-stats-page .chart {

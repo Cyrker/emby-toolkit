@@ -115,7 +115,7 @@ def test_native_plugin_update_checks_version_runs_task_and_restarts_with_effect_
         ("checkpoint",),
         ("started", "plugin-update-restart:task-1:v1.2.4"),
         ("committed", "plugin-update-restart:task-1:v1.2.4"),
-        ("update", 100, "ETK MediaInfo Bridge 已更新并触发 Emby 重启"),
+        ("update", 100, "embytool Bridge 已更新并触发 Emby 重启"),
     ]
 
 
@@ -328,6 +328,7 @@ def test_scheduled_plugin_gateway_routes_emby_direct_and_github_through_external
     def external_handler(request: httpx.Request) -> httpx.Response:
         routed.append(("external", request.url.host))
         assert request.url.host == "api.github.com"
+        assert request.url.path == "/repos/Cyrker/embytool-bridge/releases/latest"
         return httpx.Response(200, json={"tag_name": "v1.2.4"})
 
     settings = Settings(
@@ -392,6 +393,23 @@ def test_httpx_scheduled_plugin_gateway_reads_inventory_release_task_and_restart
     assert gateway.pending_restart() is True
     github_request = next(request for request in requests if request.url.host == "api.github.com")
     assert github_request.headers["authorization"] == "Bearer github-token"
+
+
+@pytest.mark.parametrize("name", ["embytool Bridge", "ETK MediaInfo Bridge"])
+def test_plugin_gateway_accepts_current_and_compatible_name_without_upstream_fallback(name: str) -> None:
+    requested: list[str] = []
+
+    def transport(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        if request.url.path == "/Plugins":
+            return httpx.Response(200, json=[{"Name": name, "Version": "1.3.63"}])
+        assert request.url.path == "/repos/Cyrker/embytool-bridge/releases/latest"
+        return httpx.Response(404, json={"message": "Not Found"})
+
+    gateway = _http_gateway(transport)
+    assert gateway.installed_version() == "1.3.63"
+    assert gateway.latest_version() is None
+    assert len(requested) == 2
 
 
 def test_httpx_scheduled_plugin_gateway_validates_inventories_and_write_certainty() -> None:

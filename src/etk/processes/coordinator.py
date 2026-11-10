@@ -310,7 +310,7 @@ class PersistentScheduleManager:
         if not self._startup_operation_scheduled:
             plan[_PLUGIN_UPDATE_JOB] = self._operation_spec(
                 "media.plugin-update-check",
-                "ETK MediaInfo Bridge 更新检查",
+                "embytool Bridge 更新检查",
                 DateTrigger(run_date=datetime.now(UTC) + timedelta(seconds=30)),
                 _PLUGIN_UPDATE_JOB,
                 {},

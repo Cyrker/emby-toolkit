@@ -18,7 +18,7 @@ def _port(value: str) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="etk", description="Emby Toolkit process entrypoint")
+    parser = argparse.ArgumentParser(prog="embytool", description="embytool process entrypoint")
     commands = parser.add_subparsers(dest="command", required=True)
 
     api = commands.add_parser("api", help="run the FastAPI application host")

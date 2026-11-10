@@ -15,10 +15,6 @@
     {"method": "POST", "path": "/api/p115/play_pool/cleanup"},
     {"method": "GET", "path": "/api/p115/play_pool/cookie_qrcode"},
     {"method": "GET", "path": "/api/p115/play_pool/cookie_qrcode/status"},
-    {"method": "GET", "path": "/api/p115/play_pool/user-account"},
-    {"method": "POST", "path": "/api/p115/play_pool/user-account"},
-    {"method": "DELETE", "path": "/api/p115/play_pool/user-account"},
-    {"method": "GET", "path": "/api/p115/play_pool/user-account/rewards"},
     {"method": "GET", "path": "/api/p115/temp_dir_config"},
     {"method": "POST", "path": "/api/p115/temp_dir_config"}
   ],
@@ -106,19 +102,6 @@
         "status": 401,
         "body": {"status": "error", "message": "需要 Emby 用户登录才能访问此资源"}
       }
-    },
-    {
-      "case_id": "empty-session-user-save",
-      "session": {"emby_user_id": ""},
-      "request": {"method": "POST", "path": "/api/p115/play_pool/user-account", "body": {}},
-      "response": {"status": 401, "body": {"success": false, "message": "未登录"}}
-    },
-    {
-      "case_id": "first-user-account-credential-required",
-      "session": {"emby_user_id": "fixture-user"},
-      "request": {"method": "POST", "path": "/api/p115/play_pool/user-account", "body": {"shared": true}},
-      "service": {"user_error": "Cookie/OpenAPI 不能为空"},
-      "response": {"status": 400, "body": {"success": false, "message": "Cookie/OpenAPI 不能为空"}}
     },
     {
       "case_id": "temp-config-save-failure",

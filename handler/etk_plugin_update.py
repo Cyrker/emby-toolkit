@@ -11,15 +11,22 @@ import config_manager
 import constants
 import docker
 from etk.compatibility.background import spawn_later
+from etk.domains.media.plugin_identity import (
+    PLUGIN_DLL_NAME,
+    PLUGIN_NAME,
+    PLUGIN_NAMES,
+    PLUGIN_TASK_KEY,
+)
+from etk.domains.media.plugin_identity import (
+    PLUGIN_DOWNLOAD_URL as LATEST_RELEASE_DOWNLOAD,
+)
+from etk.domains.media.plugin_identity import (
+    PLUGIN_RELEASE_API as LATEST_RELEASE_API,
+)
 from handler.emby import configure_etk_plugin_origin, emby_client
 
 logger = logging.getLogger(__name__)
 
-PLUGIN_NAME = 'ETK MediaInfo Bridge'
-PLUGIN_DLL_NAME = 'ETKMediaInfoBridge.dll'
-PLUGIN_TASK_KEY = 'ETKMediaInfoBridgeUpdate'
-LATEST_RELEASE_API = 'https://api.github.com/repos/hbq0405/etk-mediainfo-bridge/releases/latest'
-LATEST_RELEASE_DOWNLOAD = 'https://github.com/hbq0405/etk-mediainfo-bridge/releases/latest/download/ETKMediaInfoBridge.dll'
 PLUGIN_INSTALL_ALLOW_LABEL = 'com.embytoolkit.control-plane.plugin-install'
 _START_LOCK = threading.Lock()
 _STARTED = False
@@ -48,7 +55,7 @@ def _latest_plugin_version():
     headers = {
         'Accept': 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'EmbyToolKit-PluginUpdater',
+        'User-Agent': 'embytool-PluginUpdater',
     }
     token = str(config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_GITHUB_TOKEN) or '').strip()
     if token:
@@ -59,6 +66,8 @@ def _latest_plugin_version():
         timeout=20,
         proxies=config_manager.get_proxies_for_requests(),
     )
+    if response.status_code == 404:
+        return '', None
     response.raise_for_status()
     tag = str((response.json() or {}).get('tag_name') or '').strip()
     return tag, _version_tuple(tag)
@@ -66,7 +75,7 @@ def _latest_plugin_version():
 
 def _find_plugin(plugins):
     for plugin in plugins or []:
-        if str(plugin.get('Name') or '').strip() == PLUGIN_NAME:
+        if str(plugin.get('Name') or '').strip() in PLUGIN_NAMES:
             return plugin
     return None
 
@@ -83,7 +92,7 @@ def is_etk_plugin_installed(base_url=None, api_key=None):
 
 
 def _plugin_download_headers():
-    headers = {'User-Agent': 'EmbyToolKit-PluginInstaller'}
+    headers = {'User-Agent': 'embytool-PluginInstaller'}
     token = str(config_manager.APP_CONFIG.get(constants.CONFIG_OPTION_GITHUB_TOKEN) or '').strip()
     if token:
         headers['Authorization'] = f'Bearer {token}'
@@ -134,6 +143,7 @@ def _is_emby_container(container):
     # so only container identity fields participate in the ETK self-exclusion.
     haystack = ' '.join([image, name, service])
     excluded_markers = (
+        'embytool',
         'emby-toolkit',
         'etk-mediainfo-bridge',
         'hbq0405/emby-toolkit',
@@ -315,10 +325,10 @@ def ensure_etk_plugin_installed(base_url, api_key, etk_url='', *, allowed_servic
                 'ok': True,
                 'status': 'already_installed',
                 'origin_configured': origin_configured,
-                'message': 'ETK MediaInfo Bridge 已安装',
+                'message': f'{PLUGIN_NAME} 已安装',
             }
 
-        logger.info('  ➜ [插件自动安装] Emby 尚未安装 ETK MediaInfo Bridge，开始下载安装。')
+        logger.info('  ➜ [插件自动安装] Emby 尚未安装 %s，开始下载安装。', PLUGIN_NAME)
         client = docker.from_env()
         try:
             container = _resolve_emby_container(
@@ -339,16 +349,16 @@ def ensure_etk_plugin_installed(base_url, api_key, etk_url='', *, allowed_servic
 
         plugin = _wait_for_plugin(base_url, api_key)
         if plugin is None:
-            raise RuntimeError('Emby 重启后未检测到 ETK MediaInfo Bridge')
+            raise RuntimeError(f'Emby 重启后未检测到 {PLUGIN_NAME}')
         origin_configured = bool(etk_url and configure_etk_plugin_origin(base_url, api_key, etk_url))
         version = str(plugin.get('Version') or '').strip()
-        logger.info('  ➜ [插件自动安装] ETK MediaInfo Bridge %s 安装完成。', version or '')
+        logger.info('  ➜ [插件自动安装] %s %s 安装完成。', PLUGIN_NAME, version or '')
         return {
             'ok': True,
             'status': 'installed',
             'version': version,
             'origin_configured': origin_configured,
-            'message': f"ETK MediaInfo Bridge {version or ''} 已自动安装并重启 Emby".strip(),
+            'message': f"{PLUGIN_NAME} {version or ''} 已自动安装并重启 Emby".strip(),
         }
     except Exception as e:
         logger.error('  ➜ [插件自动安装] 自动安装失败: %s', e, exc_info=True)
@@ -406,7 +416,7 @@ def check_and_update_etk_plugin():
     try:
         plugin = _find_plugin(_emby_get_json(base_url, api_key, '/Plugins'))
         if plugin is None:
-            logger.warning("  ➜ [插件联动更新] Emby 未安装 ETK MediaInfo Bridge，跳过自动更新。")
+            logger.warning("  ➜ [插件联动更新] Emby 未安装 %s，跳过自动更新。", PLUGIN_NAME)
             return False
         current_text = str(plugin.get('Version') or '').strip()
         current_version = _version_tuple(current_text)

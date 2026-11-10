@@ -64,7 +64,7 @@ class LegacyEmbyIdentityGateway:
             return {
                 "ok": False,
                 "status": "skipped",
-                "message": "ETK 插件未就绪，已跳过媒体库加速配置",
+                "message": "embytool Bridge 插件未就绪，已跳过媒体库加速配置",
             }
         from handler import emby
 

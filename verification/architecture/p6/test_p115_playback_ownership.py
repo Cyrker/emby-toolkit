@@ -31,9 +31,7 @@ RETIRED_CONFIG_REPLACEMENTS = {
     "p115_copy_play_active_sources": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
     "p115_copy_play_clones": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
     "p115_play_pool_sessions": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
-    "p115_play_pool_user_cookie_rewards": (
-        "etk.domains.p115.playback_reward_repository.SqlAlchemyP115PlaybackRewardRepository"
-    ),
+    "p115_play_pool_user_cookie_rewards": None,
     "p115_virtual_play_sessions": "etk.domains.p115.playback_repository.PostgresP115PlaybackRepository",
 }
 
@@ -71,7 +69,7 @@ def _called_names(function: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
     }
 
 
-def test_playback_router_and_committed_legacy_manifest_have_exactly_nineteen_native_bindings() -> None:
+def test_playback_router_preserves_fifteen_bindings_and_retires_user_contributions() -> None:
     fixture = _json(PLAYBACK_FIXTURE)
     expected = {(str(entry["method"]), str(entry["path"])) for entry in fixture["routes"]}
     observed = {
@@ -81,7 +79,7 @@ def test_playback_router_and_committed_legacy_manifest_have_exactly_nineteen_nat
         for method in route.methods or set()
     }
 
-    assert len(expected) == 19
+    assert len(expected) == 15
     assert observed == expected
     assert {route.endpoint.__module__ for route in router.routes if isinstance(route, APIRoute)} == {PLAYBACK_OWNER}
 
@@ -91,7 +89,8 @@ def test_playback_router_and_committed_legacy_manifest_have_exactly_nineteen_nat
     bindings = {
         (str(entry["method"]), str(entry["path"])): entry
         for entry in manifest["method_bindings"]
-        if str(entry["path"]).startswith(("/api/p115/play/", "/api/p115/play_pool", "/api/p115/temp_dir_config"))
+        if entry["status"] == "new"
+        and str(entry["path"]).startswith(("/api/p115/play/", "/api/p115/play_pool", "/api/p115/temp_dir_config"))
     }
     expected_legacy = {(method, _legacy_path(path)) for method, path in expected}
     assert set(bindings) == expected_legacy
@@ -100,6 +99,10 @@ def test_playback_router_and_committed_legacy_manifest_have_exactly_nineteen_nat
         assert entry["status"] == "new"
         assert entry["new_owner"] == PLAYBACK_OWNER
         assert entry["fixture"] == PLAYBACK_FIXTURE
+
+    retired = [entry for entry in manifest["method_bindings"] if "/play_pool/user-account" in entry["path"]]
+    assert len(retired) == 4
+    assert all(entry["status"] == "retired-approved" and entry["retirement_approval"] for entry in retired)
 
 
 def test_playback_openapi_snapshot_has_exact_operations_and_transport_responses() -> None:
@@ -272,7 +275,7 @@ def test_native_daily_speedtest_wiring_is_processor_free_and_import_clean() -> N
         "NativeP115PlaybackProvider",
         "NativeP115PlaybackRapidSigner",
         "NativeP115PoolPlaybackClientFactory",
-        "SqlAlchemyP115PlaybackRewardRepository",
+        "SqlAlchemyP115PlaybackUserRepository",
         "SqlAlchemyP115PlaybackSourceGateway",
         "SqlAlchemyP115PlaybackUserGateway",
         "playback=playback_service",
@@ -281,7 +284,7 @@ def test_native_daily_speedtest_wiring_is_processor_free_and_import_clean() -> N
     for symbol in (
         "NativeP115DirectLinkGateway",
         "SqlAlchemyP115PlaybackConfigBackend",
-        "SqlAlchemyP115PlaybackRewardRepository",
+        "SqlAlchemyP115PlaybackUserRepository",
         "SqlAlchemyP115PlaybackSourceGateway",
         "SqlAlchemyP115PlaybackUserGateway",
     ):
@@ -297,8 +300,8 @@ from etk.domains.p115.playback_native import (
     NativeP115PoolPlaybackClientFactory,
     SqlAlchemyP115PlaybackSourceGateway,
 )
-from etk.domains.p115.playback_reward_repository import (
-    SqlAlchemyP115PlaybackRewardRepository,
+from etk.domains.p115.playback_user_repository import (
+    SqlAlchemyP115PlaybackUserRepository,
     SqlAlchemyP115PlaybackUserGateway,
 )
 forbidden = ('database', 'handler', 'routes', 'task_manager', 'tasks')
@@ -313,7 +316,7 @@ print(json.dumps({
     'signer': NativeP115PlaybackRapidSigner.__name__,
     'clients': NativeP115PoolPlaybackClientFactory.__name__,
     'sources': SqlAlchemyP115PlaybackSourceGateway.__name__,
-    'rewards': SqlAlchemyP115PlaybackRewardRepository.__name__,
+    'identities': SqlAlchemyP115PlaybackUserRepository.__name__,
     'users': SqlAlchemyP115PlaybackUserGateway.__name__,
 }))
 """
@@ -338,6 +341,6 @@ print(json.dumps({
         "signer": "NativeP115PlaybackRapidSigner",
         "clients": "NativeP115PoolPlaybackClientFactory",
         "sources": "SqlAlchemyP115PlaybackSourceGateway",
-        "rewards": "SqlAlchemyP115PlaybackRewardRepository",
+        "identities": "SqlAlchemyP115PlaybackUserRepository",
         "users": "SqlAlchemyP115PlaybackUserGateway",
     }

@@ -80,7 +80,7 @@ def test_cli_help_is_lazy_and_complete(tmp_path: Path) -> None:
             text=True,
         )
         assert result.returncode == 0, result.stderr
-        assert "usage: etk" in result.stdout
+        assert "usage: embytool" in result.stdout
 
     assert not (tmp_path / "data").exists()
     assert not (tmp_path / "home").exists()

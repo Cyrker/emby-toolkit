@@ -21,7 +21,10 @@ describe('手动处理模式', () => {
   it('默认重新处理，开关同时作用于单项和批量提交', async () => {
     const wrapper = shallowMount(ReviewList, {
       props: { taskStatus: { is_running: false } },
-      global: { renderStubDefaultSlot: true, stubs: { NLayout: { template: '<div><slot /></div>' } } },
+      global: { renderStubDefaultSlot: true, stubs: {
+        NLayout: { template: '<div><slot /></div>' },
+        ReprocessIdentityModal: { template: '<div />', methods: { inspect: async () => false } },
+      } },
     });
     try {
       await flushPromises();

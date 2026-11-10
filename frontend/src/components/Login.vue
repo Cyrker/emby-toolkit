@@ -5,8 +5,8 @@
       <n-card class="dashboard-card login-card" :bordered="false" size="large">
         
         <div class="login-header">
-          <img src="../assets/logo.png" alt="Logo" class="login-logo" />
-          <h2 class="login-title">Emby Toolkit</h2>
+          <img src="/brand-icon.svg" alt="embytool" class="login-logo" />
+          <h2 class="login-title">embytool</h2>
           <p class="login-subtitle">请使用 Emby 账号登录</p>
         </div>
 

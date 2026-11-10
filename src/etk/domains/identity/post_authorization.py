@@ -95,9 +95,9 @@ class NativeIdentityPostAuthorizationOperation:
                 progress.record_committed_effect(plugin_label)
             raise
         if not plugin_install.get("ok"):
-            raise RuntimeError(plugin_install.get("message") or "ETK 插件安装失败")
+            raise RuntimeError(plugin_install.get("message") or "embytool Bridge 插件安装失败")
         progress.record_committed_effect(plugin_label)
-        progress.update(50, "ETK 插件安装已确认")
+        progress.update(50, "embytool Bridge 插件安装已确认")
         progress.checkpoint()
         library_label = f"identity-library-configuration:{expected_revision}"
         progress.record_started_effect(library_label)

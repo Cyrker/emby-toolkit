@@ -262,7 +262,7 @@ def test_identity_library_configuration_skips_unready_plugin_and_missing_token()
         "ok": False,
         "status": "skipped",
         "certainty": "confirmed-no-effect",
-        "message": "ETK 插件未就绪，已跳过媒体库加速配置",
+        "message": "embytool Bridge 插件未就绪，已跳过媒体库加速配置",
     }
     missing_token = gateway.configure_libraries(
         {"_normalized_url": "http://emby.fixture"},
@@ -314,7 +314,7 @@ def test_identity_library_configuration_counts_confirmed_existing_defaults() -> 
         "configured": 1,
         "failed": 0,
         "certainty": "observed-complete",
-        "message": "已为 1 个媒体库应用 ETK 加速配置",
+        "message": "已为 1 个媒体库应用 embytool 加速配置",
     }
 
 

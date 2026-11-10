@@ -106,7 +106,12 @@ def _record(row: dict[str, Any]) -> dict[str, Any]:
         "selected": metadata.get("selected"),
         "verified": metadata.get("verified"),
         "message": redact_sensitive(str(outcome.get("message") or row.get("error_message") or "")),
+        "error_code": (outcome.get("details") or {}).get("error_code") or metadata.get("error_code"),
+        "tmdb_selection": (row.get("parameters") or {}).get("tmdb_selection"),
         "incomplete": incomplete[:20],
+        "failures": [{"item_id": entry.get("item_id"), "stage": entry.get("stage"),
+                      "message": redact_sensitive(str(entry.get("message") or ""))}
+                     for entry in (row.get("failures") or [])[:20]],
         "retry": retry,
         "completeness_checked": "incomplete" in metadata,
         "season_number": row.get("season_number"),

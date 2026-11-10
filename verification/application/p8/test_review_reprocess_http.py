@@ -59,6 +59,9 @@ class FakeJobs:
         self.busy = False
         self.fail = False
 
+    def replay_one(self, *_: Any) -> None:
+        return None
+
     def submit_one(self, **values: Any) -> SubmittedJob:
         return self._submit("one", values)
 
@@ -80,7 +83,7 @@ class FakeJobs:
         )
 
 
-def _build_app(emby_item=None) -> tuple[FastAPI, FakePermissions, FakeRepository, FakeJobs]:
+def _build_app(emby_item=None, identification=None) -> tuple[FastAPI, FakePermissions, FakeRepository, FakeJobs]:
     permissions = FakePermissions()
     repository = FakeRepository()
     jobs = FakeJobs()
@@ -88,6 +91,7 @@ def _build_app(emby_item=None) -> tuple[FastAPI, FakePermissions, FakeRepository
         cast(ReviewReprocessRepository, repository),
         cast(ReviewJobPort, jobs),
         emby_item=emby_item,
+        identification=identification,
     )
     container = AppContainer(
         Settings(auth_enabled=True),
@@ -106,6 +110,40 @@ def _build_app(emby_item=None) -> tuple[FastAPI, FakePermissions, FakeRepository
 def _set_user(client: TestClient, user_id: str) -> None:
     codec = LegacySessionCodec.from_secret_key(SECRET_KEY)
     client.cookies.set("session", codec.dumps({"emby_user_id": user_id}))
+
+
+def test_identification_query_is_admin_only_read_only_and_selection_is_validated():
+    from etk.domains.media.reprocess_metadata import ReprocessIdentificationError
+
+    queries = []
+    def preview(item_id, **query):
+        queries.append((item_id, query))
+        return {"requires_selection": True, "candidates": []}
+
+    def validate(_item_id, _source, selection):
+        if selection["tmdb_id"] == "999":
+            raise ReprocessIdentificationError("INVALID_TMDB_ID", "无效 TMDb ID")
+        return {"item": {"Name": "当前 Emby 名称"}}
+
+    app, permissions, _, jobs = _build_app(identification=SimpleNamespace(preview=preview, validate=validate))
+    permissions.active.add("admin")
+    permissions.admins.add("admin")
+    route = "/api/actions/reprocess_item/123"
+    with TestClient(app) as client:
+        assert client.get(route + "/identification").status_code == 403
+        _set_user(client, "admin")
+        assert client.get(route + "/identification?year=bad").status_code == 422
+        assert client.get(route + "/identification?query=作品&year=2020&page=2").json()["requires_selection"]
+        assert queries[0][1]["page"] == 2 and not jobs.calls
+        payload = {"only_missing": True, "source_job_id": str(JOB_ID),
+                   "tmdb_selection": {"tmdb_id": "999", "media_type": "movie", "snapshot": "a" * 64}}
+        assert client.post(route, json=payload).status_code == 400
+        response = client.post(route, json=payload, headers={"Idempotency-Key": "confirm"})
+        assert response.status_code == 400 and response.json()["error_code"] == "INVALID_TMDB_ID"
+        assert not jobs.calls
+        payload["tmdb_selection"]["tmdb_id"] = "2"
+        assert client.post(route, json=payload, headers={"Idempotency-Key": "confirm"}).status_code == 202
+        assert jobs.calls[0][1]["tmdb_selection"]["tmdb_id"] == "2"
 
 
 @pytest.mark.parametrize("route", ["/api/actions/reprocess_item/item-1", "/api/actions/reprocess_all_review_items"])
@@ -153,12 +191,14 @@ def test_search_reprocess_rejects_missing_or_wrong_emby_item(source, code) -> No
 def test_review_reprocess_routes_require_current_admin_and_ready_processor() -> None:
     app, permissions, _repository, _jobs = _build_app()
     assert {(method, path) for path, operations in app.openapi()["paths"].items() for method in operations} == {
+        ("get", "/api/actions/reprocess_item/{item_id}/identification"),
         ("post", "/api/actions/reprocess_item/{item_id}"),
         ("post", "/api/actions/reprocess_all_review_items"),
     }
 
     with TestClient(app) as client:
         anonymous = client.post("/api/actions/reprocess_item/item-1", json={})
+        assert client.get("/api/actions/reprocess_item/item-1/identification").status_code == 403
         permissions.active.add("fixture-user")
         _set_user(client, "fixture-user")
         non_admin = client.post("/api/actions/reprocess_item/item-1", json={})

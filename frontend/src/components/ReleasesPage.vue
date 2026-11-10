@@ -2,7 +2,7 @@
   <n-layout content-style="padding: 24px;">
     <n-page-header title="查看更新">
       <template #extra>
-        <n-button tag="a" :href="`https://github.com/${githubRepo}/issues`" target="_blank" secondary>
+        <n-button tag="a" :href="`${REPOSITORY_URL}/issues`" target="_blank" rel="noopener noreferrer" secondary>
           <template #icon><n-icon :component="LogoGithub" /></template>
           反馈问题
         </n-button>
@@ -23,6 +23,7 @@
     <div v-else-if="error" class="center-container"><n-alert title="加载错误" type="error">{{ error }}</n-alert></div>
 
     <div v-else>
+      <n-empty v-if="releases.length === 0" description="暂无可用的 embytool 发布记录" />
       <n-list hoverable clickable>
         <n-list-item v-for="(release, index) in releases" :key="release.version">
           <n-thing>
@@ -79,11 +80,12 @@ import { zhCN } from 'date-fns/locale';
 import {
   NLayout, NPageHeader, NDivider, NSpin, NAlert, NList, NListItem, NThing,
   NTag, NSpace, NButton, NIcon, NText, NModal, NTooltip, useDialog,
-  NImage, NP // 确保导入了 NImage 和 NP
+  NImage, NP, NEmpty // 确保导入了 NImage 和 NP
 } from 'naive-ui';
 import { LogoGithub, CafeOutline as CafeIcon } from '@vicons/ionicons5';
 import { apiPath } from '@/api/client';
 import { useAboutInfoQuery } from '@/api/queries/system';
+import { REPOSITORY_URL } from '@/branding';
 
 const dialog = useDialog();
 const aboutQuery = useAboutInfoQuery();
@@ -91,10 +93,6 @@ const releases = computed(() => aboutQuery.data.value?.releases ?? []);
 const currentVersion = computed(() => aboutQuery.data.value?.current_version ?? '');
 const latestVersion = computed(() => releases.value[0]?.version ?? '');
 const isUpdateAvailable = computed(() => Boolean(currentVersion.value && latestVersion.value && currentVersion.value.replace(/^v/, '').trim() !== latestVersion.value.replace(/^v/, '').trim()));
-
-const githubRepoOwner = 'hbq0405';
-const githubRepoName = 'emby-toolkit';
-const githubRepo = computed(() => `${githubRepoOwner}/${githubRepoName}`);
 
 const isLoading = computed(() => aboutQuery.isLoading.value);
 const error = computed(() => aboutQuery.error.value ? '无法获取版本信息，请检查网络或后端服务。' : null);

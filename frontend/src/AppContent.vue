@@ -378,7 +378,7 @@ const submitServiceAuthorization = async () => {
     const pluginInstall = response.data.plugin_install;
     const libraryConfig = response.data.library_config;
     if ((pluginInstall && !pluginInstall.ok) || (libraryConfig && !libraryConfig.ok)) {
-      message.warning(response.data.message || 'Emby 服务授权成功，但 ETK 插件自动安装失败');
+      message.warning(response.data.message || 'Emby 服务授权成功，但 embytool Bridge 插件自动安装失败');
     } else {
       message.success(response.data.message || 'Emby 服务授权成功');
     }

@@ -104,11 +104,16 @@ from etk.domains.media.image_store import SqlAlchemyMediaImageStore
 from etk.domains.media.library_notification_repository import SqlAlchemyLibraryNotificationRepository
 from etk.domains.media.library_notifications import (
     PersistentLibraryResultNotification,
+    PersistentLibraryRetrySuccessNotification,
     TelegramLibraryNotificationDelivery,
 )
 from etk.domains.media.metadata_retry import MetadataRetryDelivery, MetadataRetryScheduler
 from etk.domains.media.repository import SqlAlchemyMediaRepository
 from etk.domains.media.reprocess import NativeMediaItemReprocessOperation, NativeMediaItemReprocessService
+from etk.domains.media.reprocess_identification import (
+    ReprocessIdentificationService,
+    SqlAlchemyIdentificationRepository,
+)
 from etk.domains.media.reprocess_images import NativeReprocessImagePreparation
 from etk.domains.media.resubscribe_projection import SqlAlchemyResubscribeMediaProjection
 from etk.domains.media.studio_images import StudioImageService
@@ -235,9 +240,9 @@ from etk.domains.p115.playback_native import (
     SqlAlchemyP115PlaybackConfigBackend,
     SqlAlchemyP115PlaybackSourceGateway,
 )
-from etk.domains.p115.playback_reward_repository import (
-    SqlAlchemyP115PlaybackRewardRepository,
+from etk.domains.p115.playback_user_repository import (
     SqlAlchemyP115PlaybackUserGateway,
+    SqlAlchemyP115PlaybackUserRepository,
 )
 from etk.domains.p115.upload_monitor import UploadOperation
 from etk.domains.people.task_execution import (
@@ -536,6 +541,7 @@ def _p115_native_operation_router(
     media_reprocess: NativeMediaItemReprocessService | None = None,
     deep_delete: NativeP115DeepDeleteOperation | None = None,
     library_notification: PersistentLibraryResultNotification | None = None,
+    library_retry_notification: PersistentLibraryRetrySuccessNotification | None = None,
 ) -> NativeOperationRouter:
     provider = P115PrimaryOperationsGateway(
         credentials=credentials,
@@ -584,6 +590,7 @@ def _p115_native_operation_router(
         handlers["media.reprocess-item"] = NativeMediaItemReprocessOperation(
             media_reprocess, notify=library_notification,
             schedule_retry=MetadataRetryScheduler(PostgresMediaEffectLedger(database.unit_of_work)),
+            update_retry_notification=library_retry_notification,
         )
     if deep_delete is not None:
         handlers["p115.deep-delete.execute"] = deep_delete
@@ -1354,7 +1361,7 @@ class WorkerRuntime:
                 )
             )
             playback_users = SqlAlchemyP115PlaybackUserGateway(
-                SqlAlchemyP115PlaybackRewardRepository(database.unit_of_work),
+                SqlAlchemyP115PlaybackUserRepository(database.unit_of_work),
                 telegram,
             )
             playback_config = P115PlaybackConfigService(
@@ -1612,7 +1619,7 @@ class WorkerRuntime:
                     cleanup=playback_service.release_for_stop,
                     release_proxy=PostgresPlaybackLeaseStore(database.unit_of_work).release,
                     telegram=telegram,
-                    admin_chat_ids=SqlAlchemyP115PlaybackRewardRepository(database.unit_of_work).admin_chat_ids,
+                    admin_chat_ids=SqlAlchemyP115PlaybackUserRepository(database.unit_of_work).admin_chat_ids,
                 ),
             )
             media_effects = PersistentMediaEffectExecutor(
@@ -1634,7 +1641,7 @@ class WorkerRuntime:
                         TelegramLibraryNotificationDelivery(
                             settings=settings_provider,
                             telegram=telegram,
-                            admin_chat_ids=SqlAlchemyP115PlaybackRewardRepository(database.unit_of_work).admin_chat_ids,
+                            admin_chat_ids=SqlAlchemyP115PlaybackUserRepository(database.unit_of_work).admin_chat_ids,
                             batches=SqlAlchemyLibraryNotificationRepository(database.unit_of_work),
                         ),
                         MoviePilotWebhookEffectDelivery(
@@ -1715,6 +1722,10 @@ class WorkerRuntime:
                 media_task_service,
                 media_info_restore,
                 refresh=PersistentReprocessMetadataRefresh(media_effects, settings_provider),
+                identification=ReprocessIdentificationService(
+                    HttpxMediaCatalogAdapter(settings_provider), HttpxTmdbMetadataAdapter(settings_provider),
+                    SqlAlchemyIdentificationRepository(database.unit_of_work),
+                ),
                 images=NativeReprocessImagePreparation(
                     settings=settings_provider, unit_of_work=database.unit_of_work,
                     tmdb=HttpxTmdbMetadataAdapter(settings_provider),
@@ -1749,6 +1760,7 @@ class WorkerRuntime:
                     media_effects, HttpxMediaCatalogAdapter(settings_provider).item,
                     batches=SqlAlchemyLibraryNotificationRepository(database.unit_of_work),
                 ),
+                library_retry_notification=PersistentLibraryRetrySuccessNotification(media_effects),
             )
             ingestion_binding = PersistentPendingBindingGateway(
                 ledger=ingestion_ledger,

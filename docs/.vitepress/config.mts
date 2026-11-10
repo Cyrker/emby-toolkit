@@ -1,8 +1,8 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  title: 'ETKvNext Wiki',
-  description: 'ETKvNext 用户文档',
+  title: 'embytool',
+  description: 'embytool 用户文档',
   base: '/emby-toolkit/',
   ignoreDeadLinks: true,
 
@@ -10,11 +10,11 @@ export default defineConfig({
     ['meta', { name: 'theme-color', content: '#2563eb' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:locale', content: 'zh_CN' }],
-    ['meta', { name: 'og:site_name', content: 'Emby Toolkit Wiki' }]
+    ['meta', { name: 'og:site_name', content: 'embytool' }]
   ],
 
   themeConfig: {
-    siteTitle: 'ETKvNext Wiki',
+    siteTitle: 'embytool',
 
     nav: [
       { text: '首页', link: '/zh/' },
@@ -76,8 +76,8 @@ export default defineConfig({
     },
 
     footer: {
-      message: 'ETKvNext - Emby 媒体库增强平台',
-      copyright: 'Copyright © 2026-present Emby Toolkit'
+      message: 'embytool · 独立维护的 Emby 媒体管理工具 · AGPL-3.0',
+      copyright: '原项目 Copyright © 2026-present Emby Toolkit；embytool 为修改版'
     },
 
     search: {
@@ -105,7 +105,7 @@ export default defineConfig({
     },
 
     editLink: {
-      pattern: 'https://github.com/hbq0405/emby-toolkit/edit/main/docs/:path',
+      pattern: 'https://github.com/Cyrker/emby-toolkit/edit/main/docs/:path',
       text: '在 GitHub 上编辑此页'
     },
 

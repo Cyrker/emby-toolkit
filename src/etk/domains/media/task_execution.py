@@ -32,7 +32,7 @@ from etk.policy_defaults import GENRE_TRANSLATION_PATCH
 
 from .metadata_quality import metadata_gaps, placeholder_episode_title
 from .policies import normalize_media_path
-from .reprocess_metadata import ReprocessMetadataProvider, identify_root, prepare_metadata
+from .reprocess_metadata import ReprocessIdentificationError, ReprocessMetadataProvider, identify_root, prepare_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +207,7 @@ class HttpxMediaCatalogAdapter:
                         "Recursive": "true",
                         "IncludeItemTypes": "Movie,Series,Season,Episode",
                         "Fields": (
-                            "ProviderIds,Type,Name,OriginalTitle,PremiereDate,CommunityRating,Genres,Studios,"
+                            "ProviderIds,Type,Name,OriginalTitle,DateCreated,PremiereDate,CommunityRating,Genres,Studios,"
                             "OfficialRating,ProductionYear,Path,Overview,SeriesId,SeasonId,ParentIndexNumber,IndexNumber,Id,LockedFields,LockData,People,ImageTags"
                         ),
                         "StartIndex": start,
@@ -240,7 +240,7 @@ class HttpxMediaCatalogAdapter:
                     f"{base_url}/Users/{quote(user_id, safe='')}/Items/{quote(normalized_id, safe='')}",
                     params={
                         "Fields": (
-                            "ProviderIds,Type,Name,OriginalTitle,PremiereDate,CommunityRating,Genres,Studios,"
+                            "ProviderIds,Type,Name,OriginalTitle,DateCreated,PremiereDate,CommunityRating,Genres,Studios,"
                             "OfficialRating,ProductionYear,Path,Overview,SeriesId,SeasonId,ParentIndexNumber,IndexNumber,Id,LockedFields,LockData,People,ImageTags"
                         )
                     },
@@ -341,10 +341,13 @@ class HttpxTmdbMetadataAdapter:
         # 图片端点不按文字语言过滤，交由既有图片语言优先级选择。
         return self._query(endpoint + "/images", {"language": None})
 
-    def search(self, name: str, media_type: str) -> Mapping[str, Any]:
+    def search(self, name: str, media_type: str, *, year: int | None = None, page: int = 1) -> Mapping[str, Any]:
         if media_type not in {"movie", "tv"} or not name.strip():
             raise ValueError("TMDb search identity is invalid")
-        return self._query(f"/search/{media_type}", {"query": name})
+        parameters: dict[str, Any] = {"query": name, "page": page}
+        if year is not None:
+            parameters["year" if media_type == "movie" else "first_air_date_year"] = year
+        return self._query(f"/search/{media_type}", parameters)
 
     def _query(self, path: str, parameters: Mapping[str, Any]) -> Mapping[str, Any]:
         settings = self._settings()
@@ -487,6 +490,22 @@ class SqlAlchemyMediaMetadataTaskRepository:
             return False
         emby_id = str(item.get("Id") or "").strip()
         with self._unit_of_work() as uow:
+            if item.get("_confirmed_root_tmdb_id"):
+                conflict = uow.session.execute(text("""
+                    SELECT tmdb_id FROM media_metadata
+                    WHERE (emby_item_ids_json @> CAST(:ids AS jsonb)
+                           OR (:path <> '' AND EXISTS (
+                               SELECT 1 FROM jsonb_array_elements(COALESCE(asset_details_json, '[]'::jsonb)) a
+                               WHERE a->>'path' = :path
+                           )))
+                      AND (tmdb_id <> :tmdb_id OR item_type <> :kind)
+                    LIMIT 1 FOR UPDATE
+                """), {"ids": json.dumps([emby_id]), "path": normalize_media_path(item.get("Path")) or "",
+                       "tmdb_id": tmdb_id, "kind": item_type}).first()
+                if conflict is not None:
+                    raise ReprocessIdentificationError(
+                        "CACHE_IDENTITY_CONFLICT", "已有缓存使用不同 TMDb 身份，未覆盖或重新归属。", 409,
+                    )
             if item_type in {"Season", "Episode"}:
                 conflict = uow.session.execute(
                     text("""
@@ -594,6 +613,9 @@ class SqlAlchemyMediaMetadataTaskRepository:
                     existing_asset["emby_item_id"] = emby_id
                 if item.get("_source_library_id"):
                     existing_asset["source_library_id"] = str(item["_source_library_id"])
+                added_at = _parse_datetime(item.get("DateCreated"))
+                if added_at is not None:
+                    existing_asset["date_added_to_library"] = added_at.isoformat()
                 values["asset_details_json"] = json.dumps(assets, ensure_ascii=False)
             columns = ", ".join(values)
             placeholders = ", ".join(f":{column}" for column in values)
@@ -896,6 +918,10 @@ class NativeMediaMetadataTaskService:
         if set(item.get("LockedFields") or []) & {"Name", "Overview"}:
             raise ValueError("名称或简介字段已明确锁定，请先确认是否解锁该字段。")
         target, details = prepare_metadata(item, root, cast(ReprocessMetadataProvider, self._metadata), cache)
+        ids = item.get("ProviderIds") or {}
+        current_id = str(ids.get("Tmdb") or ids.get("tmdb") or "")
+        if item.get("_confirmed_root_tmdb_id") and current_id and current_id != str(details["id"]):
+            raise ReprocessIdentificationError("IDENTITY_CONFLICT", "当前媒体已绑定不同 TMDb 身份，未覆盖。", 409)
         details = dict(self._translate_people(target, details))
         gaps = metadata_gaps(
             str(item.get("Type")), details.get("name") or details.get("title"), details.get("overview"),

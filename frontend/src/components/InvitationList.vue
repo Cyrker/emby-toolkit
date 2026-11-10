@@ -11,17 +11,19 @@
     </n-button>
 
     <n-data-table
+      class="invitation-table"
       :columns="columns"
       :data="invitations"
       :loading="loading"
       :row-key="row => row.id"
+      :scroll-x="1000"
       :pagination="{ pageSize: 10 }" 
     />
 
     <n-modal
       v-model:show="isModalVisible"
       preset="card"
-      style="width: 500px"
+      style="width: min(500px, calc(100vw - 32px))"
       title="创建新的邀请链接"
       :bordered="false"
       size="huge"
@@ -234,6 +236,7 @@ const createColumns = () => [
   {
     title: '邀请链接',
     key: 'token',
+    minWidth: 300,
     render: (row) => {
       const fullLink = `${window.location.origin}/register/invite/${row.token}`;
       return h(NSpace, { align: 'center' }, () => [

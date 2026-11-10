@@ -6,12 +6,15 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+import httpx
+import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from etk.bootstrap.app_factory import create_app
 from etk.bootstrap.runtime_supervisor import RuntimeSupervisor
 from etk.compatibility.session_codec import LegacySessionCodec
+from etk.domains.system.integration_compatibility import HttpxSystemIntegrationGateway
 from etk.domains.system.integrations import ExternalResult, SystemIntegrationService
 from etk.platform import AppContainer, Settings
 
@@ -126,6 +129,7 @@ def test_pro_endpoints_are_not_registered(tmp_path: Path) -> None:
 
 def test_public_proxy_and_about_contracts_use_injected_gateway(tmp_path: Path) -> None:
     app, _, gateway = _build_app(tmp_path)
+    assert app.title == "embytool"
     with TestClient(app) as client:
         proxy = client.post("/api/proxy/test", json={"url": "http://proxy.example.invalid"})
         about = client.get("/api/system/about_info")
@@ -136,6 +140,24 @@ def test_public_proxy_and_about_contracts_use_injected_gateway(tmp_path: Path) -
         "current_version": "10.8.65",
         "releases": [{"version": "fixture-release"}],
     }
+
+
+@pytest.mark.parametrize("status_code", [200, 404])
+def test_release_info_uses_own_repository_without_upstream_fallback(
+    monkeypatch: pytest.MonkeyPatch, status_code: int,
+) -> None:
+    requests: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        return httpx.Response(status_code, json=[] if status_code == 200 else {"message": "Not Found"})
+
+    gateway = HttpxSystemIntegrationGateway(lambda: Settings())
+    monkeypatch.setattr(gateway, "_client", lambda **_: httpx.Client(transport=httpx.MockTransport(handle)))
+    version, releases = gateway.about_info()
+    assert version
+    assert releases == []
+    assert requests == ["https://api.github.com/repos/Cyrker/emby-toolkit/releases"]
 
 
 def test_admin_routes_recheck_database_permission_and_ignore_cookie_flag(tmp_path: Path) -> None:

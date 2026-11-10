@@ -259,94 +259,6 @@ class P115PlaybackService:
                 removed += 1
         return removed
 
-    def save_user_account(
-        self,
-        user_id: str,
-        username: str,
-        payload: Mapping[str, Any],
-    ) -> dict[str, Any]:
-        owner = str(user_id or "").strip()
-        if not owner:
-            raise PermissionError("未登录")
-        values = dict(payload)
-        cookie = str(values.get("cookie") or "").strip()
-        access_token = str(values.get("access_token") or "").strip()
-        refresh_token = str(values.get("refresh_token") or "").strip()
-        existing = self._config.account_by_owner("user", owner)
-        if not cookie and not access_token and existing is None:
-            raise ValueError("Cookie/OpenAPI 不能为空")
-        update: dict[str, Any] = {
-            "alias": str(values.get("alias") or username or "用户小号").strip() or "用户小号",
-            "app_type": str(values.get("app_type") or "alipaymini").strip() or "alipaymini",
-            "owner_type": "user",
-            "owner_user_id": owner,
-            "shared": bool(values.get("shared", False)),
-            "_skip_auto_speedtest": True,
-        }
-        if cookie:
-            update.update({"cookie": cookie, "enabled": True})
-        if access_token:
-            update.update(
-                {
-                    "access_token": access_token,
-                    "refresh_token": refresh_token,
-                    "enabled": True,
-                }
-            )
-        account = self._config.upsert_account(update, account_id=str((existing or {}).get("id") or ""))
-        reward: dict[str, Any] = {}
-        if cookie or access_token:
-            try:
-                account = self._ensure_pool_account(account)
-                speed = self.speedtest_account(
-                    account["id"],
-                    intent_key=f"user-account:{account['updated_at']}",
-                )
-                account = self._config.account(account["id"]) or account
-                reward = self._config.grant_reward(
-                    account,
-                    notify_user=False,
-                    speed_text=str(speed.get("speed_text") or ""),
-                    error_text="" if account.get("enabled") else str(account.get("last_error") or "测速未达标"),
-                )
-            except Exception as exc:
-                account = self._config.patch_account(
-                    account["id"],
-                    {
-                        "enabled": False,
-                        "last_error": str(exc),
-                        "last_speed_bps": 0,
-                        "last_speed_at": self._now_iso(),
-                    },
-                )
-                reward = self._config.grant_reward(
-                    account,
-                    notify_user=False,
-                    error_text=str(exc),
-                )
-        account = self._config.account(account["id"]) or account
-        public = self._config.public_account(account)
-        if reward.get("reward_days"):
-            public["reward_days"] = reward["reward_days"]
-        public["reward_summary"] = self._config.reward_summary(owner)
-        return public
-
-    def get_user_account(self, user_id: str) -> dict[str, Any]:
-        owner = str(user_id or "").strip()
-        account = self._config.account_by_owner("user", owner)
-        result = self._config.public_account(account)
-        result["reward_summary"] = self._config.reward_summary(owner)
-        return result
-
-    def delete_user_account(self, user_id: str) -> bool:
-        account = self._config.account_by_owner("user", str(user_id or "").strip())
-        if account is None:
-            return False
-        return self.delete_account(account["id"])
-
-    def reward_summary(self, user_id: str) -> dict[str, Any]:
-        return self._config.reward_summary(str(user_id or "").strip())
-
     def get_temp_config(self) -> dict[str, Any]:
         return self._public_temp_config(self._config.temp_config())
 
@@ -646,8 +558,6 @@ class P115PlaybackService:
                 "success": False,
                 "speed_text": "",
                 "error": "",
-                "reward_error": "",
-                "reward_days": 0.0,
             }
             try:
                 speed = self.speedtest_account(account["id"], intent_key=f"daily:{date_key}")
@@ -656,27 +566,9 @@ class P115PlaybackService:
                 result["speed_text"] = str(speed.get("speed_text") or "")
                 if not fresh.get("enabled"):
                     result["error"] = str(fresh.get("last_error") or "测速未达标")
-                reward_account = {
-                    **fresh,
-                    "owner_type": account.get("owner_type"),
-                    "owner_user_id": account.get("owner_user_id"),
-                    "shared": account.get("shared"),
-                }
-                try:
-                    reward = self._config.grant_reward(
-                        reward_account,
-                        notify_user=True,
-                        speed_text=result["speed_text"],
-                        error_text=result["error"],
-                    )
-                    result["reward_days"] = float(reward.get("reward_days") or 0)
-                    if reward.get("error"):
-                        result["reward_error"] = "奖励持久化失败"
-                except Exception:
-                    result["reward_error"] = "奖励持久化失败"
             except Exception as exc:
                 error = str(exc)
-                fresh = self._config.patch_account(
+                self._config.patch_account(
                     account["id"],
                     {
                         "enabled": False,
@@ -685,16 +577,6 @@ class P115PlaybackService:
                         "last_speed_at": self._now_iso(),
                     },
                 )
-                reward_account = {
-                    **fresh,
-                    "owner_type": account.get("owner_type"),
-                    "owner_user_id": account.get("owner_user_id"),
-                    "shared": account.get("shared"),
-                }
-                try:
-                    self._config.grant_reward(reward_account, notify_user=True, error_text=error)
-                except Exception:
-                    result["reward_error"] = "奖励状态持久化失败"
                 result["error"] = error
             results.append(result)
         notification_error = ""
@@ -702,7 +584,7 @@ class P115PlaybackService:
             self._config.notify_daily_results(results)
         except Exception:
             notification_error = "每日测速汇总通知失败"
-        failed = sum(not bool(item.get("success")) or bool(item.get("reward_error")) for item in results)
+        failed = sum(not bool(item.get("success")) for item in results)
         if notification_error:
             failed = max(1, failed)
         speedtest_passed = sum(bool(item.get("success")) for item in results)

@@ -1,5 +1,5 @@
 ---
-title: Emby Toolkit Wiki
+title: embytool
 ---
 
 <script setup>

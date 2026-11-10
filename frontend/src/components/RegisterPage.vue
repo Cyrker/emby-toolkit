@@ -7,8 +7,8 @@
         
         <!-- 头部区域 -->
         <div class="register-header">
-          <img src="../assets/logo.png" alt="Logo" class="register-logo" />
-          <h2 class="register-title">Emby Toolkit</h2>
+          <img src="/brand-icon.svg" alt="embytool" class="register-logo" />
+          <h2 class="register-title">embytool</h2>
           <p class="register-subtitle">创建您的专属账户</p>
         </div>
 

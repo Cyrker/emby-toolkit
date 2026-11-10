@@ -8,6 +8,7 @@ from etk.platform.tasks import TaskOutcome
 
 from .effect_execution import MediaEffectDeliveryRejected, MediaEffectDeliveryRetryable
 from .effects import MediaEffectProjection, PostgresMediaEffectLedger
+from .library_notification_repository import library_notification_member_key
 
 METADATA_RETRY_EFFECT = "media.metadata.retry"
 RETRY_HOURS = (6, 24, 48)
@@ -17,7 +18,10 @@ class MetadataRetryScheduler:
     def __init__(self, ledger: PostgresMediaEffectLedger) -> None:
         self._ledger = ledger
 
-    def __call__(self, outcome: TaskOutcome, operation_key: str, retry_count: int) -> dict[str, Any]:
+    def __call__(
+        self, outcome: TaskOutcome, operation_key: str, retry_count: int, *,
+        notification_member_key: str = "", notification_item_id: str = "",
+    ) -> dict[str, Any]:
         metadata = outcome.details.get("metadata", {})
         failed_ids = {item.get("item_id") for item in metadata.get("failures", [])}
         incomplete = [item for item in metadata.get("incomplete", []) if item.get("item_id") not in failed_ids]
@@ -33,7 +37,15 @@ class MetadataRetryScheduler:
                 effect_type=METADATA_RETRY_EFFECT,
                 aggregate_type="EmbyItem",
                 aggregate_id=item_id,
-                payload={"item_id": item_id, "retry_count": retry_count + 1},
+                payload={
+                    "item_id": item_id,
+                    "retry_count": retry_count + 1,
+                    "notification_member_key": (
+                        notification_member_key
+                        if notification_member_key and item_id == notification_item_id
+                        else library_notification_member_key(operation_key, item_id)
+                    ),
+                },
                 available_at=datetime.now(UTC) + timedelta(hours=RETRY_HOURS[retry_count]),
             ).effect
             scheduled.append(
@@ -56,16 +68,20 @@ class MetadataRetryDelivery:
         previous = self._jobs.get_idempotent(scope=scope, key=key)
         if previous is not None:
             return {"job_id": str(previous.job.id), "reused": True}
+        parameters = {
+            "item_id": str(effect.payload["item_id"]),
+            "restore_media_info": False,
+            "only_missing": True,
+            "notify_library": False,
+            "metadata_retry_count": count,
+        }
+        member_key = str(effect.payload.get("notification_member_key") or "").strip()
+        if member_key:
+            parameters["notification_member_key"] = member_key
         try:
             job = self._jobs.submit_native_operation(
                 "media.reprocess-item",
-                {
-                    "item_id": str(effect.payload["item_id"]),
-                    "restore_media_info": False,
-                    "only_missing": True,
-                    "notify_library": False,
-                    "metadata_retry_count": count,
-                },
+                parameters,
                 display_name=f"中文元数据补抓（第 {count}/3 次）",
                 idempotency_scope=scope,
                 idempotency_key=key,

@@ -4,19 +4,20 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 import { version } from './package.json'
+import { APP_NAME } from './src/branding'
 
 export default defineConfig({
   plugins: [
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['brand-icon.svg', 'favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Emby Toolkit',
-        short_name: 'Emby Toolkit',
+        name: APP_NAME,
+        short_name: APP_NAME,
         description: 'Emby 媒体服务器增强管理工具',
-        theme_color: '#1a1a2e',
-        background_color: '#1a1a2e',
+        theme_color: '#1c242b',
+        background_color: '#1c242b',
         display: 'standalone',
         start_url: '/',
         icons: [

@@ -15,13 +15,13 @@
             <n-icon :component="MenuOutline" />
           </n-button>
 
-          <span class="text-effect">
+          <span class="app-brand">
             <img
-              :src="logo"
-              alt="Logo"
-              style="height: 1.5em; vertical-align: middle; margin-right: 0.3em;"
+              src="/brand-icon.svg"
+              :alt="APP_NAME"
+              class="app-brand-icon"
             />
-            <span v-if="!isMobile || !collapsed">Emby Toolkit</span>
+            <span v-if="!isMobile || !collapsed">{{ APP_NAME }}</span>
           </span>
         </div>
 
@@ -336,7 +336,7 @@ import {
   ListCircleOutline as MenuEditIcon
 } from '@vicons/ionicons5';
 import apiClient, { apiPath } from '@/api/client'
-import logo from './assets/logo.png'
+import { APP_NAME, DOCUMENTATION_URL, REPOSITORY_URL } from './branding'
 
 const message = useMessage();
 const dialog = useDialog();
@@ -433,6 +433,12 @@ const userOptions = computed(() => {
     icon: renderIcon(HelpIcon)
   });
 
+  options.push({
+    label: '源码与许可',
+    key: 'source-code',
+    icon: renderIcon(HelpIcon)
+  });
+
   if (options.length > 0) {
     options.push({ type: 'divider', key: 'd1' });
   }
@@ -472,7 +478,9 @@ const handleUserSelect = async (key) => {
       onPositiveClick: triggerRestart, 
     });
   } else if (key === 'help-docs') {
-    window.open('https://hbq0405.github.io/emby-toolkit/zh/', '_blank');
+    window.open(DOCUMENTATION_URL, '_blank', 'noopener,noreferrer');
+  } else if (key === 'source-code') {
+    window.open(`${REPOSITORY_URL}#许可证与来源`, '_blank', 'noopener,noreferrer');
   } else if (key === 'logout') {
     await authStore.logout();
     router.push({ name: 'Login' }); 
@@ -853,6 +861,8 @@ const setRandomTheme = () => {
 <style>
 /* ... (保留你原有的 style 代码不变) ... */
 .app-header { padding: 0 16px; height: 60px; display: flex; align-items: center; font-size: 1.25em; font-weight: 600; flex-shrink: 0; }
+.app-brand { display: inline-flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 600; letter-spacing: -0.04em; white-space: nowrap; }
+.app-brand-icon { display: block; width: 32px; height: 32px; flex-shrink: 0; }
 .app-main-content-wrapper { height: 100%; display: flex; flex-direction: column; }
 .page-content-inner-wrapper { flex-grow: 1; overflow-y: auto; }
 .n-menu .n-menu-item-group-title { font-size: 12px; font-weight: 500; color: #8e8e93; padding-left: 24px; margin-top: 16px; margin-bottom: 8px; }

@@ -10,12 +10,12 @@ from urllib.parse import quote
 
 import httpx
 
+from etk.domains.media.plugin_identity import PLUGIN_NAMES, PLUGIN_RELEASE_API, PLUGIN_TASK_KEY
 from etk.platform import Settings
 from etk.platform.jobs import PersistentEffectIndeterminate
 
-_PLUGIN_NAME = "ETK MediaInfo Bridge"
-_PLUGIN_TASK_KEY = "ETKMediaInfoBridgeUpdate"
-_LATEST_PLUGIN_RELEASE_API = "https://api.github.com/repos/hbq0405/etk-mediainfo-bridge/releases/latest"
+_PLUGIN_TASK_KEY = PLUGIN_TASK_KEY
+_LATEST_PLUGIN_RELEASE_API = PLUGIN_RELEASE_API
 
 
 class ScheduledOperationProgress(Protocol):
@@ -186,7 +186,7 @@ class NativePluginUpdateCheckOperation:
         if restarted.status is ScheduledWriteStatus.REJECTED:
             return {"ok": True, "updated": False, "plugin_updated": True, "reason": "restart_rejected"}
         progress.record_committed_effect(restart_label)
-        progress.update(100, "ETK MediaInfo Bridge 已更新并触发 Emby 重启")
+        progress.update(100, "embytool Bridge 已更新并触发 Emby 重启")
         return {
             "ok": True,
             "updated": True,
@@ -215,7 +215,7 @@ class HttpxScheduledPluginUpdateGateway:
             (
                 value
                 for value in payload
-                if isinstance(value, Mapping) and str(value.get("Name") or "").strip() == _PLUGIN_NAME
+                if isinstance(value, Mapping) and str(value.get("Name") or "").strip() in PLUGIN_NAMES
             ),
             None,
         )
@@ -226,13 +226,15 @@ class HttpxScheduledPluginUpdateGateway:
         headers = {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "EmbyToolKit-PluginUpdater",
+            "User-Agent": "embytool-PluginUpdater",
         }
         token = settings.github_token.get_secret_value().strip()
         if token:
             headers["Authorization"] = f"Bearer {token}"
         with self._external_client_factory() as client:
             response = client.get(_LATEST_PLUGIN_RELEASE_API, headers=headers)
+        if response.status_code == 404:
+            return None
         response.raise_for_status()
         payload: Any = response.json()
         return str(payload.get("tag_name") or "").strip() or None if isinstance(payload, Mapping) else None

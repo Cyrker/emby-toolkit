@@ -34,7 +34,6 @@ class FakePlaybackService:
         self.calls: list[tuple[str, Any]] = []
         self.direct_response = PlaybackDirectResponse("error", 404, "fixture direct link not found")
         self.temp_error: Exception | None = None
-        self.user_error: Exception | None = None
 
     def get_public_config(self) -> dict[str, Any]:
         self.calls.append(("get_public_config", None))
@@ -63,24 +62,6 @@ class FakePlaybackService:
     def cleanup(self) -> int:
         self.calls.append(("cleanup", None))
         return 2
-
-    def save_user_account(self, user_id: str, username: str, payload: Mapping[str, Any]) -> dict[str, Any]:
-        self.calls.append(("save_user_account", (user_id, username, dict(payload))))
-        if self.user_error is not None:
-            raise self.user_error
-        return {"id": "fixture-user-account", "owner_user_id": user_id}
-
-    def get_user_account(self, user_id: str) -> dict[str, Any]:
-        self.calls.append(("get_user_account", user_id))
-        return {"id": "fixture-user-account", "owner_user_id": user_id}
-
-    def delete_user_account(self, user_id: str) -> bool:
-        self.calls.append(("delete_user_account", user_id))
-        return True
-
-    def reward_summary(self, user_id: str) -> dict[str, Any]:
-        self.calls.append(("reward_summary", user_id))
-        return {"total_days": 0.8, "last_reward_mode": "shared"}
 
     def get_temp_config(self) -> dict[str, Any]:
         self.calls.append(("get_temp_config", None))
@@ -178,8 +159,6 @@ def test_frozen_playback_http_cases(case: Mapping[str, Any]) -> None:
         )
     if service.get("temp_error"):
         playback.temp_error = RuntimeError(str(service["temp_error"]))
-    if service.get("user_error"):
-        playback.user_error = ValueError(str(service["user_error"]))
 
     with client:
         response = _request(client, case["request"])
@@ -269,7 +248,7 @@ def test_qrcode_sessions_are_scoped_to_the_logged_in_owner() -> None:
     ]
 
 
-def test_remaining_admin_and_user_routes_dispatch_without_contract_coercion() -> None:
+def test_remaining_admin_routes_dispatch_without_contract_coercion() -> None:
     client, playback, _qr, codec = _build_native(auth_enabled=True)
     with client:
         _set_session(client, codec, {"emby_user_id": "fixture-admin", "emby_username": "Fixture Admin"})
@@ -285,18 +264,13 @@ def test_remaining_admin_and_user_routes_dispatch_without_contract_coercion() ->
             client.post("/api/p115/play_pool/cleanup"),
             client.get("/api/p115/temp_dir_config"),
             client.post("/api/p115/temp_dir_config", json={"cleanup_cron": ""}),
-            client.get("/api/p115/play_pool/user-account"),
-            client.post("/api/p115/play_pool/user-account", json={"shared": True}),
-            client.delete("/api/p115/play_pool/user-account"),
-            client.get("/api/p115/play_pool/user-account/rewards"),
         ]
 
     assert all(response.status_code == 200 for response in responses)
     assert ("speedtest_account", ("fixture-account", "fixture-intent")) in playback.calls
-    assert ("save_user_account", ("fixture-admin", "Fixture Admin", {"shared": True})) in playback.calls
 
 
-def test_openapi_declares_exact_19_bindings_without_automatic_422() -> None:
+def test_openapi_declares_exact_15_bindings_without_automatic_422() -> None:
     client, _playback, _qr, _codec = _build_native()
     schema = cast(FastAPI, client.app).openapi()
     expected = {(route["method"].lower(), route["path"]) for route in FIXTURE["routes"]}
@@ -307,10 +281,37 @@ def test_openapi_declares_exact_19_bindings_without_automatic_422() -> None:
         if path in expected_paths
         for method in operations
     }
-    assert len(expected) == 19
+    assert len(expected) == 15
     assert actual == expected
     for method, path in expected:
         assert "422" not in schema["paths"][path][method]["responses"], (method, path)
     play_responses = schema["paths"]["/api/p115/play/{pick_code}"]["get"]["responses"]
     assert {"206", "default"}.issubset(play_responses)
     assert schema["paths"]["/api/p115/play_pool"]["post"]["requestBody"]["required"] is True
+
+
+@pytest.mark.parametrize("user_id", ["fixture-user", "fixture-admin"])
+def test_user_contribution_and_reward_endpoints_are_removed(user_id: str) -> None:
+    client, playback, qr, codec = _build_native(auth_enabled=True)
+    with client:
+        _set_session(client, codec, {"emby_user_id": user_id})
+        for method, path in (
+            ("GET", "/api/p115/play_pool/user-account"),
+            ("POST", "/api/p115/play_pool/user-account"),
+            ("DELETE", "/api/p115/play_pool/user-account"),
+            ("GET", "/api/p115/play_pool/user-account/rewards"),
+        ):
+            assert client.request(method, path).status_code == 404
+    assert playback.calls == []
+    assert qr.calls == []
+
+
+@pytest.mark.parametrize("path", ["cookie_qrcode", "cookie_qrcode/status"])
+def test_pool_qrcode_is_only_available_to_administrators(path: str) -> None:
+    client, _playback, qr, codec = _build_native(auth_enabled=True)
+    with client:
+        _set_session(client, codec, {"emby_user_id": "fixture-user"})
+        assert client.get(f"/api/p115/play_pool/{path}").status_code == 403
+        _set_session(client, codec, {"emby_user_id": "fixture-admin"})
+        assert client.get(f"/api/p115/play_pool/{path}").status_code == 200
+    assert len(qr.calls) == 1

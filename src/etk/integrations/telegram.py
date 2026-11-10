@@ -57,6 +57,24 @@ class TelegramBotPort(Protocol):
         parse_mode: str | None = None,
     ) -> ProviderResponse[dict[str, Any]]: ...
 
+    def edit_message_text(
+        self,
+        chat_id: str,
+        message_id: int,
+        text: str,
+        *,
+        parse_mode: str | None = None,
+    ) -> ProviderResponse[dict[str, Any]]: ...
+
+    def edit_message_caption(
+        self,
+        chat_id: str,
+        message_id: int,
+        caption: str,
+        *,
+        parse_mode: str | None = None,
+    ) -> ProviderResponse[dict[str, Any]]: ...
+
     def get_updates(
         self, *, offset: int | None = None, timeout: int = 20, limit: int = 100
     ) -> ProviderResponse[dict[str, Any]]: ...
@@ -195,6 +213,44 @@ class HttpxTelegramBotAdapter:
         if parse_mode is not None:
             body["parse_mode"] = _parse_mode(parse_mode)
         return self._request("POST", "sendPhoto", operation="send_photo", json=body)
+
+    def edit_message_text(
+        self,
+        chat_id: str,
+        message_id: int,
+        text: str,
+        *,
+        parse_mode: str | None = None,
+    ) -> ProviderResponse[dict[str, Any]]:
+        body: dict[str, Any] = {
+            "chat_id": _text(chat_id, "chat_id", 128),
+            "message_id": _bounded(message_id, minimum=1, maximum=2**63 - 1, field="message_id"),
+            "text": _text(text, "text", 4096),
+        }
+        if not body["chat_id"] or not body["text"]:
+            raise ValueError("chat_id and text must not be empty")
+        if parse_mode is not None:
+            body["parse_mode"] = _parse_mode(parse_mode)
+        return self._request("POST", "editMessageText", operation="edit_message_text", json=body)
+
+    def edit_message_caption(
+        self,
+        chat_id: str,
+        message_id: int,
+        caption: str,
+        *,
+        parse_mode: str | None = None,
+    ) -> ProviderResponse[dict[str, Any]]:
+        body: dict[str, Any] = {
+            "chat_id": _text(chat_id, "chat_id", 128),
+            "message_id": _bounded(message_id, minimum=1, maximum=2**63 - 1, field="message_id"),
+            "caption": _text(caption, "caption", 1024),
+        }
+        if not body["chat_id"] or not body["caption"]:
+            raise ValueError("chat_id and caption must not be empty")
+        if parse_mode is not None:
+            body["parse_mode"] = _parse_mode(parse_mode)
+        return self._request("POST", "editMessageCaption", operation="edit_message_caption", json=body)
 
     def answer_callback_query(
         self,

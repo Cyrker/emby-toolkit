@@ -241,7 +241,7 @@ def test_cli_help_exposes_every_process_role_without_materializing_runtime(tmp_p
         check=False,
     )
     assert top.returncode == 0, top.stderr
-    assert "usage: etk" in top.stdout
+    assert "usage: embytool" in top.stdout
     for command in commands:
         assert command in top.stdout
         result = subprocess.run(
@@ -253,7 +253,7 @@ def test_cli_help_exposes_every_process_role_without_materializing_runtime(tmp_p
             check=False,
         )
         assert result.returncode == 0, result.stderr
-        assert f"usage: etk {command}" in result.stdout
+        assert f"usage: embytool {command}" in result.stdout
 
     assert not (tmp_path / "data").exists()
     assert not (tmp_path / "home").exists()
@@ -499,7 +499,10 @@ def test_native_worker_start_wires_processor_free_execution_graph(monkeypatch) -
         "sharing.intro.export",
         "moviepilot.webhook.assistant",
         "moviepilot.webhook.transfer",
+        "media.metadata.retry",
+        "telegram.library.batch",
         "telegram.library.result",
+        "telegram.library.retry-success",
     }
     assert type(state._p5_media_tasks).__name__ == "P5MediaTaskRouter"
     assert state._p5_media_tasks._compatibility is None

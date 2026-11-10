@@ -18,6 +18,10 @@ LIBRARY_BATCH_EFFECT = "telegram.library.batch"
 _QUIET_SECONDS = 30
 
 
+def library_notification_member_key(operation_key: str, item_id: str) -> str:
+    return hashlib.sha256(f"{operation_key}:{item_id}".encode()).hexdigest()
+
+
 class SqlAlchemyLibraryNotificationRepository:
     def __init__(self, unit_of_work: Callable[[], SqlAlchemyUnitOfWork]) -> None:
         self._unit_of_work = unit_of_work
@@ -44,7 +48,7 @@ class SqlAlchemyLibraryNotificationRepository:
 
     def stage(self, member: Mapping[str, Any], *, operation_key: str) -> MediaEffectProjection:
         group = str(member["group_key"])
-        member_key = hashlib.sha256(f"{operation_key}:{member['item_id']}".encode()).hexdigest()
+        member_key = library_notification_member_key(operation_key, str(member["item_id"]))
         lock = int.from_bytes(hashlib.sha256(f"library-notice:{group}".encode()).digest()[:8], signed=True)
         with self._unit_of_work() as uow:
             uow.session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock})
@@ -143,6 +147,64 @@ class SqlAlchemyLibraryNotificationRepository:
                 )
                 uow.commit()
             return list(row["members_json"].values())
+
+    def mark_retry_success(self, member_key: str, retry_count: int) -> dict[str, Any]:
+        key = str(member_key or "").strip()
+        if not key:
+            raise ValueError("library notification member key must not be empty")
+        if type(retry_count) is not int or not 1 <= retry_count <= 3:
+            raise ValueError("metadata retry count must be between 1 and 3")
+        with self._unit_of_work() as uow:
+            row = (
+                uow.session.execute(
+                    text("""
+                    SELECT id,members_json FROM media_library_notification_batches
+                    WHERE members_json ? :key FOR UPDATE
+                """),
+                    {"key": key},
+                )
+                .mappings()
+                .first()
+            )
+            if row is None:
+                return {"updated": False, "members": [], "messages": []}
+            members = {str(name): dict(member) for name, member in row["members_json"].items()}
+            member = members[key]
+            previous_count = member.get("retry_success_count")
+            if type(previous_count) is int and previous_count > 0:
+                retry_count = min(retry_count, previous_count)
+            member["succeeded"] = True
+            member["retry_success_count"] = retry_count
+            members[key] = member
+            uow.session.execute(
+                text("""
+                    UPDATE media_library_notification_batches
+                    SET members_json=CAST(:members AS jsonb)
+                    WHERE id=:id
+                """),
+                {
+                    "id": row["id"],
+                    "members": json.dumps(members, ensure_ascii=False),
+                },
+            )
+            message_effect = (
+                uow.session.execute(
+                    text("""
+                    SELECT status,result_json FROM media_effects WHERE effect_key=:effect_key
+                """),
+                    {"effect_key": f"telegram:library-batch:{row['id']}"},
+                )
+                .mappings()
+                .one_or_none()
+            )
+            uow.commit()
+        result = message_effect["result_json"] if message_effect and message_effect["status"] == "confirmed" else {}
+        return {
+            "updated": True,
+            "batch_id": str(row["id"]),
+            "members": list(members.values()),
+            "messages": list((result or {}).get("messages") or []),
+        }
 
     @staticmethod
     def _has_pending_work(uow: SqlAlchemyUnitOfWork, path: str) -> bool:

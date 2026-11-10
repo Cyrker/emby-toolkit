@@ -568,7 +568,7 @@
     >
       <n-spin :show="isLoadingIntroCredits">
         <n-alert type="info" style="margin-bottom: 16px;">
-          单位为秒。关闭某一项后保存，会同时从 ETK 媒体信息缓存和 Emby 章节中清除对应标记，后续可重新提取。
+          单位为秒。关闭某一项后保存，会同时从 embytool 媒体信息缓存和 Emby 章节中清除对应标记，后续可重新提取。
         </n-alert>
 
         <n-descriptions label-placement="left" bordered :column="1" size="small" style="margin-bottom: 16px;">

@@ -60,7 +60,7 @@ class NativeMoviePilotStrmProjection:
         base_url = str(settings.etk_server_url or "").strip().rstrip("/")
         parsed = urlsplit(base_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.query or parsed.fragment:
-            raise ValueError("MP 直出：请配置有效的 ETK 访问地址")
+            raise ValueError("MP 直出：请配置有效的 embytool 访问地址")
         target = str(PurePosixPath(relative).with_suffix(".strm")) if extension in _VIDEOS else relative
         content = (
             f"{base_url}/api/p115/play/{quote(str(file['pick_code']), safe='')}/"

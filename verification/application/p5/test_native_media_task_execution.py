@@ -328,3 +328,27 @@ def test_http_media_catalog_item_handles_absent_valid_and_invalid_readback() -> 
     assert _http_catalog(httpx.Response(200, json={"Id": "item-1"})).item("item-1") == {"Id": "item-1"}
     with pytest.raises(RuntimeError, match="invalid object"):
         _http_catalog(httpx.Response(200, json=[])).item("item-1")
+
+
+def test_http_media_catalog_requests_library_addition_dates_for_inventory_and_items() -> None:
+    requests: list[httpx.Request] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        item = {"Id": "item-1", "DateCreated": "2026-10-17T12:14:52Z"}
+        payload = {"Items": [item], "TotalRecordCount": 1} if request.url.path.endswith("/Items") else item
+        return httpx.Response(200, json=payload)
+
+    catalog = HttpxMediaCatalogAdapter(
+        lambda: Settings(
+            emby_server_url="http://emby.fixture.invalid",
+            emby_user_id="fixture-user",
+            emby_api_key=SecretStr("fixture-token"),
+        ),
+        client_factory=lambda: httpx.Client(transport=httpx.MockTransport(respond)),
+    )
+    assert catalog.list_items(["library-1"])[0]["DateCreated"] == "2026-10-17T12:14:52Z"
+    actual = catalog.item("item-1")
+    assert actual is not None and actual["DateCreated"] == "2026-10-17T12:14:52Z"
+    assert len(requests) == 2
+    assert all("DateCreated" in request.url.params["Fields"].split(",") for request in requests)

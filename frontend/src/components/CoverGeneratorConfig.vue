@@ -2,7 +2,7 @@
   <n-layout content-style="padding: 24px;">
     <n-spin :show="isLoading">
       <div class="cover-generator-config">
-        <n-page-header>
+        <n-page-header class="cover-page-header">
           <template #title>媒体库封面生成</template>
           <template #extra>
             <n-space>
@@ -33,7 +33,7 @@
             <!-- 将 card-title 类应用到标题文本的容器上 -->
             <span class="card-title">基础设置</span>
           </template>
-          <n-grid :cols="5" :x-gap="24" :y-gap="16" responsive="screen"> <!-- 建议加一个 y-gap -->
+          <n-grid cols="1 540:2 900:5" :x-gap="24" :y-gap="16" responsive="self" item-responsive>
             <!-- 第一列 -->
             <n-gi>
               <n-form-item label="启用">
@@ -73,12 +73,12 @@
             </n-gi>
 
             <!-- ★★★ 新增的分割线 ★★★ -->
-            <n-gi :span="5">
+            <n-gi span="1 540:2 900:5">
               <n-divider style="margin-top: 8px; margin-bottom: 8px;" />
             </n-gi>
             
             <!-- 忽略媒体库部分 -->
-            <n-gi :span="5"> <!-- ★ 确保这里也是 span="4" -->
+            <n-gi span="1 540:2 900:5">
               <n-form-item label="选择要【忽略】的媒体库">
                 <n-checkbox-group 
                   v-model:value="configData.exclude_libraries"
@@ -96,7 +96,7 @@
           </n-grid>
           <div v-if="configData.show_item_count" style="margin-top: 16px;">
           <n-divider /> <!-- 一条分割线，让界面更清晰 -->
-          <n-grid :cols="2" :x-gap="24">
+          <n-grid cols="1 600:2" :x-gap="24" responsive="self">
             <!-- 子选项1：样式选择 -->
             <n-gi>
               <n-form-item label="数字样式">
@@ -127,8 +127,8 @@
           <n-tabs v-model:value="configData.tab" type="line" animated>
             <n-tab-pane name="style-tab" tab="封面风格">
               <n-spin :show="isPreviewLoading"> <!-- 添加一个加载动画，提升体验 -->
-                <n-radio-group v-model:value="configData.cover_style" name="cover-style-group">
-                  <n-grid :cols="3" :x-gap="16" :y-gap="16" responsive="screen">
+                <n-radio-group v-model:value="configData.cover_style" name="cover-style-group" class="cover-style-options">
+                  <n-grid cols="1 540:2 900:3" :x-gap="16" :y-gap="16" responsive="self">
                     <!-- 【【【关键修改：src 绑定到动态的 ref】】】 -->
                     <n-gi v-for="style in styles" :key="style.value">
                       <n-card class="dashboard-card style-card">
@@ -143,32 +143,21 @@
 
             <n-tab-pane name="title-tab" tab="封面标题">
               <n-space vertical>
-                <!-- 表头，用于引导用户 -->
-                <n-grid :cols="10" :x-gap="12" style="padding: 0 8px; margin-bottom: 4px;">
-                  <n-gi :span="3"><span style="font-weight: 500;">媒体库名称</span></n-gi>
-                  <n-gi :span="3"><span style="font-weight: 500;">中文标题</span></n-gi>
-                  <n-gi :span="3"><span style="font-weight: 500;">英文标题</span></n-gi>
-                  <n-gi :span="1"></n-gi> <!-- 操作区占位 -->
-                </n-grid>
-
                 <!-- 动态表单项 -->
-                <div v-for="(item, index) in titleConfigs" :key="item.id">
-                  <n-grid :cols="10" :x-gap="12" :y-gap="8">
-                    <n-gi :span="3">
-                      <n-input v-model:value="item.library" placeholder="与媒体库名称完全一致" />
-                    </n-gi>
-                    <n-gi :span="3">
-                      <n-input v-model:value="item.zh" placeholder="封面上显示的中文" />
-                    </n-gi>
-                    <n-gi :span="3">
-                      <n-input v-model:value="item.en" placeholder="封面上显示的英文" />
-                    </n-gi>
-                    <n-gi :span="1" style="display: flex; align-items: center;">
-                      <n-button type="error" dashed @click="removeTitleConfig(index)">
-                        <template #icon><n-icon :component="TrashIcon" /></template>
-                      </n-button>
-                    </n-gi>
-                  </n-grid>
+                <div v-for="(item, index) in titleConfigs" :key="item.id" class="cover-title-row">
+                  <n-form-item label="媒体库名称" :show-feedback="false">
+                    <n-input v-model:value="item.library" placeholder="与媒体库名称完全一致" />
+                  </n-form-item>
+                  <n-form-item label="中文标题" :show-feedback="false">
+                    <n-input v-model:value="item.zh" placeholder="封面上显示的中文" />
+                  </n-form-item>
+                  <n-form-item label="英文标题" :show-feedback="false">
+                    <n-input v-model:value="item.en" placeholder="封面上显示的英文" />
+                  </n-form-item>
+                  <n-button class="cover-title-remove" type="error" dashed @click="removeTitleConfig(index)">
+                    <template #icon><n-icon :component="TrashIcon" /></template>
+                    删除
+                  </n-button>
                 </div>
 
                 <!-- 操作按钮 -->
@@ -183,7 +172,7 @@
               <n-alert type="info" :bordered="false" style="margin-bottom: 20px;">
                 若字体无法下载，建议在主程序的网络设置中配置GitHub代理，或手动下载字体后填写本地路径。
               </n-alert>
-              <n-grid :cols="2" :x-gap="24" :y-gap="12" responsive="screen">
+              <n-grid cols="1 600:2" :x-gap="24" :y-gap="12" responsive="self">
                 <n-gi>
                   <n-form-item label="中文字体（本地路径）">
                     <n-input v-model:value="configData.zh_font_path_local" placeholder="留空使用预设字体" />
@@ -238,8 +227,8 @@
             </n-tab-pane>
 
             <n-tab-pane name="multi-1-tab" tab="多图风格设置">
-              <n-grid :cols="2" :x-gap="24" :y-gap="12" responsive="screen">
-                <n-gi :span="2">
+              <n-grid cols="1 600:2" :x-gap="24" :y-gap="12" responsive="self" item-responsive>
+                <n-gi span="1 600:2">
                   <n-alert type="info" :bordered="false">
                     此页为“多图风格1”的专属设置。
                   </n-alert>
@@ -286,7 +275,7 @@
                     <template #feedback>需启用模糊背景</template>
                   </n-form-item>
                 </n-gi>
-                 <n-gi :span="2">
+                 <n-gi span="1 600:2">
                   <n-space>
                     <n-form-item label="启用模糊背景">
                       <n-switch v-model:value="configData.multi_1_blur" />
@@ -306,7 +295,7 @@
             </n-tab-pane>
             
             <n-tab-pane name="others-tab" tab="其他设置">
-              <n-grid :cols="2" :x-gap="24">
+              <n-grid cols="1 600:2" :x-gap="24" responsive="self">
                 <n-gi>
                   <n-form-item label="自定义图片目录（可选）">
                     <n-input v-model:value="configData.covers_input" placeholder="/path/to/custom/images" />
@@ -604,7 +593,36 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 样式部分保持不变 */
+.cover-generator-config {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cover-page-header :deep(.n-page-header) {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cover-page-header :deep(.n-page-header__main) {
+  flex: 1 0 auto;
+  max-width: 100%;
+}
+.cover-page-header :deep(.n-page-header__extra) {
+  max-width: 100%;
+}
+.cover-style-options {
+  width: 100%;
+}
+.cover-title-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+}
+.cover-title-row > * {
+  min-width: 0;
+}
+.cover-title-remove {
+  justify-self: start;
+}
 .style-card {
   cursor: pointer;
   text-align: center;
@@ -619,5 +637,10 @@ onMounted(() => {
   margin-top: 12px;
   justify-content: center;
   width: 100%;
+}
+@media (max-width: 900px) {
+  .cover-title-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

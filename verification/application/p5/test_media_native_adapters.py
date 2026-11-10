@@ -1569,7 +1569,7 @@ def test_media_image_editing_rejects_invalid_target_and_image_inputs() -> None:
     item_payload = {"Id": "movie-1", "Type": "Movie", "Path": "/movie.mkv"}
     repository.identity = cast(Any, None)
     no_identity = gateway.update_image(ImageUpdateCommand("movie-1", "poster", "", b"image", "image/jpeg"))
-    assert no_identity.success is False and "ETK 元数据" in no_identity.message
+    assert no_identity.success is False and "embytool 元数据" in no_identity.message
 
     repository.identity = MediaIdentity("100", "movie", MediaItemType.MOVIE)
     invalid_url = gateway.update_image(ImageUpdateCommand("movie-1", "poster", "fixture://invalid", b"", "image/jpeg"))

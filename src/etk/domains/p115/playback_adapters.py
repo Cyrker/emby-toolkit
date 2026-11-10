@@ -35,7 +35,7 @@ _PAGE_SIZE = 1000
 
 
 class LegacyP115PlaybackUserGateway(P115PlaybackUserGateway):
-    """P11 adapter around existing user/group and reward projections."""
+    """P11 adapter around existing user/group and notification projections."""
 
     def display_name(self, user_id: str) -> str:
         from handler.p115_play_pool import _display_user_name
@@ -47,30 +47,6 @@ class LegacyP115PlaybackUserGateway(P115PlaybackUserGateway):
 
         return tuple(_expand_allowed_user_ids(list(user_ids)))
 
-    def reward_summary(self, user_id: str) -> Mapping[str, Any]:
-        from handler.p115_play_pool import public_user_reward
-
-        return dict(public_user_reward(user_id))
-
-    def grant_reward(
-        self,
-        account: Mapping[str, Any],
-        *,
-        notify_user: bool,
-        speed_text: str,
-        error_text: str,
-    ) -> Mapping[str, Any]:
-        from handler.p115_play_pool import _reward_user_cookie
-
-        return dict(
-            _reward_user_cookie(
-                dict(account),
-                notify_user=notify_user,
-                speed_text=speed_text,
-                error_text=error_text,
-            )
-        )
-
     def notify_daily_results(self, results: Sequence[Mapping[str, Any]]) -> None:
         from database import user_db
         from handler.telegram import escape_markdown, send_telegram_message
@@ -79,9 +55,7 @@ class LegacyP115PlaybackUserGateway(P115PlaybackUserGateway):
         for item in results:
             state = "通过" if item.get("success") else "失败"
             detail = item.get("speed_text") or item.get("error") or "-"
-            reward = float(item.get("reward_days") or 0)
-            reward_text = f"，奖励 +{reward:g} 天" if reward else ""
-            lines.append(f"{state} {item.get('alias')}（{item.get('owner_name')}）：{detail}{reward_text}")
+            lines.append(f"{state} {item.get('alias')}（{item.get('owner_name')}）：{detail}")
         message = escape_markdown("\n".join(lines))
         for chat_id in user_db.get_admin_telegram_chat_ids():
             send_telegram_message(chat_id, message, disable_notification=True)

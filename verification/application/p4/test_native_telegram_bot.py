@@ -1,11 +1,13 @@
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
+import httpx
 import pytest
 
 from etk.domains.media.effect_execution import MediaEffectDeliveryIndeterminate
 from etk.domains.media.library_notifications import TelegramLibraryNotificationDelivery
 from etk.integrations.http_policy import ProviderDisposition, ProviderResponse
+from etk.integrations.telegram import HttpxTelegramBotAdapter
 from etk.platform import Settings
 from etk.processes.telegram_bot import NativeTelegramBot
 
@@ -113,3 +115,28 @@ def test_library_notification_obeys_setting_and_does_not_retry_unknown_send():
     with pytest.raises(MediaEffectDeliveryIndeterminate):
         delivery.deliver(effect)
     assert bot.send_message.call_count == 2
+
+
+def test_telegram_adapter_edits_text_and_photo_caption_by_message_id():
+    client = MagicMock()
+    client.__enter__.return_value = client
+    client.request.side_effect = lambda *_args, **_kwargs: httpx.Response(
+        200, json={"ok": True, "result": {"message_id": 42}}
+    )
+    adapter = HttpxTelegramBotAdapter(
+        Settings(telegram_bot_token="fixture-token"), client_factory=lambda: client
+    )
+
+    text_result = adapter.edit_message_text("chat-1", 42, "updated text", parse_mode="HTML")
+    caption_result = adapter.edit_message_caption("chat-1", 43, "updated caption", parse_mode="HTML")
+
+    assert text_result.successful and caption_result.successful
+    text_call, caption_call = client.request.call_args_list
+    assert text_call.args[:2] == ("POST", "https://api.telegram.org/botfixture-token/editMessageText")
+    assert text_call.kwargs["json"] == {
+        "chat_id": "chat-1", "message_id": 42, "text": "updated text", "parse_mode": "HTML"
+    }
+    assert caption_call.args[:2] == ("POST", "https://api.telegram.org/botfixture-token/editMessageCaption")
+    assert caption_call.kwargs["json"] == {
+        "chat_id": "chat-1", "message_id": 43, "caption": "updated caption", "parse_mode": "HTML"
+    }

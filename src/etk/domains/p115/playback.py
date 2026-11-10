@@ -19,7 +19,6 @@ from .models import P115AuthorizationPoll, P115AuthorizationSession
 
 PLAY_POOL_CONFIG_KEY = "p115_play_pool_config"
 PLAY_POOL_SESSIONS_KEY = "p115_play_pool_sessions"
-PLAY_POOL_REWARDS_KEY = "p115_play_pool_user_cookie_rewards"
 TEMP_DIR_CONFIG_KEY = "p115_temp_dir_config"
 VIRTUAL_PLAY_SESSIONS_KEY = "p115_virtual_play_sessions"
 PLAYBACK_AGGREGATE_TYPE = "p115_playback_operation"
@@ -566,17 +565,6 @@ class P115PlaybackUserGateway(Protocol):
 
     def expand_allowed_user_ids(self, user_ids: Sequence[str]) -> Sequence[str]: ...
 
-    def reward_summary(self, user_id: str) -> Mapping[str, Any]: ...
-
-    def grant_reward(
-        self,
-        account: Mapping[str, Any],
-        *,
-        notify_user: bool,
-        speed_text: str,
-        error_text: str,
-    ) -> Mapping[str, Any]: ...
-
     def notify_daily_results(self, results: Sequence[Mapping[str, Any]]) -> None: ...
 
 
@@ -597,7 +585,10 @@ class P115PlaybackConfigService:
             changed = current != normalized
             return normalized, deepcopy(normalized), changed
 
-        return self._backend.mutate(PLAY_POOL_CONFIG_KEY, mutate)
+        config = self._backend.mutate(PLAY_POOL_CONFIG_KEY, mutate)
+        # 历史用户贡献凭据保留在存储中，但不再参与展示、测速或播放。
+        config["accounts"] = [account for account in config["accounts"] if account["owner_type"] == "admin"]
+        return config
 
     def public_config(self) -> dict[str, Any]:
         config = self.snapshot()
@@ -647,14 +638,6 @@ class P115PlaybackConfigService:
         wanted = str(account_id or "").strip()
         return next((deepcopy(item) for item in self.snapshot()["accounts"] if item["id"] == wanted), None)
 
-    def account_by_owner(self, owner_type: str, owner_user_id: str) -> dict[str, Any] | None:
-        owner = normalize_owner_type(owner_type)
-        user_id = str(owner_user_id or "").strip()
-        for account in reversed(self.snapshot()["accounts"]):
-            if account["owner_type"] == owner and account["owner_user_id"] == user_id:
-                return deepcopy(account)
-        return None
-
     def public_account(
         self,
         account: Mapping[str, Any] | None,
@@ -686,6 +669,8 @@ class P115PlaybackConfigService:
 
     def upsert_account(self, payload: Mapping[str, Any], *, account_id: str = "") -> dict[str, Any]:
         incoming = dict(payload) if isinstance(payload, Mapping) else {}
+        if normalize_owner_type(incoming.get("owner_type")) == "user":
+            raise ValueError("用户贡献播放账号功能已移除")
         expanded: list[str] | None = None
         if "allowed_user_ids" in incoming:
             selected = normalize_user_ids(incoming.get("allowed_user_ids"))
@@ -699,6 +684,8 @@ class P115PlaybackConfigService:
                 owner_type=incoming.get("owner_type"),
                 owner_user_id=incoming.get("owner_user_id"),
             )
+            if target is not None and normalize_owner_type(target.get("owner_type")) == "user":
+                raise ValueError("用户贡献播放账号功能已移除")
             if target is None:
                 target = {
                     "id": uuid4().hex,
@@ -884,26 +871,6 @@ class P115PlaybackConfigService:
             return config, deepcopy(config), True
 
         return self._backend.mutate(TEMP_DIR_CONFIG_KEY, mutate)
-
-    def reward_summary(self, user_id: str) -> dict[str, Any]:
-        return dict(self._users.reward_summary(str(user_id or "").strip()))
-
-    def grant_reward(
-        self,
-        account: Mapping[str, Any],
-        *,
-        notify_user: bool,
-        speed_text: str = "",
-        error_text: str = "",
-    ) -> dict[str, Any]:
-        return dict(
-            self._users.grant_reward(
-                account,
-                notify_user=notify_user,
-                speed_text=speed_text,
-                error_text=error_text,
-            )
-        )
 
     def notify_daily_results(self, results: Sequence[Mapping[str, Any]]) -> None:
         self._users.notify_daily_results(results)
@@ -1451,7 +1418,6 @@ __all__ = [
     "PLAY_POOL_CONFIG_KEY",
     "PLAY_POOL_DEFAULT_SPEEDTEST_THRESHOLD_MBPS",
     "PLAY_POOL_OPENAPI_CLIENT_ID",
-    "PLAY_POOL_REWARDS_KEY",
     "PLAY_POOL_SESSIONS_KEY",
     "TEMP_DIR_CONFIG_KEY",
     "VIRTUAL_PLAY_SESSIONS_KEY",

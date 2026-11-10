@@ -10,6 +10,7 @@
     </n-space>
     <n-data-table :columns="columns" :data="records" :loading="loading" :row-key="row => row.id"
       remote :pagination="pagination" size="small" :scroll-x="900" />
+    <ReprocessIdentityModal ref="identityModal" @submitted="fetchRecords" />
   </n-card>
 </template>
 
@@ -17,13 +18,16 @@
 import { computed, h, onMounted, ref } from 'vue'
 import { NAlert, NButton, NCard, NDataTable, NInput, NSelect, NSpace, NTag, useDialog, useMessage, type DataTableColumns } from 'naive-ui'
 import apiClient, { apiPath } from '@/api/client'
+import ReprocessIdentityModal from './modals/ReprocessIdentityModal.vue'
 
 interface ScrapeRecord {
   id: string; item_id: string | null; name: string; title: string | null; source: string; path: string
   status: string; job_status: string; created_at: string; message: string; completeness_checked: boolean
   selected: number | null; verified: number | null
   incomplete: { item_id: string; name: string; missing: string[] }[]
+  failures?: { item_id: string; stage: string; message: string }[]
   retry: { status?: string; message?: string; items?: { available_at: string }[] }
+  tmdb_selection?: { tmdb_id: string; media_type: string } | null
 }
 const records = ref<ScrapeRecord[]>([])
 const loading = ref(false)
@@ -33,6 +37,8 @@ const page = ref(1)
 const total = ref(0)
 const message = useMessage()
 const dialog = useDialog()
+const identityModal = ref<InstanceType<typeof ReprocessIdentityModal> | null>(null)
+const identifying = ref<string | null>(null)
 const labels: Record<string, string> = { completed: '刮削完成', incomplete: '资料待补齐', failed: '处理失败', running: '排队 / 处理中', cancelled: '已取消', skipped: '已跳过' }
 const options = [{ label: '全部状态', value: '' }, ...Object.entries(labels).map(([value, label]) => ({ value, label }))]
 let requestId = 0
@@ -53,16 +59,23 @@ const reload = () => { page.value = 1; void fetchRecords() }
 const pagination = computed(() => ({ page: page.value, pageSize: 25, itemCount: total.value,
   onChange: (value: number) => { page.value = value; void fetchRecords() },
 }))
-const reprocess = (row: ScrapeRecord) => dialog.warning({
-  title: '补齐资料', content: `补齐“${row.name}”的缺失资料；整剧或单季记录会检查其季集。已有完整缓存会保留，不移动文件，不重建媒体流。`,
-  positiveText: '确认', negativeText: '取消',
-  onPositiveClick: async () => {
-    try {
-      await apiClient.post(apiPath('api_actions_reprocess_item_param_1d7580a7', [row.item_id!]), { only_missing: true })
-      message.success('已提交重新刮削任务'); await fetchRecords()
-    } catch { message.error('提交失败，请确认当前任务已结束') }
-  },
-})
+const reprocess = async (row: ScrapeRecord) => {
+  if (identifying.value) return
+  identifying.value = row.id
+  try {
+    if (await identityModal.value?.inspect(row.item_id!, true, row.id)) return
+    dialog.warning({
+      title: '补齐资料', content: `补齐“${row.name}”的缺失资料；整剧或单季记录会检查其季集。已有完整缓存会保留，不移动文件，不重建媒体流。`,
+      positiveText: '确认', negativeText: '取消',
+      onPositiveClick: async () => {
+        try {
+          await apiClient.post(apiPath('api_actions_reprocess_item_param_1d7580a7', [row.item_id!]), { only_missing: true })
+          message.success('已提交重新刮削任务'); await fetchRecords()
+        } catch { message.error('提交失败，请确认当前任务已结束') }
+      },
+    })
+  } finally { identifying.value = null }
+}
 const columns: DataTableColumns<ScrapeRecord> = [
   { title: '状态', key: 'status', width: 130, render: row => h(NTag, {
     size: 'small', bordered: false, type: row.status === 'completed' ? 'success' : row.status === 'failed' ? 'error' : 'warning',
@@ -75,15 +88,18 @@ const columns: DataTableColumns<ScrapeRecord> = [
       h('summary', { style: 'cursor: pointer' }, '查看详情'),
       h('div', { style: 'overflow-wrap: anywhere' }, row.path || '任务未保存文件路径'),
       h('div', {}, row.message),
+      row.tmdb_selection ? h('div', {}, `本次人工选择：TMDb ${row.tmdb_selection.tmdb_id} (${row.tmdb_selection.media_type})`) : null,
       h('div', {}, `范围 ${row.selected ?? '未知'} 项，Emby 回读确认 ${row.verified ?? '未知'} 项；任务状态：${row.job_status}`),
       ...row.incomplete.map(item => h('div', {}, `${item.name || item.item_id}：缺少 ${item.missing.join('、')}`)),
+      ...(row.failures || []).map(item => h('div', {}, `Emby ${item.item_id} · ${item.stage}：${item.message}`)),
       row.retry.status === 'scheduled' ? h('div', {}, `已安排补抓：${row.retry.items?.map(item => new Date(item.available_at).toLocaleString('zh-CN')).join('、')}`) : null,
       row.retry.message ? h('div', {}, row.retry.message) : null,
     ]),
   ]) },
   { title: '开始时间', key: 'created_at', width: 170, render: row => new Date(row.created_at).toLocaleString('zh-CN', { hour12: false }) },
   { title: '操作', key: 'action', width: 110, render: row => h(NButton, {
-    size: 'small', disabled: !row.item_id || row.status === 'running', onClick: () => reprocess(row),
+    size: 'small', loading: identifying.value === row.id,
+    disabled: !row.item_id || row.status === 'running' || !!identifying.value, onClick: () => reprocess(row),
   }, { default: () => '补齐资料' }) },
 ]
 onMounted(fetchRecords)

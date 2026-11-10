@@ -32,14 +32,6 @@ class PlaybackHttpService(Protocol):
 
     def cleanup(self) -> int: ...
 
-    def save_user_account(self, user_id: str, username: str, payload: Mapping[str, Any]) -> dict[str, Any]: ...
-
-    def get_user_account(self, user_id: str) -> dict[str, Any]: ...
-
-    def delete_user_account(self, user_id: str) -> bool: ...
-
-    def reward_summary(self, user_id: str) -> dict[str, Any]: ...
-
     def get_temp_config(self) -> dict[str, Any]: ...
 
     def save_temp_config(self, payload: Mapping[str, Any]) -> dict[str, Any]: ...
@@ -375,6 +367,9 @@ async def cleanup_play_pool(request: Request) -> Response:
     openapi_extra=_query_parameters("mode", "app"),
 )
 async def create_play_pool_qrcode(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
     user_id, denied = _emby_user(request)
     if denied is not None:
         return denied
@@ -399,6 +394,9 @@ async def create_play_pool_qrcode(request: Request) -> Response:
     openapi_extra=_query_parameters("mode", "app", "uid"),
 )
 async def poll_play_pool_qrcode(request: Request) -> Response:
+    denied = _admin_denial(request)
+    if denied is not None:
+        return denied
     user_id, denied = _emby_user(request)
     if denied is not None:
         return denied
@@ -411,52 +409,6 @@ async def poll_play_pool_qrcode(request: Request) -> Response:
     except Exception as exc:
         return _json({"success": False, "status": "error", "message": str(exc)}, 500)
     return _json(result)
-
-
-@router.post("/play_pool/user-account", response_model=None, responses=_JSON_BODY_RESPONSES, openapi_extra=_BODY)
-async def save_user_play_pool_account(request: Request) -> Response:
-    user_id, denied = _emby_user(request)
-    if denied is not None:
-        return denied
-    if not user_id:
-        return _json({"success": False, "message": "未登录"}, 401)
-    payload, invalid = await _legacy_json_object(request)
-    if invalid is not None:
-        return invalid
-    assert payload is not None
-    username = str(get_request_session(request).get("emby_username") or "").strip()
-    try:
-        data = await run_in_threadpool(_service(request).save_user_account, user_id, username, payload)
-    except ValueError as exc:
-        return _json({"success": False, "message": str(exc)}, 400)
-    return _json({"success": True, "data": data})
-
-
-@router.get("/play_pool/user-account", response_model=None, responses=_JSON_RESPONSES)
-async def get_user_play_pool_account(request: Request) -> Response:
-    user_id, denied = _emby_user(request)
-    if denied is not None:
-        return denied
-    data = await run_in_threadpool(_service(request).get_user_account, user_id)
-    return _json({"success": True, "data": data})
-
-
-@router.delete("/play_pool/user-account", response_model=None, responses=_JSON_RESPONSES)
-async def delete_user_play_pool_account(request: Request) -> Response:
-    user_id, denied = _emby_user(request)
-    if denied is not None:
-        return denied
-    deleted = await run_in_threadpool(_service(request).delete_user_account, user_id)
-    return _json({"success": True, "deleted": bool(deleted)})
-
-
-@router.get("/play_pool/user-account/rewards", response_model=None, responses=_JSON_RESPONSES)
-async def get_user_play_pool_rewards(request: Request) -> Response:
-    user_id, denied = _emby_user(request)
-    if denied is not None:
-        return denied
-    data = await run_in_threadpool(_service(request).reward_summary, user_id)
-    return _json({"success": True, "data": data})
 
 
 @router.get("/temp_dir_config", response_model=None, responses=_JSON_RESPONSES)

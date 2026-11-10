@@ -55,6 +55,17 @@ def test_partial_card_never_claims_complete_success():
     assert "已更新" not in card["message"]
 
 
+def test_retried_episode_success_keeps_other_pending_episodes_visible():
+    card = library_card([
+        member(218, season=5, succeeded=True, retry_success_count=1),
+        member(219, season=5, succeeded=False),
+    ])
+    assert "部分待处理" in card["message"]
+    assert "已成功入库（第 1 次重刮成功）" in card["message"]
+    assert "S05E218" in card["message"]
+    assert "S05E219；请查看任务中心" in card["message"]
+
+
 def test_long_untrusted_text_is_escaped_and_caption_stays_bounded():
     card = library_card(
         [member(i, title="<script>&" * 200, overview="<b>&" * 500, succeeded=False) for i in range(1, 500, 2)]
@@ -91,9 +102,16 @@ def delivery(bot):
 @pytest.mark.parametrize("photo", [None, "https://image.tmdb.org/t/p/w780/test.jpg"])
 def test_card_delivery_uses_html_and_deduplicates_recipients(photo):
     bot = Mock()
-    bot.send_message.return_value = bot.send_photo.return_value = ProviderResponse(ProviderDisposition.CONFIRMED, 200)
+    sent = ProviderResponse(
+        ProviderDisposition.CONFIRMED, 200, {"ok": True, "result": {"message_id": 17}}
+    )
+    bot.send_message.return_value = bot.send_photo.return_value = sent
     effect = SimpleNamespace(effect_type="telegram.library.result", payload=library_card([member(photo=photo)]))
-    assert delivery(bot).deliver(effect) == {"sent": 1}
+    kind = "caption" if photo else "text"
+    assert delivery(bot).deliver(effect) == {
+        "sent": 1,
+        "messages": [{"chat_id": "1", "message_id": 17, "kind": kind}],
+    }
     call = bot.send_photo if photo else bot.send_message
     assert call.call_count == 1 and call.call_args.kwargs == {"parse_mode": "HTML"}
 
@@ -102,13 +120,49 @@ def test_rejected_photo_falls_back_but_uncertain_send_does_not():
     bot = Mock()
     effect = SimpleNamespace(effect_type="telegram.library.result", payload=library_card([member()]))
     bot.send_photo.return_value = ProviderResponse(ProviderDisposition.REJECTED, 400)
-    bot.send_message.return_value = ProviderResponse(ProviderDisposition.CONFIRMED, 200)
-    assert delivery(bot).deliver(effect) == {"sent": 1}
+    bot.send_message.return_value = ProviderResponse(
+        ProviderDisposition.CONFIRMED, 200, {"ok": True, "result": {"message_id": 18}}
+    )
+    assert delivery(bot).deliver(effect) == {
+        "sent": 1,
+        "messages": [{"chat_id": "1", "message_id": 18, "kind": "text"}],
+    }
     bot.reset_mock()
     bot.send_photo.return_value = ProviderResponse(ProviderDisposition.INDETERMINATE, None)
     with pytest.raises(MediaEffectDeliveryIndeterminate):
         delivery(bot).deliver(effect)
     bot.send_message.assert_not_called()
+
+
+def test_retry_success_edits_the_original_photo_caption_and_text_message():
+    bot = Mock()
+    bot.edit_message_caption.return_value = ProviderResponse(ProviderDisposition.CONFIRMED, 200)
+    bot.edit_message_text.return_value = ProviderResponse(ProviderDisposition.CONFIRMED, 200)
+    batches = Mock()
+    batches.mark_retry_success.return_value = {
+        "updated": True,
+        "members": [member(218, season=5, succeeded=True, retry_success_count=1)],
+        "messages": [
+            {"chat_id": "photo-chat", "message_id": 9, "kind": "caption"},
+            {"chat_id": "text-chat", "message_id": 10, "kind": "text"},
+        ],
+    }
+    settings = Settings(telegram_bot_token="test", telegram_notify_types=["library_new"])
+    delivery_with_batches = TelegramLibraryNotificationDelivery(
+        settings=lambda: settings,
+        telegram=bot,
+        admin_chat_ids=lambda: [],
+        batches=batches,
+    )
+    effect = SimpleNamespace(
+        effect_type="telegram.library.retry-success",
+        payload={"member_key": "member-key", "retry_count": 1},
+    )
+
+    assert delivery_with_batches.deliver(effect) == {"updated": True, "edited": 2, "retry_count": 1}
+    batches.mark_retry_success.assert_called_once_with("member-key", 1)
+    assert "已成功入库（第 1 次重刮成功）" in bot.edit_message_caption.call_args.args[2]
+    assert "S05E218" in bot.edit_message_text.call_args.args[2]
 
 
 def test_callback_stages_episode_with_series_artwork_without_sending():

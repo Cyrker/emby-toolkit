@@ -9,10 +9,14 @@ vi.mock('@/api/client', () => ({
   apiPath: (key: string) => key,
 }));
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('媒体库概览', () => {
-  async function loadOverview(library: Record<string, unknown>) {
+  async function loadOverview(library: Record<string, unknown>, width = 1280) {
+    vi.stubGlobal('innerWidth', width);
     vi.mocked(apiClient.get).mockImplementation(async (path) => ({
       data: String(path).includes('stats_library')
         ? { status: 'success', data: library }
@@ -57,6 +61,40 @@ describe('媒体库概览', () => {
     try {
       const option = wrapper.findComponent(VChart).props('option') as any;
       expect(option.series[0].data).toEqual([{ value: 1, name: '无数据' }]);
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
+  it.each([
+    { viewport: 'PC', width: 1280 },
+    { viewport: '手机', width: 390 },
+  ])('$viewport 端保留近7日入库，但不展示或请求发布组排行', async ({ width }) => {
+    const wrapper = await loadOverview({
+      movies_in_library: 3,
+      series_in_library: 2,
+      episodes_in_library: 8,
+      weekly_added_stats: [
+        { date: '2026-10-17', date_label: '10-17', count: 2, movies: 1, episodes: 1 },
+        { date: '2026-10-18', date_label: '10-18', count: 3, movies: 0, episodes: 3 },
+      ],
+    }, width);
+    try {
+      expect(wrapper.html()).not.toMatch(/今日发布组|历史发布组/);
+      expect(wrapper.text()).toContain('近 7 日入库');
+      expect(wrapper.text()).toContain('5 项');
+      const weeklyChart = wrapper.findAllComponents(VChart).find((chart) => {
+        return (chart.props('option') as any)?.series?.[0]?.name === '入库';
+      });
+      const option = weeklyChart?.props('option') as any;
+      expect(option.xAxis.data).toEqual(['10-17', '10-18']);
+      expect(option.series[0].data.map((item: any) => item.value)).toEqual([2, 3]);
+      expect(vi.mocked(apiClient.get).mock.calls.map(([path]) => path)).toEqual([
+        'api_database_stats_core_692ca379',
+        'api_database_stats_library_9a26f2bb',
+        'api_database_stats_system_c0c9c6fe',
+        'api_database_stats_subscription_4c32b120',
+      ]);
     } finally {
       wrapper.unmount();
     }

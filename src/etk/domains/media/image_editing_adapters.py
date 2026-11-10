@@ -136,10 +136,10 @@ class HttpxMediaImageEditingGateway:
             return ImageUpdateOutcome(False, "无法获取该媒体的 Emby 详情。")
         item_type = MediaItemType.parse(item.get("Type"))
         if item_type is None:
-            return ImageUpdateOutcome(False, f"不支持为 {item.get('Type') or '未知类型'} 同步 ETK 图片缓存。")
+            return ImageUpdateOutcome(False, f"不支持为 {item.get('Type') or '未知类型'} 同步 embytool 图片缓存。")
         path = str(item.get("Path") or "").strip()
         if not path:
-            return ImageUpdateOutcome(False, "无法定位该媒体的路径，不能同步 ETK 图片缓存。")
+            return ImageUpdateOutcome(False, "无法定位该媒体的路径，不能同步 embytool 图片缓存。")
         season_number = (
             _optional_int(item.get("IndexNumber"))
             if item_type is MediaItemType.SEASON
@@ -153,7 +153,7 @@ class HttpxMediaImageEditingGateway:
             episode_number=episode_number,
         )
         if identity is None:
-            return ImageUpdateOutcome(False, "无法定位该媒体的 ETK 元数据记录，未执行图片更改。")
+            return ImageUpdateOutcome(False, "无法定位该媒体的 embytool 元数据记录，未执行图片更改。")
         try:
             content, mime_type = self._image_content(command)
         except (httpx.HTTPError, TypeError, ValueError) as exc:
@@ -186,10 +186,10 @@ class HttpxMediaImageEditingGateway:
         except Exception:
             return ImageUpdateOutcome(
                 False,
-                "Emby 图片已更新，但 ETK 图片缓存写入结果无法确认。",
+                "Emby 图片已更新，但 embytool 图片缓存写入结果无法确认。",
                 effect_status="indeterminate",
             )
-        return ImageUpdateOutcome(True, f"{normalized_type} 替换成功，已同步 Emby 与 ETK 图片仓库。")
+        return ImageUpdateOutcome(True, f"{normalized_type} 替换成功，已同步 Emby 与 embytool 图片仓库。")
 
     def _emby_item(self, item_id: str) -> dict[str, Any] | None:
         settings = self._settings()

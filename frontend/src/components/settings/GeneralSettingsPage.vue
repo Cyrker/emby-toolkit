@@ -21,7 +21,7 @@
                   <div>
                     <div class="top-card-title">
                       <span class="top-card-icon">✓</span>
-                      Emby Toolkit 完整功能版
+                      embytool
                     </div>
                     <div class="top-card-desc">
                       全部功能已解锁，无需激活码
@@ -281,7 +281,7 @@
 
             <!-- ================== 标签页 1: 通用设置 ================== -->
             <n-tab-pane name="general" tab="通用设置">
-              <n-grid cols="1 l:3" :x-gap="24" :y-gap="24" responsive="screen">
+              <n-grid class="general-settings-grid settings-form-grid" cols="1 800:2 1200:3" :x-gap="24" :y-gap="24" responsive="self">
                 <!-- 左侧列 -->
                 <n-gi>
                   <n-card :bordered="false" class="dashboard-card">
@@ -310,7 +310,7 @@
                       <n-switch v-model:value="configModel.media_image_archive_enabled" />
                       <template #feedback>
                         <n-text depth="3" style="font-size:0.8em;">
-                          将媒体项图片含分集剧照或截图保存到 ETK 图片仓库。
+                          将媒体项图片含分集剧照或截图保存到 embytool 图片仓库。
                         </n-text>
                       </template>
                     </n-form-item-grid-item>
@@ -568,7 +568,7 @@
 
             <!-- ★★★ 115 网盘设置 ★★★ -->
             <n-tab-pane name="115_drive" tab="115 网盘">
-              <n-grid cols="1 l:3" :x-gap="24" :y-gap="24" responsive="screen">
+              <n-grid class="p115-settings-grid settings-form-grid" cols="1 800:2 1200:3" :x-gap="24" :y-gap="24" responsive="self">
                 
                 <!-- 左侧：账户与连接 -->
                 <n-gi>
@@ -726,7 +726,7 @@
                       </template>
                     </n-form-item>
 
-                    <n-form-item label="ETK 地址（自动）">
+                    <n-form-item label="embytool 地址（自动）">
                         <n-input
                           :value="configModel.etk_server_url_auto_detected"
                           :placeholder="configModel.etk_server_url_auto_detected_error || '正在获取内网地址'"
@@ -734,7 +734,7 @@
                         />
                     </n-form-item>
 
-                    <n-form-item label="ETK 地址（手动）" path="etk_server_url_manual">
+                    <n-form-item label="embytool 地址（手动）" path="etk_server_url_manual">
                         <n-input v-model:value="configModel.etk_server_url_manual" placeholder="留空则自动获取，例如 http://192.168.1.10:5257" />
                         <template #feedback>
                             <n-text depth="3" style="font-size:0.8em;">当前生效：{{ (configModel.etk_server_url_manual || configModel.etk_server_url_auto_detected || '未获取') + (configModel.etk_server_url_manual ? '（手动）' : '（自动）') }}</n-text>
@@ -1028,7 +1028,7 @@
             <!-- ================== 标签页 3: 智能服务  ================== -->
             <n-tab-pane name="services" tab="智能服务 & 订阅源">
               <!-- ★★★ 修改点1: cols 改为 "1 l:3"，总共3列 ★★★ -->
-              <n-grid cols="1 l:2" :x-gap="24" :y-gap="24" responsive="screen">
+              <n-grid class="services-settings-grid settings-form-grid" cols="1 800:2" :x-gap="24" :y-gap="24" responsive="self">
                 
                 <!-- 左侧: AI翻译 -->
                 <n-gi>
@@ -1070,7 +1070,7 @@
                         <n-input type="password" show-password-on="mousedown" v-model:value="configModel.ai_api_key" placeholder="输入你的 API Key" />
                       </n-form-item>
                       <n-form-item label="模型名称" path="ai_model_name">
-                        <n-input-group>
+                        <n-input-group class="ai-model-input-group">
                           <n-select
                             v-model:value="configModel.ai_model_name"
                             :options="aiModelSelectOptions"
@@ -1185,19 +1185,18 @@
 
             <!-- ================== 标签页 4: 高级 (核心修改区域) ================== -->
             <n-tab-pane name="advanced" tab="高级">
-              <n-grid cols="1 l:2" :x-gap="24" :y-gap="24" responsive="screen">
+              <n-grid class="advanced-settings-grid settings-form-grid" cols="1 800:2" :x-gap="24" :y-gap="24" responsive="self">
                 
                 <!-- 卡片 1: 网络代理 (左上) -->
                 <n-gi>
                   <n-card :bordered="false" class="dashboard-card">
                     <template #header><span class="card-title">网络代理</span></template>
-                    <template #header-extra><a href="https://1s.bigmeok.me/user#/register?code=mHj5vS08" target="_blank" style="font-size: 0.85em; color: var(--n-primary-color); text-decoration: underline;">推荐机场</a></template>
                     <n-form-item-grid-item label="启用网络代理" path="network_proxy_enabled">
-                      <n-switch v-model:value="configModel.network_proxy_enabled" />
+                      <n-switch class="network-proxy-switch" v-model:value="configModel.network_proxy_enabled" />
                       <template #feedback><n-text depth="3" style="font-size:0.8em;">为 TMDb 等外部API请求启用 HTTP/HTTPS 代理。</n-text></template>
                     </n-form-item-grid-item>
                     <n-form-item-grid-item label="HTTP 代理地址" path="network_http_proxy_url">
-                      <n-input-group>
+                      <n-input-group class="network-proxy-input-group">
                         <n-input v-model:value="configModel.network_http_proxy_url" placeholder="例如: http://127.0.0.1:7890" :disabled="!configModel.network_proxy_enabled"/>
                         <n-button type="primary" ghost @click="testProxy" :loading="isTestingProxy" :disabled="!configModel.network_proxy_enabled || !configModel.network_http_proxy_url">测试连接</n-button>
                       </n-input-group>
@@ -1326,7 +1325,7 @@
                     </n-form-item-grid-item>
                     
                     <n-form-item-grid-item label="全局通知频道" path="telegram_channel_id">
-                      <n-input v-model:value="configModel.telegram_channel_id" placeholder="例如: https://t.me/embytoolkit，管理员TGID请至个人中心填写" />
+                      <n-input v-model:value="configModel.telegram_channel_id" placeholder="填写频道链接或 Chat ID，管理员 TGID 请至个人中心填写" />
                     </n-form-item-grid-item>
 
                     <n-form-item-grid-item label="通知类型" path="telegram_notify_types">
@@ -1801,7 +1800,7 @@
     <n-modal v-model:show="showReplaceStrmModal" preset="card" title="批量替换本地 STRM 链接" :style="modalStyle(650)" class="custom-modal glass-modal">
       
       <n-alert type="info" :show-icon="true" style="margin-bottom: 16px;">
-        <b>ETK 标准格式示例 (不带文件名后缀)：</b><br/>
+        <b>embytool 标准格式示例 (不带文件名后缀)：</b><br/>
         <code>http://192.168.1.100:5257{{ apiPath('api_p115_play_example', ['abcde12345']) }}</code><br/>
         <span style="font-size: 0.85em; color: gray;">(注意：标准格式以 115 的 PC 码结尾，不带斜杠和 .mkv 等后缀)</span>
       </n-alert>
@@ -1867,7 +1866,7 @@
   >
     <n-alert title="高危操作警告" type="warning" style="margin-bottom: 15px;">
       <p style="margin: 0 0 8px 0;">此操作会解除媒体项与旧 Emby ItemID 的关联，并清理播放缓存、洗版和去重索引。</p>
-      <p style="margin: 0 0 8px 0;">Emby 用户、ETK 授权、媒体源指纹、元数据、图片缓存和订阅状态都会保留。</p>
+      <p style="margin: 0 0 8px 0;">Emby 用户、embytool 授权、媒体源指纹、元数据、图片缓存和订阅状态都会保留。</p>
       <p class="warning-text" style="margin: 0;"><strong>仅在 Emby 媒体库已删除并准备重建时执行。</strong></p>
     </n-alert>
     <template #action>
@@ -2055,9 +2054,9 @@ const pageSpaceStyle = computed(() => ({
 }));
 
 const pageSpaceSize = computed(() => (isMobile.value ? 12 : 24));
-const formLabelPlacement = computed(() => (isMobile.value ? 'top' : 'left'));
-const formLabelWidth = computed(() => (isMobile.value ? 'auto' : 200));
-const formLabelAlign = computed(() => (isMobile.value ? 'left' : 'right'));
+const formLabelPlacement = computed(() => (isMobile.value || ['general', '115_drive', 'services', 'advanced'].includes(activeSettingsTab.value) ? 'top' : 'left'));
+const formLabelWidth = computed(() => (formLabelPlacement.value === 'top' ? 'auto' : 200));
+const formLabelAlign = computed(() => (formLabelPlacement.value === 'top' ? 'left' : 'right'));
 
 const tabPaneStyle = computed(() => ({
   padding: isMobile.value ? '12px 0 0' : '20px',
@@ -2120,8 +2119,8 @@ const previewResult = computed(() => {
     const standardRegex = /^https?:\/\/[^\/]+\/api\/p115\/play\/[a-zA-Z0-9]+$/;
     const isStandard = standardRegex.test(resultUrl);
     const standardMsg = isStandard 
-      ? '校验通过：符合 ETK 标准格式' 
-      : '校验失败：不符合 ETK 标准格式 (可能带有文件名后缀、路径错误或非 http 协议)';
+      ? '校验通过：符合 embytool 标准格式'
+      : '校验失败：不符合 embytool 标准格式 (可能带有文件名后缀、路径错误或非 http 协议)';
 
     if (resultUrl === testUrl) {
       return { type: 'warning', text: '未发生匹配，链接保持不变：\n' + resultUrl, isStandard, standardMsg };
@@ -3565,6 +3564,31 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* 表单按内容顺序排列，不继承等高卡片的两端分布。 */
+.settings-page :deep(.settings-form-grid .n-card__content) {
+  justify-content: flex-start !important;
+}
+
+.settings-page :deep(.settings-form-grid .n-form-item-blank) {
+  min-width: 0;
+}
+
+.settings-page :deep(.settings-form-grid .n-input-number),
+.settings-page :deep(.settings-form-grid .n-select) {
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-page :deep(.settings-form-grid .n-input-group > .n-input),
+.settings-page :deep(.settings-form-grid .n-input-group > .n-select) {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-page :deep(.settings-form-grid .n-input-group > .n-button) {
+  flex-shrink: 0;
+}
+
 /* 禁用AI设置时的遮罩效果 */
 .ai-settings-wrapper {
   transition: opacity 0.3s ease;
@@ -3827,10 +3851,20 @@ onUnmounted(() => {
     row-gap: 10px;
   }
 
-  :deep(.n-card-header__main),
-  :deep(.n-card-header__extra) {
+  .settings-page :deep(.n-card-header > .n-card-header__main),
+  .settings-page :deep(.n-card-header > .n-card-header__extra) {
     min-width: 0;
     width: 100%;
+    flex: 1 1 100%;
+  }
+
+  :deep(.n-card-header__main > div) {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  :deep(.n-card-header__extra) {
+    margin-left: 0;
   }
 
   :deep(.n-card-header__extra .n-space) {

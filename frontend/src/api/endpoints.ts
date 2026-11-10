@@ -5,6 +5,7 @@
  * symbolic keys through apiPath so transport paths cannot drift across pages.
  */
 export const ENDPOINTS = {
+  api_reprocess_identification: '/api/actions/reprocess_item/__ETK_PARAM_0__/identification',
   api_emby_scrape_records: '/api/emby/scrape-records',
   api_p115_play_example: '/api/p115/play/__ETK_PARAM_0__',
   api_p115_auto_save_auth: '/api/p115/auto_save_auth',
@@ -137,8 +138,6 @@ export const ENDPOINTS = {
   api_p115_play_pool_accounts_param_speedtest_f820f8e0: '/api/p115/play_pool/accounts/__ETK_PARAM_0__/speedtest',
   api_p115_play_pool_cookie_qrcode_mode_param_app_param_653b8668: '/api/p115/play_pool/cookie_qrcode?mode=__ETK_PARAM_0__&app=__ETK_PARAM_1__',
   api_p115_play_pool_cookie_qrcode_status_mode_param_app_parampara_e9fdd663: '/api/p115/play_pool/cookie_qrcode/status?mode=__ETK_PARAM_0__&app=__ETK_PARAM_1____ETK_PARAM_2__',
-  api_p115_play_pool_user_account_d5e7c24b: '/api/p115/play_pool/user-account',
-  api_p115_play_pool_user_account_rewards_f8c38180: '/api/p115/play_pool/user-account/rewards',
   api_p115_qrcode_e1f1af7c: '/api/p115/qrcode',
   api_p115_qrcode_status_e227c2c6: '/api/p115/qrcode/status',
   api_p115_quick_deploy_stream_1_94ab0686: '/api/p115/quick_deploy?stream=1',

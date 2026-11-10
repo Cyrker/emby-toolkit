@@ -17,7 +17,18 @@ def library_card(members: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     latest = items[-1]
     is_movie = latest.get("item_type") == "Movie"
     failed = [m for m in items if not m.get("succeeded")]
-    status = "⚠️ 部分待处理" if failed else "✨ 入库成功" if is_movie else "🔄 已更新"
+    retry_successes: dict[int, list[Mapping[str, Any]]] = {}
+    for member in items:
+        retry_count = member.get("retry_success_count")
+        if type(retry_count) is int and retry_count > 0:
+            retry_successes.setdefault(retry_count, []).append(member)
+    if failed:
+        status = "⚠️ 部分待处理"
+    elif len(items) == 1 and retry_successes:
+        retry_count = next(iter(retry_successes))
+        status = f"✅ 已成功入库（第 {retry_count} 次重刮成功）"
+    else:
+        status = "✨ 入库成功" if is_movie else "🔄 已更新"
     title = str(latest.get("title") or "未知媒体")
     if latest.get("year"):
         title += f" ({latest['year']})"
@@ -38,6 +49,14 @@ def library_card(members: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     lines.append(f"⏰ <b>时间</b>: <code>{_html(latest.get('display_time'), 30)}</code>")
     overview = next((m.get("overview") for m in reversed(items) if m.get("overview")), "暂无剧情简介。")
     lines.append(f"📝 <b>剧情</b>: {_html(_clip(str(overview), 200), 320)}")
+    if not (len(items) == 1 and not failed and retry_successes):
+        for retry_count, recovered in sorted(retry_successes.items()):
+            refs = episode_ranges([(m.get("season"), m.get("episode")) for m in recovered])
+            if not refs:
+                refs = str(recovered[0].get("title") or "媒体") if len(recovered) == 1 else f"{len(recovered)}项"
+            lines.append(
+                f"✅ <b>已成功入库（第 {retry_count} 次重刮成功）</b>: {_html(_clip(refs, 100), 120)}"
+            )
     if failed:
         failed_refs = episode_ranges([(m.get("season"), m.get("episode")) for m in failed])
         lines.extend(["", f"⚠️ <b>待处理</b>: {_clip(failed_refs, 100) or str(len(failed)) + '项'}；请查看任务中心。"])

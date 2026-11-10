@@ -8,7 +8,11 @@ from sqlalchemy import text
 from etk.domains.ingestion import MonitorPolicy, PostgresIngestionMonitorLedger
 from etk.domains.media.effect_execution import MediaEffectDeliveryRetryable, PersistentMediaEffectExecutor
 from etk.domains.media.effects import PostgresMediaEffectLedger
-from etk.domains.media.library_notification_repository import SqlAlchemyLibraryNotificationRepository
+from etk.domains.media.library_notification_format import library_card
+from etk.domains.media.library_notification_repository import (
+    SqlAlchemyLibraryNotificationRepository,
+    library_notification_member_key,
+)
 from etk.domains.media.library_notifications import TelegramLibraryNotificationDelivery
 from etk.integrations.http_policy import ProviderDisposition, ProviderResponse
 from etk.platform import Settings
@@ -108,3 +112,31 @@ def test_delivery_ledger_prevents_resend_even_after_restart(repository, p6_runti
     assert bot.send_photo.call_count == 1
     assert "S01E01–E02" in bot.send_photo.call_args.args[2]
     bot.send_message.assert_not_called()
+
+
+def test_retry_success_updates_batch_and_reads_persisted_telegram_message_ids(repository, p6_runtime):
+    effect = repository.stage({**member(218), "succeeded": False}, operation_key="retry-source")
+    repository.stage({**member(219), "succeeded": False}, operation_key="other-source")
+    ready(p6_runtime)
+    bot = Mock()
+    bot.send_photo.return_value = ProviderResponse(
+        ProviderDisposition.CONFIRMED, 200, {"ok": True, "result": {"message_id": 77}}
+    )
+    settings = Settings(telegram_bot_token="fixture", telegram_notify_types=["library_new"])
+    executor = PersistentMediaEffectExecutor(
+        PostgresMediaEffectLedger(p6_runtime.unit_of_work),
+        TelegramLibraryNotificationDelivery(
+            settings=lambda: settings, telegram=bot, admin_chat_ids=lambda: ["1"], batches=repository
+        ),
+    )
+    sent = executor.execute(effect.id)
+    assert sent.status.value == "confirmed"
+
+    updated = repository.mark_retry_success(library_notification_member_key("retry-source", "218"), 1)
+    assert updated["updated"] is True
+    assert updated["messages"] == [{"chat_id": "1", "message_id": 77, "kind": "caption"}]
+    recovered = next(item for item in updated["members"] if item["item_id"] == "218")
+    assert recovered["succeeded"] is True and recovered["retry_success_count"] == 1
+    card = library_card(updated["members"])
+    assert "已成功入库（第 1 次重刮成功）" in card["message"]
+    assert "S01E219；请查看任务中心" in card["message"]

@@ -658,7 +658,7 @@ def create_proxy_app(
     initial_server_id = "fixture-server" if catalog is not None else server_id() if callable(server_id) else server_id
     selected_catalog = catalog or InMemoryVirtualLibrary(server_id=initial_server_id)
     selected_leases = leases or InMemoryPlaybackLeaseStore()
-    app = FastAPI(title="ETK Proxy", docs_url=None, redoc_url=None)
+    app = FastAPI(title="embytool Proxy", docs_url=None, redoc_url=None)
     app.state.catalog = selected_catalog
     app.state.leases = selected_leases
     app.state.upstream = upstream

@@ -11,7 +11,7 @@ import httpx
 
 from etk.platform import Settings
 
-PLUGIN_UPDATE_URL = "https://github.com/hbq0405/etk-mediainfo-bridge/releases/latest/download/ETKMediaInfoBridge.dll"
+from .plugin_identity import PLUGIN_DOWNLOAD_URL as PLUGIN_UPDATE_URL
 
 
 class BridgeWriteOutcome(StrEnum):
@@ -302,7 +302,7 @@ class HttpxPluginUpdateGateway:
             request = client.build_request(
                 "GET",
                 PLUGIN_UPDATE_URL,
-                headers={"User-Agent": "EmbyToolKit-PluginUpdater"},
+                headers={"User-Agent": "embytool-PluginUpdater"},
             )
             response = client.send(request, stream=True)
             response.raise_for_status()

@@ -69,19 +69,6 @@
   padding: 12px !important;
   gap: 12px !important;
 }
-.text-effect {
-  font-weight: 900;
-  font-size: 2rem; /* 根据需求调整字体大小 */
-  color: #f0f0f0; /* 主字体颜色 */
-  letter-spacing: 0.05em; /* 字母间距 */
-  text-transform: uppercase;
-  /* 多重阴影模拟立体感和质感 */
-  text-shadow:
-    1px 1px 0 #222,    /* 黑色偏移阴影 */
-    2px 2px 1px #555,  /* 灰色柔和阴影 */
-    0 0 5px #fff,     /* 白色光晕 */
-    0 0 3px #ccc;    /* 更大范围光晕 */
-}
 /* ★★★ 为模态框准备的“轻量版”样式 ★★★ */
 .modal-card-lite {
   /* 使用我们新定义的、绝对不透明的背景色变量！ */

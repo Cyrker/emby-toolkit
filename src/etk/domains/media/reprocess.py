@@ -6,7 +6,9 @@ from typing import Any, Protocol
 
 from etk.platform.tasks import TaskOutcome, TaskOutcomeStatus
 
+from .reprocess_identification import ReprocessIdentificationService, identity_snapshot, tmdb_id
 from .reprocess_images import IMAGE_CHECKS, NativeReprocessImagePreparation, image_present
+from .reprocess_metadata import ReprocessIdentificationError
 
 
 class MediaReprocessProgress(Protocol):
@@ -64,12 +66,14 @@ class NativeMediaItemReprocessService:
         *,
         refresh: Callable[[Mapping[str, Any], str], TaskOutcome] | None = None,
         images: NativeReprocessImagePreparation | None = None,
+        identification: ReprocessIdentificationService | None = None,
     ) -> None:
         self._catalog = catalog
         self._metadata = metadata
         self._mediainfo = mediainfo
         self._refresh = refresh
         self._images = images
+        self._identification = identification
 
     def execute(
         self,
@@ -81,6 +85,8 @@ class NativeMediaItemReprocessService:
         restore_media_info: bool = True,
         only_missing: bool = False,
         include_descendants: bool = True,
+        tmdb_selection: Mapping[str, str] | None = None,
+        source_job_id: str | None = None,
     ) -> TaskOutcome:
         normalized_id = str(item_id or "").strip()
         if not normalized_id:
@@ -89,6 +95,18 @@ class NativeMediaItemReprocessService:
         item = self._catalog.item(normalized_id)
         if item is None:
             return TaskOutcome.failed("Emby 中未找到待重新处理的媒体项。", {"item_id": normalized_id})
+
+        confirmed_root = None
+        if tmdb_selection is not None:
+            try:
+                if self._identification is None or not source_job_id:
+                    raise ValueError("选片确认器或来源任务缺失，未执行写入。")
+                context = self._identification.validate(normalized_id, source_job_id, tmdb_selection)
+                item, confirmed_root = context["item"], context["root"]
+            except (ValueError, RuntimeError) as exc:
+                return TaskOutcome.failed(str(exc), {
+                    "item_id": normalized_id, "error_code": getattr(exc, "code", "IDENTIFICATION_FAILED"),
+                })
 
         mediainfo = (
             self._mediainfo.execute(
@@ -121,15 +139,20 @@ class NativeMediaItemReprocessService:
             (root.get("ProviderIds") or {}).get("Tmdb") or (root.get("ProviderIds") or {}).get("tmdb")
         )
         try:
-            root = self._metadata.identify_reprocess_root(root)
+            root = confirmed_root or self._metadata.identify_reprocess_root(root)
             if missing_root_id:
                 root = {**root, "_newly_identified": True}
-                progress.update(5, f"已按片名和年份确认 TMDb 身份：{(root.get('ProviderIds') or {}).get('Tmdb')}")
+                progress.update(5, f"已{'人工选择' if confirmed_root else '按片名和年份确认'} TMDb 身份："
+                                f"{(root.get('ProviderIds') or {}).get('Tmdb')}")
         except (ValueError, RuntimeError) as exc:
             progress.update(100, str(exc))
-            return TaskOutcome.failed(str(exc), {"item_id": normalized_id, "needs_identification": True})
+            return TaskOutcome.failed(str(exc), {
+                "item_id": normalized_id, "needs_identification": True,
+                "error_code": getattr(exc, "code", "IDENTIFICATION_FAILED"),
+            })
         metadata = self._process_scope(
             item, root, progress, operation_key, only_missing=only_missing, include_descendants=include_descendants,
+            confirmed=confirmed_root is not None,
         )
         return _combine(normalized_id, mediainfo, metadata)
 
@@ -142,6 +165,7 @@ class NativeMediaItemReprocessService:
         *,
         only_missing: bool = False,
         include_descendants: bool = True,
+        confirmed: bool = False,
     ) -> TaskOutcome:
         if self._refresh is None:
             return TaskOutcome.failed("Emby 元数据回填器未配置，未执行刮削。")
@@ -160,7 +184,37 @@ class NativeMediaItemReprocessService:
         if include_descendants and selected.get("Type") in {"Series", "Season"}:
             targets.extend(self._catalog.descendants(str(selected["Id"])))
         targets = list({str(target.get("Id")): target for target in targets}.values())
+        original_targets = (
+            {str(target["Id"]): identity_snapshot(target, target) for target in targets} if confirmed else {}
+        )
+        root_refreshed = False
+
+        def guard_identity(target: Mapping[str, Any]) -> None:
+            if not confirmed:
+                return
+            current_root = self._catalog.item(str(root["Id"])) or {}
+            root_unchanged = identity_snapshot(current_root, current_root) == root["_confirmed_initial_snapshot"]
+            if not root_unchanged and not (root_refreshed and tmdb_id(current_root) == tmdb_id(root)):
+                raise ReprocessIdentificationError(
+                    "IDENTITY_CHANGED", "执行前目标身份已变化，未覆盖，请重新确认。", 409,
+                )
+            if str(target["Id"]) != str(root["Id"]):
+                current = self._catalog.item(str(target["Id"])) or {}
+                if identity_snapshot(current, current) != original_targets[str(target["Id"])]:
+                    raise ReprocessIdentificationError(
+                        "IDENTITY_CHANGED", "所选季集身份已变化，未覆盖，请重新确认。", 409,
+                    )
+
         cache: dict[tuple[str, int], Mapping[str, Any]] = {}
+        if confirmed:
+            try:
+                assert self._identification is not None
+                self._identification.validate_scope(targets, root, cache)
+            except (ValueError, RuntimeError) as exc:
+                return TaskOutcome.failed(str(exc), {
+                    "error_code": getattr(exc, "code", "IDENTIFICATION_FAILED"),
+                    "failures": [{"item_id": str(selected["Id"]), "stage": "身份确认", "message": str(exc)}],
+                })
         image_cache: dict[str, Any] = {}
         prepared: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
         pending: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
@@ -176,6 +230,8 @@ class NativeMediaItemReprocessService:
 
         for index, target in enumerate(targets, 1):
             progress.checkpoint()
+            if confirmed:
+                target = {**target, "_confirmed_root_tmdb_id": str(root["ProviderIds"]["Tmdb"])}
             kind = str(target.get("Type"))
             if kind not in counts:
                 failed(target, "范围检查", "不支持的媒体类型")
@@ -195,6 +251,7 @@ class NativeMediaItemReprocessService:
                 5 + int(index * 45 / len(targets)), f"{_label(target)}：正在刮削并保存元数据 ({index}/{len(targets)})"
             )
             try:
+                guard_identity(target)
                 fill_missing = only_missing or (kind == "Season" and selected.get("Type") == "Episode")
                 expected = self._metadata.cached_reprocess_metadata(target, root) if fill_missing else None
                 cached = expected is not None
@@ -246,6 +303,7 @@ class NativeMediaItemReprocessService:
         for target, expected in prepared:
             progress.checkpoint()
             try:
+                guard_identity(target)
                 progress.update(
                     55,
                     f"{_label(target)}：正在请求 Emby 刷新元数据；"
@@ -260,6 +318,8 @@ class NativeMediaItemReprocessService:
                     failed(target, "回填请求", result.message)
                     continue
                 pending.append((target, expected))
+                if str(target["Id"]) == str(root["Id"]):
+                    root_refreshed = True
             except Exception as exc:
                 failed(target, "回填请求", str(exc))
         for target, expected in pending:
@@ -382,23 +442,28 @@ class NativeMediaItemReprocessOperation:
         service: NativeMediaItemReprocessService,
         *,
         notify: Callable[[str, TaskOutcome, str], Mapping[str, Any]] | None = None,
-        schedule_retry: Callable[[TaskOutcome, str, int], Mapping[str, Any]] | None = None,
+        schedule_retry: Callable[..., Mapping[str, Any]] | None = None,
+        update_retry_notification: Callable[[str, int], Mapping[str, Any]] | None = None,
     ) -> None:
         self._service = service
         self._notify = notify
         self._schedule_retry = schedule_retry
+        self._update_retry_notification = update_retry_notification
 
     def execute(self, parameters: Mapping[str, Any], progress: MediaReprocessProgress) -> Mapping[str, Any]:
         allowed = {
             "item_id", "media_info_only", "restore_media_info", "only_missing", "notify_library",
             "metadata_retry_count",
+            "notification_member_key",
             "include_descendants",
+            "tmdb_selection", "source_job_id",
         }
         extras = set(parameters) - allowed
         if extras:
             raise ValueError(f"media reprocess operation contains unsupported fields: {sorted(extras)!r}")
         item_id = str(parameters.get("item_id") or "").strip()
         retry_count = parameters.get("metadata_retry_count", 0)
+        notification_member_key = str(parameters.get("notification_member_key") or "").strip()
         if type(retry_count) is not int or not 0 <= retry_count <= 3:
             raise ValueError("元数据补抓次数无效")
         for field in ("media_info_only", "restore_media_info", "only_missing", "notify_library", "include_descendants"):
@@ -412,17 +477,48 @@ class NativeMediaItemReprocessOperation:
             restore_media_info=bool(parameters.get("restore_media_info", True)),
             only_missing=bool(parameters.get("only_missing", False)),
             include_descendants=bool(parameters.get("include_descendants", True)),
+            **({"tmdb_selection": parameters["tmdb_selection"], "source_job_id": parameters.get("source_job_id")}
+               if "tmdb_selection" in parameters else {}),
         )
         details = dict(outcome.details)
         if self._schedule_retry is not None and details.get("metadata", {}).get("incomplete"):
             progress.checkpoint()
             details["metadata_retry"] = dict(self._schedule_retry(
                 outcome, f"media.reprocess-item:{getattr(progress, 'job_id', item_id)}", retry_count,
+                **({"notification_member_key": notification_member_key, "notification_item_id": item_id}
+                   if notification_member_key else {}),
             ))
             progress.update(100, "中文资料待补齐；" + (
                 "已安排延迟补抓，不占用当前任务队列" if details["metadata_retry"]["status"] == "scheduled"
                 else details["metadata_retry"].get("message", "请手动重新刮削")
             ))
+        metadata = details.get("metadata")
+        if (
+            retry_count > 0
+            and notification_member_key
+            and self._update_retry_notification is not None
+            and outcome.status is TaskOutcomeStatus.SUCCEEDED
+            and isinstance(metadata, Mapping)
+        ):
+            incomplete_ids = {
+                str(value.get("item_id") or "")
+                for value in metadata.get("incomplete", [])
+                if isinstance(value, Mapping)
+            }
+            failure_ids = {
+                str(value.get("item_id") or "")
+                for value in metadata.get("failures", [])
+                if isinstance(value, Mapping)
+            }
+            if item_id not in incomplete_ids and item_id not in failure_ids:
+                progress.checkpoint()
+                try:
+                    details["retry_notification"] = dict(
+                        self._update_retry_notification(notification_member_key, retry_count)
+                    )
+                except Exception:
+                    details["retry_notification"] = {"status": "unconfirmed"}
+                    progress.update(100, "元数据补抓成功，但 Telegram 原通知更新未确认。")
         if parameters.get("notify_library") and self._notify is not None:
             progress.checkpoint()
             try:

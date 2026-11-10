@@ -14,6 +14,13 @@ class ReprocessMetadataProvider(Protocol):
     def search(self, name: str, media_type: str) -> Mapping[str, Any]: ...
 
 
+class ReprocessIdentificationError(ValueError):
+    def __init__(self, code: str, message: str, status_code: int = 400) -> None:
+        super().__init__(message)
+        self.code = code
+        self.status_code = status_code
+
+
 def _name(value: Any) -> str:
     return "".join(c for c in unicodedata.normalize("NFKC", str(value or "")).casefold() if c.isalnum())
 
@@ -40,7 +47,7 @@ def identify_root(item: Mapping[str, Any], provider: ReprocessMetadataProvider) 
         raise ValueError("缺少 TMDb ID，且没有明确片名和年份；请在 Emby 确认作品并填写 ID。")
     response = provider.search(name, kind)
     if int(response.get("total_pages") or 1) > 1:
-        raise ValueError("TMDb 候选过多，无法唯一识别；请在 Emby 确认并填写 ID。")
+        raise ReprocessIdentificationError("TMDB_AMBIGUOUS", "TMDb 候选过多，无法唯一识别；请重新处理并选择作品。")
     names = {_name(name)}
     if item.get("OriginalTitle"):
         names.add(_name(item["OriginalTitle"]))
@@ -53,7 +60,10 @@ def identify_root(item: Mapping[str, Any], provider: ReprocessMetadataProvider) 
         and any(_name(row.get(key)) in names for key in ("title", "original_title", "name", "original_name"))
     }
     if len(candidates) != 1:
-        raise ValueError("TMDb 没有唯一的片名及年份匹配；请人工确认并填写 ID，不自动选择搜索第一项。")
+        raise ReprocessIdentificationError(
+            "TMDB_AMBIGUOUS" if candidates else "TMDB_NO_MATCH",
+            "TMDb 没有唯一的片名及年份匹配；请人工确认作品身份，不自动选择搜索第一项。",
+        )
     ids["Tmdb"] = next(iter(candidates))
     result["ProviderIds"] = ids
     return result

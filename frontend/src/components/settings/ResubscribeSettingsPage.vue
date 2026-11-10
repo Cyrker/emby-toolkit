@@ -63,17 +63,17 @@
       <n-modal
           v-model:show="showModal"
           preset="card"
-          style="width: 900px;"
+          style="width: 900px; max-width: calc(100vw - 24px);"
           :title="modalTitle"
           class="resubscribe-rule-modal glass-modal"
         >
         <n-form ref="formRef" :model="currentRule" :rules="formRules" label-placement="top">
           
           <!-- 1. 顶部：基础信息与模式选择 -->
-          <n-grid :x-gap="24" :y-gap="24" :cols="2">
-            <n-gi :span="2">
+          <n-grid class="resubscribe-editor-grid" :x-gap="24" :y-gap="24" cols="1 640:2" responsive="self">
+            <n-gi span="1 640:2">
               <n-card class="modal-inner-card base-rule-card" size="small" embedded :bordered="false">
-                <n-grid :cols="2" :x-gap="24">
+                <n-grid cols="1 560:2" responsive="self" :x-gap="24">
                   <n-gi>
                     <n-form-item path="name" label="规则名称">
                       <n-input v-model:value="currentRule.name" placeholder="例如：清理低分烂片 / 4K洗版" />
@@ -104,7 +104,7 @@
                   </n-gi>
 
                   <!-- ★★★ 核心修改区域：通用筛选构建器 ★★★ -->
-                  <n-gi :span="2">
+                  <n-gi span="1 560:2">
                     <n-card title="限定范围 (通用筛选)" class="modal-inner-card scope-card" size="small">
                       <template #header-extra>
                         <n-tag type="info" size="small" :bordered="false">条件之间为“与”关系 (AND)</n-tag>
@@ -749,7 +749,7 @@ onMounted(loadData);
 .rule-card { cursor: move; }
 .rule-content { display: flex; align-items: center; gap: 16px; }
 .drag-handle { cursor: grab; color: #888; }
-.rule-details { flex-grow: 1; }
+.rule-details { flex-grow: 1; min-width: 0; }
 .rule-name { font-weight: bold; font-size: 1.05em; }
 .rule-actions { margin-left: auto; }
 
@@ -842,5 +842,67 @@ onMounted(loadData);
 
   backdrop-filter: var(--card-backdrop-filter, blur(10px)) !important;
   -webkit-backdrop-filter: var(--card-backdrop-filter, blur(10px)) !important;
+}
+
+@media (max-width: 760px) {
+  :global(.resubscribe-rule-modal > .n-card__content) {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  :global(.resubscribe-rule-modal .modal-inner-card > .n-card-header) {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  :global(.resubscribe-rule-modal .modal-inner-card > .n-card-header > .n-card-header__main) {
+    flex-basis: 100%;
+  }
+
+  .rule-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 24px;
+  }
+
+  .rule-row .rule-field,
+  .rule-row .rule-op {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  .rule-value {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .rule-delete {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .filter-content,
+  .custom-resubscribe-box {
+    margin-left: 0;
+  }
+
+  .rule-content {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .rule-actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+
+  :global(.resubscribe-rule-modal .n-form-item-blank) {
+    min-width: 0;
+  }
+
+  :global(.resubscribe-rule-modal .n-radio-group) {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
 }
 </style>

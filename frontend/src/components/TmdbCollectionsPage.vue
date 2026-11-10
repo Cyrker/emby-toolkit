@@ -175,7 +175,7 @@
                       <div style="max-width: 240px;">
                         <p style="margin-bottom: 5px; font-weight: bold;">确定要删除此合集吗？</p>
                         <p v-if="item.emby_collection_id" style="font-size: 12px; color: gray;">这将清空合集内的所有影片关联，并从 Emby 中永久删除该合集条目。（不会删除影片文件）</p>
-                        <p v-else style="font-size: 12px; color: gray;">该合集尚未在 Emby 中生成，将仅删除 ETK 的合集记录。</p>
+                        <p v-else style="font-size: 12px; color: gray;">该合集尚未在 Emby 中生成，将仅删除 embytool 的合集记录。</p>
                       </div>
                     </n-popconfirm>
                   </div>

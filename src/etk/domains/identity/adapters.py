@@ -166,7 +166,7 @@ class HttpxEmbyIdentityGateway:
                 "ok": False,
                 "status": "skipped",
                 "certainty": "confirmed-no-effect",
-                "message": "ETK 插件未就绪，已跳过媒体库加速配置",
+                "message": "embytool Bridge 插件未就绪，已跳过媒体库加速配置",
             }
         base_url = _http_base_url(str(authorization.get("_normalized_url") or ""))
         access_token = str(authorization.get("AccessToken") or "").strip()
@@ -261,7 +261,7 @@ class HttpxEmbyIdentityGateway:
             "configured": configured,
             "failed": 0,
             "certainty": "observed-complete",
-            "message": f"已为 {configured} 个媒体库应用 ETK 加速配置",
+            "message": f"已为 {configured} 个媒体库应用 embytool 加速配置",
         }
 
     def _poll_library_defaults(

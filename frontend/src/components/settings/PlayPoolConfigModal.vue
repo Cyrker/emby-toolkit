@@ -58,18 +58,9 @@
               style="width: 180px;"
               @update:value="handlePlayPoolAppTypeChange"
             />
-            <n-select
-              v-model:value="playPoolAccountForm.owner_type"
-              :options="ownerTypeOptions"
-              style="width: 140px;"
-            />
             <n-switch v-model:value="playPoolAccountForm.enabled">
               <template #checked>启用</template>
               <template #unchecked>停用</template>
-            </n-switch>
-            <n-switch v-model:value="playPoolAccountForm.shared" :disabled="playPoolAccountForm.owner_type !== 'user'">
-              <template #checked>共享</template>
-              <template #unchecked>仅本人</template>
             </n-switch>
           </n-space>
 
@@ -213,8 +204,6 @@ const playPoolAccountForm = ref({
   access_token: '',
   refresh_token: '',
   app_type: 'alipaymini',
-  owner_type: 'admin',
-  shared: true,
   enabled: true,
   allowed_user_ids: []
 });
@@ -224,11 +213,6 @@ const cookieAppOptions = [
   { label: '网页版', value: 'web' },
   { label: '微信小程序', value: 'wechatmini' },
   { label: '安卓电视端', value: 'tv' }
-];
-
-const ownerTypeOptions = [
-  { label: '管理员小号', value: 'admin' },
-  { label: '用户自有', value: 'user' }
 ];
 
 const updateViewportState = () => {
@@ -249,12 +233,6 @@ const renderUserOption = (option) => {
 };
 
 const accountScopeText = (account) => {
-  if (account?.owner_type === 'user' && !account?.shared) {
-    return `仅本人：${account.owner_user_name || account.owner_user_id || '未知用户'}`;
-  }
-  if (account?.owner_type === 'user' && account?.shared) {
-    return '所有用户';
-  }
   const allowed = Array.isArray(account?.allowed_user_ids) ? account.allowed_user_ids : [];
   if (!allowed.length) return '所有用户';
   const optionMap = new Map(embyUserOptions.value.map(item => [item.value, item.label]));
@@ -328,8 +306,6 @@ const resetPlayPoolAccountForm = () => {
     access_token: '',
     refresh_token: '',
     app_type: 'alipaymini',
-    owner_type: 'admin',
-    shared: true,
     enabled: true,
     allowed_user_ids: []
   };
@@ -366,8 +342,6 @@ const savePlayPoolAccount = async () => {
     const payload = {
       alias: String(form.alias || '小号').trim() || '小号',
       app_type: form.app_type || 'alipaymini',
-      owner_type: form.owner_type || 'admin',
-      shared: form.owner_type === 'user' ? Boolean(form.shared) : true,
       enabled: Boolean(form.enabled),
       allowed_user_ids: Array.isArray(form.allowed_user_ids) ? form.allowed_user_ids : []
     };
@@ -405,8 +379,6 @@ const editPlayPoolAccount = (account) => {
     access_token: '',
     refresh_token: '',
     app_type: account.app_type || 'alipaymini',
-    owner_type: account.owner_type || 'admin',
-    shared: Boolean(account.shared),
     enabled: Boolean(account.enabled),
     allowed_user_ids: Array.isArray(account.allowed_user_ids) ? [...account.allowed_user_ids] : []
   };

@@ -73,20 +73,6 @@ class FakeUsers:
     def expand_allowed_user_ids(self, user_ids: list[str]) -> tuple[str, ...]:
         return tuple(user_ids)
 
-    def reward_summary(self, _user_id: str) -> dict[str, Any]:
-        return {"total_days": 0.0}
-
-    def grant_reward(
-        self,
-        _account: dict[str, Any],
-        *,
-        notify_user: bool,
-        speed_text: str,
-        error_text: str,
-    ) -> dict[str, Any]:
-        del notify_user, speed_text, error_text
-        return {"reward_days": 0.0}
-
     def notify_daily_results(self, _results: list[dict[str, Any]]) -> None:
         return None
 

@@ -17,8 +17,8 @@ DEFAULT_OUTPUT = REPO_ROOT / "verification" / "contracts" / "http" / "p4-openapi
 # The compatibility OpenAPI snapshot is regenerated at each backend stage.
 # Keep the historical filename for existing consumers while validating the
 # current P11 surface.
-EXPECTED_PATHS = 261
-EXPECTED_OPERATIONS = 310
+EXPECTED_PATHS = 260
+EXPECTED_OPERATIONS = 307
 RETIRED_EXTERNAL_RESOURCE_PATH_PREFIXES = (
     "/api/shared/resources",
     "/api/subscription/hdhive",
@@ -56,7 +56,6 @@ BODY_METHODS = {
     ("post", "/api/p115/play_pool"),
     ("post", "/api/p115/play_pool/accounts"),
     ("put", "/api/p115/play_pool/accounts/{account_id}"),
-    ("post", "/api/p115/play_pool/user-account"),
     ("post", "/api/p115/rename_config"),
     ("post", "/api/p115/rename_config/preview"),
     ("post", "/api/p115/replace_strm"),
@@ -200,10 +199,6 @@ P6_9_PLAYBACK_OPERATIONS = {
     ("post", "/api/p115/play_pool/cleanup"),
     ("get", "/api/p115/play_pool/cookie_qrcode"),
     ("get", "/api/p115/play_pool/cookie_qrcode/status"),
-    ("get", "/api/p115/play_pool/user-account"),
-    ("post", "/api/p115/play_pool/user-account"),
-    ("delete", "/api/p115/play_pool/user-account"),
-    ("get", "/api/p115/play_pool/user-account/rewards"),
     ("get", "/api/p115/temp_dir_config"),
     ("post", "/api/p115/temp_dir_config"),
 }
@@ -211,7 +206,6 @@ P6_9_BODY_OPERATIONS = {
     ("post", "/api/p115/play_pool"),
     ("post", "/api/p115/play_pool/accounts"),
     ("put", "/api/p115/play_pool/accounts/{account_id}"),
-    ("post", "/api/p115/play_pool/user-account"),
     ("post", "/api/p115/temp_dir_config"),
 }
 

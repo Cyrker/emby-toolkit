@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any, cast
 
 import pytest
@@ -19,7 +19,7 @@ from etk.domains.p115.playback_native import (
     SqlAlchemyP115PlaybackConfigBackend,
     SqlAlchemyP115PlaybackSourceGateway,
 )
-from etk.domains.p115.playback_reward_repository import SqlAlchemyP115PlaybackRewardRepository
+from etk.domains.p115.playback_user_repository import SqlAlchemyP115PlaybackUserRepository
 from etk.platform.db import DatabaseRuntime
 
 SHA1 = "A" * 40
@@ -28,7 +28,12 @@ PICK_CODE = "fixture-speedtest-pick"
 INTERACTIVE_SHA1 = "C" * 40
 INTERACTIVE_PREID = "D" * 40
 INTERACTIVE_PICK_CODE = "fixture-interactive-pick"
-USER_IDS = ("native-reward-shared", "native-reward-private")
+USER_IDS = (
+    "native-playback-source",
+    "native-playback-child",
+    "native-playback-admin",
+    "native-playback-disabled-admin",
+)
 CONFIG_BACKEND_KEY = "etk:test:p115-playback-config-backend"
 
 
@@ -36,7 +41,6 @@ CONFIG_BACKEND_KEY = "etk:test:p115-playback-config-backend"
 def clean_native_playback_facts(p6_runtime: DatabaseRuntime):
     def clean() -> None:
         with p6_runtime.engine.begin() as connection:
-            connection.execute(text("DELETE FROM app_settings WHERE setting_key LIKE 'etk:p4:play-pool-reward:v1:%'"))
             connection.execute(
                 text("DELETE FROM app_settings WHERE setting_key = :setting_key"),
                 {"setting_key": CONFIG_BACKEND_KEY},
@@ -44,6 +48,10 @@ def clean_native_playback_facts(p6_runtime: DatabaseRuntime):
             connection.execute(
                 text("DELETE FROM emby_users WHERE id = ANY(CAST(:ids AS text[]))"),
                 {"ids": list(USER_IDS)},
+            )
+            connection.execute(
+                text("DELETE FROM user_templates WHERE source_emby_user_id = :user_id"),
+                {"user_id": USER_IDS[0]},
             )
             connection.execute(text("DELETE FROM p115_filesystem_cache WHERE id LIKE 'native-speedtest-%'"))
             connection.execute(text("DELETE FROM p115_filesystem_cache WHERE id LIKE 'native-playback-%'"))
@@ -433,91 +441,54 @@ def test_native_interactive_source_rejects_non_primary_and_ambiguous_cache_rows(
         gateway.snapshot(request)
 
 
-@pytest.mark.parametrize(
-    ("user_id", "days", "mode"),
-    [
-        ("native-reward-shared", 0.8, "shared"),
-        ("native-reward-private", 0.5, "private"),
-    ],
-)
-def test_native_reward_receipt_is_atomic_idempotent_and_preserves_reward_values(
+def test_native_playback_user_queries_preserve_template_and_admin_notification_semantics(
     p6_runtime: DatabaseRuntime,
-    user_id: str,
-    days: float,
-    mode: str,
 ) -> None:
     with p6_runtime.engine.begin() as connection:
         connection.execute(
-            text("INSERT INTO emby_users(id, name) VALUES (:id, :name)"),
-            {"id": user_id, "name": user_id},
+            text(
+                "INSERT INTO emby_users(id, name, is_administrator, policy_json) "
+                "VALUES (:id, :name, :admin, CAST(:policy AS jsonb))"
+            ),
+            [
+                {"id": USER_IDS[0], "name": "Source", "admin": False, "policy": "{}"},
+                {"id": USER_IDS[1], "name": "Child", "admin": False, "policy": "{}"},
+                {"id": USER_IDS[2], "name": "Admin", "admin": True, "policy": "{}"},
+                {"id": USER_IDS[3], "name": "Disabled Admin", "admin": True, "policy": '{"IsDisabled": true}'},
+            ],
+        )
+        template_id = connection.scalar(
+            text(
+                "INSERT INTO user_templates(name, emby_policy_json, source_emby_user_id) "
+                "VALUES ('Native Playback User Query', '{}'::jsonb, :source) RETURNING id"
+            ),
+            {"source": USER_IDS[0]},
         )
         connection.execute(
             text(
-                """
-                INSERT INTO emby_users_extended(emby_user_id, expiration_date)
-                VALUES (:id, NOW() + INTERVAL '10 days')
-                """
+                "INSERT INTO emby_users_extended(emby_user_id, template_id, status, telegram_chat_id) "
+                "VALUES (:id, :template, :status, :chat)"
             ),
-            {"id": user_id},
+            [
+                {"id": USER_IDS[0], "template": None, "status": "active", "chat": "not-an-admin"},
+                {"id": USER_IDS[1], "template": template_id, "status": "active", "chat": None},
+                {"id": USER_IDS[2], "template": None, "status": "active", "chat": "playback-admin-a"},
+                {"id": USER_IDS[3], "template": None, "status": "disabled", "chat": "playback-admin-b"},
+            ],
         )
-        before = connection.scalar(
-            text("SELECT expiration_date FROM emby_users_extended WHERE emby_user_id = :id"),
-            {"id": user_id},
-        )
 
-    repository = SqlAlchemyP115PlaybackRewardRepository(p6_runtime.unit_of_work)
-    barrier = threading.Barrier(2)
-    results: list[dict[str, object]] = []
-    errors: list[BaseException] = []
-
-    def grant() -> None:
-        try:
-            barrier.wait(timeout=2)
-            results.append(
-                repository.grant_once(
-                    user_id,
-                    reward_date="2026-08-31",
-                    reward_days=days,
-                    reward_mode=mode,
-                )
-            )
-        except BaseException as exc:
-            errors.append(exc)
-
-    threads = [threading.Thread(target=grant, daemon=True) for _ in range(2)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join(5)
-
-    assert not errors
-    assert sorted(bool(result["granted"]) for result in results) == [False, True]
-    with p6_runtime.engine.connect() as connection:
-        after = connection.scalar(
-            text("SELECT expiration_date FROM emby_users_extended WHERE emby_user_id = :id"),
-            {"id": user_id},
-        )
-    assert isinstance(before, datetime) and isinstance(after, datetime)
-    assert (after.astimezone(UTC) - before.astimezone(UTC)).total_seconds() == pytest.approx(days * 86400)
-    assert repository.summary(user_id) == {
-        "total_days": days,
-        "last_reward_days": days,
-        "last_reward_date": "2026-08-31",
-        "last_reward_mode": mode,
-        "last_expiration_date": after.astimezone(UTC).isoformat(),
+    repository = SqlAlchemyP115PlaybackUserRepository(p6_runtime.unit_of_work)
+    assert repository.display_names([USER_IDS[0], USER_IDS[1], "missing"]) == {
+        USER_IDS[0]: "Source",
+        USER_IDS[1]: "Child",
     }
-
-
-def test_native_reward_rejects_a_nonexistent_calendar_date(p6_runtime: DatabaseRuntime) -> None:
-    repository = SqlAlchemyP115PlaybackRewardRepository(p6_runtime.unit_of_work)
-
-    with pytest.raises(ValueError, match="real calendar date"):
-        repository.grant_once(
-            "native-reward-shared",
-            reward_date="2026-02-31",
-            reward_days=0.8,
-            reward_mode="shared",
-        )
+    assert repository.display_names([]) == {}
+    assert repository.expand_user_ids([USER_IDS[0]]) == tuple(sorted(USER_IDS[:2]))
+    assert repository.expand_user_ids([]) == ()
+    assert tuple(chat for chat in repository.admin_chat_ids() if chat.startswith("playback-admin-")) == (
+        "playback-admin-a",
+        "playback-admin-b",
+    )
 
 
 def test_native_playback_config_backend_serializes_concurrent_mutations(p6_runtime: DatabaseRuntime) -> None:

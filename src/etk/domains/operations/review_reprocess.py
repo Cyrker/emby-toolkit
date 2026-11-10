@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from sqlalchemy import text
 
+from etk.domains.media.reprocess_identification import ReprocessIdentificationService, selection_value
+from etk.domains.media.reprocess_metadata import ReprocessIdentificationError
 from etk.platform.db import SqlAlchemyUnitOfWork
-from etk.platform.jobs import ActiveJobConflictError, normalize_json_object
+from etk.platform.jobs import ActiveJobConflictError, IdempotencyConflictError, normalize_json_object
 from etk.platform.tasks import ProcessorIdentity, TaskOutcome, TaskOutcomeStatus
 
 from .jobs import JobSubmissionService, SubmittedJob, TaskBusyError
@@ -39,10 +41,14 @@ class ReviewItemReprocess(Protocol):
         operation_key: str,
         media_info_only: bool = False,
         only_missing: bool = False,
+        tmdb_selection: Mapping[str, str] | None = None,
+        source_job_id: str | None = None,
     ) -> TaskOutcome: ...
 
 
 class ReviewJobPort(Protocol):
+    def replay_one(self, item_id: str, key: str, intent: Mapping[str, Any]) -> SubmittedJob | None: ...
+
     def submit_one(
         self,
         *,
@@ -50,6 +56,8 @@ class ReviewJobPort(Protocol):
         item_name: str,
         reason: str | None,
         only_missing: bool = False,
+        tmdb_selection: Mapping[str, str] | None = None,
+        source_job_id: str | None = None,
         requested_by_user_id: str | None,
         trace_id: str | None,
         idempotency_key: str | None,
@@ -133,6 +141,8 @@ class NativeReviewReprocessExecutor:
                 operation_key=f"{operation_key}:{item_id}",
                 media_info_only=media_info_only,
                 **({"only_missing": True} if parameters.get("only_missing") is True else {}),
+                **({"tmdb_selection": parameters["tmdb_selection"], "source_job_id": parameters["source_job_id"]}
+                   if parameters.get("tmdb_selection") else {}),
             )
         if task_key != REVIEW_REPROCESS_ALL_TASK_KEY:
             raise LookupError(f"unknown P8 review task key: {task_key}")
@@ -155,7 +165,7 @@ class NativeReviewReprocessExecutor:
                     progress,
                     operation_key=f"{operation_key}:{item_id}",
                     media_info_only="缺失媒体信息" in str(row.get("reason") or ""),
-                    **({"only_missing": True} if parameters.get("only_missing") is True else {}),
+                    **cast(dict[str, Any], {"only_missing": True} if parameters.get("only_missing") is True else {}),
                 )
             )
         failed = sum(outcome.status is TaskOutcomeStatus.FAILED for outcome in outcomes)
@@ -173,6 +183,15 @@ class PersistentReviewJobGateway:
     def __init__(self, jobs: JobSubmissionService) -> None:
         self._jobs = jobs
 
+    def replay_one(self, item_id: str, key: str, intent: Mapping[str, Any]) -> SubmittedJob | None:
+        projection = self._jobs.store.get_idempotent_job(scope=f"api.review.reprocess-one:{item_id}", key=key)
+        if projection is None:
+            return None
+        parameters = projection.job.request_payload.get("parameters") or {}
+        if any(parameters.get(k) != v for k, v in intent.items()):
+            raise IdempotencyConflictError("同一提交标识不能用于不同选片，请重新确认。")
+        return SubmittedJob(projection, True)
+
     def submit_one(
         self,
         *,
@@ -180,6 +199,8 @@ class PersistentReviewJobGateway:
         item_name: str,
         reason: str | None,
         only_missing: bool = False,
+        tmdb_selection: Mapping[str, str] | None = None,
+        source_job_id: str | None = None,
         requested_by_user_id: str | None,
         trace_id: str | None,
         idempotency_key: str | None,
@@ -191,6 +212,7 @@ class PersistentReviewJobGateway:
                 "item_name_for_ui": item_name,
                 "failure_reason": reason,
                 "only_missing": only_missing,
+                **({"tmdb_selection": dict(tmdb_selection), "source_job_id": source_job_id} if tmdb_selection else {}),
             },
             display_name=f"{'补齐缺失元数据' if only_missing else '重新处理'}: {item_name}",
             requested_by_user_id=requested_by_user_id,
@@ -265,10 +287,24 @@ class ReviewReprocessService:
         jobs: ReviewJobPort,
         *,
         emby_item: Callable[[str], Mapping[str, Any] | None] | None = None,
+        identification: ReprocessIdentificationService | None = None,
     ) -> None:
         self._repository = repository
         self._jobs = jobs
         self._emby_item = emby_item
+        self._identification = identification
+
+    def identification_preview(self, item_id: str, **query: Any) -> ReviewReprocessHttpResult:
+        if self._identification is None:
+            return ReviewReprocessHttpResult({"error": "选片查询未配置。"}, 503)
+        try:
+            return ReviewReprocessHttpResult(self._identification.preview(item_id, **query))
+        except ReprocessIdentificationError as exc:
+            return ReviewReprocessHttpResult({"error": str(exc), "error_code": exc.code}, exc.status_code)
+        except RuntimeError:
+            return ReviewReprocessHttpResult(
+                {"error": "Emby 或 TMDb 查询失败，请重试。", "error_code": "LOOKUP_FAILED"}, 502,
+            )
 
     def submit_one(
         self,
@@ -283,11 +319,45 @@ class ReviewReprocessService:
         if not normalized_item_id or len(normalized_item_id) > 200:
             return ReviewReprocessHttpResult({"error": "无效的项目 ID"}, 400)
         try:
-            values = _payload(payload, allowed={"reason", "only_missing"})
+            values = _payload(payload, allowed={"reason", "only_missing", "source_job_id", "tmdb_selection"})
             only_missing = _only_missing(values)
             requested_reason = _optional_text(values.get("reason"), field="reason", limit=1000)
+            source_job_id = _optional_text(values.get("source_job_id"), field="source_job_id", limit=36)
+            selection = selection_value(values["tmdb_selection"]) if "tmdb_selection" in values else None
+            if source_job_id and not selection:
+                raise ValueError("来源任务参数必须与明确选片一起提交。")
+            if selection and (not source_job_id or not idempotency_key):
+                raise ValueError("确认选片需要来源任务与 Idempotency-Key。")
         except (TypeError, ValueError) as exc:
             return ReviewReprocessHttpResult({"error": str(exc)}, 400)
+        if selection:
+            if self._identification is None:
+                return ReviewReprocessHttpResult({"error": "选片确认未配置。"}, 503)
+            try:
+                replay = self._jobs.replay_one(normalized_item_id, str(idempotency_key), {
+                    "tmdb_selection": selection, "source_job_id": source_job_id, "only_missing": only_missing,
+                })
+                if replay:
+                    return _submitted_result(replay, "该次选片任务已提交。")
+                context = self._identification.validate(normalized_item_id, str(source_job_id), selection)
+            except ReprocessIdentificationError as exc:
+                return ReviewReprocessHttpResult({"error": str(exc), "error_code": exc.code}, exc.status_code)
+            except IdempotencyConflictError as exc:
+                return ReviewReprocessHttpResult({"error": str(exc)}, 409)
+            except RuntimeError:
+                return ReviewReprocessHttpResult({"error": "Emby 或 TMDb 查询失败，请重试。"}, 502)
+            item_name = str(context["item"].get("Name") or normalized_item_id)
+            try:
+                submitted = self._jobs.submit_one(
+                    item_id=normalized_item_id, item_name=item_name, reason=None, only_missing=only_missing,
+                    tmdb_selection=selection, source_job_id=source_job_id,
+                    requested_by_user_id=requested_by_user_id, trace_id=trace_id, idempotency_key=idempotency_key,
+                )
+            except (TaskBusyError, IdempotencyConflictError):
+                return ReviewReprocessHttpResult({"error": "已有任务运行或提交标识冲突，请稍后重试。"}, 409)
+            except Exception:
+                return ReviewReprocessHttpResult({"error": "任务提交失败。"}, 500)
+            return _submitted_result(submitted, f"已提交 '{item_name}' 的选片重处理任务。")
         item = self._repository.item(normalized_item_id)
         if item is None and self._emby_item is not None:
             try:
@@ -313,7 +383,7 @@ class ReviewReprocessService:
                 item_id=normalized_item_id,
                 item_name=item_name,
                 reason=reason,
-                **({"only_missing": True} if only_missing else {}),
+                **cast(dict[str, Any], {"only_missing": True} if only_missing else {}),
                 requested_by_user_id=requested_by_user_id,
                 trace_id=trace_id,
                 idempotency_key=idempotency_key,

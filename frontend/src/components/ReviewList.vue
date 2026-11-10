@@ -103,6 +103,7 @@
       </n-spin>
     </div>
   </n-card>
+  <ReprocessIdentityModal ref="identityModal" @submitted="onIdentitySubmitted" />
   </n-layout>
 </template>
 
@@ -111,6 +112,7 @@
 import { useRouter } from 'vue-router';
 import { ref, onMounted, computed, h } from 'vue';
 import apiClient, { apiPath } from '@/api/client'
+import ReprocessIdentityModal from './modals/ReprocessIdentityModal.vue'
 import {
     NCard, NSpin, NAlert, NText, NDataTable, NButton, NSpace, NPopconfirm, NEmpty, NInput, NIcon, NSelect, NSwitch,
     useMessage
@@ -414,12 +416,15 @@ const searchEmbyLibrary = async () => {
 };
 
 const onlyMissing = ref(false);
+const identityModal = ref(null);
+const onIdentitySubmitted = () => { if (!isShowingSearchResults.value) void fetchReviewItems(); };
 const actionLabel = computed(() => onlyMissing.value ? '补齐缺失元数据' : '重新处理');
 
 const handleReprocessItem = async (row) => {
   currentRowId.value = row.item_id;
   loadingAction.value[row.item_id] = true;
   try {
+    if (await identityModal.value?.inspect(row.item_id, onlyMissing.value)) return;
     const response = await apiClient.post(apiPath('api_actions_reprocess_item_param_1d7580a7', [row.item_id]), {
         reason: row.reason,
         only_missing: onlyMissing.value

@@ -556,6 +556,31 @@ def test_review_submission_passes_real_worker_router_and_native_executor(batch, 
     assert reprocess.execute.call_args.kwargs.get("only_missing", False) is bool(mode)
 
 
+def test_selected_identity_survives_submission_and_real_worker_envelope():
+    store = Mock()
+    store.create_job.return_value = SimpleNamespace(projection=object(), reused=False)
+    gateway = PersistentReviewJobGateway(SimpleNamespace(store=store))
+    selection = {"tmdb_id": "123", "media_type": "tv", "snapshot": "a" * 64}
+    source_job_id = "00000000-0000-0000-0000-000000000123"
+    gateway.submit_one(
+        item_id="episode", item_name="测试剧", reason=None, only_missing=True,
+        tmdb_selection=selection, source_job_id=source_job_id,
+        requested_by_user_id=None, trace_id=None, idempotency_key="confirm",
+    )
+    submitted = store.create_job.call_args.kwargs
+    reprocess = Mock()
+    reprocess.execute.return_value = TaskOutcome.failed("回读失败")
+    router = P8EffectTaskRouter(None, None, review_reprocess=NativeReviewReprocessExecutor(Mock(), reprocess))
+    result = router.execute_review(submitted["task_key"], submitted["payload"]["parameters"], None, FakeProgress())
+    assert result.status is TaskOutcomeStatus.FAILED
+    assert reprocess.execute.call_args.kwargs["tmdb_selection"] == selection
+    assert reprocess.execute.call_args.kwargs["source_job_id"] == source_job_id
+    with pytest.raises(ValueError, match="invalid parameter envelope"):
+        router.execute_review(REVIEW_REPROCESS_ALL_TASK_KEY, {
+            "reason_filter": None, "tmdb_selection": selection, "source_job_id": source_job_id,
+        }, None, FakeProgress())
+
+
 @pytest.mark.parametrize("batch", [False, True])
 @pytest.mark.parametrize("invalid", [None, "true", "false", 0, 1, [], {}])
 def test_review_worker_rejects_non_boolean_mode_before_execution(batch, invalid):

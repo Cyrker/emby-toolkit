@@ -453,7 +453,9 @@ def _post_authorization_projection(
         return plugin_install, library_config
 
     if submission.status in {"queued", "running", "retry_wait", "cancel_requested"}:
-        plugin_message = "ETK 插件安装任务已恢复" if submission.resumed else "ETK 插件安装任务已提交"
+        plugin_message = (
+            "embytool Bridge 插件安装任务已恢复" if submission.resumed else "embytool Bridge 插件安装任务已提交"
+        )
         plugin_install = {
             "ok": False,
             "status": "pending",
@@ -503,10 +505,10 @@ def _authorization_message(
     library_config: Mapping[str, Any],
 ) -> str:
     if plugin_install.get("status") == "pending" or library_config.get("status") == "pending":
-        return f"{prefix}，ETK 插件与媒体库配置任务已提交"
+        return f"{prefix}，embytool Bridge 插件与媒体库配置任务已提交"
     if not plugin_install.get("ok"):
-        return f"{prefix}；ETK 插件自动安装失败：{plugin_install.get('message', '未知错误')}"
-    message = f"{prefix}，{plugin_install.get('message', 'ETK 插件已就绪')}"
+        return f"{prefix}；embytool Bridge 插件自动安装失败：{plugin_install.get('message', '未知错误')}"
+    message = f"{prefix}，{plugin_install.get('message', 'embytool Bridge 插件已就绪')}"
     if library_config.get("ok"):
         return f"{message}，{library_config.get('message', '媒体库加速配置已应用')}"
     return f"{message}；媒体库加速配置失败：{library_config.get('message', '未知错误')}"

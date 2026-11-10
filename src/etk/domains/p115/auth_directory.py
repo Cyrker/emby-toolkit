@@ -480,7 +480,7 @@ def _authorization_success_html() -> str:
         "            <body>\n"
         '                <div class="card">\n'
         "                    <h2>➜ 授权成功！</h2>\n"
-        "                    <p>Token 已自动保存到 ETK 系统。</p>\n"
+        "                    <p>Token 已自动保存到 embytool 系统。</p>\n"
         '                    <p style="color: #999; font-size: 12px;">本窗口将在 3 秒后自动关闭...</p>\n'
         "                </div>\n"
         "                <script>\n"

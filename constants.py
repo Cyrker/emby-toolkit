@@ -8,7 +8,7 @@ from etk.policy_defaults import (
 # ✨ 应用基础信息 (Application Basics)
 # ==============================================================================
 APP_VERSION = "10.8.66"  # 更新版本号
-GITHUB_REPO_OWNER = "hbq0405"  # 您的 GitHub 用户名
+GITHUB_REPO_OWNER = "Cyrker"  # 独立维护仓库，保留当前已存在的仓库地址。
 GITHUB_REPO_NAME = "emby-toolkit" # 您的 GitHub 仓库名
 DEBUG_MODE = True     # 开发模式开关，部署时应设为 False
 WEB_APP_PORT = 5257    # Web UI 监听的端口

@@ -11,16 +11,18 @@
     </n-button>
 
     <n-data-table
+      class="user-template-table"
       :columns="columns"
       :data="templates"
       :loading="loading"
       :row-key="row => row.id"
+      :scroll-x="1060"
     />
 
     <n-modal
       v-model:show="isModalVisible"
       preset="card"
-      style="width: 600px"
+      style="width: min(600px, calc(100vw - 32px))"
       :title="modalTitle"
       :bordered="false"
       size="huge"
@@ -231,26 +233,30 @@ const handleDelete = async (templateId) => {
 
 // --- 表格列定义 ---
 const columns = [
-  { title: '模板名称', key: 'name' },
-  { title: '描述', key: 'description' },
+  { title: '模板名称', key: 'name', minWidth: 160, ellipsis: { tooltip: true } },
+  { title: '描述', key: 'description', minWidth: 220 },
   { 
     title: '免审订阅', 
     key: 'allow_unrestricted_subscriptions',
+    width: 100,
     render: (row) => row.allow_unrestricted_subscriptions ? '是' : '否'
   },
   {
     title: '播放账号',
     key: 'personal_play_account_only',
+    width: 160,
     render: (row) => row.personal_play_account_only ? '仅限自备小号' : '允许主号回退'
   },
   {
     title: '播放并发',
     key: 'max_concurrent_streams',
+    width: 100,
     render: (row) => Number(row.max_concurrent_streams || 0) > 0 ? row.max_concurrent_streams : '不限'
   },
   { 
     title: '默认有效期(天)', 
     key: 'default_expiration_days',
+    width: 140,
     render(row) {
         return row.default_expiration_days === 0 ? '永久' : row.default_expiration_days;
     }
@@ -258,6 +264,7 @@ const columns = [
   {
     title: '操作',
     key: 'actions',
+    width: 180,
     render(row) {
       return h(NSpace, null, () => [
         h(NButton, { size: 'small', onClick: () => handleEdit(row) }, { default: () => '编辑', icon: () => h(NIcon, { component: EditIcon }) }),

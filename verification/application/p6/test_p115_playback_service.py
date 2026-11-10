@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gzip
+from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -12,6 +13,7 @@ import pytest
 
 from etk.compatibility.playback import NativePlaybackCompatibilityGateway
 from etk.domains.p115.playback import (
+    PLAY_POOL_CONFIG_KEY,
     P115PlaybackConfigService,
     PlaybackArtifact,
     PlaybackDirectResponse,
@@ -23,12 +25,106 @@ from etk.domains.p115.playback import (
     PlaybackProviderDisposition,
     PlaybackProviderOutcome,
     PlaybackUpstreamStream,
+    normalize_pool_config,
     safe_playback_json,
 )
 from etk.domains.p115.playback_adapters import LegacyP115DirectLinkGateway, LegacyP115PlaybackProvider
 from etk.domains.p115.playback_service import P115PlaybackService
 
 _SOURCE_SHA1 = "A" * 40
+
+
+class MemoryPlaybackConfigBackend:
+    def __init__(self) -> None:
+        self.now = datetime(2026, 10, 17, tzinfo=UTC)
+        self.state = normalize_pool_config(
+            {
+                "enabled": True,
+                "accounts": [
+                    {"id": "admin-pool", "cookie": "fixture-admin-cookie", "owner_type": "admin", "enabled": True},
+                    {
+                        "id": "historical-contribution",
+                        "cookie": "fixture-user-cookie",
+                        "owner_type": "user",
+                        "owner_user_id": "fixture-friend",
+                        "shared": True,
+                        "enabled": True,
+                    },
+                ],
+            },
+            now=self.now,
+        )
+
+    def mutate(self, setting_key: str, mutation: Any) -> Any:
+        assert setting_key == PLAY_POOL_CONFIG_KEY
+        next_state, result, should_write = mutation(deepcopy(self.state), self.now)
+        if should_write:
+            self.state = deepcopy(next_state)
+        return deepcopy(result)
+
+
+def _pool_config(backend: MemoryPlaybackConfigBackend, notifications: list[Any]) -> P115PlaybackConfigService:
+    users = SimpleNamespace(
+        display_name=lambda _user_id: "Fixture",
+        expand_allowed_user_ids=lambda ids: ids,
+        notify_daily_results=lambda results: notifications.append(deepcopy(results)),
+    )
+    return P115PlaybackConfigService(cast(Any, backend), cast(Any, users))
+
+
+def test_historical_contributions_are_inactive_without_deleting_stored_credentials() -> None:
+    backend = MemoryPlaybackConfigBackend()
+    stored = deepcopy(backend.state)
+    config = _pool_config(backend, [])
+
+    assert [account["id"] for account in config.snapshot()["accounts"]] == ["admin-pool"]
+    assert [account["id"] for account in config.public_config()["accounts"]] == ["admin-pool"]
+    assert config.account("historical-contribution") is None
+    selected = config.select_account(user_id="fixture-friend", own_account_only=False, active_counts={})
+    assert selected is not None and selected["id"] == "admin-pool"
+    assert config.select_account(user_id="fixture-friend", own_account_only=True, active_counts={}) is None
+    assert backend.state == stored
+
+    config.save_settings({"enabled": False})
+    assert backend.state["accounts"] == stored["accounts"]
+
+
+def test_administrator_api_cannot_recreate_or_reactivate_user_contributions() -> None:
+    backend = MemoryPlaybackConfigBackend()
+    stored = deepcopy(backend.state)
+    config = _pool_config(backend, [])
+    with pytest.raises(ValueError, match="用户贡献播放账号功能已移除"):
+        config.upsert_account({"owner_type": "user", "owner_user_id": "fixture-friend", "cookie": "fixture"})
+    with pytest.raises(ValueError, match="用户贡献播放账号功能已移除"):
+        config.upsert_account({"enabled": True}, account_id="historical-contribution")
+    assert backend.state == stored
+
+
+def test_daily_speedtest_only_uses_administrator_accounts_and_has_no_reward_path(monkeypatch) -> None:
+    backend = MemoryPlaybackConfigBackend()
+    stored = deepcopy(backend.state)
+    notifications: list[Any] = []
+    config = _pool_config(backend, notifications)
+    unused = cast(Any, object())
+    service = P115PlaybackService(
+        config=config, repository=unused, sources=unused, direct_links=unused, executor=unused,
+    )
+    tested: list[str] = []
+
+    def speedtest(account_id: str, *, intent_key: str) -> dict[str, Any]:
+        tested.append(account_id)
+        return {"speed_text": "1 MB/s"}
+
+    monkeypatch.setattr(service, "speedtest_account", speedtest)
+    progress = SimpleNamespace(update=lambda *_args: None, checkpoint=lambda: None)
+    result = service.daily_speedtest(cast(Any, progress))
+
+    assert tested == ["admin-pool"]
+    assert result["failed_count"] == 0
+    assert len(result["results"]) == 1
+    assert not any(key.startswith("reward") for key in result["results"][0])
+    assert notifications == [result["results"]]
+    assert backend.state == stored
 
 
 class FakeDirectLinks:

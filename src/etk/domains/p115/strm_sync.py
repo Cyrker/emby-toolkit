@@ -1175,7 +1175,7 @@ def _strm_base_url(value: object) -> str:
     base_url = str(value or "").strip().rstrip("/")
     parsed = urlparse(base_url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ValueError("请配置 http(s) 开头的 ETK 访问地址")
+        raise ValueError("请配置 http(s) 开头的 embytool 访问地址")
     return base_url
 
 

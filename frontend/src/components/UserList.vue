@@ -19,7 +19,7 @@
       </n-space>
 
       <!-- 筛选器 -->
-      <n-grid :x-gap="12" :y-gap="8" :cols="4" item-responsive>
+      <n-grid class="user-filters" :x-gap="12" :y-gap="8" cols="1 500:2 800:3" responsive="self">
         <n-gi>
           <n-input v-model:value="filterName" placeholder="按用户名筛选" clearable />
         </n-gi>
@@ -45,10 +45,12 @@
 
     <!-- 数据表格 -->
     <n-data-table
+      class="user-table"
       :columns="columns"
       :data="filteredAndSortedUsers"
       :loading="loading"
       :row-key="row => row.Id"
+      :scroll-x="1120"
       v-model:checked-row-keys="checkedRowKeys"
       @update:sorter="handleSorterChange"
       @row-click="handleRowClick"
@@ -56,7 +58,7 @@
     />
 
     <!-- 续期模态框 (保持不变) -->
-    <n-modal v-model:show="isExpirationModalVisible" preset="card" style="width: 500px" :title="`设置用户 “${currentUser?.Name}” 的有效期`" :bordered="false" size="huge">
+    <n-modal v-model:show="isExpirationModalVisible" preset="card" style="width: min(500px, calc(100vw - 32px))" :title="`设置用户 “${currentUser?.Name}” 的有效期`" :bordered="false" size="huge">
       <n-form ref="expirationFormRef" :model="expirationFormModel">
         <n-form-item label="新的到期日期" path="expiration_date_ts">
           <n-date-picker v-model:value="expirationFormModel.expiration_date_ts" type="date" clearable style="width: 100%" placeholder="选择一个未来的日期" />
@@ -72,7 +74,7 @@
     </n-modal>
 
     <!-- 切换模板模态框 (单用户) -->
-    <n-modal v-model:show="isTemplateModalVisible" preset="card" style="width: 500px" :title="`切换用户 “${currentUser?.Name}” 的模板`" :bordered="false" size="huge">
+    <n-modal v-model:show="isTemplateModalVisible" preset="card" style="width: min(500px, calc(100vw - 32px))" :title="`切换用户 “${currentUser?.Name}” 的模板`" :bordered="false" size="huge">
       <n-form ref="templateFormRef" :model="templateFormModel" :rules="templateFormRules">
         <n-form-item label="选择新模板" path="template_id">
           <n-select v-model:value="templateFormModel.template_id" placeholder="请选择一个新的权限模板" :options="templateOptions" filterable />
@@ -85,7 +87,7 @@
     </n-modal>
 
     <!-- ★★★ 新增：批量切换模板模态框 ★★★ -->
-    <n-modal v-model:show="isBulkTemplateModalVisible" preset="card" style="width: 500px" :title="`为 ${checkedRowKeys.length} 个用户批量切换模板`" :bordered="false" size="huge">
+    <n-modal v-model:show="isBulkTemplateModalVisible" preset="card" style="width: min(500px, calc(100vw - 32px))" :title="`为 ${checkedRowKeys.length} 个用户批量切换模板`" :bordered="false" size="huge">
       <n-form ref="bulkTemplateFormRef" :model="bulkTemplateFormModel" :rules="templateFormRules">
         <n-form-item label="选择新模板" path="template_id">
           <n-select v-model:value="bulkTemplateFormModel.template_id" placeholder="请选择一个新的权限模板" :options="templateOptions" filterable />
@@ -437,13 +439,14 @@ const handleBulkChangeTemplateOk = () => {
 
 // --- 表格列定义 ---
 const createColumns = () => [
-  { type: 'selection' },
-  { title: '用户名', key: 'Name', sorter: true },
+  { type: 'selection', width: 48 },
+  { title: '用户名', key: 'Name', sorter: true, minWidth: 160, ellipsis: { tooltip: true } },
 
   // 状态列保留展示，不再用 Switch 操作，避免重复入口
   {
     title: '状态',
     key: 'IsDisabled',
+    width: 100,
     sorter: true,
     render: (row) =>
       row.IsDisabled
@@ -454,6 +457,8 @@ const createColumns = () => [
   {
     title: '所属模板',
     key: 'template_name',
+    minWidth: 160,
+    ellipsis: { tooltip: true },
     sorter: true,
     render: (row) =>
       row.template_name || h(NTag, { size: 'small', type: 'warning' }, () => '无')
@@ -462,6 +467,7 @@ const createColumns = () => [
   {
     title: '到期时间',
     key: 'expiration_date',
+    width: 170,
     sorter: true,
     render: (row) =>
       row.expiration_date
@@ -472,6 +478,7 @@ const createColumns = () => [
   {
     title: '最近活动',
     key: 'LastActivityDate',
+    width: 170,
     sorter: true,
     render: (row) =>
       row.LastActivityDate
@@ -482,6 +489,7 @@ const createColumns = () => [
   {
     title: '操作',
     key: 'actions',
+    width: 300,
     render: (row) =>
       h(NSpace, null, () => [
         h(NButton, {

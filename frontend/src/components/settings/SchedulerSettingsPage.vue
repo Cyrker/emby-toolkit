@@ -1,6 +1,6 @@
 <!-- src/components/settings/SchedulerSettingsPage.vue -->
 <template>
-  <n-layout content-style="padding: 24px;">
+  <n-layout class="scheduler-settings-page" :content-style="{ padding: isMobile ? '12px' : '24px' }">
     <!-- 加载状态 -->
     <div v-if="isLoading" class="center-container">
       <n-spin size="large" />
@@ -236,7 +236,7 @@
         <template #header-extra>
           <n-text depth="3">用于需要立即手动执行的场景</n-text>
         </template>
-        <n-grid cols="1 m:2 l:5" :x-gap="24" :y-gap="16" responsive="screen">
+        <n-grid class="temporary-tasks-grid" cols="1 600:2 1000:3 1400:5" :x-gap="24" :y-gap="16" responsive="self">
           <n-gi v-for="task in availableTasksForManualRun" :key="task.key">
             <n-tooltip trigger="hover" placement="top">
               <template #trigger>
@@ -660,10 +660,36 @@ watch([configModel, availableTasksForChain, availableTasksForTgMenu], ([newConfi
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
   padding: 8px 12px;
   border: 1px solid var(--n-border-color);
   border-radius: 4px;
   cursor: help;
+}
+.temp-task-item :deep(.n-text) {
+  flex: 1 1 100px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.temp-task-item :deep(.n-button) {
+  flex: 0 0 auto;
+}
+@media (max-width: 768px) {
+  .scheduler-settings-page :deep(.n-card-header) {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .scheduler-settings-page :deep(.n-card-header > .n-card-header__main),
+  .scheduler-settings-page :deep(.n-card-header > .n-card-header__extra) {
+    flex: 1 1 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+  .tg-quick-task-item {
+    flex-wrap: wrap;
+  }
 }
 .tg-quick-task-list {
   display: grid;

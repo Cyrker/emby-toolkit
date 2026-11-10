@@ -2694,38 +2694,42 @@
       "route-binding-e5806240cd6c": {
         "fixture": "verification/fixtures/http/p6-p115-playback.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.p115.playback_router",
-        "notes": "P6.9 releases user-account leases before deleting the local account projection.",
-        "status": "new",
-        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
-        "validation_owner": "p115/playback"
+        "new_owner": null,
+        "notes": "User contribution and reward endpoints are no longer registered; main-account playback and administrator pool management remain.",
+        "status": "retired-approved",
+        "validation_method": "pytest-user-contribution-endpoints-absent-and-main-playback-preserved",
+        "validation_owner": "p115/playback",
+        "retirement_approval": "2026-10-17 user-approved removal of user-contributed playback accounts and membership rewards; preserve historical data."
       },
       "route-binding-fc1d1208ca0b": {
         "fixture": "verification/fixtures/http/p6-p115-playback.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.p115.playback_router",
-        "notes": "P6.9 returns only the authenticated user's normalized pool-account projection.",
-        "status": "new",
-        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
-        "validation_owner": "p115/playback"
+        "new_owner": null,
+        "notes": "User contribution and reward endpoints are no longer registered; main-account playback and administrator pool management remain.",
+        "status": "retired-approved",
+        "validation_method": "pytest-user-contribution-endpoints-absent-and-main-playback-preserved",
+        "validation_owner": "p115/playback",
+        "retirement_approval": "2026-10-17 user-approved removal of user-contributed playback accounts and membership rewards; preserve historical data."
       },
       "route-binding-36f0349463d8": {
         "fixture": "verification/fixtures/http/p6-p115-playback.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.p115.playback_router",
-        "notes": "P6.9 saves the authenticated user's normalized pool-account projection without importing P9 contribution transport.",
-        "status": "new",
-        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
-        "validation_owner": "p115/playback"
+        "new_owner": null,
+        "notes": "User contribution and reward endpoints are no longer registered; main-account playback and administrator pool management remain.",
+        "status": "retired-approved",
+        "validation_method": "pytest-user-contribution-endpoints-absent-and-main-playback-preserved",
+        "validation_owner": "p115/playback",
+        "retirement_approval": "2026-10-17 user-approved removal of user-contributed playback accounts and membership rewards; preserve historical data."
       },
       "route-binding-82e25f2b7dae": {
         "fixture": "verification/fixtures/http/p6-p115-playback.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.p115.playback_router",
-        "notes": "P6.9 preserves the reward-summary envelope while P9 contribution ledger ownership remains deferred.",
-        "status": "new",
-        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
-        "validation_owner": "p115/playback"
+        "new_owner": null,
+        "notes": "User contribution and reward endpoints are no longer registered; main-account playback and administrator pool management remain.",
+        "status": "retired-approved",
+        "validation_method": "pytest-user-contribution-endpoints-absent-and-main-playback-preserved",
+        "validation_owner": "p115/playback",
+        "retirement_approval": "2026-10-17 user-approved removal of user-contributed playback accounts and membership rewards; preserve historical data."
       },
       "route-binding-cf2854ba3de4": {
         "fixture": "verification/fixtures/http/p6-p115-playback.json",
@@ -5903,38 +5907,42 @@
       "route-decorator-e64a82a520eb": {
         "fixture": "verification/fixtures/http/p6-p115-playback.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.p115.playback_router",
-        "notes": "P6.9 releases the user's leases before deleting the local account projection.",
-        "status": "new",
-        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
-        "validation_owner": "p115/playback"
+        "new_owner": null,
+        "notes": "User contribution and reward endpoints are no longer registered; main-account playback and administrator pool management remain.",
+        "status": "retired-approved",
+        "validation_method": "pytest-user-contribution-endpoints-absent-and-main-playback-preserved",
+        "validation_owner": "p115/playback",
+        "retirement_approval": "2026-10-17 user-approved removal of user-contributed playback accounts and membership rewards; preserve historical data."
       },
       "route-decorator-ac5ee8c6ae20": {
         "fixture": "verification/fixtures/http/p6-p115-playback.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.p115.playback_router",
-        "notes": "P6.9 returns only the authenticated user's normalized account projection.",
-        "status": "new",
-        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
-        "validation_owner": "p115/playback"
+        "new_owner": null,
+        "notes": "User contribution and reward endpoints are no longer registered; main-account playback and administrator pool management remain.",
+        "status": "retired-approved",
+        "validation_method": "pytest-user-contribution-endpoints-absent-and-main-playback-preserved",
+        "validation_owner": "p115/playback",
+        "retirement_approval": "2026-10-17 user-approved removal of user-contributed playback accounts and membership rewards; preserve historical data."
       },
       "route-decorator-01c3e3e38262": {
         "fixture": "verification/fixtures/http/p6-p115-playback.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.p115.playback_router",
-        "notes": "P6.9 saves the authenticated user's normalized account projection while P9 contribution transport remains deferred.",
-        "status": "new",
-        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
-        "validation_owner": "p115/playback"
+        "new_owner": null,
+        "notes": "User contribution and reward endpoints are no longer registered; main-account playback and administrator pool management remain.",
+        "status": "retired-approved",
+        "validation_method": "pytest-user-contribution-endpoints-absent-and-main-playback-preserved",
+        "validation_owner": "p115/playback",
+        "retirement_approval": "2026-10-17 user-approved removal of user-contributed playback accounts and membership rewards; preserve historical data."
       },
       "route-decorator-b570347d78f4": {
         "fixture": "verification/fixtures/http/p6-p115-playback.json",
         "fixture_exception": null,
-        "new_owner": "etk.domains.p115.playback_router",
-        "notes": "P6.9 preserves the reward-summary envelope while the P9 contribution ledger remains deferred.",
-        "status": "new",
-        "validation_method": "pytest-http-fixture-openapi-and-playback-state-machine",
-        "validation_owner": "p115/playback"
+        "new_owner": null,
+        "notes": "User contribution and reward endpoints are no longer registered; main-account playback and administrator pool management remain.",
+        "status": "retired-approved",
+        "validation_method": "pytest-user-contribution-endpoints-absent-and-main-playback-preserved",
+        "validation_owner": "p115/playback",
+        "retirement_approval": "2026-10-17 user-approved removal of user-contributed playback accounts and membership rewards; preserve historical data."
       },
       "route-decorator-4dd9b5002590": {
         "fixture": "verification/fixtures/http/p6-p115-playback.json",
@@ -8198,13 +8206,13 @@
         "validation_owner": "p115/playback"
       },
       "setting-b81cef705214": {
-        "fixture": "verification/integration/p6/test_p115_playback_native_postgres18.py",
+        "fixture": "verification/architecture/p6/test_p115_playback_ownership.py",
         "fixture_exception": null,
-        "new_owner": "etk.domains.p115.playback_reward_repository.SqlAlchemyP115PlaybackRewardRepository",
-        "notes": "Per-user, per-business-date immutable reward receipts replace the mutable aggregate reward mapping.",
-        "retirement_approval": "P11 native play-pool reward receipt replacement contract",
+        "new_owner": null,
+        "notes": "Reward aggregates and immutable receipts remain historical data only; native runtime no longer grants rewards or changes user expiration.",
+        "retirement_approval": "2026-10-17 user-approved removal of user-contributed playback accounts and membership rewards; preserve historical data.",
         "status": "retired-approved",
-        "validation_method": "postgres18-per-user-business-date-reward-receipt-and-entitlement-contract",
+        "validation_method": "pytest-no-active-reward-owner-or-entitlement-writer",
         "validation_owner": "p115/playback"
       },
       "setting-b6661bf5b234": {

@@ -1,4 +1,4 @@
-name: Docker Image CI & CD for Emby Toolkit
+name: Docker Image CI & CD for embytool
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/emby-toolkit
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/embytool
 
 jobs:
   build:
@@ -57,7 +57,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
           context: .
-          file: ./Dockerfile
+          file: ./Dockerfile.refactor
           platforms: ${{ matrix.platform }}
           build-args: |
             BUILDPLATFORM=${{ matrix.platform }}

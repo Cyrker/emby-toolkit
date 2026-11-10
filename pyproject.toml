@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "emby-toolkit"
 dynamic = ["version"]
-description = "Greenfield ETK modular-monolith mainline"
+description = "embytool media management platform"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { file = "LICENSE" }
@@ -52,6 +52,7 @@ dependencies = [
 ]
 
 [project.scripts]
+embytool = "etk.bootstrap.cli:main"
 etk = "etk.bootstrap.cli:main"
 
 [dependency-groups]

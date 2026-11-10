@@ -1,7 +1,7 @@
 <!-- src/components/modals/MappingManager.vue -->
 <template>
   <div class="mapping-manager">
-    <n-tabs type="segment" animated v-model:value="activeTab">
+    <n-tabs :type="isCompact ? 'line' : 'segment'" animated v-model:value="activeTab">
       
       <!-- Tab 1: 关键词 -->
       <n-tab-pane name="keywords" tab="关键词">
@@ -18,9 +18,9 @@
         <div ref="keywordListRef" class="sortable-list">
           <div v-for="(item, index) in keywordList" :key="item.id" class="list-item">
             <div class="col-handle drag-handle"><n-icon :component="DragIcon" /></div>
-            <div class="col-label"><n-input v-model:value="item.label" placeholder="例如：丧尸" /></div>
-            <div class="col-en"><n-input v-model:value="item.en" placeholder="zombie" /></div>
-            <div class="col-ids"><n-input v-model:value="item.ids" placeholder="12377" /></div>
+            <div class="col-label" data-label="中文标签"><n-input v-model:value="item.label" placeholder="例如：丧尸" /></div>
+            <div class="col-en" data-label="英文关键词"><n-input v-model:value="item.en" placeholder="zombie" /></div>
+            <div class="col-ids" data-label="TMDb IDs"><n-input v-model:value="item.ids" placeholder="12377" /></div>
             <div class="col-action">
               <n-button circle text type="error" @click="removeItem(keywordList, index)"><n-icon :component="DeleteIcon" /></n-button>
             </div>
@@ -46,14 +46,14 @@
         <div ref="studioListRef" class="sortable-list">
           <div v-for="(item, index) in studioList" :key="item.id" class="list-item">
             <div class="col-handle drag-handle"><n-icon :component="DragIcon" /></div>
-            <div class="col-label"><n-input v-model:value="item.label" placeholder="例如：爱奇艺" /></div>
-            <div class="col-en"><n-input v-model:value="item.en" placeholder="iQIYI" /></div>
+            <div class="col-label" data-label="中文简称"><n-input v-model:value="item.label" placeholder="例如：爱奇艺" /></div>
+            <div class="col-en" data-label="英文原名"><n-input v-model:value="item.en" placeholder="iQIYI" /></div>
             
             <!-- ★★★ 修改：两个输入框 ★★★ -->
-            <div class="col-ids">
+            <div class="col-ids" data-label="制作公司 IDs (Movie)">
               <n-input v-model:value="item.company_ids" placeholder="Company ID" />
             </div>
-            <div class="col-ids">
+            <div class="col-ids" data-label="播出平台 IDs (TV)">
               <n-input v-model:value="item.network_ids" placeholder="Network ID" />
             </div>
 
@@ -80,9 +80,9 @@
         <div ref="countryListRef" class="sortable-list">
           <div v-for="(item, index) in countryList" :key="item.id" class="list-item">
             <div class="col-handle drag-handle"><n-icon :component="DragIcon" /></div>
-            <div class="col-label"><n-input v-model:value="item.label" placeholder="例如：美国" /></div>
-            <div class="col-en"><n-input v-model:value="item.value" placeholder="US" /></div>
-            <div class="col-extra"><n-input v-model:value="item.aliases" placeholder="USA, United States" /></div>
+            <div class="col-label" data-label="中文名称"><n-input v-model:value="item.label" placeholder="例如：美国" /></div>
+            <div class="col-en" data-label="ISO 代码"><n-input v-model:value="item.value" placeholder="US" /></div>
+            <div class="col-extra" data-label="别名 (逗号分隔)"><n-input v-model:value="item.aliases" placeholder="USA, United States" /></div>
             <div class="col-action">
               <n-button circle text type="error" @click="removeItem(countryList, index)"><n-icon :component="DeleteIcon" /></n-button>
             </div>
@@ -107,10 +107,10 @@
         <div ref="languageListRef" class="sortable-list">
           <div v-for="(item, index) in languageList" :key="item.id" class="list-item">
             <div class="col-handle drag-handle"><n-icon :component="DragIcon" /></div>
-            <div class="col-label"><n-input v-model:value="item.label" placeholder="例如：粤语" /></div>
-            <div class="col-en"><n-input v-model:value="item.value" placeholder="cn" /></div>
+            <div class="col-label" data-label="中文名称"><n-input v-model:value="item.label" placeholder="例如：粤语" /></div>
+            <div class="col-en" data-label="ISO 代码"><n-input v-model:value="item.value" placeholder="cn" /></div>
             <!-- ★★★ 核心修改：绑定 item.aliases ★★★ -->
-            <div class="col-extra"><n-input v-model:value="item.aliases" placeholder="yue, cmn" /></div>
+            <div class="col-extra" data-label="别名 (逗号分隔)"><n-input v-model:value="item.aliases" placeholder="yue, cmn" /></div>
             <div class="col-action">
               <n-button circle text type="error" @click="removeItem(languageList, index)"><n-icon :component="DeleteIcon" /></n-button>
             </div>
@@ -133,8 +133,8 @@
         <div ref="releaseGroupListRef" class="sortable-list">
           <div v-for="(item, index) in releaseGroupList" :key="item.id" class="list-item">
             <div class="col-handle drag-handle"><n-icon :component="DragIcon" /></div>
-            <div class="col-label"><n-input v-model:value="item.label" placeholder="例如：朋友" /></div>
-            <div class="col-extra"><n-input v-model:value="item.aliases" placeholder="FRDS, Yumi, cXcY" /></div>
+            <div class="col-label" data-label="标准名"><n-input v-model:value="item.label" placeholder="例如：朋友" /></div>
+            <div class="col-extra" data-label="别名或正则 (逗号分隔)"><n-input v-model:value="item.aliases" placeholder="FRDS, Yumi, cXcY" /></div>
             <div class="col-action">
               <n-button circle text type="error" @click="removeItem(releaseGroupList, index)"><n-icon :component="DeleteIcon" /></n-button>
             </div>
@@ -157,7 +157,7 @@
         <div ref="ratingLabelListRef" class="sortable-list">
           <div v-for="(item, index) in ratingLabelList" :key="item.id" class="list-item">
             <div class="col-handle drag-handle"><n-icon :component="DragIcon" /></div>
-            <div class="col-label">
+            <div class="col-label" data-label="中文分级名称">
               <n-input v-model:value="item.label" placeholder="例如：儿童专区" />
             </div>
             <div class="col-action">
@@ -183,7 +183,7 @@
         <div ref="junkPatternListRef" class="sortable-list">
           <div v-for="(item, index) in junkPatternList" :key="item.id" class="list-item">
             <div class="col-handle drag-handle"><n-icon :component="DragIcon" /></div>
-            <div class="junk-pattern-column"><n-input v-model:value="item.label" placeholder="例如：(?i)\\btrailer\\b" /></div>
+            <div class="junk-pattern-column" data-label="正则规则"><n-input v-model:value="item.label" placeholder="例如：(?i)\\btrailer\\b" /></div>
             <div class="col-action"><n-button circle text type="error" @click="removeItem(junkPatternList, index)"><n-icon :component="DeleteIcon" /></n-button></div>
           </div>
         </div>
@@ -231,7 +231,7 @@
         </n-card>
 
         <!-- 2. 分级映射表 -->
-        <div class="list-header">
+        <div class="list-header rating-mapping-header">
           <div class="col-label" style="flex: 1">国家/地区分级表 (跟随优先级排序)</div>
           <div class="col-action">
             <n-button size="tiny" dashed @click="addRatingCountry">添加国家</n-button>
@@ -258,7 +258,7 @@
                 :on-create="() => ({ code: '', label: '全年龄', emby_value: null })"
               >
                 <template #default="{ value }">
-                  <div style="display: flex; align-items: center; width: 100%; gap: 10px">
+                  <div class="rating-mapping-row">
                     <!-- 1. 原始分级代码 -->
                     <n-input v-model:value="value.code" placeholder="原始分级 (如 R)" style="flex: 1.5" />
                     
@@ -280,7 +280,7 @@
                       参考值：G=1, PG=5, PG-13=8, R=9, NC-17=10, XXX=15
                     </n-tooltip>
 
-                    <div style="width: 20px; text-align: center">➜</div>
+                    <div class="rating-mapping-arrow">➜</div>
                     
                     <!-- 3. 中文标签 -->
                     <n-select 
@@ -322,6 +322,7 @@
 <script setup lang="ts">
 // @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, onMounted, nextTick, watch, onUnmounted, computed, h } from 'vue';
+import { useMediaQuery } from '@vueuse/core';
 import apiClient, { apiPath } from '@/api/client'
 import Sortable from 'sortablejs';
 import { useMessage, useDialog, NSelect } from 'naive-ui';
@@ -334,6 +335,7 @@ import {
 
 const message = useMessage();
 const dialog = useDialog();
+const isCompact = useMediaQuery('(max-width: 760px)');
 
 const activeTab = ref('keywords');
 
@@ -772,6 +774,7 @@ onUnmounted(() => {
 .col-en { flex: 1.5; }
 .col-ids { flex: 1; }
 .col-extra { flex: 2; } /* 用于国家别名 */
+.col-en, .col-ids, .col-extra { min-width: 0; }
 .col-empty { flex: 2; } /* 用于语言占位 */
 .col-action { width: 40px; display: flex; justify-content: center; }
 
@@ -779,6 +782,8 @@ onUnmounted(() => {
   margin-top: 24px;
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
   padding-top: 16px;
   border-top: 1px solid var(--n-border-color);
 }
@@ -798,5 +803,24 @@ onUnmounted(() => {
   border: 1px solid var(--n-border-color);
   border-radius: 4px;
   overflow: hidden;
+}
+.rating-mapping-header .col-action { width: auto; flex-shrink: 0; }
+.rating-mapping-row { display: flex; align-items: center; width: 100%; min-width: 0; gap: 10px; }
+.rating-mapping-arrow { width: 20px; text-align: center; }
+
+@media (max-width: 760px) {
+  .list-header:not(.rating-mapping-header) { display: none; }
+  .list-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px; }
+  .list-item .col-handle { grid-column: 1; grid-row: 1; }
+  .list-item .col-action { grid-column: 2; grid-row: 1; }
+  .list-item [data-label] { grid-column: 1 / -1; width: 100%; min-width: 0; }
+  .list-item [data-label]::before { display: block; content: attr(data-label); margin-bottom: 4px; font-size: 12px; color: var(--n-text-color-3); }
+  .list-item :deep(.n-input) { min-width: 0; }
+  .rating-mapping-header { flex-wrap: wrap; }
+  .rating-mapping-header .col-label { min-width: 160px; }
+  .rating-mapping-row { flex-direction: column; align-items: stretch; }
+  .rating-mapping-row :deep(.n-input-number) { width: 100% !important; }
+  .rating-mapping-row :deep(.n-select), .rating-mapping-row :deep(.n-input) { min-width: 0; }
+  .rating-mapping-arrow { display: none; }
 }
 </style>

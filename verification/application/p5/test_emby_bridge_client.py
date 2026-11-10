@@ -19,6 +19,8 @@ from etk.domains.media.bridge_client import (
     BridgeWriteIndeterminate,
     BridgeWriteRejected,
     HttpxEmbyBridgeClient,
+    HttpxPluginUpdateGateway,
+    PluginUpdateError,
 )
 from etk.platform import Settings
 
@@ -39,6 +41,28 @@ def _settings() -> Settings:
         emby_server_url="http://emby.fixture.invalid",
         emby_api_key=SecretStr("fixture-token"),
     )
+
+
+@pytest.mark.parametrize("status_code", [200, 404])
+def test_plugin_download_uses_independent_source_without_upstream_fallback(status_code: int) -> None:
+    requested: list[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        return httpx.Response(status_code, content=b"fixture-dll")
+
+    gateway = HttpxPluginUpdateGateway(
+        _settings,
+        client_factory=lambda: httpx.Client(transport=httpx.MockTransport(handle)),
+    )
+    if status_code == 200:
+        assert b"".join(gateway.download().chunks) == b"fixture-dll"
+    else:
+        with pytest.raises(PluginUpdateError, match="plugin_update_download_failed"):
+            gateway.download()
+    assert requested == [
+        "https://github.com/Cyrker/embytool-bridge/releases/latest/download/ETKMediaInfoBridge.dll"
+    ]
 
 
 def _client(

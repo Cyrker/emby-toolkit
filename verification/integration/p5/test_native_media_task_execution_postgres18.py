@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
+from zoneinfo import ZoneInfo
 
 import httpx
+import pytest
 from pydantic import SecretStr
 from sqlalchemy import text
 
@@ -25,9 +28,54 @@ from etk.domains.media.task_execution import (
     SqlAlchemyMediaMetadataTaskRepository,
     SqlAlchemyScreenshotRepository,
 )
+from etk.domains.operations.database import SqlAlchemyDatabaseReadRepository
 from etk.integrations.http_policy import ProviderDisposition, ProviderResponse
 from etk.platform import Settings
 from etk.platform.tasks import TaskOutcome
+
+
+@pytest.mark.parametrize("item_type,extension,day_offset", [("Movie", "mkv", -1), ("Episode", "strm", 0)])
+def test_asset_addition_dates_reach_weekly_stats_and_survive_partial_updates(
+    p5_runtime, item_type, extension, day_offset,
+) -> None:
+    repository = SqlAlchemyMediaMetadataTaskRepository(p5_runtime.unit_of_work)
+    midnight = datetime.now(ZoneInfo("Asia/Shanghai")).replace(hour=0, minute=0, second=0, microsecond=0)
+    added = midnight + timedelta(days=day_offset, seconds=1)
+    item = {
+        "Id": "dated-item", "Type": item_type, "ProviderIds": {"Tmdb": "100"},
+        "Path": f"/fixture/dated.{extension}", "DateCreated": added.isoformat(),
+        "_series_tmdb_id": "200", "_season_number": 1, "_episode_number": 1,
+    }
+    details = {"id": 100, "title": "电影", "name": "分集", "overview": "简介"}
+    repository.upsert_metadata(
+        {**item, "Id": "older-copy", "Path": f"/fixture/older.{extension}", "DateCreated": "2020-01-01T00:00:00Z"},
+        details, preserve_people=False,
+    )
+    assert repository.upsert_metadata(item, details, preserve_people=False)
+
+    def stored_assets():
+        with p5_runtime.engine.connect() as connection:
+            return connection.scalar(text("SELECT asset_details_json FROM media_metadata WHERE tmdb_id='100'"))
+
+    assets = stored_assets()
+    assert len(assets) == 2
+    assert assets[0]["date_added_to_library"] == "2020-01-01T00:00:00+00:00"
+    assert assets[1]["date_added_to_library"] == added.astimezone(UTC).isoformat()
+    for unavailable_date in (None, "", "not-a-date"):
+        repository.upsert_metadata({**item, "DateCreated": unavailable_date}, details, preserve_people=False)
+        assert stored_assets() == assets
+
+    undated = {key: value for key, value in item.items() if key != "DateCreated"}
+    repository.upsert_metadata(
+        {**undated, "Id": "undated-copy", "Path": "/fixture/undated.mkv"}, details, preserve_people=False,
+    )
+    assert "date_added_to_library" not in stored_assets()[-1]
+    weekly = SqlAlchemyDatabaseReadRepository(p5_runtime.unit_of_work).library_stats()["weekly_added_stats"]
+    assert sum(row["count"] for row in weekly) == 1
+    actual = next(row for row in weekly if row["date"] == added.date().isoformat())
+    assert actual["count"] == 1
+    assert actual["movies"] == int(item_type == "Movie")
+    assert actual["episodes"] == int(item_type == "Episode")
 
 
 def test_pg18_metadata_task_repository_preserves_file_projection_and_updates_roles(p5_runtime) -> None:

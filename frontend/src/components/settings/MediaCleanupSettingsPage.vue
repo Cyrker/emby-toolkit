@@ -429,6 +429,26 @@ onMounted(fetchSettings);
   flex-shrink: 0;
 }
 
+@media (max-width: 640px) {
+  .rule-content {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+  }
+
+  .rule-actions {
+    grid-column: 2;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .rule-description {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* 设置行样式 */
 .setting-row {
   display: flex;

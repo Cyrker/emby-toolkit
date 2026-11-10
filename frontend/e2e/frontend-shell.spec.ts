@@ -3,14 +3,26 @@ import { expect, test, type Page } from '@playwright/test'
 test('public login route remains reachable without an authenticated session', async ({ page }) => {
   await installApiStubs(page, false)
   await page.goto('/login')
-  await expect(page).toHaveTitle('Emby Toolkit')
+  await expect(page).toHaveTitle('embytool')
   await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByRole('heading', { name: 'embytool', exact: true })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'embytool', exact: true })).toHaveAttribute('src', /^(?:\/brand-icon\.svg|data:image\/svg\+xml,)/)
 })
 
 test('public setup route preserves the existing path', async ({ page }) => {
   await installApiStubs(page)
   await page.goto('/setup')
-  await expect(page).toHaveTitle('Emby Toolkit')
+  await expect(page).toHaveTitle('embytool')
+  await expect(page.getByRole('heading', { name: 'embytool', exact: true })).toBeVisible()
+})
+
+test('mobile login uses the independent brand icon', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await installApiStubs(page, false)
+  await page.goto('/login')
+  await expect(page).toHaveTitle('embytool')
+  await expect(page.getByRole('img', { name: 'embytool', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'embytool', exact: true })).toBeVisible()
 })
 
 test('web quick task submits through the existing task endpoint', async ({ page }) => {
@@ -97,18 +109,20 @@ test('native task logs render in realtime and historical views', async ({ page }
     }),
   }))
   await page.route('**/api/logs/list', (route) => route.fulfill({
-    contentType: 'application/json', body: JSON.stringify(['app.log.task-00000000-0000-0000-0000-000000000001']),
+    contentType: 'application/json', body: JSON.stringify(['app.log']),
   }))
   await page.route('**/api/logs/view?*', (route) => route.fulfill({
-    contentType: 'text/html', body: '<html><body><div class="log-block">同步媒体数据：状态=succeeded</div></body></html>',
+    contentType: 'text/plain', body: '2026-09-12T04:00:00+00:00 [INFO] 同步媒体数据：状态=succeeded',
   }))
   await page.goto('/settings/scheduler')
   await page.getByRole('button', { name: '实时日志', exact: true }).click()
-  await expect(page.locator('.log-panel')).toContainText('[INFO] 正在同步媒体元数据 (85/100)')
-  await expect(page.locator('.log-panel')).not.toContainText('[object Object]')
+  await expect(page.locator('.log-timeline:visible .log-summary')).toHaveText('正在同步媒体元数据 (85/100)')
+  await expect(page.locator('.log-timeline:visible .log-level')).toHaveText('INFO')
+  await expect(page.locator('.log-timeline:visible')).not.toContainText('[object Object]')
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: '历史日志', exact: true }).click()
-  await expect(page.frameLocator('iframe').getByText('同步媒体数据：状态=succeeded')).toBeVisible()
+  await page.locator('.log-timeline:visible .technical-logs > summary').click()
+  await expect(page.locator('.log-timeline:visible .log-summary')).toHaveText('同步媒体数据：状态=succeeded')
 })
 
 async function installApiStubs(page: Page, authenticated = true) {

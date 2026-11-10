@@ -311,12 +311,12 @@ class ControlPlaneController:
 
         result = dict(self._plugin_installer(command, mark_dispatched))
         if not result.get("ok"):
-            raise RuntimeError(str(result.get("message") or "ETK 插件安装失败"))
+            raise RuntimeError(str(result.get("message") or "embytool Bridge 插件安装失败"))
         return {
             "ok": True,
             "action": "plugin-install",
             "plugin_install": result,
-            "message": str(result.get("message") or "ETK 插件已就绪"),
+            "message": str(result.get("message") or "embytool Bridge 插件已就绪"),
         }
 
     def _preflight_plugin(self, command: ControlPlaneCommand) -> Mapping[str, Any]:
@@ -456,7 +456,7 @@ def create_control_plane_app(
         os.environ.get("ETK_CONTROL_PLANE_LEDGER_FILE", "/config/control-plane-commands.json")
     )
     command_controller = controller or ControlPlaneController(CommandLedger(command_ledger))
-    app = FastAPI(title="ETK Docker Control Plane")
+    app = FastAPI(title="embytool Docker Control Plane")
 
     @app.get("/health")
     def health() -> dict[str, str]:

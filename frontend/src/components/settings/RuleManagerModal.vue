@@ -6,11 +6,10 @@
     preset="card" 
     title="115 分类规则管理" 
     style="width: 800px; max-width: 95%; height: 80vh;"
-    class="custom-modal glass-modal"
+    class="custom-modal glass-modal sorting-rules-modal"
     content-style="display: flex; flex-direction: column; overflow: hidden;" 
   >
-    <template #header-extra>
-      <n-space align="center">
+    <div class="sorting-filter-toolbar">
         <n-radio-group v-model:value="ruleFilterType" size="small">
           <n-radio-button value="all">全部</n-radio-button>
           <n-radio-button value="movie">电影</n-radio-button>
@@ -20,8 +19,7 @@
         </n-radio-group>
         <n-divider vertical />
         <n-tag v-if="ruleFilterType === 'all'" type="warning" size="small" :bordered="false">拖拽可调整优先级</n-tag>
-      </n-space>
-    </template>
+    </div>
     
     <div style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
       <div style="flex: 1; overflow-y: auto; padding-right: 4px; margin-bottom: 16px;">
@@ -39,7 +37,7 @@
               <div class="rule-item">
                 <n-icon class="drag-handle" :component="DragHandleIcon" size="20" />
                 <div class="rule-info">
-                  <div style="display: flex; align-items: center; gap: 8px;">
+                  <div class="rule-name-row">
                     <div class="rule-name">{{ rule.name }}</div>
                     <n-tag v-if="!rule.enabled" size="tiny" type="error" :bordered="false">已禁用</n-tag>
                     <n-tag v-if="rule.media_type === 'movie'" size="tiny" type="info" :bordered="false">电影</n-tag>
@@ -68,7 +66,7 @@
             <div v-for="rule in filteredSortingRules" :key="rule.id" class="rule-item">
               <div style="width: 24px; margin-right: 12px;"></div> 
               <div class="rule-info">
-                <div style="display: flex; align-items: center; gap: 8px;">
+                <div class="rule-name-row">
                   <div class="rule-name">{{ rule.name }}</div>
                   <n-tag v-if="!rule.enabled" size="tiny" type="error" :bordered="false">已禁用</n-tag>
                   <n-tag v-if="rule.media_type === 'movie'" size="tiny" type="info" :bordered="false">电影</n-tag>
@@ -103,8 +101,8 @@
   </n-modal>
 
   <!-- 规则编辑模态框 -->
-  <n-modal v-model:show="showRuleModal" preset="card" title="编辑分类规则" style="width: 650px;" class="custom-modal glass-modal">
-    <n-form label-placement="left" label-width="100">
+  <n-modal v-model:show="showRuleModal" preset="card" title="编辑分类规则" style="width: 650px; max-width: calc(100vw - 24px);" class="custom-modal glass-modal sorting-rule-editor">
+    <n-form class="sorting-rule-form" :label-placement="isCompact ? 'top' : 'left'" :label-width="isCompact ? 'auto' : 100">
       <n-form-item label="规则名称">
         <n-input v-model:value="currentRule.name" placeholder="例如：漫威电影宇宙" />
       </n-form-item>
@@ -215,17 +213,17 @@
 
       <n-form-item label="年份范围">
         <n-input-group>
-          <n-input-number v-model:value="currentRule.year_min" :min="1900" :max="2099" placeholder="起始" :show-button="false" style="width: 50%" />
+          <n-input-number v-model:value="currentRule.year_min" :min="1900" :max="2099" placeholder="起始" :show-button="false" style="flex: 1; min-width: 0" />
           <n-input-group-label style="border-left: 0; border-right: 0;">至</n-input-group-label>
-          <n-input-number v-model:value="currentRule.year_max" :min="1900" :max="2099" placeholder="结束" :show-button="false" style="width: 50%" />
+          <n-input-number v-model:value="currentRule.year_max" :min="1900" :max="2099" placeholder="结束" :show-button="false" style="flex: 1; min-width: 0" />
         </n-input-group>
       </n-form-item>
 
       <n-form-item label="时长 (分钟)">
         <n-input-group>
-          <n-input-number v-model:value="currentRule.runtime_min" :min="0" placeholder="0" :show-button="false" style="width: 50%" />
+          <n-input-number v-model:value="currentRule.runtime_min" :min="0" placeholder="0" :show-button="false" style="flex: 1; min-width: 0" />
           <n-input-group-label style="border-left: 0; border-right: 0;">至</n-input-group-label>
-          <n-input-number v-model:value="currentRule.runtime_max" :min="0" placeholder="∞" :show-button="false" style="width: 50%" />
+          <n-input-number v-model:value="currentRule.runtime_max" :min="0" placeholder="∞" :show-button="false" style="flex: 1; min-width: 0" />
         </n-input-group>
       </n-form-item>
 
@@ -249,6 +247,7 @@
 <script setup lang="ts">
 // @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, computed, h } from 'vue';
+import { useMediaQuery } from '@vueuse/core';
 import apiClient, { apiPath } from '@/api/client'
 import draggable from 'vuedraggable';
 import { 
@@ -261,6 +260,7 @@ import {
 } from '@vicons/ionicons5';
 
 const message = useMessage();
+const isCompact = useMediaQuery('(max-width: 760px)');
 const emit = defineEmits(['open-folder-selector']);
 
 const showRuleManagerModal = ref(false);
@@ -525,6 +525,8 @@ const getRuleSummary = (rule) => {
 </script>
 
 <style scoped>
+.sorting-filter-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; flex-shrink: 0; }
+.sorting-filter-toolbar :deep(.n-radio-group) { display: flex; flex-wrap: wrap; max-width: 100%; }
 .rules-container { background: transparent; border: none; padding: 0; }
 .rule-item {
   display: flex; align-items: center; background-color: var(--n-action-color); 
@@ -533,8 +535,23 @@ const getRuleSummary = (rule) => {
 .rule-item:hover { border-color: var(--n-primary-color); background-color: var(--n-hover-color); }
 .drag-handle { cursor: grab; color: #999; margin-right: 12px; padding: 4px; }
 .drag-handle:active { cursor: grabbing; }
-.rule-info { flex: 1; }
+.rule-info { flex: 1; min-width: 0; }
+.rule-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .rule-name { font-weight: bold; font-size: 13px; color: var(--n-text-color-1); }
+.rule-name, .rule-desc { overflow-wrap: anywhere; }
 .rule-desc span { color: var(--n-text-color-3); }
 .rule-actions { display: flex; align-items: center; gap: 4px; }
+.sorting-rule-form :deep(.n-form-item-blank), .sorting-rule-form :deep(.n-input-group), .sorting-rule-form :deep(.n-input-group > .n-input) { min-width: 0; }
+.sorting-rule-form :deep(.n-input-group > .n-button) { flex-shrink: 0; }
+
+@media (max-width: 760px) {
+  .sorting-filter-toolbar :deep(.n-divider) { display: none; }
+  .rule-item { flex-wrap: wrap; gap: 8px; }
+  .rule-info { flex-basis: calc(100% - 48px); }
+  .rule-actions { flex-basis: 100%; justify-content: flex-end; }
+  .rule-desc :deep(.n-tag) { max-width: 100%; }
+  .rule-desc :deep(.n-tag__content) { overflow: hidden; text-overflow: ellipsis; }
+  .sorting-rule-form :deep(.n-radio-group) { display: flex; flex-wrap: wrap; max-width: 100%; }
+  :global(.sorting-rule-editor > .n-card__content) { padding-left: 12px; padding-right: 12px; }
+}
 </style>

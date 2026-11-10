@@ -81,7 +81,7 @@
               订阅助手 PLUS 全流程接管 MP 剧集订阅，电影订阅继续使用间隔搜索策略。
               <a
                 class="assistant-wiki-link"
-                href="https://hbq0405.github.io/emby-toolkit/zh/guide/subscribe-assistant"
+                :href="`${REPOSITORY_URL}/blob/main/docs/zh/guide/subscribe-assistant.md`"
                 target="_blank"
                 rel="noopener noreferrer"
               >查看使用详解</a>
@@ -332,6 +332,7 @@
 import { ref } from 'vue';
 import { useMessage } from 'naive-ui';
 import apiClient, { apiPath } from '@/api/client'
+import { REPOSITORY_URL } from '@/branding'
 
 const message = useMessage();
 const showModal = ref(false);

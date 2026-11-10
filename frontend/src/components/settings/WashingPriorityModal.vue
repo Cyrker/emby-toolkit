@@ -3,7 +3,7 @@
   <n-modal v-model:show="showModal" preset="card" title="阶梯洗版优先级配置" style="width: 1000px; max-width: 95vw;" class="custom-modal glass-modal">
     <n-spin :show="loading">
       <div class="washing-mode-panel">
-        <n-form label-placement="left" size="small">
+        <n-form :label-placement="isCompact ? 'top' : 'left'" size="small">
           <n-form-item label="同集/同电影覆盖模式">
             <n-radio-group v-model:value="config.conflict_mode">
               <div class="mode-options">
@@ -107,7 +107,7 @@
                   </n-space>
                 </template>
 
-                <n-grid :cols="2" :x-gap="12" :y-gap="10">
+                <n-grid cols="1 520:2" responsive="self" :x-gap="12" :y-gap="10">
                   <n-gi>
                     <n-input v-model:value="slot.name" placeholder="槽位名称，例如 最佳杜比" />
                   </n-gi>
@@ -142,10 +142,10 @@
         </div>
       </div>
 
-      <n-layout v-if="config.conflict_mode === 'replace'" has-sider style="height: 650px; border: 1px solid var(--n-divider-color); border-radius: 8px;">
+      <div v-if="config.conflict_mode === 'replace'" class="washing-group-layout">
         
         <!-- 左侧：规则组列表 -->
-        <n-layout-sider width="240" bordered style="background: var(--n-color-modal);">
+        <aside class="washing-group-sidebar">
           <div style="padding: 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--n-divider-color);">
             <span style="font-weight: bold;">规则组</span>
             <n-button size="tiny" type="primary" ghost @click="addGroup">
@@ -175,14 +175,14 @@
               </div>
             </template>
           </draggable>
-        </n-layout-sider>
+        </aside>
 
         <!-- 右侧：规则组详情编辑 -->
-        <n-layout-content style="padding: 20px; background: var(--n-body-color); display: flex; flex-direction: column;">
-          <div v-if="activeGroup" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="washing-group-editor">
+          <div v-if="activeGroup" class="washing-group-details">
             <!-- 顶部：规则组基础配置 -->
-            <n-form label-placement="left" label-width="100">
-              <n-grid :cols="2" :x-gap="24">
+            <n-form :label-placement="isCompact ? 'top' : 'left'" :label-width="isCompact ? 'auto' : 100">
+              <n-grid cols="1 520:2" responsive="self" :x-gap="24">
                 <n-gi>
                   <n-form-item label="规则组名称">
                     <n-input v-model:value="activeGroup.name" placeholder="例如: 欧美电影" />
@@ -196,7 +196,7 @@
                     />
                   </n-form-item>
                 </n-gi>
-                <n-gi span="2">
+                <n-gi span="1 520:2">
                   <n-form-item label="适用分类">
                     <n-select 
                       v-model:value="activeGroup.target_cids" 
@@ -211,7 +211,7 @@
 
             <n-divider style="margin: 4px 0 16px 0;" />
             
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div class="priority-toolbar">
               <span style="font-weight: bold; font-size: 16px;">优先级阶梯 (从上到下匹配)</span>
               <n-button size="small" type="primary" @click="addPriority">
                 <template #icon><n-icon :component="AddIcon" /></template>
@@ -224,6 +224,7 @@
               <draggable v-model="activeGroup.priorities" item-key="_uid" handle=".priority-drag-handle" style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px;">
                 <template #item="{ element: priority, index }">
                   <n-card 
+                    class="priority-card"
                     size="small" 
                     :style="{ 
                       borderColor: editingUid === priority._uid ? 'var(--n-primary-color)' : (priority.is_exclude ? 'var(--n-error-color)' : 'var(--n-divider-color)'),
@@ -277,10 +278,10 @@
 
                     <!-- 编辑模式：完整表单 -->
                     <div v-else class="edit-view">
-                      <n-grid :cols="2" :x-gap="16" :y-gap="12">
-                        <n-gi span="2">
+                      <n-grid cols="1 420:2" responsive="self" :x-gap="16" :y-gap="12">
+                        <n-gi span="1 420:2">
                           <n-alert v-if="priority.is_exclude" type="error" :show-icon="false" style="margin-bottom: 8px; padding: 8px 12px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <div class="exclude-mode-row">
                               <span style="font-weight: bold;">⛔ 排除模式：命中以下任意条件的资源将被直接丢弃，不再参与后续洗版。</span>
                               <n-switch v-model:value="priority.is_exclude">
                                 <template #checked>排除模式</template>
@@ -316,7 +317,7 @@
                         <n-gi>
                           <n-select v-model:value="priority.release_group" multiple tag filterable :options="releaseGroupOptions" placeholder="发布组 (如 观众、天空)" />
                         </n-gi>
-                        <n-gi span="2">
+                        <n-gi span="1 420:2">
                           <div class="switch-row">
                             <div class="switch-item">
                               <n-switch v-model:value="priority.subtitle_effect" size="small" />
@@ -355,8 +356,8 @@
 
           </div>
           <n-empty v-else description="请在左侧选择或新建一个规则组" style="margin-top: 100px;" />
-        </n-layout-content>
-      </n-layout>
+        </div>
+      </div>
 
       <n-alert v-else type="info" :show-icon="false" style="margin-top: 12px;">
         当前覆盖模式不执行洗版，优先级规则已隐藏。切回“洗版”后可继续编辑和重算优先级。
@@ -382,6 +383,7 @@
 <script setup lang="ts">
 // @ts-nocheck -- legacy page logic is transport-migrated; page-family typing follows incrementally.
 import { ref, computed } from 'vue';
+import { useMediaQuery } from '@vueuse/core';
 import apiClient, { apiPath } from '@/api/client'
 import { useDialog, useMessage } from 'naive-ui';
 import draggable from 'vuedraggable';
@@ -396,6 +398,7 @@ import {
 
 const message = useMessage();
 const dialog = useDialog();
+const isCompact = useMediaQuery('(max-width: 760px)');
 const showModal = ref(false);
 const loading = ref(false);
 const recalcLoading = ref(false);
@@ -778,6 +781,62 @@ defineExpose({ open });
 </script>
 
 <style scoped>
+.washing-group-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  height: 650px;
+  border: 1px solid var(--n-divider-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.washing-group-sidebar {
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--n-color-modal);
+  border-right: 1px solid var(--n-divider-color);
+}
+
+.washing-group-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 20px;
+  background: var(--n-body-color);
+}
+
+.washing-group-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.priority-toolbar,
+.exclude-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.priority-toolbar {
+  margin-bottom: 16px;
+}
+
+.washing-group-layout :deep(.n-form-item-blank),
+.washing-group-layout :deep(.n-select),
+.version-slot-panel :deep(.n-select) {
+  min-width: 0;
+}
+
+.washing-group-layout :deep(.n-input-group > .n-input-number) {
+  flex: 1;
+  min-width: 0;
+}
+
 .washing-mode-panel {
   margin-bottom: 12px;
   padding: 12px 14px;
@@ -916,5 +975,38 @@ defineExpose({ open });
 .switch-item span {
   min-width: 0;
   line-height: 1.25;
+}
+
+@media (max-width: 760px) {
+  .washing-group-layout {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+
+  .washing-group-sidebar {
+    max-height: 220px;
+    border-right: 0;
+    border-bottom: 1px solid var(--n-divider-color);
+  }
+
+  .washing-group-editor {
+    padding: 12px;
+  }
+
+  .version-slot-header,
+  .priority-toolbar,
+  .exclude-mode-row {
+    flex-wrap: wrap;
+  }
+
+  .switch-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .washing-group-layout :deep(.priority-card > .n-card-header),
+  .version-slot-panel :deep(.n-card-header) {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 }
 </style>

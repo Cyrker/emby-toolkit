@@ -9,6 +9,7 @@ from etk.domains.collection.custom_tasks import (
     CUSTOM_COLLECTION_BATCH_TASK_KEYS,
 )
 from etk.domains.identity.user_sync import UserSyncService
+from etk.domains.media.reprocess_identification import selection_value
 from etk.domains.operations.review_reprocess import (
     P8_REVIEW_TASK_KEYS,
     REVIEW_REPROCESS_ALL_TASK_KEY,
@@ -391,6 +392,8 @@ class P8EffectTaskRouter:
                 outcome.message,
                 {**outcome.details, **_details(task_key, compatibility=False)},
             )
+        if normalized.get("tmdb_selection"):
+            raise RuntimeError("人工选片只允许通过原生重处理执行器运行。")
         if processor is None:
             raise RuntimeError(f"P8 review task {task_key!r} media processor is unavailable")
         if self._compatibility is None:
@@ -470,12 +473,18 @@ def _normalize_review_parameters(task_key: str, payload: Mapping[str, Any]) -> d
             raise TypeError("only_missing must be boolean")
         mode["only_missing"] = only_missing
     if task_key == REVIEW_REPROCESS_ONE_TASK_KEY:
+        selection: dict[str, Any] = {}
+        if "tmdb_selection" in values:
+            selection["tmdb_selection"] = selection_value(values.pop("tmdb_selection"))
+            selection["source_job_id"] = _required_text(
+                values.pop("source_job_id", None), field="source_job_id", limit=36,
+            )
         if set(values) != {"item_id", "item_name_for_ui", "failure_reason"}:
             raise ValueError("review item operation has an invalid parameter envelope")
         item_id = _required_text(values["item_id"], field="item_id", limit=200)
         item_name = _required_text(values["item_name_for_ui"], field="item_name_for_ui", limit=500)
         reason = _optional_text(values["failure_reason"], field="failure_reason", limit=1000)
-        return {"item_id": item_id, "item_name_for_ui": item_name, "failure_reason": reason, **mode}
+        return {"item_id": item_id, "item_name_for_ui": item_name, "failure_reason": reason, **mode, **selection}
     if set(values) != {"reason_filter"}:
         raise ValueError("review batch operation has an invalid parameter envelope")
     return {"reason_filter": _optional_text(values["reason_filter"], field="reason_filter", limit=1000), **mode}

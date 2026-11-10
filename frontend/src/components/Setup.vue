@@ -8,14 +8,14 @@
         
         <!-- 头部区域：Logo 和 标题 -->
         <div class="setup-header">
-          <img src="../assets/logo.png" alt="Logo" class="setup-logo" />
-          <h2 class="setup-title">Emby Toolkit</h2>
+          <img src="/brand-icon.svg" alt="embytool" class="setup-logo" />
+          <h2 class="setup-title">embytool</h2>
           <p class="setup-subtitle">初始化配置向导</p>
         </div>
 
         <div class="intro-text">
           <p>请使用 Emby 管理员账号完成服务授权。</p>
-          <p class="tip">ETK 只保存授权 Token，不会保存账号密码。</p>
+          <p class="tip">embytool 只保存授权 Token，不会保存账号密码。</p>
         </div>
 
         <n-form ref="formRef" :model="formModel" :rules="rules" size="large">
@@ -93,7 +93,7 @@ async function handleSave() {
       const pluginInstall = response.data.plugin_install;
       const libraryConfig = response.data.library_config;
       if ((pluginInstall && !pluginInstall.ok) || (libraryConfig && !libraryConfig.ok)) {
-        message.warning(response.data.message || 'Emby 服务授权成功，但 ETK 插件自动安装失败');
+        message.warning(response.data.message || 'Emby 服务授权成功，但 embytool Bridge 插件自动安装失败');
       } else {
         message.success(response.data.message || 'Emby 服务授权成功');
       }

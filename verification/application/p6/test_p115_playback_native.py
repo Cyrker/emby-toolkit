@@ -39,8 +39,8 @@ from etk.domains.p115.playback_native import (
     P115PoolPlaybackClient,
     SqlAlchemyP115PlaybackSourceGateway,
 )
-from etk.domains.p115.playback_reward_repository import SqlAlchemyP115PlaybackUserGateway
 from etk.domains.p115.playback_service import P115PlaybackService
+from etk.domains.p115.playback_user_repository import SqlAlchemyP115PlaybackUserGateway
 from etk.domains.sharing.rapid_transfer import RapidUploadOutcome
 
 SOURCE = {
@@ -1321,28 +1321,15 @@ def test_pool_credential_store_refresh_uses_account_scoped_compare_and_swap() ->
     ]
 
 
-class FakeRewardRepository:
-    def __init__(self) -> None:
-        self.grants: list[dict[str, Any]] = []
-
+class FakePlaybackUserRepository:
     def display_names(self, user_ids: list[str]) -> dict[str, str]:
         return {user_id: f"User {user_id}" for user_id in user_ids}
 
     def expand_user_ids(self, user_ids: list[str]) -> tuple[str, ...]:
         return tuple(user_ids)
 
-    def user_chat_id(self, user_id: str) -> str:
-        return f"chat-{user_id}"
-
     def admin_chat_ids(self) -> tuple[str, ...]:
         return ("admin-chat",)
-
-    def grant_once(self, user_id: str, **values: Any) -> dict[str, Any]:
-        self.grants.append({"user_id": user_id, **values})
-        return {"granted": True, "expiration_date": "2026-09-01T00:00:00+00:00"}
-
-    def summary(self, _user_id: str) -> dict[str, Any]:
-        return {"total_days": 0.8}
 
 
 class FailingTelegram:
@@ -1354,61 +1341,36 @@ class FailingTelegram:
         raise RuntimeError("fixture telegram failure")
 
 
-def test_native_reward_keeps_local_business_date_and_telegram_failure_is_best_effort() -> None:
-    repository = FakeRewardRepository()
+def test_native_daily_speedtest_notification_is_best_effort_and_has_no_reward_text() -> None:
+    repository = FakePlaybackUserRepository()
     telegram = FailingTelegram()
     gateway = SqlAlchemyP115PlaybackUserGateway(
         cast(Any, repository),
         telegram,
-        clock=lambda: datetime(2026, 8, 30, 16, 30, tzinfo=UTC),
     )
 
-    result = gateway.grant_reward(
-        {
-            "id": "local-pool-account-uuid",
-            "alias": "Fixture",
-            "owner_type": "user",
-            "owner_user_id": "fixture-user",
-            "shared": True,
-            "enabled": True,
-            "access_token": "fixture-token",
-        },
-        notify_user=True,
-        speed_text="8.00 MB/s",
-        error_text="",
-    )
     gateway.notify_daily_results(
-        [{"success": True, "alias": "Fixture", "owner_name": "Fixture User", "reward_days": 0.8}]
+        [
+            {"success": True, "alias": "Fixture", "owner_name": "管理员", "speed_text": "8.00 MB/s"},
+            {"success": False, "alias": "Failed", "owner_name": "管理员", "error": "测速未达标"},
+        ]
     )
 
-    assert result["rewarded"] is True
-    assert result["reward_days"] == 0.8
-    assert repository.grants == [
-        {
-            "user_id": "fixture-user",
-            "reward_date": "2026-08-31",
-            "reward_days": 0.8,
-            "reward_mode": "shared",
-        }
+    assert telegram.calls == [
+        (
+            "admin-chat",
+            "小号池每日测速结果\n通过 Fixture（管理员）：8.00 MB/s\n失败 Failed（管理员）：测速未达标",
+            True,
+        )
     ]
-    assert telegram.calls[0][0] == "chat-fixture-user"
-    assert telegram.calls[-1][0] == "admin-chat"
-    assert telegram.calls[-1][2] is True
 
 
-def test_native_reward_ignores_admin_owned_accounts() -> None:
-    repository = FakeRewardRepository()
-    gateway = SqlAlchemyP115PlaybackUserGateway(cast(Any, repository), FailingTelegram())
+def test_native_playback_user_gateway_preserves_name_and_allowed_user_queries() -> None:
+    gateway = SqlAlchemyP115PlaybackUserGateway(cast(Any, FakePlaybackUserRepository()), FailingTelegram())
 
-    result = gateway.grant_reward(
-        {"owner_type": "admin", "enabled": True, "cookie": "fixture-cookie"},
-        notify_user=True,
-        speed_text="8.00 MB/s",
-        error_text="",
-    )
-
-    assert result == {"rewarded": False, "reward_days": 0.0, "summary": {}}
-    assert repository.grants == []
+    assert gateway.display_name(" fixture-user ") == "User fixture-user"
+    assert gateway.display_name("") == ""
+    assert gateway.expand_allowed_user_ids(["fixture-user"]) == ("fixture-user",)
 
 
 class DailyConfig:
@@ -1419,8 +1381,7 @@ class DailyConfig:
                 "alias": "OK",
                 "access_token": "token-ok",
                 "enabled": True,
-                "owner_type": "user",
-                "owner_user_id": "user-ok",
+                "owner_type": "admin",
             },
             {
                 "id": "account-failed",
@@ -1448,9 +1409,6 @@ class DailyConfig:
         account = next(account for account in self.accounts if account["id"] == account_id)
         account.update(value)
         return dict(account)
-
-    def grant_reward(self, account: Mapping[str, Any], **_values: Any) -> dict[str, Any]:
-        return {"reward_days": 0.5 if account.get("owner_type") == "user" and account.get("enabled") else 0.0}
 
     def notify_daily_results(self, results: list[dict[str, Any]]) -> None:
         self.notifications.append([dict(item) for item in results])
@@ -1548,40 +1506,6 @@ def test_native_daily_speedtest_reports_all_accounts_as_succeeded(monkeypatch: p
     assert result["status"] == "succeeded"
     assert result["failed_count"] == 0
     assert all(item["success"] for item in result["results"])
-
-
-def test_native_daily_reward_failure_does_not_disable_a_successful_speedtest_account(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class RewardFailureConfig(DailyConfig):
-        def grant_reward(self, _account: Mapping[str, Any], **_values: Any) -> dict[str, Any]:
-            raise RuntimeError("fixture reward database unavailable")
-
-    config = RewardFailureConfig()
-    config.accounts = [config.accounts[0]]
-    unused = cast(Any, object())
-    service = P115PlaybackService(
-        config=cast(P115PlaybackConfigService, config),
-        repository=unused,
-        sources=unused,
-        direct_links=unused,
-        executor=unused,
-        clock=lambda: datetime(2026, 8, 31, tzinfo=UTC),
-    )
-    monkeypatch.setattr(
-        service,
-        "speedtest_account",
-        lambda _account_id, *, intent_key="": {"speed_text": f"8.00 MB/s {intent_key}"},
-    )
-
-    result = service.daily_speedtest(DailyProgress())
-
-    assert config.patches == []
-    assert config.accounts[0]["enabled"] is True
-    assert result["status"] == "partial"
-    assert result["failed_count"] == 1
-    assert result["results"][0]["success"] is True
-    assert result["results"][0]["reward_error"] == "奖励持久化失败"
 
 
 def test_speedtest_intent_uses_an_operation_scoped_remote_file_name(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -41,6 +41,7 @@ describe('刮削记录', () => {
     await flushPromises()
     const button = wrapper.findAll('button').find(b => b.text() === '补齐资料')!
     await button.trigger('click')
+    await flushPromises()
     expect(apiClient.post).not.toHaveBeenCalled()
     await confirm.mock.lastCall?.[0].onPositiveClick()
     expect(apiClient.post).toHaveBeenCalledWith('api_actions_reprocess_item_param_1d7580a7', { only_missing: true })

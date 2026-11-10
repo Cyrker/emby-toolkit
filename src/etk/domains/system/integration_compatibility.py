@@ -170,7 +170,7 @@ class HttpxSystemIntegrationGateway:
         payload = {
             "chat_id": final_chat_id,
             "text": (
-                "🔔 *Emby Toolkit 测试消息*\n\n这是一条测试消息，证明您的机器人配置正确。"
+                "🔔 *embytool 测试消息*\n\n这是一条测试消息，证明您的机器人配置正确。"
                 f"\n⏱ 时间: `{time.strftime('%Y-%m-%d %H:%M:%S')}`"
             ),
             "parse_mode": "MarkdownV2",
